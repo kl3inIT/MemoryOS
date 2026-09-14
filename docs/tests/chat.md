@@ -14,7 +14,7 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 ## External Web search
 
 - `WebHttpTest`: private/encoded/literal address rejection, trusted-provider separation, no provider redirects, bounded response bytes and no user cookies.
-- `WebProviderClientTest`: response mappings for all six external search providers, shared Tavily connection, Exa/Firecrawl extraction, HTML sanitization, error redaction and bounded-label request metrics. Fixtures are not live-provider acceptance.
+- `WebProviderClientTest`: response mappings for every external search provider including the 9Router gateway (engine sent as `model`, snippet with `content` fallback, endpoint ending in `/search` normalized), shared Tavily connection, Exa/Firecrawl extraction, HTML sanitization, error redaction and bounded-label request metrics. Fixtures are not live-provider acceptance.
 - `WebPdfReaderTest`: the normal provider read path extracts real generated PDF text without credentials/OCR; page/output bounds are labeled, textless/malformed PDFs fail, and canceled reads propagate cancellation.
 - `WebToolsTest`: shared citation IDs, per-turn duplicate suppression, user-supplied URL reading without search, serialized token bounds and Stop before network I/O; overlapping batch calls, partial provider failures, input bounds and actual annotation-based `open_url` array binding.
 - `ChatWebPromptsTest`: actual-tool guidance for Web/internal/combined/off, preserved Persona and original prompt, conditional post-search reminder, no stale-history reminder and final-cycle behavior.

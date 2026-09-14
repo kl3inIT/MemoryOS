@@ -110,7 +110,7 @@ export type IdentityProviderResponse = {
 
 export type WebSelectionRequest = {
     search?: boolean;
-    provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
 };
 
 export type WebConnectionRequest = {
@@ -122,7 +122,7 @@ export type WebConnectionRequest = {
 };
 
 export type WebConnectionResponse = {
-    provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     endpoint: string;
     engineId: string;
     credentialConfigured?: boolean;
@@ -997,8 +997,8 @@ export type GoogleDriveCredentialResponse = {
 export type WebAvailabilityResponse = {
     searchAvailable?: boolean;
     contentAvailable?: boolean;
-    searchProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
-    contentProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+    searchProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
+    contentProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     automaticModelIds?: Array<string>;
     requiredModelIds?: Array<string>;
     inheritedModelId?: string;
@@ -1422,7 +1422,7 @@ export type SaveChatWebConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
     query?: never;
     url: '/api/chat/web/connections/{provider}';
@@ -3721,7 +3721,7 @@ export type TestChatWebConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
     query?: never;
     url: '/api/chat/web/connections/{provider}/test';

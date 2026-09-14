@@ -39,7 +39,7 @@ public final class WebProviderClient {
         String url;
         Map<String, String> headers;
         Map<String, Object> body = null;
-        String resultPath, urlKey = "url", textKey = "content";
+        String resultPath, urlKey = "url", textKey = "content", fallbackTextKey = null;
         switch (connection.provider()) {
             case BRAVE -> {
                 url = (base.isEmpty() ? "https://api.search.brave.com" : base) + "/res/v1/web/search?q=" + encode(query) + "&count=20";
@@ -66,6 +66,13 @@ public final class WebProviderClient {
                 url = base + "/search?q=" + encode(query) + "&format=json";
                 headers = key.isEmpty() ? Map.of() : bearer(key); resultPath = "/results";
             }
+            case NINEROUTER -> {
+                // The gateway routes to the configured engine, which it names "model"; its own
+                // endpoint may already carry the /search suffix an administrator copied from a URL.
+                url = base.replaceAll("/search$", "") + "/search"; headers = bearer(key);
+                body = Map.of("model", connection.engineId(), "query", query, "max_results", 20);
+                resultPath = "/results"; textKey = "snippet"; fallbackTextKey = "content";
+            }
             default -> throw new IllegalArgumentException("Provider does not support search");
         }
         var root = json(body == null ? "GET" : "POST", url, headers, body);
@@ -73,7 +80,9 @@ public final class WebProviderClient {
         for (var item : root.at(resultPath)) {
             try {
                 String link = WebHttp.pageUri(item.path(urlKey).asString("")).toString();
-                results.add(new Result(link, clipped(item.path("title").asString(link), 1024), clipped(item.path(textKey).asString(""), 4000)));
+                String text = item.path(textKey).asString("");
+                if (text.isEmpty() && fallbackTextKey != null) text = item.path(fallbackTextKey).asString("");
+                results.add(new Result(link, clipped(item.path("title").asString(link), 1024), clipped(text, 4000)));
                 if (results.size() >= 20) break;
             } catch (IllegalArgumentException ignored) { /* Invalid result URLs are not evidence. */ }
         }
