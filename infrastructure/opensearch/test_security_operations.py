@@ -103,6 +103,13 @@ class DashboardsSavedObjectsTest(unittest.TestCase):
         self.assertNotIn("kibana_all_write", inspector)
         self.assertNotIn("all_access", inspector)
 
+    def test_inspector_can_open_discover_because_dashboards_read_only_mode_is_disabled(self):
+        # The security plugin falls back to kibana_read_only when no roles are configured, and that mode hides Discover.
+        config = (Path(__file__).parent / "opensearch_dashboards.yml").read_text(encoding="utf-8")
+        self.assertIn("opensearch_security.readonly_mode.roles: []", config)
+        mapping = (Path(__file__).parent / "security" / "roles_mapping.yml").read_text(encoding="utf-8")
+        self.assertNotIn("kibana_read_only", mapping)
+
     def test_bootstrap_credential_is_generated_as_a_private_curl_config(self):
         with tempfile.TemporaryDirectory(prefix="memoryos-dashboards-config-") as name:
             directory = Path(name)
