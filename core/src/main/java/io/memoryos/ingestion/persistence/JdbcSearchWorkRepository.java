@@ -7,6 +7,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import java.sql.Types;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +58,28 @@ public class JdbcSearchWorkRepository {
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
                     lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 """).param("tenant", tenant.value()).param("source", source.value()).param("identity", identity).update();
+    }
+
+    /**
+     * Queues an access refresh for the listed searchable documents when the Source derives access from provider
+     * permissions (SYNC); other modes ignore permission changes. Pending refreshes are reset as for Source access.
+     */
+    @Transactional
+    public void enqueueDocumentAccess(TenantId tenant, SourceId source, List<DocumentId> documents, String identity) {
+        if (documents.isEmpty()) return;
+        jdbc.sql("""
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
+                SELECT gen_random_uuid(),d.tenant_id,d.id,d.searchable_generation,'ACCESS',:identity FROM documents d
+                WHERE d.tenant_id=:tenant AND d.id IN (:documents) AND d.status='ELIGIBLE'
+                    AND d.searchable_generation IS NOT NULL AND d.search_index_identity=:identity
+                    AND EXISTS (SELECT 1 FROM documents_by_connector_credential_pair m
+                        JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
+                        WHERE m.tenant_id=d.tenant_id AND m.document_id=d.id AND p.id=:source AND p.access_type='SYNC')
+                ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
+                SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
+                    lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("documents", documents.stream().map(DocumentId::value).toList()).param("identity", identity).update();
     }
 
     /**
