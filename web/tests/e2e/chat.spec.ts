@@ -342,7 +342,8 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await page.goto(`/chat/${session.id}`);
   await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill("How much annual leave?");
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
-  await expect(page.getByText("Đang tìm trong tài liệu…")).toBeVisible();
+  // The activity group names the running step; the same title also appears on the step row.
+  await expect(page.getByRole("button", { name: /Đang tìm trong tài liệu…/ })).toBeVisible();
   const citation = page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" });
   await expect(citation).toHaveCount(1);
   await expect(page.locator("code").filter({ hasText: "[1]" })).toHaveCount(2);
