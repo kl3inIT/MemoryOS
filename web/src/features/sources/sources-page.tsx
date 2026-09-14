@@ -2,16 +2,9 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Files,
-  ListFilter,
-  LoaderCircle,
-  Settings,
-} from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, Files, ListFilter, Settings } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -52,13 +45,7 @@ export function SourcesPage() {
 
       {sourcesQuery.isPending ? (
         <div className="flex min-h-52 items-center justify-center">
-          <span className="inline-flex items-center gap-2 text-sm text-content-muted">
-            <LoaderCircle
-              className="size-4 animate-spin motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            {ui("Loading sources")}
-          </span>
+          <BrandLoader label={ui("Loading sources")} />
         </div>
       ) : sourcesQuery.isError ? (
         <div className="py-14 text-center">

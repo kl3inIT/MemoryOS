@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -564,12 +565,8 @@ function AuthorizedSearchPage() {
 
         <div className="mt-6" aria-busy={isSearchUpdating}>
           {!request ? null : showLoadingScreen ? (
-            <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
-              <LoaderCircle
-                className="size-5 animate-spin motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-              {ui("Searching documents…")}
+            <div className="flex animate-in justify-center py-12 duration-200 fade-in motion-reduce:animate-none">
+              <BrandLoader label={ui("Searching documents…")} />
             </div>
           ) : result.isError ? (
             <Empty

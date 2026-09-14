@@ -111,7 +111,7 @@ Actual desktop/mobile/light/dark inspection and frontend gate details are in the
 - `docker compose config --format json` passed with both staging and production overlays. Default and external-env-file cases checked all twelve Docling service envs plus the Worker timeout; coordinated overrides resolve to `15m`, `900`, and `910`.
 - A throwaway Java launcher used real Spring environment binding and the production `DoclingSourceContentExtractor`: `MEMORYOS_EXTRACTION_DOCLING_TIMEOUT=15m` bound to 900 seconds and extracted OCR text plus page provenance from a generated one-page scanned PDF against an isolated digest-pinned Docling container configured for 900/910 seconds. The same Worker budget against the unchanged 300-second service was rejected with HTTP 422.
 - The isolated parser used two CPUs and 4 GiB, not a throughput benchmark. No HUT reindex or proof of a fifteen-minute HUT completion is claimed. Existing Worker/API/Docling deployment settings were not changed.
-- Compiler checks substitute for unavailable JetBrains MCP/Java LSP inspection. The [increment ledger](../increments/active/docling-timeout-configuration/plan.md) records commands, the temporary-build-path correction, remaining gate evidence and cleanup.
+- Compiler checks substitute for unavailable JetBrains MCP/Java LSP inspection. The [increment ledger](../increments/completed/docling-timeout-configuration/plan.md) records commands, the temporary-build-path correction, remaining gate evidence and cleanup.
 
 ## Authenticated remote Docling — partial runtime verification
 

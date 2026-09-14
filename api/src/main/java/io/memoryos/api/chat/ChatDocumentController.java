@@ -15,12 +15,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,11 +49,15 @@ class ChatDocumentController {
     @GetMapping(value = "/{documentId}/original", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @Operation(operationId = "readChatDocumentOriginal", summary = "Read the original PDF of a cited document to show the cited page")
     @ApiResponse(responseCode = "200", description = "Original PDF bytes", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "206", description = "Requested byte range of the original PDF", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "416", description = "Requested byte range starts beyond the original PDF")
     void original(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID documentId, @RequestParam UUID generation, HttpServletResponse response) throws IOException {
-        try (var pdf = originals.citationPdf(identity.actorId(), documentId, generation)) {
-            DocumentOriginalResponses.write(pdf, response);
-        }
+            @PathVariable UUID documentId, @RequestParam UUID generation,
+            @Parameter(description = "One byte range, for example bytes=0-1048575")
+            @RequestHeader(value = HttpHeaders.RANGE, required = false) @Nullable String range,
+            HttpServletResponse response) throws IOException {
+        DocumentOriginalResponses.write(range, response,
+                requested -> originals.citationPdf(identity.actorId(), documentId, generation, requested));
     }
 
     @GetMapping("/{documentId}")

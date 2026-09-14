@@ -215,6 +215,12 @@ class S3ObjectStorageIntegrationTest {
                 assertEquals(metadata, object.metadata());
                 assertArrayEquals(content, object.inputStream().readAllBytes());
             }
+            try (var range = storage.openRange(key, 9, 1_000)) {
+                assertEquals(9, range.first());
+                assertEquals(content.length - 1, range.last());
+                assertEquals(content.length, range.totalBytes());
+                assertArrayEquals(java.util.Arrays.copyOfRange(content, 9, content.length), range.inputStream().readAllBytes());
+            }
 
             storage.delete(key);
             storage.delete(key);

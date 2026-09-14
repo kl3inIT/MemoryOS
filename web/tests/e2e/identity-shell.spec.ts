@@ -43,18 +43,16 @@ const MEMBER_SESSION = {
   scopedCapabilities: [],
 };
 
-test("offers the backend OAuth2 flow when no session exists", async ({ page }) => {
+test("redirects to the backend OAuth2 flow when no session exists", async ({ page }) => {
   await page.route("**/api/identity/me", async (route) => {
     await route.fulfill({ status: 401 });
   });
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Đăng nhập MemoryOS" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Tiếp tục với tài khoản công ty" })).toHaveAttribute(
-    "href",
-    "/oauth2/authorization/memoryos",
-  );
+  // The redirect waits for the full boot intro of a new tab.
+  await expect(page).toHaveURL(/\/login\/oauth2\/code\/memoryos\?/, { timeout: 15_000 });
+  await expect(page.locator("body")).toContainText("SESSION=oauth-state");
 });
 
 test("retains the OAuth session across the local HTTP callback", async ({ page }) => {

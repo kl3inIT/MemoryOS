@@ -31,6 +31,8 @@ When a bearer token accompanies a browser cookie, the bearer determines that req
 
 Application membership/Group revocation and provider session revocation are separate contracts. Current local JWT validation does not introspect Keycloak, and Actor-only browser sessions do not implement incoming OIDC logout. Application-initiated logout invalidates the local session and returns the provider logout location; this does not establish propagation from Keycloak or an upstream IdP. The configured session timeout defaults to 30 minutes of inactivity, not an absolute authentication lifetime.
 
+The browser application treats a `401` from `GET /api/identity/me` as signed out and navigates to `/oauth2/authorization/memoryos` as soon as the boot splash has finished, without an intermediate sign-in screen; because logout returns to `/`, a completed logout lands on the provider login. If the tab is still signed out within 30 seconds of its own redirect, it offers a manual sign-in action instead of redirecting again, and a confirmed identity clears that guard.
+
 `GET /api/identity/me` returns one repeatable-read IAM presentation/authority projection. For example, an admitted Basic member with an additional explicit `GROUPS_MANAGE` grant:
 
 ```json
@@ -59,7 +61,7 @@ Email and `email_verified` are profile observations, not JIT eligibility or link
 
 Realm reconciliation maps the Keycloak User Session Note `identity_provider` into String ID-token claim `memoryos_identity_provider` on `memoryos-web` only. Access-token, UserInfo, introspection, and token-response emission are disabled. This mapper neither changes an upstream provider nor grants authority by itself. [MEM-59](../increments/completed/mem-59-tasco-jit/design.md) separates pending simulator verification from actual Tasco acceptance.
 
-`SYSTEM_ADMIN` actors manage upstream OIDC identity providers through `/api/identity-providers`: list, issuer discovery, create, update (immutable alias and issuer; write-only client secret), and delete. The API is a management proxy over the realm's Keycloak Admin REST identity-provider resource via the shared `memoryos-user-provisioner` service account, which holds `manage-users` and `manage-identity-providers`. Create/update optionally grant or revoke the alias's JIT allowlist row in the same authorized operation; delete removes the alias first. Provider IO occurs outside the authorization lock and durable writes re-authorize under the exclusive Tenant lock. See [MEM-95](../increments/active/mem-95-idp-admin/design.md).
+`SYSTEM_ADMIN` actors manage upstream OIDC identity providers through `/api/identity-providers`: list, issuer discovery, create, update (immutable alias and issuer; write-only client secret), and delete. The API is a management proxy over the realm's Keycloak Admin REST identity-provider resource via the shared `memoryos-user-provisioner` service account, which holds `manage-users` and `manage-identity-providers`. Create/update optionally grant or revoke the alias's JIT allowlist row in the same authorized operation; delete removes the alias first. Provider IO occurs outside the authorization lock and durable writes re-authorize under the exclusive Tenant lock. See [MEM-95](../increments/completed/mem-95-idp-admin/design.md).
 
 ## Account classification and Group authority
 
@@ -121,7 +123,7 @@ Account preference persistence uses Spring Data `JpaActorRepository`. A narrow `
 
 The web application exposes personal `/settings/general` through the account menu. Bundled i18next/react-i18next resources render Vietnamese/English with English fallback. The identity query remains authoritative, including focus refetch on other devices/tabs; i18next owns presentation only. The picker waits for persistence confirmation, reconciles lost responses through identity refetch, and rejects late results for another Actor. Locale is excluded from authorization fingerprints and never keys a React subtree. Transient background identity failure retains the mounted workspace with a retry notice; authentication/authorization failures remain fail-closed.
 
-Application localization is implemented in [MEM-74/MEM-22](../increments/active/mem-74-22-i18n-errors/plan.md). The canonical [localization contract](localization.md) defines covered surfaces, preserved user content and acceptance boundaries.
+Application localization is implemented in [MEM-74/MEM-22](../increments/completed/mem-74-22-i18n-errors/plan.md). The canonical [localization contract](localization.md) defines covered surfaces, preserved user content and acceptance boundaries.
 
 User/invitation/group-edit failures consume the shared typed problem presenter and store safe message descriptors, translated at render time. Known capability codes keep specific messages; unknown codes use the common HTTP taxonomy without exposing server text. Invitation email errors link to the field; other validation failures remain a form summary. Confirmed actions keep failures in their dialog while recovery-link rotation uses its row, avoiding duplicate feedback. Users labels, dates and success notices follow the account locale.
 
