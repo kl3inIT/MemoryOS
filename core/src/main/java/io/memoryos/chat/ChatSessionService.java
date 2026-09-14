@@ -10,7 +10,7 @@ public interface ChatSessionService {
     ChatSession create(ActorId actor, String title);
     List<ChatSession> list(ActorId actor, int offset, int limit);
     /** Fetch one extra result for hasMore without a separate unbounded count query. */
-    List<ChatSession> search(ActorId actor, String query, int offset, int limit);
+    List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit);
     ChatSession get(ActorId actor, UUID sessionId);
     ChatSession rename(ActorId actor, UUID sessionId, String title);
     List<ChatBranch> branches(ActorId actor, UUID sessionId);

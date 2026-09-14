@@ -67,6 +67,7 @@ flowchart TB
     ING --> DOC
     ING --> RET
     RET --> IAM
+    RET --> OBJ
     RET --> CON
     RET --> DOC
     CHAT --> IAM
@@ -103,7 +104,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
-| `retrieval` | Embedding/OpenSearch adapters, authorized Search and document passages | [Search](docs/specs/search.md) |
+| `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 
 ## Durable ingestion and Search projection
@@ -201,6 +202,8 @@ Source associations contain ordinary Groups only: global managers may save `[]`,
 
 Google authorization is a separate Connector credential flow. Its callback cannot replace the signed-in Actor or infer identity from email. Provider tokens are encrypted or transient and do not become application-session authority.
 
+The shared runtime mounts the repository-owned `memoryos` login theme read-only and selects it only for the `memoryos` realm. The theme extends Keycloak 26.7's `keycloak.v2` theme with local CSS, messages, and SVG assets; it copies no FreeMarker templates, so Keycloak retains ownership of login, password recovery, required actions, action-token errors, form submission, and accessibility semantics. Realm reconciliation verifies both server-side theme discovery and the persisted `loginTheme` value. The master and OrgMemory realms remain outside MemoryOS theme reconciliation.
+
 ## Data ownership and consistency
 
 | Store | Authoritative for | Rebuildable or derived |
@@ -248,6 +251,8 @@ flowchart TB
 
 Base Compose owns PostgreSQL, MinIO, Keycloak, Redis-dependent application services, API, worker and web. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
+The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, TLS Redis, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
+
 Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 
 The public `vadan.app` landing site is a separate static image and Compose project. It is released and operated independently from the MemoryOS application; see the [landing runbook](docs/runbooks/landing.md).
@@ -256,4 +261,3 @@ The public `vadan.app` landing site is a separate static image and Compose proje
 
 The implemented system has no multi-Tenant switcher, dynamic broker administration, audit evidence viewer, SCIM, Google document ACL enforcement, reader identity linking, MCP server, GraphRAG engine or durable memory-management surface. These are candidate capabilities rather than implied parts of the current runtime.
 
-The [target architecture](docs/vision.md#target-architecture) describes the intended evolution and its decision gates. New capability or dependency edges require an accepted design, an ADR when implementation starts, boundary-test updates and a production runtime path.

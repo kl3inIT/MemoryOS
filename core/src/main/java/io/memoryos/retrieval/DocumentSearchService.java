@@ -69,8 +69,13 @@ public class DocumentSearchService {
             }).toList();
             int start = Math.min(request.page() * request.pageSize(), all.size());
             int end = Math.min(start + request.pageSize(), all.size());
+            var page = all.subList(start, end);
+            // Presentation metadata for the returned page only, limited to Source mappings this actor may read.
+            var origins = page.isEmpty() ? Map.<UUID, List<DocumentSourceMetadata>>of()
+                    : sourceSearch.readableMetadata(sourceSearch.scope(actor), page.stream().map(SearchPage.Result::documentId).toList());
+            var results = page.stream().map(result -> result.withOrigins(origins.getOrDefault(result.documentId(), List.of()))).toList();
             outcome = "success";
-            return new SearchPage(all.subList(start, end), request.page(), end < all.size(), search.candidateLimit());
+            return new SearchPage(results, request.page(), end < all.size(), all.size(), search.candidateLimit());
         } finally {
             metrics.timer("memoryos.search.query.duration", "outcome", outcome)
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
@@ -146,18 +151,18 @@ public class DocumentSearchService {
         return read(actor, IamCapability.SEARCH_READ, id, generation, from);
     }
 
-    /** Chat citation reader: requires CHAT_READ instead of SEARCH_READ; document eligibility is unchanged. */
+    /** Chat citation reader: Basic access (active membership) plus current document eligibility; no capability token. */
     public SearchDocument citation(ActorId actor, UUID id, UUID generation, int from) {
-        return read(actor, IamCapability.CHAT_READ, id, generation, from);
+        return read(actor, null, id, generation, from);
     }
 
     private SearchDocument read(ActorId actor, IamCapability capability, UUID id, UUID generation, int from) {
         if (from < 0 || from > 9999) throw new SearchRequestException();
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
-        authorization.require(actor, capability, false);
+        if (capability != null) authorization.require(actor, capability, false);
         requireDocumentAccess(actor, tenant, id, generation);
         var result = search.document(tenant, id, generation, from, 20);
-        requireSearchAccess(actor, tenant, capability);
+        if (capability != null) requireSearchAccess(actor, tenant, capability);
         requireDocumentAccess(actor, tenant, id, generation);
         return result;
     }

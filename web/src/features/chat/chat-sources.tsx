@@ -10,13 +10,17 @@ import {
   type ReactNode,
 } from "react";
 import { useAuiState } from "@assistant-ui/react";
-import { FileText } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { InlineCitation } from "@/components/assistant-ui/elements/inline-citation";
+import { DocumentSourceIcon } from "@/features/search/document-source-icon";
+import { DocumentMeta } from "@/features/search/provider-link";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { Sources } from "@/components/assistant-ui/elements/sources";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { WebSearch } from "@/components/assistant-ui/elements/web-search";
-import { ChatSourcePanel, SourceExcerpt } from "./chat-source-panel";
+import { ChatSourcePanel } from "./chat-source-panel";
+import { SourceExcerpt } from "./chat-source-excerpt";
+import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource, SearchProgress } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
@@ -65,6 +69,7 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
       value={{
         panelId,
         messageId: selection?.messageId,
+        citationId: selection?.citationId,
         fileId: selection?.file?.id,
         artifactId: selection?.artifactId,
         open: (messageId, trigger, citationId) => {
@@ -124,7 +129,11 @@ export function ChatSources() {
   return (
     <Sources
       count={sources.length}
-      sources={sources.map((source) => ({ url: source.web?.url }))}
+      sources={sources.map((source) => ({
+        url: source.web?.url,
+        mediaType: source.mediaType,
+        sourceTypes: source.sourceTypes,
+      }))}
       aria-expanded={active}
       aria-controls={active ? panel.panelId : undefined}
       onClick={(event) => (active ? panel.close() : panel.open(messageId, event.currentTarget))}
@@ -138,27 +147,81 @@ function Citation({ source }: { source: ChatSource }) {
   const [open, setOpen] = useState(false);
   const { messageId } = useContext(EvidenceContext);
   const panel = useContext(PanelContext);
+  const active = panel.messageId === messageId && panel.citationId === source.citationId;
+  const webHost = source.web ? new URL(source.web.url).hostname.replace(/^www\./, "") : undefined;
+  const icon = webHost ? (
+    <SourceIcon domain={webHost} fallback="none" />
+  ) : (
+    <DocumentSourceIcon size="xs" mediaType={source.mediaType} sourceTypes={source.sourceTypes} />
+  );
   return (
     <InlineCitation
       open={open}
       onOpenChange={setOpen}
       aria-label={ui("Mở nguồn {{v1}}: {{v2}}", { v1: source.citationId, v2: source.title })}
+      aria-current={active || undefined}
+      className={active ? "border-border-strong bg-surface-sunken text-content-primary" : undefined}
       onClick={(event) => {
         setOpen(false);
         panel.open(messageId, event.currentTarget, source.citationId);
       }}
+      icon={icon}
       preview={
         <>
-          <div className="mb-2 flex items-center gap-1.5 text-xs text-content-muted">
-            <FileText className="size-3.5" aria-hidden="true" />{" "}
-            {source.web ? ui("Web · Nguồn") : ui("Tài liệu · Nguồn")} {source.citationId}
+          <div className="flex min-w-0 items-start gap-3">
+            {source.web ? (
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
+                <SourceIcon domain={webHost!} fallback="globe" />
+              </span>
+            ) : (
+              <DocumentSourceIcon mediaType={source.mediaType} sourceTypes={source.sourceTypes} />
+            )}
+            <div className="min-w-0 flex-1">
+              <p
+                className="line-clamp-2 break-words text-sm font-medium leading-5"
+                title={source.title}
+              >
+                {source.title}
+              </p>
+              <p className="mt-0.5 break-words text-xs leading-5 text-content-muted">
+                {source.web ? (
+                  ui("Web · Nguồn") + ` ${source.citationId}`
+                ) : (
+                  <DocumentMeta
+                    lead={[ui("Nguồn {{number}}", { number: source.citationId })]}
+                    trail={sourceLocationLabels(source, ui)}
+                    mediaType={source.mediaType}
+                    sourceTypes={source.sourceTypes}
+                    providerUrl={source.providerUrl}
+                    title={source.title}
+                  />
+                )}
+              </p>
+              {source.web ? (
+                <a
+                  href={source.web.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={source.web.url}
+                  data-slot="source-url"
+                  className="mt-0.5 flex min-w-0 items-center gap-0.5 rounded-sm text-xs leading-5 text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                >
+                  <span className="truncate">{webDisplayUrl(source.web.url)}</span>
+                  <ArrowUpRight className="size-3 shrink-0" aria-hidden="true" />
+                </a>
+              ) : null}
+            </div>
           </div>
-          <p className="text-sm font-medium leading-5">{source.title}</p>
-          <SourceExcerpt source={source} />
+          <SourceExcerpt
+            source={source}
+            className="mt-3 line-clamp-4 border-l-2 border-evidence-highlight-border pl-3"
+          />
         </>
       }
     >
-      {source.citationId}. {source.title}
+      <span className="font-semibold tabular-nums">{source.citationId}</span>
+      {/* Web chips name the site, like AI Elements' hostname badge; the hover card keeps the page title. */}
+      <span className="text-current/70"> · {webHost ?? source.title}</span>
     </InlineCitation>
   );
 }

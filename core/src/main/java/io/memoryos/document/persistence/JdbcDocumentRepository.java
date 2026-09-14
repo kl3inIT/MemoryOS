@@ -59,7 +59,7 @@ public class JdbcDocumentRepository implements DocumentCommandPort {
                 UPDATE documents SET status='ELIGIBLE', title=:title, media_type=:mediaType,
                     source_content_sha256=:sha, metadata_json=:metadata, extraction_artifact_id=:artifact,
                     content_generation=:generation,chunk_count=NULL,chunk_generation=NULL,
-                    searchable_generation=NULL,search_index_identity=NULL,search_error_code=NULL,chunk_convention=NULL,
+                    search_error_code=NULL,chunk_convention=NULL,
                     updated_at=CURRENT_TIMESTAMP
                 WHERE tenant_id=:tenant AND id=:id
                 """).param("title", truncate(content.title(), 255)).param("mediaType", truncate(content.mediaType(), 160))

@@ -25,6 +25,18 @@ Access controls/association management are deferred at the user's request; exist
 
 Current implementation ownership: managed provisioning/runtime; serving lifecycle/release/observability; native tokenizer/binding policy; catalog/Persona/source-owned HTTP contracts; Models/default browser administration. The integration owner serializes generated artifacts, cross-slice contract integration and all validation after concurrent edits settle. Fixed shared fields are required `ModelSettings.tokenizerProfile` and adapter `tokenizerProfiles: [{id, displayName}]`; the Persona projection retains the contract below. Existing MEM-65/MEM-66 work and services are preserved. Target access/headroom/connectivity remain blocked independently; no serving acceptance is inferred from the Phase 1 asset probes.
 
+### AI Models UI redesign approval gate — 2026-09-13
+
+- [x] Audit the implemented catalog, provider/model editors, defaults, shared controls and desktop/mobile fixture behavior.
+- [x] Produce the interactive [design prototype](models-ui-redesign-prototype.html): Catalog/Defaults separation, provider master/detail, model comparison table, provider/model sheets and responsive mobile cards.
+- [x] Remove nonessential page, section, provider and model subtitles in the proposal; retain only point-of-action security, eligibility, conflict, validation and destructive-impact guidance.
+- [x] Check the proposal at 1440×960 and 390×844 in light/dark themes with no document or mobile model-table overflow. This verifies the prototype surface only, not product behavior.
+- [ ] Obtain user approval for the proposed information architecture, density, copy policy and sheet-based editors.
+- [ ] After approval, implement the accepted design in `web/src/features/models/` using existing shared controls and behavior; preserve generated APIs, authorization, secret lifetime, revision reconciliation and default eligibility.
+- [ ] Verify the implemented catalog/defaults and provider/model workflows at desktop/mobile browser boundaries, then consolidate the accepted durable UI contract into the Chat Models spec and verification matrix.
+
+No product component or route changes belong to the design-only review checkpoint.
+
 ### Pre-refresh implementation checkpoint — 2026-09-11
 
 | Workstream | Implemented / controlled evidence | Still open |

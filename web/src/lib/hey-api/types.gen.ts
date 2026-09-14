@@ -79,6 +79,35 @@ export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
 
+export type UpdateIdentityProviderRequest = {
+    /**
+     * New alias; omit to keep the current alias. Renaming recreates the provider and changes the broker redirect URI.
+     */
+    alias?: string;
+    displayName: string;
+    /**
+     * New issuer URL; omit to keep the current issuer. Changing it re-discovers endpoints and relinks future sign-ins.
+     */
+    issuerUrl?: string;
+    clientId: string;
+    /**
+     * Replacement client secret; omit to keep the stored secret.
+     */
+    clientSecret?: string;
+    enabled: boolean;
+    jitAllowed: boolean;
+};
+
+export type IdentityProviderResponse = {
+    alias: string;
+    displayName: string;
+    issuer: string;
+    clientId: string;
+    enabled: boolean;
+    jitAllowed: boolean;
+    brokerRedirectUri: string;
+};
+
 export type WebSelectionRequest = {
     search?: boolean;
     provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'FIRECRAWL';
@@ -211,10 +240,15 @@ export type PersonaInput = {
     fileIds?: Array<string>;
 };
 
+export type PersonaPermissions = {
+    edit?: boolean;
+    delete?: boolean;
+};
+
 export type PersonaView = {
     id?: string;
     builtin?: boolean;
-    editable?: boolean;
+    permissions?: PersonaPermissions;
     revision?: number;
     name?: string;
     description?: string;
@@ -362,6 +396,14 @@ export type RenameSourceRequest = {
     name: string;
 };
 
+export type SourcePermissions = {
+    edit: boolean;
+    delete: boolean;
+    publish: boolean;
+    manageConfiguration: boolean;
+    removeItems: boolean;
+};
+
 export type SourceSummary = {
     id: string;
     name: string;
@@ -372,7 +414,7 @@ export type SourceSummary = {
     documentCount: number;
     lastSucceededAt: string | null;
     errorCode: string | null;
-    actions: Array<'upload' | 'reindex' | 'remove_items' | 'delete' | 'manage_groups' | 'rename' | 'manage_access' | 'manage_configuration' | 'synchronize' | 'manage_schedule' | 'pause_sync' | 'resume_sync'>;
+    permissions: SourcePermissions;
 };
 
 export type UpdateSourceGroupsRequest = {
@@ -439,12 +481,19 @@ export type Result = {
     updatedAt: string;
     score: number;
     sections: Array<Section>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    authors: Array<string>;
+    providerUrl: string | null;
 };
 
 export type SearchPage = {
     results: Array<Result>;
     page: number;
     hasMore: boolean;
+    /**
+     * Readable Documents among the bounded candidates
+     */
+    totalResults: number;
     candidateLimit: number;
 };
 
@@ -484,8 +533,38 @@ export type IssuedInvitation = {
     delivery: 'ACTIVATION_EMAIL_SENT' | 'EXISTING_ACCOUNT' | 'RECOVERY_LINK_ONLY';
 };
 
+export type CreateIdentityProviderRequest = {
+    alias: string;
+    displayName: string;
+    issuerUrl: string;
+    clientId: string;
+    clientSecret: string;
+    jitAllowed: boolean;
+};
+
+export type DiscoverIdentityProviderRequest = {
+    issuerUrl: string;
+};
+
+export type DiscoveredProviderResponse = {
+    issuer: string;
+    authorizationUrl: string;
+    tokenUrl: string;
+    logoutUrl?: string;
+    userInfoUrl?: string;
+    jwksUrl: string;
+};
+
 export type CreateGroupRequest = {
     name: string;
+};
+
+export type GroupPermissions = {
+    manage: boolean;
+    manageMembers: boolean;
+    delete: boolean;
+    editPermissions: boolean;
+    manageSources: boolean;
 };
 
 export type GroupSummary = {
@@ -495,7 +574,7 @@ export type GroupSummary = {
     memberCount: number;
     managerCount: number;
     capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
-    actions: Array<string>;
+    permissions: GroupPermissions;
 };
 
 export type GroupSystemKey = 'ADMIN' | 'BASIC';
@@ -995,6 +1074,9 @@ export type ChatSource = {
     fileId?: string;
     fileLocation?: FileLocation;
     web?: WebLocation;
+    mediaType?: string;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    providerUrl?: string;
 };
 
 export type FileLocation = {
@@ -1074,8 +1156,16 @@ export type ChatBranch = {
     latestChildMessageId?: string | null;
 };
 
+export type ChatSessionSearchItem = {
+    session: ChatSession;
+    /**
+     * Fragment of the newest matching message; U+E000/U+E001 wrap matched tokens. Null for recent sessions and title-only matches.
+     */
+    snippet: string | null;
+};
+
 export type ChatSessionSearchPage = {
-    items: Array<ChatSession>;
+    items: Array<ChatSessionSearchItem>;
     hasMore: boolean;
 };
 
@@ -1245,6 +1335,72 @@ export type SetCurrentIdentityLanguageResponses = {
 };
 
 export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageResponses[keyof SetCurrentIdentityLanguageResponses];
+
+export type DeleteIdentityProviderData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        alias: string;
+    };
+    query?: never;
+    url: '/api/identity-providers/{alias}';
+};
+
+export type DeleteIdentityProviderErrors = {
+    /**
+     * The identity provider was not found
+     */
+    404: ApiProblem;
+};
+
+export type DeleteIdentityProviderError = DeleteIdentityProviderErrors[keyof DeleteIdentityProviderErrors];
+
+export type DeleteIdentityProviderResponses = {
+    /**
+     * The identity provider was deleted
+     */
+    204: void;
+};
+
+export type DeleteIdentityProviderResponse = DeleteIdentityProviderResponses[keyof DeleteIdentityProviderResponses];
+
+export type UpdateIdentityProviderData = {
+    body: UpdateIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        alias: string;
+    };
+    query?: never;
+    url: '/api/identity-providers/{alias}';
+};
+
+export type UpdateIdentityProviderErrors = {
+    /**
+     * The identity provider was not found
+     */
+    404: ApiProblem;
+};
+
+export type UpdateIdentityProviderError = UpdateIdentityProviderErrors[keyof UpdateIdentityProviderErrors];
+
+export type UpdateIdentityProviderResponses = {
+    /**
+     * The updated identity provider
+     */
+    200: IdentityProviderResponse;
+};
+
+export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[keyof UpdateIdentityProviderResponses];
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
@@ -3197,6 +3353,93 @@ export type RevokeInvitationResponses = {
 
 export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
 
+export type ListIdentityProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers';
+};
+
+export type ListIdentityProvidersErrors = {
+    /**
+     * The actor lacks system administration authority
+     */
+    403: ApiProblem;
+};
+
+export type ListIdentityProvidersError = ListIdentityProvidersErrors[keyof ListIdentityProvidersErrors];
+
+export type ListIdentityProvidersResponses = {
+    /**
+     * Configured OIDC identity providers without secrets
+     */
+    200: Array<IdentityProviderResponse>;
+};
+
+export type ListIdentityProvidersResponse = ListIdentityProvidersResponses[keyof ListIdentityProvidersResponses];
+
+export type CreateIdentityProviderData = {
+    body: CreateIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers';
+};
+
+export type CreateIdentityProviderErrors = {
+    /**
+     * An identity provider with this alias already exists
+     */
+    409: ApiProblem;
+};
+
+export type CreateIdentityProviderError = CreateIdentityProviderErrors[keyof CreateIdentityProviderErrors];
+
+export type CreateIdentityProviderResponses = {
+    /**
+     * The created identity provider
+     */
+    201: IdentityProviderResponse;
+};
+
+export type CreateIdentityProviderResponse = CreateIdentityProviderResponses[keyof CreateIdentityProviderResponses];
+
+export type DiscoverIdentityProviderData = {
+    body: DiscoverIdentityProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/identity-providers/discovery';
+};
+
+export type DiscoverIdentityProviderErrors = {
+    /**
+     * The issuer did not return a valid discovery document
+     */
+    400: ApiProblem;
+};
+
+export type DiscoverIdentityProviderError = DiscoverIdentityProviderErrors[keyof DiscoverIdentityProviderErrors];
+
+export type DiscoverIdentityProviderResponses = {
+    /**
+     * Resolved provider endpoints
+     */
+    200: DiscoveredProviderResponse;
+};
+
+export type DiscoverIdentityProviderResponse = DiscoverIdentityProviderResponses[keyof DiscoverIdentityProviderResponses];
+
 export type ListGroupsData = {
     body?: never;
     path?: never;
@@ -4942,6 +5185,26 @@ export type GetSearchDocumentResponses = {
 
 export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
 
+export type ReadSearchDocumentOriginalData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/original';
+};
+
+export type ReadSearchDocumentOriginalResponses = {
+    /**
+     * Original PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
 export type GetCurrentInvitationData = {
     body?: never;
     path?: never;
@@ -6119,7 +6382,7 @@ export type ReadChatDocumentPassagesErrors = {
      */
     401: unknown;
     /**
-     * CHAT_READ, Tenant membership or CSRF requirement not met
+     * Tenant membership or CSRF requirement not met
      */
     403: ApiProblem;
     /**
@@ -6138,6 +6401,47 @@ export type ReadChatDocumentPassagesResponses = {
 };
 
 export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses[keyof ReadChatDocumentPassagesResponses];
+
+export type ReadChatDocumentOriginalData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/chat/documents/{documentId}/original';
+};
+
+export type ReadChatDocumentOriginalErrors = {
+    /**
+     * Invalid passage window
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Document generation not readable
+     */
+    404: ApiProblem;
+};
+
+export type ReadChatDocumentOriginalError = ReadChatDocumentOriginalErrors[keyof ReadChatDocumentOriginalErrors];
+
+export type ReadChatDocumentOriginalResponses = {
+    /**
+     * Original PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

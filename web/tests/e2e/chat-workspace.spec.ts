@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const title of ["Chat", "Search"]) {
-  test(`keeps the saved ${title} title separate from the mode switcher`, async ({ page }) => {
+  test(`shows the saved ${title} title as a plain header title`, async ({ page }) => {
     const session = await (
       await page.request.post("/api/chat/test-fixture", { data: { title } })
     ).json();
@@ -33,11 +33,14 @@ for (const title of ["Chat", "Search"]) {
     const header = page.getByRole("banner");
     await expect(header.getByRole("button", { name: `Thao tác hội thoại ${title}` })).toBeVisible();
     await expect(header.getByText(title, { exact: true })).toBeVisible();
-    await expect(header.getByRole("button", { name: /switch mode/ })).toHaveCount(0);
+    // Search has its own sidebar entry; no page offers a header Chat/Search mode menu.
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/");
-    await expect(header.getByRole("button", { name: "Trò chuyện, chuyển chế độ" })).toBeVisible();
+    await expect(header).toContainText("Trò chuyện");
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
     await page.goto("/search");
-    await expect(header.getByRole("button", { name: "Tìm kiếm, chuyển chế độ" })).toBeVisible();
+    await expect(header).toContainText("Tìm tài liệu");
+    await expect(header.getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(0);
   });
 }
 
@@ -79,7 +82,7 @@ test("does not mark an assistant unavailable while its settings are loading", as
               id: session.personaId,
               name: "Available assistant",
               builtin: true,
-              editable: false,
+              permissions: { edit: false, delete: false },
               revision: 0,
               description: "",
               instructions: "",
@@ -161,6 +164,9 @@ test("opens sessions created through the project endpoint and preserves list pag
 test("edits, regenerates, selects saved branches, rates, shares, revokes and deletes", async ({
   page,
 }) => {
+  // Edit, regenerate, branch, rate, share and delete in one session run close to the
+  // default budget; the scenario is intentionally long rather than slow to react.
+  test.slow();
   const session = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Workspace versions" } })
   ).json();
@@ -277,7 +283,7 @@ test("creates and revises private assistants with source, starter and limit sett
         ...request.postDataJSON(),
         id,
         builtin: false,
-        editable: true,
+        permissions: { edit: true, delete: true },
         revision: saved ? 1 : 0,
       };
       return route.fulfill({ status: request.method() === "POST" ? 201 : 200, json: saved });

@@ -788,7 +788,13 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     documentCount: 0,
     lastSucceededAt: null,
     errorCode: null,
-    actions: ["upload", "reindex", "remove_items", "delete", "manage_groups"],
+    permissions: {
+      edit: true,
+      delete: true,
+      publish: false,
+      manageConfiguration: false,
+      removeItems: true,
+    },
   };
   const otherSource = {
     ...source,

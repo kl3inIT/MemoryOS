@@ -3,12 +3,13 @@
     <envs>
       <env name="ARCONIA_BOOTSTRAP_MODE" value="dev" />
       <env name="SERVER_PORT" value="18080" />
-      <env name="SPRING_CONFIG_IMPORT" value="file:$PROJECT_DIR$/.memoryos-dev.yaml" />
+      <env name="SPRING_CONFIG_IMPORT" value="file:$PROJECT_DIR$/.memoryos-dev.yaml,optional:file:$PROJECT_DIR$/.memoryos-local.yaml" />
     </envs>
     <module name="memoryos.api.main" />
+    <shortenClasspath name="ARGS_FILE" />
+    <option name="SHORTEN_COMMAND_LINE" value="ARGS_FILE" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="io.memoryos.api.MemoryOsApiApplication" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <shortenClasspath name="ARGS_FILE" />
     <method v="2">
       <option name="RunConfigurationTask" enabled="true" run_configuration_name="Sync Infisical Dev Env" run_configuration_type="ShConfigurationType" />
       <option name="Make" enabled="true" />

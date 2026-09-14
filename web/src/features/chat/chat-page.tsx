@@ -66,7 +66,7 @@ export function ChatPage() {
   ]);
   if (sessionId && routeError === sessionId)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")}>
         <div role="alert" className="space-y-3 p-6">
           <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={retryRoute}>
@@ -79,7 +79,7 @@ export function ChatPage() {
   // never passes through this branch and keeps the composer mounted.
   if ((sessionId && mainRemoteId !== sessionId) || !controller)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")}>
         <p role="status" className="p-6 text-content-secondary">
           {ui("Đang tải hội thoại…")}
         </p>
@@ -167,7 +167,7 @@ function ChatConversation({
 
   if (state.unavailable)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")}>
         <p role="alert" className="p-6">
           {ui("Hội thoại không còn khả dụng.")}
         </p>
@@ -175,7 +175,7 @@ function ChatConversation({
     );
   if (state.historyFailed && !session)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")}>
         <div role="alert" className="space-y-3 p-6">
           <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={() => void controller.check()}>
@@ -186,7 +186,7 @@ function ChatConversation({
     );
   if (loadingHistory && controller.remoteId)
     return (
-      <AppShell pageTitle={ui("Chat")} chatMode="Chat">
+      <AppShell pageTitle={ui("Chat")}>
         <p role="status" className="p-6 text-content-secondary">
           {ui("Đang tải hội thoại…")}
         </p>
@@ -196,7 +196,6 @@ function ChatConversation({
   return (
     <AppShell
       pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
-      chatMode={!headerSession && !project ? "Chat" : undefined}
       headerActions={
         <div className="flex items-center gap-1">
           <ChatConversationSearch key={headerSession?.id ?? "new"} />

@@ -13,7 +13,13 @@ async function mockGroups(page: Page, editable = true) {
       memberCount: 1,
       managerCount: 0,
       capabilities: ["SYSTEM_ADMIN"],
-      actions: [],
+      permissions: {
+        manage: false,
+        manageMembers: false,
+        delete: false,
+        editPermissions: false,
+        manageSources: false,
+      },
     },
     {
       id: basicId,
@@ -22,7 +28,13 @@ async function mockGroups(page: Page, editable = true) {
       memberCount: 0,
       managerCount: 0,
       capabilities: ["SYSTEM_BASIC"],
-      actions: [],
+      permissions: {
+        manage: false,
+        manageMembers: false,
+        delete: false,
+        editPermissions: false,
+        manageSources: false,
+      },
     },
     {
       id: customId,
@@ -31,7 +43,13 @@ async function mockGroups(page: Page, editable = true) {
       memberCount: 0,
       managerCount: 0,
       capabilities: [],
-      actions: ["rename", "manage_members", "manage_managers", "manage_sources"],
+      permissions: {
+        manage: true,
+        manageMembers: true,
+        delete: false,
+        editPermissions: false,
+        manageSources: true,
+      },
     },
   ];
   const searches: string[] = [];

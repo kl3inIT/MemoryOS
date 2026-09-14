@@ -1,4 +1,4 @@
-/* Groups-only palette follows Onyx shared semantic tokens; other application screens are unchanged. */
+/* Groups-only palette built from the shared semantic tokens; other application screens are unchanged. */
 .groups-list-page {
   --groups-page-surface: var(--surface-subtle);
   --groups-card-surface: var(--surface-base);

@@ -74,6 +74,43 @@ class DashboardsSavedObjectsTest(unittest.TestCase):
             self.assertNotIn("memoryos-dashboards:", " ".join(command))
         self.assertEqual(dashboards.SAVED_SEARCH, json.loads(calls[4].kwargs["input"]))
 
+    def test_index_pattern_fields_come_from_field_capabilities_without_exposing_the_certificate(self):
+        capabilities = {"fields": {
+            "updated_at": {"date": {"searchable": True, "aggregatable": True}},
+            "content": {"text": {"searchable": True, "aggregatable": False}},
+            "source_metadata.source_id": {"keyword": {"searchable": True, "aggregatable": True}},
+        }}
+        with tempfile.TemporaryDirectory(prefix="memoryos-admin-cert-") as name:
+            for filename in ("admin.crt", "admin.key", "ca.crt"):
+                Path(name, filename).write_text("PEM " + filename + "\n", encoding="utf-8")
+            completed = Mock(returncode=0, stdout=json.dumps(capabilities), stderr="")
+            with patch.object(dashboards, "SECRET_DIRECTORY", Path(name)), \
+                    patch.object(dashboards.subprocess, "run", return_value=completed) as run:
+                fields = dashboards.index_fields()
+        command = run.call_args.args[0]
+        self.assertEqual(["docker", "exec", "-i", dashboards.OPENSEARCH_CONTAINER, "sh", "-c"], command[:6])
+        self.assertNotIn("PEM", " ".join(command))
+        self.assertIn("PEM admin.key", run.call_args.kwargs["input"])
+        by_name = {field["name"]: field for field in fields}
+        self.assertEqual("date", by_name["updated_at"]["type"])
+        self.assertTrue(by_name["updated_at"]["readFromDocValues"])
+        self.assertEqual("string", by_name["content"]["type"])
+        self.assertFalse(by_name["content"]["aggregatable"])
+        self.assertEqual({"nested": {"path": "source_metadata"}}, by_name["source_metadata.source_id"]["subType"])
+        desired = dashboards.index_pattern_with_fields(fields)
+        self.assertEqual("updated_at", desired["attributes"]["timeFieldName"])
+        self.assertEqual(fields, json.loads(desired["attributes"]["fields"]))
+
+    def test_index_fields_fail_closed_without_the_time_field(self):
+        completed = Mock(returncode=0, stdout=json.dumps({"fields": {"content": {"text": {}}}}), stderr="")
+        with tempfile.TemporaryDirectory(prefix="memoryos-admin-cert-") as name:
+            for filename in ("admin.crt", "admin.key", "ca.crt"):
+                Path(name, filename).write_text("PEM\n", encoding="utf-8")
+            with patch.object(dashboards, "SECRET_DIRECTORY", Path(name)), \
+                    patch.object(dashboards.subprocess, "run", return_value=completed):
+                with self.assertRaisesRegex(RuntimeError, "time field"):
+                    dashboards.index_fields()
+
     def test_replay_is_read_only_when_controlled_state_matches(self):
         current_index = self.saved_object("index-pattern", dashboards.INDEX_PATTERN_ID, dashboards.INDEX_PATTERN)
         current_index["attributes"]["fields"] = "runtime-managed"
@@ -102,6 +139,13 @@ class DashboardsSavedObjectsTest(unittest.TestCase):
         self.assertIn("kibana_all_read", inspector)
         self.assertNotIn("kibana_all_write", inspector)
         self.assertNotIn("all_access", inspector)
+
+    def test_inspector_can_open_discover_because_dashboards_read_only_mode_is_disabled(self):
+        # The security plugin falls back to kibana_read_only when no roles are configured, and that mode hides Discover.
+        config = (Path(__file__).parent / "opensearch_dashboards.yml").read_text(encoding="utf-8")
+        self.assertIn("opensearch_security.readonly_mode.roles: []", config)
+        mapping = (Path(__file__).parent / "security" / "roles_mapping.yml").read_text(encoding="utf-8")
+        self.assertNotIn("kibana_read_only", mapping)
 
     def test_bootstrap_credential_is_generated_as_a_private_curl_config(self):
         with tempfile.TemporaryDirectory(prefix="memoryos-dashboards-config-") as name:

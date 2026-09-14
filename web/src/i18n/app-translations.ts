@@ -1,5 +1,22 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  "Nguồn {{number}}": "Source {{number}}",
+  "Trang {{pages}}": "Page {{pages}}",
+  "Trang tính {{name}}": "Sheet {{name}}",
+  "Mở trong Google Drive": "Open in Google Drive",
+  "Mở {{title}} trong Google Drive": "Open {{title}} in Google Drive",
+  "Đoạn trích": "Passages",
+  "Trang PDF": "PDF pages",
+  "Cách xem bằng chứng": "Evidence view",
+  "Đang tải trang PDF…": "Loading PDF pages…",
+  "Không mở được bản PDF gốc. Hãy xem đoạn trích.":
+    "The original PDF could not be opened. Use the passages view.",
+  "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",
+  "Trang {{pages}} / {{total}}": "Page {{pages}} / {{total}}",
+  "Thu phóng": "Zoom",
+  "Thu nhỏ": "Zoom out",
+  "Phóng to": "Zoom in",
+  "Vừa khung": "Fit width",
   "Tìm hội thoại": "Search conversations",
   "Tìm tiêu đề và nội dung mọi phiên bản đã lưu. Kết quả mở ở nhánh hiện tại của hội thoại.":
     "Search titles and all saved message versions. Results open the conversation's currently selected branch.",
@@ -450,6 +467,7 @@ export const englishUi: Record<string, string> = {
   Groups: "Nhóm",
   Knowledge: "Tri thức",
   Sources: "Nguồn dữ liệu",
+  Configuration: "Cấu hình",
   "Exit Connector Setup": "Thoát thiết lập kết nối",
   "Back to MemoryOS": "Về MemoryOS",
   "Admin Panel": "Quản trị",
@@ -479,7 +497,6 @@ export const englishUi: Record<string, string> = {
   Next: "Tiếp",
   Search: "Tìm kiếm",
   Chat: "Trò chuyện",
-  "{{v1}}, switch mode": "{{v1}}, chuyển chế độ",
   "Create group": "Tạo nhóm",
   "Start with a unique group name.": "Bắt đầu bằng một tên nhóm không trùng lặp.",
   Cancel: "Hủy",
@@ -627,6 +644,62 @@ export const englishUi: Record<string, string> = {
   "Create an ordinary group to organize members and access.":
     "Tạo nhóm thường để tổ chức thành viên và quyền truy cập.",
   "Clear search": "Xóa tìm kiếm",
+  "Identity providers": "Nhà cung cấp định danh",
+  "Upstream OIDC providers for brokered sign-in and just-in-time admission.":
+    "Các nhà cung cấp OIDC upstream cho đăng nhập qua broker và gia nhập tự động.",
+  "Add provider": "Thêm nhà cung cấp",
+  "Add identity provider": "Thêm nhà cung cấp định danh",
+  "Connect an upstream OIDC provider for brokered sign-in.":
+    "Kết nối nhà cung cấp OIDC upstream để đăng nhập qua broker.",
+  "Update the brokered sign-in configuration. Alias and issuer are fixed.":
+    "Cập nhật cấu hình đăng nhập qua broker. Alias và issuer không đổi.",
+  "Edit {{v1}}": "Sửa {{v1}}",
+  Alias: "Alias",
+  "Lowercase letters, digits, dots, underscores or hyphens. Cannot be changed later.":
+    "Chữ thường, số, dấu chấm, gạch dưới hoặc gạch ngang. Không đổi được sau này.",
+  "Display name": "Tên hiển thị",
+  "Sign in with Tasco": "Đăng nhập bằng Tasco",
+  "Issuer URL": "Issuer URL",
+  "The issuer is fixed for the lifetime of this provider.":
+    "Issuer cố định trong suốt vòng đời của nhà cung cấp này.",
+  "Discover endpoints": "Khám phá endpoints",
+  "Discovering…": "Đang khám phá…",
+  "Discovered {{v1}}": "Đã khám phá {{v1}}",
+  "Client ID": "Client ID",
+  "Client secret": "Client secret",
+  "Leave blank to keep the stored secret": "Để trống để giữ secret hiện tại",
+  Disabled: "Đã tắt",
+  "Allow just-in-time admission": "Cho phép gia nhập tự động (JIT)",
+  "Members of this provider can join the Tenant automatically on first sign-in.":
+    "Thành viên của nhà cung cấp này tự động gia nhập Tenant khi đăng nhập lần đầu.",
+  "Copy redirect URI": "Sao chép redirect URI",
+  "Could not copy the redirect URI.": "Không sao chép được redirect URI.",
+  "Members can no longer sign in through this provider. Existing accounts and sessions are not deleted.":
+    "Thành viên không thể đăng nhập qua nhà cung cấp này nữa. Tài khoản và phiên hiện có không bị xóa.",
+  "Remove provider": "Xóa nhà cung cấp",
+  "Removing…": "Đang xóa…",
+  "{{v1}} was removed.": "Đã xóa {{v1}}.",
+  "Could not load identity providers.": "Không tải được danh sách nhà cung cấp định danh.",
+  JIT: "JIT",
+  "Sign-in providers": "Đăng nhập SSO",
+  Check: "Kiểm tra",
+  "Checking…": "Đang kiểm tra…",
+  "Valid issuer": "Issuer hợp lệ",
+  "Add SSO": "Thêm SSO",
+  "Redirect URI": "Redirect URI",
+  Copy: "Sao chép",
+  Copied: "Đã sao chép",
+  tasco: "tasco",
+  "memoryos-broker": "memoryos-broker",
+  "Allow sign-in through this provider": "Cho phép đăng nhập qua nhà cung cấp này",
+  "Turning this off hides the provider on the sign-in screen without deleting its configuration.":
+    "Tắt sẽ ẩn nhà cung cấp khỏi màn đăng nhập mà không xóa cấu hình.",
+  "The stored secret stays hidden. Type a new value to rotate it.":
+    "Secret đã lưu được ẩn. Nhập giá trị mới để thay đổi.",
+  Retry: "Thử lại",
+  "No identity providers yet.": "Chưa có nhà cung cấp định danh.",
+  "Add an upstream OIDC provider to let its members sign in through MemoryOS.":
+    "Thêm nhà cung cấp OIDC upstream để thành viên của họ đăng nhập qua MemoryOS.",
 };
 
 Object.assign(englishUi, {
@@ -698,15 +771,14 @@ Object.assign(englishUi, {
   "No matching documents": "Không có tài liệu phù hợp",
   "Try a broader phrase, remove a filter, or check the document code.":
     "Thử từ khóa rộng hơn, bỏ bộ lọc hoặc kiểm tra mã tài liệu.",
-  "Search results": "Kết quả tìm kiếm",
+  "{{count}} result for “{{query}}”": "{{count}} kết quả cho “{{query}}”",
+  "{{count}} results for “{{query}}”": "{{count}} kết quả cho “{{query}}”",
   result: "kết quả",
   results: "kết quả",
-  "for “": "cho “",
   Updating: "Đang cập nhật",
   "Search results pages": "Trang kết quả tìm kiếm",
-  "Refine results": "Lọc kết quả",
-  "File types on this page": "Loại tệp trên trang này",
-  "{{v1}}: {{v2}} {{v3}} on this page": "{{v1}}: {{v2}} {{v3}} trên trang này",
+  "Recent searches": "Tìm kiếm gần đây",
+  "Clear all": "Xóa tất cả",
   "Open {{v1}} in {{v2}}": "Mở {{v1}} trong {{v2}}",
   "View context": "Xem ngữ cảnh",
   "Exit setup": "Thoát thiết lập",
@@ -1970,6 +2042,8 @@ const unchanged = [
   " {{v1}}%",
   " ({{v1}})",
   " · {{v1}}",
+  " +{{v1}}",
+  "{{percent}}%",
 ];
 export const appEn: Record<string, string> = Object.fromEntries([
   ...Object.keys(englishUi).map((key) => [key, key]),

@@ -74,6 +74,10 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 90s;
+        # OpenID session cookies exceed the default 4k/8k response header buffer.
+        proxy_buffer_size 32k;
+        proxy_buffers 8 32k;
+        proxy_busy_buffers_size 64k;
     }
 }
 """.replace("__HOST__", host)

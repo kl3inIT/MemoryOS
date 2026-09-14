@@ -42,9 +42,9 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_IDENTITY_AUDIENCE` | No | Required API audience claim; rejects a valid Keycloak token minted for another client/resource. |
 | `MEMORYOS_BROWSER_CLIENT_ID` | No | Confidential OAuth2 browser client registration name, currently `memoryos-web`. |
 | `MEMORYOS_BROWSER_CLIENT_SECRET` | Yes | OAuth2 authorization-code/token-exchange credential for `memoryos-web`; never a browser/Vite variable. |
-| `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` | No | Optional browser-only JIT allowlist mapped to `memoryos.identity.jit.allowed-provider-aliases`; empty by default. Explicit `tasco` opt-in trusts only that String provider alias in the configured Keycloak issuer's validated ID token. Does not enable bearer provisioning or provider configuration. |
+| `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` | No | Startup seed for the durable `jit_allowed_provider` allowlist; empty by default. Seeded rows are idempotent and never removed by the seed. Runtime administration through `/api/identity-providers` owns the table afterwards. Explicit `tasco` opt-in trusts only that String provider alias in the configured Keycloak issuer's validated ID token. Does not enable bearer provisioning or provider configuration. |
 | `MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL` | No | Internal Keycloak base URL used only by the Identity-owned invitation provisioner. Staging uses the shared Keycloak container alias; browser issuer URLs remain public and exact. |
-| `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET` | Yes | Client-credentials secret for realm-local `memoryos-user-provisioner`; never a browser variable or operator administrator credential. |
+| `MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET` | Yes | Client-credentials secret for realm-local `memoryos-user-provisioner`; never a browser variable or operator administrator credential. The service account holds realm-management `manage-users` and `manage-identity-providers`; the latter backs `/api/identity-providers` administration. |
 | `MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI` | No | Exact public `https://<memoryos-origin>/invite/activate` return target registered on `memoryos-web`; wildcards are forbidden. |
 | `MEMORYOS_TENANT_ID` | No | Required stable UUID for the one deployment Tenant. It must match `tenants.id` and `tenant_bootstrap_state.tenant_id`; never rotate it during an ordinary deployment. |
 | `MEMORYOS_INITIAL_OWNER_SUBJECT` | Sensitive identifier | Stable Keycloak user UUID used to bind or verify the first Tenant owner. It is not a username and must not change when names/email change. |
@@ -108,7 +108,26 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 ## Reconcile Keycloak owner and clients
 
-`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+`infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, selects the repository-owned `memoryos` login theme, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
+
+### Deploy or update the MemoryOS login theme
+
+`compose.base.yaml` mounts `infrastructure/keycloak/themes/memoryos` read-only at `/opt/keycloak/themes/memoryos`. The theme extends `keycloak.v2` and deliberately contains no `.ftl` files; Keycloak's pinned templates continue to own every authentication and required-action form. All CSS, messages, and SVG resources are versioned locally and the browser loads no external font or asset origin.
+
+After changing the theme, recreate shared Keycloak so its normal production cache observes the new resources, wait for readiness, and run the standard realm reconciliation with the required operator environment already loaded:
+
+```sh
+docker compose \
+  -f infrastructure/deployment/compose.base.yaml \
+  -f infrastructure/deployment/compose.staging.yaml \
+  up -d --force-recreate --wait shared-keycloak
+
+./infrastructure/keycloak/configure-memoryos-realm.sh
+```
+
+Reconciliation first reads Keycloak `serverinfo` and requires exactly one login theme named `memoryos`; it then updates only the `memoryos` realm and reads the realm back to require `loginTheme=memoryos`. Do not disable theme or template caching in staging or production. For local theme development only, Keycloak's documented `--spi-theme--static-max-age=-1 --spi-theme--cache-themes=false --spi-theme--cache-templates=false` flags may be supplied to a disposable local server and must not enter Compose.
+
+Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating shared Keycloak, and rerunning the prior reconciliation script; do not edit the OrgMemory realm or change the public issuer.
 
 Required operator environment:
 
@@ -153,7 +172,7 @@ Record the script's `subject=<uuid>` result in managed deployment configuration 
 
 The same reconciliation upserts `memoryos-identity-provider` only on `memoryos-web`, mapping Keycloak User Session Note `identity_provider` to String ID-token claim `memoryos_identity_provider`. Access-token, UserInfo, introspection, and token-response emission are disabled. It uses the existing mapper create/update/unchanged contract and does not add or edit an upstream provider, linking flow, other client, or user attribute for JIT. The existing realm-level verified-email policy is unchanged; MemoryOS JIT itself does not require `email_verified`.
 
-Keep `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` absent or empty unless the environment has approved the trust relationship. To enable Tasco, supply `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES=tasco` through the API's managed deployment configuration and restart/redeploy the API. Retain the exact configured Keycloak issuer and `MEMORYOS_TENANT_ID`; do not substitute Tasco's upstream issuer or derive Tenant ownership from token claims.
+Keep `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES` absent or empty unless the environment has approved the trust relationship. To enable Tasco, supply `MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES=tasco` through the API's managed deployment configuration and restart/redeploy the API; the startup seed inserts it into `jit_allowed_provider` idempotently. Afterwards a `SYSTEM_ADMIN` actor manages aliases through `/api/identity-providers` (`jitAllowed` on create/update); removing the env value does not revoke runtime-managed rows. Retain the exact configured Keycloak issuer and `MEMORYOS_TENANT_ID`; do not substitute Tasco's upstream issuer or derive Tenant ownership from token claims.
 
 Before enabling production admission:
 
@@ -162,7 +181,7 @@ Before enabling production admission:
 3. Verify first/repeat/concurrent admission, exact binding reuse, Basic-only non-manager authority, inactive-member/Tenant denial, ActorId-only session persistence, no invitation changes, and bearer non-provisioning against the [MEM-59 gates](../increments/completed/mem-59-tasco-jit/plan.md).
 4. Record simulator evidence separately from acceptance with the actual approved Tasco provider and accounts. A simulator login does not establish actual Tasco acceptance; both remain pending until evidence is recorded.
 
-Removing the opt-in and restarting the API stops future JIT admission only. Already admitted members still use the existing active-member path, and existing sessions continue to resolve current application authority. Use authorized membership deactivation for application revocation; never delete identity/invitation rows as rollback. Upstream/Keycloak revocation propagation and absolute session lifetime remain outside this increment.
+Removing the opt-in and restarting the API stops future JIT admission only when the alias is also absent from `jit_allowed_provider`; delete the row through `DELETE /api/identity-providers/{alias}` or an update with `jitAllowed=false`. Already admitted members still use the existing active-member path, and existing sessions continue to resolve current application authority. Use authorized membership deactivation for application revocation; never delete identity/invitation rows as rollback. Upstream/Keycloak revocation propagation and absolute session lifetime remain outside this increment.
 
 ## Run the API and worker through managed Infisical `dev`
 

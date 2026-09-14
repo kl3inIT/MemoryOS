@@ -274,6 +274,17 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 content.mediaType(), content.descriptor().format() != SourceInputFormat.BINARY), content.bytes());
         boolean adopted = false;
         try {
+            boolean sameContent = fenced(work, () -> {
+                if (sync.excluded(work, file.id())) throw new StaleSyncException();
+                var version = items.sameContent(work, file.id(), staged.object().metadata().checksum().value(),
+                        staged.object().filename(), content.descriptor().providerVersion());
+                if (version.isEmpty()) return false;
+                sync.observe(work, file.id(), root, file.version());
+                sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
+                sync.checkpoint(work, node, null);
+                return true;
+            });
+            if (sameContent) return;
             adopted = fenced(work, () -> {
                 if (sync.excluded(work, file.id())) throw new StaleSyncException();
                 var pair = sources.lock(work.tenantId(), work.sourceId());
@@ -281,7 +292,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 writes.adopt(work.tenantId(), staged);
                 var version = items.acceptRemote(work, pair, staged.object(), content.descriptor());
                 indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
-                documents.invalidateItem(work.tenantId(), work.sourceId(), version.itemId());
+                // The current Document stays retrievable until the new version publishes over the same mapping.
                 indexing.create(work.tenantId(), pair, version, work.operationId());
                 sync.acquired(work, file.id());
                 sync.checkpoint(work, node, null);

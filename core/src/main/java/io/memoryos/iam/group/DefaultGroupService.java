@@ -2,7 +2,6 @@ package io.memoryos.iam.group;
 
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupAction;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.GroupCapabilityMetadata;
 import io.memoryos.iam.group.GroupId;
@@ -579,28 +578,6 @@ public class DefaultGroupService implements GroupService {
             GroupRecord group,
             Set<IamCapability> effectiveCapabilities
     ) {
-        EnumSet<GroupAction> actions = EnumSet.noneOf(GroupAction.class);
-        boolean systemAdmin = effectiveCapabilities.contains(IamCapability.SYSTEM_ADMIN);
-        boolean managesGroupsGlobally = effectiveCapabilities.contains(IamCapability.GROUPS_MANAGE);
-        if (group.systemKey() == null) {
-            if (managesGroupsGlobally) {
-                actions.add(GroupAction.DELETE);
-            }
-            if (managesGroupsGlobally || group.managedByActor()) {
-                actions.add(GroupAction.RENAME);
-                actions.add(GroupAction.MANAGE_MANAGERS);
-                actions.add(GroupAction.MANAGE_MEMBERS);
-            }
-            if (systemAdmin) {
-                actions.add(GroupAction.MANAGE_GRANTS);
-            }
-        } else if (systemAdmin) {
-            actions.add(GroupAction.MANAGE_MEMBERS);
-        }
-        if (effectiveCapabilities.contains(IamCapability.SOURCES_MANAGE)
-                || (group.systemKey() == null && group.managedByActor())) {
-            actions.add(GroupAction.MANAGE_SOURCES);
-        }
         return new GroupSummary(
                 group.id(),
                 group.name(),
@@ -608,7 +585,7 @@ public class DefaultGroupService implements GroupService {
                 group.memberCount(),
                 group.managerCount(),
                 group.capabilities(),
-                actions
+                GroupPermissions.of(effectiveCapabilities, group.systemKey() != null, group.managedByActor())
         );
     }
 

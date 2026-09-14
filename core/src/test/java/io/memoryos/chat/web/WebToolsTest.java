@@ -91,7 +91,7 @@ class WebToolsTest {
         var client = mock(WebProviderClient.class);
         var connection = new WebConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), WebProvider.BRAVE, "", "", null, 1);
         when(client.search(connection, "news")).thenReturn(List.of(new WebProviderClient.Result("https://example.com", "Title", "Verified text")));
-        var evidence = new ChatEvidence(); evidence.file(UUID.randomUUID(), "Existing file");
+        var evidence = new ChatEvidence(); evidence.file(UUID.randomUUID(), "Existing file", "text/plain");
         var events = new ArrayList<ChatSearchEvent>(); evidence.publishTo(events::add);
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,

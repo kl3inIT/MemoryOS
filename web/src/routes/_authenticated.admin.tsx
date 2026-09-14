@@ -8,7 +8,8 @@ import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-r
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
     const ui = useAppTranslation();
-    const { canManageUsers, canReadGroups, canReadSources, canManageModels } = useAdminAccess();
+    const { canManageUsers, canReadGroups, canReadSources, canManageModels, canManageProviders } =
+      useAdminAccess();
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
       to: "/admin/sources/new/google-drive",
@@ -22,13 +23,16 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
+    const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
         ? "groups"
         : modelsSelected
           ? "models"
-          : "sources";
+          : providersSelected
+            ? "providers"
+            : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -36,7 +40,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "models"
             ? canManageModels
-            : canReadSources;
+            : page === "providers"
+              ? canManageProviders
+              : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -47,7 +53,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
         area="admin"
         adminPage={page}
         pageTitle={ui(
-          page === "users" ? "Users" : page === "groups" ? "Groups" : page === "models" ? "Models" : "Sources",
+          page === "users"
+            ? "Users"
+            : page === "groups"
+              ? "Groups"
+              : page === "models"
+                ? "Models"
+                : page === "providers"
+                  ? "Sign-in providers"
+                  : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

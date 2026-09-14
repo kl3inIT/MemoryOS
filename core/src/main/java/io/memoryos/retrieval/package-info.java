@@ -1,7 +1,8 @@
 @ApplicationModule(
         displayName = "Retrieval",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"document", "connector", "iam :: *"}
+        // objectstorage: DocumentOriginalService streams the stored original PDF behind a readable Document.
+        allowedDependencies = {"document", "connector", "objectstorage", "iam :: *"}
 )
 package io.memoryos.retrieval;
 

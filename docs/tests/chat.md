@@ -1,15 +1,15 @@
 # Chat verification matrix
 
-UI reuse follow-up: `chat-ui-polish.spec.ts` exercises the composer `+` menu order (menu, model picker, Send), its Web options and the Web chip, current-branch content matching/stepping/focus, Search/Crawler sections and Exa credential KEEP/REPLACE across the shared sections at 1440/390px. `chat-sources-toolbar.spec.ts` checks DocumentReference lists and original Web links while retaining the grouped Sources row. `chat-conversation-matches.test.ts` covers literal/Unicode matching, hidden tool-text exclusion, bounded hits and local-calendar loaded-title grouping. Exact receipts and baseline differences: [edit/navigation verification](../increments/active/chat-edit-navigation-polish/verification.md).
+UI reuse follow-up: `chat-ui-polish.spec.ts` exercises the composer `+` menu order (menu, model picker, Send), its Web options and the Web chip, current-branch content matching/stepping/focus, Search/Crawler sections and Exa credential KEEP/REPLACE across the shared sections at 1440/390px. `chat-sources-toolbar.spec.ts` checks the source row list and original Web links while retaining the grouped Sources row. `chat-conversation-matches.test.ts` covers literal/Unicode matching, hidden tool-text exclusion, bounded hits and local-calendar loaded-title grouping. Exact receipts and baseline differences: [edit/navigation verification](../increments/active/chat-edit-navigation-polish/verification.md).
 
-Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V50 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL. `chat-history-search.spec.ts` checks server-only hits without local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/active/chat-history-search/verification.md).
+Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V50 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL, plus the matched-message `snippet` (delimited tokens; null for title-only and >64 KiB matches). `chat-history-search.spec.ts` checks the icon trigger beside the collapse/Close button and the collapsed rail entry, New chat on a blank query, server-only hits with a highlighted fragment and no local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/active/chat-history-search/verification.md).
 
 ## Edit/navigation and Sources presentation
 
 - `edit-message.test.tsx` and `chat-attachments.test.tsx`: controlled editing focus, keyboard/IME, pending/busy, action-local errors and attachment-only messages; existing attachment readiness and preview lifecycle.
 - `sources.test.tsx`: bounded/deduplicated icon stack, localized generic Sources label, accessible count, document privacy and upstream favicon fallback/domain changes.
 - `chat-sources-toolbar.spec.ts`: mixed Web/document toolbar, panel toggle and Web selection, focus restoration and viewport bounds on desktop/mobile.
-- `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile Chat/Search navigation without a duplicate sidebar Search entry. These browser tests use local backend/model fixtures, not staging acceptance.
+- `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile drawer navigation to the Search documents entry without a header mode menu. These browser tests use local backend/model fixtures, not staging acceptance.
 
 ## External Web search
 
@@ -77,7 +77,7 @@ Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/M
 | Shared access polling does not reload transcript pages; revoked access hides the view; malformed sources fail inside the query boundary | `chat-workspace.spec.ts` access-polling and malformed-source browser cases |
 | Reopening sharing cannot submit its cached revision while the authoritative read is pending | `chat-workspace.spec.ts` delayed-refetch browser case |
 | Real session HTTP create/list/reload/history, owner denial and membership revoke | `ChatSessionApiIntegrationTest` with full API context/PostgreSQL and existing security filters |
-| Without the Basic edge, list/history/branches/shared reads, reply event subscription, citation passages (`/api/chat/documents/{documentId}`), create and send return `403 IAM_ACCESS_DENIED`, while rename, sharing toggle and delete of an owned conversation still succeed | `ChatSessionApiIntegrationTest.chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership`: full API context, real IAM authority SQL and PostgreSQL |
+| Without the Basic edge, list/history/branches/shared reads, reply event subscription, create and send return `403 IAM_ACCESS_DENIED`, while rename, sharing toggle and delete of an owned conversation still succeed and citation passages (`/api/chat/documents/{documentId}`) are not capability-denied (an unknown document is `404`) | `ChatSessionApiIntegrationTest.chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership`: full API context, real IAM authority SQL and PostgreSQL |
 | Missing authentication/CSRF and input bounds on session/send operations | `ChatSessionApiIntegrationTest` |
 | Native runner send, usage persistence, same-request retry without another inference, partial EOF and local Stop | `ChatSessionApiIntegrationTest`; model transport mocked, native framework/IAM/PostgreSQL execute |
 | Cross-owner Stop denied, cancel committed before completion wins, expired rows cannot be resurrected | `ChatPersistenceIntegrationTest` |
@@ -121,7 +121,7 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | An unsent question survives a reload of the same tab and is forgotten once sent | Draft restore scenario in `chat-workspace.spec.ts` |
 | A quoted answer passage is sent as a leading blockquote, saved in the question text and rendered as a quote block before and after reload | Quote scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks the blockquote merge |
 | Share/copy in one dialog, clipboard-denied manual fallback, native radio keyboard selection, focus restore and stale revision gating | Sharing scenarios in `chat-workspace.spec.ts` |
-| Saved titles `Chat`/`Search` cannot select header mode; empty Chat and Search retain their mode menus | Saved-title mobile scenarios in `chat-workspace.spec.ts` |
+| Saved titles `Chat`/`Search` render as plain header titles; empty Chat and Search pages have no header mode menu | Saved-title mobile scenarios in `chat-workspace.spec.ts` |
 | Malformed Project creation response retains the dialog/draft and exposes the error; loading assistant choices are not labeled unavailable, while a missing loaded choice is | Creation-response and delayed-settings scenarios in `chat-workspace.spec.ts` |
 | Project-scoped session POST returns a created session, GET pagination remains distinct, and the saved session opens in Chat | Project-endpoint browser scenario in `chat-workspace.spec.ts`; synthetic fixture contract only |
 
@@ -141,6 +141,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Native standard/completion-token conversion, reasoning, rejected options and unknown pricing | `OpenAiChatProviderAdapterTest` |
 | Dedicated authority, redaction, stale writes, same-name model selection and idempotency | Catalog cases in `ChatSessionApiIntegrationTest` |
 | Persona precedence, fallback, Group revoke, Persona restrictions on manager, default protection | Catalog cases in `ChatSessionApiIntegrationTest` |
+| Persona `permissions` match the update/delete guards (owned: edit+delete; builtin: edit only with `MODELS_MANAGE`, never delete) and are serialized for an owned Persona | `PersonaPermissionsTest.keysMatchTheUpdateAndDeleteGuards`, `ChatSessionApiIntegrationTest` workspace round trip, `chat-workspace.spec.ts` |
 | Old turn retains options; next turn uses new settings | `changingModelOptionsWhileRunningAffectsOnlyTheNextTurn` |
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
@@ -173,7 +174,7 @@ The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse`
 
 | Contract | Verification |
 | --- | --- |
-| Native named tool binding, argument bounds, invalid selection fallback, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
+| Native named tool binding, argument bounds, empty/invalid selection fallback, NOT_RELEVANT keeping the main section, per-cycle source scope latching, reference time bounds, overlap/adjacency merge, stable evidence numbers and context bounds | `SearchToolTest` |
 | Follow-up rewrite receives history, rewrites cache per turn, query weights remain distinct; context classification sees real neighbors and can reject a misleading subject | `SearchToolTest.followUpRewritesUseHistoryAndAreCachedWhileToolQueriesKeepTheirOwnWeight`; `classificationReadsNeighborsBeforeRejectingTheWrongSubject` |
 | FULL_DOCUMENT reads at most five neighbors per side; Stop during concurrent rewriting cancels sibling work and prevents retrieval | `SearchToolTest.fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow`; `stopDuringQueryRewritePreventsKeywordInferenceAndRetrieval` |
 | Same native process records typed selection and streaming usage once; denied content never reaches either model prompt | `ChatSessionApiIntegrationTest.nativeSearchToolSelectsExpandsStreamsSourcesAndPersistsTypedAndStreamingUsageOnce` |
@@ -207,3 +208,16 @@ Standalone native/Models measurements below retain their original evidence bound
 | CPU compiler scratch execution boundary | A real UID1654/readonly-root native-library load from `/tmp` fails with Docker's implicit noexec mount and passes with explicit engine-only `exec`, retaining mode0700, nosuid/nodev and the256MiB bound. Real vLLM startup/generation then pass. Release mutation checks reject missing engine exec and executable gateway scratch; no broader security or memory relaxation. |
 
 Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-runtime gates are in [MEM-77 verification](../increments/active/mem-77-provider-backend/verification.md#implementation-and-controlled-evidence--2026-09-11). The [staging runbook](../runbooks/ci-cd.md#managed-inference-operations) owns protected prerequisites and cleanup. No staging/model workload is launched while available host RAM is below the declared floor; re-measure after restoring Docker rather than reusing the pre-engine-loss snapshot. Denied SSH and absent target/operator authorization remain blockers. All [A1–A20 acceptance gates](../increments/active/mem-77-provider-backend/plan.md#acceptance-checklist), including real API/model, load/co-load, rotation and compatible rollback, remain independently required.
+
+## Citation and evidence presentation (MEM-87)
+
+| Contract | Evidence |
+| --- | --- |
+| Source presentation metadata is optional for history, forbidden on Web sources, Drive URL shape validated | `ChatSource` compact constructor; `chat-evidence.ts` schema |
+| File-type/provider icon mapping, provider labels, decorative icon | `document-source-icon.test.tsx` |
+| Provenance pages, boxes, sheet names, malformed input, PDF box mapping and rotated pages | `source-provenance.test.ts` |
+| Citation original PDF authority before/after storage open, magic bytes, size, closing rejected streams | `DocumentOriginalServiceTest` |
+| Only an actor-readable active mapping's current PDF version that produced the Document is served; provider file id is read | `SourceOriginalPdfQueryTest` |
+| Sources saved before presentation metadata read with null media type, empty source types and no provider URL | `ChatSourceLegacyJsonTest` |
+| Sources stack one icon per document kind; Web icons fall back to a globe in stacks and to nothing on citation chips | `sources.test.tsx` |
+| Chip, preview meta, provider name as the Drive link, PDF tabs (`aria-selected`) and highlighted regions in the real browser; fixture boxes are the glyph extents pdf.js reports for `cited-handbook.pdf`, not invented rectangles | `chat.spec.ts` grounded citation case |

@@ -147,6 +147,45 @@ class SearchIndexWorkIntegrationTest {
     }
 
     @Test
+    void replacementKeepsThePreviousGenerationSearchableUntilTheNewOneIsReady() {
+        var document = publish(null);
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+            var served = generation(document);
+            publish(document);
+            var replacement = generation(document);
+            assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "Publishing a replacement must not hide the served generation");
+            assertEquals(Map.of(document.value(), served), chunks.currentGenerations(tenant, List.of(document.value()), IDENTITY));
+            assertEquals(Map.of(document.value(), java.util.Set.of(served, replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
+
+            var source = mapToFileSource(document);
+            tx.executeWithoutResult(_ -> work.enqueueSourceAccess(tenant, source, IDENTITY));
+            assertEquals(served, jdbc.sql("SELECT generation FROM search_index_operations WHERE action='ACCESS'").query(UUID.class).single(),
+                    "Access changes during a rewrite refresh the generation still being served");
+            jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP + INTERVAL '1' HOUR WHERE action='ACCESS'").update();
+
+            var attempts = new java.util.concurrent.atomic.AtomicInteger();
+            doAnswer(_ -> {
+                assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "A claimed rewrite must keep serving the previous generation");
+                if (attempts.getAndIncrement() == 0) throw new SearchUnavailableException();
+                return null;
+            }).when(index).index(any());
+            assertEquals(IngestionCoordinator.Outcome.FAILED, coordinator.process(delivery()));
+            assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "A failed rewrite must keep serving the previous generation");
+            assertEquals("SEARCH_INDEX_FAILED", jdbc.sql("SELECT search_error_code FROM documents").query(String.class).single());
+
+            jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE action='INDEX' AND generation=:generation")
+                    .param("generation", replacement).update();
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+            assertTrue(chunks.isCurrent(tenant, document, replacement, IDENTITY));
+            assertFalse(chunks.isCurrent(tenant, document, served, IDENTITY));
+            assertEquals(Map.of(document.value(), java.util.Set.of(replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
+        }
+        verify(index, times(2)).purgeObsolete(tenant, document);
+    }
+
+    @Test
     void providerFailureRetainsRetryAndAnExpiredClaimCannotComplete() {
         var document = publish(null);
         doThrow(new SearchUnavailableException()).when(index).index(any());

@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
+    "all-blob-reports/**",
+    "blob-report/**",
     "coverage/**",
     "dist/**",
     "playwright-report/**",

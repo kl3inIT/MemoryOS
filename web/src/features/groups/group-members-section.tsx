@@ -8,9 +8,11 @@ import {
   CirclePlus,
   LoaderCircle,
   Search,
+  ShieldUser,
+  User,
+  Users,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { OnyxUserIcon, OnyxUsersIcon, OnyxUserShieldIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
@@ -27,6 +29,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupMember, GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { can } from "@/lib/resource-permissions";
 
 type GroupMembersSectionProps = {
   group: GroupSummary;
@@ -60,7 +63,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
       path: { groupId: group.id },
       query: { search: candidateSearch || undefined, page: candidatePage, size: 10 },
     }),
-    enabled: adding && group.actions.includes("manage_members"),
+    enabled: adding && can(group, "manageMembers"),
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -68,8 +71,8 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
   const removeMember = useMutation(removeGroupMemberMutation());
   const assignManager = useMutation(assignGroupManagerMutation());
   const removeManager = useMutation(removeGroupManagerMutation());
-  const canManageMembers = group.actions.includes("manage_members");
-  const canManageManagers = group.actions.includes("manage_managers");
+  const canManageMembers = can(group, "manageMembers");
+  const canManageManagers = can(group, "manage");
   const [previousAuthority, setPreviousAuthority] = useState(() => ({
     canManageMembers,
     canManageManagers,
@@ -405,7 +408,7 @@ export function GroupMembersSection({ group, onAuthorityChanged }: GroupMembersS
                                       v2: name,
                                     })}
                                   >
-                                    <OnyxUserShieldIcon />
+                                    <ShieldUser />
                                   </IconButton>
                                 }
                                 title={ui(
@@ -505,7 +508,7 @@ function MemberAccount({ member }: { member: GroupMember }) {
 
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 font-main-ui-body text-content-secondary">
-      <OnyxUserIcon className="size-4 text-content-muted" aria-hidden="true" />
+      <User className="size-4 text-content-muted" aria-hidden="true" />
       {member.accountType === "STANDARD" ? ui("Standard") : member.accountType}
     </span>
   );
@@ -541,7 +544,7 @@ function InlineError({ label, onRetry }: { label: string; onRetry: () => void })
 function EmptyRows({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center">
-      <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+      <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
       <p className="mt-2 font-main-ui-action text-content-primary">{title}</p>
       <p className="mt-1 font-secondary-body text-content-muted">{detail}</p>
     </div>

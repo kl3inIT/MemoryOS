@@ -165,6 +165,33 @@ public class JdbcSourceItemRepository {
                         r.getObject("version_id", UUID.class), false)).optional();
     }
 
+    /**
+     * Finds the current version whose adopted bytes and filename equal a re-read file under the same scope and
+     * credential revisions, and records the newer provider version in place. A provider version also advances for
+     * sharing or metadata changes, which must not create a new input version or re-extraction.
+     */
+    public java.util.Optional<ItemVersion> sameContent(io.memoryos.connector.ConnectorSyncPort.Work work, String fileId,
+            String contentSha256, String filename, String providerVersion) {
+        var current = jdbcClient.sql("""
+                SELECT i.id, v.id AS version_id FROM connector_items i
+                JOIN connector_credential_pairs p ON p.tenant_id = i.tenant_id AND p.connector_id = i.connector_id
+                JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
+                WHERE p.tenant_id = :tenant AND p.id = :source AND i.provider_file_id = :file
+                  AND i.status <> 'DELETING' AND v.content_sha256 = :sha AND v.filename = :filename
+                  AND v.scope_revision = :scope AND v.credential_revision = :credential
+                FOR UPDATE OF v
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                .param("file", fileId).param("sha", contentSha256).param("filename", filename)
+                .param("scope", work.scopeRevision()).param("credential", work.credentialRevision())
+                .query((r, _) -> new ItemVersion(new SourceItemId(r.getObject("id", UUID.class)),
+                        r.getObject("version_id", UUID.class), false)).optional();
+        current.ifPresent(version -> jdbcClient.sql(
+                        "UPDATE connector_item_versions SET provider_version = :providerVersion WHERE tenant_id = :tenant AND id = :id")
+                .param("providerVersion", providerVersion).param("tenant", work.tenantId().value())
+                .param("id", version.versionId()).update());
+        return current;
+    }
+
     public ItemVersion acceptRemote(io.memoryos.connector.ConnectorSyncPort.Work work,
             JdbcSourceRepository.SourcePair pair, StoredObjectReference object,
             io.memoryos.connector.SourceInputDescriptor input) {

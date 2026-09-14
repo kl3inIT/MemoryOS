@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.concurrent.Callable;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -411,11 +412,11 @@ public class OpenSearchIndexService implements SearchIndex {
         }
         var deletes = new StringBuilder();
         for (var entry : byTenant.entrySet()) {
-            var current = documents.currentGenerations(entry.getKey(), entry.getValue().stream()
-                    .map(s -> UUID.fromString(s.path("document_id").asString())).distinct().toList(), "");
+            var retained = documents.retainedGenerations(entry.getKey(), entry.getValue().stream()
+                    .map(s -> UUID.fromString(s.path("document_id").asString())).distinct().toList());
             for (var source : entry.getValue()) {
-                var generation = current.get(UUID.fromString(source.path("document_id").asString()));
-                if (generation == null || !generation.toString().equals(source.path("generation").asString())) {
+                var generations = retained.getOrDefault(UUID.fromString(source.path("document_id").asString()), Set.of());
+                if (!generations.contains(UUID.fromString(source.path("generation").asString()))) {
                     deletes.append(mapper.writeValueAsString(Map.of("delete", Map.of("_id", source.path("chunk_key").asString())))).append('\n');
                 }
             }
@@ -434,10 +435,31 @@ public class OpenSearchIndexService implements SearchIndex {
     @Override
     public void delete(TenantId tenant, DocumentId document) {
         if (!gateway.exists("/" + identity)) return;
-        List<Object> filters = List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()));
+        deleteMatching(documentFilter(tenant, document));
+    }
+
+    /** Deletes by ID the document's chunks of generations that are neither served nor being indexed. */
+    @Override
+    public void purgeObsolete(TenantId tenant, DocumentId document) {
+        if (!gateway.exists("/" + identity)) return;
+        var retained = documents.retainedGenerations(tenant, List.of(document.value())).getOrDefault(document.value(), Set.of());
+        var query = documentFilter(tenant, document);
+        if (!retained.isEmpty()) {
+            query.put("must_not", List.of(Map.of("terms", Map.of("generation", retained.stream().map(UUID::toString).toList()))));
+        }
+        deleteMatching(query);
+    }
+
+    private static Map<String, Object> documentFilter(TenantId tenant, DocumentId document) {
+        var query = new HashMap<String, Object>();
+        query.put("filter", List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString())));
+        return query;
+    }
+
+    private void deleteMatching(Map<String, Object> bool) {
         for (int round = 0; round < 100; round++) {
             var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 1000, "_source", false,
-                    "query", Map.of("bool", Map.of("filter", filters)))).path("hits").path("hits");
+                    "query", Map.of("bool", bool))).path("hits").path("hits");
             if (hits.isEmpty()) return;
             var body = new StringBuilder();
             for (var hit : hits) {

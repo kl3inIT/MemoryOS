@@ -1,9 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { CirclePlus, Search, SearchX, WifiOff } from "lucide-react";
+import { CirclePlus, Search, SearchX, Users, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -81,7 +80,7 @@ export function GroupsPage() {
     <section className="groups-list-page min-h-full px-5 py-12 sm:px-8">
       <div className="mx-auto w-full max-w-[840px]">
         <header className="border-b border-border-subtle pb-6">
-          <OnyxUsersIcon className="size-8 text-content-secondary" aria-hidden="true" />
+          <Users className="size-8 text-content-secondary" aria-hidden="true" />
           <h1
             ref={headingRef}
             tabIndex={-1}
@@ -287,7 +286,7 @@ function GroupsEmpty({
       {filtered ? (
         <SearchX className="mx-auto size-5 text-content-muted" aria-hidden="true" />
       ) : (
-        <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+        <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
       )}
       <h2 className="mt-3 font-heading-h3 text-content-primary">
         {filtered ? ui("No groups found") : ui("No groups yet")}

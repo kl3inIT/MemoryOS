@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 
@@ -198,7 +199,7 @@ test("shows effective search queries, open time bounds and selected documents be
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toBeVisible();
   await expect(page.getByText(fixtureSource.title, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /1 source/i })).toHaveCount(0);
-  await page.screenshot({ path: "../.tmp/onyx-parity-search-progress.png", fullPage: true });
+  await page.screenshot({ path: "../.tmp/chat-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
 });
@@ -361,6 +362,32 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(panel).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+  await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
+  await expect(citation).toHaveAttribute("aria-current", "true");
+  await expect(panel).toContainText("Nguồn 1 · PDF · Google Drive · Trang 1");
+  await expect(
+    panel.getByRole("link", { name: "Mở Employee handbook trong Google Drive" }),
+  ).toHaveAttribute("href", fixtureSource.providerUrl!);
+  const originalReads: URL[] = [];
+  await page.route(`**/api/chat/documents/${fixtureSource.documentId}/original?*`, (route) => {
+    originalReads.push(new URL(route.request().url()));
+    return route.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      body: readFileSync(new URL("../fixtures/cited-handbook.pdf", import.meta.url)),
+    });
+  });
+  await panel.getByRole("tab", { name: "Trang PDF" }).click();
+  await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
+  await expect(panel.locator('[data-slot="pdf-citation-box"]')).toHaveCount(2);
+  expect(originalReads.map((url) => url.searchParams.get("generation"))).toEqual([
+    fixtureSource.generation,
+  ]);
+  await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
   await panel.getByRole("button", { name: "Phần trước" }).click();
   await expect(panel.getByRole("article").first()).toBeInViewport();
@@ -539,7 +566,7 @@ for (const mode of ["slow", "disconnect", "gap", "failed"]) {
   });
 }
 
-test("mobile drawer, Chat/Search mode, and leaving a running chat only closes the reader", async ({
+test("mobile drawer, Search navigation, and leaving a running chat only closes the reader", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -556,11 +583,12 @@ test("mobile drawer, Chat/Search mode, and leaving a running chat only closes th
   await expect(page.getByRole("banner")).toContainText("Mobile running");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
   const navigation = page.getByRole("dialog", { name: "Điều hướng MemoryOS" });
-  await expect(navigation.locator('a[href="/search"]')).toHaveCount(0);
-  await navigation.getByRole("link", { name: "Hội thoại mới" }).click();
-  await page.getByRole("button", { name: "Trò chuyện, chuyển chế độ" }).click();
-  await page.locator('a[href="/search"]').click();
+  await expect(page.getByRole("banner").getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(
+    0,
+  );
+  await navigation.getByRole("link", { name: "Tìm tài liệu", exact: true }).click();
   await expect(page).toHaveURL(/\/search$/);
+  await expect(navigation).toBeHidden();
   await expect
     .poll(
       async () =>
@@ -705,10 +733,10 @@ for (const mobile of [false, true]) {
     });
     await page.reload();
     await expect(page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" })).toHaveText(
-      "1. Employee handbook",
+      "1 · Employee handbook",
     );
     await expect(page.getByRole("button", { name: "Mở nguồn 2: Employee handbook" })).toHaveText(
-      "2. Employee handbook",
+      "2 · Employee handbook",
     );
     const trigger = page.getByRole("button", { name: "Nguồn 2", exact: true });
     await trigger.click();

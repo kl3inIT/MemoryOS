@@ -70,6 +70,10 @@
   --color-status-warning-content: var(--status-warning-content);
   --color-status-info-surface: var(--status-info-surface);
   --color-status-info-content: var(--status-info-content);
+  --color-evidence-highlight-surface: var(--evidence-highlight-surface);
+  --color-evidence-highlight-border: var(--evidence-highlight-border);
+  --color-pdf-highlight: var(--pdf-highlight);
+  --color-pdf-highlight-border: var(--pdf-highlight-border);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

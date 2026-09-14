@@ -79,7 +79,7 @@ public class JdbcSourceDocumentRepository {
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND p.status='ACTIVE' AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
+                    AND p.status IN ('ACTIVE','INDEXING') AND c.status='ACTIVE' AND %s AND d.status='ELIGIBLE'
                     AND %s
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("documents", documents).query(UUID.class).list());
@@ -90,7 +90,7 @@ public class JdbcSourceDocumentRepository {
         jdbcClient.sql("""
                 SELECT p.id,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                WHERE p.tenant_id=:tenant AND p.status IN ('ACTIVE','INDEXING')
                     AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY p.id
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value()).query((rs, _) -> {
@@ -136,7 +136,7 @@ public class JdbcSourceDocumentRepository {
         return jdbcClient.sql("""
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
-                WHERE p.tenant_id=:tenant AND p.status='ACTIVE'
+                WHERE p.tenant_id=:tenant AND p.status IN ('ACTIVE','INDEXING')
                     AND c.status='ACTIVE' AND %s AND %s
                 ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
@@ -153,16 +153,16 @@ public class JdbcSourceDocumentRepository {
         // Keep each source/item/date tuple together, including when a document has multiple mappings.
         jdbcClient.sql("""
                 SELECT m.document_id,p.id AS source_id,i.id AS item_id,c.connector_type,
-                    i.source_created_at,i.source_updated_at,d.metadata_json
+                    i.source_created_at,i.source_updated_at,i.provider_file_id,d.metadata_json
                 FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation)
+                    AND d.status='ELIGIBLE' AND (:anyGeneration OR d.content_generation=:generation OR d.searchable_generation=:generation)
                     AND c.status='ACTIVE' AND %s AND p.status<>'DELETING'
-                    AND (:indexing OR (p.status='ACTIVE' AND %s))
+                    AND (:indexing OR (p.status IN ('ACTIVE','INDEXING') AND %s))
                 ORDER BY m.document_id,p.id,i.id
                 """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("documents", ids).param("indexing", actor == null)
                 .param("actor", actor == null ? null : actor.value(), Types.OTHER)
@@ -173,11 +173,41 @@ public class JdbcSourceDocumentRepository {
                     var metadata = new DocumentSourceMetadata(rs.getObject("source_id", UUID.class),
                             rs.getObject("item_id", UUID.class), SourceType.valueOf(rs.getString("connector_type")),
                             created == null ? null : created.toInstant(), updated == null ? null : updated.toInstant(),
-                            authors(rs.getString("metadata_json")));
+                            authors(rs.getString("metadata_json")), rs.getString("provider_file_id"));
                     result.computeIfAbsent(rs.getObject("document_id", UUID.class), _ -> new ArrayList<>()).add(metadata);
                     return true;
                 }).list();
         return Map.copyOf(result);
+    }
+
+    /**
+     * Stored original PDF behind an actor-readable mapping whose current item version produced the Document's
+     * current source content. Other media types and stale versions have no original to serve.
+     */
+    public Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
+        return jdbcClient.sql("""
+                SELECT o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
+                FROM documents_by_connector_credential_pair m
+                JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
+                JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
+                JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
+                JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
+                JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id AND o.state='ACTIVE'
+                JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
+                WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
+                    AND d.status='ELIGIBLE' AND d.media_type='application/pdf'
+                    AND d.source_content_sha256=v.content_sha256
+                    AND c.status='ACTIVE' AND %s AND p.status='ACTIVE' AND %s
+                ORDER BY p.id,i.id
+                LIMIT 1
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("document", document)
+                .param("actor", actor.value())
+                .query((r, _) -> new io.memoryos.objectstorage.StoredObjectReference(
+                        new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
+                        new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
+                        new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
+                                new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))))
+                .optional();
     }
 
     private static List<String> authors(@Nullable String json) {

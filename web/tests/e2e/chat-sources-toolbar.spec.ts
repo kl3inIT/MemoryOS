@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { fixtureSource } from "../fixtures/chat-data";
 
 for (const width of [1440, 390]) {
-  test(`Onyx-style grouped sources keep the message panel at ${width}px`, async ({ page }) => {
+  test(`grouped sources keep the message panel at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.route("**/api/identity/me", (route) =>
@@ -74,7 +74,7 @@ for (const width of [1440, 390]) {
     const panel =
       width === 390 ? page.getByRole("dialog") : page.getByRole("complementary", { name: "Nguồn" });
     await expect(panel).toBeVisible();
-    await expect(panel.locator('[data-slot="document-reference"]')).toHaveCount(3);
+    await expect(panel.locator('[data-slot="source-row"]')).toHaveCount(3);
     await page.screenshot({ path: `../output/playwright/source-reference-list-${width}.png` });
     await panel.getByRole("button", { name: "Đọc nguồn 2: Web 2" }).click();
     await expect(panel).toContainText("Nội dung nguồn Web đã lưu.");

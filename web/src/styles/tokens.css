@@ -168,6 +168,11 @@
   --status-warning-content: #b54204;
   --status-info-surface: #e7effc;
   --status-info-content: #245fda;
+  /* Cited evidence: passage highlight per theme; the PDF highlighter multiplies onto an always-white page. */
+  --evidence-highlight-surface: #fff6d1;
+  --evidence-highlight-border: #e0a100;
+  --pdf-highlight: #ffd24d;
+  --pdf-highlight-border: #d99a00;
 
   --elevation-1: 0 1px 2px #0000000d;
   --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
@@ -255,6 +260,8 @@
   --status-warning-content: #fb945d;
   --status-info-surface: #091938;
   --status-info-content: #8cb4ff;
+  --evidence-highlight-surface: #3a2f05;
+  --evidence-highlight-border: #b88600;
 
   --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);
   --elevation-2: 0 1px 2px oklch(0 0 0 / 0.22), 0 12px 32px oklch(0 0 0 / 0.28);

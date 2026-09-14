@@ -182,10 +182,22 @@ find_mapper_uuid() {
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
+require_memoryos_theme() {
+    theme_count=$("$KCADM" get serverinfo \
+        --config "$CONFIG_FILE" |
+        jq -r '[.themes.login[]? | select(.name == "memoryos")] | length')
+    if [ "$theme_count" -ne 1 ]; then
+        echo "MemoryOS login theme is not available to Keycloak" >&2
+        exit 1
+    fi
+    echo "theme=memoryos type=login action=available"
+}
+
 configure_realm() {
     jq -cn '{
         displayName: "MemoryOS",
         displayNameHtml: "MemoryOS",
+        loginTheme: "memoryos",
         registrationAllowed: false,
         registrationEmailAsUsername: true,
         loginWithEmailAllowed: true,
@@ -210,7 +222,15 @@ configure_realm() {
         "$KCADM" update "realms/$TARGET_REALM" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
-    echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
+    configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
+        --config "$CONFIG_FILE" \
+        --fields loginTheme |
+        jq -r '.loginTheme // empty')
+    if [ "$configured_theme" != "memoryos" ]; then
+        echo "MemoryOS realm login theme did not converge" >&2
+        exit 1
+    fi
+    echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=updated"
 }
 
 configure_provisioning_profile() {
@@ -231,6 +251,7 @@ configure_provisioning_profile() {
     echo "realm=$TARGET_REALM provisioning-provenance=admin-only"
 }
 
+require_memoryos_theme
 configure_realm
 configure_provisioning_profile
 
@@ -524,17 +545,23 @@ fi
     --uid "$SERVICE_ACCOUNT_ID" \
     --cclientid realm-management \
     --rolename manage-users >/dev/null
+"$KCADM" add-roles \
+    --config "$CONFIG_FILE" \
+    -r "$TARGET_REALM" \
+    --uid "$SERVICE_ACCOUNT_ID" \
+    --cclientid realm-management \
+    --rolename manage-identity-providers >/dev/null
 PROVISIONER_ROLES=$("$KCADM" get \
     "users/$SERVICE_ACCOUNT_ID/role-mappings/clients/$REALM_MANAGEMENT_UUID" \
     --config "$CONFIG_FILE" \
     -r "$TARGET_REALM" \
     --fields name |
     jq -cS '[.[].name] | sort')
-if [ "$PROVISIONER_ROLES" != '["manage-users"]' ]; then
-    echo "memoryos-user-provisioner must have only realm-management manage-users" >&2
+if [ "$PROVISIONER_ROLES" != '["manage-identity-providers","manage-users"]' ]; then
+    echo "memoryos-user-provisioner must have only realm-management manage-users and manage-identity-providers" >&2
     exit 1
 fi
-echo "client=memoryos-user-provisioner secret=updated roles=manage-users"
+echo "client=memoryos-user-provisioner secret=updated roles=manage-users,manage-identity-providers"
 
 upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
