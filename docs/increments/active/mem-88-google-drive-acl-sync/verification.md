@@ -143,7 +143,7 @@ Web: `check:i18n`, oxlint and oxfmt passed for the changed `source-errors.ts` an
 
 Merged `origin/main` at `1b23118e`. Git conflicts in `JdbcSourceItemRepository`, the connector spec and `source-detail-page.tsx` imports were resolved by hand; the hey-api client was regenerated from the merged `openapi.yml`.
 
-- **Same-content re-synchronization.** Main's `b9b800af` and this branch both handled a provider version that advances while bytes stay identical, with contradictory contracts. At the user's direction main's rule is kept: the current version's provider version is refreshed in place. The branch's pre-staging `unchangedBinary` path was removed, and its ACL test now expects provider version `2` and one adopted object write, because main's path stages and then discards the duplicate write. `content_provider_version` now always equals the refreshed version for new observations; the column and the `unchanged()` fallback remain and can be removed in a follow-up.
+- **Same-content re-synchronization.** Main's `b9b800af` and this branch both handled a provider version that advances while bytes stay identical, with contradictory contracts. At the user's direction main's rule is kept: the current version's provider version is refreshed in place. The branch's pre-staging `unchangedBinary` path was removed, and its ACL test now expects provider version `2` and one adopted object write, because main's path stages and then discards the duplicate write. `content_provider_version` now always equals the refreshed version for new observations; the column and the `unchanged()` fallback were later removed from V54 before merge ([MEM-104](https://linear.app/memory-os/issue/MEM-104), see [below](#redundant-content-version-removal--2026-09-14)).
 - **Signature drift.** Main's new test used the two-argument `ConnectorIndexingPort.fail`; it now uses this branch's four-argument form.
 - **Migration numbering.** Main's `V53__jit_allowed_provider` collided with the branch's V53. The branch-only migrations are now V54 (ACL snapshots) and V55 (run error messages). A local database that applied the old branch V53/V54 fails Flyway validation and must be recreated; no deployed environment applied them.
 
@@ -203,3 +203,10 @@ The inspector tab, panel, its 68 panel-only translations, both ACL endpoints and
 - `PostgresGoogleDriveSyncTest` 46/46, `PostgresGoogleDriveAclRepositoryTest` 19/19, `SourceApiIntegrationTest` 25/25 and `OpenApiContractTest` passed; worker test sources compile.
 - `pnpm check` passed: contract stability, i18n audit (0 findings), lint, format, typecheck, 236 unit tests, route/build.
 - The full `clean check` gate was not rerun locally for this change; CI runs it on the pull request.
+
+## Redundant content version removal — 2026-09-14
+
+[MEM-104](https://linear.app/memory-os/issue/MEM-104): same-content re-synchronization already refreshes the current version's `provider_version` in place, so `google_drive_membership.content_provider_version` and the `unchanged()` fallback that read it were redundant. V54 no longer adds the column; `observe` has one four-argument form, `unchanged()` matches the current version's provider version exactly and `releaseConfirmed` compares it with `m.provider_version`. V54 is unreleased, so it was edited in place; a local database that already applied the earlier V54 must be recreated (Flyway checksum).
+
+- `:core:compileTestJava`, `:api:compileTestJava` and `:worker:compileTestJava` passed.
+- `PostgresGoogleDriveSyncTest` 46/46 (including unchanged, same-content and lost-access paths), `PostgresSourceRunHistoryTest` 13/13 and `PostgresGoogleDriveAclRepositoryTest` 19/19 passed.

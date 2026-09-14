@@ -54,3 +54,8 @@ See [design](design.md#acl-inspector-removal--approved-2026-09-14).
 - [x] Remove the Permissions tab, panel, translations, ACL HTTP endpoints, contract/OpenAPI/client and the inspector-only service and repository listing; keep collection, `readByDocument`, the change event and per-file `read`.
 - [x] Update the connector spec, architecture, README, roadmap, test matrix and dependent increments.
 - [x] Run the affected backend suites and web checks; record the result in [verification](verification.md#acl-inspector-removal--2026-09-14).
+
+## Redundant content version removal (MEM-104)
+
+- [x] Drop `google_drive_membership.content_provider_version` from V54 before merge, with the `unchanged()` fallback, the five-argument `observe` and the `releaseConfirmed` COALESCE.
+- [x] Run the connector suites and record the result in [verification](verification.md#redundant-content-version-removal--2026-09-14).
