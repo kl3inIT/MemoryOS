@@ -1,6 +1,15 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Menu, PanelLeftClose, PanelLeftOpen, Plug, Settings2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Globe,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plug,
+  Settings2,
+  X,
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
@@ -14,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { ChatModeMenu, ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups";
+export type AdminPage = "sources" | "users" | "groups" | "web";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -94,8 +103,14 @@ function SidebarContents({
   const ui = useAppTranslation();
 
   const appArea = area === "app";
-  const { canManageUsers, canReadGroups, canReadSources, canAccessAdmin, adminEntryPath } =
-    useAdminAccess();
+  const {
+    canManageUsers,
+    canReadGroups,
+    canReadSources,
+    canManageModels,
+    canAccessAdmin,
+    adminEntryPath,
+  } = useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col pb-2">
@@ -207,6 +222,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Sources")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageModels ? (
+              <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/settings/web"
+                  icon={<Globe className="size-4" />}
+                  selected={adminPage === "web"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Tìm kiếm Web")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

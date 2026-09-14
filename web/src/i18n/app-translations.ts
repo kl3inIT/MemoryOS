@@ -450,6 +450,7 @@ export const englishUi: Record<string, string> = {
   Groups: "Nhóm",
   Knowledge: "Tri thức",
   Sources: "Nguồn dữ liệu",
+  Configuration: "Cấu hình",
   "Exit Connector Setup": "Thoát thiết lập kết nối",
   "Back to MemoryOS": "Về MemoryOS",
   "Admin Panel": "Quản trị",
