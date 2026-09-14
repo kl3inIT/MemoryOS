@@ -43,5 +43,6 @@ See [design](design.md#acceptance-gap-closure--approved-2026-09-14).
 - [x] Add the handoff snapshot example and state interpretation to the connector spec.
 - [x] Document the consumer read API and change event with a payload example; answer the enforcement owner's questions on MEM-88.
 - [ ] Record MEM-93 confirmation of the handoff contract.
-- [ ] Run the live owned-fixture sharing sequence with the user and record evidence.
+- [x] Run the live owned-fixture sharing sequence with the user and record evidence.
+- [ ] Observe a file shared to the connected account by another owner; no such fixture exists yet.
 - [x] Run the repository gate and web checks; update verification and connector test matrix.

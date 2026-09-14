@@ -160,3 +160,28 @@ Merged `origin/main` at `1b23118e`. Git conflicts in `JdbcSourceItemRepository`,
 The skips are unchanged from the previous gate. The full web `pnpm check` then passed: contract generation, i18n, lint, format, typecheck, 223 unit tests in 41 files, and route/build. Playwright browser suites were not rerun after the merge.
 
 After the gate, the consumer read API gained its first test: `readByDocument` returns the mapped file's snapshot and nothing for a foreign Tenant or unknown Document. `PostgresGoogleDriveSyncTest` then passed 46 of 46 without skips.
+
+## Live Google sharing evidence — 2026-09-14
+
+Local runtime from this branch: API, Worker and Vite web on a fresh Arconia PostgreSQL at V55, connected through the real Google OAuth flow with the user's own account and `drive.readonly`. The Source used Specific scope on a user-owned fixture folder of twelve small files (text, CSV, DOCX, XLSX, PPTX, PDF). The user made every sharing change on that folder in Google Drive. After each change, Sync now was triggered in the Orca browser, and the database and inspector API were read. E-mail addresses were compared in SQL and never printed or recorded.
+
+At baseline the folder held an owner and two direct writers. Every file carried the same three entries with `permissionDetails[0].inherited = true` and no `inheritedFrom`, which is the My Drive behaviour the spec warns about. One writer's folder permission was then changed:
+
+| Step | Revision (folder and 12 files) | That principal on 13 of 13 items | Inspector |
+| --- | ---: | --- | --- |
+| Re-observation without change | 3 | writer | CURRENT, 3 permissions |
+| Writer → reader | 4 | reader | CURRENT, 3 |
+| Removed | 5 | absent | CURRENT, 2 |
+| Re-added as reader | 6 | reader | CURRENT, 3 |
+| Reader → writer, restoring the original sharing | 7 | writer | CURRENT, 3 |
+
+Every run SUCCEEDED. Each change replaced the folder's direct permission and every file's inherited permission with a complete new snapshot. The revocation produced a successful two-entry snapshot, not a failure and not a retained grant. The same inspector response listed five snapshots from an earlier selection of another folder as INVALID after the user replaced the Source selection; their payloads were retained.
+
+That earlier selection was a folder of real financial-report PDFs. Its permissions were only read, its run was superseded by the fixture selection, and no permission on those files was changed.
+
+Not shown live:
+
+- `GoogleDriveAclChanged` delivery. No runtime listener exists yet; `PostgresGoogleDriveSyncTest` covers it.
+- Group, domain and `anyone` principals, and expiration.
+- Missing-scope and unreadable-sharing 403s, which are covered by controlled fixtures only.
+- A file shared to the connected account by another owner: every file in the chosen folders is owned by the connected account.
