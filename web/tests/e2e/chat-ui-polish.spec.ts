@@ -104,7 +104,7 @@ for (const width of [1440, 390]) {
     }
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     const reader = page.getByRole("region", { name: "Trình đọc trang Web", exact: true });
-    await expect(search.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(6);
+    await expect(search.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(7);
     await expect(reader.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(3);
     await expect(reader).toContainText("Trình đọc MemoryOS");
     await page.screenshot({ path: `../output/playwright/web-settings-search-${width}.png` });

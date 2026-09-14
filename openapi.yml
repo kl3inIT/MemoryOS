@@ -289,6 +289,7 @@ paths:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
       requestBody:
         content:
@@ -3252,6 +3253,7 @@ paths:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
       requestBody:
         content:
@@ -7307,6 +7309,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
     WebConnectionRequest:
       type: object
@@ -7349,6 +7352,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         endpoint:
           type: string
@@ -10102,6 +10106,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         contentProvider:
           type: string
@@ -10112,6 +10117,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         automaticModelIds:
           type: array

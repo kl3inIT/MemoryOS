@@ -88,6 +88,8 @@ export const vietnameseUi: Record<string, string> = {
     "Could not update the Web connection. Reload and try again.",
   "Đang dùng để tìm kiếm": "Current search provider",
   "Đang dùng để đọc trang": "Current content provider",
+  "Địa chỉ 9Router": "9Router address",
+  "Engine tìm kiếm": "Search engine",
   "Địa chỉ SearXNG": "SearXNG address",
   "Mã công cụ tìm kiếm": "Search engine ID",
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",

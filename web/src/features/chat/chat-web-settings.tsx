@@ -39,6 +39,7 @@ const providers = [
   "SERPER",
   "GOOGLE_PSE",
   "SEARXNG",
+  "NINEROUTER",
   "FIRECRAWL",
 ] as const;
 const names = {
@@ -48,6 +49,7 @@ const names = {
   SERPER: "Serper",
   GOOGLE_PSE: "Google PSE",
   SEARXNG: "SearXNG",
+  NINEROUTER: "9Router",
   FIRECRAWL: "Firecrawl",
 };
 type Provider = (typeof providers)[number];
@@ -61,9 +63,18 @@ const providerDetails = {
     endpoint: "https://customsearch.googleapis.com",
   },
   SEARXNG: { description: "searxng.org", endpoint: "" },
+  NINEROUTER: { description: "9router.com", endpoint: "" },
   FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
 };
-const searchProviders: Provider[] = ["EXA", "SERPER", "BRAVE", "GOOGLE_PSE", "SEARXNG", "TAVILY"];
+const searchProviders: Provider[] = [
+  "EXA",
+  "SERPER",
+  "BRAVE",
+  "GOOGLE_PSE",
+  "SEARXNG",
+  "NINEROUTER",
+  "TAVILY",
+];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
 
 export function ChatWebSettings() {
@@ -374,19 +385,36 @@ function ConnectionCard({
                   <span>
                     {provider === "SEARXNG"
                       ? ui("Địa chỉ SearXNG")
-                      : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
+                      : provider === "NINEROUTER"
+                        ? ui("Địa chỉ 9Router")
+                        : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
                   </span>
                   <Input
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
-                    required={provider === "SEARXNG"}
+                    required={provider === "SEARXNG" || provider === "NINEROUTER"}
                     maxLength={2048}
-                    placeholder={providerDetails[provider].endpoint || "https://searx.example.com"}
+                    placeholder={
+                      provider === "NINEROUTER"
+                        ? "https://9router.example.com/v1"
+                        : providerDetails[provider].endpoint || "https://searx.example.com"
+                    }
                   />
                 </label>
                 {provider === "GOOGLE_PSE" && (
                   <label className="block space-y-1">
                     <span>{ui("Mã công cụ tìm kiếm")}</span>
+                    <Input
+                      value={engineId}
+                      onChange={(e) => setEngineId(e.target.value)}
+                      required
+                      maxLength={200}
+                    />
+                  </label>
+                )}
+                {provider === "NINEROUTER" && (
+                  <label className="block space-y-1">
+                    <span>{ui("Engine tìm kiếm")}</span>
                     <Input
                       value={engineId}
                       onChange={(e) => setEngineId(e.target.value)}
