@@ -119,6 +119,7 @@ export const en = {
     sessionFailed: "We couldn’t confirm your session.",
     sessionFailedDescription: "Your data is unchanged. Check the MemoryOS service and try again.",
     opening: "Opening MemoryOS",
+    redirecting: "Redirecting to sign in",
     backgroundFailed: "Couldn’t refresh your session. Showing your existing workspace.",
   },
   settings: {

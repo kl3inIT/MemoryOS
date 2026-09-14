@@ -31,6 +31,8 @@ When a bearer token accompanies a browser cookie, the bearer determines that req
 
 Application membership/Group revocation and provider session revocation are separate contracts. Current local JWT validation does not introspect Keycloak, and Actor-only browser sessions do not implement incoming OIDC logout. Application-initiated logout invalidates the local session and returns the provider logout location; this does not establish propagation from Keycloak or an upstream IdP. The configured session timeout defaults to 30 minutes of inactivity, not an absolute authentication lifetime.
 
+The browser application treats a `401` from `GET /api/identity/me` as signed out and navigates to `/oauth2/authorization/memoryos` as soon as the boot splash has finished, without an intermediate sign-in screen; because logout returns to `/`, a completed logout lands on the provider login. If the tab is still signed out within 30 seconds of its own redirect, it offers a manual sign-in action instead of redirecting again, and a confirmed identity clears that guard.
+
 `GET /api/identity/me` returns one repeatable-read IAM presentation/authority projection. For example, an admitted Basic member with an additional explicit `GROUPS_MANAGE` grant:
 
 ```json

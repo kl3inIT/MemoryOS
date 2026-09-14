@@ -43,6 +43,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat history search](docs/increments/active/chat-history-search/design.md) owns owner-authorized full-history conversation search.
 - [Chat model selector polish](docs/increments/active/chat-model-selector-polish/design.md) owns inherited-default marking and model identity display; plan items remain open.
 - [Chat ThreadList runtime](docs/increments/active/chat-thread-list-runtime/design.md) owns the assistant-ui remote thread list migration of the Chat sidebar and conversation lifecycle.
+- [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash, the looping brand loader and the signed-out redirect to Keycloak.
 - [MEM-87 — Citation and evidence UX](docs/increments/active/mem-87-citation-evidence-ux/design.md) owns source icons, citation previews, Google Drive links and the cited PDF page view in Chat and Search.
 - [MEM-95 — Keycloak identity provider administration](docs/increments/active/mem-95-idp-admin/design.md) owns the SYSTEM_ADMIN IdP management API and the runtime-managed JIT allowlist; the admin UI is a follow-up.
 
