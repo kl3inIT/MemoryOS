@@ -146,6 +146,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
 | Explicit validation hides provider exceptions and handles trailing usage frames | `defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors` |
+| Reported models list the provider endpoint's own names, deduplicated and sorted, carry the stored credential, and stay behind `MODELS_MANAGE` | `reportedModelsListsWhatTheProviderEndpointServes` (local `/v1/models` fixture) |
 
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 

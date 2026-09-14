@@ -247,6 +247,13 @@ pnpm --dir web test:e2e
 
 Regenerate the backend snapshot using `MEMORYOS_OPENAPI_WRITE=true` and `:api:test --tests "*OpenApiContractTest*"`, unset the write flag, run the contract test again, then `pnpm --dir web generate:api`; use the exact procedure in the [README](../../../../README.md#refresh-the-generated-api-contract).
 
+### Catalog administration integration — PR #147
+
+- [x] Add `GET /api/chat/providers/{providerId}/reported-models` behind `MODELS_MANAGE`: the adapter SPI gains `reportedModels`, the OpenAI adapter lists through its SDK with the configured deadline and zero retries, `ModelCatalogService.providerConnection` reads endpoint and decrypted credential in its own transaction, `ChatModelResolver` performs the provider call outside it, and a failure reports unavailability without the provider payload. Verified by `reportedModelsListsWhatTheProviderEndpointServes` against a local `/v1/models` fixture.
+- [x] Add reported-model selection to `/admin/models`: bulk creation using the installed catalog's declared limits, capabilities and prices, already-configured names marked, an undeclared reported name routed to the manual form with its name prefilled.
+- [x] Show declared specs read-only behind an override disclosure in the model dialog, keep typed fields for an undeclared model, and clear the previously declared limits/capabilities/prices when the API name changes.
+- [x] Remove the duplicated Persona default block from the catalog page; the Persona editor already owns the per-Persona override, so its eligibility helper and the picker's inherit affordance are removed with it.
+
 ## Acceptance checklist
 
 | ID | Required observable result | Owning phase / evidence boundary |
