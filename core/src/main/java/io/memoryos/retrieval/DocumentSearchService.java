@@ -146,18 +146,18 @@ public class DocumentSearchService {
         return read(actor, IamCapability.SEARCH_READ, id, generation, from);
     }
 
-    /** Chat citation reader: requires CHAT_READ instead of SEARCH_READ; document eligibility is unchanged. */
+    /** Chat citation reader: Basic access (active membership) plus current document eligibility; no capability token. */
     public SearchDocument citation(ActorId actor, UUID id, UUID generation, int from) {
-        return read(actor, IamCapability.CHAT_READ, id, generation, from);
+        return read(actor, null, id, generation, from);
     }
 
     private SearchDocument read(ActorId actor, IamCapability capability, UUID id, UUID generation, int from) {
         if (from < 0 || from > 9999) throw new SearchRequestException();
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
-        authorization.require(actor, capability, false);
+        if (capability != null) authorization.require(actor, capability, false);
         requireDocumentAccess(actor, tenant, id, generation);
         var result = search.document(tenant, id, generation, from, 20);
-        requireSearchAccess(actor, tenant, capability);
+        if (capability != null) requireSearchAccess(actor, tenant, capability);
         requireDocumentAccess(actor, tenant, id, generation);
         return result;
     }

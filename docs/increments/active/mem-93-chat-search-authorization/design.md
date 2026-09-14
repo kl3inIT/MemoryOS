@@ -14,15 +14,16 @@ Enforce the Basic child capabilities that Chat carried only as vocabulary, and m
 | Create conversation (plain, workspace, project), send, edit, regenerate, stop | `CHAT_WRITE` + existing ownership checks |
 | Rename, generated title, delete, select branch, Persona/Project/settings changes, sharing toggle, Projects/Personas CRUD | Active membership + ownership (Basic in the reference) |
 | Feedback read/write | Active membership + ownership |
-| Search and document passage reads | `SEARCH_READ` (unchanged) |
+| Direct Search page and its passage reads | `SEARCH_READ` (unchanged) |
+| Chat Search tool and citation passage reads | Active membership + Source/document eligibility (Basic in the reference; no capability token) |
 
-Checks run in the application services at the lowest shared entry, before ownership lookup and the per-session command lock. A capability denial is `403 IAM_ACCESS_DENIED`; an unowned or missing conversation stays `404 CHAT_UNAVAILABLE`. The Chat Search tool keeps its existing `SEARCH_READ` check inside `DocumentSearchService`; in the reference the Chat tool is not gated separately, which is a later alignment decision, not part of this change.
+Checks run in the application services at the lowest shared entry, before ownership lookup and the per-session command lock. A capability denial is `403 IAM_ACCESS_DENIED`; an unowned or missing conversation stays `404 CHAT_UNAVAILABLE`. The Chat Search tool is not gated by a capability, as in the reference: `SourceSearchService.scope` and `DocumentSearchService.ranked` check only active membership and Source/document eligibility.
 
 The UI is not locked. Hiding actions from per-resource permission maps is split into MEM-94.
 
 ## Citation reads
 
-The Chat source panel read passages through `/api/search/documents/{id}`, which requires `SEARCH_READ`. It now uses `GET /api/chat/documents/{documentId}?generation&from` (`readChatDocumentPassages`), which requires `CHAT_READ` and applies the same document eligibility and generation checks before and after the index read (`DocumentSearchService.citation`). The Search page keeps `/api/search/documents`. Owner-private file citations keep `/api/chat/files/{fileId}/passages`.
+The Chat source panel read passages through `/api/search/documents/{id}`, which requires `SEARCH_READ`. It now uses `GET /api/chat/documents/{documentId}?generation&from` (`readChatDocumentPassages`), which needs only Basic access (active membership, as the reference's document chunk endpoints) and applies the same document eligibility and generation checks before and after the index read (`DocumentSearchService.citation`). The Search page keeps `/api/search/documents`. Owner-private file citations keep `/api/chat/files/{fileId}/passages`.
 
 ## Document access list
 

@@ -6028,7 +6028,7 @@ export type ReadChatDocumentPassagesErrors = {
      */
     401: unknown;
     /**
-     * CHAT_READ, Tenant membership or CSRF requirement not met
+     * Tenant membership or CSRF requirement not met
      */
     403: ApiProblem;
     /**
