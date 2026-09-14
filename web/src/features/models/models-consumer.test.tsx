@@ -59,7 +59,7 @@ const session: CurrentIdentity = {
   capabilities: ["MODELS_MANAGE"],
   scopedCapabilities: [],
   tenant: { displayName: "Manager", role: "MEMBER" },
-  uiLanguage: "vi",
+  uiLanguage: "en",
 };
 const personaId = "00000000-0000-0000-0000-000000000009";
 
@@ -380,7 +380,7 @@ describe("model manager authority", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const editProvider = await screen.findByRole("button", { name: "Edit provider" });
+    const editProvider = await screen.findByRole("button", { name: /Edit provider/ });
     await waitFor(() => expect(editProvider).toBeEnabled());
     fireEvent.click(editProvider);
     fireEvent.change(screen.getByLabelText("Credential action"), { target: { value: "REPLACE" } });
@@ -471,7 +471,7 @@ describe("provider deletion reconciliation", () => {
         </ApplicationSessionBoundary>
       </QueryClientProvider>,
     );
-    const remove = await screen.findByRole("button", { name: "Delete provider" });
+    const remove = await screen.findByRole("button", { name: /Delete provider/ });
     await waitFor(() => expect(remove).toBeEnabled());
     fireEvent.click(remove);
     const dialog = await screen.findByRole("alertdialog");

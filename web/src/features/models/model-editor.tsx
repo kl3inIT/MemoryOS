@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { appText } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listChatProvidersOptions,
@@ -39,6 +41,7 @@ export function ModelEditor({
   onClose: () => void;
 }) {
   const client = useQueryClient();
+  const ui = useAppTranslation();
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
   const [draft, setDraft] = useState(() => modelDraft(initial));
@@ -177,8 +180,8 @@ export function ModelEditor({
           providerRevision: snapshot.providerRevision,
           modelRevision: snapshot.modelRevision,
           message: result.reachable
-            ? "Saved connection reached the model. This does not certify model quality, capabilities or cancellation."
-            : "The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown.",
+            ? ui("Saved connection reached the model. This does not certify model quality, capabilities or cancellation.")
+            : ui("The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown."),
         });
       });
     } catch {
@@ -190,11 +193,13 @@ export function ModelEditor({
 
   return (
     <CatalogDialog
-      title={baseline ? `Edit model: ${baseline.displayName}` : "Add model"}
+      title={baseline ? ui(appText("Edit model: {{name}}", { name: baseline.displayName })) : ui("Add model")}
       description={
         <span>
-          {provider.name} · <span className="break-all">{provider.id}</span>. Settings describe this
-          model explicitly; changing its name or profile never silently changes capabilities.
+          {provider.name} · <span className="break-all">{provider.id}</span>.{" "}
+          {ui(
+            "Settings describe this model explicitly; changing its name or profile never silently changes capabilities.",
+          )}
         </span>
       }
       onClose={() => {
@@ -212,7 +217,7 @@ export function ModelEditor({
         <fieldset className="space-y-4" disabled={action.pending && !validating}>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1">
-              API model name
+              {ui("API model name")}
               <Input
                 required
                 maxLength={200}
@@ -221,7 +226,7 @@ export function ModelEditor({
               />
             </label>
             <label className="block space-y-1">
-              Display name
+              {ui("Display name")}
               <Input
                 required
                 maxLength={200}
@@ -231,18 +236,18 @@ export function ModelEditor({
             </label>
           </div>
           <label className="block space-y-1">
-            Tokenizer profile
+            {ui("Tokenizer profile")}
             <Select
               value={draft.tokenizerProfile}
               onChange={(event) => change("tokenizerProfile", event.target.value)}
             >
-              <option value="">Choose an installed profile</option>
+              <option value="">{ui("Choose an installed profile")}</option>
               {draft.tokenizerProfile &&
                 !adapter?.tokenizerProfiles.some(
                   (profile) => profile.id === draft.tokenizerProfile,
                 ) && (
                   <option value={draft.tokenizerProfile}>
-                    {draft.tokenizerProfile} (unavailable)
+                    {ui(appText("{{profile}} (unavailable)", { profile: draft.tokenizerProfile }))}
                   </option>
                 )}
               {adapter?.tokenizerProfiles.map((profile) => (
@@ -254,7 +259,7 @@ export function ModelEditor({
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1">
-              Context window (tokens)
+              {ui("Context window (tokens)")}
               <Input
                 type="number"
                 required
@@ -266,7 +271,7 @@ export function ModelEditor({
               />
             </label>
             <label className="block space-y-1">
-              Maximum output (tokens)
+              {ui("Maximum output (tokens)")}
               <Input
                 type="number"
                 required
@@ -284,11 +289,11 @@ export function ModelEditor({
                 checked={draft.visible}
                 onChange={(event) => change("visible", event.target.checked)}
               />
-              Visible in selection lists
+              {ui("Visible in selection lists")}
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked disabled />
-              Streaming (required)
+              {ui("Streaming (required)")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -296,7 +301,7 @@ export function ModelEditor({
                 checked={draft.toolCalling}
                 onChange={(event) => change("toolCalling", event.target.checked)}
               />
-              Tool calling
+              {ui("Tool calling")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -304,7 +309,7 @@ export function ModelEditor({
                 checked={draft.vision}
                 onChange={(event) => change("vision", event.target.checked)}
               />
-              Vision input
+              {ui("Vision input")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -312,22 +317,23 @@ export function ModelEditor({
                 checked={draft.reasoning}
                 onChange={(event) => change("reasoning", event.target.checked)}
               />
-              Reasoning
+              {ui("Reasoning")}
             </label>
           </div>
           <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">Request options</legend>
+            <legend className="font-main-ui-action">{ui("Request options")}</legend>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={draft.completionTokens}
                 onChange={(event) => change("completionTokens", event.target.checked)}
               />
-              Use maxCompletionTokens option family
+              {ui("Use maxCompletionTokens option family")}
             </label>
             <p className="font-secondary-body text-content-muted">
-              This boolean chooses the output-token field family, not the output limit.
-              Completion-token mode removes sampling overrides. Blank optional fields are omitted.
+              {ui(
+                "This boolean chooses the output-token field family, not the output limit. Completion-token mode removes sampling overrides. Blank optional fields are omitted.",
+              )}
             </p>
             {!draft.completionTokens && (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -340,7 +346,7 @@ export function ModelEditor({
                   ] as const
                 ).map(([key, label, min, max]) => (
                   <label key={key} className="block space-y-1">
-                    {label}
+                    {ui(label)}
                     <Input
                       type="number"
                       min={min}
@@ -355,12 +361,12 @@ export function ModelEditor({
             )}
             {draft.reasoning && (
               <label className="block space-y-1">
-                Reasoning effort
+                {ui("Reasoning effort")}
                 <Select
                   value={draft.reasoningEffort}
                   onChange={(event) => change("reasoningEffort", event.target.value)}
                 >
-                  <option value="">Provider default (omitted)</option>
+                  <option value="">{ui("Provider default (omitted)")}</option>
                   {["minimal", "low", "medium", "high"].map((effort) => (
                     <option key={effort} value={effort}>
                       {effort}
@@ -371,13 +377,13 @@ export function ModelEditor({
             )}
           </fieldset>
           <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">Pricing · USD per million tokens</legend>
+            <legend className="font-main-ui-action">{ui("Pricing · USD per million tokens")}</legend>
             <p className="font-secondary-body text-content-muted">
-              Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.
+              {ui("Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.")}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1">
-                Input price
+                {ui("Input price")}
                 <Input
                   type="number"
                   min={0}
@@ -387,7 +393,7 @@ export function ModelEditor({
                 />
               </label>
               <label className="block space-y-1">
-                Output price
+                {ui("Output price")}
                 <Input
                   type="number"
                   min={0}
@@ -403,30 +409,37 @@ export function ModelEditor({
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>
-              The catalog changed or conflicted. Reconcile the saved revision, review your draft,
-              and retry manually.
+              {ui(
+                "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.",
+              )}
             </p>
             <Button
               prominence="secondary"
               disabled={action.pending}
               onClick={() => void reconcile()}
             >
-              Reconcile saved model
+              {ui("Reconcile saved model")}
             </Button>
           </div>
         )}
         {action.error && <p role="alert">{action.error}</p>}
-        {saved && <p role="status">Model saved.</p>}
+        {saved && <p role="status">{ui("Model saved.")}</p>}
         {baseline && (
           <p className="break-all font-secondary-body text-content-muted">
-            Model {baseline.id} · model revision {baseline.revision} · provider revision{" "}
-            {provider.revision}
+            {ui(
+              appText("Model {{id}} · model revision {{modelRevision}} · provider revision {{providerRevision}}", {
+                id: baseline.id,
+                modelRevision: baseline.revision,
+                providerRevision: provider.revision,
+              }),
+            )}
           </p>
         )}
         {displayedValidation && <p role="status">{displayedValidation}</p>}
         <p className="font-secondary-body text-content-muted">
-          Validate is available only for clean saved settings and reconciles both saved revisions.
-          Edits, closing and authority changes discard pending results.
+          {ui(
+            "Validate is available only for clean saved settings and reconciles both saved revisions. Edits, closing and authority changes discard pending results.",
+          )}
         </p>
         <div className="flex flex-wrap justify-end gap-2">
           <Button
@@ -436,7 +449,7 @@ export function ModelEditor({
               onClose();
             }}
           >
-            Close
+            {ui("Close")}
           </Button>
           <Button
             prominence="secondary"
@@ -444,14 +457,14 @@ export function ModelEditor({
             disabled={!baseline || dirty || conflicted || Boolean(invalid) || action.pending}
             onClick={() => void validate()}
           >
-            Validate saved connection
+            {ui("Validate saved connection")}
           </Button>
           <Button
             type="submit"
             pending={action.pending && !validating}
             disabled={!dirty || conflicted || Boolean(invalid) || action.pending}
           >
-            Save model
+            {ui("Save model")}
           </Button>
         </div>
       </form>

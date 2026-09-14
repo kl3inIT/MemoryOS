@@ -14,6 +14,8 @@ import type {
   ListChatModelPersonasResponse,
 } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
+import { appText } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   modelLabel,
   personaCandidate,
@@ -44,6 +46,7 @@ function SelectionEditor({
   reload: () => Promise<Selection>;
   personaId?: string;
 }) {
+  const ui = useAppTranslation();
   const client = useQueryClient();
   const action = useModelAction();
   const [baseline, setBaseline] = useState(selection);
@@ -129,16 +132,20 @@ function SelectionEditor({
 
   return (
     <div className="space-y-3">
-      <p className="break-words font-secondary-body text-content-muted">
-        Saved:{" "}
-        {baseline.modelConfigurationId
-          ? `${savedLabel}${savedHidden ? " (hidden or currently unavailable; retained)" : ""}`
-          : "Inherit Tenant default"}
-        . Selection revision {baseline.revision}.
-      </p>
-      <label className="block space-y-1">
-        {personaId ? "Persona model default" : "Tenant model default"}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="font-main-ui-action">
+            {personaId ? ui("Persona model default") : ui("Default model")}
+          </h3>
+          <p className="font-secondary-body text-content-muted">
+            {personaId
+              ? ui("Overrides the Tenant default for this Persona.")
+              : ui("This model will be used by Chat by default in your conversations.")}
+          </p>
+        </div>
         <Select
+          aria-label={personaId ? ui("Persona model default") : ui("Tenant model default")}
+          className="sm:max-w-xs"
           value={chosen}
           disabled={action.pending}
           onChange={(event) => {
@@ -147,22 +154,22 @@ function SelectionEditor({
           }}
         >
           {personaId ? (
-            <option value="">Inherit Tenant default</option>
+            <option value="">{ui("Inherit Tenant default")}</option>
           ) : (
             <option value="" disabled>
-              Choose an eligible model
+              {ui("Choose an eligible model")}
             </option>
           )}
           {savedHidden && (
             <option value={baseline.modelConfigurationId ?? ""} disabled>
-              {savedLabel} (saved; hidden or unavailable)
+              {savedLabel} {ui("(saved; hidden or unavailable)")}
             </option>
           )}
           {chosen &&
             chosen !== baseline.modelConfigurationId &&
             !candidates.some((model) => model.id === chosen) && (
               <option value={chosen} disabled>
-                {chosen} (draft no longer eligible)
+                {chosen} {ui("(draft no longer eligible)")}
               </option>
             )}
           {candidates.map((model) => {
@@ -174,47 +181,51 @@ function SelectionEditor({
             ) : null;
           })}
         </Select>
-      </label>
+      </div>
       {!candidates.length && (
         <p role="status">
-          No eligible models are available{personaId ? "; Inherit remains available" : ""}.
+          {personaId
+            ? ui("No eligible models are available; Inherit remains available.")
+            : ui("No eligible models are available.")}
         </p>
       )}
       {conflicted && (
         <div role="alert" className="space-y-2">
           <p>
-            The saved selection changed or conflicted. Refresh its own revision and review before
-            retrying; model/provider revisions are not selection revisions.
+            {ui(
+              "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
+            )}
           </p>
           <Button prominence="secondary" disabled={action.pending} onClick={() => void reconcile()}>
-            Reconcile saved selection
+            {ui("Reconcile saved selection")}
           </Button>
         </div>
       )}
       {action.error && <p role="alert">{action.error}</p>}
-      {saved && <p role="status">Default saved. Existing transcript is unchanged.</p>}
-      <Button
-        pending={action.pending}
-        disabled={
-          conflicted || !candidateChosen || chosen === (baseline.modelConfigurationId ?? "")
-        }
-        onClick={() => void save()}
-      >
-        Save {personaId ? "Persona" : "Tenant"} default
-      </Button>
+      {saved && <p role="status">{ui("Default saved. Existing transcript is unchanged.")}</p>}
+      {chosen !== (baseline.modelConfigurationId ?? "") && (
+        <Button
+          pending={action.pending}
+          disabled={conflicted || !candidateChosen}
+          onClick={() => void save()}
+        >
+          {personaId ? ui("Save Persona default") : ui("Save Tenant default")}
+        </Button>
+      )}
     </div>
   );
 }
 
 function PersonaSelection({ personaId, ...catalog }: Catalog & { personaId: string }) {
+  const ui = useAppTranslation();
   const selection = useQuery({ ...getPersonaModelOptions({ path: { personaId } }), retry: false });
-  if (selection.isPending) return <p role="status">Loading Persona selection…</p>;
+  if (selection.isPending) return <p role="status">{ui("Loading Persona selection…")}</p>;
   if (selection.isError)
     return (
       <div role="alert">
-        <p>Persona selection could not be loaded.</p>
+        <p>{ui("Persona selection could not be loaded.")}</p>
         <Button prominence="secondary" onClick={() => void selection.refetch()}>
-          Retry Persona selection
+          {ui("Retry Persona selection")}
         </Button>
       </div>
     );
@@ -232,8 +243,35 @@ function PersonaSelection({ personaId, ...catalog }: Catalog & { personaId: stri
   );
 }
 
-export function ModelDefaults(catalog: Catalog) {
+/** Onyx-style top card: the Tenant Chat default selector without the Persona section. */
+export function TenantDefault(catalog: Catalog) {
+  const ui = useAppTranslation();
   const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
+  if (tenant.isPending) return <p role="status">{ui("Loading Tenant default…")}</p>;
+  if (tenant.isError)
+    return (
+      <div role="alert" className="space-y-2">
+        <p>{ui("Tenant default could not be loaded.")}</p>
+        <Button prominence="secondary" onClick={() => void tenant.refetch()}>
+          {ui("Retry Tenant default")}
+        </Button>
+      </div>
+    );
+  return (
+    <SelectionEditor
+      {...catalog}
+      selection={tenant.data}
+      reload={async () => {
+        const result = await tenant.refetch({ throwOnError: true });
+        if (!result.data) throw new Error("Selection unavailable");
+        return result.data;
+      }}
+    />
+  );
+}
+
+export function ModelDefaults(catalog: Catalog) {
+  const ui = useAppTranslation();
   const [cursors, setCursors] = useState<string[]>([]);
   const cursor = cursors.at(-1);
   const personas = useQuery({
@@ -246,59 +284,26 @@ export function ModelDefaults(catalog: Catalog) {
   return (
     <section aria-labelledby="model-defaults-title" className="space-y-6">
       <h2 id="model-defaults-title" className="font-heading-h3">
-        Model defaults
+        {ui("Persona defaults")}
       </h2>
-      <section
-        aria-labelledby="tenant-default-title"
-        className="space-y-4 rounded-xl border border-border-subtle p-4"
-      >
-        <h3 id="tenant-default-title" className="font-main-ui-action">
-          Tenant Chat default
-        </h3>
-        <p className="font-secondary-body text-content-muted">
-          Only visible models from installed, enabled, credential-ready, public providers without
-          Persona restrictions are eligible. Public providers may retain Group associations. New
-          manager-only providers are excluded; this screen cannot promote Access.
-        </p>
-        {tenant.isPending ? (
-          <p role="status">Loading Tenant default…</p>
-        ) : tenant.isError ? (
-          <div role="alert">
-            <p>Tenant default could not be loaded.</p>
-            <Button prominence="secondary" onClick={() => void tenant.refetch()}>
-              Retry Tenant default
-            </Button>
-          </div>
-        ) : (
-          <SelectionEditor
-            {...catalog}
-            selection={tenant.data}
-            reload={async () => {
-              const result = await tenant.refetch({ throwOnError: true });
-              if (!result.data) throw new Error("Selection unavailable");
-              return result.data;
-            }}
-          />
-        )}
-      </section>
       <section
         aria-labelledby="persona-default-title"
         className="space-y-4 rounded-xl border border-border-subtle p-4"
       >
         <h3 id="persona-default-title" className="font-main-ui-action">
-          Persona default
+          {ui("Persona default")}
         </h3>
         <p className="font-secondary-body text-content-muted">
-          Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even
-          for managers. It grants no access: other users can fall back to their authorized Tenant
-          default. Inherit removes the Persona selection.
+          {ui(
+            "Select a Persona by name and UUID. Assignment respects provider Persona restrictions, even for managers. It grants no access: other users can fall back to their authorized Tenant default. Inherit removes the Persona selection.",
+          )}
         </p>
         {personas.isPending ? (
-          <p role="status">Loading Personas…</p>
+          <p role="status">{ui("Loading Personas…")}</p>
         ) : personas.isError ? (
           <div role="alert">
             <p>
-              Personas could not be loaded. A stale cursor may require returning to the first page.
+              {ui("Personas could not be loaded. A stale cursor may require returning to the first page.")}
             </p>
             <Button
               prominence="secondary"
@@ -307,13 +312,13 @@ export function ModelDefaults(catalog: Catalog) {
                 void personas.refetch();
               }}
             >
-              Reload Personas
+              {ui("Reload Personas")}
             </Button>
           </div>
         ) : (
           <>
             <label className="block space-y-1">
-              Persona
+              {ui("Persona")}
               <Select
                 value={persona?.id ?? ""}
                 onChange={(event) =>
@@ -322,10 +327,10 @@ export function ModelDefaults(catalog: Catalog) {
                   )
                 }
               >
-                <option value="">Choose a Persona</option>
+                <option value="">{ui("Choose a Persona")}</option>
                 {persona && !personas.data.items.some((entry) => entry.id === persona.id) && (
                   <option value={persona.id}>
-                    {persona.name} · {persona.id} (selected)
+                    {persona.name} · {persona.id} {ui("(selected)")}
                   </option>
                 )}
                 {personas.data.items.map((entry) => (
@@ -335,7 +340,7 @@ export function ModelDefaults(catalog: Catalog) {
                 ))}
               </Select>
             </label>
-            {!personas.data.items.length && <p role="status">No Personas on this page.</p>}
+            {!personas.data.items.length && <p role="status">{ui("No Personas on this page.")}</p>}
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 prominence="secondary"
@@ -343,10 +348,10 @@ export function ModelDefaults(catalog: Catalog) {
                 disabled={!cursors.length || personas.isFetching}
                 onClick={() => setCursors((current) => current.slice(0, -1))}
               >
-                Previous Personas
+                {ui("Previous Personas")}
               </Button>
               <span className="font-secondary-body text-content-muted">
-                Page {cursors.length + 1} · up to 25 Personas
+                {ui(appText("Page {{page}} · up to 25 Personas", { page: cursors.length + 1 }))}
               </span>
               <Button
                 prominence="secondary"
@@ -357,7 +362,7 @@ export function ModelDefaults(catalog: Catalog) {
                   if (next) setCursors((current) => [...current, next]);
                 }}
               >
-                Next Personas
+                {ui("Next Personas")}
               </Button>
             </div>
           </>

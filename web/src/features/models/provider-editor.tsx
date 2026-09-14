@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { appText } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { listChatProvidersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
@@ -20,20 +22,29 @@ export function ProviderEditor({
   initial,
   providers,
   adapters,
+  preferredAdapterType,
+  preferredBaseUrl,
+  preferredName,
   onClose,
 }: {
   initial?: ManagedProvider;
   providers: ManagedProvider[];
   adapters: InstalledAdapter[];
+  preferredAdapterType?: string;
+  preferredBaseUrl?: string;
+  preferredName?: string;
   onClose: () => void;
 }) {
   const client = useQueryClient();
+  const ui = useAppTranslation();
   const action = useModelAction();
   // Revision and Access are one snapshot, never assembled from a background refetch and an old draft.
   const [baseline, setBaseline] = useState(initial);
-  const [name, setName] = useState(initial?.name ?? "");
-  const [adapterType, setAdapterType] = useState(initial?.adapterType ?? adapters[0]?.type ?? "");
-  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
+  const [name, setName] = useState(initial?.name ?? preferredName ?? "");
+  const [adapterType, setAdapterType] = useState(
+    initial?.adapterType ?? preferredAdapterType ?? adapters[0]?.type ?? "",
+  );
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? preferredBaseUrl ?? "");
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [credentialAction, setCredentialAction] = useState<CredentialAction>(
     initial ? "KEEP" : "REPLACE",
@@ -160,8 +171,10 @@ export function ProviderEditor({
 
   return (
     <CatalogDialog
-      title={baseline ? `Edit provider: ${baseline.name}` : "Add provider"}
-      description="New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access."
+      title={baseline ? ui(appText("Edit provider: {{name}}", { name: baseline.name })) : ui("Add provider")}
+      description={ui(
+        "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.",
+      )}
       onClose={() => {
         clearSecret();
         action.cancel();
@@ -177,7 +190,7 @@ export function ProviderEditor({
       >
         <fieldset disabled={action.pending} className="space-y-4">
           <label className="block space-y-1">
-            Provider name
+            {ui("Provider name")}
             <Input
               required
               maxLength={200}
@@ -189,7 +202,7 @@ export function ProviderEditor({
             />
           </label>
           <label className="block space-y-1">
-            Adapter
+            {ui("Adapter")}
             <Select
               value={adapterType}
               disabled={Boolean(baseline)}
@@ -201,7 +214,11 @@ export function ProviderEditor({
             >
               {!adapter && (
                 <option value={adapterType}>
-                  {adapterType || "Choose installed adapter"} (unavailable)
+                  {ui(
+                    appText("{{adapter}} (unavailable)", {
+                      adapter: adapterType || appText("Choose installed adapter"),
+                    }),
+                  )}
                 </option>
               )}
               {adapters.map((entry) => (
@@ -212,7 +229,7 @@ export function ProviderEditor({
             </Select>
           </label>
           <label className="block space-y-1">
-            Endpoint URL
+            {ui("Endpoint URL")}
             <Input
               required
               type="url"
@@ -224,8 +241,9 @@ export function ProviderEditor({
             />
           </label>
           <p className="font-secondary-body text-content-muted">
-            Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL
-            credentials, queries and fragments are not accepted.
+            {ui(
+              "Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL credentials, queries and fragments are not accepted.",
+            )}
           </p>
           <label className="flex items-center gap-2">
             <input
@@ -236,15 +254,20 @@ export function ProviderEditor({
                 setSaved(false);
               }}
             />
-            Provider enabled
+            {ui("Provider enabled")}
           </label>
           <p className="font-secondary-body text-content-muted">
-            Credential: {baseline?.credentialConfigured ? "Configured" : "Not configured"}. Presence
-            does not prove decryption or connectivity. Requirement:{" "}
-            {adapter?.credentialRequirement ?? "Adapter unavailable"}.
+            {ui(
+              appText("Credential: {{status}}. Presence does not prove decryption or connectivity. Requirement: {{requirement}}.", {
+                status: baseline?.credentialConfigured
+                  ? appText("Configured")
+                  : appText("Not configured"),
+                requirement: adapter?.credentialRequirement ?? appText("Adapter unavailable"),
+              }),
+            )}
           </p>
           <label className="block space-y-1">
-            Credential action
+            {ui("Credential action")}
             <Select
               value={credentialAction}
               onChange={(event) => {
@@ -253,13 +276,13 @@ export function ProviderEditor({
                 setSaved(false);
               }}
             >
-              <option value="KEEP">Keep existing key</option>
-              <option value="REPLACE">Replace key</option>
-              <option value="REMOVE">Remove key</option>
+              <option value="KEEP">{ui("Keep existing key")}</option>
+              <option value="REPLACE">{ui("Replace key")}</option>
+              <option value="REMOVE">{ui("Remove key")}</option>
             </Select>
           </label>
           <label className={credentialAction === "REPLACE" ? "block space-y-1" : "hidden"}>
-            API key
+            {ui("API key")}
             <Input
               ref={keyInput}
               type="password"
@@ -275,42 +298,53 @@ export function ProviderEditor({
           </label>
           {credentialAction === "REMOVE" && (
             <p className="font-secondary-body text-content-muted">
-              For a required key, explicitly disable the provider before removal. Choose a different
-              Tenant default first if this provider serves it.
+              {ui(
+                "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.",
+              )}
             </p>
           )}
           {credentialMissing && (
             <p role="alert">
-              An enabled provider requires a configured key. Replace the key or explicitly disable
-              this provider.
+              {ui(
+                "An enabled provider requires a configured key. Replace the key or explicitly disable this provider.",
+              )}
             </p>
           )}
         </fieldset>
         {baseline && (
           <p className="break-all font-secondary-body text-content-muted">
-            Provider {baseline.id} · revision {baseline.revision} ·{" "}
-            {baseline.isPublic ? "Public" : "Restricted"}; {baseline.groupIds.length} Group and{" "}
-            {baseline.personaIds.length} Persona associations retained.
+            {ui(
+              appText(
+                "Provider {{id}} · revision {{revision}} · {{visibility}}; {{groups}} Group and {{personas}} Persona associations retained.",
+                {
+                  id: baseline.id,
+                  revision: baseline.revision,
+                  visibility: baseline.isPublic ? appText("Public") : appText("Restricted"),
+                  groups: baseline.groupIds.length,
+                  personas: baseline.personaIds.length,
+                },
+              ),
+            )}
           </p>
         )}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>
-              The saved catalog changed or conflicted. Reconcile the complete revision and Access
-              baseline, review your non-secret draft, then retry manually. The key has not been
-              retained.
+              {ui(
+                "The saved catalog changed or conflicted. Reconcile the complete revision and Access baseline, review your non-secret draft, then retry manually. The key has not been retained.",
+              )}
             </p>
             <Button
               prominence="secondary"
               disabled={action.pending}
               onClick={() => void reconcile()}
             >
-              Reconcile saved provider
+              {ui("Reconcile saved provider")}
             </Button>
           </div>
         )}
         {action.error && <p role="alert">{action.error}</p>}
-        {saved && <p role="status">Provider saved. No connectivity claim has been made.</p>}
+        {saved && <p role="status">{ui("Provider saved. No connectivity claim has been made.")}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             prominence="secondary"
@@ -320,10 +354,10 @@ export function ProviderEditor({
               onClose();
             }}
           >
-            Close
+            {ui("Close")}
           </Button>
           <Button type="submit" pending={action.pending} disabled={invalid || conflicted}>
-            Save provider
+            {ui("Save provider")}
           </Button>
         </div>
       </form>
