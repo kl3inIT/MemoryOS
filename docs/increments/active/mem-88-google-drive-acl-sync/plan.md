@@ -33,3 +33,13 @@ The two real Google files returned a single owner permission each. This is not e
 - [x] Remove the separate Search-readiness line and provider subtitle; render file statuses as icon badges.
 - [x] Read the pinned local Onyx error-summary/trace persistence and actual trace modal.
 - [x] Read Onyx Pause/Resume through cancellation, worker stopping and checkpoint reuse; record the missing MemoryOS runtime contract without shipping a cosmetic Pause button.
+
+## Acceptance gap closure
+
+See [design](design.md#acceptance-gap-closure--approved-2026-09-14).
+
+- [x] Classify 403 `SCOPE_INSUFFICIENT` (all Drive calls) and `ACCESS_DENIED` (`permissions.list` only); handle scope like authentication in SOURCE_SYNC; add UI copy.
+- [x] Cover reader→writer, added permission and identical re-observation in the SOURCE_SYNC runtime test.
+- [x] Add the handoff snapshot example and state interpretation to the connector spec; record enforcement-owner reconciliation as pending.
+- [ ] Run the live owned-fixture sharing sequence with the user and record evidence.
+- [ ] Run the repository gate and web checks; update verification and connector test matrix.

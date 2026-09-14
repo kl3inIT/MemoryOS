@@ -124,3 +124,17 @@ The actual Orca file-table screenshots were visually inspected: icon badges are 
 Onyx error/trace and Pause/Resume source findings are recorded in [design](design.md#additional-onyx-source-evidence-error-details-and-pause). No Pause implementation or historical full-trace persistence is claimed by these follow-up changes.
 
 The owned screenshot helper was removed and the dedicated Orca verification tab was closed, leaving the user's original tab intact. Ignored screenshots and the jars/dependency directory required by the running local services were retained.
+
+## Acceptance gap closure — 2026-09-14
+
+Focused suites passed without skips: `RestGoogleDriveProviderTest` (22) and `PostgresGoogleDriveSyncTest` (43), including the new 403 classification, missing-scope, unreadable-sharing and role-change cases listed in the [connector matrix](../../../tests/connector.md#mem-88-acl-collection-and-synchronization). `gradlew.bat clean check --no-daemon --max-workers=1` succeeded in 18m17s:
+
+| Module | Total | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| core | 534 | 0 | 1 |
+| connector | 121 | 0 | 4 |
+| api | 147 | 0 | 4 |
+| worker | 27 | 0 | 0 |
+| Total | 829 | 0 | 9 |
+
+Web: `check:i18n`, oxlint and oxfmt passed for the changed `source-errors.ts` and `app-translations.ts`; the full `pnpm check` was not run in this pass. The 403 reasons are verified against controlled HTTP fixtures shaped after Google's documented error bodies, not against a live missing-scope grant. Reconciliation of the handoff example with the enforcement owner remains pending.

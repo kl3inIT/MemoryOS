@@ -192,7 +192,7 @@ Manage Sources is the only directly grantable Source permission. It includes glo
 
 This is an observation and handoff contract with an actor-authorized read-only inspector, not effective authorization. Google Sources remain RESTRICTED; Search/Chat/citations and the existing FILE access resolver do not consume these observations. No reader identity linking, Google Group expansion, Owner bypass or PUBLIC conversion is provided.
 
-`GoogleDriveProvider.Session.permissions(fileId)` uses the existing OAuth grant and fully traverses `permissions.list` with `supportsAllDrives=true`, within existing cumulative request/time/byte limits. Permission page size is capped at 100. Duplicate IDs, cyclic page tokens, malformed or missing permission arrays, invalid field types and later-page failures do not return a partial snapshot. An explicit successful empty array is distinct from unknown or failed retrieval. Provider HTTP 403/404/410 currently share the unavailable-file `SOURCE_GOOGLE_NOT_FOUND` classification; this is not proof of deletion.
+`GoogleDriveProvider.Session.permissions(fileId)` uses the existing OAuth grant and fully traverses `permissions.list` with `supportsAllDrives=true`, within existing cumulative request/time/byte limits. Permission page size is capped at 100. Duplicate IDs, cyclic page tokens, malformed or missing permission arrays, invalid field types and later-page failures do not return a partial snapshot. An explicit successful empty array is distinct from unknown or failed retrieval. Provider HTTP 404/410 and a file-level 403 on metadata or content use the unavailable-file `SOURCE_GOOGLE_NOT_FOUND` classification; this is not proof of deletion. A 403 whose reason is `insufficientPermissions`, or whose ErrorInfo detail is `ACCESS_TOKEN_SCOPE_INSUFFICIENT`, is `SOURCE_GOOGLE_SCOPE_INSUFFICIENT` on any Drive call: every Drive flow that stops for authentication stops for it (`requiresReconnect()`), and SOURCE_SYNC ends the run and marks the credential for reconnect. Any other non-quota 403 from `permissions.list` is `SOURCE_GOOGLE_ACCESS_DENIED`: the connected account can read the file but not its sharing settings. It is recorded on that file's snapshot while content synchronization continues. Quota reasons keep `SOURCE_GOOGLE_QUOTA`.
 
 Permissions retain opaque Google IDs, type, role, nullable email/domain, expiration, deleted-account and pending-owner flags, `allowFileDiscovery`, `view`, `inheritedPermissionsDisabled` and all returned permissionDetails (permissionType, role, inheritedFrom, inherited). Missing optional fields stay unknown rather than becoming false. The API's ordinary permission view is requested; additional published-view permissions are not explicitly requested. Preserving a returned view does not turn published or metadata-only visibility into full-content access. Completion means the requested pages were collected, not that all effective access or group membership is known. My Drive does not necessarily expose inheritedFrom; do not infer missing ancestry.
 
@@ -222,6 +222,54 @@ V51 stores one `google_drive_acl_snapshots` row per `(tenant_id, source_id, file
 | `readAt` | Database observation time for the projection |
 
 CURRENT only means matching active lifecycle and traversal provenance. It does not mean recent enough, SUCCEEDED on the latest attempt, complete effective access or permission to read. Consumers must examine status, lastSuccess, expiration and their own freshness policy. Failed-only rows have no successful provenance; missing rows are Optional.empty. Credential revocation/reconnect, scope changes, removal/exclusion, source deletion and traversal changes invalidate or stale old evidence rather than silently blessing it. No wall-clock freshness threshold or revocation SLA is fabricated: runs can queue, fail or stop.
+
+#### Handoff example and state interpretation
+
+A successful, current observation. Identifiers are shortened; the record also carries `tenantId`, `sourceId`, `errorMessage` and `readAt`.
+
+```json
+{
+  "fileId": "1Fx…Q9",
+  "revision": 3,
+  "status": "SUCCEEDED",
+  "permissions": [
+    {"id": "0412…", "type": "user", "role": "owner", "emailAddress": "owner@example.test",
+     "domain": null, "expirationTime": null, "allowFileDiscovery": null, "deleted": false,
+     "pendingOwner": false, "permissionDetails": [], "view": null, "inheritedPermissionsDisabled": null},
+    {"id": "1937…", "type": "user", "role": "reader", "emailAddress": "reader@example.test",
+     "domain": null, "expirationTime": "2026-12-31T00:00:00Z", "allowFileDiscovery": null, "deleted": false,
+     "pendingOwner": false, "permissionDetails": [], "view": null, "inheritedPermissionsDisabled": null},
+    {"id": "0833…", "type": "group", "role": "writer", "emailAddress": "finance@example.test",
+     "domain": null, "expirationTime": null, "allowFileDiscovery": null, "deleted": false, "pendingOwner": null,
+     "permissionDetails": [{"permissionType": "file", "role": "writer", "inheritedFrom": "0Bx…folder", "inherited": true}],
+     "view": null, "inheritedPermissionsDisabled": null}
+  ],
+  "lastAttempt": {"at": "2026-09-14T08:00:05Z", "operationId": "a1…", "credentialId": "c1…",
+                  "credentialRevision": 4, "scopeRevision": 2, "generation": 7},
+  "lastSuccess": {"at": "2026-09-14T08:00:05Z", "operationId": "a1…", "credentialId": "c1…",
+                  "credentialRevision": 4, "scopeRevision": 2, "generation": 7},
+  "errorCode": null,
+  "contextStatus": "CURRENT",
+  "currentContext": {"tenantActive": true, "sourceActive": true, "credentialId": "c1…", "credentialRevision": 4,
+                     "credentialActive": true, "scopeRevision": 2, "generation": 7, "membershipGeneration": 7,
+                     "selected": true, "itemRemoved": false},
+  "sourceItemId": "5e…",
+  "documentIds": ["9d…"]
+}
+```
+
+| Situation | status | revision | permissions | contextStatus | `GoogleDriveAclChanged` | Enforcement reading |
+| --- | --- | --- | --- | --- | --- | --- |
+| First successful observation | SUCCEEDED | 1 | Complete result | CURRENT | Yes | Candidate grants, subject to the consumer's freshness policy |
+| Share added, role changed or share removed | SUCCEEDED | +1 | New complete result | CURRENT | Yes | Re-read and replace previous grants |
+| Identical re-observation | SUCCEEDED | +1 | Unchanged | CURRENT | No | Nothing changes; `lastSuccess` advances |
+| Later attempt fails, for example `SOURCE_GOOGLE_ACCESS_DENIED` | FAILED | Unchanged | Last complete result retained | Unchanged | Only when status changes | Latest check failed; retained grants are older evidence only |
+| Never successfully observed | FAILED | 0 | Empty | UNOBSERVED | Yes, on the first failure | Deny: empty means unknown, not shared with nobody |
+| No row yet | `Optional.empty` | — | — | — | No | Deny |
+| A newer traversal has not re-observed the file | Either | Unchanged | Retained | STALE | No | Deny until a CURRENT success |
+| Deselected or removed file, scope or credential change, inactive Tenant/Source/credential | Either | Unchanged | Retained | INVALID | No | Deny |
+
+Context changes do not publish `GoogleDriveAclChanged`; a consumer must evaluate `contextStatus` on read and react to Source, selection and credential lifecycle changes. Reconciliation of this contract with the enforcement owner is pending.
 
 ACL refresh does not require OCR. If provider version is unchanged, no content acquisition occurs. If a binary provider version changes but verified SHA-256, filename, media type and scope/credential context match the current binary content, the immutable content version and any extraction are reused. `google_drive_membership.provider_version` is the newly observed version; `content_provider_version` identifies the retained acquisition version. Subsequent observations of that version avoid repeated downloads. A changed binary requires normal acquisition/indexing. Native snapshots retain their existing version-bound acquisition/parsing behavior; this binary reuse proof does not claim semantic deduplication of native envelopes.
 

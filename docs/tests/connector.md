@@ -316,6 +316,10 @@ The new authorized Google Source acquired all four Tasco 2025 originals in 20.13
 | Provider failure retains complete ACL evidence independently of unchanged content | `PostgresGoogleDriveSyncTest.failedAclRefreshRetainsTheCompleteSnapshotWithoutBlockingUnchangedContent` |
 | Changed provider version with identical binary bytes preserves extraction and acquisition provenance | `PostgresGoogleDriveSyncTest.metadataVersionBumpWithIdenticalBinaryBytesReusesExtractionAndRetainsProvenance` |
 | Credential revision race cannot publish new ACL | `PostgresGoogleDriveSyncTest.credentialRevisionChangeDuringAclRetrievalCannotPublishTheNewSnapshot` |
+| 403 missing scope, unreadable sharing, unavailable file and quota stay distinct | `RestGoogleDriveProviderTest.forbiddenReasonsSeparateMissingScopeFromUnreadableSharingAndUnavailableFiles` and the later-page 403 case |
+| Missing scope ends the run and requires reconnect without marking files unavailable | `PostgresGoogleDriveSyncTest.missingOAuthScopeStopsTheRunAndRequiresReconnectInsteadOfMarkingFilesUnavailable` |
+| Unreadable sharing records `ACCESS_DENIED` while content still indexes | `PostgresGoogleDriveSyncTest.unreadableSharingRecordsAccessDeniedWithoutBlockingContent` |
+| Role change and added permission publish; identical re-observation advances the revision only | `PostgresGoogleDriveSyncTest.roleChangesAndAddedPermissionsPublishWhileIdenticalObservationsOnlyAdvanceTheRevision` |
 | Generation-zero active runs continue across additive migration | `PostgresSourceRunHistoryTest.predeploymentActiveRunResumesWithoutInventingHistoricalCounters` |
 | Inspector distinguishes missing, failed-only and successful-empty evidence before Document publication | `PostgresGoogleDriveAclRepositoryTest.inspectorDistinguishesAbsentFailedOnlyAndSuccessfulEmptyBeforeDocumentsExist` |
 | Inspector retains stale/invalid evidence and pages known folders/files with literal search and scope-bound cursors | `PostgresGoogleDriveAclRepositoryTest.inspectorProjectsStaleAndInvalidContextWhileRetainingUnselectedSnapshots`, `inspectorPagesKnownFoldersAndMembershipWithLiteralSearchAndScopedCursors` |
