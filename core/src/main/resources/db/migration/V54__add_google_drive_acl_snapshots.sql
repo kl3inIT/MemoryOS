@@ -1,5 +1,3 @@
-ALTER TABLE google_drive_membership ADD COLUMN content_provider_version TEXT;
-
 CREATE TABLE google_drive_acl_snapshots (
     tenant_id UUID NOT NULL,
     source_id UUID NOT NULL,

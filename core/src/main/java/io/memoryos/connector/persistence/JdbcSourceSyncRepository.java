@@ -219,21 +219,14 @@ public class JdbcSourceSyncRepository {
     }
 
     public void observe(Work work, String file, @Nullable String root, @Nullable String version) {
-        observe(work, file, root, version, version);
-    }
-
-    public void observe(Work work, String file, @Nullable String root, @Nullable String version,
-            @Nullable String contentVersion) {
         jdbc.sql("""
-                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation, provider_version, content_provider_version)
-                VALUES (:tenant, :source, :file, :root, :generation, :version, :contentVersion)
+                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation, provider_version)
+                VALUES (:tenant, :source, :file, :root, :generation, :version)
                 ON CONFLICT (tenant_id, source_id, file_id) DO UPDATE SET root_id = EXCLUDED.root_id,
                   generation = EXCLUDED.generation, provider_version = EXCLUDED.provider_version, error_code = NULL,
-                  content_provider_version = EXCLUDED.content_provider_version,
                   eligible = CASE WHEN EXCLUDED.root_id IS NULL THEN FALSE ELSE google_drive_membership.eligible END
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).param("file", file)
-                .param("root", root).param("generation", work.generation()).param("version", version)
-                .param("contentVersion", contentVersion).update();
+                .param("root", root).param("generation", work.generation()).param("version", version).update();
     }
 
     public void observeLeaf(Work work, String file, String name) {
@@ -308,7 +301,7 @@ public class JdbcSourceSyncRepository {
                     JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id
                     JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
                     WHERE p.tenant_id = m.tenant_id AND p.id = m.source_id AND i.provider_file_id = m.file_id
-                      AND i.status <> 'DELETING' AND v.provider_version = COALESCE(m.content_provider_version, m.provider_version)
+                      AND i.status <> 'DELETING' AND v.provider_version = m.provider_version
                       AND v.scope_revision = :scope AND v.credential_revision = :credential)
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("generation", work.generation()).param("attempt", work.operationId().value())

@@ -149,28 +149,22 @@ public class JdbcSourceItemRepository {
         }
     }
 
-    public java.util.Optional<RemoteVersion> unchanged(
+    /** Same-content re-synchronization refreshes the current version's provider version in place (see sameContent). */
+    public java.util.Optional<ItemVersion> unchanged(
             io.memoryos.connector.ConnectorSyncPort.Work work, String fileId, String providerVersion) {
         return jdbcClient.sql("""
-                SELECT i.id, v.id AS version_id, v.provider_version FROM connector_items i
+                SELECT i.id, v.id AS version_id FROM connector_items i
                 JOIN connector_credential_pairs p ON p.tenant_id = i.tenant_id AND p.connector_id = i.connector_id
                 JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
-                LEFT JOIN google_drive_membership m ON m.tenant_id = p.tenant_id AND m.source_id = p.id
-                  AND m.file_id = i.provider_file_id
                 WHERE p.tenant_id = :tenant AND p.id = :source AND i.provider_file_id = :file
-                  AND i.status <> 'DELETING'
-                  AND (v.provider_version = :version OR (m.provider_version = :version
-                    AND v.provider_version = m.content_provider_version))
+                  AND i.status <> 'DELETING' AND v.provider_version = :version
                   AND v.scope_revision = :scope AND v.credential_revision = :credential
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("file", fileId).param("version", providerVersion).param("scope", work.scopeRevision())
                 .param("credential", work.credentialRevision())
-                .query((r, _) -> new RemoteVersion(
-                        new ItemVersion(new SourceItemId(r.getObject("id", UUID.class)),
-                                r.getObject("version_id", UUID.class), false), r.getString("provider_version"))).optional();
+                .query((r, _) -> new ItemVersion(new SourceItemId(r.getObject("id", UUID.class)),
+                        r.getObject("version_id", UUID.class), false)).optional();
     }
-
-    public record RemoteVersion(ItemVersion itemVersion, String providerVersion) {}
 
     /**
      * Finds the current version whose adopted bytes and filename equal a re-read file under the same scope and

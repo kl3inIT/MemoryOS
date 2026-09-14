@@ -294,9 +294,8 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         boolean unchanged = fenced(work, () -> {
             var version = items.unchanged(work, file.id(), file.version());
             if (version.isEmpty()) return false;
-            sync.observe(work, file.id(), root, file.version(), version.get().providerVersion());
-            sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(),
-                    version.get().itemVersion()).isPresent());
+            sync.observe(work, file.id(), root, file.version());
+            sync.unchanged(work, file.id(), indexing.findLive(work.tenantId(), work.sourceId(), version.get()).isPresent());
             sync.checkpoint(work, node, null);
             return true;
         });
