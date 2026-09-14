@@ -6,7 +6,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +38,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
+    private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -48,9 +49,16 @@ public final class ChatTurnService implements AutoCloseable {
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
+        this(persistence, model, limits, executor, streams, models, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web) {
         this.persistence = persistence;
         this.model = model;
         this.models = models;
+        this.web = web;
         this.limits = limits;
         this.executor = executor;
         this.streams = streams;
@@ -82,6 +90,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try { return sendLocked(actor, session, command); }
@@ -102,13 +111,26 @@ public final class ChatTurnService implements AutoCloseable {
                     java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
                     binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
                     .filter(value -> !value.isBlank()).collect(java.util.stream.Collectors.joining("\n----\n"));
+            var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
+            if (command.webSearch() != WebSearchMode.off) {
+                // Provider-hosted search needs no external connection; external search needs one.
+                boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.NativeWebSearch;
+                if (!binding.toolCalling() || (!nativeSearch && web == null)) throw ChatException.providerUnavailable();
+                if (!nativeSearch) {
+                    webAccess = web.resolve(actor);
+                    if (webAccess.search() == null) throw ChatException.providerUnavailable();
+                    if (command.webSearch() == WebSearchMode.required && !(binding.service().getChatModel() instanceof org.springframework.ai.openai.OpenAiChatModel))
+                        throw ChatException.invalid("This model adapter does not support required Web search.");
+                }
+            }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution);
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
+                    .withWeb(command.webSearch(), webAccess);
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
@@ -140,6 +162,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -151,6 +174,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
+        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -252,8 +276,8 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources());
-                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts());
+                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
@@ -285,7 +309,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private enum StopReason { USER, INTERRUPTED }
-    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources) {}
+    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources, List<ChatArtifact> artifacts) {}
 
     private static final class Active {
         final ChatTurnSetup setup;
@@ -324,10 +348,11 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources));
+                var artifacts = setup.artifacts().seal();
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources));
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources));
+                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources), artifacts);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts);
             }
         }
         void check() {

@@ -25,7 +25,7 @@ import org.springframework.ai.tokenizer.TokenCountEstimator;
 /** OpenAI Chat Completions adapter. Hosted web/image tools are separate integrations. */
 public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, AutoCloseable {
     private final ChatTokenizerProfiles tokenizers = new ChatTokenizerProfiles();
-    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort");
+    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
     public OpenAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
@@ -33,8 +33,10 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
         this.meters = meters;
     }
     @Override public String type() { return "openai"; }
+    @Override public boolean supportsRequiredToolChoice() { return true; }
     @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.REQUIRED; }
     @Override public List<TokenizerProfile> tokenizerProfiles() { return ChatTokenizerProfiles.METADATA; }
+    @Override public boolean nativeWebSearch() { return true; }
     @Override public void close() { tokenizers.close(); }
 
     @Override public void validate(String baseUrl, String modelName, ModelSettings settings) {
@@ -62,6 +64,13 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
                 || !(helperReasoning instanceof String)
                 || !Set.of("none", "minimal", "low").contains(helperReasoning)))
             throw ChatException.invalid("Unsupported helper reasoning effort for this model.");
+        Object webSearch = options.get("webSearch");
+        if (webSearch != null && (!"native".equals(webSearch) || !settings.capabilities().toolCalling()))
+            throw ChatException.invalid("Native Web search requires the value native and a tool-capable model.");
+    }
+
+    @Override public boolean supportsNativeWebSearch(ModelSettings settings) {
+        return "native".equals(settings.options().get("webSearch")) && settings.capabilities().toolCalling();
     }
 
     @Override
@@ -75,9 +84,16 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter, Aut
             try {
                 var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
                 try {
-                    var model = async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
-                            .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                            .observationRegistry(observations).meterRegistry(meters).build());
+                    boolean nativeSearch = supportsNativeWebSearch(settings);
+                    var model = nativeSearch
+                            ? async.decorateNative(view -> new OpenAiResponsesChatModel(
+                                    OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                                            .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
+                                            .observationRegistry(observations).meterRegistry(meters).build(),
+                                    view, settings.capabilities().reasoning(), meters))
+                            : async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                                    .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
+                                    .observationRegistry(observations).meterRegistry(meters).build());
                     return new Client(binding(modelName, settings, model, tokenizer.tokens()),
                             () -> { try { async.close(); } finally { try { sync.close(); } finally { tokenizer.close(); } } });
                 } catch (RuntimeException | Error failure) { async.close(); throw failure; }

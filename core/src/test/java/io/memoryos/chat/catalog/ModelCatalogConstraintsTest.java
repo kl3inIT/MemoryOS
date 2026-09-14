@@ -11,13 +11,13 @@ import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.chat.persistence.JpaLlmProviderRepository;
 import io.memoryos.chat.persistence.JpaModelConfigurationRepository;
 import io.memoryos.chat.persistence.JpaChatModelDefaultRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.Authority;
-import io.memoryos.iam.IamAccess;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.group.IamAccess;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import java.time.Duration;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -177,10 +177,12 @@ class ModelCatalogConstraintsTest {
         jdbc.sql("UPDATE model_configuration SET revision=4 WHERE id=:id").param("id", installed).update();
         var preserved = new LinkedHashMap<String, List<Map<String, Object>>>();
         for (String table : List.of("llm_provider", "llm_provider_group", "llm_provider_persona", "chat_model_default",
-                "persona", "chat_session", "chat_message")) {
+                "persona", "chat_session")) {
             preserved.put(table, jdbc.sql("SELECT * FROM " + table).query().listOfRows());
         }
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("41").load().migrate();
+        // V42 adds the artifacts column between the V40 baseline and the V53 backfill.
+        var preservedMessages = jdbc.sql("SELECT id,content,status FROM chat_message").query().listOfRows();
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("53").load().migrate();
         var restored = read(() -> catalog.model(tenant, legacy).orElseThrow());
         assertEquals(new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false),
                 Map.of("temperature", 0.2), null, "openai-o200k-v1"), restored.settings());
@@ -193,6 +195,8 @@ class ModelCatalogConstraintsTest {
         for (var entry : preserved.entrySet()) {
             assertEquals(Set.copyOf(entry.getValue()), Set.copyOf(jdbc.sql("SELECT * FROM " + entry.getKey()).query().listOfRows()), entry.getKey());
         }
+        assertEquals(Set.copyOf(preservedMessages),
+                Set.copyOf(jdbc.sql("SELECT id,content,status FROM chat_message").query().listOfRows()));
     }
 
     private void tx(Runnable operation) { tx.executeWithoutResult(_ -> operation.run()); }

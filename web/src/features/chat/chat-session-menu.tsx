@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ThreadListItemMorePrimitive as More } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
@@ -29,6 +30,7 @@ export function ChatSessionMenu({
   onRename,
   onConfigure,
   onChange,
+  deleteSession,
   onDelete,
   busy = false,
 }: {
@@ -36,9 +38,13 @@ export function ChatSessionMenu({
   onRename?: () => void;
   onConfigure?: () => void;
   onChange?: () => Promise<void>;
+  /** Thread-list deletion; defaults to the direct API call for lists outside the thread list. */
+  deleteSession?: () => Promise<void>;
   onDelete?: () => void;
   busy?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   const [dialog, setDialog] = useState<"move" | "delete" | "share">();
   const [target, setTarget] = useState<string | null>();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -69,7 +75,7 @@ export function ChatSessionMenu({
             ref={trigger}
             size="sm"
             prominence="internal"
-            aria-label={`Thao tác hội thoại ${session.title}`}
+            aria-label={ui("Thao tác hội thoại {{v1}}", { v1: session.title })}
           >
             <MoreHorizontal />
           </IconButton>
@@ -84,12 +90,12 @@ export function ChatSessionMenu({
         >
           <More.Item className={itemClass} onSelect={() => setDialog("share")}>
             <Share2 className="size-4" />
-            Chia sẻ
+            {ui("Chia sẻ")}
           </More.Item>
           {onRename && (
             <More.Item className={itemClass} onSelect={onRename}>
               <Pencil className="size-4" />
-              Đổi tên
+              {ui("Đổi tên")}
             </More.Item>
           )}
           <More.Item
@@ -101,12 +107,12 @@ export function ChatSessionMenu({
             }}
           >
             <FolderInput className="size-4" />
-            Chuyển vào dự án
+            {ui("Chuyển vào dự án")}
           </More.Item>
           {onConfigure && (
             <More.Item className={itemClass} disabled={busy} onSelect={onConfigure}>
               <Settings2 className="size-4" />
-              Cấu hình hội thoại
+              {ui("Cấu hình hội thoại")}
             </More.Item>
           )}
           <More.Separator className="my-1 border-t border-border-subtle" />
@@ -115,7 +121,7 @@ export function ChatSessionMenu({
             onSelect={() => setDialog("delete")}
           >
             <Trash2 className="size-4" />
-            Xóa
+            {ui("Xóa")}
           </More.Item>
         </More.Content>
       </More.Root>
@@ -138,9 +144,11 @@ export function ChatSessionMenu({
               trigger.current?.focus();
             }
           }}
-          title="Chuyển hội thoại"
-          description="Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo."
-          submitLabel="Chuyển"
+          title={ui("Chuyển hội thoại")}
+          description={ui(
+            "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.",
+          )}
+          submitLabel={ui("Chuyển")}
           submitDisabled={target === undefined || projects.isFetching || projects.isError}
           onSubmit={async () => {
             if (target === undefined) return;
@@ -148,21 +156,21 @@ export function ChatSessionMenu({
             await refresh();
           }}
         >
-          {projects.isPending && <p role="status">Đang tải dự án…</p>}
+          {projects.isPending && <p role="status">{ui("Đang tải dự án…")}</p>}
           {projects.isError && (
             <p role="alert">
-              Không tải được dự án.{" "}
+              {ui("Không tải được dự án.")}{" "}
               <Button type="button" onClick={() => void projects.refetch()}>
-                Tải lại
+                {ui("Tải lại")}
               </Button>
             </p>
           )}
           <div
             role="radiogroup"
-            aria-label="Dự án đích"
+            aria-label={ui("Dự án đích")}
             className="max-h-64 space-y-1 overflow-y-auto"
           >
-            {[{ id: null, name: "Ngoài dự án" }, ...(projects.data ?? [])].map((project) => (
+            {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => (
               <label
                 key={project.id ?? "none"}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-surface-sunken has-checked:bg-surface-sunken has-disabled:opacity-40 has-focus-visible:ring-2 has-focus-visible:ring-ring"
@@ -193,18 +201,23 @@ export function ChatSessionMenu({
           if (!next) setDialog(undefined);
         }}
         restoreFocusRef={trigger}
-        title="Xóa hội thoại?"
-        description={`“${session.title}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.`}
-        confirmLabel="Xóa hội thoại"
-        pendingLabel="Đang xóa…"
+        title={ui("Xóa hội thoại?")}
+        description={ui(
+          "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.",
+          { v1: session.title },
+        )}
+        confirmLabel={ui("Xóa hội thoại")}
+        pendingLabel={ui("Đang xóa…")}
         errorMessage={chatActionError}
         onConfirm={async () => {
-          await deleteChatSession({
-            path: { sessionId: session.id },
-            headers: sameOriginMutationHeaders,
-            signal: AbortSignal.timeout(30000),
-            throwOnError: true,
-          });
+          if (deleteSession) await deleteSession();
+          else
+            await deleteChatSession({
+              path: { sessionId: session.id },
+              headers: sameOriginMutationHeaders,
+              signal: AbortSignal.timeout(30000),
+              throwOnError: true,
+            });
           onDelete?.();
           if (pathname === `/chat/${session.id}`) await navigate({ to: "/" });
           await refresh(false);

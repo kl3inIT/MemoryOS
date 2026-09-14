@@ -1,3 +1,5 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import type { AppCopy } from "@/i18n/app-text";
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { Toast } from "radix-ui";
 import {
@@ -13,8 +15,8 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 
 interface ActionNotification {
-  title: string;
-  description?: string;
+  title: AppCopy;
+  description?: AppCopy;
   tone: "success" | "info" | "error";
   surviveNavigation?: boolean;
 }
@@ -28,6 +30,8 @@ export function useActionNotifications() {
 }
 
 export function ActionNotifications({ children, scope }: { children: ReactNode; scope?: string }) {
+  const ui = useAppTranslation();
+
   const nextId = useRef(0);
   const previousScope = useRef(scope);
   const [notices, setNotices] = useState<(ActionNotification & { id: number })[]>([]);
@@ -53,7 +57,7 @@ export function ActionNotifications({ children, scope }: { children: ReactNode; 
           <ActionNotificationToast key={notice.id} notice={notice} dismiss={dismiss} />
         ))}
         <Toast.Viewport
-          label="Action notifications ({hotkey})"
+          label={ui("Action notifications ({hotkey})")}
           className="pointer-events-none fixed right-0 top-0 z-50 flex max-h-[100dvh] w-full max-w-sm flex-col gap-2 overflow-y-auto p-4 outline-none"
         />
       </Toast.Provider>
@@ -68,6 +72,8 @@ function ActionNotificationToast({
   notice: ActionNotification & { id: number };
   dismiss: (id: number) => void;
 }) {
+  const ui = useAppTranslation();
+
   useEffect(() => {
     // Expiry must continue when Orca's visible browser pane loses focus.
     const timer = window.setTimeout(() => dismiss(notice.id), 5_000);
@@ -85,7 +91,7 @@ function ActionNotificationToast({
 
   return (
     <Toast.Root
-      aria-label={notice.title}
+      aria-label={ui(notice.title)}
       onOpenChange={(open) => {
         if (!open) dismiss(notice.id);
       }}
@@ -94,17 +100,17 @@ function ActionNotificationToast({
       <Icon className={`mt-0.5 size-5 shrink-0 ${color}`} aria-hidden="true" />
       <div className="min-w-0 flex-1 space-y-1">
         <Toast.Title className="text-sm font-medium text-content-primary">
-          {notice.title}
+          {ui(notice.title)}
         </Toast.Title>
         {notice.description ? (
           <Toast.Description className="break-words text-sm text-content-secondary">
-            {notice.description}
+            {typeof notice.description === "string" ? notice.description : ui(notice.description)}
           </Toast.Description>
         ) : null}
       </div>
       <Toast.Close asChild>
         <IconButton
-          aria-label={`Dismiss ${notice.title}`}
+          aria-label={ui("Dismiss {{v1}}", { v1: ui(notice.title) })}
           size="sm"
           className="shrink-0 text-content-muted"
         >

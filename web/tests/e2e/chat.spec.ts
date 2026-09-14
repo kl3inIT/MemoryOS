@@ -4,13 +4,175 @@ import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 const identity = {
   actorId: "e62a621f-41d2-4853-aa76-b600dafd8e34",
   authorizationVersion: 1,
+  uiLanguage: "vi",
   tenant: { displayName: "Test tenant", role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
+
+test("shows the concrete inherited Luna model without deployment labels", async ({ page }) => {
+  await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
+  await page.route("**/api/chat/models*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          ...fixtureModels[0],
+          modelName: "gpt-5.6-luna",
+          displayName: "GPT-5.6 Luna",
+          providerName: "Deployment OpenAI",
+          contextWindow: 36096,
+        },
+        { ...fixtureModels[1], contextWindow: 32000 },
+      ],
+    }),
+  );
+  await page.goto("/");
+  const picker = page.getByRole("combobox", { name: "Chọn mô hình" });
+  await expect(picker).toContainText("GPT-5.6 Luna");
+  await picker.click();
+  await expect(page.getByText("Deployment OpenAI", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: "Tự động", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /GPT-5.6 Luna/ })).not.toContainText(/36[.,]096/);
+  await page.screenshot({ path: "../output/playwright/model-selector-desktop.png" });
+  await page.keyboard.press("Escape");
+  await expect(picker).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await picker.click();
+  const bounds = await page.locator('[data-slot="model-selector-content"]').boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: "../output/playwright/model-selector-mobile.png" });
+  await page.getByRole("option", { name: /Qwen3.5 9B/ }).click();
+  await expect(picker).toContainText("Qwen3.5 9B");
+  await page.reload();
+  await expect(picker).toContainText("Qwen3.5 9B");
+});
+
+for (const language of ["en", "vi"] as const)
+  test(`Shiki, Mermaid and persisted read-only presentation in ${language}`, async ({ page }) => {
+    const mobile = language === "vi";
+    await page.setViewportSize(
+      mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+    );
+    await page.route("**/api/identity/me", (route) =>
+      route.fulfill({ json: { ...identity, uiLanguage: language } }),
+    );
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", {
+        data: { mode: "renderers", title: "Renderers" },
+      })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    const input = page.getByRole("textbox", {
+      name: language === "vi" ? "Câu hỏi" : "Question",
+      exact: true,
+    });
+    await input.fill("Show a revenue card and process diagram");
+    await input.press("Enter");
+    await expect(page.locator(".aui-shiki-base code span[style]").first()).toBeVisible();
+    const diagram = page.locator('[data-slot="mermaid-diagram"] img');
+    await expect(diagram).toBeVisible();
+    expect(
+      await diagram.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+    ).toBe(true);
+    await page
+      .getByRole("button", { name: language === "vi" ? "Mở rộng sơ đồ" : "Expand diagram" })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page
+      .getByRole("button", { name: language === "vi" ? "Phóng to" : "Zoom in", exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    await input.fill("Keep this draft");
+    const card = page.getByRole("button", { name: /^(Open presentation|Mở bản trình bày):/ });
+    await expect(card).toBeVisible();
+    await card.click();
+    const panel = page.getByRole(mobile ? "dialog" : "complementary");
+    await expect(panel.getByRole("cell", { name: "ORION" })).toBeVisible();
+    await expect(
+      panel.getByText("<script>alert('never execute')</script>", { exact: true }),
+    ).toBeVisible();
+    await expect(panel.locator("script,iframe")).toHaveCount(0);
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: `../output/playwright/renderers-${language}.png`,
+      fullPage: true,
+    });
+    await page.keyboard.press("Escape");
+    await expect(input).toHaveValue("Keep this draft");
+    await expect(card).toBeFocused();
+    await page.reload();
+    await card.click();
+    await expect(panel.getByRole("cell", { name: "ORION" })).toBeVisible();
+    const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
+    expect(stats.sends).toBe(1);
+    expect(errors).toEqual([]);
+  });
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
 });
+
+for (const width of [1440, 390])
+  test(`compact question editing and navigation at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const session = await (
+      await page.request.post("/api/chat/test-fixture", {
+        data: { title: "Kiểm tra báo cáo tài chính" },
+      })
+    ).json();
+    await page.goto(`/chat/${session.id}`);
+    const question = "Vậy có HUT Q1 2026 không?";
+    await page.getByRole("textbox", { name: "Câu hỏi", exact: true }).fill(question);
+    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
+    const edit = page.getByRole("button", { name: "Chỉnh sửa câu hỏi" });
+    await expect(edit).toBeEnabled();
+    await edit.click();
+    const form = page.locator('[data-slot="edit-message"]');
+    const input = form.getByRole("textbox");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveCSS("resize", "none");
+    const short = await input.boundingBox();
+    expect(short!.height).toBeLessThan(70);
+    const attach = await form.getByRole("button", { name: "Đính kèm tệp" }).boundingBox();
+    const save = await form.getByRole("button", { name: "Lưu và gửi" }).boundingBox();
+    expect(Math.abs(attach!.y - save!.y)).toBeLessThan(2);
+    expect(attach!.x).toBeLessThan(save!.x);
+    await input.fill(
+      Array.from({ length: 15 }, (_, n) => `Dòng ${n + 1}: Kiểm tra báo cáo tài chính.`).join("\n"),
+    );
+    expect((await input.boundingBox())!.height).toBeGreaterThan(short!.height);
+    expect((await input.boundingBox())!.height).toBeLessThan(230);
+    await input.fill(question);
+    await page.screenshot({ path: `../output/playwright/edit-question-${width}.png` });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await input.press("Escape");
+    await expect(form).toHaveCount(0);
+    await expect(page.getByText(question, { exact: true })).toBeVisible();
+    await edit.click();
+    await form.getByRole("textbox").fill("Đọc báo cáo quý I 2026");
+    await form.getByRole("textbox").press("Control+Enter");
+    await expect(form).toHaveCount(0);
+    await expect(page.getByText("Đọc báo cáo quý I 2026", { exact: true })).toBeVisible();
+    const branches = await (
+      await page.request.get(`/api/chat/sessions/${session.id}/branches`)
+    ).json();
+    expect(branches.filter((entry: { role?: string }) => entry.role === "USER")).toHaveLength(2);
+  });
 
 test("shows effective search queries, open time bounds and selected documents before citations", async ({
   page,
@@ -150,7 +312,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
     })
   ).json();
   const documentReads: URL[] = [];
-  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) => {
+  await page.route(`**/api/chat/documents/${fixtureSource.documentId}?*`, (route) => {
     const url = new URL(route.request().url());
     documentReads.push(url);
     const from = Number(url.searchParams.get("from"));
@@ -222,7 +384,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" })).toBeVisible();
   await page.getByRole("button", { name: "Nguồn 1", exact: true }).click();
   await expect(panel).toBeHidden();
-  await page.route(`**/api/search/documents/${fixtureSource.documentId}?*`, (route) =>
+  await page.route(`**/api/chat/documents/${fixtureSource.documentId}?*`, (route) =>
     route.fulfill({ status: 404, json: {} }),
   );
   await citation.click();
@@ -321,16 +483,16 @@ test("new chat, native keyboard/IME, server IDs, multiple turns, markdown and re
   await expect(page.getByText("Hello 👋", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Dừng trả lời" })).toHaveCount(0);
   await expect(page.locator("pre")).toContainText('System.out.println("Hello");');
-  await page.getByRole("button", { name: "Copy code" }).click();
+  await page.getByRole("button", { name: "Sao chép mã" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain('System.out.println("Hello");');
   await page.evaluate(() => navigator.clipboard.writeText("Replaced clipboard"));
-  await expect(page.getByRole("button", { name: "Copy code" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Sao chép mã" })).toHaveAttribute(
     "title",
-    "Copy code",
+    "Sao chép mã",
   );
-  await page.getByRole("button", { name: "Copy code" }).click();
+  await page.getByRole("button", { name: "Sao chép mã" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain('System.out.println("Hello");');
@@ -393,8 +555,11 @@ test("mobile drawer, Chat/Search mode, and leaving a running chat only closes th
   expect(box!.y + box!.height).toBeLessThan(844);
   await expect(page.getByRole("banner")).toContainText("Mobile running");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  const navigation = page.getByRole("dialog", { name: "MemoryOS navigation" });
-  await navigation.locator('a[href="/search"]').click();
+  const navigation = page.getByRole("dialog", { name: "Điều hướng MemoryOS" });
+  await expect(navigation.locator('a[href="/search"]')).toHaveCount(0);
+  await navigation.getByRole("link", { name: "Hội thoại mới" }).click();
+  await page.getByRole("button", { name: "Trò chuyện, chuyển chế độ" }).click();
+  await page.locator('a[href="/search"]').click();
   await expect(page).toHaveURL(/\/search$/);
   await expect
     .poll(
@@ -518,7 +683,7 @@ for (const mobile of [false, true]) {
         ),
       });
     });
-    await page.route("**/api/search/documents/*?*", (route) => {
+    await page.route("**/api/chat/documents/*?*", (route) => {
       const source = route.request().url().includes(second.documentId!) ? second : fixtureSource;
       return route.fulfill({
         json: {

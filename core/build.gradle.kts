@@ -14,6 +14,8 @@ tasks.withType<Test>().configureEach {
     timeout = Duration.ofMinutes(15)
     // Modulith/ArchUnit metadata and the full persistence corpus exceed Gradle's 512 MiB test default.
     maxHeapSize = "1g"
+    // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
+    inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
 }
 
 dependencies {
@@ -28,6 +30,8 @@ dependencies {
     implementation(libs.embabel.openai)
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
+    implementation(libs.jsoup)
+    implementation(libs.pdfbox)
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)

@@ -22,6 +22,7 @@ const adapter: InstalledAdapter = {
   type: "openai",
   credentialRequirement: "REQUIRED",
   tokenizerProfiles: [{ id: "openai-o200k-v1", displayName: "OpenAI" }],
+  nativeWebSearch: true,
 };
 const provider: ManagedProvider = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -58,6 +59,7 @@ const session: CurrentIdentity = {
   capabilities: ["MODELS_MANAGE"],
   scopedCapabilities: [],
   tenant: { displayName: "Manager", role: "MEMBER" },
+  uiLanguage: "vi",
 };
 const personaId = "00000000-0000-0000-0000-000000000009";
 

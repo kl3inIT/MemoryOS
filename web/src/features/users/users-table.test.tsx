@@ -1,4 +1,5 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { i18n } from "@/i18n";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -118,10 +119,27 @@ describe("UsersTable", () => {
       totalItems: 1,
       totalPages: 1,
       pendingActions: { [`actor:${activeMember.actorId}`]: "deactivate" },
-      rowErrors: { [`actor:${activeMember.actorId}`]: "Access could not be changed." },
+      rowErrors: { [`actor:${activeMember.actorId}`]: { key: "forbidden" } },
     });
     expect(screen.getByText("Deactivating…")).toBeVisible();
-    expect(screen.getByRole("alert")).toHaveTextContent("Access could not be changed.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "You don’t have permission to perform this action.",
+    );
     expect(screen.getByRole("button", { name: "Deactivating… for Rowan Brooks" })).toBeDisabled();
+  });
+
+  it("translates an existing row error without replacing the affected row or identity", async () => {
+    renderTable({
+      entries: [activeMember],
+      rowErrors: { [`actor:${activeMember.actorId}`]: { key: "forbidden" } },
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("You don’t have permission");
+    await act(async () => {
+      await i18n.changeLanguage("vi");
+    });
+    expect(screen.getByRole("alert")).toBe(alert);
+    expect(alert).toHaveTextContent("Bạn không có quyền thực hiện thao tác này.");
+    expect(screen.getByText("Rowan Brooks")).toBeVisible();
   });
 });

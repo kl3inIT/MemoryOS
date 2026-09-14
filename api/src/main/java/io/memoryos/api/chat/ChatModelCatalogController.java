@@ -12,7 +12,7 @@ import io.memoryos.api.chat.contract.ChatPersonaPageResponse;
 import io.memoryos.api.chat.contract.ChatProviderAdapterResponse;
 import io.memoryos.api.chat.contract.ChatProviderRequest;
 import io.memoryos.api.chat.contract.ChatProviderResponse;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

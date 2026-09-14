@@ -1,6 +1,8 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search, ShieldCheck, UsersRound } from "lucide-react";
-import { useState } from "react";
+import { Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +18,18 @@ type SourceGroupPickerProps = {
   onChange: (groupIds: Set<string>) => void;
 };
 
+const noKnownGroups: readonly SourceGroup[] = [];
+
 export function SourceGroupPicker({
   selected,
-  knownGroups = [],
+  knownGroups = noKnownGroups,
   required = false,
   disabled = false,
   className,
   onChange,
 }: SourceGroupPickerProps) {
+  const ui = useAppTranslation();
+
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -39,12 +45,46 @@ export function SourceGroupPicker({
     if (page > lastPage) setPage(lastPage);
   }
 
-  const knownById = new Map(knownGroups.map((group) => [group.id, group]));
-  for (const group of options.data?.items ?? []) knownById.set(group.id, group);
-  const selectedGroups = [...selected]
+  const [rememberedGroups, setRememberedGroups] = useState<Map<string, SourceGroup>>(
+    () => new Map(),
+  );
+  const knownById = useMemo(() => {
+    const groups = new Map(rememberedGroups);
+    for (const group of knownGroups) groups.set(group.id, group);
+    for (const group of options.data?.items ?? []) groups.set(group.id, group);
+    return groups;
+  }, [knownGroups, options.data?.items, rememberedGroups]);
+  const ordinarySelected = useMemo(
+    () =>
+      new Set(
+        [...selected].filter((id) => {
+          const group = knownById.get(id);
+          return !group || group.systemKey === null;
+        }),
+      ),
+    [knownById, selected],
+  );
+  const selectedGroups = [...ordinarySelected]
     .map((groupId) => knownById.get(groupId))
     .filter((group): group is SourceGroup => Boolean(group));
-  const rows = options.data?.items ?? [];
+  const rows = (options.data?.items ?? []).filter((group) => group.systemKey === null);
+
+  // Keep selected metadata across pages without dropping IDs from unloaded pages.
+  const rememberedSelection = new Map<string, SourceGroup>();
+  for (const id of ordinarySelected) {
+    const group = knownById.get(id);
+    if (group) rememberedSelection.set(id, group);
+  }
+  if (
+    rememberedGroups.size !== rememberedSelection.size ||
+    [...rememberedSelection].some(([id, group]) => rememberedGroups.get(id) !== group)
+  ) {
+    setRememberedGroups(rememberedSelection);
+  }
+
+  useEffect(() => {
+    if (ordinarySelected.size !== selected.size) onChange(ordinarySelected);
+  }, [onChange, ordinarySelected, selected.size]);
 
   function searchGroups() {
     setSearch(searchDraft.trim());
@@ -55,18 +95,20 @@ export function SourceGroupPicker({
     <div className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-secondary-action text-content-primary">Access groups</h3>
+          <h3 className="font-secondary-action text-content-primary">{ui("Access groups")}</h3>
           <p className="mt-1 font-secondary-body text-content-muted">
-            Selected groups can scope Source management; document-content access remains separate.
+            {ui(
+              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+            )}
           </p>
         </div>
         <span className="font-secondary-body tabular-nums text-content-muted">
-          {selected.size} selected
+          {ordinarySelected.size} {ui("selected")}
         </span>
       </div>
 
       {selectedGroups.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-1" aria-label="Selected Source groups">
+        <div className="mt-3 flex flex-wrap gap-1" aria-label={ui("Selected Source groups")}>
           {selectedGroups.map((group) => (
             <Badge
               key={group.id}
@@ -76,9 +118,9 @@ export function SourceGroupPicker({
               {group.name}
             </Badge>
           ))}
-          {selected.size > selectedGroups.length ? (
+          {ordinarySelected.size > selectedGroups.length ? (
             <Badge variant="outline" className="text-content-muted">
-              +{selected.size - selectedGroups.length}
+              +{ordinarySelected.size - selectedGroups.length}
             </Badge>
           ) : null}
         </div>
@@ -86,7 +128,7 @@ export function SourceGroupPicker({
 
       <div role="search" className="mt-3 flex gap-2">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search groups available to this Source</span>
+          <span className="sr-only">{ui("Search groups available to this Source")}</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
             aria-hidden="true"
@@ -97,7 +139,7 @@ export function SourceGroupPicker({
             disabled={disabled}
             value={searchDraft}
             maxLength={200}
-            placeholder="Search groups…"
+            placeholder={ui("Search groups…")}
             className="bg-surface-sunken pl-9"
             onChange={(event) => setSearchDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -114,18 +156,18 @@ export function SourceGroupPicker({
           disabled={disabled}
           onClick={searchGroups}
         >
-          Search
+          {ui("Search")}
         </Button>
       </div>
 
       {options.isPending ? (
         <p role="status" className="mt-4 px-2 py-5 font-main-ui-body text-content-muted">
-          Loading groups
+          {ui("Loading groups")}
         </p>
       ) : options.isError ? (
         <div className="mt-4 rounded-xl border border-border-subtle p-4">
           <p role="alert" className="font-main-ui-body text-content-secondary">
-            Available groups could not be loaded. Your selection is unchanged.
+            {ui("Available groups could not be loaded. Your selection is unchanged.")}
           </p>
           <Button
             size="sm"
@@ -134,14 +176,14 @@ export function SourceGroupPicker({
             disabled={disabled}
             onClick={() => void options.refetch()}
           >
-            Try again
+            {ui("Try again")}
           </Button>
         </div>
       ) : rows.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-7 text-center">
-          <UsersRound className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+          <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
           <p className="mt-2 font-main-ui-body text-content-muted">
-            {search ? "No groups match your search." : "No groups are available."}
+            {search ? ui("No groups match your search.") : ui("No groups are available.")}
           </p>
         </div>
       ) : (
@@ -150,8 +192,8 @@ export function SourceGroupPicker({
           className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised"
         >
           {rows.map((group) => {
-            const checked = selected.has(group.id);
-            const limitReached = disabled || (selected.size >= 100 && !checked);
+            const checked = ordinarySelected.has(group.id);
+            const limitReached = disabled || (ordinarySelected.size >= 100 && !checked);
             return (
               <label
                 key={group.id}
@@ -163,45 +205,33 @@ export function SourceGroupPicker({
                   disabled={limitReached}
                   className="size-4 shrink-0 accent-content-primary outline-none"
                   onChange={() => {
-                    const next = new Set(selected);
+                    const next = new Set(ordinarySelected);
                     if (checked) next.delete(group.id);
                     else next.add(group.id);
                     onChange(next);
                   }}
                 />
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-muted">
-                  {group.systemKey ? (
-                    <ShieldCheck className="size-4" aria-hidden="true" />
-                  ) : (
-                    <UsersRound className="size-4" aria-hidden="true" />
-                  )}
+                  <OnyxUsersIcon className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
                   {group.name}
                 </span>
-                {group.systemKey ? (
-                  <Badge
-                    variant="outline"
-                    className="shrink-0 bg-surface-raised text-content-muted"
-                  >
-                    System
-                  </Badge>
-                ) : null}
               </label>
             );
           })}
         </div>
       )}
 
-      {required && selected.size === 0 ? (
+      {required && ordinarySelected.size === 0 ? (
         <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
-          Select at least one group.
+          {ui("Select at least one group.")}
         </p>
       ) : null}
 
       {options.data && options.data.totalPages > 1 ? (
         <nav
-          aria-label="Source group option pages"
+          aria-label={ui("Source group option pages")}
           className="mt-3 flex items-center justify-end gap-2"
         >
           <Button
@@ -210,10 +240,10 @@ export function SourceGroupPicker({
             disabled={disabled || page === 0}
             onClick={() => setPage(page - 1)}
           >
-            Previous
+            {ui("Previous")}
           </Button>
           <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
-            Page {page + 1} of {options.data.totalPages}
+            {ui("Page")} {page + 1} {ui("of")} {options.data.totalPages}
           </span>
           <Button
             size="sm"
@@ -221,7 +251,7 @@ export function SourceGroupPicker({
             disabled={disabled || page + 1 >= options.data.totalPages}
             onClick={() => setPage(page + 1)}
           >
-            Next
+            {ui("Next")}
           </Button>
         </nav>
       ) : null}

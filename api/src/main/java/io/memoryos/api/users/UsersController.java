@@ -2,16 +2,16 @@ package io.memoryos.api.users;
 
 import io.memoryos.api.users.contract.UserPageResponse;
 import io.memoryos.api.users.contract.ReplaceUserGroupsRequest;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.IdentityContext;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupService;
-import io.memoryos.iam.UserQueryService;
-import io.memoryos.iam.UserQuery;
-import io.memoryos.iam.UserSort;
-import io.memoryos.iam.UserStatus;
-import io.memoryos.iam.TenantMemberManagement;
-import io.memoryos.iam.TenantMembershipRole;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.GroupService;
+import io.memoryos.iam.user.UserQueryService;
+import io.memoryos.iam.user.UserQuery;
+import io.memoryos.iam.user.UserSort;
+import io.memoryos.iam.user.UserStatus;
+import io.memoryos.iam.tenant.TenantMemberManagement;
+import io.memoryos.iam.tenant.TenantMembershipRole;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -217,7 +217,7 @@ final class UsersController {
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks IAM_ADMIN authority or the same-origin header is missing",
+            description = "The actor lacks SYSTEM_ADMIN authority or the same-origin header is missing",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(ref = API_PROBLEM_SCHEMA)

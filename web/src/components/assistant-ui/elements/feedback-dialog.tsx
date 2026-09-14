@@ -1,6 +1,7 @@
 // Adapted from assistant-ui FeedbackDialog (MIT), revision 2c22f5d7.
 // Dialog submission owns pending/error state; the server accepts one reason per response.
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 export function FeedbackDialog({
   reasons,
@@ -9,32 +10,34 @@ export function FeedbackDialog({
   onToggleReason,
   onNoteChange,
 }: {
-  reasons: readonly string[];
+  reasons: readonly { id: string; label: string }[];
   selected: string;
   note: string;
   onToggleReason: (reason: string) => void;
   onNoteChange: (note: string) => void;
 }) {
+  const { t } = useTranslation("feedback");
   return (
     <div data-slot="feedback-dialog" className="flex flex-col gap-4">
-      <p className="text-sm text-content-secondary">Thêm lý do hoặc góp ý (không bắt buộc).</p>
-      <div role="group" aria-label="Lý do đánh giá" className="flex flex-wrap gap-2">
+      <p className="text-sm text-content-secondary">{t("optional")}</p>
+      <div role="group" aria-label={t("reasons")} className="flex flex-wrap gap-2">
         {reasons.map((reason) => (
           <Button
-            key={reason}
+            key={reason.id}
             type="button"
             size="sm"
-            prominence={selected === reason ? "primary" : "secondary"}
-            aria-pressed={selected === reason}
-            onClick={() => onToggleReason(selected === reason ? "" : reason)}
+            className="max-w-full rounded-full whitespace-normal text-start"
+            prominence={selected === reason.id ? "primary" : "secondary"}
+            aria-pressed={selected === reason.id}
+            onClick={() => onToggleReason(selected === reason.id ? "" : reason.id)}
           >
-            {reason}
+            {reason.label}
           </Button>
         ))}
       </div>
       <textarea
-        aria-label="Góp ý"
-        placeholder="Bạn muốn câu trả lời tốt hơn ở điểm nào?"
+        aria-label={t("note")}
+        placeholder={t("placeholder")}
         value={note}
         rows={3}
         maxLength={4000}

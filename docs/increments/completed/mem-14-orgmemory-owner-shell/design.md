@@ -1,17 +1,17 @@
-# MEM-14 design: OrgMemory and Onyx-aligned application shell
+# MEM-14 design: OrgMemory and reference implementation-aligned application shell
 
 ## Outcome
 
-The authenticated MemoryOS surface adopts the proven OrgMemory composition and current Onyx/Opal sidebar contracts without changing the MEM-13 browser-session boundary. The app opens on a `New Session` shell, exposes a separate administration shell, supports a real persisted light/dark preference, and keeps navigation, account actions, and content in stable layout regions.
+The authenticated MemoryOS surface adopts the proven OrgMemory composition and current reference implementation/Opal sidebar contracts without changing the MEM-13 browser-session boundary. The app opens on a `New Session` shell, exposes a separate administration shell, supports a real persisted light/dark preference, and keeps navigation, account actions, and content in stable layout regions.
 
 ## Reference boundary
 
 The implementation is based on fresh source inspection rather than screenshots alone:
 
 - OrgMemory `AppShell`, app/admin sidebars, route layouts, semantic tokens, and feature ownership;
-- Onyx `SidebarLayouts.Root/Header/Body/Footer/Section`, `SidebarTab`, `LineItemButton`, `AccountPopover`, `AppChrome`, and shared typography/size token sources.
+- reference implementation `SidebarLayouts.Root/Header/Body/Footer/Section`, `SidebarTab`, `LineItemButton`, `AccountPopover`, `AppChrome`, and shared typography/size token sources.
 
-MemoryOS copies interaction and layout contracts, not OrgMemory session models or Onyx product state. Agents, projects, recents, notifications, help, logout, connector operations, and chat history remain absent until their contracts exist.
+MemoryOS copies interaction and layout contracts, not OrgMemory session models or reference implementation product state. Agents, projects, recents, notifications, help, logout, connector operations, and chat history remain absent until their contracts exist.
 
 ## Runtime surfaces
 
@@ -52,7 +52,7 @@ The footer shows `Admin Panel` and a compact `Workspace owner` trigger. The trig
 
 ## Typography and design system
 
-MemoryOS uses Hanken Grotesk for interface typography and a monochrome semantic palette. The content scale follows Onyx:
+MemoryOS uses Hanken Grotesk for interface typography and a monochrome semantic palette. The content scale follows reference implementation:
 
 - hero `48/64`;
 - page heading `24/36`;
@@ -62,7 +62,7 @@ MemoryOS uses Hanken Grotesk for interface typography and a monochrome semantic 
 - secondary `12/16`;
 - figure label `10/12`.
 
-Sidebar tabs use the exact Onyx main UI `14/20` preset with 36px rows and 16px icons. Section labels use `12/16`; the brand mark is 28px and the topbar remains 40px.
+Sidebar tabs use the exact reference implementation main UI `14/20` preset with 36px rows and 16px icons. Section labels use `12/16`; the brand mark is 28px and the topbar remains 40px.
 
 `tokens.css` owns primitive and semantic values, `theme.css` exposes Tailwind utilities and typography presets, and `base.css` owns global element behavior. Product components use semantic tokens and presets rather than raw palette values, hexadecimal colors, OKLCH values, or arbitrary font sizes.
 

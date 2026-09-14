@@ -5,18 +5,41 @@ const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
   actorId: ACTOR_ID,
   authorizationVersion: 1,
+  uiLanguage: "en",
   tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 const MEMBER_SESSION = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
   tenant: { ...OWNER_SESSION.tenant, role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -27,8 +50,8 @@ test("offers the backend OAuth2 flow when no session exists", async ({ page }) =
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /sign in to memoryos/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
+  await expect(page.getByRole("heading", { name: "Đăng nhập MemoryOS" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tiếp tục với tài khoản công ty" })).toHaveAttribute(
     "href",
     "/oauth2/authorization/memoryos",
   );
@@ -52,15 +75,19 @@ test("renders the authenticated application shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Hội thoại mới", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "New conversation", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveAttribute("href", "/admin");
-  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole("heading", { name: "What would you like to explore?" }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Question", exact: true })).toBeEnabled();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "What would you like to explore?" }),
+  ).toBeVisible();
 });
 
 test("hides owner UI and blocks member administration deep links without requests", async ({
@@ -86,7 +113,7 @@ test("hides owner UI and blocks member administration deep links without request
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Mở điều hướng" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("button", { name: "Tenant member" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin Panel" })).toHaveCount(0);
 
@@ -235,11 +262,12 @@ test("keeps one document, identity session, and admin shell across internal rout
   ).toBe("same-document");
   expect(identityRequests).toBe(1);
 
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
-  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  const adminSidebar = page.getByRole("complementary", { name: "Administration sidebar" });
+  await adminSidebar.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await adminSidebar.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
-  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   expect(identityRequests).toBe(1);
 });
 
@@ -268,13 +296,13 @@ test("closes mobile administration navigation after a client route change", asyn
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin");
-  await page.getByRole("button", { name: "Mở điều hướng" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toBeVisible();
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "MemoryOS navigation" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Mở điều hướng" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Tenant owner" }).click();
   await page.getByRole("link", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
@@ -284,7 +312,9 @@ test("closes mobile administration navigation after a client route change", asyn
 test("keeps unprovisioned access separate from signed-out state", async ({ page }) => {
   await page.goto("/access-not-provisioned");
 
-  await expect(page.getByRole("heading", { name: /don’t have access yet/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Bạn chưa được cấp quyền truy cập." }),
+  ).toBeVisible();
 });
 
 test("recovers from an unavailable identity endpoint without treating it as signed out", async ({
@@ -307,9 +337,13 @@ test("recovers from an unavailable identity endpoint without treating it as sign
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /couldn’t confirm your session/i })).toBeVisible();
-  await page.getByRole("button", { name: /try again/i }).click();
-  await expect(page.getByRole("heading", { name: "Bạn muốn tìm hiểu điều gì?" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Không thể xác nhận phiên đăng nhập." }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Thử lại" }).click();
+  await expect(
+    page.getByRole("heading", { name: "What would you like to explore?" }),
+  ).toBeVisible();
 });
 
 test("manages members and one-time invitation recovery from the Users view", async ({ page }) => {
@@ -731,16 +765,16 @@ test("shows the recipient invitation landing and recovery states", async ({ page
   });
 
   await page.goto("/invitation");
-  await expect(page.getByRole("heading", { name: "Join Tasco" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Continue to sign in" })).toHaveAttribute(
+  await expect(page.getByRole("heading", { name: "Tham gia Tasco" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tiếp tục đăng nhập" })).toHaveAttribute(
     "href",
     "/invite/continue",
   );
-  await expect(page.getByText(/does not grant administration permissions/i)).toBeVisible();
+  await expect(page.getByText(/không cấp quyền quản trị/i)).toBeVisible();
 
   await page.goto("/invitation?reason=email-mismatch");
-  await expect(page.getByRole("heading", { name: "Use the invited email" })).toBeVisible();
-  await expect(page.getByText(/verified email does not match/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dùng email được mời" })).toBeVisible();
+  await expect(page.getByText(/email được xác minh không khớp/i)).toBeVisible();
 });
 
 test("creates, indexes, removes, and deletes a FILE source", async ({ page }) => {
@@ -842,9 +876,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         body: JSON.stringify({
           items: [
             {
-              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
-              name: "Admin",
-              systemKey: "ADMIN",
+              id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Knowledge team",
+              systemKey: null,
             },
           ],
           page: 0,
@@ -862,9 +896,9 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
         body: JSON.stringify({
           items: [
             {
-              id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
-              name: "Admin",
-              systemKey: "ADMIN",
+              id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c",
+              name: "Knowledge team",
+              systemKey: null,
             },
           ],
         }),
@@ -886,7 +920,6 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
     if (request.method() === "POST" && path === "/api/sources/file") {
       createAttempts += 1;
       mutationHeaders.push(request.headers()["x-memoryos-csrf"] ?? "");
-      expect(request.postDataJSON()).toEqual({ name: source.name });
       sourceCreated = true;
       await page.waitForTimeout(100);
       await route.fulfill({

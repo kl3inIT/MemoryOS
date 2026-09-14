@@ -1,6 +1,7 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.iam.GroupId;
+import io.memoryos.connector.SourceAccess;
+import io.memoryos.iam.group.GroupId;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -19,8 +20,11 @@ public record CreateFileSourceRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 120)
         String name,
         @Size(max = 100, message = "Select no more than 100 groups.")
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.")
+        @Nullable List<@NotNull UUID> groupIds,
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
-        @Nullable List<@NotNull UUID> groupIds
+        @Nullable SourceAccess access
 ) {
     public CreateFileSourceRequest {
         groupIds = groupIds == null ? null : List.copyOf(groupIds);

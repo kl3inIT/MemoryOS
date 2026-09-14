@@ -7,11 +7,11 @@ describe("source error presentation", () => {
   it("preserves safe unknown error references but never presents raw diagnostic text", () => {
     const code = "SOURCE_PROVIDER_RATE_LIMITED";
     const secret = "database password leaked";
-    expect(sourceStatusMessage(code)).toContain(code);
-    expect(sourceStatusMessage(secret)).not.toContain(secret);
-    expect(sourceMutationError(new ApiError(500, { code, detail: secret }), "reindex")).toContain(
-      code,
-    );
+    expect(JSON.stringify(sourceStatusMessage(code))).toContain(code);
+    expect(JSON.stringify(sourceStatusMessage(secret))).not.toContain(secret);
+    expect(
+      JSON.stringify(sourceMutationError(new ApiError(500, { code, detail: secret }), "reindex")),
+    ).toContain(code);
     expect(
       sourceMutationError(new ApiError(500, { code: secret, detail: secret }), "google-drive"),
     ).not.toContain(secret);

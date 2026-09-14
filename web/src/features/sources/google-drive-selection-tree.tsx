@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useId, useMemo, useState } from "react";
@@ -41,6 +42,8 @@ function SelectionBranch({
   parent?: GoogleDriveSelectionTreeItemResponse;
   ancestors: string[];
 }) {
+  const ui = useAppTranslation();
+
   const client = useQueryClient();
   const { configuration, sourceId, actorId } = props;
   const request = { path: { sourceId }, query: { parentId: parent?.id, size: 25 } };
@@ -91,20 +94,26 @@ function SelectionBranch({
       {branch.isPending ? (
         <p role="status" className="py-2 text-sm text-content-muted">
           {parent?.kind === "FOLDER"
-            ? "Loading folder contents…"
+            ? ui("Loading folder contents…")
             : parent
-              ? "Loading recorded links…"
-              : "Loading selected content…"}
+              ? ui("Loading recorded links…")
+              : ui("Loading selected content…")}
         </p>
       ) : null}
       {branch.isError ? (
         <div className="space-y-2 py-2">
           <p role="alert" className="text-sm text-status-danger-content">
             {changed
-              ? "Selection or discovery changed. Refresh before expanding this content. Your draft is retained."
+              ? ui(
+                  "Selection or discovery changed. Refresh before expanding this content. Your draft is retained.",
+                )
               : branch.isFetchNextPageError
-                ? "More content could not be loaded. The items already shown and your draft are retained."
-                : "This content could not be loaded. It is not an empty folder or a completed discovery."}
+                ? ui(
+                    "More content could not be loaded. The items already shown and your draft are retained.",
+                  )
+                : ui(
+                    "This content could not be loaded. It is not an empty folder or a completed discovery.",
+                  )}
           </p>
           <Button
             prominence="secondary"
@@ -116,7 +125,7 @@ function SelectionBranch({
               else void branch.refetch();
             }}
           >
-            {changed ? "Refresh selected content" : "Retry loading content"}
+            {changed ? ui("Refresh selected content") : ui("Retry loading content")}
           </Button>
         </div>
       ) : null}
@@ -133,12 +142,14 @@ function SelectionBranch({
       {branch.isSuccess && !items.length ? (
         <p className="py-2 text-sm text-content-muted">
           {branch.hasNextPage
-            ? "No items were returned on this page. More pages are available."
+            ? ui("No items were returned on this page. More pages are available.")
             : parent?.kind === "FOLDER"
-              ? "No accessible items are currently returned for this folder."
+              ? ui("No accessible items are currently returned for this folder.")
               : parent
-                ? "No discovered links are recorded for this file. It may not have been checked, or discovery may be incomplete."
-                : "No selected content is available in this scope."}
+                ? ui(
+                    "No discovered links are recorded for this file. It may not have been checked, or discovery may be incomplete.",
+                  )
+                : ui("No selected content is available in this scope.")}
         </p>
       ) : null}
       {!changed && branch.hasNextPage ? (
@@ -146,10 +157,14 @@ function SelectionBranch({
           prominence="secondary"
           pending={branch.isFetchingNextPage}
           disabled={branch.isFetching}
-          aria-label={parent ? `Load more in ${parent.name}` : "Load more selected content"}
+          aria-label={
+            parent
+              ? ui("Load more in {{v1}}", { v1: parent.name })
+              : ui("Load more selected content")
+          }
           onClick={() => void branch.fetchNextPage()}
         >
-          Load more
+          {ui("Load more")}
         </Button>
       ) : null}
     </div>
@@ -161,6 +176,8 @@ function SelectionTreeNode({
   ancestors,
   ...props
 }: TreeProps & { item: GoogleDriveSelectionTreeItemResponse; ancestors: string[] }) {
+  const ui = useAppTranslation();
+
   const [expanded, setExpanded] = useState(false);
   const branchId = useId();
   const repeated = ancestors.includes(item.id);
@@ -172,7 +189,10 @@ function SelectionTreeNode({
           <Button
             prominence="tertiary"
             className="mt-1 size-11 shrink-0 p-0"
-            aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`}
+            aria-label={ui("{{v1}} {{v2}}", {
+              v1: ui(expanded ? "Collapse" : "Expand"),
+              v2: item.name,
+            })}
             aria-expanded={expanded}
             aria-controls={expanded ? branchId : undefined}
             onClick={() => setExpanded(!expanded)}
@@ -186,7 +206,7 @@ function SelectionTreeNode({
           <GoogleDriveSelectionRow {...props} item={item} parentId={ancestors.at(-1)} />
           {repeated ? (
             <p className="pb-2 text-xs text-content-muted">
-              Already shown earlier in this branch. Its sync selection is shared.
+              {ui("Already shown earlier in this branch. Its sync selection is shared.")}
             </p>
           ) : null}
         </div>
@@ -216,6 +236,8 @@ export function GoogleDriveSelectionRow({
   onApprove,
   onSelect,
 }: SelectionControls & { item: GoogleDriveSelectionItemResponse; parentId?: string }) {
+  const ui = useAppTranslation();
+
   const included = item.coveredByRoots || (approved ? approved.has(item.id) : item.selected);
   const canSelect = allowSelection && item.kind === "LINKED" && !item.coveredByRoots;
   const origins = useMemo(
@@ -231,21 +253,23 @@ export function GoogleDriveSelectionRow({
             <p className="break-words text-content-primary">{item.name}</p>
             <p className="break-words text-xs text-content-muted">
               {item.kind === "FOLDER"
-                ? "Folder · Contents included"
+                ? ui("Folder · Contents included")
                 : item.kind === "FILE"
                   ? item.coveredByRoots
-                    ? "File · Included in scope"
-                    : "File · Selected directly"
+                    ? ui("File · Included in scope")
+                    : ui("File · Selected directly")
                   : item.coveredByRoots
-                    ? "Linked document · Included in selected scope"
+                    ? ui("Linked document · Included in selected scope")
                     : included
                       ? approved
-                        ? "Linked document · Selected in draft"
-                        : "Linked document · Selected for sync"
+                        ? ui("Linked document · Selected in draft")
+                        : ui("Linked document · Selected for sync")
                       : approved
-                        ? "Linked document · Not selected in draft"
-                        : "Linked document · Not selected for sync"}
-              {item.status !== "AVAILABLE" ? ` · ${item.status.toLowerCase()}` : ""}
+                        ? ui("Linked document · Not selected in draft")
+                        : ui("Linked document · Not selected for sync")}
+              {item.status !== "AVAILABLE"
+                ? ui(" · {{v1}}", { v1: ui(statusLabel(item.status)) })
+                : ""}
             </p>
           </div>
           {canSelect ? (
@@ -254,23 +278,26 @@ export function GoogleDriveSelectionRow({
                 <label className="flex min-h-11 items-center gap-2 text-xs">
                   <input
                     type="checkbox"
-                    aria-label={`Sync ${item.name}`}
+                    aria-label={ui("Sync {{v1}}", { v1: item.name })}
                     checked={included}
                     disabled={disabled || (!included && item.status !== "AVAILABLE")}
                     className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
                     onChange={(event) => onApprove(item.id, event.target.checked)}
                   />
-                  Select for sync
+                  {ui("Select for sync")}
                 </label>
               ) : (
                 <Button
                   prominence="secondary"
                   className="h-auto min-h-11 max-w-full whitespace-normal text-left"
                   disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                  aria-label={`${included ? "Deselect" : "Select"} ${item.name} for sync`}
+                  aria-label={ui("{{v1}} {{v2}} for sync", {
+                    v1: ui(included ? "Deselect" : "Select"),
+                    v2: item.name,
+                  })}
                   onClick={(event) => onSelect(item, event.currentTarget.parentElement!)}
                 >
-                  {included ? "Deselect for sync" : "Select for sync"}
+                  {included ? ui("Deselect for sync") : ui("Select for sync")}
                 </Button>
               )}
             </div>
@@ -289,6 +316,8 @@ function SelectionProvenance({
   origins: GoogleDriveLinkOriginResponse[];
   name: string;
 }) {
+  const ui = useAppTranslation();
+
   const { parents, referenceCount } = useMemo(() => {
     const grouped = new Map<string, { name: string; locations: Set<string> }>();
     let referenceCount = 0;
@@ -306,19 +335,19 @@ function SelectionProvenance({
     return { parents: [...grouped], referenceCount };
   }, [origins]);
   return (
-    <details aria-label={`References for ${name}`} className="min-w-0">
+    <details aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
       <summary className="min-h-11 cursor-pointer py-3 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
-        {referenceCount} {referenceCount === 1 ? "reference" : "references"} · {parents.length}{" "}
-        {parents.length === 1 ? "source document" : "source documents"}
+        {referenceCount} {referenceCount === 1 ? ui("reference") : ui("references")} ·{" "}
+        {parents.length} {parents.length === 1 ? ui("source document") : ui("source documents")}
       </summary>
       <ul className="space-y-2 border-l border-border-subtle pl-3 pb-2 text-xs text-content-muted">
         {parents.map(([parentId, parent]) => (
           <li key={parentId} className="min-w-0 space-y-1">
             <p className="break-words font-medium text-content-primary">{parent.name}</p>
-            <ul aria-label="Reference locations" className="flex flex-wrap gap-x-3 gap-y-1">
+            <ul aria-label={ui("Reference locations")} className="flex flex-wrap gap-x-3 gap-y-1">
               {[...parent.locations].map((location) => (
                 <li key={location} className="break-all">
-                  {location || "Location not recorded"}
+                  {location || ui("Location not recorded")}
                 </li>
               ))}
             </ul>
@@ -328,3 +357,4 @@ function SelectionProvenance({
     </details>
   );
 }
+import { statusLabel } from "@/i18n/status-copy";

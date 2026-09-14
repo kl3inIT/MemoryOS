@@ -1,6 +1,6 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.group.GroupIdentityPage;
 
 import java.util.List;
 

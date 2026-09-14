@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { i18n } from "@/i18n";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,6 +7,32 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 describe("ConfirmDialog", () => {
+  it("retranslates a displayed failure without retrying the mutation or closing the dialog", async () => {
+    const onConfirm = vi.fn(async () => {
+      throw new Error("private provider detail");
+    });
+    render(
+      <ConfirmDialog
+        open
+        title="Confirm"
+        description="Fixture"
+        confirmLabel="Confirm action"
+        pendingLabel="Working"
+        onConfirm={onConfirm}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm action" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("The action could not be completed. Try again.");
+    await act(async () => {
+      await i18n.changeLanguage("vi");
+    });
+    expect(screen.getByRole("alert")).toBe(alert);
+    expect(alert).toHaveTextContent("Không thể hoàn tất thao tác. Vui lòng thử lại.");
+    expect(screen.getByRole("button", { name: "Hủy" })).toBeVisible();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toContain("private provider detail");
+  });
   it("focuses Cancel and closes without confirming", async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn(async () => undefined);

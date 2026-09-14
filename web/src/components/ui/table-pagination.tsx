@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,8 @@ export function TablePagination({
   children,
   className,
 }: TablePaginationProps) {
+  const ui = useAppTranslation();
+
   return (
     <nav
       aria-label={label}
@@ -58,7 +61,7 @@ export function TablePagination({
             disabled={previousDisabled}
             onClick={onPrevious}
           >
-            Previous
+            {ui("Previous")}
           </Button>
           <Button
             size="sm"
@@ -67,7 +70,7 @@ export function TablePagination({
             disabled={nextDisabled}
             onClick={onNext}
           >
-            Next
+            {ui("Next")}
           </Button>
         </div>
       </div>

@@ -20,6 +20,7 @@ const adapter: InstalledAdapter = {
     { id: "openai-o200k-v1", displayName: "OpenAI" },
     { id: "smollm2-135m-12fd25f-v1", displayName: "SmolLM2" },
   ],
+  nativeWebSearch: true,
 };
 const provider: ManagedProvider = {
   id: "00000000-0000-0000-0000-000000000001",

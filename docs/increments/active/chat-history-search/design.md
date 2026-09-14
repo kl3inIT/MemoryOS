@@ -1,0 +1,9 @@
+# Full-history conversation search
+
+Owner-approved: replace the loaded-title filter with an authorized server search, retaining the compact search trigger beside Recent conversations and adding a usable trigger when the sidebar is collapsed. Reuse the existing Radix dialog and cmdk components, debounced/cancelable React Query pagination, server session navigation and localized states.
+
+Baseline: Onyx 40eb240df `backend/onyx/db/chat_search.py` unions indexed title/message matches, scopes ownership/deletion in both arms, overfetches one result and opens sessions without selecting a historical branch. MemoryOS uses PostgreSQL `simple` full-text tokenization for Vietnamese/English rather than English stemming. Search includes all persisted USER/ASSISTANT text versions, not private file bodies, tool payloads or other users' shared conversations. Opening a hit keeps the selected branch. No implicit branch write, inference, OpenSearch projection or extra worker.
+
+GET /api/chat/sessions/search accepts query (0–200 chars), offset (0–10000), limit (1–50) and returns items/hasMore. Blank query returns recent owned sessions. A concrete JDBC projection owns union/filter/order mechanics; the existing session service resolves active membership and owns validation and a read-only transaction. GIN expression indexes use the same explicit text configuration; additive Flyway migration only. Stable ordering is updated_at DESC, id. Pagination is live, not a frozen snapshot.
+
+Verify real PostgreSQL migration/indexes, token matching in title and message-only old versions, owner isolation, deleted/membership-denied data, pagination/deduplication and safe malformed inputs; regenerate OpenAPI/client. Browser checks must prove a server result absent from loaded sidebar rows appears, does not undergo local-title filtering, and stale queries do not render as current hits. No OCR, commit, PR, deploy or Linear mutation.

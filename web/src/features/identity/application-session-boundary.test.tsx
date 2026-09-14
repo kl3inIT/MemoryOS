@@ -12,11 +12,27 @@ import { ApplicationSessionBoundary } from "./application-session-boundary";
 const OWNER_SESSION: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
   authorizationVersion: 1,
+  uiLanguage: "en",
   tenant: {
     displayName: "Tasco",
     role: "OWNER",
   },
-  capabilities: ["USERS_MANAGE", "SOURCES_READ", "SOURCES_MANAGE"],
+  capabilities: [
+    "SYSTEM_ADMIN",
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+    "USERS_MANAGE",
+    "GROUPS_READ",
+    "GROUPS_MANAGE",
+    "SOURCES_READ",
+    "SOURCES_MANAGE",
+    "SOURCES_DELETE",
+    "MODELS_MANAGE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -24,7 +40,14 @@ const MEMBER_SESSION: CurrentIdentity = {
   ...OWNER_SESSION,
   actorId: "97c41cb9-55ae-4a52-94ab-7aad59be91e5",
   tenant: { ...OWNER_SESSION.tenant!, role: "MEMBER" },
-  capabilities: [],
+  capabilities: [
+    "SYSTEM_BASIC",
+    "SEARCH_READ",
+    "CHAT_READ",
+    "CHAT_WRITE",
+    "IMAGE_GENERATE",
+    "LLM_GATEWAY_USE",
+  ],
   scopedCapabilities: [],
 };
 
@@ -34,6 +57,45 @@ afterEach(() => {
 });
 
 describe("ApplicationSessionBoundary", () => {
+  it("changes account locale without remounting the draft or purging private data", async () => {
+    let current = OWNER_SESSION;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(current)),
+    );
+    const client = createMemoryOsQueryClient();
+    renderBoundary(client, <ActorDraft />);
+    const input = await screen.findByLabelText("Private draft");
+    fireEvent.change(input, { target: { value: "Keep this draft" } });
+    client.setQueryData(["private-data"], { retained: true });
+    current = { ...OWNER_SESSION, uiLanguage: "vi" };
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
+    });
+    await waitFor(() => expect(document.documentElement.lang).toBe("vi"));
+    expect(screen.getByLabelText("Private draft")).toBe(input);
+    expect(input).toHaveValue("Keep this draft");
+    expect(client.getQueryData(["private-data"])).toEqual({ retained: true });
+  });
+
+  it("preserves mounted data and draft on transient background identity failure", async () => {
+    let fail = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => (fail ? Response.json({}, { status: 503 }) : Response.json(OWNER_SESSION))),
+    );
+    const client = createMemoryOsQueryClient();
+    renderBoundary(client, <ActorDraft />);
+    const input = await screen.findByLabelText("Private draft");
+    fireEvent.change(input, { target: { value: "Keep this draft" } });
+    fail = true;
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Couldn’t refresh your session");
+    expect(input).toHaveValue("Keep this draft");
+    expect(screen.getByLabelText("Private draft")).toBe(input);
+  });
   it("provides the authenticated session to its child layout", async () => {
     vi.stubGlobal(
       "fetch",
@@ -49,7 +111,12 @@ describe("ApplicationSessionBoundary", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        Response.json({ ...MEMBER_SESSION, tenant: null, authorizationVersion: 0 }),
+        Response.json({
+          ...MEMBER_SESSION,
+          tenant: null,
+          capabilities: [],
+          authorizationVersion: 0,
+        }),
       ),
     );
 

@@ -1,3 +1,5 @@
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Paperclip, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
@@ -20,12 +22,14 @@ export function GoogleDriveOAuthClientInput({
   disabled?: boolean;
   onReadyChange: (ready: boolean) => void;
 }) {
+  const ui = useAppTranslation();
+
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const draft = useRef("");
   const upload = useRef<HTMLInputElement>(null);
   const readVersion = useRef(0);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppCopy | null>(null);
   const [reading, setReading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
@@ -135,31 +139,33 @@ export function GoogleDriveOAuthClientInput({
 
   return (
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
-      <legend className="sr-only">Your Google OAuth app</legend>
-      <p className="font-main-ui-action text-content-primary">OAuth app</p>
+      <legend className="sr-only">{ui("Your Google OAuth app")}</legend>
+      <p className="font-main-ui-action text-content-primary">{ui("OAuth app")}</p>
       <p className="font-secondary-body text-content-muted">
-        Upload OAuth app JSON from Google Cloud Console, then authenticate with the Google account
-        whose Drive you want to index.
+        {ui(
+          "Upload OAuth app JSON from Google Cloud Console, then authenticate with the Google account whose Drive you want to index.",
+        )}
       </p>
       <details className="font-secondary-body text-content-muted">
         <summary className="w-fit cursor-pointer underline underline-offset-4">
-          Setup instructions
+          {ui("Setup instructions")}
         </summary>
         <div className="mt-3 flex flex-col gap-3">
           <p>
-            Enable the Drive, Sheets and Docs APIs, configure the consent screen, and create a Web
-            application OAuth client in your Google Cloud project.{" "}
+            {ui(
+              "Enable the Drive, Sheets and Docs APIs, configure the consent screen, and create a Web application OAuth client in your Google Cloud project.",
+            )}{" "}
             <a
               className="underline underline-offset-4"
               href="https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred"
               target="_blank"
               rel="noreferrer"
             >
-              Google OAuth setup guide
+              {ui("Google OAuth setup guide")}
             </a>
             .
           </p>
-          <p id={`${id}-callback`}>Authorized redirect URI for this MemoryOS instance:</p>
+          <p id={`${id}-callback`}>{ui("Authorized redirect URI for this MemoryOS instance:")}</p>
           <Input
             aria-labelledby={`${id}-callback`}
             readOnly
@@ -167,20 +173,21 @@ export function GoogleDriveOAuthClientInput({
             className="font-mono text-xs"
           />
           <p>
-            Register this URI once in Google Cloud, then download the client JSON. Sources that
-            reuse an existing credential do not need this setup or another Google authorization.
+            {ui(
+              "Register this URI once in Google Cloud, then download the client JSON. Sources that reuse an existing credential do not need this setup or another Google authorization.",
+            )}
           </p>
         </div>
       </details>
       <div className="flex flex-col gap-1">
         <label htmlFor={`${id}-json`} className="sr-only">
-          Upload or paste OAuth app JSON
+          {ui("Upload or paste OAuth app JSON")}
         </label>
         <input
           ref={upload}
           type="file"
           accept=".json,application/json"
-          aria-label="Upload OAuth client JSON"
+          aria-label={ui("Upload OAuth client JSON")}
           className="hidden"
           tabIndex={-1}
           disabled={disabled}
@@ -197,7 +204,7 @@ export function GoogleDriveOAuthClientInput({
             ref={input}
             id={`${id}-json`}
             type="text"
-            placeholder="Upload or paste OAuth app JSON"
+            placeholder={ui("Upload or paste OAuth app JSON")}
             readOnly={fileName !== null}
             disabled={disabled}
             maxLength={MAX_OAUTH_CLIENT_BYTES + 1}
@@ -225,7 +232,7 @@ export function GoogleDriveOAuthClientInput({
             <IconButton
               size="sm"
               prominence="tertiary"
-              aria-label="Clear client JSON"
+              aria-label={ui("Clear client JSON")}
               disabled={disabled}
               onClick={() => {
                 clear();
@@ -239,7 +246,7 @@ export function GoogleDriveOAuthClientInput({
             <IconButton
               size="sm"
               prominence="tertiary"
-              aria-label="Attach file"
+              aria-label={ui("Attach file")}
               disabled={disabled}
               onClick={() => upload.current?.click()}
             >
@@ -249,17 +256,18 @@ export function GoogleDriveOAuthClientInput({
         </div>
       </div>
       <p id={`${id}-privacy`} className="font-secondary-body text-content-muted">
-        Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never
-        saved in browser storage, and cleared when you continue or leave setup.
+        {ui(
+          "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.",
+        )}
       </p>
       {reading ? (
         <p role="status" className="text-sm text-content-secondary">
-          Reading client JSON…
+          {ui("Reading client JSON…")}
         </p>
       ) : null}
       {error ? (
         <p id={`${id}-error`} role="alert" className="text-sm text-status-danger-content">
-          {error}
+          {ui(error)}
         </p>
       ) : null}
     </fieldset>

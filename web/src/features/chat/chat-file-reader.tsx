@@ -1,4 +1,7 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,11 @@ export function ChatFileReader({
   initialOffset?: number;
   citationCount?: number;
 }) {
+  const ui = useAppTranslation();
+
+  const { t } = useTranslation("chatStatus");
+  const { t: reader, i18n } = useTranslation("reader");
+  const number = new Intl.NumberFormat(i18n.resolvedLanguage);
   const { actorId, authorizationVersion } = useApplicationSession();
   const [offset, setOffset] = useState(initialOffset);
   const [imageFailed, setImageFailed] = useState(false);
@@ -78,17 +86,14 @@ export function ChatFileReader({
   const failed = metadata.isError || (file && !ready) || content.isError || imageFailed;
   return (
     <div className="space-y-3">
-      {(metadata.isPending || (ready && content.isPending)) && <p role="status">Đang đọc tệp…</p>}
-      {failed && (
-        <p role="alert">
-          Không đọc được tệp. Tệp có thể đã bị xóa, chưa xử lý xong hoặc bạn không còn quyền truy
-          cập.
-        </p>
+      {(metadata.isPending || (ready && content.isPending)) && (
+        <p role="status">{reader("reading")}</p>
       )}
+      {failed && <ErrorState title={t("fileUnavailable")} detail={t("fileUnavailableDetail")} />}
       {!failed && src && (
         <img
           src={src}
-          alt={file?.filename ?? "Ảnh đính kèm"}
+          alt={file?.filename ?? reader("image")}
           className="max-h-[60dvh] max-w-full rounded-lg object-contain"
           onError={() => setImageFailed(true)}
         />
@@ -104,13 +109,17 @@ export function ChatFileReader({
                 {Array.from(window.text).slice(citationCount).join("")}
               </>
             ) : (
-              window.text || "Tệp không có nội dung văn bản."
+              window.text || ui("Tệp không có nội dung văn bản.")
             )}
           </pre>
           <p className="text-sm text-content-secondary">
-            Ký tự {window.offset}–{window.nextOffset} / {window.totalCharacters}
+            {reader("characters", {
+              from: number.format(window.offset),
+              to: number.format(window.nextOffset),
+              total: number.format(window.totalCharacters),
+            })}
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {citationCount && offset !== initialOffset && (
               <Button
                 type="button"
@@ -118,7 +127,7 @@ export function ChatFileReader({
                 prominence="internal"
                 onClick={() => setOffset(initialOffset)}
               >
-                Về đoạn trích dẫn
+                {reader("returnCitation")}
               </Button>
             )}
             <Button
@@ -128,7 +137,7 @@ export function ChatFileReader({
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - 16000))}
             >
-              Phần trước
+              {reader("previous")}
             </Button>
             <Button
               type="button"
@@ -137,7 +146,7 @@ export function ChatFileReader({
               disabled={window.nextOffset >= window.totalCharacters}
               onClick={() => setOffset(window.nextOffset)}
             >
-              Phần tiếp
+              {reader("next")}
             </Button>
           </div>
         </>
@@ -148,7 +157,7 @@ export function ChatFileReader({
             href={`/api/chat/files/${encodeURIComponent(fileId)}/content`}
             download={file.filename}
           >
-            Tải bản gốc
+            {reader("download")}
           </a>
         </Button>
       )}

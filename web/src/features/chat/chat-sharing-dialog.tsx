@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Share2, Users } from "lucide-react";
@@ -20,6 +21,8 @@ export function SharingDialog({
   onOpenChange?: (open: boolean) => void;
   trigger?: ReactNode;
 }) {
+  const ui = useAppTranslation();
+
   const [internalOpen, setOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const [enabled, setEnabled] = useState<boolean>();
@@ -47,8 +50,10 @@ export function SharingDialog({
   }
   return (
     <ChatDialog
-      title="Chia sẻ hội thoại"
-      description="Thành viên trong tổ chức có liên kết và đã đăng nhập được xem hội thoại này."
+      title={ui("Chia sẻ hội thoại")}
+      description={ui(
+        "Thành viên trong tổ chức có liên kết và đã đăng nhập được xem hội thoại này.",
+      )}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
@@ -61,8 +66,8 @@ export function SharingDialog({
         (controlledOpen === undefined ? (
           <Button size="sm" prominence="internal">
             <Share2 className="size-4" />
-            <span className="hidden sm:inline">Chia sẻ</span>
-            <span className="sr-only sm:hidden">Chia sẻ</span>
+            <span className="hidden sm:inline">{ui("Chia sẻ")}</span>
+            <span className="sr-only sm:hidden">{ui("Chia sẻ")}</span>
           </Button>
         ) : undefined)
       }
@@ -70,9 +75,9 @@ export function SharingDialog({
       submitLabel={
         selected
           ? sharing.data?.enabled
-            ? "Sao chép liên kết"
-            : "Tạo liên kết"
-          : "Thu hồi liên kết"
+            ? ui("Sao chép liên kết")
+            : ui("Tạo liên kết")
+          : ui("Thu hồi liên kết")
       }
       submitDisabled={!ready || (!selected && !sharing.data?.enabled)}
       onSubmit={
@@ -95,18 +100,18 @@ export function SharingDialog({
           : undefined
       }
     >
-      {sharing.isPending && <p role="status">Đang tải quyền chia sẻ…</p>}
+      {sharing.isPending && <p role="status">{ui("Đang tải quyền chia sẻ…")}</p>}
       {sharing.isError && (
         <p role="alert">
-          Không tải được quyền chia sẻ.{" "}
+          {ui("Không tải được quyền chia sẻ.")}{" "}
           <Button type="button" prominence="internal" onClick={() => void sharing.refetch()}>
-            Tải lại
+            {ui("Tải lại")}
           </Button>
         </p>
       )}
       {sharing.data && !sharing.isError && (
         <>
-          <div role="radiogroup" aria-label="Quyền chia sẻ" className="space-y-2">
+          <div role="radiogroup" aria-label={ui("Quyền chia sẻ")} className="space-y-2">
             {[
               {
                 value: false,
@@ -134,7 +139,7 @@ export function SharingDialog({
                   type="radio"
                   name="sharing-access"
                   className="size-4 shrink-0 accent-content-primary"
-                  aria-label={title}
+                  aria-label={ui(title)}
                   checked={selected === value}
                   disabled={!ready}
                   onChange={() => {
@@ -144,17 +149,17 @@ export function SharingDialog({
                 />
                 <Icon className="size-5 shrink-0" />
                 <span>
-                  <span className="block font-medium">{title}</span>
-                  <span className="text-sm text-content-secondary">{description}</span>
+                  <span className="block font-medium">{ui(title)}</span>
+                  <span className="text-sm text-content-secondary">{ui(description)}</span>
                 </span>
               </label>
             ))}
           </div>
           {sharing.data.enabled && selected && (
             <label className="block space-y-2">
-              <span className="text-sm">Liên kết chỉ đọc</span>
+              <span className="text-sm">{ui("Liên kết chỉ đọc")}</span>
               <Input
-                aria-label="Liên kết chỉ đọc"
+                aria-label={ui("Liên kết chỉ đọc")}
                 readOnly
                 value={link}
                 onFocus={(event) => event.target.select()}
@@ -163,12 +168,12 @@ export function SharingDialog({
           )}
           <p role="status" className="text-sm text-content-secondary">
             {copyState === "copied"
-              ? "Đã sao chép liên kết."
+              ? ui("Đã sao chép liên kết.")
               : copyState === "failed"
-                ? "Chưa sao chép được. Bạn có thể chọn liên kết ở ô trên để sao chép thủ công."
+                ? ui("Chưa sao chép được. Bạn có thể chọn liên kết ở ô trên để sao chép thủ công.")
                 : sharing.data.enabled
-                  ? "Đang chia sẻ."
-                  : "Hội thoại đang riêng tư."}
+                  ? ui("Đang chia sẻ.")
+                  : ui("Hội thoại đang riêng tư.")}
           </p>
         </>
       )}

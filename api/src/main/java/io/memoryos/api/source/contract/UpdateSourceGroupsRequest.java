@@ -1,9 +1,8 @@
 package io.memoryos.api.source.contract;
 
-import io.memoryos.iam.GroupId;
+import io.memoryos.iam.group.GroupId;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -12,9 +11,10 @@ import java.util.UUID;
 
 @Schema(name = "UpdateSourceGroupsRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record UpdateSourceGroupsRequest(
-        @NotEmpty(message = "Select at least one group.")
+        @NotNull(message = "Provide the source groups.")
         @Size(max = 100, message = "Select no more than 100 groups.")
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minLength = 1, maxLength = 100)
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 100,
+                description = "Ordinary groups. Global managers may clear all groups; scoped managers must retain at least one managed group.")
         List<@NotNull UUID> groupIds
 ) {
     public UpdateSourceGroupsRequest {

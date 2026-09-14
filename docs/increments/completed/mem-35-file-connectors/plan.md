@@ -2,7 +2,7 @@
 
 ## Contract and architecture
 
-- [x] Reconcile the finalized Linear contract, Onyx reference findings, this design, and current capability boundaries before implementation.
+- [x] Reconcile the finalized Linear contract, reference implementation reference findings, this design, and current capability boundaries before implementation.
 - [x] Add MEM-35 to the repository roadmap and active-increment map without prematurely marking the unimplemented source contract as current architecture.
 - [x] Add an ADR after implementation starts for the shared `:connector` integration bundle, accepted bundle-wide dependency/CVE blast radius, provider-folder split trigger, six-capability core map, and persistence-backed worker activation.
 - [x] Add real closed `connector`, `document`, and `ingestion` Spring Modulith modules to `:core` with only the one-way dependencies in the design.
@@ -53,7 +53,7 @@
 - [x] Add safe RFC 9457 outcomes for synchronous authority, cross-Tenant, multipart, size, lifecycle, conflict, and durable-write failures; expose media/extraction failures asynchronously through safe attempt/Pair status.
 - [x] Project `SOURCES_MANAGE` only for active Tenant OWNER while retaining durable authority checks for every command.
 - [x] Generate the OpenAPI snapshot and TypeScript client from the live Spring MVC contract.
-- [x] Build the Onyx-shaped Sources flow: connector type, fixed NO_AUTH credential context, configuration, PUBLIC access, Source status card/detail, items, attempts, and errors.
+- [x] Build the reference implementation-shaped Sources flow: connector type, fixed NO_AUTH credential context, configuration, PUBLIC access, Source status card/detail, items, attempts, and errors.
 - [x] Poll Source detail while indexing and the returned SourceOperation after delete; treat SUCCEEDED/SUPERSEDED as terminal success and add no WebSocket/SSE infrastructure.
 - [x] Keep binary bytes, extracted text, claims, secret references, parser failures, and sensitive filenames out of responses and logs.
 

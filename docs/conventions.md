@@ -60,6 +60,8 @@ Keep parts together when they share one language, invariant owner, transaction/l
 ## Java and Gradle
 
 - Target JDK 25 and use the checked-in Gradle wrapper.
+- Use explicit imports and short type names in handwritten Java, including tests. Do not inline fully qualified class names merely to avoid adding an import. Keep a qualified name only when needed to disambiguate colliding type names; remove unused imports.
+- Use `lowerCamelCase` for Java methods and `UpperCamelCase` for class names. Keep external protocol/tool identifiers separate: for example, expose `web_search` through `@LlmTool(name = "web_search", ...)` while naming the Java method `webSearch`. Preserve the public tool identifier when refactoring Java names.
 - Prefer immutable value types and constructor validation at public boundaries.
 - Preserve exact security identifiers. Do not normalize issuer, subject, actor ID, email, or username unless a capability contract explicitly requires it.
 - Prefer Spring `JdbcClient` for explicit SQL and Spring-managed transaction/error semantics. Application services never contain SQL or row mapping; concrete capability-owned `@Repository` classes own those mechanics and need no interface when only one internal implementation exists. Group repositories by consistency/use-case boundary, not table. Use JPA only when entity lifecycle or relationships provide concrete value; never create parallel domain/entity/repository/mapper layers by default. See [persistence policy](guidelines/persistence.md).
@@ -119,7 +121,7 @@ Domain Story and Consumer
 
 - Expected capability failures use capability-prefixed stable codes through root-package typed `BusinessException` subclasses; HTTP types never enter core.
 - REST failures use RFC 9457 `application/problem+json`. Clients branch on status or `code`, never on `title`, `detail`, or diagnostic exception messages.
-- Spring Boot owns built-in MVC Problem Details. Custom advice handles only `BusinessException`; never add a global `Exception` catch.
+- Spring Boot owns built-in MVC Problem Details. Capability/provider failures and request validation have narrow typed advice; never add a global `Exception` catch. Validation entries retain safe fallback `message` and expose stable `code` plus allowlisted numeric `params` (`min`/`max`), never rejected values. UI consumers translate codes at render time rather than displaying arbitrary backend/provider text.
 - Browser redirect responses and Spring Security filter failures retain their surface-specific contracts.
 
 ## Published API contracts

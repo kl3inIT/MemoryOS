@@ -1,6 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { i18n, uiLanguage } from "@/i18n";
+import { presentProblem } from "@/lib/problem-presentation";
+import { Button } from "@/components/ui/button";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import {
   AccessNotProvisionedScreen,
@@ -16,6 +20,7 @@ import { acceptCurrentIdentity } from "@/lib/query-client";
 const currentIdentityQueryKey = getCurrentIdentityQueryKey();
 
 export function ApplicationSessionBoundary({ children }: { children?: ReactNode } = {}) {
+  const { t } = useTranslation(["identity", "common"]);
   const queryClient = useQueryClient();
   const sessionQuery = useQuery({
     queryKey: currentIdentityQueryKey,
@@ -28,11 +33,18 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     retry: false,
   });
 
+  useLayoutEffect(() => {
+    if (sessionQuery.data) void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
+  }, [sessionQuery.data]);
+
   if (sessionQuery.isPending) {
     return <SessionLoadingScreen />;
   }
 
-  if (sessionQuery.isError) {
+  if (
+    sessionQuery.isError &&
+    (!sessionQuery.data || !presentProblem(sessionQuery.error, "backgroundRead").preserveData)
+  ) {
     if (isUnauthenticated(sessionQuery.error)) {
       return <SignInScreen />;
     }
@@ -40,7 +52,7 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
     return <SessionErrorScreen onRetry={() => void sessionQuery.refetch()} />;
   }
 
-  if (!sessionQuery.data.tenant) {
+  if (!sessionQuery.data?.tenant) {
     return <AccessNotProvisionedScreen />;
   }
 
@@ -49,6 +61,17 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
       key={sessionQuery.data.actorId}
       session={{ ...sessionQuery.data, tenant: sessionQuery.data.tenant }}
     >
+      {sessionQuery.isError ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 px-4 py-2 text-content-muted"
+        >
+          {t("identity:backgroundFailed")}
+          <Button prominence="secondary" onClick={() => void sessionQuery.refetch()}>
+            {t("common:retry")}
+          </Button>
+        </div>
+      ) : null}
       {children ?? <Outlet />}
     </ApplicationSessionProvider>
   );

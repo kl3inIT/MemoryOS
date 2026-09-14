@@ -31,7 +31,8 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
     public Outcome process(OperationDelivery delivery) {
         var claimed = Objects.requireNonNull(transactions.execute(_ -> {
             var value = work.claim(delivery, index.identity());
-            value.filter(c -> !c.removed()).ifPresent(c -> documents.markSearchPending(c.tenantId(), c.documentId(), c.generation()));
+            // Only a content rewrite hides the document; access refreshes keep it searchable.
+            value.filter(JdbcSearchWorkRepository.Claim::index).ifPresent(c -> documents.markSearchPending(c.tenantId(), c.documentId(), c.generation()));
             return value;
         }), "Search claim transaction returned no outcome");
         if (claimed.isEmpty()) return Outcome.SKIPPED;
@@ -45,7 +46,17 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
         String result = "failed";
         try {
             if (claim.removed()) index.delete(claim.tenantId(), claim.documentId());
-            else {
+            else if (claim.access()) {
+                if (!documents.isCurrent(claim.tenantId(), claim.documentId(), claim.generation(), index.identity())) {
+                    // A pending content rewrite reads access itself; retry briefly, then leave drift to projection repair.
+                    boolean retry = claim.attempts() < 3;
+                    work.finish(claim, retry ? "NOT_STARTED" : "CANCELLED", retry ? null : "SEARCH_OBSOLETE");
+                    result = "obsolete";
+                    return Outcome.SKIPPED;
+                }
+                if (lost.get()) return Outcome.SKIPPED;
+                index.updateAccess(claim.tenantId(), claim.documentId(), claim.generation());
+            } else {
                 var chunks = documents.prepare(claim.tenantId(), claim.documentId(), claim.generation());
                 if (chunks.isEmpty()) {
                     work.finish(claim, "CANCELLED", "SEARCH_OBSOLETE");
@@ -58,7 +69,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
             if (lost.get()) return Outcome.SKIPPED;
             boolean completed = Boolean.TRUE.equals(transactions.execute(status -> {
                 if (!work.finish(claim, "SUCCESS", null)) return false;
-                if (!claim.removed() && !documents.markSearchReady(claim.tenantId(), claim.documentId(), claim.generation(), index.identity())) {
+                if (claim.index() && !documents.markSearchReady(claim.tenantId(), claim.documentId(), claim.generation(), index.identity())) {
                     status.setRollbackOnly();
                     return false;
                 }
@@ -69,10 +80,10 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
         } catch (RuntimeException failure) {
             transactions.executeWithoutResult(_ -> {
                 boolean finished = work.finish(claim, claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", "SEARCH_INDEX_FAILED");
-                if (finished && !claim.removed()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation());
+                if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation());
             });
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.failed")
-                    .addKeyValue("operation_id", claim.id()).addKeyValue("error_type", failure.getClass().getName())
+                    .addKeyValue("error_type", failure.getClass().getName())
                     .log("Search indexing failed; durable retry retained");
             return Outcome.FAILED;
         } finally {

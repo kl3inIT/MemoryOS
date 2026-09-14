@@ -92,6 +92,173 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/identity/me/language:
+    put:
+      tags:
+      - Identity
+      summary: Set the authenticated account's interface language
+      operationId: setCurrentIdentityLanguage
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LanguagePreference"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LanguagePreference"
+      security:
+      - browserSession: []
+      - bearerAuth: []
+  /api/chat/web/selection:
+    put:
+      tags:
+      - Chat Web
+      summary: Select the search or content provider; null disables search or restores
+        built-in reading
+      operationId: selectChatWebProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Web selection saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/web/connections/{provider}:
+    put:
+      tags:
+      - Chat Web
+      summary: Configure one Web connection without automatically enabling it
+      operationId: saveChatWebConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Web connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -1620,7 +1787,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor lacks IAM_ADMIN authority or the same-origin header
+          description: The actor lacks SYSTEM_ADMIN authority or the same-origin header
             is missing
           content:
             application/problem+json:
@@ -1794,6 +1961,43 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/rename:
+    post:
+      tags:
+      - Sources
+      summary: Rename one source
+      operationId: renameSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameSourceRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -1954,6 +2158,43 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/google-drive/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic Google Drive synchronization
+      operationId: updateGoogleDrivePause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGoogleDrivePauseRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/google-drive/linked-documents/discover:
     post:
       tags:
@@ -2018,6 +2259,43 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/access:
+    post:
+      tags:
+      - Sources
+      summary: Update FILE source access
+      operationId: updateSourceAccess
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSourceAccessRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2563,6 +2841,13 @@ paths:
       responses:
         "204":
           description: Member removed
+        "409":
+          description: The final active administrator or a standard member's last
+            Group is protected
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2656,6 +2941,13 @@ paths:
       responses:
         "204":
           description: Group links and grants deleted
+        "409":
+          description: "IAM_LAST_GROUP_PROTECTED: a standard member would lose their\
+            \ last Group"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2754,6 +3046,78 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/GoogleDriveAuthorizationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/web/connections/{provider}/test:
+    post:
+      tags:
+      - Chat Web
+      summary: Explicitly perform a provider request; provider charges may apply
+      operationId: testChatWebConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebTestRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Provider request succeeded
       security:
       - bearerAuth: []
       - browserSession: []
@@ -4856,6 +5220,111 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/web:
+    get:
+      tags:
+      - Chat Web
+      summary: Read configured Web availability without credentials
+      operationId: getChatWebAvailability
+      parameters:
+      - name: sessionId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Available Web capabilities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/web/connections:
+    get:
+      tags:
+      - Chat Web
+      summary: List Web connections for model managers
+      operationId: listChatWebConnections
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Web connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/shared/{sessionId}:
     get:
       tags:
@@ -5243,6 +5712,63 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatBranch"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/search:
+    get:
+      tags:
+      - Chat
+      summary: Search owned conversation titles and all saved message versions
+      operationId: searchChatSessions
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Owned matching sessions; opening preserves the selected branch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionSearchPage"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5959,6 +6485,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/documents/{documentId}:
+    get:
+      tags:
+      - Chat
+      summary: Read current document passages around a Chat citation
+      operationId: readChatDocumentPassages
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "400":
+          description: Invalid passage window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "CHAT_READ, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Document generation not readable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Authorized document passages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchDocument"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -6035,6 +6617,8 @@ components:
           type: integer
           format: int64
           minimum: 1
+        syncPaused:
+          type: boolean
         scopeMode:
           type: string
           enum:
@@ -6089,6 +6673,7 @@ components:
       - scopeMode
       - sourceId
       - syncIntervalMinutes
+      - syncPaused
     GoogleDriveDiscoveryErrorResponse:
       type: object
       additionalProperties: false
@@ -6214,6 +6799,92 @@ components:
       required:
       - operation
       - sourceId
+    LanguagePreference:
+      type: object
+      additionalProperties: false
+      properties:
+        uiLanguage:
+          type: string
+          enum:
+          - vi
+          - en
+          pattern: vi|en
+      required:
+      - uiLanguage
+    WebSelectionRequest:
+      type: object
+      properties:
+        search:
+          type: boolean
+        provider:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+    WebConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        engineId:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+      - engineId
+    WebConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+        endpoint:
+          type: string
+        engineId:
+          type: string
+        credentialConfigured:
+          type: boolean
+        searchActive:
+          type: boolean
+        contentActive:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - endpoint
+      - engineId
+      - provider
     Title:
       type: object
       properties:
@@ -6914,57 +7585,7 @@ components:
       required:
       - item
       - operation
-    UpdateSourceGroupsRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        groupIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          maxLength: 100
-          minItems: 0
-          minLength: 1
-      required:
-      - groupIds
-    CreateGoogleDriveSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-        credentialId:
-          type: string
-          format: uuid
-        scopeMode:
-          type: string
-          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
-            includes selected links.
-          enum:
-          - GENERAL
-          - SPECIFIC
-        links:
-          type: array
-          description: Empty for GENERAL; distinct non-overlapping links bounded by
-            the selection policy for SPECIFIC.
-          items:
-            type: string
-            maxLength: 2048
-            minLength: 0
-      required:
-      - credentialId
-      - links
-      - name
-      - requestId
-      - scopeMode
-    CreateFileSourceRequest:
+    RenameSourceRequest:
       type: object
       additionalProperties: false
       properties:
@@ -6972,15 +7593,6 @@ components:
           type: string
           maxLength: 120
           minLength: 0
-        groupIds:
-          type:
-          - array
-          - "null"
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          minItems: 0
       required:
       - name
     SourceSummary:
@@ -7016,6 +7628,19 @@ components:
           type: array
           items:
             type: string
+            enum:
+            - upload
+            - reindex
+            - remove_items
+            - delete
+            - manage_groups
+            - rename
+            - manage_access
+            - manage_configuration
+            - synchronize
+            - manage_schedule
+            - pause_sync
+            - resume_sync
       required:
       - access
       - actions
@@ -7027,6 +7652,120 @@ components:
       - pendingWork
       - status
       - type
+    UpdateSourceGroupsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        groupIds:
+          type: array
+          description: Ordinary groups. Global managers may clear all groups; scoped
+            managers must retain at least one managed group.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          maxLength: 100
+          minItems: 0
+      required:
+      - groupIds
+    UpdateGoogleDrivePauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
+    UpdateSourceAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - RESTRICTED
+      required:
+      - access
+    CreateGoogleDriveSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scopeMode:
+          type: string
+          description: GENERAL includes the connected account's My Drive tree; SPECIFIC
+            includes selected links.
+          enum:
+          - GENERAL
+          - SPECIFIC
+        links:
+          type: array
+          description: Empty for GENERAL; distinct non-overlapping links bounded by
+            the selection policy for SPECIFIC.
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+        groupIds:
+          type:
+          - array
+          - "null"
+          description: Ordinary groups; at least one managed group is required for
+            scoped managers. Global creation may omit groups.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - credentialId
+      - links
+      - name
+      - requestId
+      - scopeMode
+    CreateFileSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        groupIds:
+          type:
+          - array
+          - "null"
+          description: Ordinary groups; at least one managed group is required for
+            scoped managers. Global creation may omit groups.
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+        access:
+          type:
+          - string
+          - "null"
+          enum:
+          - PUBLIC
+          - RESTRICTED
+      required:
+      - name
     SearchRequest:
       type: object
       properties:
@@ -7247,7 +7986,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -7306,7 +8051,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -7358,6 +8109,11 @@ components:
           type: string
       required:
       - authorizationUrl
+    WebTestRequest:
+      type: object
+      properties:
+        search:
+          type: boolean
     CreateChatSession:
       type: object
       properties:
@@ -7400,6 +8156,12 @@ components:
             format: uuid
           maxItems: 20
           minItems: 0
+        webSearch:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
       - parentMessageId
@@ -7430,6 +8192,12 @@ components:
         modelConfigurationId:
           type: string
           format: uuid
+        webSearch:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
     Edit:
@@ -7452,6 +8220,12 @@ components:
             format: uuid
           maxItems: 20
           minItems: 0
+        webSearch:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
       - text
@@ -8430,7 +9204,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8445,7 +9225,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8459,12 +9245,19 @@ components:
           description: Monotonic Tenant IAM revision used only to invalidate private
             client data.
           minimum: 0
+        uiLanguage:
+          type: string
+          description: Account interface language.
+          enum:
+          - vi
+          - en
       required:
       - actorId
       - authorizationVersion
       - capabilities
       - scopedCapabilities
       - tenant
+      - uiLanguage
     CurrentTenant:
       type: object
       additionalProperties: false
@@ -8606,7 +9399,13 @@ components:
         id:
           type: string
           enum:
-          - IAM_ADMIN
+          - SYSTEM_ADMIN
+          - SYSTEM_BASIC
+          - SEARCH_READ
+          - CHAT_READ
+          - CHAT_WRITE
+          - IMAGE_GENERATE
+          - LLM_GATEWAY_USE
           - USERS_MANAGE
           - GROUPS_READ
           - GROUPS_MANAGE
@@ -8625,7 +9424,13 @@ components:
           items:
             type: string
             enum:
-            - IAM_ADMIN
+            - SYSTEM_ADMIN
+            - SYSTEM_BASIC
+            - SEARCH_READ
+            - CHAT_READ
+            - CHAT_WRITE
+            - IMAGE_GENERATE
+            - LLM_GATEWAY_USE
             - USERS_MANAGE
             - GROUPS_READ
             - GROUPS_MANAGE
@@ -8666,8 +9471,13 @@ components:
         sourceCount:
           type: integer
           format: int64
+        actions:
+          type: array
+          items:
+            type: string
       required:
       - accountEmail
+      - actions
       - createdAt
       - credentialRevision
       - id
@@ -8676,6 +9486,51 @@ components:
       - sourceCount
       - status
       - updatedAt
+    WebAvailabilityResponse:
+      type: object
+      properties:
+        searchAvailable:
+          type: boolean
+        contentAvailable:
+          type: boolean
+        searchProvider:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+        contentProvider:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - FIRECRAWL
+        automaticModelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        requiredModelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        inheritedModelId:
+          type: string
+          format: uuid
+        nativeModelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     SharedSession:
       type: object
       properties:
@@ -8687,6 +9542,16 @@ components:
         rootMessageId:
           type: string
           format: uuid
+    ChatArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        spec:
+          type: string
     ChatFileDescriptor:
       type: object
       properties:
@@ -8749,7 +9614,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChatFileDescriptor"
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatArtifact"
       required:
+      - artifacts
       - content
       - createdAt
       - files
@@ -8788,12 +9658,31 @@ components:
         fileId:
           type: string
           format: uuid
+        fileLocation:
+          $ref: "#/components/schemas/FileLocation"
+        web:
+          $ref: "#/components/schemas/WebLocation"
       required:
       - citationId
       - endOrdinal
       - provenance
       - startOrdinal
       - title
+    FileLocation:
+      type: object
+      properties:
+        offset:
+          type: integer
+          format: int32
+        count:
+          type: integer
+          format: int32
+        generation:
+          type: string
+          format: uuid
+        ordinal:
+          type: integer
+          format: int32
     Provenance:
       type: object
       properties:
@@ -8805,6 +9694,16 @@ components:
       required:
       - ordinal
       - provenanceJson
+    WebLocation:
+      type: object
+      properties:
+        url:
+          type: string
+        excerpt:
+          type: string
+        retrievedAt:
+          type: string
+          format: date-time
     TextDeltaEvent:
       type: object
       properties:
@@ -8839,9 +9738,12 @@ components:
           type:
           - string
           - "null"
+        hasArtifacts:
+          type: boolean
       required:
       - assistantMessageId
       - failureCode
+      - hasArtifacts
       - sequence
       - status
     ResetEvent:
@@ -8967,6 +9869,18 @@ components:
           - type: string
             format: uuid
           - type: "null"
+    ChatSessionSearchPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSession"
+        hasMore:
+          type: boolean
+      required:
+      - hasMore
+      - items
     Descriptor:
       type: object
       properties:
@@ -8982,8 +9896,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TokenizerProfile"
+        nativeWebSearch:
+          type: boolean
       required:
       - credentialRequirement
+      - nativeWebSearch
       - tokenizerProfiles
       - type
     TokenizerProfile:
@@ -9125,6 +10042,41 @@ components:
           description: Stable capability-prefixed code; present only for expected
             capability failures.
           pattern: "^[A-Z][A-Z0-9_]*$"
+        errors:
+          type: array
+          description: Field validation failures with safe allowlisted parameters;
+            no rejected values.
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+                description: Compatible fallback message; clients localize by code.
+              code:
+                type: string
+                enum:
+                - REQUIRED
+                - INVALID
+                - EMAIL
+                - SIZE
+                - MIN
+                - MAX
+              params:
+                type: object
+                additionalProperties: false
+                properties:
+                  min:
+                    type: number
+                  max:
+                    type: number
+            required:
+            - code
+            - field
+            - message
+            - params
       required:
       - detail
       - instance

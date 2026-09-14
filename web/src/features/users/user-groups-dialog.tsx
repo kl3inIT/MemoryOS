@@ -1,7 +1,11 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderCircle, Search, ShieldCheck, UsersRound } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import { useMemo, useRef, useState, type RefObject } from "react";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 import { Dialog } from "radix-ui";
+import { OnyxUserManageIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -33,6 +37,9 @@ export function UserGroupsDialog({
   onOpenChange,
   onSaved,
 }: UserGroupsDialogProps) {
+  const ui = useAppTranslation();
+
+  const errorMessage = useProblemMessage();
   const replaceGroups = useMutation(replaceUserGroupsMutation());
   const initialIds = useMemo(
     () => entry.groups.filter((group) => group.systemKey === null).map((group) => group.id),
@@ -42,11 +49,11 @@ export function UserGroupsDialog({
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorMessage | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef(false);
   const actorId = entry.actorId;
-  const label = entry.displayName?.trim() || entry.email?.trim() || "this user";
+  const label = entry.displayName?.trim() || entry.email?.trim() || ui("this user");
   const groupOptions = useQuery({
     ...listGroupsOptions({ query: { search: search || undefined, page, size: 20 } }),
     placeholderData: keepPreviousData,
@@ -117,10 +124,11 @@ export function UserGroupsDialog({
         >
           <header className="border-b border-border-subtle px-5 py-5 sm:px-6">
             <Dialog.Title className="font-heading-h3 text-content-primary">
-              Edit groups
+              {ui("Edit groups")}
             </Dialog.Title>
             <Dialog.Description className="mt-1 font-main-ui-body text-content-secondary">
-              Choose ordinary group memberships for {label}. System memberships are preserved.
+              {ui("Choose ordinary group memberships for")} {label}
+              {ui(". System memberships are preserved.")}
             </Dialog.Description>
           </header>
 
@@ -131,19 +139,28 @@ export function UserGroupsDialog({
                   id="protected-user-groups"
                   className="font-secondary-action text-content-primary"
                 >
-                  System groups
+                  {ui("System groups")}
                 </h2>
                 <div className="mt-2 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
                   {systemGroups.map((group) => (
                     <div key={group.id} className="flex items-center gap-3 px-4 py-3">
-                      <ShieldCheck
-                        className="size-4 shrink-0 text-content-muted"
-                        aria-hidden="true"
-                      />
+                      {group.systemKey === "ADMIN" ? (
+                        <OnyxUserManageIcon
+                          className="size-4 shrink-0 text-content-muted"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <OnyxUsersIcon
+                          className="size-4 shrink-0 text-content-muted"
+                          aria-hidden="true"
+                        />
+                      )}
                       <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
                         {group.name}
                       </span>
-                      <span className="font-secondary-body text-content-muted">Protected</span>
+                      <span className="font-secondary-body text-content-muted">
+                        {ui("Protected")}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -159,10 +176,10 @@ export function UserGroupsDialog({
                   id="ordinary-user-groups"
                   className="font-secondary-action text-content-primary"
                 >
-                  Ordinary groups
+                  {ui("Ordinary groups")}
                 </h2>
                 <span className="font-secondary-body tabular-nums text-content-muted">
-                  {selectedIds.size} selected
+                  {selectedIds.size} {ui("selected")}
                 </span>
               </div>
               <form
@@ -175,7 +192,7 @@ export function UserGroupsDialog({
                 }}
               >
                 <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">Search ordinary groups</span>
+                  <span className="sr-only">{ui("Search ordinary groups")}</span>
                   <Search
                     className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
                     aria-hidden="true"
@@ -186,13 +203,13 @@ export function UserGroupsDialog({
                     size="sm"
                     value={searchDraft}
                     maxLength={200}
-                    placeholder="Search groups…"
+                    placeholder={ui("Search groups…")}
                     className="bg-surface-sunken pl-9"
                     onChange={(event) => setSearchDraft(event.target.value)}
                   />
                 </label>
                 <Button type="submit" size="sm" prominence="secondary">
-                  Search
+                  {ui("Search")}
                 </Button>
               </form>
 
@@ -205,12 +222,12 @@ export function UserGroupsDialog({
                     className="size-4 animate-spin motion-reduce:animate-none"
                     aria-hidden="true"
                   />
-                  Loading groups
+                  {ui("Loading groups")}
                 </p>
               ) : groupOptions.isError ? (
                 <div className="mt-5 rounded-xl border border-border-subtle p-4">
                   <p role="alert" className="font-main-ui-body text-content-secondary">
-                    Groups could not be loaded. Existing memberships have not been changed.
+                    {ui("Groups could not be loaded. Existing memberships have not been changed.")}
                   </p>
                   <Button
                     size="sm"
@@ -218,14 +235,16 @@ export function UserGroupsDialog({
                     className="mt-3"
                     onClick={() => void groupOptions.refetch()}
                   >
-                    Try again
+                    {ui("Try again")}
                   </Button>
                 </div>
               ) : ordinaryGroups.length === 0 ? (
                 <div className="mt-5 rounded-xl border border-dashed border-border-default px-4 py-8 text-center">
-                  <UsersRound className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+                  <OnyxUsersIcon className="mx-auto size-5 text-content-muted" aria-hidden="true" />
                   <p className="mt-2 font-main-ui-body text-content-muted">
-                    {search ? "No groups match your search." : "No ordinary groups are available."}
+                    {search
+                      ? ui("No groups match your search.")
+                      : ui("No ordinary groups are available.")}
                   </p>
                 </div>
               ) : (
@@ -263,7 +282,7 @@ export function UserGroupsDialog({
 
               {groupOptions.data && groupOptions.data.totalPages > 1 ? (
                 <nav
-                  aria-label="User group option pages"
+                  aria-label={ui("User group option pages")}
                   className="mt-3 flex items-center justify-end gap-2"
                 >
                   <Button
@@ -272,10 +291,10 @@ export function UserGroupsDialog({
                     disabled={page === 0}
                     onClick={() => setPage(page - 1)}
                   >
-                    Previous
+                    {ui("Previous")}
                   </Button>
                   <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
-                    Page {page + 1} of {groupOptions.data.totalPages}
+                    {ui("Page")} {page + 1} {ui("of")} {groupOptions.data.totalPages}
                   </span>
                   <Button
                     size="sm"
@@ -283,7 +302,7 @@ export function UserGroupsDialog({
                     disabled={page + 1 >= groupOptions.data.totalPages}
                     onClick={() => setPage(page + 1)}
                   >
-                    Next
+                    {ui("Next")}
                   </Button>
                 </nav>
               ) : null}
@@ -294,7 +313,7 @@ export function UserGroupsDialog({
                 role="alert"
                 className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
               >
-                {error}
+                {errorMessage(error)}
               </p>
             ) : null}
           </div>
@@ -305,14 +324,14 @@ export function UserGroupsDialog({
               disabled={replaceGroups.isPending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {ui("Cancel")}
             </Button>
             <Button
               pending={replaceGroups.isPending}
               disabled={!dirty || !actorId}
               onClick={() => void save()}
             >
-              {replaceGroups.isPending ? "Saving groups…" : "Save groups"}
+              {replaceGroups.isPending ? ui("Saving groups…") : ui("Save groups")}
             </Button>
           </footer>
         </Dialog.Content>

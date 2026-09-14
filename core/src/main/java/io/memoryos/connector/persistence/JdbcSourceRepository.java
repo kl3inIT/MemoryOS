@@ -1,5 +1,6 @@
 package io.memoryos.connector.persistence;
 
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
@@ -9,8 +10,8 @@ import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -28,12 +30,14 @@ import org.springframework.stereotype.Repository;
 public class JdbcSourceRepository {
 
     private final JdbcClient jdbcClient;
+    private final ApplicationEventPublisher events;
 
-    public JdbcSourceRepository(JdbcClient jdbcClient) {
+    public JdbcSourceRepository(JdbcClient jdbcClient, ApplicationEventPublisher events) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
+        this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
-    public SourcePair createFileSource(TenantId tenantId, String name) {
+    public SourcePair createFileSource(TenantId tenantId, ActorId actorId, String name, SourceAccess access) {
         UUID credentialId = ensureNoAuthCredential(tenantId);
         UUID connectorId = UUID.randomUUID();
         SourceId sourceId = new SourceId(UUID.randomUUID());
@@ -47,15 +51,17 @@ public class JdbcSourceRepository {
                 .update();
         jdbcClient.sql("""
                         INSERT INTO connector_credential_pairs (
-                            id, tenant_id, connector_id, credential_id, access_type, status
+                            id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id
                         ) VALUES (
-                            :id, :tenantId, :connectorId, :credentialId, 'PUBLIC', 'NOT_STARTED'
+                            :id, :tenantId, :connectorId, :credentialId, :access, 'NOT_STARTED', :actorId
                         )
                         """)
                 .param("id", sourceId.value())
                 .param("tenantId", tenantId.value())
                 .param("connectorId", connectorId)
                 .param("credentialId", credentialId)
+                .param("access", access.name())
+                .param("actorId", actorId.value())
                 .update();
         return new SourcePair(connectorId, sourceId, SourceStatus.NOT_STARTED, 0);
     }
@@ -108,32 +114,9 @@ public class JdbcSourceRepository {
                          AND connector.id = pair.connector_id
                         WHERE pair.tenant_id = :tenantId
                           AND pair.id = :pairId
-                          AND (
-                            :globalAccess OR EXISTS (
-                                SELECT 1
-                                FROM source_group_grants scoped_grant
-                                JOIN iam_groups scoped_group
-                                  ON scoped_group.tenant_id = scoped_grant.tenant_id
-                                 AND scoped_group.id = scoped_grant.group_id
-                                 AND scoped_group.system_key IS NULL
-                                JOIN iam_group_memberships scoped_membership
-                                  ON scoped_membership.tenant_id = scoped_grant.tenant_id
-                                 AND scoped_membership.group_id = scoped_grant.group_id
-                                 AND scoped_membership.actor_id = :actorId
-                                 AND scoped_membership.is_manager = TRUE
-                                JOIN tenant_memberships active_membership
-                                  ON active_membership.tenant_id = scoped_grant.tenant_id
-                                 AND active_membership.actor_id = :actorId
-                                 AND active_membership.status = 'ACTIVE'
-                                JOIN tenants active_tenant
-                                  ON active_tenant.id = active_membership.tenant_id
-                                 AND active_tenant.status = 'ACTIVE'
-                                WHERE scoped_grant.tenant_id = pair.tenant_id
-                                  AND scoped_grant.connector_credential_pair_id = pair.id
-                            )
-                          )
+                          AND (:globalAccess OR %s)
                         FOR UPDATE
-                        """)
+                        """.formatted(SourceScopeSql.WRITE))
                 .param("tenantId", tenantId.value())
                 .param("actorId", actorId.value())
                 .param("pairId", sourceId.value())
@@ -146,6 +129,59 @@ public class JdbcSourceRepository {
                 ))
                 .optional()
                 .orElseThrow(SourceException::notFound);
+    }
+
+    public void requireAuthorized(TenantId tenantId, ActorId actorId, SourceId sourceId,
+            boolean globalAccess, boolean write) {
+        boolean found = jdbcClient.sql("""
+                SELECT EXISTS (SELECT 1 FROM connector_credential_pairs pair
+                    WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+                      AND (:globalAccess OR %s))
+                """.formatted(write ? SourceScopeSql.WRITE : SourceScopeSql.READ))
+                .param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .param("actorId", actorId.value()).param("globalAccess", globalAccess)
+                .query(Boolean.class).single();
+        if (!found) throw SourceException.notFound();
+    }
+
+    public void requireCreatorGroupless(TenantId tenantId, ActorId actorId, SourceId sourceId) {
+        boolean found = jdbcClient.sql("""
+                SELECT EXISTS (SELECT 1 FROM connector_credential_pairs pair
+                    WHERE pair.tenant_id = :tenantId AND pair.id = :pairId AND %s)
+                """.formatted(SourceScopeSql.OWNER_GROUPLESS))
+                .param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .param("actorId", actorId.value()).query(Boolean.class).single();
+        if (!found) throw SourceException.notFound();
+    }
+
+    public void rename(TenantId tenantId, SourcePair pair, String name) {
+        jdbcClient.sql("""
+                UPDATE connectors SET name = :name, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenantId AND id = :connectorId
+                """).param("tenantId", tenantId.value()).param("connectorId", pair.connectorId())
+                .param("name", name).update();
+    }
+
+    public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess access) {
+        int updated = jdbcClient.sql("""
+                UPDATE connector_credential_pairs pair
+                SET access_type = :access, updated_at = CURRENT_TIMESTAMP
+                WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+                  AND EXISTS (SELECT 1 FROM connectors connector
+                    WHERE connector.tenant_id = pair.tenant_id AND connector.id = pair.connector_id
+                      AND connector.connector_type = 'FILE')
+                """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .param("access", access.name()).update();
+        if (updated != 1) throw SourceException.conflict("access changes require a FILE source");
+        events.publishEvent(new io.memoryos.connector.SourceAccessChanged(tenantId, sourceId));
+    }
+
+    public boolean ownsCleanup(TenantId tenantId, ActorId actorId, SourceOperationId operationId) {
+        return jdbcClient.sql("""
+                SELECT EXISTS (SELECT 1 FROM connector_cleanup_attempts
+                    WHERE tenant_id = :tenantId AND id = :operationId AND scope_owner_actor_id = :actorId)
+                """).param("tenantId", tenantId.value()).param("actorId", actorId.value())
+                .param("operationId", operationId.value()).query(Boolean.class).single();
     }
 
     public void markDeleting(TenantId tenantId, SourcePair pair) {
@@ -189,16 +225,17 @@ public class JdbcSourceRepository {
             SourceOperationType type,
             String targetKey,
             SourceId sourceId,
-            @Nullable SourceItemId itemId
+            @Nullable SourceItemId itemId,
+            @Nullable ActorId scopeOwner
     ) {
         var trace = SourceOperationTraceContext.current();
         jdbcClient.sql("""
                         INSERT INTO connector_cleanup_attempts (
                             id, tenant_id, operation, target_key,
-                            target_pair_id, target_item_id, status, origin_trace_id, origin_span_id
+                            target_pair_id, target_item_id, status, origin_trace_id, origin_span_id, scope_owner_actor_id
                         ) VALUES (
                             :id, :tenantId, :operation, :targetKey,
-                            :pairId, :itemId, 'NOT_STARTED', :originTraceId, :originSpanId
+                            :pairId, :itemId, 'NOT_STARTED', :originTraceId, :originSpanId, :scopeOwner
                         )
                         """)
                 .param("id", operationId.value())
@@ -207,6 +244,7 @@ public class JdbcSourceRepository {
                 .param("targetKey", targetKey)
                 .param("pairId", sourceId.value())
                 .param("itemId", itemId == null ? null : itemId.value())
+                .param("scopeOwner", scopeOwner == null ? null : scopeOwner.value())
                 .param("originTraceId", trace == null ? null : trace.traceId())
                 .param("originSpanId", trace == null ? null : trace.spanId())
                 .update();

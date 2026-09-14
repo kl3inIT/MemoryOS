@@ -22,6 +22,8 @@ import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
+import { Route as AuthenticatedSettingsWebRouteImport } from './routes/_authenticated.settings.web'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
 import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
 import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from './routes/_authenticated._chat.projects.$projectId'
@@ -98,6 +100,18 @@ const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
     path: '/projects/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/settings/general',
+    path: '/settings/general',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsWebRoute =
+  AuthenticatedSettingsWebRouteImport.update({
+    id: '/settings/web',
+    path: '/settings/web',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSharedSessionIdRoute =
@@ -177,6 +191,8 @@ export interface FileRoutesByFullPath {
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/web': typeof AuthenticatedSettingsWebRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -199,6 +215,8 @@ export interface FileRoutesByTo {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/web': typeof AuthenticatedSettingsWebRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
@@ -224,6 +242,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/web': typeof AuthenticatedSettingsWebRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -251,6 +271,8 @@ export interface FileRouteTypes {
     | '/admin/groups'
     | '/admin/models'
     | '/admin/users'
+    | '/settings/general'
+    | '/settings/web'
     | '/shared/$sessionId'
     | '/admin/'
     | '/projects/'
@@ -273,6 +295,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/models'
     | '/admin/users'
+    | '/settings/general'
+    | '/settings/web'
     | '/shared/$sessionId'
     | '/admin'
     | '/projects'
@@ -297,6 +321,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
+    | '/_authenticated/settings/general'
+    | '/_authenticated/settings/web'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
     | '/_authenticated/admin/'
@@ -410,6 +436,20 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects/'
       preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/settings/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/web': {
+      id: '/_authenticated/settings/web'
+      path: '/settings/web'
+      fullPath: '/settings/web'
+      preLoaderRoute: typeof AuthenticatedSettingsWebRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shared/$sessionId': {
@@ -575,6 +615,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
+  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsWebRoute: typeof AuthenticatedSettingsWebRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
@@ -584,6 +626,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
+  AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsWebRoute: AuthenticatedSettingsWebRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }

@@ -6,9 +6,11 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ public class DocumentSearchService {
             .thenComparing(SearchHit::documentId).thenComparingInt(SearchHit::ordinal);
 
     private final TenantAccessResolver tenants;
+    private final IamAuthorization authorization;
     private final SourceDocumentAccessResolver access;
     private final DocumentChunkPort documents;
     private final OpenSearchIndexService search;
@@ -38,19 +41,23 @@ public class DocumentSearchService {
     private final SourceSearchService sourceSearch;
     private final SearchTimings timings;
 
-    public DocumentSearchService(TenantAccessResolver tenants, SourceDocumentAccessResolver access,
+    public DocumentSearchService(TenantAccessResolver tenants, IamAuthorization authorization, SourceDocumentAccessResolver access,
             DocumentChunkPort documents, OpenSearchIndexService search, MeterRegistry metrics, SourceSearchService sourceSearch, SearchTimings timings) {
-        this.tenants = tenants; this.access = access; this.documents = documents; this.search = search; this.metrics = metrics;
+        this.tenants = tenants; this.authorization = authorization; this.access = access;
+        this.documents = documents; this.search = search; this.metrics = metrics;
         this.sourceSearch = sourceSearch;
         this.timings = timings;
     }
 
     public SearchPage search(ActorId actor, SearchRequest request) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, IamCapability.SEARCH_READ, false);
         long started = System.nanoTime();
         String outcome = "failed";
         try {
-            var hits = authorized(actor, tenant, search.search(tenant, request.query(), request.mediaTypes(), request.updatedSince()));
+            var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
+            var hits = authorized(actor, tenant, search.search(tenant, request.query(), request.mediaTypes(), request.updatedSince(), tokens));
+            requireSearchAccess(actor, tenant);
             var grouped = new LinkedHashMap<UUID, List<SearchHit>>();
             hits.stream()
                     .sorted(HIT_ORDER)
@@ -134,14 +141,42 @@ public class DocumentSearchService {
                 chunks.stream().map(hit -> new SearchPage.ChunkProvenance(hit.ordinal(), hit.provenanceJson())).toList());
     }
 
+    /** Search reader: requires SEARCH_READ plus current document eligibility. */
     public SearchDocument document(ActorId actor, UUID id, UUID generation, int from) {
+        return read(actor, IamCapability.SEARCH_READ, id, generation, from);
+    }
+
+    /** Chat citation reader: requires CHAT_READ instead of SEARCH_READ; document eligibility is unchanged. */
+    public SearchDocument citation(ActorId actor, UUID id, UUID generation, int from) {
+        return read(actor, IamCapability.CHAT_READ, id, generation, from);
+    }
+
+    private SearchDocument read(ActorId actor, IamCapability capability, UUID id, UUID generation, int from) {
         if (from < 0 || from > 9999) throw new SearchRequestException();
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
+        authorization.require(actor, capability, false);
+        requireDocumentAccess(actor, tenant, id, generation);
+        var result = search.document(tenant, id, generation, from, 20);
+        requireSearchAccess(actor, tenant, capability);
+        requireDocumentAccess(actor, tenant, id, generation);
+        return result;
+    }
+
+    private void requireSearchAccess(ActorId actor, TenantId tenant) {
+        requireSearchAccess(actor, tenant, IamCapability.SEARCH_READ);
+    }
+
+    private void requireSearchAccess(ActorId actor, TenantId tenant, IamCapability capability) {
+        if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw new SearchDocumentUnavailableException();
+        authorization.require(actor, capability, false);
+    }
+
+    private void requireDocumentAccess(ActorId actor, TenantId tenant, UUID id, UUID generation) {
         var document = new DocumentId(id);
-        if (!access.canRead(actor, document) || !documents.isCurrent(tenant, document, generation, search.identity())) {
+        if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
+                || !access.canRead(actor, document)
+                || !documents.isCurrent(tenant, document, generation, search.identity()))
             throw new SearchDocumentUnavailableException();
-        }
-        return search.document(tenant, id, generation, from, 20);
     }
 
     private List<SearchHit> authorized(ActorId actor, TenantId tenant, List<SearchHit> hits) {
@@ -158,9 +193,11 @@ public class DocumentSearchService {
     public SearchResults ranked(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
         if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();
         var tenant = scope.tenant();
-        if (scope.sources().isEmpty()) return new SearchResults(tenant, List.of());
+        if (tenants.findActiveTenant(scope.actor()).filter(tenant::equals).isEmpty()) throw new SearchDocumentUnavailableException();
+        if (scope.sources().isEmpty()) return new SearchResults(scope, List.of());
         var batches = search.batch(scope, queries, filters, checkActive);
         checkActive.run();
+        if (tenants.findActiveTenant(scope.actor()).filter(tenant::equals).isEmpty()) throw new SearchDocumentUnavailableException();
         var ids = batches.stream().flatMap(List::stream).map(SearchHit::documentId).distinct().toList();
         var current = new HashMap<UUID, UUID>();
         var metadata = new HashMap<UUID, List<DocumentSourceMetadata>>();
@@ -202,23 +239,51 @@ public class DocumentSearchService {
         }).toList();
         metrics.timer("memoryos.search.stage.duration", "stage", "fusion", "outcome", "success")
                 .record(System.nanoTime() - fusionStarted, TimeUnit.NANOSECONDS);
-        return new SearchResults(tenant, ranked);
+        return new SearchResults(scope, ranked);
     }
 
-    /** The result is backend-owned authority from this search, never an ID supplied by a tool argument. */
-    public List<SearchPage.Passage> expand(SearchResults results, SearchSection section, int neighbors) {
+    /**
+     * Reads a bounded window around an already ranked section of the result. It performs no authorization of its
+     * own: callers must pass the sections through {@link #authorizedSections} after their last IO and before any
+     * passage or metadata leaves the call.
+     */
+    public List<SearchPage.Passage> window(SearchResults results, SearchSection section, int neighbors) {
         if (!results.contains(section) || neighbors < 0 || neighbors > 5) throw new SearchRequestException();
         var hit = section.anchor();
-        if (!documents.isCurrent(results.tenant(), new DocumentId(hit.documentId()), hit.generation(), search.identity()))
-            throw new SearchDocumentUnavailableException();
         var passages = new TreeMap<Integer, SearchPage.Passage>();
         section.passages().forEach(p -> passages.put(p.ordinal(), p));
-        if (neighbors == 0) return List.copyOf(passages.values());
-        int start = Math.max(0, section.start() - neighbors);
-        if (start < section.start()) search.document(results.tenant(), hit.documentId(), hit.generation(), start,
-                section.start() - start).passages().forEach(p -> passages.put(p.ordinal(), p));
-        if (section.end() < 9999) search.document(results.tenant(), hit.documentId(), hit.generation(), section.end() + 1, neighbors)
-                .passages().forEach(p -> passages.put(p.ordinal(), p));
+        if (neighbors > 0) {
+            int start = Math.max(0, section.start() - neighbors);
+            if (start < section.start()) {
+                search.document(results.scope().tenant(), hit.documentId(), hit.generation(), start,
+                        section.start() - start).passages().forEach(p -> passages.put(p.ordinal(), p));
+            }
+            if (section.end() < 9999) {
+                search.document(results.scope().tenant(), hit.documentId(), hit.generation(), section.end() + 1, neighbors)
+                        .passages().forEach(p -> passages.put(p.ordinal(), p));
+            }
+        }
         return List.copyOf(passages.values());
+    }
+
+    /**
+     * One batched recheck of current resource authority for the given sections, in their order. Sections whose
+     * document is no longer current, readable, or readable through every origin they carry are dropped; an actor
+     * who lost the result's Tenant keeps none.
+     */
+    public List<SearchSection> authorizedSections(SearchResults results, List<SearchSection> sections) {
+        if (sections.size() > 100 || sections.stream().anyMatch(section -> !results.contains(section))) throw new SearchRequestException();
+        if (sections.isEmpty()) return List.of();
+        var scope = results.scope();
+        if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return List.of();
+        var ids = sections.stream().map(section -> section.anchor().documentId()).distinct().toList();
+        var current = timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> documents.currentGenerations(scope.tenant(), ids, search.identity()));
+        var readable = timings.measure(SearchTimings.Stage.AUTHORIZATION, () -> sourceSearch.readableMetadata(scope, ids));
+        return sections.stream().filter(section -> {
+            var hit = section.anchor();
+            var origins = readable.getOrDefault(hit.documentId(), List.of());
+            // A still-public mapping must not authorize returning metadata from a now-private origin.
+            return hit.generation().equals(current.get(hit.documentId())) && !origins.isEmpty() && origins.containsAll(hit.origins());
+        }).toList();
     }
 }

@@ -15,6 +15,10 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { SyntaxHighlighter, MermaidDiagram } from "./code-renderers.aui";
+
+const languageRenderers = { mermaid: { SyntaxHighlighter: MermaidDiagram } };
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
   components?: Parameters<typeof memoizeMarkdownComponents>[0];
@@ -50,6 +54,7 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
       remarkPlugins={[remarkGfm, ...(remarkPlugins ?? [])]}
       className="aui-md"
       components={markdownComponents}
+      componentsByLanguage={languageRenderers}
       defer
     />
   );
@@ -58,6 +63,7 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
 export const MarkdownText = memo(MarkdownTextImpl);
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
+  const { t } = useTranslation("renderers");
   const [isCopied, setCopied] = useState(false);
   useEffect(() => {
     if (!isCopied) return undefined;
@@ -80,8 +86,8 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
         {language}
       </span>
       <IconButton
-        aria-label="Copy code"
-        title={isCopied ? "Copied" : "Copy code"}
+        aria-label={t("copyCode")}
+        title={isCopied ? t("copied") : t("copyCode")}
         prominence="internal"
         size="sm"
         onClick={() => void onCopy()}
@@ -259,4 +265,4 @@ const memoizedComponents = memoizeMarkdownComponents({
   CodeHeader,
 });
 
-const defaultComponents = { ...memoizedComponents, pre: Pre };
+const defaultComponents = { ...memoizedComponents, pre: Pre, SyntaxHighlighter };

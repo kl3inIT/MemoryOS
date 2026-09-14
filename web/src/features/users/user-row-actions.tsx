@@ -1,14 +1,8 @@
-import {
-  LoaderCircle,
-  MoreHorizontal,
-  RefreshCw,
-  UserRoundCheck,
-  UserRoundX,
-  UsersRound,
-  XCircle,
-} from "lucide-react";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { LoaderCircle, MoreHorizontal, RefreshCw, XCircle } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { Popover } from "radix-ui";
+import { OnyxUserCheckIcon, OnyxUserXIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { MenuItem } from "@/components/ui/menu-item";
@@ -45,13 +39,15 @@ export function UserRowActions({
   onRotate,
   onRevoke,
 }: UserRowActionsProps) {
+  const ui = useAppTranslation();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationAction | null>(null);
   const actionButtonRef = useRef<HTMLButtonElement>(null);
   const label =
     entry.displayName?.trim() ||
     entry.email?.trim() ||
-    (entry.actorId ? `user ${entry.actorId}` : "this invitation");
+    (entry.actorId ? ui("user {{id}}", { id: entry.actorId }) : ui("this invitation"));
   const canChangeMembership =
     entry.role === "MEMBER" &&
     Boolean(entry.actorId) &&
@@ -63,7 +59,7 @@ export function UserRowActions({
   if (!actionable) {
     return (
       <span
-        aria-label={`No actions available for ${label}`}
+        aria-label={ui("No actions available for {{v1}}", { v1: label })}
         className="font-main-ui-body text-content-muted"
       >
         —
@@ -73,10 +69,10 @@ export function UserRowActions({
 
   const confirmationTitle =
     confirmation === "activate"
-      ? `Activate ${label}?`
+      ? ui("Activate {{name}}?", { name: label })
       : confirmation === "deactivate"
-        ? `Deactivate ${label}?`
-        : `Revoke the invitation for ${label}?`;
+        ? ui("Deactivate {{name}}?", { name: label })
+        : ui("Revoke the invitation for {{name}}?", { name: label });
   const confirmationDescription =
     confirmation === "activate"
       ? "They will regain access to this Tenant. Their existing identity and membership history stay intact."
@@ -111,8 +107,8 @@ export function UserRowActions({
             prominence="tertiary"
             aria-label={
               pendingAction
-                ? `${userActionPendingLabel(pendingAction)} for ${label}`
-                : `Actions for ${label}`
+                ? ui("{{v1}} for {{v2}}", { v1: userActionPendingLabel(pendingAction), v2: label })
+                : ui("Actions for {{v1}}", { v1: label })
             }
             pending={Boolean(pendingAction)}
           >
@@ -132,13 +128,13 @@ export function UserRowActions({
             {canChangeGroups ? (
               <>
                 <MenuItem
-                  icon={<UsersRound className="size-4.5" />}
+                  icon={<OnyxUsersIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     onEditGroups(actionButtonRef.current);
                   }}
                 >
-                  Edit groups
+                  {ui("Edit groups")}
                 </MenuItem>
                 {canChangeMembership ? (
                   <div className="my-1 border-t border-border-subtle" />
@@ -149,23 +145,23 @@ export function UserRowActions({
               entry.status === "ACTIVE" ? (
                 <MenuItem
                   tone="danger"
-                  icon={<UserRoundX className="size-4.5" />}
+                  icon={<OnyxUserXIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("deactivate");
                   }}
                 >
-                  Deactivate member
+                  {ui("Deactivate member")}
                 </MenuItem>
               ) : (
                 <MenuItem
-                  icon={<UserRoundCheck className="size-4.5" />}
+                  icon={<OnyxUserCheckIcon className="size-4.5" />}
                   onClick={() => {
                     setMenuOpen(false);
                     setConfirmation("activate");
                   }}
                 >
-                  Activate member
+                  {ui("Activate member")}
                 </MenuItem>
               )
             ) : canManageInvitation ? (
@@ -178,7 +174,7 @@ export function UserRowActions({
                     void onRotate(entry, actionButtonRef.current).catch(() => undefined);
                   }}
                 >
-                  Rotate recovery link
+                  {ui("Rotate recovery link")}
                 </MenuItem>
                 <div className="my-1 border-t border-border-subtle" />
                 <MenuItem
@@ -189,7 +185,7 @@ export function UserRowActions({
                     setConfirmation("revoke");
                   }}
                 >
-                  Revoke invitation
+                  {ui("Revoke invitation")}
                 </MenuItem>
               </>
             ) : null}
@@ -208,9 +204,9 @@ export function UserRowActions({
         }
         fallbackFocusRef={fallbackFocusRef}
         title={confirmationTitle}
-        description={confirmationDescription}
-        confirmLabel={confirmLabel}
-        pendingLabel={confirmPendingLabel}
+        description={ui(confirmationDescription)}
+        confirmLabel={ui(confirmLabel)}
+        pendingLabel={ui(confirmPendingLabel)}
         confirmTone={confirmation === "activate" ? "default" : "danger"}
         onConfirm={() => {
           if (confirmation === "activate") return onActivate(entry);

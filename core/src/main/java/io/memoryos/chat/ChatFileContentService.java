@@ -1,9 +1,9 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectContent;
 import java.util.UUID;

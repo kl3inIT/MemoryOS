@@ -7,8 +7,8 @@ import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.ChatFileSearchService;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchTasks;
 import io.memoryos.retrieval.SearchUnavailableException;
 import java.time.Duration;
@@ -44,12 +44,12 @@ class FileReaderToolTest {
                     new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(),
                     search, new ChatEvidence(), scope, Instant.now().plusSeconds(30));
             when(search.search(actor, tenant, allowed, "query")).thenThrow(new SearchUnavailableException());
-            assertTrue(tool.search_files("query").contains("Use read_file"));
+            assertTrue(tool.searchFiles("query").contains("Use read_file"));
             doThrow(ChatException.unavailable()).when(search).search(actor, tenant, allowed, "query");
-            assertThrows(ChatException.class, () -> tool.search_files("query"));
+            assertThrows(ChatException.class, () -> tool.searchFiles("query"));
             doThrow(new java.util.concurrent.CancellationException()).when(search).search(actor, tenant, allowed, "query");
-            assertThrows(java.util.concurrent.CancellationException.class, () -> tool.search_files("query"));
-            assertEquals("File unavailable.", tool.read_file(UUID.randomUUID().toString(), 0, 50));
+            assertThrows(java.util.concurrent.CancellationException.class, () -> tool.searchFiles("query"));
+            assertEquals("File unavailable.", tool.readFile(UUID.randomUUID().toString(), 0, 50));
             verifyNoInteractions(files);
         }
     }

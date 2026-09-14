@@ -3,12 +3,13 @@ package io.memoryos.retrieval.opensearch;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchDocumentUnavailableException;
@@ -26,6 +27,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -33,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.concurrent.Callable;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -47,6 +50,7 @@ public class OpenSearchIndexService implements SearchIndex {
     private final DocumentChunkPort documents;
     private final SourceSearchService sourceSearch;
     private final SearchTimings timings;
+    private static final int ACCESS_UPDATE_BATCH = 128;
     private String sweepCursor = "";
 
     public OpenSearchIndexService(OpenSearchGateway gateway, ValidatedEmbeddingService embeddings,
@@ -102,6 +106,8 @@ public class OpenSearchIndexService implements SearchIndex {
                                 "item_id", Map.of("type", "keyword"), "type", Map.of("type", "keyword"),
                                 "created_at", Map.of("type", "date"), "updated_at", Map.of("type", "date"),
                                 "authors", Map.of("type", "text", "index", false))))));
+        if (!mapping.path("properties").has("access_control_list")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
+                Map.of("properties", Map.of("access_public", Map.of("type", "boolean"), "access_control_list", Map.of("type", "keyword"))));
         if (!gateway.exists("/" + readAlias())) {
             gateway.json("PUT", "/" + identity + "/_alias/" + readAlias(), Map.of(), Map.of());
         }
@@ -122,7 +128,8 @@ public class OpenSearchIndexService implements SearchIndex {
         ensureIndex();
         var origins = sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation());
         var sourceMetadata = metadata(origins);
-        String metadataHash = metadataHash(origins);
+        var access = sourceSearch.indexAccess(document.tenantId(), document.documentId());
+        String metadataHash = metadataHash(origins, access);
         for (int offset = 0; offset < document.chunks().size(); offset += embeddings.batchSize()) {
             var batch = document.chunks().subList(offset, Math.min(offset + embeddings.batchSize(), document.chunks().size()));
             var found = existing(document, batch);
@@ -148,6 +155,8 @@ public class OpenSearchIndexService implements SearchIndex {
                 source.put("updated_at", document.updatedAt().toString());
                 source.put("source_metadata", sourceMetadata);
                 source.put("metadata_hash", metadataHash);
+                source.put("access_public", access.everyone());
+                source.put("access_control_list", access.sortedTokens());
                 source.put("content_hash", chunk.contentSha256());
                 source.put("index_identity", identity);
                 source.put("vector", found.get(chunk.contentSha256()));
@@ -195,9 +204,9 @@ public class OpenSearchIndexService implements SearchIndex {
         return result;
     }
 
-    public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since) {
+    public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since, Collection<String> accessTokens) {
         if (!gateway.exists("/" + readAlias())) return List.of();
-        return searchPrepared(tenant, query, embeddings.query(query), mediaTypes, since, SearchFilters.NONE, List.of());
+        return searchPrepared(tenant, query, embeddings.query(query), mediaTypes, since, SearchFilters.NONE, List.of(), accessTokens);
     }
 
     /** Resolve the alias and embed each distinct text once for this Search call. */
@@ -215,7 +224,7 @@ public class OpenSearchIndexService implements SearchIndex {
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
                 () -> timings.measure(SearchTimings.Stage.HYBRID, () -> searchPrepared(scope.tenant(), text, vectors.get(text), List.of(), null, filters,
-                        scope.sources().keySet().stream().map(UUID::toString).toList()))).toList();
+                        scope.sources().keySet().stream().map(UUID::toString).toList(), scope.accessTokens()))).toList();
         var results = SearchTasks.run(tasks, checkActive);
         // The adapter uses the same hybrid request for both groups. Reuse identical IO but retain
         // each group's rank list and weight for fusion.
@@ -223,8 +232,8 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
-            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds) {
-        return searchPrepared(tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of());
+            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, Collection<String> accessTokens) {
+        return searchPrepared(tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of(), accessTokens);
     }
 
     public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
@@ -236,16 +245,18 @@ public class OpenSearchIndexService implements SearchIndex {
                     term("document_id", document.toString()), term("generation", generation.toString())))));
         });
         if (allowed.isEmpty()) return List.of();
-        return searchPrepared(tenant, query, embeddings.query(query), List.of(), null, SearchFilters.NONE, List.of(), allowed);
+        // Owner-private files are authorized by the explicit owner file mappings, not by Source access.
+        return searchPrepared(tenant, query, embeddings.query(query), List.of(), null, SearchFilters.NONE, List.of(), allowed, null);
     }
 
-    private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector,
-            List<String> mediaTypes, Instant since, SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles) {
+    private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector, List<String> mediaTypes, Instant since,
+            SearchFilters restrictions, List<String> sourceIds, List<Object> privateFiles, @Nullable Collection<String> accessTokens) {
         List<Object> filters = new ArrayList<>();
         filters.add(term("tenant_id", tenant.value().toString()));
         filters.add(term("index_identity", identity));
         filters.add(privateFiles.isEmpty() ? Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "user_file_id")))))
                 : Map.of("bool", Map.of("should", privateFiles, "minimum_should_match", 1)));
+        if (accessTokens != null) filters.add(accessFilter(accessTokens));
         if (!mediaTypes.isEmpty()) filters.add(Map.of("terms", Map.of("media_type", mediaTypes)));
         if (since != null) filters.add(Map.of("range", Map.of("updated_at", Map.of("gte", since.toString()))));
         if (!sourceIds.isEmpty()) {
@@ -313,10 +324,69 @@ public class OpenSearchIndexService implements SearchIndex {
         return new SearchDocument(id, generation, title, List.copyOf(passages), start, total, start + passages.size() < total);
     }
 
+    /**
+     * Rewrites source metadata and access fields of one indexed generation in place with per-chunk partial bulk
+     * updates. Chunk IDs come from a bounded search, so the service role needs only its existing search and bulk
+     * permissions (update-by-query needs scroll permissions). No embedding is read or generated and the document
+     * stays searchable; chunks absent from the index are left to the INDEX path.
+     */
+    @Override
+    public void updateAccess(TenantId tenant, DocumentId document, UUID generation) {
+        if (!gateway.exists("/" + identity)) return;
+        ensureIndex();
+        var origins = sourceSearch.indexMetadata(tenant, document, generation);
+        var access = sourceSearch.indexAccess(tenant, document);
+        var fields = new HashMap<String, Object>();
+        fields.put("source_metadata", metadata(origins));
+        fields.put("metadata_hash", metadataHash(origins, access));
+        fields.put("access_public", access.everyone());
+        fields.put("access_control_list", access.sortedTokens());
+        var ids = chunkIds(List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()),
+                term("generation", generation.toString()), term("index_identity", identity)));
+        String update = mapper.writeValueAsString(Map.of("doc", fields));
+        // Each partial update re-indexes the whole chunk including its vector, so batches stay bounded like writes.
+        for (int offset = 0; offset < ids.size(); offset += ACCESS_UPDATE_BATCH) {
+            var batch = ids.subList(offset, Math.min(offset + ACCESS_UPDATE_BATCH, ids.size()));
+            var body = new StringBuilder();
+            for (String id : batch) {
+                body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
+            }
+            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
+            if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
+            for (JsonNode item : response.path("items")) {
+                int status = item.path("update").path("status").asInt();
+                if (status < 200 || status >= 300) throw new SearchUnavailableException();
+            }
+        }
+    }
+
+    /** IDs of at most 10,000 matching chunks (the per-document chunk bound), without source or vectors. */
+    private List<String> chunkIds(List<Object> filters) {
+        var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 10000, "_source", false, "track_total_hits", true,
+                "query", Map.of("bool", Map.of("filter", filters)))).path("hits");
+        if (hits.path("total").path("value").asInt(0) > 10000) throw new SearchUnavailableException();
+        var ids = new ArrayList<String>();
+        hits.path("hits").forEach(hit -> ids.add(hit.path("_id").asString()));
+        return List.copyOf(ids);
+    }
+
+    /** All chunks of the generation are present, regardless of whether their metadata and access are current. */
+    @Override
+    public boolean containsGeneration(DocumentIndexState document) {
+        if (!gateway.exists("/" + readAlias())) return false;
+        var count = gateway.json("POST", "/" + readAlias() + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
+                "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
+                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
+                        term("index_identity", identity))))));
+        return document.chunkCount() > 0 && count.path("count").asInt(-1) == document.chunkCount();
+    }
+
     @Override
     public boolean contains(DocumentIndexState document) {
         if (!gateway.exists("/" + readAlias())) return false;
-        String expectedMetadata = metadataHash(sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation()));
+        String expectedMetadata = metadataHash(sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation()),
+                sourceSearch.indexAccess(document.tenantId(), document.documentId()));
         var count = gateway.json("POST", "/" + readAlias() + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
                 "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
                         term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
@@ -357,13 +427,30 @@ public class OpenSearchIndexService implements SearchIndex {
         sweepCursor = hits.size() < 500 ? "" : hits.get(hits.size() - 1).path("_source").path("chunk_key").asString();
     }
 
+    /**
+     * Deletes every indexed generation of the document by ID in bounded bulk batches. Like access refresh this
+     * avoids delete-by-query, whose continuation beyond one batch needs scroll permissions.
+     */
     @Override
     public void delete(TenantId tenant, DocumentId document) {
         if (!gateway.exists("/" + identity)) return;
-        var result = gateway.json("POST", "/" + identity + "/_delete_by_query", Map.of("refresh", "true", "conflicts", "proceed"),
-                Map.of("query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", tenant.value().toString()),
-                        term("document_id", document.value().toString()))))));
-        if (!result.path("failures").isEmpty() || result.path("version_conflicts").asInt(0) > 0) throw new SearchUnavailableException();
+        List<Object> filters = List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()));
+        for (int round = 0; round < 100; round++) {
+            var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 1000, "_source", false,
+                    "query", Map.of("bool", Map.of("filter", filters)))).path("hits").path("hits");
+            if (hits.isEmpty()) return;
+            var body = new StringBuilder();
+            for (var hit : hits) {
+                body.append(mapper.writeValueAsString(Map.of("delete", Map.of("_id", hit.path("_id").asString())))).append('\n');
+            }
+            // Bulk waits for refresh, so the next search no longer returns deleted chunks.
+            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            for (JsonNode item : response.path("items")) {
+                int status = item.path("delete").path("status").asInt();
+                if (status != 404 && (status < 200 || status >= 300)) throw new SearchUnavailableException();
+            }
+        }
+        throw new SearchUnavailableException();
     }
 
     private static Map<String,Object> term(String field, String value) { return Map.of("term", Map.of(field, value)); }
@@ -388,10 +475,23 @@ public class OpenSearchIndexService implements SearchIndex {
         }).toList();
     }
 
-    private String metadataHash(List<DocumentSourceMetadata> origins) {
+    /**
+     * Readers match public documents or shared tokens. Chunks written before access fields existed stay visible
+     * until their ACCESS backfill completes; the post-query database recheck still authorizes every hit.
+     */
+    private static Map<String, Object> accessFilter(Collection<String> tokens) {
+        List<Object> allowed = new ArrayList<>();
+        allowed.add(Map.of("term", Map.of("access_public", true)));
+        if (!tokens.isEmpty()) allowed.add(Map.of("terms", Map.of("access_control_list", tokens.stream().sorted().toList())));
+        allowed.add(Map.of("bool", Map.of("must_not", List.of(Map.of("exists", Map.of("field", "access_public"))))));
+        return Map.of("bool", Map.of("should", allowed, "minimum_should_match", 1));
+    }
+
+    private String metadataHash(List<DocumentSourceMetadata> origins, DocumentAccess access) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(("v1:" + mapper.writeValueAsString(metadata(origins))).getBytes(StandardCharsets.UTF_8)));
+            String value = "v2:" + mapper.writeValueAsString(metadata(origins)) + ":"
+                    + mapper.writeValueAsString(Map.of("everyone", access.everyone(), "tokens", access.sortedTokens()));
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
     }
 }

@@ -2,7 +2,7 @@
 
 ## Outcome
 
-MemoryOS delivers the first production source vertical slice through the Onyx-aligned operational model:
+MemoryOS delivers the first production source vertical slice through the reference implementation-aligned operational model:
 
 ```text
 Connector + Credential -> ConnectorCredentialPair -> IndexAttempt -> Document
@@ -14,7 +14,7 @@ A file is one ConnectorItem beneath a Connector. It is never one Connector and n
 
 ## Reference decision
 
-The local Onyx reference at upstream main `ec08b5f` establishes the model deliberately:
+The local reference implementation reference at upstream main `ec08b5f` establishes the model deliberately:
 
 - Connector configuration and Credential authority are independently reusable;
 - ConnectorCredentialPair is the executable source identity, not a passive join;
@@ -26,7 +26,7 @@ The local Onyx reference at upstream main `ec08b5f` establishes the model delibe
 
 MemoryOS accepts the same operational tradeoff. A `NO_AUTH` Credential is an explicit authentication context with no provider account, scope, secret reference, token, or refresh lifecycle. It is not provider secret material. Every configured source has at least one Pair so the product does not acquire separate FILE and authenticated-source pipelines.
 
-The design also accounts for the costs observed in Onyx: Pair deletion spans many dependent records, group authorization can leak existence or degenerate into N-query checks, and attempt timestamp coupling can stop scheduling while stale documents remain visible. MemoryOS therefore makes Tenant scoping, cleanup state, authorization queries, and scheduling transitions explicit from the first Pair.
+The design also accounts for the costs observed in reference implementation: Pair deletion spans many dependent records, group authorization can leak existence or degenerate into N-query checks, and attempt timestamp coupling can stop scheduling while stale documents remain visible. MemoryOS therefore makes Tenant scoping, cleanup state, authorization queries, and scheduling transitions explicit from the first Pair.
 
 ## Product flow
 
@@ -762,7 +762,7 @@ List/detail responses expose safe type, status, access, pending-work flag, last 
 
 Identity projection adds SOURCES_MANAGE only for active Tenant OWNER. Backend authority still resolves durable membership for every command.
 
-Sources UI follows the Onyx interaction model: connector type, fixed NO_AUTH credential context, connector configuration, PUBLIC access, then a Pair-keyed status page/card. It polls Pair detail while indexing. The delete command returns CleanupAttemptId; the UI treats SUCCEEDED and SUPERSEDED as terminal success and FAILED as terminal failure, after which Pair not-found is expected for successful source deletion. No WebSocket/SSE infrastructure is introduced.
+Sources UI follows the reference implementation interaction model: connector type, fixed NO_AUTH credential context, connector configuration, PUBLIC access, then a Pair-keyed status page/card. It polls Pair detail while indexing. The delete command returns CleanupAttemptId; the UI treats SUCCEEDED and SUPERSEDED as terminal success and FAILED as terminal failure, after which Pair not-found is expected for successful source deletion. No WebSocket/SSE infrastructure is introduced.
 ## Security and access
 
 All persistence reads and writes include authorized Tenant ID. A missing or foreign Pair, Connector, or item returns a safe not-found outcome without revealing existence. OWNER management authority is separate from PUBLIC read clearance. PRIVATE and SYNC are rejected until their prerequisites exist.

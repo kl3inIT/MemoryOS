@@ -4,7 +4,7 @@ import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;

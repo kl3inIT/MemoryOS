@@ -1,4 +1,4 @@
-# MEM-36 — JPA IAM and Onyx-aligned Groups
+# MEM-36 — JPA IAM and reference implementation-aligned Groups
 
 > Completed — reconciled 2026-09-08. Delivered together with MEM-55 through [PR #78](https://github.com/kl3inIT/MemoryOS/pull/78); both issues are Done. Earlier branch and authorization statements below are historical. Post-merge evidence: [MEM-36](https://linear.app/memory-os/issue/MEM-36).
 
@@ -12,7 +12,7 @@ The existing MEM-55 work is retained and extended on the same branch. Preserve e
 
 The post-handoff security review verifies bearer/browser identity isolation and fresh IAM authority without adding a token gateway or provider-role authorization. Enterprise broker/JIT, provider-side revocation and absolute browser-session lifetime are tracked separately on Linear and are not implementation claims for this combined increment.
 
-Deliver working IAM persistence, Users, Groups, group grants, scoped managers and FILE Source associations. Follow Onyx interaction hierarchy and row actions using MemoryOS components. No speculative Requests, SCIM, bot, anonymous, service-account credential management, Agents, LLM, token-limit or tool controls. Account classification is persisted on Actor; the current admitted account type is STANDARD. Unsupported account creation types are not selectable or accepted. Account type is not an administrator role or permission grant.
+Deliver working IAM persistence, Users, Groups, group grants, scoped managers and FILE Source associations. Follow reference implementation interaction hierarchy and row actions using MemoryOS components. No speculative Requests, SCIM, bot, anonymous, service-account credential management, Agents, LLM, token-limit or tool controls. Account classification is persisted on Actor; the current admitted account type is STANDARD. Unsupported account creation types are not selectable or accepted. Account type is not an administrator role or permission grant.
 
 ## Model and ownership
 
@@ -77,7 +77,7 @@ Tenant authorization_version increments in the exclusive authority mutation tran
 
 Preserve existing invitation command URLs and Users routes while moving implementation ownership. Users shows Name/email, Groups with overflow, Account Type, status and compact row actions. Do not restore Tenant access/User directory headings or a percentage-width Actions column. Group membership editor preserves manager flags on unchanged edges; special system membership changes use explicit protected actions.
 
-Groups has a searchable bounded list, New group action and a real detail surface: editable name for eligible groups, Members, Permissions and Sources. Member actions, source association actions, save/cancel/dirty states and confirmations follow the local Onyx reference. Do not copy Onyx migration banners, unsupported resource controls or their client-side authorization filtering. Group/member/source lists are server-authorized. Keep keyboard focus, confirmation focus restoration, empty/loading/error/retry states, mobile overflow and private-cache invalidation consistent with MemoryOS.
+Groups has a searchable bounded list, New group action and a real detail surface: editable name for eligible groups, Members, Permissions and Sources. Member actions, source association actions, save/cancel/dirty states and confirmations follow the local reference implementation reference. Do not copy reference implementation migration banners, unsupported resource controls or their client-side authorization filtering. Group/member/source lists are server-authorized. Keep keyboard focus, confirmation focus restoration, empty/loading/error/retry states, mobile overflow and private-cache invalidation consistent with MemoryOS.
 
 All browser calls use generated OpenAPI clients. Final wire schemas are generated from implemented controllers, not handwritten parallel clients. Main owns final API generation and integration.
 

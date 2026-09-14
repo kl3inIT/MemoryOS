@@ -1,0 +1,31 @@
+# Implementation plan
+
+- [x] Inspect current Chat command, tool execution, evidence, credential and Onyx boundaries.
+- [x] Remove model context subtitle; user explicitly requested no repeat selector verification.
+- [x] Tenant-owned connection configuration, shared encrypted credentials and availability API.
+- [x] Bounded external search adapters and safe public HTML/text URL reader.
+- [x] Persist per-command Web intent; integrate tools and source evidence into current execution.
+- [x] Reuse assistant-ui for composer Web choice, progress, sources and error states; vi/en.
+- [x] Implement all approved external search/content protocol adapters without placeholder enabled adapters.
+- [x] Match Onyx's batch query/URL tool shape; reuse bounded SearchTasks for parallel calls and preserve partial results on ordinary per-request failures.
+- [x] Compose guidance from actual request tools and add a post-Web-search open-page reminder only when usable and not on the final cycle.
+- [x] Test prompt/tool schemas, Web/internal combinations, batch failures/cancellation and the actual native API tool loop.
+- [x] Apply provider-specific `site:` guidance and test request prompt composition.
+- [x] Complete bounded built-in PDF text reading without OCR.
+- [x] Restore browser-local per-chat Web preference after reload without duplicating message/runtime state.
+- [x] Finish the identified explicit imports, dependency catalog entries and reconcile IDE inspection.
+- [ ] Add verified native adapters reusing LLM connections; retain provider events and continuation data.
+  - [x] Verify protocol and library support (Responses API only; openai-java 4.49.0; Embabel/MessageAggregator metadata round-trip).
+  - [x] Validate `options.webSearch = "native"` in the OpenAI adapter and expose native-capable models in Web availability.
+  - [x] Implement the Responses-backed `ChatModel`: input/tool conversion, streaming events, usage, errors, `store=false`, encrypted reasoning echo.
+  - [x] Per-turn evidence/event hook: `web_search_call` progress and `url_citation` sources; no external Web tools on native turns.
+  - [x] Required mode via hosted `tool_choice`; native turns skip the external connection and `OpenAiChatModel` checks.
+  - [x] Composer: a native-capable model enables Web without an external connection. The model-administration UI does not yet edit `webSearch` (MEM-77).
+  - [x] SSE fixture tests (hosted search, function-call continuation, required, failure, final cycle, non-Web delegation); IDE inspection and focused gates.
+  - [x] Web settings: adapter descriptor exposes `nativeWebSearch`; the page lists models on native-capable providers with a per-model `webSearch` switch, and connection save/test failures render typed danger messages.
+  - [ ] Owner-run paid acceptance with a real OpenAI key.
+  - [ ] Gemini and Anthropic native adapters (open).
+- [x] Generate API contract/client; inspect changed Java and run focused contract/runtime checks.
+- [x] Consolidate implemented facts and record remaining live-provider acceptance separately.
+- [x] Run the whole-repository `clean check` gate for the external Web slice.
+- [ ] Run real-provider acceptance and repeat final gates after native adapters before release.

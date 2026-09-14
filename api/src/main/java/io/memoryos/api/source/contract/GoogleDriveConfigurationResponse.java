@@ -19,6 +19,7 @@ public record GoogleDriveConfigurationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "2147483647") int syncIntervalMinutes,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1") long scheduleRevision,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean syncPaused,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ScopeMode scopeMode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) GoogleDriveSelectionResponse.Counts counts,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "0") long discoveryRevision,
@@ -31,7 +32,7 @@ public record GoogleDriveConfigurationResponse(
     public static GoogleDriveConfigurationResponse from(Configuration configuration) {
         return new GoogleDriveConfigurationResponse(configuration.sourceId().value(), configuration.credentialId().value(), configuration.accountEmail(),
                 configuration.credentialStatus(), configuration.credentialRevision(), configuration.oauthClientConfigured(), configuration.revision(),
-                configuration.syncIntervalMinutes(), configuration.scheduleRevision(), configuration.scopeMode(),
+                configuration.syncIntervalMinutes(), configuration.scheduleRevision(), configuration.syncPaused(), configuration.scopeMode(),
                 GoogleDriveSelectionResponse.Counts.from(configuration.counts()),
                 configuration.discoveryRevision(), configuration.discoveredAt(),
                 configuration.discoveryErrors().stream().map(error ->

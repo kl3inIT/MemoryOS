@@ -2,7 +2,7 @@ package io.memoryos.worker;
 
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
@@ -281,8 +281,6 @@ final class RedisStreamWorker implements SmartLifecycle {
                 span.setAttribute("error.type", exception.getClass().getName());
                 metrics.delivery(workload, RedisExecutionMetrics.DeliveryOutcome.PENDING);
                 LOGGER.atError().addKeyValue("event", "redis.delivery.pending")
-                        .addKeyValue("operation_id", delivery.operationId().value())
-                        .addKeyValue("delivery_id", delivery.deliveryId())
                         .addKeyValue("error_type", exception.getClass().getName())
                         .log("Delivery remains pending after processing failure");
             }

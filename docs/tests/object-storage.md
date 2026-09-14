@@ -1,6 +1,6 @@
 # Object storage verification matrix
 
-Evidence boundary — 2026-09-09: the records below were collected before the isolated integration of Google Drive checkpoint `290357a` with main `fb835f9`. Branch Google/runtime evidence and main IAM/Search evidence are retained with their original commands, migration numbers and scenario names; none is a new integrated test result. Branch V13–V24 maps to integrated V18–V29 (+5), while main V1–V17 stays unchanged. Owner-only Google authorization in historical evidence predates the global `SOURCES_MANAGE` cutover. See the [pending integration gates](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09).
+Evidence boundary — 2026-09-09: the historical object-storage records below predate the isolated Google/main integration. Their original commands and migration numbers remain evidence for that revision only. The [integration ledger](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) records the later combined gates and migration mapping.
 
 This matrix identifies retained automated coverage and separately labels historical deployment evidence. No validation was rerun during documentation consolidation. PostgreSQL lifecycle tests use controlled storage collaborators to exercise races; S3 adapter tests use MinIO. Neither establishes live Google authorization/acquisition end to end.
 

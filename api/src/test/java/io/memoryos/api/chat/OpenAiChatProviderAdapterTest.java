@@ -89,11 +89,32 @@ class OpenAiChatProviderAdapterTest {
             for (var options : java.util.List.<Map<String, Object>>of(Map.of("apiKey", "must-not-be-an-option"),
                     Map.of("temperature", "hot"), Map.of("temperature", 3), Map.of("topP", Double.NaN),
                     Map.of("maxCompletionTokens", "true"), Map.of("reasoningEffort", "unlimited"),
-                    Map.of("maxCompletionTokens", true, "temperature", 0.5))) {
+                    Map.of("maxCompletionTokens", true, "temperature", 0.5), Map.of("webSearch", "hosted"), Map.of("webSearch", true))) {
                 assertThrows(ChatException.class, () -> adapter.validate("http://model.internal/v1", "model", settings(options, true)));
             }
         } finally { meters.close(); }
     }
+    @Test
+    void nativeWebSearchIsAnExplicitToolCapableDeclarationThatSelectsTheResponsesModel() {
+        var meters = new SimpleMeterRegistry();
+        try {
+            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+            var declared = settings(Map.of("webSearch", "native"), false);
+            var noTools = new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, false, false, false), Map.of("webSearch", "native"), null, "openai-o200k-v1");
+            assertTrue(adapter.supportsNativeWebSearch(declared));
+            assertFalse(adapter.supportsNativeWebSearch(settings(Map.of(), false)), "A GPT-like name alone must not enable hosted search");
+            assertFalse(adapter.supportsNativeWebSearch(noTools));
+            assertThrows(ChatException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", noTools));
+            var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
+            try (var client = adapter.create(connection, "gpt-5.6", declared, java.time.Duration.ofSeconds(1))) {
+                assertInstanceOf(io.memoryos.chat.execution.NativeWebSearch.class, client.binding().service().getChatModel());
+            }
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), java.time.Duration.ofSeconds(1))) {
+                assertFalse(client.binding().service().getChatModel() instanceof io.memoryos.chat.execution.NativeWebSearch);
+            }
+        } finally { meters.close(); }
+    }
+
     private static ModelSettings settings(Map<String, Object> options, boolean reasoning) {
         return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning), options, null, "openai-o200k-v1");
     }

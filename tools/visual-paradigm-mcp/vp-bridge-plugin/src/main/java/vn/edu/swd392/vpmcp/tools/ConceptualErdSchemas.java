@@ -1,0 +1,46 @@
+package vn.edu.swd392.vpmcp.tools;
+
+final class ConceptualErdSchemas {
+  static final String CREATE =
+      "{"
+          + "\"type\":\"object\",\"properties\":{"
+          + "\"spec\":{\"type\":\"object\",\"properties\":{"
+          + "\"operationId\":{\"type\":\"string\",\"minLength\":8,\"maxLength\":128,\"pattern\":\"^[A-Za-z0-9._:-]+$\"},"
+          + "\"diagramName\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":160},"
+          + "\"facts\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":80,\"items\":{\"type\":\"object\",\"properties\":{"
+          + "\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"pattern\":\"^[A-Za-z0-9._:-]+$\"},"
+          + "\"text\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}"
+          + "},\"required\":[\"id\",\"text\"],\"additionalProperties\":false}},"
+          + "\"entities\":{\"type\":\"array\",\"minItems\":2,\"maxItems\":30,\"items\":{\"type\":\"object\",\"properties\":{"
+          + "\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"pattern\":\"^[A-Za-z0-9._:-]+$\"},"
+          + "\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":100},"
+          + "\"description\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500},"
+          + "\"column\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":6},"
+          + "\"row\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":8},"
+          + "\"factIds\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80}}"
+          + "},\"required\":[\"id\",\"name\",\"description\",\"column\",\"row\",\"factIds\"],\"additionalProperties\":false}},"
+          + "\"relationships\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":60,\"items\":{\"type\":\"object\",\"properties\":{"
+          + "\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"pattern\":\"^[A-Za-z0-9._:-]+$\"},"
+          + "\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":100},"
+          + "\"from\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80},"
+          + "\"to\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80},"
+          + "\"fromCardinality\":{\"type\":\"string\",\"enum\":[\"ONE\",\"ZERO_OR_ONE\",\"ONE_OR_MANY\",\"ZERO_OR_MANY\"]},"
+          + "\"toCardinality\":{\"type\":\"string\",\"enum\":[\"ONE\",\"ZERO_OR_ONE\",\"ONE_OR_MANY\",\"ZERO_OR_MANY\"]},"
+          + "\"rationale\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500},"
+          + "\"factIds\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80}}"
+          + "},\"required\":[\"id\",\"name\",\"from\",\"to\",\"fromCardinality\",\"toCardinality\",\"rationale\",\"factIds\"],\"additionalProperties\":false}},"
+          + "\"layout\":{\"type\":\"object\",\"properties\":{"
+          + "\"originX\":{\"type\":\"integer\",\"minimum\":40,\"maximum\":2000},"
+          + "\"originY\":{\"type\":\"integer\",\"minimum\":40,\"maximum\":2000},"
+          + "\"entityWidth\":{\"type\":\"integer\",\"minimum\":150,\"maximum\":420},"
+          + "\"entityHeight\":{\"type\":\"integer\",\"minimum\":40,\"maximum\":140},"
+          + "\"horizontalGap\":{\"type\":\"integer\",\"minimum\":80,\"maximum\":500},"
+          + "\"verticalGap\":{\"type\":\"integer\",\"minimum\":80,\"maximum\":400},"
+          + "\"connectorStyle\":{\"type\":\"string\",\"enum\":[\"OBLIQUE\",\"RECTILINEAR\"]}"
+          + "},\"additionalProperties\":false}"
+          + "},\"required\":[\"operationId\",\"diagramName\",\"facts\",\"entities\",\"relationships\"],\"additionalProperties\":false},"
+          + "\"dryRun\":{\"type\":\"boolean\"}"
+          + "},\"required\":[\"spec\",\"dryRun\"],\"additionalProperties\":false}";
+
+  private ConceptualErdSchemas() {}
+}

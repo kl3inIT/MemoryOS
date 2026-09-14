@@ -28,7 +28,7 @@ Technical state such as digests, locks, and provider-token disposal is never pre
 
 ## Reference boundary
 
-Onyx Enterprise is an interaction reference for invitation administration, its modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy Onyx's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
+reference implementation Enterprise is an interaction reference for invitation administration, its modal, pending status, loading, errors, and optional email delivery. MemoryOS does not copy reference implementation's email-allowlist identity model, tenant switching, billing, or inactive tenant mappings.
 
 MemoryOS adds `invitation` as a top-level closed Spring Modulith capability from the first implementation commit:
 

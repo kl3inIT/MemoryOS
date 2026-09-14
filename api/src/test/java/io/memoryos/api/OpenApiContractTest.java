@@ -50,6 +50,11 @@ class OpenApiContractTest {
     private static final String BROWSER_ISSUER =
             "http://127.0.0.1:" + IDENTITY_SERVER.getAddress().getPort();
     private static final Set<String> BROWSER_API_PATHS = Set.of(
+            "/api/chat/web",
+            "/api/chat/web/connections",
+            "/api/chat/web/connections/{provider}",
+            "/api/chat/web/connections/{provider}/test",
+            "/api/chat/web/selection",
             "/api/chat/files",
             "/api/chat/files/policy",
             "/api/chat/files/uploads",
@@ -59,6 +64,7 @@ class OpenApiContractTest {
             "/api/chat/files/{fileId}/content",
             "/api/chat/files/{fileId}/finalize",
             "/api/chat/files/{fileId}/retry",
+            "/api/chat/documents/{documentId}",
             "/api/chat/model-default",
             "/api/chat/models",
             "/api/chat/models/{modelId}",
@@ -77,6 +83,7 @@ class OpenApiContractTest {
             "/api/chat/providers/{providerId}",
             "/api/chat/providers/{providerId}/models",
             "/api/chat/sessions",
+            "/api/chat/sessions/search",
             "/api/chat/sessions/{sessionId}",
             "/api/chat/sessions/{sessionId}/title",
             "/api/chat/sessions/{sessionId}/branches",
@@ -97,6 +104,7 @@ class OpenApiContractTest {
             "/api/search",
             "/api/search/documents/{documentId}",
             "/api/identity/me",
+            "/api/identity/me/language",
             "/api/users",
             "/api/users/{actorId}/activate",
             "/api/users/{actorId}/deactivate",
@@ -134,10 +142,13 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}/google-drive/roots",
             "/api/sources/{sourceId}/google-drive/linked-documents/discover",
             "/api/sources/{sourceId}/google-drive/schedule",
+            "/api/sources/{sourceId}/google-drive/pause",
             "/api/sources/{sourceId}/google-drive/sync",
             "/api/sources/group-options",
             "/api/sources/{sourceId}/groups",
             "/api/sources/{sourceId}",
+            "/api/sources/{sourceId}/rename",
+            "/api/sources/{sourceId}/access",
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
             "/api/sources/{sourceId}/runs",
@@ -301,6 +312,11 @@ class OpenApiContractTest {
         }
 
         Path contract = repositoryRoot().resolve("openapi.yml");
+        var fieldError = actual.path("components").path("schemas").path("ApiProblem")
+                .path("properties").path("errors").path("items");
+        assertEquals(4, fieldError.path("required").size());
+        assertEquals(6, fieldError.path("properties").path("code").path("enum").size());
+        assertFalse(fieldError.path("properties").path("params").path("additionalProperties").asBoolean());
         for (String property : Set.of("personaId", "projectId")) {
             JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
             assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());

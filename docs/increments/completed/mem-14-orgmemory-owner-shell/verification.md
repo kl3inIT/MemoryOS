@@ -48,7 +48,7 @@ Mobile at 390 × 844 verified:
 ## Typography verification
 
 - Hanken Grotesk variable assets are included in the production bundle, including the Vietnamese subset.
-- Content presets match the Onyx scale: `48/64`, `24/36`, `18/28`, `16/24`, `14/20`, `12/16`, and `10/12`.
+- Content presets match the reference implementation scale: `48/64`, `24/36`, `18/28`, `16/24`, `14/20`, `12/16`, and `10/12`.
 - Live `playwright-cli` metrics confirmed a 240px/64px sidebar, 36px rows, `14/20` weight-500 navigation text, 16px icons, a 28px brand mark, DPR 1, and visual viewport scale 1; section labels remain `12/16`.
 
 ## Scope confirmation

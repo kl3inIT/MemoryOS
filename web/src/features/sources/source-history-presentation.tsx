@@ -1,19 +1,24 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { runHasNoChanges, runIsActive } from "./source-history";
 
 export function HistoryTime({ value }: { value: string | null }) {
-  if (!value) return <span>Unknown</span>;
+  const ui = useAppTranslation();
+
+  if (!value) return <span>{ui("Unknown")}</span>;
   const date = new Date(value);
-  const full = date.toLocaleString(undefined, { dateStyle: "full", timeStyle: "long" });
+  const full = date.toLocaleString(uiLocale(), { dateStyle: "full", timeStyle: "long" });
   return (
     <time dateTime={value} title={full} aria-label={full}>
-      {date.toLocaleString()}
+      {date.toLocaleString(uiLocale())}
     </time>
   );
 }
 
 export function RunOutcome({ run }: { run: SourceRun }) {
+  const ui = useAppTranslation();
   const failed =
     run.status === "FAILED" ||
     run.status === "COMPLETED_WITH_ERRORS" ||
@@ -26,7 +31,7 @@ export function RunOutcome({ run }: { run: SourceRun }) {
     : active
       ? run.status === "SUCCEEDED"
         ? "Indexing pending"
-        : run.status.replaceAll("_", " ").toLowerCase()
+        : (runStatusLabels[run.status] ?? "Unknown")
       : failed
         ? run.status === "FAILED"
           ? "Failed"
@@ -35,13 +40,13 @@ export function RunOutcome({ run }: { run: SourceRun }) {
           ? "Completed"
           : run.status === "SUCCEEDED"
             ? "Outcome unknown"
-            : run.status.replaceAll("_", " ").toLowerCase();
+            : (runStatusLabels[run.status] ?? "Unknown");
   return (
     <StatusBadge
       tone={failed ? "danger" : active ? "info" : knownComplete ? "success" : "neutral"}
       className="capitalize"
     >
-      {label}
+      {ui(label)}
     </StatusBadge>
   );
 }
@@ -51,6 +56,17 @@ const itemStatusLabels: Record<string, string> = {
   INDEXED: "Indexed",
   FAILED: "Failed",
   DELETING: "Deleting",
+};
+
+const runStatusLabels: Record<string, string> = {
+  QUEUED: "Queued",
+  ACQUIRING: "Acquiring",
+  RETRY_SCHEDULED: "Retry scheduled",
+  RECOVERY_PENDING: "Recovery pending",
+  INDEXING: "Indexing",
+  CANCELLED: "Cancelled",
+  SUPERSEDED: "Superseded",
+  UNKNOWN: "Unknown",
 };
 
 const attemptStatusLabels: Record<string, string> = {
@@ -76,6 +92,8 @@ export function ItemStatus({
     latestAttempt?: SourceItem["latestAttempt"] | null;
   };
 }) {
+  const ui = useAppTranslation();
+
   const attemptStatus = item.latestAttempt?.status;
   const attemptLabel =
     attemptStatus && Object.hasOwn(attemptStatusLabels, attemptStatus)
@@ -90,17 +108,17 @@ export function ItemStatus({
         : "Unknown";
   return (
     <>
-      <span>{label}</span>
+      <span>{ui(label)}</span>
       {item.latestAttempt && attemptLabel !== label ? (
         <p className="mt-1 font-secondary-body text-content-muted">
-          Latest attempt: {attemptLabel}
+          {ui("Latest attempt:")} {ui(attemptLabel)}
         </p>
       ) : null}
       <p className="mt-1 font-secondary-body text-content-muted">
-        Search index:{" "}
+        {ui("Search index:")}{" "}
         {Object.hasOwn(searchIndexStatusLabels, item.searchStatus)
-          ? searchIndexStatusLabels[item.searchStatus]
-          : "Unknown"}
+          ? ui(searchIndexStatusLabels[item.searchStatus])
+          : ui("Unknown")}
       </p>
     </>
   );

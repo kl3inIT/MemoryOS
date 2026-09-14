@@ -2,9 +2,9 @@ package io.memoryos.connector;
 
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +23,16 @@ public class SourceSearchService {
 
     public SourceSearchScope scope(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
-        return new SourceSearchScope(tenant, documents.searchableSources(tenant));
+        return new SourceSearchScope(tenant, actor, documents.searchableSources(tenant, actor), documents.actorAccessTokens(tenant, actor));
+    }
+
+    /** Index access tokens for direct Search, which has no Source scope. */
+    public java.util.Set<String> accessTokens(TenantId tenant, ActorId actor) {
+        return documents.actorAccessTokens(tenant, actor);
+    }
+
+    public DocumentAccess indexAccess(TenantId tenant, DocumentId document) {
+        return documents.documentAccess(tenant, document.value());
     }
 
     public record SourceOption(UUID id, String name, SourceType type) {}
@@ -31,17 +40,21 @@ public class SourceSearchService {
     public List<SourceOption> options(ActorId actor, int offset, int limit) {
         if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw SourceException.invalid("Invalid source page", "source option page out of bounds");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SourceException::notFound);
-        return documents.searchableSourceOptions(tenant, offset, limit);
+        return documents.searchableSourceOptions(tenant, actor, offset, limit);
     }
 
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
-        return documents.sourceMetadata(scope.tenant(), ids, true, null).entrySet().stream()
-                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,
-                        entry -> entry.getValue().stream().filter(m -> scope.sources().containsKey(m.sourceId())).toList()));
+        if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
+        var metadata = new java.util.LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
+        documents.sourceMetadata(scope.tenant(), ids, scope.actor(), null).forEach((document, origins) -> {
+            var visible = origins.stream().filter(origin -> scope.sources().containsKey(origin.sourceId())).toList();
+            if (!visible.isEmpty()) metadata.put(document, visible);
+        });
+        return Map.copyOf(metadata);
     }
 
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {
-        return documents.sourceMetadata(tenant, List.of(document.value()), false, generation)
+        return documents.sourceMetadata(tenant, List.of(document.value()), null, generation)
                 .getOrDefault(document.value(), List.of());
     }
 }

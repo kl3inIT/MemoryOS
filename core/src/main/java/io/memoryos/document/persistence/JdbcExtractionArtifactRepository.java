@@ -1,6 +1,6 @@
 package io.memoryos.document.persistence;
 
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;

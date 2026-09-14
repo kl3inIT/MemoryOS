@@ -6,8 +6,6 @@
 
 Chat can reauthorize a still-pending upload. Before returning any new signed authorization, ObjectStorage retains its durable reservation at least until that authorization expires; an expired reservation cannot be revived. `retireAdopted` transitions an adopted upload to discarded/delete-pending for the existing reaper, preserving the upload receipt. Existing Connector `releaseAdopted` semantics are unchanged. Storage admission bounds do not establish large-file extraction support; see the active MEM-81 verification matrix.
 
-Integration boundary: this contract combines the implemented Google branch with main IAM/Search. The [isolated integration plan](../increments/active/google-drive-structured-ingestion/plan.md#isolated-main-integration--2026-09-09) tracks pending combined verification; linked prior tests/runtime observations remain pre-integration evidence.
-
 ## Ownership and provider boundary
 
 `objectstorage` owns tenant-scoped immutable raw-object metadata, generic browser-upload authorization, tracked server-write reservations, verification claims, adoption, discard, and pre-adoption cleanup. Its public `ObjectStorage` port provides provider-neutral presigned uploads, server writes, metadata inspection, streaming reads, deletion and bounded readiness checks; AWS SDK and MinIO types remain inside `objectstorage.s3`. `ObjectUploadService` owns browser intents, while `ObjectWriteService` owns server-acquired raw bytes. Connector owns accepted source provenance and post-adoption deletion. Extracted-artifact ownership is defined by [document](document.md), not a second raw-upload lifecycle.

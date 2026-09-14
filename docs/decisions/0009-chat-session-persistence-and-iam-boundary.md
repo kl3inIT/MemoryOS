@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted; implementation began in MEM-11 Phase 2.1 on 2026-09-09 after approval of the Onyx baseline and phase plan.
+Accepted; implementation began in MEM-11 Phase 2.1 on 2026-09-09 after approval of the reference implementation baseline and phase plan.
 
 ## Decision
 
 Chat is a closed capability under `io.memoryos.chat`, depending on public IAM contracts. It owns Persona, ChatSession and the ChatMessage tree in PostgreSQL. API exposes private session creation/list/detail/history; model execution, send/Stop/SSE and the Chat UI are not delivered by this first slice.
 
-Preserve Onyx terminology and parent/latest-child branch semantics. For the single-model path, a reserved assistant message identifies its execution (`runId = assistantMessageId`). Do not introduce a ChatRun table, durable effective-config snapshot, event journal or dedicated worker. The accepted [design](../increments/active/mem-11-production-chat/design.md) owns the broader runtime decisions.
+Preserve reference implementation terminology and parent/latest-child branch semantics. For the single-model path, a reserved assistant message identifies its execution (`runId = assistantMessageId`). Do not introduce a ChatRun table, durable effective-config snapshot, event journal or dedicated worker. The accepted [design](../increments/completed/mem-11-production-chat/design.md) owns the broader runtime decisions.
 
 Concrete JDBC persistence owns row mapping, foreign keys, root/branch integrity, session serialization, command uniqueness and conditional terminal writes. Application operations own authorization and transactions. A partial unique index enforces at most one RUNNING assistant message per session. This is a database consistency boundary for concurrent sends, not a queue.
 

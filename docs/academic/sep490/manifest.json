@@ -1,0 +1,45 @@
+{
+  "source": "User-provided SEP490 package; StudentGuide Fall 2023",
+  "files": [
+    {
+      "file": "Project Weekly Report_GroupName.xlsx",
+      "bytes": 11670,
+      "sha256": "ac9596ed4d005766cfe04ad41754e5a2942033e9100b54f6cc3a7ac7e0d2e04b"
+    },
+    {
+      "file": "Report1_Project Introduction.docx",
+      "bytes": 111365,
+      "sha256": "08481ef2253aba57cf9ef2b33108ed063d0aeb2e2579efe92e63b90ac611590d"
+    },
+    {
+      "file": "Report2_Project Management Plan.docx",
+      "bytes": 52720,
+      "sha256": "f59a4ce96d99f2f772f4c0ef07828812674aee4b8795aac475d5a395a8401be5"
+    },
+    {
+      "file": "Report2_Sample Project Schedule.pdf",
+      "bytes": 33023,
+      "sha256": "6261334f3223e32f56ec34a373c98efd14ee09d7d187fce26db8897d00af9464"
+    },
+    {
+      "file": "Report2_Sample Project Schedule.pod",
+      "bytes": 318135,
+      "sha256": "b294bd494cf8257049afb03f22eb6df03dca544e887ca7fff2d2302d39fbecdb"
+    },
+    {
+      "file": "Report3_Project Tracking.xlsx",
+      "bytes": 69900,
+      "sha256": "5135c4db2d29a39661d9760a3ff7e856f4ce765a45ddb25a1394776d9aba936b"
+    },
+    {
+      "file": "Report3_Software Requirement Specification.docx",
+      "bytes": 798254,
+      "sha256": "5eeb573dd41505af451c0d91296d98c275ae761b0bc29c380b7722df64b77f49"
+    },
+    {
+      "file": "SEP490 StudentGuide_Fall 2023.docx",
+      "bytes": 40198,
+      "sha256": "8bd9c78191e76b39e328f8562ac6f36c7dce889e4588b1375be72ba4cf43400c"
+    }
+  ]
+}

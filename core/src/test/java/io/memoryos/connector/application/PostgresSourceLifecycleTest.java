@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import org.junit.jupiter.api.AfterEach;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorCleanupPort;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceAction;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -34,17 +35,17 @@ import io.memoryos.connector.persistence.JdbcSourceUploadRepository;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.TenantId;
-import io.memoryos.iam.application.DefaultGroupScopeService;
-import io.memoryos.iam.application.DefaultIamAuthorization;
-import io.memoryos.iam.persistence.GroupInvariantRepository;
-import io.memoryos.iam.persistence.GroupProjectionRepository;
-import io.memoryos.iam.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.group.DefaultGroupScopeService;
+import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.group.persistence.GroupInvariantRepository;
+import io.memoryos.iam.group.persistence.GroupProjectionRepository;
+import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
@@ -78,6 +79,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -150,7 +152,7 @@ class PostgresSourceLifecycleTest {
         seedGroups(actorId);
         owner = new ActorId(actorId);
 
-        var sourceRepository = new JdbcSourceRepository(jdbcClient);
+        var sourceRepository = new JdbcSourceRepository(jdbcClient, event -> { });
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
                 org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class));
@@ -204,8 +206,8 @@ class PostgresSourceLifecycleTest {
     @Test
     void concurrentSourceCreationSharesOneNoAuthCredential() throws Exception {
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> service.createFileSource(owner, "First", List.of()));
-            var second = executor.submit(() -> service.createFileSource(owner, "Second", List.of()));
+            var first = executor.submit(() -> service.createFileSource(owner, "First", List.of(), null));
+            var second = executor.submit(() -> service.createFileSource(owner, "Second", List.of(), null));
             first.get();
             second.get();
         }
@@ -216,7 +218,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void itemPagesUseStableDescendingKeysWhileNewUploadsArrive() {
-        SourceId sourceId = service.createFileSource(owner, "Paged files", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Paged files", List.of(), null).id();
         var empty = service.listItems(owner, sourceId, null, 2);
         assertTrue(empty.items().isEmpty());
         assertNull(empty.nextCursor());
@@ -231,7 +233,7 @@ class PostgresSourceLifecycleTest {
         }
         jdbcClient.sql("UPDATE connector_items SET status = 'FAILED' WHERE id = :id")
                 .param("id", uploaded.getFirst().id().value()).update();
-        SourceId other = service.createFileSource(owner, "Other files", List.of()).id();
+        SourceId other = service.createFileSource(owner, "Other files", List.of(), null).id();
         upload(owner, other, "other.txt", "other source content".getBytes(StandardCharsets.UTF_8));
         assertEquals(1L, service.listItems(owner, other, null, 2).totalItems());
         assertEquals(0L, new JdbcSourceQueryRepository(jdbcClient)
@@ -263,14 +265,14 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void itemCursorsRejectOtherSourcesTenantsKindsAndMalformedPositionsAfterAuthorityChecks() {
-        SourceId sourceId = service.createFileSource(owner, "Cursor scope", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Cursor scope", List.of(), null).id();
         for (int index = 0; index < 2; index++) {
             upload(owner, sourceId, "cursor-" + index + ".txt",
                     ("cursor content " + index).getBytes(StandardCharsets.UTF_8));
         }
         var page = service.listItems(owner, sourceId, null, 1);
         assertNotNull(page.nextCursor());
-        SourceId other = service.createFileSource(owner, "Other cursor scope", List.of()).id();
+        SourceId other = service.createFileSource(owner, "Other cursor scope", List.of(), null).id();
         assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
                 () -> service.listItems(owner, other, page.nextCursor(), 1)).code());
         String scope = tenantId + "|" + sourceId.value() + "|ITEM|";
@@ -301,37 +303,140 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void sourceCreationAssociatesAdminByDefaultAndRejectsUnknownGroupsAtomically() {
-        var defaultSource = service.createFileSource(owner, "Admin source", List.of());
-        var defaultGroups = service.listSourceGroups(owner, defaultSource.id());
-        assertEquals(1, defaultGroups.size());
-        assertEquals(GroupSystemKey.ADMIN, defaultGroups.getFirst().systemKey());
+    void globalSourceCreationNeedsNoAssociationsAndRejectsUnknownGroupsAtomically() {
+        var defaultSource = service.createFileSource(owner, "Unassociated source", List.of(), null);
+        assertTrue(service.listSourceGroups(owner, defaultSource.id()).isEmpty());
 
         long connectorCount = count("connectors");
         IamException failure = assertThrows(
                 IamException.class,
-                () -> service.createFileSource(
-                        owner,
-                        "Invalid source",
-                        List.of(new GroupId(UUID.randomUUID()))
-                )
+                () -> service.createFileSource(owner, "Invalid source", List.of(new GroupId(UUID.randomUUID())), null)
         );
         assertEquals("IAM_GROUP_NOT_FOUND", failure.code());
         assertEquals(connectorCount, count("connectors"));
         assertEquals(connectorCount, count("connector_credential_pairs"));
-        assertEquals(connectorCount, count("source_group_grants"));
+        assertEquals(0L, count("source_group_grants"));
+    }
+
+    @Test
+    void publicAndPartiallyManagedSourcesAreReadOnlyButGlobalAuthorityCanEdit() {
+        GroupId a = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(a);
+        GroupId b = new GroupId(UUID.randomUUID());
+        addScopedManager(b);
+        var publicSource = service.createFileSource(owner, "Public", List.of(a), null);
+        var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.RESTRICTED);
+        jdbcClient.sql("""
+                INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id, is_manager)
+                VALUES (:tenant, :group, :actor, FALSE)
+                """).param("tenant", tenantId).param("group", b.value()).param("actor", manager.value()).update();
+        var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.RESTRICTED);
+        for (var source : List.of(publicSource, shared, memberOnly)) {
+            assertThat(service.getSource(manager, source.id()).actions()).isEmpty();
+            assertThrows(SourceException.class, () -> service.renameSource(manager, source.id(), "Denied"));
+            assertThrows(SourceException.class, () -> upload(manager, source.id(), "denied.txt", new byte[] {1}));
+            assertThrows(SourceException.class, () -> service.replaceSourceGroups(manager, source.id(), List.of(a)));
+            assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
+        }
+        assertEquals("Global rename", service.renameSource(owner, shared.id(), "Global rename").name());
+        service.replaceSourceGroups(owner, shared.id(), List.of(a));
+        assertEquals("Managed rename", service.renameSource(manager, shared.id(), "  Managed rename  ").name());
+        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a, b)));
+        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId())));
+        assertThrows(SourceException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of()));
+        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(a);
+        assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
+        long before = jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
+                .param("tenant", tenantId).query(Long.class).single();
+        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.RESTRICTED);
+        assertThat(jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
+                .param("tenant", tenantId).query(Long.class).single()).isGreaterThan(before);
+        assertThat(service.getSource(manager, publicSource.id()).actions()).contains(SourceAction.RENAME);
+        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
+        assertThat(service.getSource(manager, publicSource.id()).actions()).isEmpty();
+    }
+
+    @Test
+    void scopedCreationRequiresPrivateManagedOrdinaryGroups() {
+        GroupId managed = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(managed);
+        GroupId foreign = new GroupId(UUID.randomUUID());
+        addScopedManager(foreign);
+        assertThrows(SourceException.class, () -> service.createFileSource(manager, "Public", List.of(managed), SourceAccess.PUBLIC));
+        assertThrows(SourceException.class, () -> service.createFileSource(manager, "Empty", List.of(), null));
+        assertThrows(IamException.class, () -> service.createFileSource(manager, "Foreign", List.of(foreign), null));
+        assertThrows(IamException.class, () -> service.createFileSource(manager, "Mixed", List.of(managed, foreign), null));
+        assertThrows(IamException.class, () -> service.createFileSource(manager, "System", List.of(adminGroupId()), null));
+        assertEquals(0L, count("connector_credential_pairs"));
+        var source = service.createFileSource(manager, "Private", List.of(managed), null);
+        assertEquals(SourceAccess.RESTRICTED, source.access());
+        assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
+        assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
+    }
+
+    @Test
+    void creatorCanDeleteOnlyOwnNonpublicGrouplessSourceAndPollAfterCleanup() {
+        GroupId managed = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(managed);
+        GroupId other = new GroupId(UUID.randomUUID());
+        ActorId stranger = addScopedManager(other);
+        var own = service.createFileSource(manager, "Own", List.of(managed), null);
+        var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.RESTRICTED);
+        jdbcClient.sql("DELETE FROM source_group_grants WHERE tenant_id=:tenant")
+                .param("tenant", tenantId).update();
+        assertThat(service.getSource(manager, own.id()).actions()).contains(SourceAction.DELETE).doesNotContain(SourceAction.REMOVE_ITEMS);
+        assertThrows(SourceException.class, () -> service.getSource(manager, foreign.id()));
+        assertThrows(SourceException.class, () -> service.deleteSource(manager, foreign.id()));
+        service.updateSourceAccess(owner, own.id(), SourceAccess.PUBLIC);
+        assertThrows(SourceException.class, () -> service.deleteSource(manager, own.id()));
+        service.updateSourceAccess(owner, own.id(), SourceAccess.RESTRICTED);
+        var deletion = service.deleteSource(manager, own.id());
+        assertEquals(deletion, service.deleteSource(manager, own.id()));
+        var delivery = dispatch(OperationWorkload.CLEANUP);
+        var work = cleanup.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+        assertTrue(cleanup.execute(work));
+        assertThrows(SourceException.class, () -> service.getSource(manager, own.id()));
+        assertEquals(io.memoryos.connector.SourceOperationStatus.SUCCEEDED, service.getOperation(manager, deletion.id()).status());
+        assertEquals(deletion.id(), service.deleteSource(manager, own.id()).id());
+        assertThrows(SourceException.class, () -> service.getOperation(stranger, deletion.id()));
+        jdbcClient.sql("UPDATE iam_group_memberships SET is_manager=FALSE WHERE tenant_id=:tenant AND actor_id=:actor")
+                .param("tenant", tenantId).param("actor", manager.value()).update();
+        assertThrows(IamException.class, () -> service.getOperation(manager, deletion.id()));
+        assertThrows(IamException.class, () -> service.deleteSource(manager, own.id()));
+    }
+
+    @Test
+    void pendingSelectionReceiptBelongsToItsActorAndStillRequiresCurrentRole() {
+        GroupId group = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(group);
+        ActorId stranger = addScopedManager(new GroupId(UUID.randomUUID()));
+        var operation = new io.memoryos.connector.SourceOperationId(UUID.randomUUID());
+        jdbcClient.sql("""
+                INSERT INTO google_drive_selection_operations (
+                    id, tenant_id, source_id, actor_id, request_id, request_hash,
+                    credential_revision, scope_revision, discovery_revision, scope_mode,
+                    max_requests, max_metadata, max_roots, max_request_bytes)
+                VALUES (:operation, :tenant, :source, :actor, :request, 'hash',
+                    1, 0, 0, 'SPECIFIC', 100, 100, 100, 10000)
+                """).param("operation", operation.value()).param("tenant", tenantId)
+                .param("source", UUID.randomUUID()).param("actor", manager.value())
+                .param("request", UUID.randomUUID()).update();
+        assertEquals(SourceOperationType.VALIDATE_GOOGLE_DRIVE_SELECTION, service.getOperation(manager, operation).type());
+        assertThrows(SourceException.class, () -> service.getOperation(stranger, operation));
+        jdbcClient.sql("UPDATE iam_group_memberships SET is_manager=FALSE WHERE tenant_id=:tenant AND actor_id=:actor")
+                .param("tenant", tenantId).param("actor", manager.value()).update();
+        assertThrows(IamException.class, () -> service.getOperation(manager, operation));
+        assertEquals(operation, service.getOperation(owner, operation).id());
     }
 
     @Test
     void scopedManagerReadsAndManagesOnlyAssociatedSources() {
         GroupId managedGroupId = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(managedGroupId);
-        var managed = service.createFileSource(
-                owner,
-                "Managed source",
-                List.of(managedGroupId)
-        );
-        var hidden = service.createFileSource(owner, "Hidden source", List.of());
+        GroupId foreignGroupId = new GroupId(UUID.randomUUID());
+        addScopedManager(foreignGroupId);
+        var managed = service.createFileSource(owner, "Managed source", List.of(managedGroupId), SourceAccess.RESTRICTED);
+        var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.RESTRICTED);
         var managedUpload = upload(
                 manager,
                 managed.id(),
@@ -348,10 +453,9 @@ class PostgresSourceLifecycleTest {
         var visible = service.listSources(manager);
         assertEquals(1, visible.size());
         assertEquals(managed.id(), visible.getFirst().id());
-        assertEquals(
-                List.of(SourceAction.UPLOAD, SourceAction.REINDEX),
-                visible.getFirst().actions()
-        );
+        assertThat(visible.getFirst().actions()).contains(SourceAction.UPLOAD, SourceAction.REINDEX,
+                SourceAction.RENAME, SourceAction.MANAGE_GROUPS).doesNotContain(SourceAction.DELETE,
+                SourceAction.REMOVE_ITEMS, SourceAction.MANAGE_ACCESS);
         assertThrows(SourceException.class, () -> service.getSource(manager, hidden.id()));
         assertEquals(
                 managedUpload.operation(),
@@ -368,30 +472,17 @@ class PostgresSourceLifecycleTest {
         );
         assertEquals("IAM_ACCESS_DENIED", deleteDenied.code());
         assertThrows(
-                IamException.class,
+                SourceException.class,
                 () -> service.deleteSource(manager, managed.id())
         );
-        assertThrows(
-                IamException.class,
-                () -> service.createFileSource(manager, "Denied", List.of(managedGroupId))
-        );
-        assertThrows(
-                IamException.class,
-                () -> service.replaceSourceGroups(
-                        manager,
-                        managed.id(),
-                        List.of(managedGroupId)
-                )
-        );
-        assertThrows(
-                IamException.class,
-                () -> service.listSourceGroupOptions(manager, "", 0, 25)
-        );
+        service.replaceSourceGroups(manager, managed.id(), List.of(managedGroupId));
+        assertThat(service.listSourceGroupOptions(manager, "", 0, 25).items())
+                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managedGroupId);
 
         service.replaceSourceGroups(
                 owner,
                 managed.id(),
-                List.of(adminGroupId())
+                List.of(foreignGroupId)
         );
         assertTrue(service.listSources(manager).isEmpty());
         assertThrows(SourceException.class, () -> service.getSource(manager, managed.id()));
@@ -402,14 +493,59 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void ordinaryMemberWithGlobalSourceManagementCanRemoveItemsAndDeleteUnassociatedSources() {
+        GroupId grantGroup = new GroupId(UUID.randomUUID());
+        ActorId member = addScopedManager(grantGroup);
+        jdbcClient.sql("""
+                        UPDATE iam_group_memberships SET is_manager = FALSE
+                        WHERE tenant_id = :tenantId AND group_id = :groupId AND actor_id = :actorId
+                        """)
+                .param("tenantId", tenantId).param("groupId", grantGroup.value())
+                .param("actorId", member.value()).update();
+        jdbcClient.sql("""
+                        INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
+                        VALUES (:tenantId, :groupId, 'SOURCES_MANAGE')
+                        """)
+                .param("tenantId", tenantId).param("groupId", grantGroup.value()).update();
+        var authorization = new DefaultIamAuthorization(
+                new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)
+        );
+        assertEquals(Set.of(IamCapability.SOURCES_MANAGE, IamCapability.SOURCES_READ,
+                IamCapability.SOURCES_DELETE), authorization.effectiveCapabilities(member));
+        assertEquals(Set.of(), authorization.scopedCapabilities(member));
+
+        SourceId sourceId = service.createFileSource(owner, "Unassociated source", List.of(), null).id();
+        var uploaded = upload(member, sourceId, "remove.txt", "remove me".getBytes(StandardCharsets.UTF_8));
+        var source = service.getSource(member, sourceId);
+        assertTrue(source.actions().contains(SourceAction.REMOVE_ITEMS));
+        assertTrue(source.actions().contains(SourceAction.DELETE));
+
+        var removal = service.removeItem(member, sourceId, uploaded.item().id());
+        assertEquals(SourceOperationType.REMOVE_ITEM, removal.type());
+        assertEquals(removal, service.getOperation(member, removal.id()));
+        assertEquals("DELETING", jdbcClient.sql("""
+                        SELECT status FROM connector_items WHERE tenant_id = :tenantId AND id = :itemId
+                        """)
+                .param("tenantId", tenantId).param("itemId", uploaded.item().id().value())
+                .query(String.class).single());
+
+        var deletion = service.deleteSource(member, sourceId);
+        assertEquals(SourceOperationType.DELETE_SOURCE, deletion.type());
+        assertEquals(deletion, service.getOperation(member, deletion.id()));
+        assertEquals("DELETING", jdbcClient.sql("""
+                        SELECT status FROM connector_credential_pairs WHERE tenant_id = :tenantId AND id = :sourceId
+                        """)
+                .param("tenantId", tenantId).param("sourceId", sourceId.value())
+                .query(String.class).single());
+    }
+
+    @Test
     void associationRevocationDuringProviderVerificationPreventsUploadCommit() throws Exception {
         GroupId managedGroupId = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(managedGroupId);
-        SourceId sourceId = service.createFileSource(
-                owner,
-                "Revoked source",
-                List.of(managedGroupId)
-        ).id();
+        GroupId foreignGroupId = new GroupId(UUID.randomUUID());
+        addScopedManager(foreignGroupId);
+        SourceId sourceId = service.createFileSource(owner, "Revoked source", List.of(managedGroupId), SourceAccess.RESTRICTED).id();
         byte[] content = "revoked during verification".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization upload = service.initiateUpload(
                 manager,
@@ -429,7 +565,7 @@ class PostgresSourceLifecycleTest {
                     () -> service.finalizeUpload(manager, sourceId, upload.uploadId())
             );
             assertTrue(objectStorage.awaitInspection());
-            service.replaceSourceGroups(owner, sourceId, List.of(adminGroupId()));
+            service.replaceSourceGroups(owner, sourceId, List.of(foreignGroupId));
             objectStorage.resumeInspection();
 
             ExecutionException failure = assertThrows(ExecutionException.class, finalize::get);
@@ -467,7 +603,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void duplicateUploadConvergesOnOneItemVersionAndAttempt() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Files", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Files", List.of(), null).id();
         byte[] content = "same MemoryOS content".getBytes(StandardCharsets.UTF_8);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> upload(owner, sourceId, "first.txt", content));
@@ -484,7 +620,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void finalizeReplayReturnsThePersistedReceiptWithoutAdoptingTwice() {
-        SourceId sourceId = service.createFileSource(owner, "Lost response", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Lost response", List.of(), null).id();
         byte[] content = "lost finalize response".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization authorization = service.initiateUpload(
                 owner,
@@ -504,7 +640,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void duplicateDiscardAndAdoptedRemovalReleaseEveryObjectReference() {
-        SourceId sourceId = service.createFileSource(owner, "Duplicate cleanup", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Duplicate cleanup", List.of(), null).id();
         byte[] content = "duplicate cleanup content".getBytes(StandardCharsets.UTF_8);
         SourceUploadReceipt first = upload(owner, sourceId, "first.txt", content);
         SourceUploadReceipt duplicate = upload(owner, sourceId, "duplicate.txt", content);
@@ -536,7 +672,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void concurrentRelayClaimsOnceAndRediscoveryRepublishesFromPostgres() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Relay", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Relay", List.of(), null).id();
         var upload = upload(owner, sourceId, "relay.txt", "relay content".getBytes(StandardCharsets.UTF_8));
 
         int claimed;
@@ -568,7 +704,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void transportFailureDefersWithoutFailingTheOperation() {
-        SourceId sourceId = service.createFileSource(owner, "Transport", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Transport", List.of(), null).id();
         upload(owner, sourceId, "transport.txt", "transport".getBytes(StandardCharsets.UTF_8));
         var claim = operationDispatch.claim(OperationWorkload.INGESTION, 1).getFirst();
 
@@ -588,7 +724,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void unexpectedProcessingFailureRetriesThenTerminatesDurably() {
-        SourceId sourceId = service.createFileSource(owner, "Retry", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Retry", List.of(), null).id();
         upload(owner, sourceId, "retry.txt", "retry".getBytes(StandardCharsets.UTF_8));
 
         for (int attempt = 1; attempt <= 3; attempt++) {
@@ -641,7 +777,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void staleWorkerTokenCannotCompleteAfterLeaseReclaim() {
-        SourceId sourceId = service.createFileSource(owner, "Lease", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Lease", List.of(), null).id();
         byte[] content = "lease content".getBytes(StandardCharsets.UTF_8);
         upload(owner, sourceId, "lease.txt", content);
         OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
@@ -680,7 +816,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void successfulReindexClearsOnlyRecoveredItemFailures() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Recovery", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Recovery", List.of(), null).id();
         var uploads = new java.util.ArrayList<SourceUploadReceipt>();
         String[] failures = {"SOURCE_EXTRACTION_MALFORMED", "SOURCE_EXTRACTION_TIMEOUT"};
         for (int index = 0; index < failures.length; index++) {
@@ -735,7 +871,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void uploadRejectsAnItemWhoseRemovalIsPending() {
-        SourceId sourceId = service.createFileSource(owner, "Deleting item", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Deleting item", List.of(), null).id();
         byte[] content = "pending removal".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "pending.txt", content);
         service.removeItem(owner, sourceId, upload.item().id());
@@ -772,7 +908,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void removeRechecksSourceDeletionAfterWaitingForTheSourceLock() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Cleanup race", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Cleanup race", List.of(), null).id();
         byte[] content = "cleanup race".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "race.txt", content);
         var coordinatedRepository = new CoordinatedSourceRepository(jdbcClient);
@@ -804,7 +940,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void concurrentReindexAndCleanupLeaseReclaimRemainSingleFlight() throws Exception {
-        SourceId sourceId = service.createFileSource(owner, "Single flight", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Single flight", List.of(), null).id();
         byte[] content = "single flight".getBytes(StandardCharsets.UTF_8);
         var upload = upload(owner, sourceId, "single.txt", content);
         OperationDelivery initialDelivery = dispatch(OperationWorkload.INGESTION);
@@ -850,7 +986,7 @@ class PostgresSourceLifecycleTest {
 
     @Test
     void inactiveTenantCancelsPendingIndexWorkWithoutPublishing() {
-        SourceId sourceId = service.createFileSource(owner, "Inactive", List.of()).id();
+        SourceId sourceId = service.createFileSource(owner, "Inactive", List.of(), null).id();
         byte[] content = "inactive content".getBytes(StandardCharsets.UTF_8);
         upload(owner, sourceId, "inactive.txt", content);
         upload(owner, sourceId, "second.txt", "second".getBytes(StandardCharsets.UTF_8));
@@ -920,7 +1056,7 @@ class PostgresSourceLifecycleTest {
                 .update();
         jdbcClient.sql("""
                         INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
-                        VALUES (:tenantId, :adminGroupId, 'IAM_ADMIN')
+                        VALUES (:tenantId, :adminGroupId, 'SYSTEM_ADMIN')
                         """)
                 .param("tenantId", tenantId)
                 .param("adminGroupId", adminGroupId)
@@ -998,7 +1134,7 @@ class PostgresSourceLifecycleTest {
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),
-                new JdbcSourceGroupRepository(jdbcClient),
+                new JdbcSourceGroupRepository(jdbcClient, event -> { }),
                 sourceUploads,
                 objectUploads,
                 new DefaultIamAuthorization(
@@ -1011,7 +1147,8 @@ class PostgresSourceLifecycleTest {
                 ),
                 transactionManager,
                 new io.memoryos.connector.persistence.JdbcSourceSyncRepository(jdbcClient),
-                new io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient)
+                new io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient),
+                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)))
         );
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }
@@ -1161,7 +1298,7 @@ class PostgresSourceLifecycleTest {
         private final CountDownLatch allowLock = new CountDownLatch(1);
 
         private CoordinatedSourceRepository(JdbcClient jdbcClient) {
-            super(jdbcClient);
+            super(jdbcClient, event -> { });
         }
 
         @Override

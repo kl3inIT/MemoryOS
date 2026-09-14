@@ -9,7 +9,17 @@ import org.jspecify.annotations.Nullable;
 /** Evidence supplied to this answer. Historical evidence does not grant access to current source content. */
 public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
                          int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId,
-                         @Nullable FileLocation fileLocation) {
+                         @Nullable FileLocation fileLocation, @Nullable WebLocation web) {
+    public ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
+                      int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId, @Nullable FileLocation fileLocation) {
+        this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, null);
+    }
+    public record WebLocation(String url, String excerpt, java.time.Instant retrievedAt) {
+        public WebLocation {
+            io.memoryos.chat.web.WebHttp.pageUri(url);
+            if (excerpt == null || excerpt.length() > 4000 || retrievedAt == null) throw new IllegalArgumentException("Invalid Web evidence");
+        }
+    }
     public ChatSource(int citationId, @Nullable UUID documentId, @Nullable UUID generation, String title,
                       int startOrdinal, int endOrdinal, List<Provenance> provenance, @Nullable UUID fileId) {
         this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, null);
@@ -19,7 +29,10 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
         this(citationId, documentId, generation, title, startOrdinal, endOrdinal, provenance, null);
     }
     public ChatSource {
-        if (fileId == null) {
+        if (web != null) {
+            if (fileId != null || fileLocation != null || documentId != null || generation != null || startOrdinal != 0 || endOrdinal != 0 || !provenance.isEmpty())
+                throw new IllegalArgumentException("Web citations identify a URL, not a document or file");
+        } else if (fileId == null) {
             if (fileLocation != null) throw new IllegalArgumentException("Only file citations have a file location");
             Objects.requireNonNull(documentId);
             Objects.requireNonNull(generation);
@@ -30,7 +43,7 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
                 || startOrdinal < 0 || endOrdinal < startOrdinal || endOrdinal > 9999)
             throw new IllegalArgumentException("Invalid Chat source");
         provenance = List.copyOf(provenance);
-        if (fileId == null && provenance.isEmpty() || provenance.size() > 60 || provenance.stream().anyMatch(p -> p.ordinal() < startOrdinal || p.ordinal() > endOrdinal))
+        if (web == null && fileId == null && provenance.isEmpty() || provenance.size() > 60 || provenance.stream().anyMatch(p -> p.ordinal() < startOrdinal || p.ordinal() > endOrdinal))
             throw new IllegalArgumentException("Invalid Chat source provenance");
     }
     public record FileLocation(@Nullable Integer offset, @Nullable Integer count,

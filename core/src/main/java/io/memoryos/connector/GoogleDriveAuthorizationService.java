@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Arrays;
@@ -25,7 +25,7 @@ public interface GoogleDriveAuthorizationService {
 
     record CredentialView(CredentialId id, String name, String accountEmail, String status,
                           long credentialRevision, boolean oauthClientConfigured,
-                          Instant createdAt, Instant updatedAt, long sourceCount) {}
+                          Instant createdAt, Instant updatedAt, long sourceCount, List<String> actions) {}
 
     record Preparation(TenantId tenantId, String name, @Nullable CredentialId credentialId, @Nullable Long expectedRevision,
                        UUID consentId, String oauthClientSnapshot) {

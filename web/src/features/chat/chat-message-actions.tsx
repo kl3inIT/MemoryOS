@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { Pencil } from "lucide-react";
@@ -7,6 +8,7 @@ import { EditMessage } from "@/components/assistant-ui/elements/edit-message";
 import { MessageBranches } from "@/components/assistant-ui/elements/message-branches";
 import { MessageActions, type Reaction } from "@/components/assistant-ui/elements/message-actions";
 import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dialog";
+import { useTranslation } from "react-i18next";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
 import { ChatEditingContext } from "./chat-editing-context";
@@ -15,6 +17,7 @@ import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
 import { fileIdFromReference } from "./chat-files";
 import { ChatFilePicker } from "./chat-file-picker";
+import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 
 export function ChatUserMessageContent({
   children,
@@ -23,6 +26,8 @@ export function ChatUserMessageContent({
   children: ReactNode;
   readOnly: boolean;
 }) {
+  const ui = useAppTranslation();
+
   const editing = useContext(ChatEditingContext);
   const message = useAuiState((state) => state.message);
   const [editor, setEditor] = useState(false);
@@ -43,7 +48,7 @@ export function ChatUserMessageContent({
           value={text}
           pending={saving}
           saveDisabled={editing.busy}
-          error={error}
+          error={error ? ui(error) : undefined}
           hasAttachments={fileIds.length > 0}
           onValueChange={(value) => {
             setText(value);
@@ -85,8 +90,8 @@ export function ChatUserMessageContent({
       {available && !editor && (
         <div className="mt-1 flex items-center gap-1">
           <IconButton
-            aria-label="Chỉnh sửa câu hỏi"
-            title="Chỉnh sửa câu hỏi"
+            aria-label={ui("Chỉnh sửa câu hỏi")}
+            title={ui("Chỉnh sửa câu hỏi")}
             size="sm"
             prominence="internal"
             disabled={editing.busy}
@@ -130,6 +135,8 @@ export function ChatUserMessageContent({
 }
 
 export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
+  const ui = useAppTranslation();
+
   const editing = useContext(ChatEditingContext);
   const message = useAuiState((state) => state.message);
   const [rating, setRating] = useState<Reaction>(null);
@@ -137,6 +144,8 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   const [error, setError] = useState<string>();
   const removeBusy = useRef(false);
   const regenerateRequest = useRef(crypto.randomUUID());
+  // A retry with the same model replays its request; another model is a new command.
+  const modelRequest = useRef<{ model?: string; id?: string }>({});
   const cache = useQueryClient();
   if (!editing?.sessionId) return null;
   const sessionId = editing.sessionId;
@@ -151,7 +160,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   return (
     <>
       <MessageBranches
-        label={role === "user" ? "Phiên bản câu hỏi" : "Phiên bản câu trả lời"}
+        label={role === "user" ? ui("Phiên bản câu hỏi") : ui("Phiên bản câu trả lời")}
         count={siblings.length}
         index={index}
         disabled={editing.busy}
@@ -198,9 +207,25 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
           }}
         />
       )}
+      {role === "assistant" && (
+        <ChatRegenerateMenu
+          sessionId={sessionId}
+          disabled={editing.busy || removing}
+          onSelect={(modelId) => {
+            if (modelRequest.current.model !== modelId)
+              modelRequest.current = { model: modelId, id: crypto.randomUUID() };
+            void editing
+              .regenerate(node.parentMessageId!, modelRequest.current.id!, modelId)
+              .then(() => {
+                modelRequest.current = {};
+              })
+              .catch(() => {});
+          }}
+        />
+      )}
       {error && (
         <p role="alert" className="text-xs">
-          {error}
+          {ui(error)}
         </p>
       )}
       {rating && (
@@ -216,12 +241,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
   );
 }
 
-const REASONS = {
-  incorrect: "Thông tin chưa đúng",
-  incomplete: "Thiếu thông tin",
-  sources: "Nguồn chưa phù hợp",
-  style: "Cách trình bày",
-};
+const REASONS = ["incorrect", "incomplete", "sources", "style"] as const;
 function FeedbackEditor({
   sessionId,
   messageId,
@@ -235,21 +255,22 @@ function FeedbackEditor({
   positive: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("feedback");
   const cache = useQueryClient();
   const [comment, setComment] = useState(feedback?.comment ?? "");
   const [reason, setReason] = useState(feedback?.reason ?? "");
-  const selectedLabel = REASONS[reason as keyof typeof REASONS] ?? reason;
-  const reasons = Object.values(REASONS);
-  if (selectedLabel && !reasons.includes(selectedLabel)) reasons.push(selectedLabel);
+  const reasons: { id: string; label: string }[] = REASONS.map((id) => ({ id, label: t(id) }));
+  if (reason && !reasons.some((entry) => entry.id === reason))
+    reasons.push({ id: reason, label: reason });
   return (
     <ChatDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={positive ? "Đánh giá hữu ích" : "Đánh giá chưa hữu ích"}
-      description="Góp ý được lưu cho đúng phiên bản câu trả lời này."
-      submitLabel="Gửi đánh giá"
+      title={positive ? t("positiveTitle") : t("negativeTitle")}
+      description={t("description")}
+      submitLabel={t("send")}
       onSubmit={async () => {
         await setChatFeedback({
           path: { sessionId, assistantMessageId: messageId },
@@ -263,12 +284,10 @@ function FeedbackEditor({
     >
       <FeedbackDialog
         reasons={reasons}
-        selected={selectedLabel}
+        selected={reason}
         note={comment}
         onNoteChange={setComment}
-        onToggleReason={(label) =>
-          setReason(Object.entries(REASONS).find(([, value]) => value === label)?.[0] ?? label)
-        }
+        onToggleReason={setReason}
       />
     </ChatDialog>
   );

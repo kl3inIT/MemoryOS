@@ -11,6 +11,15 @@ public interface ChatProviderAdapter {
     CredentialRequirement credentialRequirement();
     List<TokenizerProfile> tokenizerProfiles();
 
+    /** Protocol support for forcing a named tool on the first request, not native Web search. */
+    default boolean supportsRequiredToolChoice() { return false; }
+
+    /** Whether this protocol can host provider-side Web search at all; per-model activation stays explicit. */
+    default boolean nativeWebSearch() { return false; }
+
+    /** Explicit per-model declaration of provider-hosted Web search; never inferred from a model name. */
+    default boolean supportsNativeWebSearch(ModelSettings settings) { return false; }
+
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 

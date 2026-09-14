@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -131,12 +131,14 @@ class GoogleDriveOAuthClientMigrationTest {
                     assertEquals(snapshot.getValue(), jdbc.sql("SELECT row_to_json(r)::text FROM " + snapshot.getKey() + " r ORDER BY row_to_json(r)::text")
                             .query(String.class).list(), snapshot.getKey());
                 }
-                var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, new JdbcSourceRepository(jdbc),
+                connection.commit();
+                Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+                var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, new JdbcSourceRepository(jdbc, event -> { }),
                         new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "preserved-key"),
                         new JdbcSourceDocumentRepository(jdbc), new JdbcSourceSyncRepository(jdbc));
                 var stored = credentials.readUsable(new TenantId(tenant), new CredentialId(drive));
                 assertArrayEquals(plaintext, credentials.decrypt(new TenantId(tenant), stored));
-                var catalog = credentials.list(new TenantId(tenant)).getFirst();
+                var catalog = credentials.list(new TenantId(tenant), null).getFirst();
                 assertEquals(new CredentialId(drive), catalog.id());
                 assertEquals(email.substring(0, 120), catalog.name());
                 assertEquals(email, catalog.accountEmail());
@@ -148,7 +150,7 @@ class GoogleDriveOAuthClientMigrationTest {
                         .param("id", second).param("t", tenant).update();
                 jdbc.sql("INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status) VALUES (:id, :t, :id, :credential, 'RESTRICTED', 'NOT_STARTED')")
                         .param("id", second).param("t", tenant).param("credential", drive).update();
-                assertEquals(2, credentials.list(new TenantId(tenant)).getFirst().sourceCount());
+                assertEquals(2, credentials.list(new TenantId(tenant), null).getFirst().sourceCount());
                 jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :t, 'Another account', 'GOOGLE_OAUTH', 'ACTIVE')")
                         .param("id", UUID.randomUUID()).param("t", tenant).update();
                 var savepoint = connection.setSavepoint();

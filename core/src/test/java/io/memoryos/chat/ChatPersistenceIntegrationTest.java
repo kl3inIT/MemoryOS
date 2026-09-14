@@ -7,6 +7,7 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JdbcChatSearchRepository;
 import io.memoryos.chat.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persistence.JpaProjectRepository;
 import io.memoryos.chat.persistence.JpaChatSharingRepository;
@@ -16,9 +17,9 @@ import io.memoryos.chat.catalog.ModelSettings;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.IamAuthorization;
-import io.memoryos.iam.IamCapability;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.tenant.TenantId;
 import java.util.Map;
 import java.util.Set;
 import static org.mockito.Mockito.*;
@@ -29,11 +30,14 @@ import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.knuddels.jtokkit.api.EncodingType;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.chat.model.ChatModel;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.iam.persistence.IamLockRepository;
-import io.memoryos.iam.persistence.JpaTenantAccessResolver;
-import io.memoryos.iam.persistence.JpaTenantRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
+import io.memoryos.iam.identity.persistence.JpaActorRepository;
+import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
+import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -47,6 +51,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -78,21 +83,23 @@ class ChatPersistenceIntegrationTest {
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
                 TenantAccessResolver.class, jpa.transactionManager());
         var repository = new JdbcChatRepository(jdbc);
-        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, repository, new PersonaProperties()),
+        var authorization = mock(IamAuthorization.class);
+        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
                 ChatSessionService.class, jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, repository, new PersonaProperties(), fileService));
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
+                new ActorLanguageService(jpa.repository(JpaActorRepository.class,
+                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
         tenant = tenant();
         owner = member(tenant);
         other = member(tenant);
-        var authorization = mock(IamAuthorization.class);
         when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
         var models = mock(ModelCatalogService.class);
@@ -100,11 +107,11 @@ class ChatPersistenceIntegrationTest {
                 UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
                 new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
         var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
-        when(sources.scope(any())).thenReturn(new SourceSearchScope(new TenantId(tenant), Map.of(sourceId, SourceType.FILE)));
+        when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
                 new PersonaProperties(), models, sources, fileService), ChatPersonaService.class);
-        projects = service(new ChatProjectService(tenants, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
-        collaboration = service(new ChatCollaborationService(tenants, repository, jpa.repository(JpaChatSharingRepository.class),
+        projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
+        collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
 
@@ -171,6 +178,20 @@ class ChatPersistenceIntegrationTest {
         turns.completeTitle(owner, pending, "Generated title");
         assertEquals("Generated title", sessions.get(owner, second.id()).title());
         assertTrue(turns.claimTitle(owner, second.id()).isEmpty());
+    }
+
+    @Test
+    void accountLanguageIsCapturedAtAdmissionAndChangesOnlyForTheNextTurn() {
+        var session = sessions.create(owner, "Language snapshot");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertNotNull(first.context());
+        assertEquals("vi", first.context().uiLanguage());
+        jdbc.sql("UPDATE actors SET ui_language = 'en' WHERE id = :actor").param("actor", owner.value()).update();
+        assertEquals("vi", turns.loadContext(owner, session.id(), first).uiLanguage());
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        var next = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Next question");
+        assertNotNull(next.context());
+        assertEquals("en", next.context().uiLanguage());
     }
 
     @Test
@@ -270,14 +291,16 @@ class ChatPersistenceIntegrationTest {
         var pair = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Leave policy?", Duration.ofMinutes(2), 32000);
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
+        var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
-                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source));
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Late answer", null, "model", 20L, 5L, null, List.of());
         var saved = sessions.history(owner, session.id(), null, 100).getLast();
         assertEquals(ChatMessage.Status.CANCELED, saved.status());
         assertEquals("Twelve days [1]", saved.content());
         assertEquals(List.of(source), saved.sources());
+        assertEquals(List.of(artifact), saved.artifacts());
         // Source IDs intentionally need no live document FK: reindex/delete does not rewrite old answers.
         assertThrows(ChatException.class, () -> sessions.history(other, session.id(), null, 100));
     }
@@ -333,7 +356,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(sessions.list(other, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
-        assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.TenantId(UUID.randomUUID()),
+        assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.tenant.TenantId(UUID.randomUUID()),
                 owner, first.id(), false).isEmpty());
         jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
@@ -537,7 +560,7 @@ class ChatPersistenceIntegrationTest {
             var locked = new CountDownLatch(1);
             var release = new CountDownLatch(1);
             var revoke = executor.submit(() -> tx.executeWithoutResult(_ -> {
-                new IamLockRepository(jdbc).lockTenant(new io.memoryos.iam.TenantId(tenant));
+                new IamLockRepository(jdbc).lockTenant(new io.memoryos.iam.tenant.TenantId(tenant));
                 jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                         .param("actor", owner.value()).update();
                 locked.countDown();

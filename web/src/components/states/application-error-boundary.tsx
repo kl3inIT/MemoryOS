@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ErrorInfo, ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { ApplicationError } from "@/components/states/application-error";
@@ -13,12 +14,16 @@ export function ApplicationErrorBoundary({
   onError,
   onReset,
 }: ApplicationErrorBoundaryProps) {
+  const ui = useAppTranslation();
+
   return (
     <ErrorBoundary
       fallbackRender={({ error, resetErrorBoundary }) => (
         <ApplicationError
-          title="MemoryOS stopped unexpectedly."
-          description="The application could not recover automatically. Your data was not changed."
+          title={ui("MemoryOS stopped unexpectedly.")}
+          description={ui(
+            "The application could not recover automatically. Your data was not changed.",
+          )}
           error={error}
           onRetry={resetErrorBoundary}
         />

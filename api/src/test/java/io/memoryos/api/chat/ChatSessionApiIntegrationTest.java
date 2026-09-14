@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import io.memoryos.chat.catalog.ModelSettings;
@@ -48,8 +52,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
 import java.io.IOException;
@@ -80,13 +84,14 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
@@ -195,7 +200,7 @@ class ChatSessionApiIntegrationTest {
     @BeforeEach
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
-        when(sourceSearch.scope(any())).thenReturn(new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT),
+        when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
@@ -227,6 +232,106 @@ class ChatSessionApiIntegrationTest {
                 .param("actor", actor.getPrincipal().actorId().value()).update();
         // Existing global membership filter rejects the request before the Chat controller.
         mockMvc.perform(get("/api/chat/sessions/" + id).with(authentication(actor)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        var session = create();
+        String id = session.path("id").asText();
+        String assistant = send(session, UUID.randomUUID().toString()).path("assistantMessageId").asText();
+        awaitOutcome(assistant, "COMPLETED");
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/sharing").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true,\"revision\":0}")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isOk());
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id IN (:actors)")
+                .param("actors", List.of(actor.getPrincipal().actorId().value(), other.getPrincipal().actorId().value())).update();
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Question");
+        // Reads and writes of transcripts follow CHAT_READ/CHAT_WRITE, like Search follows SEARCH_READ.
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor))).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/messages").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/branches").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/shared/" + id).with(authentication(other))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/documents/" + UUID.randomUUID()).param("generation", UUID.randomUUID().toString())
+                .with(authentication(actor))).andExpect(status().isForbidden());
+        // A denied subscriber receives a problem response, never an event stream.
+        mockMvc.perform(get("/api/chat/sessions/" + id + "/messages/" + assistant + "/events").with(authentication(actor))
+                .accept(MediaType.TEXT_EVENT_STREAM)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/chat/sessions/" + id + "/messages").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Denied\"}")).andExpect(status().isForbidden());
+        // Owner settings of an existing conversation need only active membership and ownership.
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/title").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Renamed\"}")).andExpect(status().isOk());
+        mockMvc.perform(put("/api/chat/sessions/" + id + "/sharing").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false,\"revision\":1}")).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/chat/sessions/" + id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_session WHERE id=:id AND deleted_at IS NULL").param("id", UUID.fromString(id)).query(Long.class).single());
+    }
+
+    @Test
+    void searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination() throws Exception {
+        var ownedIds = new ArrayList<String>();
+        for (String title : List.of("Doanh thu HUT 2026", "Older conversation", "Deleted conversation")) {
+            var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(Json.mapper().writeValueAsString(Map.of("title", title))))
+                    .andExpect(status().isCreated()).andReturn();
+            var session = Json.mapper().readTree(created.getResponse().getContentAsString());
+            ownedIds.add(session.path("id").asText());
+            // Unselected historical assistant version: searchable without selecting or mutating its branch.
+            jdbc.sql("""
+                    INSERT INTO chat_message(id, session_id, parent_message_id, role, content, status, deadline_at, finished_at)
+                    VALUES (:id, :session, :root, 'ASSISTANT', :text, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """).param("id", UUID.randomUUID()).param("session", UUID.fromString(session.path("id").asText()))
+                    .param("root", UUID.fromString(session.path("rootMessageId").asText()))
+                    .param("text", "Báo cáo doanh thu HUT 2026: lợi nhuận tăng trưởng.").update();
+        }
+        jdbc.sql("UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP WHERE id=:id")
+                .param("id", UUID.fromString(ownedIds.get(2))).update();
+        var first = mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor))
+                .param("query", "DOANH THU HUT 2026").param("limit", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.hasMore").value(true)).andReturn();
+        var second = mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor))
+                .param("query", "doanh thu HUT 2026").param("limit", "1").param("offset", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.hasMore").value(false)).andReturn();
+        var foundIds = Set.of(Json.mapper().readTree(first.getResponse().getContentAsString()).path("items").get(0).path("id").asText(),
+                Json.mapper().readTree(second.getResponse().getContentAsString()).path("items").get(0).path("id").asText());
+        assertEquals(Set.copyOf(ownedIds.subList(0, 2)), foundIds);
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(other)).param("query", "doanh thu"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "tăng trưởng"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "%_*'"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "x".repeat(201)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("limit", "51"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("offset", "-1"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/sessions/" + ownedIds.get(1) + "/messages").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        // A valid large answer with many distinct tokens must not break Chat writes or lose tail matches.
+        String largeAnswer = IntStream.range(0, 100000).mapToObj(Integer::toString)
+                .collect(Collectors.joining(" ")) + " tận cùng zebratail";
+        jdbc.sql("UPDATE chat_message SET content=:content WHERE session_id=:session AND role='ASSISTANT'")
+                .param("content", largeAnswer).param("session", UUID.fromString(ownedIds.get(1))).update();
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "zebratail tận cùng"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(ownedIds.get(1)));
+        assertEquals(2, jdbc.sql("SELECT count(*) FROM pg_indexes WHERE indexname IN ('ix_chat_session_search', 'ix_chat_message_search')")
+                .query(Integer.class).single());
+        jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE actor_id=:actor")
+                .param("actor", actor.getPrincipal().actorId().value()).update();
+        mockMvc.perform(get("/api/chat/sessions/search").with(authentication(actor)).param("query", "doanh thu"))
                 .andExpect(status().isForbidden());
     }
 
@@ -435,6 +540,35 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Tên của tôi"));
         verify(model, times(2)).stream(any(Prompt.class));
+    }
+
+    @Test
+    void nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata() throws Exception {
+        var spec = "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"September\",\"value\":\"125000\"}}}";
+        var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Revenue", "spec", spec));
+        var calls = new AtomicInteger();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            var prompt = call.<Prompt>getArgument(0);
+            if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
+                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("gui-1", "function", "render_gui", arguments))).build(),
+                    ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                    ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+            assertTrue(prompt.toString().contains("Read-only artifact accepted"));
+            return Flux.just(response("September revenue is 125000.", "stop", 12));
+        });
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        var id = reply.path("assistantMessageId").asText();
+        awaitOutcome(id, "COMPLETED");
+        var saved = history(session).get(1);
+        assertEquals("Revenue", saved.path("artifacts").get(0).path("title").asText());
+        assertEquals(spec, saved.path("artifacts").get(0).path("spec").asText());
+        verify(model, times(2)).stream(any(Prompt.class));
+        try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
+            assertTrue(reader.read().events().getLast().hasArtifacts());
+        }
+        mockMvc.perform(get("/api/chat/sessions/" + session.path("id").asText() + "/messages").with(authentication(other)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1393,6 +1527,108 @@ class ChatSessionApiIntegrationTest {
                 .param("tenant", TENANT).param("group", group).update();
     }
 
+    @Test
+    void webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent() throws Exception {
+        mockMvc.perform(get("/api/chat/web/connections").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/web").with(authentication(actor))).andExpect(status().isOk());
+        grantModelManagement();
+        var searches = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/search", exchange -> {
+            searches.incrementAndGet();
+            assertEquals("Bearer web-test-secret", exchange.getRequestHeaders().getFirst("Authorization"));
+            assertNull(exchange.getRequestHeaders().getFirst("Cookie"));
+            byte[] body = "{\"results\":[{\"url\":\"https://example.com/news\",\"title\":\"Public release\",\"content\":\"Version 42 was released.\"}]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        UUID connectionId = null;
+        try {
+            var configuration = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort())
+                    .put("engineId", "").put("credentialAction", "REPLACE").put("credentialValue", "web-test-secret").put("revision", 0);
+            var saved = mockMvc.perform(put("/api/chat/web/connections/SEARXNG").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(configuration.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.credentialConfigured").value(true))
+                    .andExpect(jsonPath("$.searchActive").value(false)).andReturn().getResponse().getContentAsString();
+            assertFalse(saved.contains("web-test-secret"));
+            connectionId = jdbc.sql("SELECT id FROM chat_web_connection WHERE tenant_id=:tenant AND provider='SEARXNG'")
+                    .param("tenant", TENANT).query(UUID.class).single();
+            assertFalse(jdbc.sql("SELECT credential FROM chat_web_connection WHERE id=:id").param("id", connectionId).query(String.class).single().contains("web-test-secret"));
+            assertEquals(0, searches.get());
+            mockMvc.perform(put("/api/chat/web/selection").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"search\":true,\"provider\":\"SEARXNG\"}"))
+                    .andExpect(status().isNoContent());
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                Prompt prompt = call.getArgument(0);
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage)) {
+                    assertTrue(prompt.toString().contains("Version 42 was released."));
+                    assertFalse(prompt.toString().contains("web-test-secret"));
+                    assertTrue(prompt.toString().contains("After web_search, open promising"));
+                    return Flux.just(response("Version 42 was released [1].", "stop", 12));
+                }
+                assertTrue(prompt.toString().contains("## web_search"));
+                assertTrue(prompt.toString().contains("## open_url"));
+                return Flux.just(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
+                        .toolCalls(List.of(new AssistantMessage.ToolCall("web-fixture", "function", "web_search", "{\"queries\":[\"release\",\"release details\"]}"))).build(),
+                        ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                        ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+            });
+            var session = create();
+            var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "What was released?").put("webSearch", "auto");
+            var reply = mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+            var id = Json.mapper().readTree(reply).path("assistantMessageId").asText();
+            awaitOutcome(id, "COMPLETED");
+            var answer = history(session).get(1);
+            assertEquals("https://example.com/news", answer.path("sources").get(0).path("web").path("url").asText());
+            assertTrue(answer.path("sources").get(0).path("documentId").isNull());
+            assertEquals(2, searches.get());
+            mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isAccepted()).andExpect(jsonPath("$.assistantMessageId").value(id));
+            body.put("webSearch", "off");
+            mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isConflict());
+            assertEquals(2, searches.get());
+            String userId = Json.mapper().readTree(reply).path("userMessageId").asText();
+            int expectedSearches = 2;
+            for (String operation : List.of("edit", "regenerate")) {
+                var change = Json.mapper().createObjectNode().put("clientRequestId", UUID.randomUUID().toString()).put("webSearch", "auto");
+                if (operation.equals("edit")) change.put("text", "Check the release again.");
+                var changed = mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages/" + userId + "/" + operation)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(change.toString()))
+                        .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+                var accepted = Json.mapper().readTree(changed);
+                awaitOutcome(accepted.path("assistantMessageId").asText(), "COMPLETED");
+                userId = accepted.path("userMessageId").asText();
+                expectedSearches += 2;
+                assertEquals(expectedSearches, searches.get());
+            }
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                assertFalse(call.<Prompt>getArgument(0).toString().contains("## web_search"));
+                assertFalse(call.<Prompt>getArgument(0).toString().contains("## open_url"));
+                return Flux.just(response("No Web access requested.", "stop", 12));
+            });
+            var offline = create();
+            var offlineRequest = Json.mapper().createObjectNode().put("parentMessageId", offline.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Hello").put("webSearch", "off");
+            var offlineReply = mockMvc.perform(post("/api/chat/sessions/" + offline.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(offlineRequest.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+            awaitOutcome(Json.mapper().readTree(offlineReply).path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals(expectedSearches, searches.get());
+            assertTrue(history(offline).get(1).path("sources").isEmpty());
+        } finally {
+            server.stop(0);
+            if (connectionId != null) jdbc.sql("DELETE FROM chat_web_connection WHERE id=:id").param("id", connectionId).update();
+        }
+    }
+
     private ObjectNode providerBody(String url, boolean isPublic) {
         var body = Json.mapper().createObjectNode().put("name", "Provider " + UUID.randomUUID()).put("adapterType", "openai")
                 .put("baseUrl", url).put("enabled", true).put("isPublic", isPublic);
@@ -1815,6 +2051,9 @@ class ChatSessionApiIntegrationTest {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", id).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'MEMBER', 'ACTIVE')")
+                .param("tenant", TENANT).param("actor", id).update();
+        // Invitation and JIT admission add the Basic edge; Chat capabilities derive from it.
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) SELECT tenant_id,id,:actor FROM iam_groups WHERE tenant_id=:tenant AND system_key='BASIC'")
                 .param("tenant", TENANT).param("actor", id).update();
         return new ActorAuthenticationToken(new IdentityContext(new ActorId(id)));
     }

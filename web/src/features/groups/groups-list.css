@@ -1,0 +1,69 @@
+/* Groups-only palette follows Onyx shared semantic tokens; other application screens are unchanged. */
+.groups-list-page {
+  --groups-page-surface: var(--surface-subtle);
+  --groups-card-surface: var(--surface-base);
+  --groups-card-border: var(--border-default);
+  --groups-info-surface: #edf4ff;
+  --groups-info-border: #aac7ff;
+  --groups-info-icon: #286df8;
+  --groups-action-surface: var(--action-default-primary-surface);
+  --groups-action-content: var(--action-default-primary-content);
+  background-color: var(--groups-page-surface);
+}
+
+.dark .groups-list-page {
+  --groups-page-surface: #19191e;
+  --groups-card-surface: #000000;
+  --groups-card-border: #333333;
+  --groups-info-surface: #040e25;
+  --groups-info-border: #173268;
+  --groups-action-surface: #e6e6e9;
+  --groups-action-content: #000000;
+  --content-primary: rgb(255 255 255 / 95%);
+  --content-secondary: rgb(255 255 255 / 85%);
+  --content-muted: rgb(255 255 255 / 60%);
+  --border-subtle: #333333;
+}
+
+.groups-list-card {
+  min-height: 74px;
+  border: 1px solid var(--groups-card-border);
+  border-radius: 16px;
+  background-color: var(--groups-card-surface);
+  padding: 16px;
+}
+
+.groups-list-info {
+  border: 1px solid var(--groups-info-border);
+  border-radius: 16px;
+  background-color: var(--groups-info-surface);
+}
+
+.groups-list-action {
+  height: 36px;
+  border-color: transparent;
+  border-radius: 12px;
+  background-color: var(--groups-action-surface);
+  color: var(--groups-action-content);
+  font-weight: 500;
+}
+
+.groups-list-action:hover {
+  border-color: transparent;
+  background-color: var(--groups-action-surface);
+  color: var(--groups-action-content);
+  filter: brightness(0.95);
+}
+
+.groups-default-tag {
+  border-radius: 4px;
+  background-color: var(--surface-sunken);
+  padding: 1px 5px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--content-muted);
+}
+
+.dark .groups-default-tag {
+  background-color: #262626;
+}

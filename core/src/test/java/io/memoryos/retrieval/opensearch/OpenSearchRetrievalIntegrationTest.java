@@ -17,13 +17,14 @@ import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.application.StructuredDocumentChunker;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.SearchFilters;
 import io.memoryos.retrieval.SearchQuery;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
+import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.DocumentSourceMetadata;
 import java.net.URI;
 import java.time.Duration;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.metadata.EmptyUsage;
@@ -81,6 +83,7 @@ class OpenSearchRetrievalIntegrationTest {
             var index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2), properties, mapper, documents, sourceSearch,
                     new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
+            var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
             var privateText = document(tenant, "Private HR-2026", "Annual vacation policy provides private leave days.");
@@ -94,13 +97,43 @@ class OpenSearchRetrievalIntegrationTest {
             var origins = new java.util.concurrent.atomic.AtomicReference<>(List.of(uploaded, remote));
             when(sourceSearch.indexMetadata(any(), any(), any())).thenAnswer(call ->
                     leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
+            var accessOf = new java.util.concurrent.ConcurrentHashMap<DocumentId, DocumentAccess>();
+            when(sourceSearch.indexAccess(any(), any())).thenAnswer(call ->
+                    accessOf.getOrDefault(call.<DocumentId>getArgument(1), new DocumentAccess(true, Set.of())));
             index.index(leave);
             index.index(unrelated);
             index.index(privateFile);
             assertTrue(index.contains(new DocumentIndexState(tenant,privateFile.documentId(),privateFile.generation(),1,true)));
-            assertTrue(index.search(tenant,"vacation policy",List.of(),null).stream()
+            assertTrue(index.search(tenant,"vacation policy",List.of(), null, Set.of()).stream()
                     .noneMatch(hit -> hit.documentId().equals(privateFile.documentId().value())),
                     "Private files must be excluded before lexical/vector candidate ranking, even without a source filter");
+            // Document access: a restricted document matches only a shared Group token, and an access refresh
+            // rewrites the chunks in place without embedding while invalidating the previous metadata hash.
+            String group = DocumentAccess.group(UUID.randomUUID());
+            var restricted = document(tenant, "Restricted HR-2026", "Confidential vacation policy for managers.");
+            accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of(group)));
+            index.index(restricted);
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of()).stream()
+                    .noneMatch(hit -> hit.documentId().equals(restricted.documentId().value())), "No shared token must exclude the document in the index");
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of(group)).stream()
+                    .anyMatch(hit -> hit.documentId().equals(restricted.documentId().value())));
+            var restrictedState = new DocumentIndexState(tenant, restricted.documentId(), restricted.generation(), 1, true);
+            assertTrue(index.contains(restrictedState));
+            accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of()));
+            assertFalse(index.contains(restrictedState), "An access change must make the projection stale");
+            assertTrue(index.containsGeneration(restrictedState), "Stale access alone leaves the complete generation indexed");
+            clearInvocations(model);
+            index.updateAccess(tenant, restricted.documentId(), restricted.generation());
+            verifyNoInteractions(model);
+            assertTrue(index.contains(restrictedState));
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of(group)).stream()
+                    .noneMatch(hit -> hit.documentId().equals(restricted.documentId().value())), "A revoked Group token must stop matching after refresh");
+            gateway.json("POST", "/" + index.identity() + "/_update/" + restricted.chunkId(0), Map.of("refresh", "true"),
+                    Map.of("script", Map.of("source", "ctx._source.remove('access_public'); ctx._source.remove('access_control_list')")));
+            assertTrue(index.search(tenant, "confidential managers", List.of(), null, Set.of()).stream()
+                    .anyMatch(hit -> hit.documentId().equals(restricted.documentId().value())),
+                    "Chunks written before access fields existed stay visible until backfill; the database recheck authorizes hits");
+            index.delete(tenant, restricted.documentId());
             String collision = index.identity() + "-collision";
             gateway.json("PUT", "/" + collision, Map.of(),
                     Map.of("aliases", Map.of(index.identity() + "-read", Map.of())));
@@ -115,7 +148,7 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
-            var scope = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
+            var scope = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
             var september = new SearchFilters(java.util.Set.of(SourceType.FILE),
                     new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")),
                     new SearchFilters.Interval(null, Instant.parse("2026-09-08T00:00:00Z")));
@@ -132,7 +165,7 @@ class OpenSearchRetrievalIntegrationTest {
                     new SearchFilters.Interval(Instant.parse("2026-09-09T00:00:00Z"), Instant.parse("2026-09-11T00:00:00Z")));
             assertTrue(index.batch(scope, queries, wrongSourceDate, () -> {}).stream().allMatch(List::isEmpty),
                     "A date on one mapping must not be combined with another mapping's source type; lexical and vector branches both filter");
-            var fileOnly = new SourceSearchScope(tenant, Map.of(fileSource, SourceType.FILE));
+            var fileOnly = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE));
             assertTrue(index.batch(fileOnly, queries, new SearchFilters(java.util.Set.of(), null, wrongSourceDate.updated()), () -> {})
                     .stream().allMatch(List::isEmpty), "Inaccessible origins cannot satisfy a time filter");
 
@@ -143,18 +176,31 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
+            origins.set(List.of());
+            index.index(leave);
+            var driveOnly = new SourceSearchScope(tenant, actor, Map.of(driveSource, SourceType.GOOGLE_DRIVE));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream().allMatch(List::isEmpty));
+            origins.set(List.of(remote));
+            assertFalse(index.contains(leaveState), "Previously indexed Drive chunks require their newly eligible Source metadata");
+            clearInvocations(model);
+            index.index(leave);
+            verifyNoInteractions(model);
+            assertTrue(index.contains(leaveState));
+            assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream()
+                    .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            clearInvocations(model);
             origins.set(List.of(new DocumentSourceMetadata(uploaded.sourceId(), uploaded.itemId(), uploaded.type(),
                     uploaded.createdAt(), Instant.parse("2026-09-15T00:00:00Z"), uploaded.authors()), remote));
             assertFalse(index.contains(leaveState));
             index.index(leave);
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
-            var hits = index.search(tenant, "quy định nghỉ phép", List.of(), null);
+            var hits = index.search(tenant, "quy định nghỉ phép", List.of(), null, Set.of());
             assertEquals(1, hits.size());
             assertEquals(leave.documentId().value(), hits.getFirst().documentId());
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(unrelated.documentId().value())));
             assertTrue(hits.stream().noneMatch(h -> h.documentId().equals(foreign.documentId().value())));
-            assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null).isEmpty());
+            assertTrue(index.search(tenant, "HR-2026", List.of("application/pdf"), null, Set.of()).isEmpty());
             var replacement = new DocumentChunkSet(tenant, leave.documentId(), UUID.randomUUID(), leave.title(), leave.mediaType(), Instant.now(), leave.chunks());
             clearInvocations(model);
             var replacementState = new DocumentIndexState(tenant, replacement.documentId(), replacement.generation(), 1, true);
@@ -201,10 +247,31 @@ class OpenSearchRetrievalIntegrationTest {
                     () -> index.document(tenant, paged.documentId().value(), UUID.randomUUID(), 0, 5));
             verifyNoInteractions(model);
             // Short keyword queries use the same hybrid path: neither lexical-only nor semantic-only hits disappear.
-            var keywordHits = index.search(tenant, "Paged HR", List.of(), null);
+            var keywordHits = index.search(tenant, "Paged HR", List.of(), null, Set.of());
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(paged.documentId().value())));
             assertTrue(keywordHits.stream().anyMatch(hit -> hit.documentId().equals(unrelated.documentId().value())));
             verify(model).call(any());
+
+            // More chunks than one query batch: access refresh and delete work by chunk ID and never issue
+            // *_by_query requests, whose continuation needs scroll permissions the service role lacks.
+            var largeChunks = java.util.stream.IntStream.range(0, 1100).mapToObj(i -> {
+                String text = "large vacation section " + i;
+                return new DocumentChunk(i, text, List.of(), i, 0, "[]", StructuredDocumentChunker.sha256(text), 10);
+            }).toList();
+            var large = new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), "Large HR", "text/plain", Instant.now(), largeChunks);
+            index.index(large);
+            var largeState = new DocumentIndexState(tenant, large.documentId(), large.generation(), largeChunks.size(), true);
+            assertTrue(index.contains(largeState));
+            accessOf.put(large.documentId(), new DocumentAccess(false, Set.of(group)));
+            assertFalse(index.contains(largeState));
+            clearInvocations(model);
+            index.updateAccess(tenant, large.documentId(), large.generation());
+            verifyNoInteractions(model);
+            assertTrue(index.contains(largeState), "Every chunk beyond the first batch must receive the refreshed access fields");
+            index.delete(tenant, large.documentId());
+            assertEquals(0, gateway.json("POST", "/" + index.identity() + "/_count", Map.of(),
+                    Map.of("query", Map.of("term", Map.of("document_id", large.documentId().value().toString())))).path("count").asInt(-1));
+            verify(gateway, org.mockito.Mockito.never()).json(any(), org.mockito.ArgumentMatchers.contains("_by_query"), any(), any());
         }
     }
 

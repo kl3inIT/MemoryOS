@@ -204,4 +204,16 @@ class ChatModelGuardTest {
                 ChatGenerationMetadata.builder().finishReason(reason).build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(tokens, tokens)).build());
     }
+
+    @Test void requiredWebUsesNamedToolChoiceWithoutChangingSharedOptionsAndRejectsIgnoredChoice() {
+        var scoped = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
+        scoped.requireWebSearch();
+        when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
+            var options = java.util.Objects.requireNonNull(assertInstanceOf(OpenAiChatOptions.class, call.<Prompt>getArgument(0).getOptions()));
+            assertEquals(java.util.Map.of("type", "function", "function", java.util.Map.of("name", "web_search")), options.getToolChoice());
+            return Flux.just(response("Unsupported provider ignored choice", "stop", 12));
+        });
+        assertEquals("CHAT_INCOMPLETE_RESPONSE", assertThrows(IllegalStateException.class, () -> scoped.stream(prompt).blockLast()).getMessage());
+        assertEquals("auto", assertInstanceOf(OpenAiChatOptions.class, prompt.getOptions()).getToolChoice());
+    }
 }

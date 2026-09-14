@@ -21,7 +21,7 @@ These defects create four risks:
 
 Radix AlertDialog provides the destructive-dialog semantics, keyboard containment, accessible title/description relationships, and controlled-open contract. The official async pattern keeps `open` controlled and closes after the asynchronous work resolves. MemoryOS explicitly focuses the least-destructive Cancel action when the dialog opens.
 
-The local Onyx reference at revision `ec08b5f94` confirms the product contract: name the entity and action, separate cancel from submit, use danger treatment for confirmation, and summarize impact before destructive work. MemoryOS adopts that contract, not Onyx component code or styling.
+The local reference implementation reference at revision `ec08b5f94` confirms the product contract: name the entity and action, separate cancel from submit, use danger treatment for confirmation, and summarize impact before destructive work. MemoryOS adopts that contract, not reference implementation component code or styling.
 
 ## ConfirmDialog contract
 
@@ -96,7 +96,7 @@ Non-destructive create, upload, and reindex failures continue to use the page-le
 
 - No Sources information-architecture or visual redesign.
 - No batch file staging.
-- No copy of Onyx components.
+- No copy of reference implementation components.
 - No connector cleanup API or generated-client change.
 - No generic notification framework or speculative confirmation abstraction for unrelated capabilities.
 

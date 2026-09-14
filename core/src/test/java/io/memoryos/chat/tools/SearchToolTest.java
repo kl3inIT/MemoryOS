@@ -10,14 +10,14 @@ import com.embabel.chat.ToolCall;
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchSection;
 import java.time.Duration;
 import java.util.Map;
 import com.embabel.chat.UserMessage;
 import com.embabel.chat.AssistantMessage;
 import io.memoryos.chat.ChatSearchEvent;
-import io.memoryos.iam.ActorId;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchResults;
 import io.memoryos.retrieval.SearchHit;
@@ -44,7 +44,7 @@ class SearchToolTest {
     private final SearchHit first = hit(2);
     private final SearchHit second = hit(3);
     private final SearchSection section = new SearchSection(first, List.of(first, second));
-    private final SourceSearchScope scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), Map.of(UUID.randomUUID(), SourceType.FILE));
+    private final SourceSearchScope scope = new SourceSearchScope(new TenantId(UUID.randomUUID()), new ActorId(UUID.randomUUID()), Map.of(UUID.randomUUID(), SourceType.FILE));
 
     @BeforeEach
     void rewrites() {
@@ -66,7 +66,7 @@ class SearchToolTest {
     }
 
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, List<UUID> sourceIds) {
-        var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
+        var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
                 }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
@@ -83,7 +83,8 @@ class SearchToolTest {
         when(result.hits()).thenReturn(List.of(first, second));
         when(result.sections()).thenReturn(List.of(section));
         when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenReturn(result);
-        when(search.expand(eq(result), any(SearchSection.class), anyInt())).thenAnswer(call -> call.<SearchSection>getArgument(1).passages());
+        when(search.window(eq(result), any(SearchSection.class), anyInt())).thenAnswer(call -> call.<SearchSection>getArgument(1).passages());
+        when(search.authorizedSections(eq(result), anyList())).thenAnswer(call -> call.getArgument(1));
         return result;
     }
 
@@ -104,7 +105,7 @@ class SearchToolTest {
             assertEquals(3, source.endOrdinal());
             assertEquals(response, tool.searchKnowledge(List.of("policy"), null));
             assertEquals(1, events.stream().filter(e -> e.source() != null).count());
-            verify(search, times(2)).expand(any(), any(SearchSection.class), eq(2));
+            verify(search, times(2)).window(any(), any(SearchSection.class), eq(2));
         }
     }
 
@@ -117,7 +118,7 @@ class SearchToolTest {
             assertTrue(tool.searchKnowledge(List.of("policy"), null).startsWith("No authorized evidence"));
             assertTrue(tool.searchKnowledge(List.of("policy"), null).contains("unavailable"));
             verify(runner, never()).createObject(anyString(), eq(SearchTool.Selection.class));
-            verify(search, never()).expand(any(), any(SearchSection.class), anyInt());
+            verify(search, never()).window(any(), any(SearchSection.class), anyInt());
         }
     }
 
@@ -139,7 +140,7 @@ class SearchToolTest {
                 new SearchTool.Selection(List.of(1)));
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
                 new SearchTool.ContextSelection(SearchTool.Expansion.INCLUDE_ADJACENT_SECTIONS));
-        when(search.expand(any(), eq(section), eq(2))).thenReturn(java.util.stream.IntStream.range(0, 5).mapToObj(i -> new SearchPage.Passage(i,
+        when(search.window(any(), eq(section), eq(2))).thenReturn(java.util.stream.IntStream.range(0, 5).mapToObj(i -> new SearchPage.Passage(i,
                         i == 2 ? "MATCHING PASSAGE" : "Distant context ".repeat(400), "[]")).toList());
         try (var tool = tool(90)) {
             String answer = tool.searchKnowledge(List.of("policy"), null);
@@ -162,7 +163,7 @@ class SearchToolTest {
         });
         try (var tool = tool(8000)) {
             assertThrows(CancellationException.class, () -> tool.searchKnowledge(List.of("policy"), null));
-            verify(search, never()).expand(any(), any(SearchSection.class), anyInt());
+            verify(search, never()).window(any(), any(SearchSection.class), anyInt());
             assertTrue(events.stream().noneMatch(e -> e.source() != null));
         }
     }
@@ -182,11 +183,11 @@ class SearchToolTest {
     void classificationReadsNeighborsBeforeRejectingTheWrongSubject() {
         candidates();
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
-        when(search.expand(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "This contract is for PROJECT Y, not PROJECT X.", "[]"),
+        when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "This contract is for PROJECT Y, not PROJECT X.", "[]"),
                         new SearchPage.Passage(2, "The quoted fee is 100000.", "[]")));
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(call -> {
             assertTrue(call.<String>getArgument(0).contains("PROJECT Y"));
-            verify(search).expand(any(), eq(section), eq(2));
+            verify(search).window(any(), eq(section), eq(2));
             return new SearchTool.ContextSelection(SearchTool.Expansion.NOT_RELEVANT);
         });
         try (var tool = tool(8000)) {
@@ -198,20 +199,27 @@ class SearchToolTest {
     @Test
     void fullDocumentClassificationFetchesOnlyTheWiderBoundedWindow() {
         candidates();
-        when(search.expand(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "Neighbor", "[]"), section.passages().getFirst(), section.passages().getLast()));
+        when(search.window(any(), eq(section), eq(2))).thenReturn(List.of(new SearchPage.Passage(1, "Neighbor", "[]"), section.passages().getFirst(), section.passages().getLast()));
         when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenReturn(
                 new SearchTool.ContextSelection(SearchTool.Expansion.FULL_DOCUMENT));
-        when(search.expand(any(), eq(section), eq(5))).thenReturn(java.util.stream.IntStream.range(0, 8).mapToObj(i -> new SearchPage.Passage(i, "Context " + i, "[]")).toList());
+        when(search.window(any(), eq(section), eq(5))).thenReturn(java.util.stream.IntStream.range(0, 8).mapToObj(i -> new SearchPage.Passage(i, "Context " + i, "[]")).toList());
         try (var tool = tool(8000)) {
             String answer = tool.searchKnowledge(List.of("policy"), null);
             assertTrue(answer.contains("Context 7"));
-            var ordered = inOrder(search);
-            ordered.verify(search).scope(any());
-            ordered.verify(search).ranked(any(SourceSearchScope.class), any(), any(), any());
-            ordered.verify(search).expand(any(), eq(section), eq(2));
-            ordered.verify(search).expand(any(), eq(section), eq(5));
-            verifyNoMoreInteractions(search);
+            // One recheck after selection and one before returning evidence, not one per window read.
+            verify(search, times(2)).authorizedSections(any(), anyList());
+        }
+    }
+
+    @Test
+    void documentRemovedDuringWindowReadYieldsNoEvidenceInsteadOfFailingTheTurn() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        when(search.window(any(), eq(section), eq(2))).thenThrow(new io.memoryos.retrieval.SearchDocumentUnavailableException());
+        try (var tool = tool(8000)) {
+            assertTrue(tool.searchKnowledge(List.of("policy"), null).startsWith("No relevant evidence"));
+            assertTrue(events.stream().noneMatch(event -> event.source() != null));
         }
     }
 
@@ -262,8 +270,8 @@ class SearchToolTest {
     void personaSourceSelectionRechecksRevocationWithoutWideningToOtherReadableSources() {
         UUID selected = UUID.randomUUID(), unselected = UUID.randomUUID();
         when(search.scope(any())).thenReturn(
-                new SourceSearchScope(scope.tenant(), Map.of(selected, SourceType.FILE, unselected, SourceType.FILE)),
-                new SourceSearchScope(scope.tenant(), Map.of(unselected, SourceType.FILE)));
+                new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(selected, SourceType.FILE, unselected, SourceType.FILE)),
+                new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(unselected, SourceType.FILE)));
         var observed = new ArrayList<SourceSearchScope>();
         var empty = mock(SearchResults.class);
         when(empty.hits()).thenReturn(List.of());
@@ -279,6 +287,37 @@ class SearchToolTest {
         assertTrue(observed.getLast().sources().isEmpty(), "Revoking the only selected source must not expose other readable sources");
         assertTrue(events.stream().noneMatch(event -> event.source() != null));
     }
+    @Test
+    void groupRevocationDuringContextClassificationDoesNotReturnEarlierEvidence() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(_ -> {
+            when(search.authorizedSections(any(), anyList())).thenReturn(List.of());
+            return new SearchTool.ContextSelection(SearchTool.Expansion.MAIN_SECTION_ONLY);
+        });
+        try (var tool = tool(8000)) {
+            var answer = tool.searchKnowledge(List.of("policy"), null);
+            assertFalse(answer.contains("Section 2"));
+            assertTrue(events.stream().noneMatch(event -> event.source() != null));
+        }
+    }
+
+    @Test
+    void groupRevocationDuringSelectionDoesNotStreamPrivateDocumentMetadata() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenAnswer(_ -> {
+            when(search.authorizedSections(any(), anyList())).thenReturn(List.of());
+            return new SearchTool.Selection(List.of(1));
+        });
+        try (var tool = tool(8000)) {
+            String answer = tool.searchKnowledge(List.of("policy"), null);
+            assertFalse(answer.contains(first.content()));
+            assertTrue(events.stream().noneMatch(event -> event.source() != null));
+            assertTrue(events.stream().flatMap(event -> event.documents().stream())
+                    .noneMatch(reading -> reading.documentId().equals(document)));
+        }
+    }
+
 
     @Test
     void duplicateWeightsSumBeforeRetrievalAndCachedExpansionIsOmittedFromLaterSearch() {
@@ -429,7 +468,7 @@ class SearchToolTest {
     @Test
     void sourceSwitchReusesExpansionOnlyForPreviouslyUnsearchedTypeAndTimeRunsOnce() {
         candidates();
-        when(search.scope(any())).thenReturn(new SourceSearchScope(scope.tenant(), Map.of(UUID.randomUUID(), SourceType.FILE,
+        when(search.scope(any())).thenReturn(new SourceSearchScope(scope.tenant(), scope.actor(), Map.of(UUID.randomUUID(), SourceType.FILE,
                 UUID.randomUUID(), SourceType.GOOGLE_DRIVE)));
         when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class))).thenReturn(
                 new SearchTool.SourceChoice(List.of(SourceType.FILE), true), new SearchTool.SourceChoice(List.of(SourceType.GOOGLE_DRIVE), true),

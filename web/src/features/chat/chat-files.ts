@@ -8,6 +8,23 @@ import {
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
 import { putAuthorizedObject, sha256 } from "@/features/sources/direct-upload";
+import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
+
+class AttachmentFailure extends Error {
+  readonly presentation: ErrorMessage;
+  constructor(presentation: ErrorMessage) {
+    super(presentation.key);
+    this.presentation = presentation;
+  }
+}
+
+export function chatAttachmentProblem(error: unknown): ErrorMessage {
+  if (error instanceof AttachmentFailure) return error.presentation;
+  const problem = presentProblem(error, "mutation");
+  return ["unauthenticated", "forbidden", "throttled"].includes(problem.kind)
+    ? problem.message
+    : { key: "attachmentUpload" };
+}
 
 export const chatFileSchema = z.object({
   id: z.string().uuid(),
@@ -44,9 +61,10 @@ export async function uploadChatFile(
 ) {
   const { data: policy } = await getChatFilePolicy({ signal, throwOnError: true });
   if (!policy.maxSizeBytes || file.size < 1 || file.size > policy.maxSizeBytes)
-    throw new Error(
-      `Tệp phải nhỏ hơn hoặc bằng ${Math.floor((policy.maxSizeBytes ?? 0) / 1048576)} MiB.`,
-    );
+    throw new AttachmentFailure({
+      key: "attachmentSize",
+      params: { max: Math.floor((policy.maxSizeBytes ?? 0) / 1048576) },
+    });
   const checksum = await sha256(file, signal);
   const { data } = await retryLostResponse(
     () =>
@@ -105,10 +123,7 @@ export async function waitForChatFile(id: string, signal: AbortSignal): Promise<
       (await getChatFile({ path: { fileId: id }, signal, throwOnError: true })).data,
     );
     if (file.status === "READY") return file;
-    if (file.status !== "PROCESSING")
-      throw new Error(
-        `Tệp chưa đọc được: ${file.errorCode ?? file.status}. Mở Tệp gần đây để kiểm tra hoặc thử lại.`,
-      );
+    if (file.status !== "PROCESSING") throw new AttachmentFailure({ key: "attachmentProcessing" });
     await new Promise<void>((resolve, reject) => {
       const abort = () => {
         clearTimeout(timer);
@@ -124,7 +139,7 @@ export async function waitForChatFile(id: string, signal: AbortSignal): Promise<
 }
 
 export function createChatAttachmentAdapter(
-  onError: (message: string) => void,
+  onError: (message: ErrorMessage) => void,
 ): AttachmentAdapter & { cancelPending: () => void } {
   const pending = new Map<string, AbortController>();
   return {
@@ -191,8 +206,9 @@ export function createChatAttachmentAdapter(
           status: { type: "requires-action", reason: "composer-send" },
         } satisfies PendingAttachment;
       } catch (error) {
-        if (!controller.signal.aborted)
-          onError(error instanceof Error ? error.message : "Không tải được tệp.");
+        if (!controller.signal.aborted) {
+          onError(chatAttachmentProblem(error));
+        }
         throw error;
       } finally {
         pending.delete(id);
@@ -206,7 +222,7 @@ export function createChatAttachmentAdapter(
             part.type === "file" && typeof part.data === "string" && fileIdFromReference(part.data),
         )
       )
-        throw new Error("Tệp chưa sẵn sàng. Hãy chờ xử lý xong hoặc gỡ tệp lỗi trước khi gửi.");
+        throw new AttachmentFailure({ key: "attachmentNotReady" });
       return { ...attachment, status: { type: "complete" }, content: attachment.content ?? [] };
     },
     async remove(attachment) {

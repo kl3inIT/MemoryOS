@@ -1,9 +1,9 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupIdentity;
-import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.group.GroupIdentityPage;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
@@ -15,7 +15,11 @@ import org.jspecify.annotations.Nullable;
 
 public interface SourceManagementService {
 
-    SourceSummary createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds);
+    SourceSummary createFileSource(ActorId actorId, String name, Collection<GroupId> groupIds, @Nullable SourceAccess access);
+
+    SourceSummary renameSource(ActorId actorId, SourceId sourceId, String name);
+
+    SourceSummary updateSourceAccess(ActorId actorId, SourceId sourceId, SourceAccess access);
 
     List<SourceSummary> listSources(ActorId actorId);
 

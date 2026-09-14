@@ -1,0 +1,136 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: M
+        - text: MemoryOS
+      - generic [ref=e6]: Tenant
+      - button "◎ Users" [ref=e7] [cursor=pointer]:
+        - generic [ref=e8]: ◎
+        - text: Users
+      - button "◇ Groups" [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◇
+        - text: Groups
+      - generic [ref=e11]: Knowledge
+      - button "⌁ Sources" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: ⌁
+        - text: Sources
+      - generic [ref=e14]: AI
+      - button "✣ Models" [ref=e15] [cursor=pointer]:
+        - generic [ref=e16]: ✣
+        - text: Models
+      - generic [ref=e17]:
+        - button "← Back to MemoryOS" [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ←
+          - text: Back to MemoryOS
+        - button "VE Vadan Enterprise" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: VE
+          - text: Vadan Enterprise
+    - main [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: ✣
+            - heading "AI Models" [level=1] [ref=e27]
+          - generic [ref=e28]:
+            - button "Toggle theme" [ref=e29] [cursor=pointer]: ◐
+            - button "＋ Add provider" [ref=e30] [cursor=pointer]
+        - navigation "AI Models sections" [ref=e31]:
+          - button "Catalog" [ref=e32] [cursor=pointer]
+          - button "Defaults" [ref=e33] [cursor=pointer]
+        - generic [ref=e35]:
+          - region "Providers" [ref=e36]:
+            - generic [ref=e37]:
+              - heading "Providers" [level=2] [ref=e38]
+              - button "Refresh providers" [ref=e39] [cursor=pointer]: ↻
+            - generic [ref=e40]:
+              - button "O OpenAI Production 2 models Enabled" [ref=e41] [cursor=pointer]:
+                - generic [ref=e42]: O
+                - generic [ref=e43]:
+                  - generic [ref=e44]: OpenAI Production
+                  - generic [ref=e45]: 2 models
+                - generic "Enabled" [ref=e46]
+              - button "S Private CPU Gateway 1 model Enabled" [ref=e47] [cursor=pointer]:
+                - generic [ref=e48]: S
+                - generic [ref=e49]:
+                  - generic [ref=e50]: Private CPU Gateway
+                  - generic [ref=e51]: 1 model
+                - generic "Enabled" [ref=e52]
+              - button "A Azure OpenAI Disabled Disabled" [ref=e53] [cursor=pointer]:
+                - generic [ref=e54]: A
+                - generic [ref=e55]:
+                  - generic [ref=e56]: Azure OpenAI
+                  - generic [ref=e57]: Disabled
+                - generic "Disabled" [ref=e58]
+          - region "Selected provider" [ref=e59]:
+            - generic [ref=e60]:
+              - generic [ref=e61]:
+                - generic [ref=e62]: O
+                - generic [ref=e63]:
+                  - heading "OpenAI Production" [level=2] [ref=e64]
+                  - generic [ref=e65]:
+                    - generic [ref=e66]: Enabled
+                    - generic [ref=e67]: Public
+                    - generic [ref=e68]: Credential ready
+              - generic [ref=e69]:
+                - button "Edit provider" [ref=e70] [cursor=pointer]
+                - button "＋ Add model" [ref=e71] [cursor=pointer]
+                - button "More provider actions" [ref=e72] [cursor=pointer]: •••
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - generic [ref=e75]: Endpoint
+                - generic [ref=e76]: https://api.openai.com/v1
+              - generic [ref=e77]:
+                - generic [ref=e78]: Adapter
+                - generic [ref=e79]: OpenAI
+              - generic [ref=e80]:
+                - generic [ref=e81]: Provider ID
+                - generic [ref=e82]: 10000000…0001
+            - generic [ref=e83]:
+              - generic [ref=e84]:
+                - heading "Models" [level=2] [ref=e85]
+                - button "＋ Add model" [ref=e86] [cursor=pointer]
+              - table [ref=e88]:
+                - rowgroup [ref=e89]:
+                  - row "Model Status Capabilities Context / output Pricing / 1M" [ref=e90]:
+                    - columnheader "Model" [ref=e91]
+                    - columnheader "Status" [ref=e92]
+                    - columnheader "Capabilities" [ref=e93]
+                    - columnheader "Context / output" [ref=e94]
+                    - columnheader "Pricing / 1M" [ref=e95]
+                    - columnheader [ref=e96]
+                - rowgroup [ref=e97]:
+                  - row "GPT-5 Mini gpt-5-mini Visible Tools Vision Reasoning 128k / 16k $0.25 / $2.00 Edit GPT-5 Mini" [ref=e98]:
+                    - cell "GPT-5 Mini gpt-5-mini" [ref=e99]:
+                      - generic [ref=e100]: GPT-5 Mini
+                      - generic [ref=e101]: gpt-5-mini
+                    - cell "Visible" [ref=e102]:
+                      - generic [ref=e103]: Visible
+                    - cell "Tools Vision Reasoning" [ref=e104]:
+                      - generic [ref=e105]:
+                        - generic [ref=e106]: Tools
+                        - generic [ref=e107]: Vision
+                        - generic [ref=e108]: Reasoning
+                    - cell "128k / 16k" [ref=e109]:
+                      - strong [ref=e110]: 128k
+                      - text: / 16k
+                    - cell "$0.25 / $2.00" [ref=e111]
+                    - cell "Edit GPT-5 Mini" [ref=e112]:
+                      - button "Edit GPT-5 Mini" [ref=e113] [cursor=pointer]: •••
+                  - row "GPT-4.1 Mini gpt-4.1-mini Hidden Tools Vision 128k / 8k $0.40 / $1.60 Edit GPT-4.1 Mini" [ref=e114]:
+                    - cell "GPT-4.1 Mini gpt-4.1-mini" [ref=e115]:
+                      - generic [ref=e116]: GPT-4.1 Mini
+                      - generic [ref=e117]: gpt-4.1-mini
+                    - cell "Hidden" [ref=e118]:
+                      - generic [ref=e119]: Hidden
+                    - cell "Tools Vision" [ref=e120]:
+                      - generic [ref=e121]:
+                        - generic [ref=e122]: Tools
+                        - generic [ref=e123]: Vision
+                    - cell "128k / 8k" [ref=e124]:
+                      - strong [ref=e125]: 128k
+                      - text: / 8k
+                    - cell "$0.40 / $1.60" [ref=e126]
+                    - cell "Edit GPT-4.1 Mini" [ref=e127]:
+                      - button "Edit GPT-4.1 Mini" [ref=e128] [cursor=pointer]: •••
+  - generic [ref=e129]: Interactive design proposal · no product code

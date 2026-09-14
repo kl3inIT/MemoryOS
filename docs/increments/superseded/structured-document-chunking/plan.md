@@ -1,6 +1,6 @@
 # Structured chunking implementation plan
 
-> Superseded planning draft: chunking, embedding and retrieval are delivered by [MEM-46 Search](../../active/mem-46-search/plan.md); [MEM-11 Chat](../../active/mem-11-production-chat/plan.md) has a separate completion gate. This checklist is historical, not a separate MEM-62 implementation plan.
+> Superseded planning draft: chunking, embedding and retrieval are delivered by [MEM-46 Search](../../completed/mem-46-search/plan.md); [MEM-11 Chat](../../completed/mem-11-production-chat/plan.md) has a separate completion gate. This checklist is historical, not a separate MEM-62 implementation plan.
 
 - [ ] Freeze canonical extraction input and processing identity with extraction/native adapter work.
 - [ ] Review OrgMemory block-aware chunker implementation and tests at a recorded SHA; identify portable algorithms without copying unrelated layers.

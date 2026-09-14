@@ -1,16 +1,19 @@
 import type { SourceRun } from "@/lib/hey-api/types.gen";
+import { uiLocale } from "@/i18n/format";
 
 export function historyDuration(start: string | null, end: string | null) {
   if (!start || !end) return null;
   const milliseconds = new Date(end).getTime() - new Date(start).getTime();
   if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
-  if (milliseconds < 1_000) return "<1s";
+  const unit = (value: number, unit: string) =>
+    new Intl.NumberFormat(uiLocale(), { style: "unit", unit, unitDisplay: "short" }).format(value);
+  if (milliseconds < 1_000) return "<" + unit(1, "second");
   const seconds = Math.floor(milliseconds / 1_000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return unit(seconds, "second");
   const minutes = Math.floor(seconds / 60);
   return minutes < 60
-    ? `${minutes}m ${seconds % 60}s`
-    : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    ? `${unit(minutes, "minute")} ${unit(seconds % 60, "second")}`
+    : `${unit(Math.floor(minutes / 60), "hour")} ${unit(minutes % 60, "minute")}`;
 }
 
 export function runHasNoChanges(run: SourceRun) {

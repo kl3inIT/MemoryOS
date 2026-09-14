@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
 import { DropdownMenu } from "radix-ui";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,8 @@ import { ChatFilePart } from "./chat-attachments";
 import { fileReference } from "./chat-files";
 
 export function ChatProjectsPage() {
+  const ui = useAppTranslation();
+
   const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
   const projects = useQuery({
@@ -36,30 +39,31 @@ export function ChatProjectsPage() {
     queryFn: ({ signal }) => loadProjects(signal),
   });
   return (
-    <AppShell pageTitle="Dự án">
+    <AppShell pageTitle={ui("Dự án")}>
       <div className="mx-auto w-full max-w-3xl overflow-y-auto px-6 py-10">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-medium">Dự án</h1>
+          <h1 className="text-2xl font-medium">{ui("Dự án")}</h1>
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
-            Tạo dự án
+            {ui("Tạo dự án")}
           </Button>
         </div>
-        {projects.isPending && <p role="status">Đang tải dự án…</p>}
+        {projects.isPending && <p role="status">{ui("Đang tải dự án…")}</p>}
         {projects.isError && (
           <p role="alert">
-            Không tải được dự án. <Button onClick={() => void projects.refetch()}>Tải lại</Button>
+            {ui("Không tải được dự án.")}{" "}
+            <Button onClick={() => void projects.refetch()}>{ui("Tải lại")}</Button>
           </p>
         )}
         {projects.data?.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Folder className="size-10 text-content-muted" />
-            <h2 className="text-lg font-medium">Một nơi cho công việc của bạn</h2>
+            <h2 className="text-lg font-medium">{ui("Một nơi cho công việc của bạn")}</h2>
             <p className="max-w-sm text-sm text-content-secondary">
-              Gom hội thoại và dùng chung hướng dẫn trong một dự án.
+              {ui("Gom hội thoại và dùng chung hướng dẫn trong một dự án.")}
             </p>
             <Button prominence="secondary" onClick={() => setCreating(true)}>
-              Tạo dự án đầu tiên
+              {ui("Tạo dự án đầu tiên")}
             </Button>
           </div>
         )}
@@ -90,6 +94,8 @@ export function ChatProjectsPage() {
 }
 
 export function ProjectContextPanel({ project }: { project: Project }) {
+  const ui = useAppTranslation();
+
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -106,7 +112,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               ref={menuTrigger}
               size="sm"
               prominence="internal"
-              aria-label="Thao tác dự án"
+              aria-label={ui("Thao tác dự án")}
             >
               <MoreHorizontal />
             </IconButton>
@@ -124,14 +130,14 @@ export function ProjectContextPanel({ project }: { project: Project }) {
                 className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken"
                 onSelect={() => setEditing(true)}
               >
-                <Pencil className="size-4" /> Chỉnh sửa dự án
+                <Pencil className="size-4" /> {ui("Chỉnh sửa dự án")}
               </DropdownMenu.Item>
               <DropdownMenu.Separator className="my-1 border-t border-border-subtle" />
               <DropdownMenu.Item
                 className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm text-status-danger-content outline-none data-[highlighted]:bg-surface-sunken"
                 onSelect={() => setDeleting(true)}
               >
-                <Trash2 className="size-4" /> Xóa dự án
+                <Trash2 className="size-4" /> {ui("Xóa dự án")}
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -140,10 +146,10 @@ export function ProjectContextPanel({ project }: { project: Project }) {
           open={deleting}
           onOpenChange={setDeleting}
           restoreFocusRef={menuTrigger}
-          title="Xóa dự án?"
-          description="Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử."
-          confirmLabel="Xóa dự án"
-          pendingLabel="Đang xóa…"
+          title={ui("Xóa dự án?")}
+          description={ui("Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.")}
+          confirmLabel={ui("Xóa dự án")}
+          pendingLabel={ui("Đang xóa…")}
           errorMessage={chatActionError}
           onConfirm={async () => {
             await deleteChatProject({
@@ -172,10 +178,10 @@ export function ProjectContextPanel({ project }: { project: Project }) {
       >
         <Settings2 className="mt-0.5 size-4 shrink-0 text-content-muted" />
         <span className="min-w-0">
-          <span className="block font-medium">Hướng dẫn dự án</span>
+          <span className="block font-medium">{ui("Hướng dẫn dự án")}</span>
           <span className="mt-1 block line-clamp-3 whitespace-pre-wrap text-sm text-content-secondary">
             {project.instructions ||
-              "Thêm hướng dẫn để các cuộc trò chuyện hiểu công việc của bạn."}
+              ui("Thêm hướng dẫn để các cuộc trò chuyện hiểu công việc của bạn.")}
           </span>
         </span>
       </button>
@@ -186,6 +192,8 @@ export function ProjectContextPanel({ project }: { project: Project }) {
 }
 
 function ProjectFiles({ project }: { project: Project }) {
+  const ui = useAppTranslation();
+
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [busy, setBusy] = useState(false);
@@ -235,9 +243,9 @@ function ProjectFiles({ project }: { project: Project }) {
     }
   }
   return (
-    <section aria-label="Tệp dự án" className="space-y-3">
+    <section aria-label={ui("Tệp dự án")} className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-medium">Tệp</h2>
+        <h2 className="font-medium">{ui("Tệp")}</h2>
         <ChatFilePicker
           selected={ids}
           disabled={busy}
@@ -245,19 +253,19 @@ function ProjectFiles({ project }: { project: Project }) {
           trigger={
             <Button type="button" size="sm" prominence="secondary" disabled={busy}>
               <Plus className="size-4" />
-              Thêm tệp
+              {ui("Thêm tệp")}
             </Button>
           }
         />
       </div>
       {ids.length === 0 && (
         <p className="text-sm text-content-muted">
-          Thêm tài liệu dùng chung cho các hội thoại trong dự án.
+          {ui("Thêm tài liệu dùng chung cho các hội thoại trong dự án.")}
         </p>
       )}
       {(error || files.isError) && (
         <p role="alert" className="text-sm">
-          {error ?? "Không tải được tệp dự án."}
+          {ui(error ?? "Không tải được tệp dự án.")}
         </p>
       )}
       {files.data?.map(({ fileId, file }) => (
@@ -269,13 +277,15 @@ function ProjectFiles({ project }: { project: Project }) {
               data={fileReference(file.id)}
             />
           ) : (
-            <span className="text-sm text-content-muted">Tệp không còn khả dụng</span>
+            <span className="text-sm text-content-muted">{ui("Tệp không còn khả dụng")}</span>
           )}
           <IconButton
             size="sm"
             prominence="internal"
             disabled={busy}
-            aria-label={`Gỡ ${file?.filename ?? "tệp không còn khả dụng"} khỏi dự án`}
+            aria-label={ui("Gỡ {{v1}} khỏi dự án", {
+              v1: file?.filename ?? ui("tệp không còn khả dụng"),
+            })}
             onClick={() => void update(ids.filter((id) => id !== fileId))}
           >
             <X />
@@ -295,6 +305,8 @@ export function ProjectConversationList({
   compact?: boolean;
   onNavigate?: () => void;
 }) {
+  const ui = useAppTranslation();
+
   const { actorId, authorizationVersion } = useApplicationSession();
   const sessions = useInfiniteQuery({
     queryKey: ["chat-project-sessions", actorId, authorizationVersion, projectId],
@@ -314,25 +326,27 @@ export function ProjectConversationList({
   return (
     <section
       className={compact ? "ml-4 border-l border-border-subtle pl-2" : "mt-6"}
-      aria-label="Hội thoại trong dự án"
+      aria-label={ui("Hội thoại trong dự án")}
     >
       {!compact && (
-        <h2 className="mb-3 text-sm font-medium text-content-secondary">Hội thoại gần đây</h2>
+        <h2 className="mb-3 text-sm font-medium text-content-secondary">
+          {ui("Hội thoại gần đây")}
+        </h2>
       )}
       {sessions.isPending && (
         <p role="status" className="px-2 py-2 text-sm text-content-muted">
-          Đang tải hội thoại…
+          {ui("Đang tải hội thoại…")}
         </p>
       )}
       {sessions.isError && (
         <p role="alert" className="text-sm">
-          Không tải được hội thoại.{" "}
+          {ui("Không tải được hội thoại.")}{" "}
           <Button size="sm" onClick={() => void sessions.refetch()}>
-            Tải lại
+            {ui("Tải lại")}
           </Button>
         </p>
       )}
-      <ThreadList label="Hội thoại dự án">
+      <ThreadList label={ui("Hội thoại dự án")}>
         {sessions.data?.pages.flat().map((session) => (
           <ChatSessionRow
             key={session.id}
@@ -344,7 +358,8 @@ export function ProjectConversationList({
       </ThreadList>
       {sessions.data?.pages[0]?.length === 0 && (
         <p className="px-2 py-3 text-sm text-content-muted">
-          Chưa có hội thoại{compact ? "." : ". Gửi câu hỏi ở trên để bắt đầu."}
+          {ui("Chưa có hội thoại")}
+          {compact ? "." : ui(". Gửi câu hỏi ở trên để bắt đầu.")}
         </p>
       )}
       {sessions.hasNextPage && (
@@ -354,7 +369,7 @@ export function ProjectConversationList({
           pending={sessions.isFetchingNextPage}
           onClick={() => void sessions.fetchNextPage()}
         >
-          Xem thêm hội thoại
+          {ui("Xem thêm hội thoại")}
         </Button>
       )}
     </section>
@@ -362,6 +377,8 @@ export function ProjectConversationList({
 }
 
 export function ProjectEditor({ project, onClose }: { project?: Project; onClose: () => void }) {
+  const ui = useAppTranslation();
+
   const cache = useQueryClient();
   const navigate = useNavigate();
   const [name, setName] = useState(project?.name ?? "");
@@ -373,13 +390,13 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={project ? "Chỉnh sửa dự án" : "Tạo dự án"}
+      title={project ? ui("Chỉnh sửa dự án") : ui("Tạo dự án")}
       description={
         project
-          ? "Hướng dẫn áp dụng cho những lượt tiếp theo trong dự án."
-          : "Đặt tên cho công việc bạn muốn tập trung."
+          ? ui("Hướng dẫn áp dụng cho những lượt tiếp theo trong dự án.")
+          : ui("Đặt tên cho công việc bạn muốn tập trung.")
       }
-      submitLabel={project ? "Lưu" : "Tạo dự án"}
+      submitLabel={project ? ui("Lưu") : ui("Tạo dự án")}
       onSubmit={async () => {
         const body = {
           name: name.trim(),
@@ -419,7 +436,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
       }}
     >
       <label className="block space-y-1">
-        <span>Tên dự án</span>
+        <span>{ui("Tên dự án")}</span>
         <Input
           autoFocus
           required
@@ -430,7 +447,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
       </label>
       {project && (
         <label className="block space-y-1">
-          <span>Hướng dẫn dự án</span>
+          <span>{ui("Hướng dẫn dự án")}</span>
           <textarea
             className={chatField}
             maxLength={32000}

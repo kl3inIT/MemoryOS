@@ -15,7 +15,8 @@ import io.memoryos.connector.GoogleDriveSourceService.SelectionPage;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import io.memoryos.connector.SourceId;
-import io.memoryos.iam.TenantId;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.identity.ActorId;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -224,17 +225,17 @@ public class JdbcGoogleDriveSourceRepository {
                 .query(Integer.class).single() != 1) throw SourceException.notFound();
     }
 
-    public SourceId create(TenantId tenant, SourceId source, String name, CredentialId credential, ScopeMode scopeMode, List<Root> roots) {
+    public SourceId create(TenantId tenant, SourceId source, ActorId actor, String name, CredentialId credential, ScopeMode scopeMode, List<Root> roots) {
         UUID connector = UUID.randomUUID();
         jdbc.sql("""
                 INSERT INTO connectors (id, tenant_id, name, connector_type, status)
                 VALUES (:id, :tenant, :name, 'GOOGLE_DRIVE', 'ACTIVE')
                 """).param("id", connector).param("tenant", tenant.value()).param("name", name).update();
         jdbc.sql("""
-                INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status)
-                VALUES (:id, :tenant, :connector, :credential, 'RESTRICTED', 'NOT_STARTED')
+                INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id)
+                VALUES (:id, :tenant, :connector, :credential, 'RESTRICTED', 'NOT_STARTED', :actor)
                 """).param("id", source.value()).param("tenant", tenant.value())
-                .param("connector", connector).param("credential", credential.value()).update();
+                .param("connector", connector).param("credential", credential.value()).param("actor", actor.value()).update();
         initialize(tenant, source, scopeMode);
         insertRoots(tenant, source, roots);
         return source;
@@ -269,7 +270,7 @@ public class JdbcGoogleDriveSourceRepository {
                 FROM google_drive_sources s WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .query((r, _) -> new ConfigurationRow(r.getLong("revision"), r.getInt("sync_interval_minutes"),
-                        r.getLong("schedule_revision"), ScopeMode.valueOf(r.getString("scope_mode")),
+                        r.getLong("schedule_revision"), r.getBoolean("sync_paused"), ScopeMode.valueOf(r.getString("scope_mode")),
                         r.getLong("discovery_revision"), JdbcSourceRepository.instant(r, "discovered_at"),
                         r.getLong("discovery_scope_revision"), r.getLong("discovery_credential_revision"),
                         JdbcSourceRepository.instant(r, "last_synced_at"), r.getBoolean("pending"),
@@ -434,6 +435,20 @@ public class JdbcGoogleDriveSourceRepository {
         }
     }
 
+    public void setPaused(TenantId tenant, SourceId source, long expectedRevision, boolean paused) {
+        if (jdbc.sql("""
+                UPDATE google_drive_sources SET sync_paused = :paused, schedule_revision = schedule_revision + 1
+                WHERE tenant_id = :tenant AND source_id = :source AND schedule_revision = :revision
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("revision", expectedRevision).param("paused", paused).update() != 1)
+            throw SourceException.staleConfiguration();
+    }
+
+    public boolean automaticSyncEnabled(TenantId tenant, SourceId source) {
+        return jdbc.sql("SELECT NOT sync_paused FROM google_drive_sources WHERE tenant_id=:tenant AND source_id=:source")
+                .param("tenant", tenant.value()).param("source", source.value()).query(Boolean.class).optional().orElse(false);
+    }
+
     private void insertRoots(TenantId tenant, SourceId source, List<Root> roots) {
         for (Root root : roots) {
             jdbc.sql("""
@@ -444,7 +459,7 @@ public class JdbcGoogleDriveSourceRepository {
         }
     }
 
-    public record ConfigurationRow(long revision, int syncIntervalMinutes, long scheduleRevision, ScopeMode scopeMode,
+    public record ConfigurationRow(long revision, int syncIntervalMinutes, long scheduleRevision, boolean syncPaused, ScopeMode scopeMode,
                                    long discoveryRevision, @Nullable Instant discoveredAt,
                                    long discoveryScopeRevision, long discoveryCredentialRevision,
                                    @Nullable Instant lastSyncedAt, boolean pending,

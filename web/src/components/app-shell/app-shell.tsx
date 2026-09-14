@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -7,14 +8,13 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
-  ShieldCheck,
-  UsersRound,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
 import { Brand } from "@/components/brand";
+import { OnyxUserIcon, OnyxUsersIcon } from "@/components/icons/identity-icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
@@ -46,8 +46,10 @@ type SidebarContentsProps = {
 };
 
 function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
+  const ui = useAppTranslation();
+
   return (
-    <ol className="relative mx-2 mt-2 flex flex-col" aria-label="Connector setup progress">
+    <ol className="relative mx-2 mt-2 flex flex-col" aria-label={ui("Connector setup progress")}>
       {["Credential", "Connector"].map((label, index) => (
         <li
           key={label}
@@ -79,9 +81,9 @@ function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
               {step === index && <span className="size-1.5 rounded-full bg-(--neutral-00)" />}
             </span>
           </span>
-          <span>{label}</span>
+          <span>{ui(label)}</span>
           <span className="sr-only">
-            {index < step ? "Completed" : index > step ? "Not started" : "Current step"}
+            {index < step ? ui("Completed") : index > step ? ui("Not started") : ui("Current step")}
           </span>
         </li>
       ))}
@@ -98,6 +100,8 @@ function SidebarContents({
   onNavigate,
   mobile = false,
 }: SidebarContentsProps) {
+  const ui = useAppTranslation();
+
   const appArea = area === "app";
   const {
     canManageUsers,
@@ -121,8 +125,8 @@ function SidebarContents({
           <IconButton
             prominence="internal"
             size="sm"
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
+            aria-label={ui("Expand sidebar")}
+            title={ui("Expand sidebar")}
             onClick={onCollapseToggle}
             className="group relative mx-auto"
           >
@@ -135,7 +139,7 @@ function SidebarContents({
           <>
             <Link
               to="/"
-              aria-label="MemoryOS home"
+              aria-label={ui("MemoryOS home")}
               className="flex min-w-0 flex-1 items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               onClick={onNavigate}
             >
@@ -143,7 +147,7 @@ function SidebarContents({
             </Link>
             {mobile ? (
               <Dialog.Close asChild>
-                <IconButton prominence="internal" size="md" aria-label="Đóng điều hướng">
+                <IconButton prominence="internal" size="md" aria-label={ui("Close navigation")}>
                   <X />
                 </IconButton>
               </Dialog.Close>
@@ -151,8 +155,8 @@ function SidebarContents({
               <IconButton
                 prominence="internal"
                 size="sm"
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
+                aria-label={ui("Collapse sidebar")}
+                title={ui("Collapse sidebar")}
                 onClick={onCollapseToggle}
                 className="text-content-secondary"
               >
@@ -166,10 +170,10 @@ function SidebarContents({
       <nav
         aria-label={
           sourceSetupStep !== undefined
-            ? "Connector setup"
+            ? ui("Connector setup")
             : appArea
-              ? "Primary navigation"
-              : "Administration navigation"
+              ? ui("Primary navigation")
+              : ui("Administration navigation")
         }
         className={cn(
           "min-h-0 flex-1 overflow-y-auto px-2",
@@ -183,33 +187,33 @@ function SidebarContents({
         ) : (
           <div className="space-y-5">
             {canManageUsers || canReadGroups ? (
-              <SidebarSection title="Tenant" collapsed={collapsed}>
+              <SidebarSection title={ui("Tenant")} collapsed={collapsed}>
                 {canManageUsers ? (
                   <SidebarTab
                     to="/admin/users"
-                    icon={<UsersRound className="size-4" />}
+                    icon={<OnyxUserIcon className="size-4" />}
                     selected={adminPage === "users"}
                     collapsed={collapsed}
                     onClick={onNavigate}
                   >
-                    Users
+                    {ui("Users")}
                   </SidebarTab>
                 ) : null}
                 {canReadGroups ? (
                   <SidebarTab
                     to="/admin/groups"
-                    icon={<ShieldCheck className="size-4" />}
+                    icon={<OnyxUsersIcon className="size-4" />}
                     selected={adminPage === "groups"}
                     collapsed={collapsed}
                     onClick={onNavigate}
                   >
-                    Groups
+                    {ui("Groups")}
                   </SidebarTab>
                 ) : null}
               </SidebarSection>
             ) : null}
             {canReadSources ? (
-              <SidebarSection title="Knowledge" collapsed={collapsed}>
+              <SidebarSection title={ui("Knowledge")} collapsed={collapsed}>
                 <SidebarTab
                   to="/admin"
                   icon={<Plug className="size-4" />}
@@ -217,7 +221,7 @@ function SidebarContents({
                   collapsed={collapsed}
                   onClick={onNavigate}
                 >
-                  Sources
+                  {ui("Sources")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}
@@ -247,7 +251,7 @@ function SidebarContents({
             variant="light"
             onClick={onNavigate}
           >
-            Exit Connector Setup
+            {ui("Exit Connector Setup")}
           </SidebarTab>
         ) : !appArea ? (
           <SidebarTab
@@ -257,7 +261,7 @@ function SidebarContents({
             variant="light"
             onClick={onNavigate}
           >
-            Back to MemoryOS
+            {ui("Back to MemoryOS")}
           </SidebarTab>
         ) : null}
         {sourceSetupStep === undefined && appArea && canAccessAdmin ? (
@@ -269,7 +273,7 @@ function SidebarContents({
               variant="light"
               onClick={onNavigate}
             >
-              Admin Panel
+              {ui("Admin Panel")}
             </SidebarTab>
           </div>
         ) : null}
@@ -290,6 +294,8 @@ export function AppShell({
   headerActions,
   children,
 }: AppShellProps) {
+  const ui = useAppTranslation();
+
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const sidebarCollapsed = sourceSetupStep === undefined && collapsed;
@@ -300,16 +306,16 @@ export function AppShell({
         href="#main-content"
         className="sr-only z-[60] rounded-lg bg-surface-base px-3 py-2 font-main-ui-body shadow-md focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:ring-3 focus:ring-ring/50"
       >
-        Skip to content
+        {ui("Skip to content")}
       </a>
 
       <aside
         aria-label={
           sourceSetupStep !== undefined
-            ? "Connector setup sidebar"
+            ? ui("Connector setup sidebar")
             : area === "app"
-              ? "Application sidebar"
-              : "Administration sidebar"
+              ? ui("Application sidebar")
+              : ui("Administration sidebar")
         }
         className={cn(
           "relative hidden h-dvh shrink-0 overflow-hidden bg-surface-canvas transition-[width] duration-200 motion-reduce:transition-none md:block",
@@ -338,7 +344,7 @@ export function AppShell({
               <IconButton
                 prominence="internal"
                 size="md"
-                aria-label="Mở điều hướng"
+                aria-label={ui("Open navigation")}
                 className="md:hidden"
               >
                 <Menu />
@@ -363,7 +369,7 @@ export function AppShell({
               aria-describedby={undefined}
               className="fixed inset-y-0 left-0 z-50 w-[min(var(--sidebar-width),86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none"
             >
-              <Dialog.Title className="sr-only">MemoryOS navigation</Dialog.Title>
+              <Dialog.Title className="sr-only">{ui("MemoryOS navigation")}</Dialog.Title>
               <SidebarContents
                 area={area}
                 adminPage={adminPage}

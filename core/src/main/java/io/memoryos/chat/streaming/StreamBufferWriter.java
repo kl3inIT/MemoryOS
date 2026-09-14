@@ -38,7 +38,11 @@ public final class StreamBufferWriter {
     }
 
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search) {
+                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search, boolean hasArtifacts) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatSearchEvent search) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, search, false);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode) {
             this(assistantMessageId, sequence, type, text, status, failureCode, null);
@@ -80,11 +84,15 @@ public final class StreamBufferWriter {
     }
 
     public synchronized void finish(UUID id, Status status, @Nullable String failure) {
+        finish(id, status, failure, false);
+    }
+
+    public synchronized void finish(UUID id, Status status, @Nullable String failure, boolean hasArtifacts) {
         var stream = require(id);
         if (stream.done) return;
         if (status == Status.RUNNING) throw new IllegalArgumentException("Terminal status required");
         flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, "outcome", null, status, failure));
+        publish(stream, new Event(id, ++stream.sequence, "outcome", null, status, failure, null, hasArtifacts));
         stream.done = true;
         stream.finishedAt = millis.getAsLong();
         notifyAll();

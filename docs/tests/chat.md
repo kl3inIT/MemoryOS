@@ -1,12 +1,40 @@
 # Chat verification matrix
 
+UI reuse follow-up: `chat-ui-polish.spec.ts` exercises the composer `+` menu order (menu, model picker, Send), its Web options and the Web chip, current-branch content matching/stepping/focus, Search/Crawler sections and Exa credential KEEP/REPLACE across the shared sections at 1440/390px. `chat-sources-toolbar.spec.ts` checks DocumentReference lists and original Web links while retaining the grouped Sources row. `chat-conversation-matches.test.ts` covers literal/Unicode matching, hidden tool-text exclusion, bounded hits and local-calendar loaded-title grouping. Exact receipts and baseline differences: [edit/navigation verification](../increments/active/chat-edit-navigation-polish/verification.md).
+
+Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUsesIndexesAllVersionsAndOwnerFilteredPagination` proves V50 indexes, title and unselected-version token matching, >64 KiB tail matching, owner/deletion/membership isolation, pagination and input validation on PostgreSQL. `chat-history-search.spec.ts` checks server-only hits without local filtering, paging, navigation, stale-query suppression, error retry and focus at 1440/390px with a mocked endpoint. Receipts: [history search verification](../increments/active/chat-history-search/verification.md).
+
+## Edit/navigation and Sources presentation
+
+- `edit-message.test.tsx` and `chat-attachments.test.tsx`: controlled editing focus, keyboard/IME, pending/busy, action-local errors and attachment-only messages; existing attachment readiness and preview lifecycle.
+- `sources.test.tsx`: bounded/deduplicated icon stack, localized generic Sources label, accessible count, document privacy and upstream favicon fallback/domain changes.
+- `chat-sources-toolbar.spec.ts`: mixed Web/document toolbar, panel toggle and Web selection, focus restoration and viewport bounds on desktop/mobile.
+- `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile Chat/Search navigation without a duplicate sidebar Search entry. These browser tests use local backend/model fixtures, not staging acceptance.
+
+## External Web search
+
+- `WebHttpTest`: private/encoded/literal address rejection, trusted-provider separation, no provider redirects, bounded response bytes and no user cookies.
+- `WebProviderClientTest`: response mappings for all six external search providers, shared Tavily connection, Exa/Firecrawl extraction, HTML sanitization, error redaction and bounded-label request metrics. Fixtures are not live-provider acceptance.
+- `WebPdfReaderTest`: the normal provider read path extracts real generated PDF text without credentials/OCR; page/output bounds are labeled, textless/malformed PDFs fail, and canceled reads propagate cancellation.
+- `WebToolsTest`: shared citation IDs, per-turn duplicate suppression, user-supplied URL reading without search, serialized token bounds and Stop before network I/O; overlapping batch calls, partial provider failures, input bounds and actual annotation-based `open_url` array binding.
+- `ChatWebPromptsTest`: actual-tool guidance for Web/internal/combined/off, preserved Persona and original prompt, conditional post-search reminder, no stale-history reminder and final-cycle behavior.
+- `ChatWebPromptsTest` also checks the supported/unsupported `site:` guidance and its absence when search is unavailable. `chat-web-preference.test.ts` checks reload restoration, owner/session isolation, new-chat defaults, invalid values and denied storage through the actual transport.
+- `ChatModelGuardTest`: required named Web tool choice is scoped to one request; shared model options remain unchanged and ignored choice fails.
+- `ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent`: real security filters, PostgreSQL/JPA migration/encrypted storage, explicit activation, HTTP provider fixture through the native tool loop with query arrays and actual prompt/reminder assertions, Send/Edit/Regenerate and off, persisted URL evidence and replay conflicts.
+- `chat-web.test.tsx` / `chat-transport.test.ts`: adapter-aware controls, unconfigured state, actual status/results, URL identity validation and immutable send intent. Browser CLI checks cover desktop/mobile controls, separate settings and the existing source panel with synthetic evidence. Exact receipts and open gates: [verification](../increments/active/chat-web-search/verification.md).
+
+Model selector follow-up: `ModelCatalogSelectionTest` covers inherited Tenant/Persona selection, revoked provider and hidden inherited model. `chat-model-picker.test.tsx` covers concrete name/context, no synthetic Auto/deployment heading, explicit selection and unavailable identity. `chat.spec.ts` includes desktop/mobile Luna-default display and retained explicit selection.
+
+Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks native tool binding/bounds/sealing; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; `ChatSessionApiIntegrationTest.nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata` exercises actual native tool execution, saved HTTP history, denied foreign reads and the SSE flag. English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
+
 | Contract | Test and boundary |
 | --- | --- |
 | One-time automatic naming uses native model; owner/CSRF denial, repeat requests, original answer and manual title preserved | `ChatSessionApiIntegrationTest.automaticTitleUsesNativeProviderOnceAndKeepsAnswerAndManualRename`: Spring API/native runner/real PostgreSQL, synthetic provider |
 | Naming only after completed answer, concurrent/manual rename wins even with the same text | `ChatPersistenceIntegrationTest`: real PostgreSQL title claim and conditional write |
+| Thread list adapter: offset list, initialization from the created session with retry, naming after the first answer, deferred RUNNING history; sidebar promotion, switching and closed reader for hidden threads | `chat-thread-list-adapter.test.ts` (unit, fake HTTP) and `chat.spec.ts` (Playwright fixture server) |
 | Unicode-safe short fallback, compact picker, separate full management dialog and character citation highlighting | `chat-transport.test.ts`, `chat-file-reader.test.tsx`: UI/unit contracts |
 | File citation positions distinguish indexed passages; private reader rejects changed generations | `FileReaderToolTest`, `DocumentSearchServiceTest`: evidence/service boundary with controlled dependencies |
-| Live model reads image-only randomized code and geometric counts; native usage and persisted file/citation identity | Opt-in `ChatSessionApiIntegrationTest.realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory`: real authenticated HTTP/native adapter/OpenAI gpt-5-mini/DB, storage double and seeded READY. Two image cases passed 2026-09-12; not upload/worker/browser E2E. [Measured evidence](../increments/active/chat-attachments-production/verification.md#live-vision-và-đo-tài-nguyên--2026-09-12) |
+| Live model reads image-only randomized code and geometric counts; native usage and persisted file/citation identity | Opt-in `ChatSessionApiIntegrationTest.realVisionReadsPixelsThroughAuthenticatedHttpAndPersistedHistory`: real authenticated HTTP/native adapter/OpenAI gpt-5-mini/DB, storage double and seeded READY. Two image cases passed 2026-09-12; not upload/worker/browser E2E. [Measured evidence](../increments/completed/chat-attachments-production/verification.md#live-vision-và-đo-tài-nguyên--2026-09-12) |
 | Vision HTTP data URL, non-vision marker without storage reads, saved image citation and file identity | Parameterized `ChatSessionApiIntegrationTest.configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome`: authenticated HTTP API + native SDK + local HTTP provider, real DB; storage controlled and READY seeded, not live vision inference |
 | Non-vision history/workspace, ordered images, Stop after private IO and over-budget image-only send | `ChatTurnSetupTest`: native setup/materialization |
 | Search outage fallback preserves authorization/cancellation | `FileReaderToolTest`: per-turn scope/tool boundary, dependency doubles |
@@ -21,6 +49,8 @@
 | Ordered file IDs through attachment-only send, replay, regenerate, edit and sharing; foreign file rejection rolls back | `ChatPersistenceIntegrationTest.orderedMessageFilesSurviveReplayRegenerationEditingAndSharedHistoryWithoutNewUploads`: real PostgreSQL/message transactions; READY file metadata seeded |
 | Empty custom Persona overrides Project files; replay context can acquire required locks; revision updates preserve admitted snapshots | `ChatPersistenceIntegrationTest.customPersonaEmptyFileListOverridesProjectAndReloadContextDoesNotUseReadOnlyLocks`: real PostgreSQL/JPA/transaction boundary |
 | Upload preview/removal cleanup, asynchronous readiness and stable file ID, Gửi/Enter blocked until READY, file-only message editing | `chat-attachments.test.tsx`: real assistant-ui runtime/adapter and production composer wrappers, mocked upload APIs |
+| Message files use the source workspace's desktop panel/mobile modal; Escape restores the trigger, locale changes preserve the reader and composer draft, close releases private data | `chat-file-reader.test.tsx`: native assistant-ui runtime and real readers with API/layout doubles; Playwright CLI desktop/390px fixture inspection in MEM-74/22 verification |
+| Feedback failure retains stable reason IDs and note through locale changes without automatically replaying a mutation | `chat-dialog.test.tsx`; existing feedback persistence/retry browser case in `chat-workspace.spec.ts` |
 | Inert paged text, no cached private reader data after close, saved image URL cleanup, unavailable-file denial and selection preservation | `chat-file-reader.test.tsx`: real React Query/components, mocked APIs; deletion reuses the project confirmation dialog |
 | Stable server message IDs, UUID request identity, duplicate replay, EOF cursor resume and one send | `web/src/features/chat/chat-transport.test.ts`; production transport/generated client with HTTP response fixtures |
 | Reset/gap history fallback, partial FAILED, committed Stop and complete/cancel race | `chat-transport.test.ts`; no model re-execution on recovery |
@@ -34,7 +64,7 @@
 | Citation hover/focus/Escape, prose-only links, multi-source right panel, reader/back/close, mobile drawer bounds/focus and unavailable source retaining answer | `chat.spec.ts`; actual browser with synthetic document API; Search preview regression in `search.spec.ts` |
 | Repeat code copy, fallback notice surviving new-session navigation but clearing on reload, and earlier context staying in view | `chat.spec.ts`; real browser with synthetic responses |
 | Source range/provenance bounds before rendering history; nullable typed search-event source | `chat-transport.test.ts`; `OpenApiContractTest` exercises the generated runtime contract |
-| Real OIDC MEMBER login, live model send/save/reload, RUNNING reload/Stop with partial, cross-Actor denial | [Phase 2.4 verification](../increments/active/mem-11-production-chat/verification.md#phase-24--2026-09-09); isolated PostgreSQL, normal API configuration and managed dev services; temporary realm users removed |
+| Real OIDC MEMBER login, live model send/save/reload, RUNNING reload/Stop with partial, cross-Actor denial | [Phase 2.4 verification](../increments/completed/mem-11-production-chat/verification.md#phase-24--2026-09-09); isolated PostgreSQL, normal API configuration and managed dev services; temporary realm users removed |
 | Private session/root, default Persona identity, owner/Tenant filtering and inactive membership | `ChatPersistenceIntegrationTest.createsPrivateSessionWithOneRootAndSharedDefaultPersona` against production Flyway migrations/PostgreSQL |
 | Same-command identity, conflict for changed command, pagination, retained partial outcome | `reservesPairOnceAndPreservesHistoryCursorAndPartialOutcome` |
 | Concurrent duplicate send and one complete/cancel winner | `serializesConcurrentSendsAndTerminalWinners` with independent transactions |
@@ -47,6 +77,7 @@
 | Shared access polling does not reload transcript pages; revoked access hides the view; malformed sources fail inside the query boundary | `chat-workspace.spec.ts` access-polling and malformed-source browser cases |
 | Reopening sharing cannot submit its cached revision while the authoritative read is pending | `chat-workspace.spec.ts` delayed-refetch browser case |
 | Real session HTTP create/list/reload/history, owner denial and membership revoke | `ChatSessionApiIntegrationTest` with full API context/PostgreSQL and existing security filters |
+| Without the Basic edge, list/history/branches/shared reads, reply event subscription, citation passages (`/api/chat/documents/{documentId}`), create and send return `403 IAM_ACCESS_DENIED`, while rename, sharing toggle and delete of an owned conversation still succeed | `ChatSessionApiIntegrationTest.chatReadAndWriteCapabilitiesGateTranscriptAccessWhileOwnerSettingsNeedOnlyMembership`: full API context, real IAM authority SQL and PostgreSQL |
 | Missing authentication/CSRF and input bounds on session/send operations | `ChatSessionApiIntegrationTest` |
 | Native runner send, usage persistence, same-request retry without another inference, partial EOF and local Stop | `ChatSessionApiIntegrationTest`; model transport mocked, native framework/IAM/PostgreSQL execute |
 | Cross-owner Stop denied, cancel committed before completion wins, expired rows cannot be resurrected | `ChatPersistenceIntegrationTest` |
@@ -66,7 +97,7 @@
 | Generated required/nullable contracts and API surface | `OpenApiContractTest`; frontend generated-client drift/type checks |
 | Closed capability and persistence ownership | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
 
-API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/active/mem-11-production-chat/plan.md).
+API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/completed/mem-11-production-chat/plan.md).
 
 ## Editors, projects, assistants and sharing (V36)
 
@@ -84,12 +115,17 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/deadline and Nginx t
 | Move/remove by keyboard menu and desktop drag/drop updates folder membership without inference; Project deletion unlinks and retains history | Project membership and deletion scenarios in `chat-workspace.spec.ts` |
 | Rename Escape/focus restore, retained draft on error, header synchronization; inline edit failure preserves the UUID through retry | Draft recovery scenario in `chat-workspace.spec.ts` |
 | Separate reactions retain drafts on error, survive reload and can be removed; feedback remains answer-version-specific | Feedback recovery and saved-branch scenarios in `chat-workspace.spec.ts` |
+| Regenerate with another catalog model records that model and keeps the composer choice; answer time appears only on hover | Model regeneration scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks live `createdAt` metadata and history mapping |
+| External Markdown links render as source chips; a host that is not a Web source gets the letter fallback and no favicon request | Model regeneration scenario in `chat-workspace.spec.ts`; `sources.test.tsx` checks `SourceIcon` without favicon |
+| Recent-file status is a labelled icon (spinner, warning, not searchable); the compact list has no status text and the full dialog keeps failure text | `chat-file-reader.test.tsx` file selection scenarios |
+| An unsent question survives a reload of the same tab and is forgotten once sent | Draft restore scenario in `chat-workspace.spec.ts` |
+| A quoted answer passage is sent as a leading blockquote, saved in the question text and rendered as a quote block before and after reload | Quote scenario in `chat-workspace.spec.ts`; `chat-transport.test.ts` checks the blockquote merge |
 | Share/copy in one dialog, clipboard-denied manual fallback, native radio keyboard selection, focus restore and stale revision gating | Sharing scenarios in `chat-workspace.spec.ts` |
 | Saved titles `Chat`/`Search` cannot select header mode; empty Chat and Search retain their mode menus | Saved-title mobile scenarios in `chat-workspace.spec.ts` |
 | Malformed Project creation response retains the dialog/draft and exposes the error; loading assistant choices are not labeled unavailable, while a missing loaded choice is | Creation-response and delayed-settings scenarios in `chat-workspace.spec.ts` |
 | Project-scoped session POST returns a created session, GET pagination remains distinct, and the saved session opens in Chat | Project-endpoint browser scenario in `chat-workspace.spec.ts`; synthetic fixture contract only |
 
-Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/active/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
+Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do not certify a live provider, source relevance or deployed IAM. [Editor verification](../increments/completed/mem-11-production-chat/editor-verification.md) records current checks and remaining deployment/acceptance boundaries.
 
 ## Model catalog persistence
 
@@ -113,7 +149,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 
 
-## Onyx Search parity and latency (Phase 3.3)
+## Grounded Search behavior and latency (Phase 3.3)
 
 | Contract | Verification |
 | --- | --- |
@@ -131,7 +167,7 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | Query/filter and reading-document progress precede evidence; duplicate replay retains state; Stop clears progress | `chat-transport.test.ts`; 23 Chromium Chat scenarios including the new progress case |
 | Actual worker starts and processes files with retrieval observations wired | `WorkerFileProcessingIntegrationTest` |
 
-The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/active/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
+The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse` uses an authorized local snapshot, real OpenSearch, live embeddings/provider, PostgreSQL transcript and HTTP SSE. It records each Search cycle, first text, total duration and nullable native usage, and checks revenue/travel facts plus the long Word document's cited role coverage. Model-selected tool counts are observations, not fixed assertions. The snapshot is the authority fixture; real SQL permissions and multi-source/date behavior are covered separately above. See [measured results and limits](../increments/completed/mem-11-production-chat/latency-verification.md). No corpus or answer receipts are checked in.
 
 ## Grounded backend (Phase 3.1)
 

@@ -1,3 +1,5 @@
+import { uiLocale } from "@/i18n/format";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, type Ref } from "react";
 import { inputVariants } from "@/components/ui/input";
 import { HelpPopover } from "@/components/ui/help-popover";
@@ -95,11 +97,12 @@ function RootTypeIcon({ color, mark }: { color: string; mark: string }) {
 }
 
 export function GoogleDriveMimeIcon({ mimeType }: { mimeType: string }) {
+  const ui = useAppTranslation();
   const type = rootTypes.get(mimeType) ?? defaultRootType;
   return (
-    <span title={type.label} className="mt-0.5 shrink-0">
+    <span title={ui(type.label)} className="mt-0.5 shrink-0">
       <RootTypeIcon color={type.color} mark={type.mark} />
-      <span className="sr-only">{type.label}: </span>
+      <span className="sr-only">{ui(type.label)}: </span>
     </span>
   );
 }
@@ -125,12 +128,16 @@ export function GoogleDriveLinks({
   onChange: (value: string) => void;
   onScopeModeChange?: (mode: GetGoogleDriveConfigurationResponse["scopeMode"]) => void;
 }) {
+  const ui = useAppTranslation();
+
   const id = useId();
   const links = parseGoogleDriveLinks(value);
   const error =
     errorMessage ??
     (policy && links.length > policy.maxExplicitRootsPerSource
-      ? `Use at most ${policy.maxExplicitRootsPerSource.toLocaleString()} file or folder links.`
+      ? ui("Use at most {{count}} file or folder links.", {
+          count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+        })
       : null);
 
   return (
@@ -138,25 +145,27 @@ export function GoogleDriveLinks({
       {onScopeModeChange ? (
         <>
           <div className="flex items-center gap-2">
-            <h3 className="font-heading-h3 text-content-primary">Selected content</h3>
-            <HelpPopover label="Selected content">
+            <h3 className="font-heading-h3 text-content-primary">{ui("Selected content")}</h3>
+            <HelpPopover label={ui("Selected content")}>
               <p>
-                For Specific, paste file or folder links, one per line or separated by commas. Only
-                selected files and folder contents are synced. Choose a folder or its descendants,
-                not both. Links and Google access are checked when you save.
+                {ui(
+                  "For Specific, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
+                )}
               </p>
               <p>
-                OAuth permissions are broader than a Specific selection. General synchronizes the
-                connected account&apos;s My Drive tree, not all content accessible to the account.
+                {ui(
+                  "OAuth permissions are broader than a Specific selection. General synchronizes the connected account's My Drive tree, not all content accessible to the account.",
+                )}
               </p>
               <p>
-                Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and
-                Markdown. Existing file-size and processing limits still apply.
+                {ui(
+                  "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.",
+                )}
               </p>
             </HelpPopover>
           </div>
           <fieldset disabled={disabled} className="space-y-2">
-            <legend className="font-secondary-action text-content-primary">Scope</legend>
+            <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
             <div className="flex flex-wrap gap-3">
               {(["SPECIFIC", "GENERAL"] as const).map((mode) => (
                 <label
@@ -171,14 +180,25 @@ export function GoogleDriveLinks({
                     aria-describedby={`${id}-scope-description`}
                     className="size-4 shrink-0 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
                   />
-                  {mode === "GENERAL" ? "General" : "Specific"}
+                  {mode === "GENERAL" ? ui("General") : ui("Specific")}
                 </label>
               ))}
             </div>
             <p id={`${id}-scope-description`} className="text-sm text-content-secondary">
               {scopeMode === "GENERAL"
-                ? "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives."
-                : `Choose explicit file or folder links${policy ? ` (up to ${policy.maxExplicitRootsPerSource.toLocaleString()})` : ""}. Only those files and folder contents are synchronized.`}
+                ? ui(
+                    "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.",
+                  )
+                : ui(
+                    "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.",
+                    {
+                      v1: policy
+                        ? ui(" (up to {{count}})", {
+                            count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                          })
+                        : "",
+                    },
+                  )}
             </p>
           </fieldset>
         </>
@@ -186,7 +206,7 @@ export function GoogleDriveLinks({
       {scopeMode === "SPECIFIC" ? (
         <div>
           <label htmlFor={id} className="font-secondary-action text-content-primary">
-            File or folder links
+            {ui("File or folder links")}
           </label>
           <textarea
             id={id}
@@ -210,10 +230,19 @@ export function GoogleDriveLinks({
             onChange={(event) => onChange(event.target.value)}
           />
           <p id={`${id}-count`} className="mt-1 text-xs text-content-muted" aria-live="polite">
-            {links.length.toLocaleString()}
-            {readOnly
-              ? " links · Read only"
-              : `${policy ? ` of ${policy.maxExplicitRootsPerSource.toLocaleString()}` : ""} explicit roots`}
+            {readOnly ? (
+              <>
+                {links.length.toLocaleString(uiLocale())}
+                {ui(" links · Read only")}
+              </>
+            ) : policy ? (
+              ui("{{count}} of {{max}} explicit roots", {
+                count: links.length.toLocaleString(uiLocale()),
+                max: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+              })
+            ) : (
+              ui("{{count}} explicit roots", { count: links.length.toLocaleString(uiLocale()) })
+            )}
           </p>
           {error ? (
             <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-status-danger-content">

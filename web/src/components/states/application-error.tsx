@@ -1,3 +1,4 @@
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { TriangleAlert } from "lucide-react";
 import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,14 @@ type ApplicationErrorProps = ComponentProps<"main"> & {
 
 export function ApplicationError({
   className,
-  title = "Something went wrong",
-  description = "MemoryOS could not complete this request. Your data was not changed.",
+  title,
+  description,
   error,
   onRetry,
   ...props
 }: ApplicationErrorProps) {
+  const ui = useAppTranslation();
+
   const details = import.meta.env.DEV && error instanceof Error ? error.message : null;
 
   return (
@@ -42,9 +45,12 @@ export function ApplicationError({
             <TriangleAlert />
           </EmptyMedia>
           <EmptyTitle role="heading" aria-level={1} className="font-heading-h2">
-            {title}
+            {title ?? ui("Something went wrong")}
           </EmptyTitle>
-          <EmptyDescription>{description}</EmptyDescription>
+          <EmptyDescription>
+            {description ??
+              ui("MemoryOS could not complete this request. Your data was not changed.")}
+          </EmptyDescription>
           {details && (
             <p className="max-w-md break-words font-mono text-xs text-content-muted">{details}</p>
           )}
@@ -52,7 +58,7 @@ export function ApplicationError({
         {onRetry && (
           <EmptyContent>
             <Button prominence="secondary" onClick={onRetry}>
-              Try again
+              {ui("Try again")}
             </Button>
           </EmptyContent>
         )}

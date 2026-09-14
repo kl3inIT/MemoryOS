@@ -8,11 +8,11 @@ import io.memoryos.api.groups.contract.GroupSummaryPageResponse;
 import io.memoryos.api.groups.contract.GroupSummaryResponse;
 import io.memoryos.api.groups.contract.RenameGroupRequest;
 import io.memoryos.api.groups.contract.ReplaceGroupCapabilitiesRequest;
-import io.memoryos.iam.ActorId;
-import io.memoryos.iam.GroupId;
-import io.memoryos.iam.GroupQuery;
-import io.memoryos.iam.GroupService;
-import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.group.GroupQuery;
+import io.memoryos.iam.group.GroupService;
+import io.memoryos.iam.identity.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -162,6 +162,14 @@ final class GroupsController {
 
     @Operation(operationId = "deleteGroup", summary = "Delete an ordinary Group")
     @ApiResponse(responseCode = "204", description = "Group links and grants deleted", content = @Content)
+    @ApiResponse(
+            responseCode = "409",
+            description = "IAM_LAST_GROUP_PROTECTED: a standard member would lose their last Group",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/delete")
     void deleteGroup(
@@ -235,6 +243,14 @@ final class GroupsController {
 
     @Operation(operationId = "removeGroupMember", summary = "Remove one member from a Group")
     @ApiResponse(responseCode = "204", description = "Member removed", content = @Content)
+    @ApiResponse(
+            responseCode = "409",
+            description = "The final active administrator or a standard member's last Group is protected",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
+            )
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{groupId}/members/{actorId}/remove")
     void removeGroupMember(
