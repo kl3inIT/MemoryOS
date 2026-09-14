@@ -161,6 +161,9 @@ test("opens sessions created through the project endpoint and preserves list pag
 test("edits, regenerates, selects saved branches, rates, shares, revokes and deletes", async ({
   page,
 }) => {
+  // Edit, regenerate, branch, rate, share and delete in one session run close to the
+  // default budget; the scenario is intentionally long rather than slow to react.
+  test.slow();
   const session = await (
     await page.request.post("/api/chat/test-fixture", { data: { title: "Workspace versions" } })
   ).json();
