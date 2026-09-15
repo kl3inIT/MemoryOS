@@ -239,3 +239,20 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
 | `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
+
+## Deep research (MEM-101)
+
+| Contract | Test and boundary |
+| --- | --- |
+| Clarification ends the turn and the next research turn skips it; two parallel agents run through the product tool factory (`searchKnowledge` and an unknown tool); merged citations, known usage across all guards, plan/branching/tab/nested SSE placement and history `research` | `ChatSessionApiIntegrationTest.deepResearchClarifiesThenRunsParallelAgentsThroughProductToolsAndPersistsMergedCitations`: Spring API, real PostgreSQL, synthetic provider and search index |
+| Stop during an agent's retrieval interrupts it, runs no report and persists the plan and the agent as failed | `ChatSessionApiIntegrationTest.stopDuringResearchAgentSearchInterruptsItSkipsTheReportAndPersistsThePlanAndFailedAgent` |
+| Setting readable by members, changed with `MODELS_MANAGE` and revision, research commands rejected while off | `ChatSessionApiIntegrationTest.deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff` |
+| Clarification flag, plan and agent tree stored with the terminal outcome, bounded, assistant rows only | `ChatPersistenceIntegrationTest.researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded` (real PostgreSQL); `ChatResearchRecorderTest` |
+| Research guard prompts unchanged, shared admission ledger, required tool choice only with tools | `ChatModelGuardTest`, `OpenAiChatRequestPolicyTest.requiredToolChoiceAppliesOnlyToRequestsWithTools` |
+| Citation marker parsing and renumbering, language section, prompt helpers | `ResearchExecutorTest` |
+| Research events chunk per agent and keep wire placement; nested events stay out of the top-level activity | `StreamBufferWriterTest.researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder`, `ChatEventStreamTest.researchEventsAndNestedStepsKeepTheirPlacementOnTheWire`, `ChatActivityRecorderTest` |
+| Phase spans and timers with bounded outcomes, agent spans parented across threads, counters | `ResearchTelemetryTest` |
+| Live data part routing and history restore in the browser transport | `chat-transport.test.ts` |
+| Real provider run (opt-in `MEMORYOS_DR_LIVE=true` with `SPRING_AI_OPENAI_API_KEY`) | `ResearchExecutorLiveTest`: gpt-5-mini, plan, agent cycles, merged citations, usage from every guard |
+
+Open: replay conflict for a changed `deepResearch`, visual review of the research timeline, staging acceptance with the real corpus.
