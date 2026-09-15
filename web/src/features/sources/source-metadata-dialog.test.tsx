@@ -79,18 +79,27 @@ describe("SourceMetadataDialog", () => {
     expect(onSaved).toHaveBeenCalledOnce();
   });
 
-  it("offers only Public and Private for File Sources", () => {
+  it("offers only Public and Private for File Sources", async () => {
+    const user = userEvent.setup();
     renderDialog("access");
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
-    expect(within(dialog).getAllByRole("radio")).toHaveLength(2);
-    expect(within(dialog).queryByRole("radio", { name: /auto sync/i })).toBeNull();
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(screen.queryByRole("option", { name: /auto sync/i })).toBeNull();
   });
 
-  it("offers Auto Sync for Google Drive Sources", () => {
+  it("offers Auto Sync for Google Drive Sources", async () => {
+    const user = userEvent.setup();
     renderDialog("access", { type: "GOOGLE_DRIVE", access: "SYNC" });
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
-    expect(within(dialog).getAllByRole("radio")).toHaveLength(3);
-    expect(within(dialog).getByRole("radio", { name: /auto sync/i })).toBeChecked();
+    const visibility = within(dialog).getByRole("combobox", { name: "Visibility" });
+    expect(visibility).toHaveTextContent("Auto Sync");
+    await user.click(visibility);
+    expect(await screen.findAllByRole("option")).toHaveLength(3);
+    expect(screen.getByRole("option", { name: /auto sync/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("saves the chosen access and keeps the dialog open with the error when saving fails", async () => {
@@ -102,7 +111,8 @@ describe("SourceMetadataDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
     const save = within(dialog).getByRole("button", { name: "Save visibility" });
     expect(save).toBeDisabled();
-    await user.click(within(dialog).getByRole("radio", { name: /private/i }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    await user.click(await screen.findByRole("option", { name: /private/i }));
     await user.click(save);
 
     expect(await within(dialog).findByRole("alert")).toBeVisible();
