@@ -11,7 +11,7 @@ External providers: Brave, Tavily, Exa, Serper, Google PSE and SearXNG. Content 
 Administrators configure tenant-owned connections and defaults using existing model-management authority. Members see availability, not secrets. Search connections are admin-controlled endpoints; arbitrary pages from a user/model use a separate SSRF-safe public reader. Provider credentials never accompany page requests. Limits remain server defaults, not a new UI settings matrix.
 Every provider connection accepts an optional custom endpoint that replaces the provider's default base URL (SearXNG requires one); the same HTTP(S)/no-credentials/no-query validation applies. This supports routing a provider's protocol through an internal gateway.
 
-Send/Edit/Regenerate carry webSearch off/auto/required. Missing means off. The choice is persisted in command identity so retries with changed intent conflict. Internal searchEnabled remains unchanged. Resolve configuration once per turn and never mutate pooled model clients. Required needs real enforcement, not a prompt-only promise. Unsupported modes fail before execution.
+Send/Edit/Regenerate carry webSearch off/auto. Missing means off. The choice is persisted in command identity so retries with changed intent conflict. Internal searchEnabled remains unchanged. Resolve configuration once per turn and never mutate pooled model clients. Enabling Web offers the tools and the model decides; V61 narrowed the persisted values after the forced mode was removed.
 
 ## Runtime and reuse
 
@@ -60,14 +60,13 @@ Requests use `store=false` and send the full history each cycle, matching Memory
 
 The Responses model receives the turn's `ChatEvidence` and `Consumer<ChatSearchEvent>` through a per-turn binding hook. Each `web_search_call` emits STARTED/SEARCHING (with `action.query` when present)/COMPLETED. Each distinct `url_citation` registers a `web:<url>` source with title and a bounded excerpt of the cited span, reusing `ChatSource.WebLocation` and `evidence.register`, so the Sources panel and history behave as for external search. v1 does not splice inline `[n]` markers at annotation offsets into an already-streamed answer; hosted-search citations appear in Sources only. External `web_search`/`open_url` tools are not registered for a native turn: one Web path per turn, no second paid search.
 
-### Selection, required mode and cost
+### Selection and cost
 
 - `options.webSearch` accepts only `"native"` for the OpenAI adapter and requires tool calling. It is an explicit per-model administrator declaration, never inferred from the model name. Web availability exposes native-capable model IDs; the composer Web action works without an external connection when the selected model is native-capable.
-- Command identity stays `off|auto|required` plus `modelConfigurationId`; no new enum value or column. A later administrator edit of the model option does not make replay conflict. This is accepted.
-- `required` uses `tool_choice: {type: "web_search"}` on the first cycle. The guard's required-seen signal accepts a native `web_search_call`. `ChatTurnService` checks the adapter's declared support instead of `instanceof OpenAiChatModel`.
+- Command identity stays `off|auto` plus `modelConfigurationId`; no new enum value or column. A later administrator edit of the model option does not make replay conflict. This is accepted.
 - Native search calls are counted in bounded metrics and events. Cost remains unknown unless configured; missing values are not recorded as zero.
 - The Web settings page exposes native search as a per-model switch on providers whose adapter descriptor declares `nativeWebSearch`; the toggle writes `options.webSearch` through the existing model update API. Connection save/test failures render typed danger messages via the shared problem presentation.
 
 ### Verification
 
-A local SSE fixture replaces OpenAI via the adapter base URL. Scenario 1: hosted search → text deltas → annotation → completed usage. Scenario 2: `function_call` → internal tool → second cycle echoes reasoning/search items. Also required mode, failed/incomplete responses, Stop and no external provider request. Real-key acceptance is an owner-run, paid gate.
+A local SSE fixture replaces OpenAI via the adapter base URL. Scenario 1: hosted search → text deltas → annotation → completed usage. Scenario 2: `function_call` → internal tool → second cycle echoes reasoning/search items. Also failed/incomplete responses, Stop and no external provider request. Real-key acceptance is an owner-run, paid gate.

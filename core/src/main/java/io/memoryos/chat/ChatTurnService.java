@@ -35,7 +35,7 @@ public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
     private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
             "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS", "CHAT_DEADLINE",
-            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT", "CHAT_WEB_SEARCH_SKIPPED");
+            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
@@ -132,9 +132,6 @@ public final class ChatTurnService implements AutoCloseable {
                                 resolved.modelConfigurationId());
                         throw ChatException.webUnavailable();
                     }
-                    // Required mode forces an OpenAI function tool choice; provider models may be decorated or Responses-backed.
-                    if (command.webSearch() == WebSearchMode.required && !"OpenAI".equals(binding.service().getProvider()))
-                        throw ChatException.invalid("This model adapter does not support required Web search.");
                 }
             }
             var imageAccess = new io.memoryos.chat.image.ImageConnectionService.Access(null);

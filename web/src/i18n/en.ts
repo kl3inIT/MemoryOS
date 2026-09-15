@@ -173,8 +173,6 @@ export const en = {
     unavailable: "The service is temporarily unavailable. Try again later.",
     chatProviderUnavailable:
       "The model provider rejected the request or could not be reached. Check the provider and model, then retry.",
-    chatWebSearchSkipped:
-      "Web search was required but the model answered without searching. Send again or switch Web search to automatic.",
     chatWebUnavailable:
       "Web search is not available: no enabled Web provider, or this model has no tool calling.",
     chatBusy: "Chat is at capacity. Wait a moment and send again.",

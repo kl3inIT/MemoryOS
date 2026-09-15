@@ -17,9 +17,6 @@ public interface ChatProviderAdapter {
      */
     default List<KnownModel> knownModels() { return List.of(); }
 
-    /** Protocol support for forcing a named tool on the first request, not native Web search. */
-    default boolean supportsRequiredToolChoice() { return false; }
-
     /** Whether this protocol can host provider-side Web search at all; per-model activation stays explicit. */
     default boolean nativeWebSearch() { return false; }
 

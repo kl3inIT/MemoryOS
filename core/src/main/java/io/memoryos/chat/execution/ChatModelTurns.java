@@ -10,7 +10,7 @@ import org.springframework.ai.chat.model.ChatModel;
  * Clients are shared across turns, so turn-owned evidence, events and Web intent attach to a per-turn view.
  */
 public interface ChatModelTurns {
-    record Turn(ChatEvidence evidence, Consumer<ChatActivityEvent> events, boolean webSearch, boolean webRequired, Runnable checkActive) {}
+    record Turn(ChatEvidence evidence, Consumer<ChatActivityEvent> events, boolean webSearch, Runnable checkActive) {}
 
     ChatModel forTurn(Turn turn);
 
