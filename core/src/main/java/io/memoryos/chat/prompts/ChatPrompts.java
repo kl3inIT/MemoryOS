@@ -41,15 +41,18 @@ public final class ChatPrompts {
             citations until the very end of the response. Use only numbers returned in this turn.
             """;
 
-    public static final String SEARCH_GUIDANCE = """
-            # Tools
+    private static final String TOOL_HEADING = "# Tools\n";
+
+    /** Applies to any search tool, so a Tenant with only Web search still receives it (Onyx tool_prompts.py). */
+    private static final String SEARCH_TOOL_GUIDANCE = """
             For questions that can be answered from existing knowledge, answer the user directly without
             using tools. For statements that may be describing or referring to a document, run a search
             for the document. In ambiguous cases, favor searching to get more context.
             When using search, do not make assumptions and stay as faithful to the user's query as possible.
-            If the initial results cannot fully answer the query, try again with different arguments.
+            If the initial results cannot fully answer the query, try again with different tools or arguments.
             Do not repeat the same or very similar queries that already ran without providing new evidence.
-
+            """;
+    private static final String KNOWLEDGE_GUIDANCE = """
             ## searchKnowledge
             Use searchKnowledge to search the connected knowledge base for information:
             - Internal information: information stored internally that could help answer the query.
@@ -63,6 +66,8 @@ public final class ChatPrompts {
             retrieved evidence. Explain missing or conflicting evidence; do not invent a documented fact.
             A failed search means retrieval was unavailable, not that no relevant documents exist.
             """;
+    /** The knowledge-base composition, used when Persona instructions are resolved with search enabled. */
+    public static final String SEARCH_GUIDANCE = TOOL_HEADING + SEARCH_TOOL_GUIDANCE + "\n" + KNOWLEDGE_GUIDANCE;
 
     private static final String WEB_GUIDANCE = """
             ## web_search
@@ -83,11 +88,12 @@ public final class ChatPrompts {
             """;
     private static final String IMAGE_GUIDANCE = """
             ## generate_image
-            Use generate_image when the user asks to create, draw, paint, render, or illustrate a new
-            picture from a description. Write a detailed prompt, in English, describing the subject,
-            style, composition and lighting. Do not use it to edit an existing image or to produce
-            charts or diagrams. The generated image is shown to the user automatically; after calling
-            the tool, reply with a short confirmation and never output image data, base64, or a URL yourself.
+            NEVER use generate_image unless the user asks for a picture: to create, draw, paint, render
+            or illustrate one. Never illustrate an answer on your own initiative. Write a detailed prompt,
+            in English, describing the subject, style, composition and lighting. Do not use it to edit an
+            existing image or to produce charts or diagrams. The generated image is shown to the user
+            automatically; after calling the tool, reply with a short confirmation and never output image
+            data, base64, or a URL yourself.
             """;
     private static final String FILES_GUIDANCE = """
             ## search_files and read_file

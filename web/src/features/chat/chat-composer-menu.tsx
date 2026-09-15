@@ -128,7 +128,7 @@ export function ChatComposerMenu({
       {web.value !== "off" && (
         <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
           <Globe className="size-3.5" aria-hidden="true" />
-          {ui("Web")}
+          {web.value === "required" ? ui("Web bắt buộc") : ui("Web")}
           <IconButton
             size="sm"
             prominence="internal"

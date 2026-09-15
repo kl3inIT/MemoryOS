@@ -11,6 +11,35 @@
     @apply min-w-80 bg-background font-main-ui-body text-foreground antialiased;
   }
 
+  /* The platform scrollbar is wide and carries stepper arrows; keep a thin themed track instead. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: var(--border-default);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-strong);
+  }
+
+  ::-webkit-scrollbar-button,
+  ::-webkit-scrollbar-corner {
+    display: none;
+  }
+
   :where(button, input, select, textarea, a) {
     -webkit-tap-highlight-color: transparent;
   }

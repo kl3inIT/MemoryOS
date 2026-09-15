@@ -85,17 +85,21 @@ export function ChatWebToggle({
         <button
           type="button"
           aria-pressed={value !== "off"}
+          aria-label={value === "required" ? ui("Tìm kiếm Web (bắt buộc)") : ui("Tìm kiếm Web")}
           disabled={value === "off" && !support.supported("auto") && !support.supported("required")}
           className={cn(composerMenuRow, "flex-1")}
           onClick={() => {
-            onChange(
-              value === "off" ? (support.supported("required") ? "required" : "auto") : "off",
-            );
+            onChange(value === "off" ? (support.supported("auto") ? "auto" : "required") : "off");
             onDone();
           }}
         >
           <Globe aria-hidden="true" />
           <span className="flex-1">{ui("Tìm kiếm Web")}</span>
+          {value === "required" && (
+            <span aria-hidden="true" className="text-xs text-content-muted">
+              {ui("Bắt buộc")}
+            </span>
+          )}
           {value !== "off" && <Check aria-hidden="true" />}
         </button>
         <IconButton

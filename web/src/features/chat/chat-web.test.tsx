@@ -133,7 +133,7 @@ it("restores URL evidence without inventing a document identity and rejects unsa
   );
 });
 
-it("toggles Web for this turn from the menu row and keeps its options reachable", async () => {
+it("enabling Web from the menu row allows a search without forcing one, and keeps its options reachable", async () => {
   const change = vi.fn();
   const configure = vi.fn();
   const done = vi.fn();
@@ -143,7 +143,7 @@ it("toggles Web for this turn from the menu row and keeps its options reachable"
   const toggle = screen.getByRole("button", { name: "Web search" });
   expect(toggle).toHaveAttribute("aria-pressed", "false");
   await userEvent.click(toggle);
-  expect(change).toHaveBeenCalledExactlyOnceWith("required");
+  expect(change).toHaveBeenCalledExactlyOnceWith("auto");
   expect(done).toHaveBeenCalledOnce();
   await userEvent.click(screen.getByRole("button", { name: "Web options" }));
   expect(configure).toHaveBeenCalledOnce();
@@ -152,6 +152,12 @@ it("toggles Web for this turn from the menu row and keeps its options reachable"
     "aria-pressed",
     "true",
   );
+  expect(screen.queryByText("Required")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Web search" }));
   expect(change).toHaveBeenLastCalledWith("off");
+  rerender(
+    <ChatWebToggle value="required" onChange={change} onDone={done} onConfigure={configure} />,
+  );
+  expect(screen.getByRole("button", { name: "Web search (required)" })).toBeInTheDocument();
+  expect(screen.getByText("Required")).toBeInTheDocument();
 });
