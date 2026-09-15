@@ -27,6 +27,7 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
   const boxes: ProvenanceBox[] = [];
   let sheet: string | undefined;
   let table = false;
+  let pagesFound = 0;
   for (const json of provenanceJson) {
     let value: unknown;
     try {
@@ -47,14 +48,19 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
     const record = value as Record<string, unknown>;
     const page = record.page_no;
     if (Number.isInteger(page) && (page as number) > 0 && (page as number) <= 10000) {
+      pagesFound++;
       pages.add(page as number);
       const box = readBox(page as number, record.bbox);
       if (box && boxes.length < MAX_BOXES) boxes.push(box);
     }
     if (!sheet && typeof record.sheetName === "string" && record.sheetName.trim())
       sheet = record.sheetName.trim().slice(0, 120);
-    if (Number.isInteger(record.tableRow)) table = true;
-    if ("source" in record) visit(record.source, depth + 1);
+    if ("source" in record) {
+      const before = pagesFound;
+      visit(record.source, depth + 1);
+      // A table row counts only when its wrapped block provenance records a page.
+      if (Number.isInteger(record.tableRow) && pagesFound > before) table = true;
+    }
   }
 }
 

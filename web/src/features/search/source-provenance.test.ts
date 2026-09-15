@@ -17,6 +17,16 @@ describe("readSourceLocation", () => {
     expect(readSourceLocation(['[{"page_no":4}]']).table).toBe(false);
   });
 
+  it("marks a table row only when its source records a page", () => {
+    const empty = { pages: [], boxes: [], table: false };
+    expect(readSourceLocation(['{"tableRow":2}'])).toEqual(empty);
+    expect(readSourceLocation(['{"source":[{"page_no":"5"}],"tableRow":2}'])).toEqual(empty);
+    expect(readSourceLocation(['{"source":[{"page_no":5}],"tableRow":"2"}'])).toEqual({
+      ...empty,
+      pages: [5],
+    });
+  });
+
   it("reads spreadsheet sheet names and ignores malformed or unrelated provenance", () => {
     const location = readSourceLocation([
       "not json",
