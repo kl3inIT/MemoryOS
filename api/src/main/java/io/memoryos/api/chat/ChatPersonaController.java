@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.chat.ChatPersonaService.PersonaInput;
 import io.memoryos.chat.ChatPersonaService.PersonaView;
@@ -77,8 +78,10 @@ class ChatPersonaController {
     @GetMapping("/{personaId}/models")
     @Operation(operationId = "listChatPersonaModels", summary = "List models available to this actor and assistant")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<ModelCatalogService.AvailableModel> models(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID personaId) { return models.availableModelsForPersona(identity.actorId(), personaId); }
+    List<AvailableChatModelResponse> models(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID personaId) {
+        return models.availableModelsForPersona(identity.actorId(), personaId).stream().map(AvailableChatModelResponse::from).toList();
+    }
     @GetMapping("/sources")
     @Operation(operationId = "listChatPersonaSources", summary = "List sources eligible for assistant search")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)

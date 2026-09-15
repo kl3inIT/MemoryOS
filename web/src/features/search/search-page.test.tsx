@@ -274,6 +274,90 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Updated: All time" })).toBeInTheDocument();
   });
 
+  it("narrows results to one connector from the Source rail and clears it with the filters", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        page: 0,
+        hasMore: false,
+        totalResults: 3,
+        candidateLimit: 500,
+        sourceFacets: {
+          total: 3,
+          types: [
+            { type: "FILE", count: 2 },
+            { type: "GOOGLE_DRIVE", count: 2 },
+          ],
+        },
+        results: [
+          {
+            documentId: "73835d74-d386-4b4e-b392-ad7f81e3b55a",
+            generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
+            title: "Báo cáo tài chính bán niên",
+            mediaType: "application/pdf",
+            sourceTypes: ["FILE", "GOOGLE_DRIVE"],
+            authors: [],
+            providerUrl: null,
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [],
+          },
+        ],
+      },
+    });
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "báo cáo");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    const rail = await screen.findByRole("complementary", { name: "Source" });
+    expect(within(rail).getByRole("button", { name: "All sources: 3 results" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(rail).getByRole("button", { name: "Uploaded files: 2 results" })).toBeVisible();
+    await user.click(within(rail).getByRole("button", { name: "Google Drive: 2 results" }));
+
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(2));
+    expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      body: { query: "báo cáo", sourceTypes: ["GOOGLE_DRIVE"], page: 0 },
+    });
+    expect(
+      await within(rail).findByRole("button", { name: "Google Drive: 2 results" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Source: Google Drive" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    const clearedRail = await screen.findByRole("complementary", { name: "Source" });
+    expect(
+      within(clearedRail).getByRole("button", { name: "All sources: 3 results" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    // The unfiltered request is still cached, so clearing the connector reuses it.
+    expect(searchDocumentsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the Source rail and lists connectors without results when a filter leaves one", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        sourceFacets: { total: 1, types: [{ type: "FILE", count: 1 }] },
+        results: [],
+      },
+    });
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "sổ tay");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    const rail = await screen.findByRole("complementary", { name: "Source" });
+    expect(within(rail).getByRole("button", { name: "Uploaded files: 1 results" })).toBeEnabled();
+    expect(within(rail).getByRole("button", { name: "Google Drive: 0 results" })).toBeDisabled();
+  });
+
   it("uses the loading screen for a repeated search immediately", async () => {
     const user = userEvent.setup();
     searchDocumentsMock.mockResolvedValueOnce({

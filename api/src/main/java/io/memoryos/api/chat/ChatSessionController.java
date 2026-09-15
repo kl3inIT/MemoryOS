@@ -3,8 +3,10 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
+import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatWorkspaceService;
+import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -46,8 +48,11 @@ import org.springframework.web.bind.annotation.RestController;
 class ChatSessionController {
     private final ChatSessionService sessions;
     private final ChatWorkspaceService workspace;
+    private final ImageArtifactService images;
 
-    ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace) { this.sessions = sessions; this.workspace = workspace; }
+    ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images) {
+        this.sessions = sessions; this.workspace = workspace; this.images = images;
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -90,7 +95,12 @@ class ChatSessionController {
     List<ChatMessageResponse> history(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId, @RequestParam(required = false) @Nullable UUID after,
             @RequestParam(defaultValue = "50") int limit) {
-        return sessions.history(identity.actorId(), sessionId, after, limit).stream().map(ChatMessageResponse::from).toList();
+        var messages = sessions.history(identity.actorId(), sessionId, after, limit);
+        var byMessage = images.forMessages(identity.actorId(), messages.stream()
+                .filter(message -> message.role() == ChatMessage.Role.ASSISTANT).map(ChatMessage::id).toList());
+        return messages.stream().map(message -> ChatMessageResponse.from(message,
+                byMessage.getOrDefault(message.id(), List.of()).stream()
+                        .map(artifact -> new ChatMessageResponse.ImageRef(artifact.id(), artifact.mediaType(), artifact.revisedPrompt())).toList())).toList();
     }
 
     record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}

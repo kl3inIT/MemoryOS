@@ -4,16 +4,19 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Clock3,
   FileStack,
+  Files,
   History,
   LoaderCircle,
   Mic,
   Search,
   SearchX,
   SlidersHorizontal,
+  TextSearch,
   X,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -28,7 +31,10 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
+import { SearchSourceRail, type SearchSourceOption } from "./search-source-rail";
 import { DocumentSourceIcon } from "./document-source-icon";
+import type { DocumentSourceType } from "./document-source-presentation";
+import { sourceProviders } from "@/features/sources/source-provider-catalog";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
 import {
@@ -39,7 +45,12 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
-import type { Result as SearchResult, SearchRequest, Section } from "@/lib/hey-api/types.gen";
+import type {
+  Result as SearchResult,
+  SearchRequest,
+  Section,
+  SourceFacets,
+} from "@/lib/hey-api/types.gen";
 
 const FILE_TYPE_OPTIONS: readonly SearchFilterOption[] = [
   { value: "all", label: "All file types" },
@@ -131,6 +142,7 @@ function AuthorizedSearchPage() {
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState<DocumentSourceType | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
   const [request, setRequest] = useState<SearchRequest | null>(null);
   const [submitFeedback, setSubmitFeedback] = useState(false);
@@ -265,6 +277,7 @@ function AuthorizedSearchPage() {
     const nextRequest: SearchRequest = {
       query: text.trim(),
       mediaTypes: mediaType ? [mediaType] : [],
+      sourceTypes: sourceType ? [sourceType] : [],
       updatedSince: updatedSinceForTimeRange(timeRange),
       page: 0,
       pageSize: PAGE_SIZE,
@@ -275,10 +288,20 @@ function AuthorizedSearchPage() {
 
   function clearFilters() {
     setMediaType(null);
+    setSourceType(null);
     setTimeRange("all");
     setSelected(null);
     if (request) {
-      setRequest({ ...request, mediaTypes: [], updatedSince: undefined, page: 0 });
+      setRequest({ ...request, mediaTypes: [], sourceTypes: [], updatedSince: undefined, page: 0 });
+    }
+  }
+
+  function selectSourceType(value: string) {
+    const nextSourceType = value === "all" ? null : (value as DocumentSourceType);
+    setSourceType(nextSourceType);
+    setSelected(null);
+    if (request) {
+      setRequest({ ...request, sourceTypes: nextSourceType ? [nextSourceType] : [], page: 0 });
     }
   }
 
@@ -334,7 +357,10 @@ function AuthorizedSearchPage() {
 
   const isSearchUpdating = result.isFetching || submitFeedback;
   const statusMessage = searchStatus(request, result, isSearchUpdating);
-  const hasFilters = Boolean(mediaType || timeRange !== "all");
+  const hasFilters = Boolean(mediaType || sourceType || timeRange !== "all");
+  const sourceOptions = searchSourceOptions(result.data?.sourceFacets, sourceType);
+  // Shown for every search so filters never move the search box or the results column.
+  const showSourceFilter = request !== null;
   const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
   const showLoadingScreen = isSearchUpdating;
   const currentPage = request?.page ?? 0;
@@ -352,6 +378,8 @@ function AuthorizedSearchPage() {
         className={cn(
           "mx-auto w-full max-w-4xl px-5 py-5 sm:px-8 sm:py-7",
           !request && "flex min-h-full flex-col",
+          // The rail adds its own width; the results column keeps the readable measure.
+          request && showSourceFilter && "lg:max-w-[71rem]",
         )}
       >
         <h1 className="sr-only">{ui("Search documents")}</h1>
@@ -466,6 +494,17 @@ function AuthorizedSearchPage() {
                   icon={<FileStack className="size-3.5" />}
                   onChange={selectMediaType}
                 />
+                {showSourceFilter ? (
+                  // Large screens use the rail beside the results instead.
+                  <SearchFilterMenu
+                    label={ui("Source")}
+                    value={sourceType ?? "all"}
+                    options={sourceOptions}
+                    icon={<Files className="size-3.5" />}
+                    className="lg:hidden"
+                    onChange={selectSourceType}
+                  />
+                ) : null}
                 {hasFilters ? (
                   <Button
                     type="button"
@@ -562,113 +601,127 @@ function AuthorizedSearchPage() {
           {ui(statusMessage)}
         </p>
 
-        <div className="mt-6" aria-busy={isSearchUpdating}>
-          {!request ? null : showLoadingScreen ? (
-            <div className="flex animate-in items-center justify-center gap-2 py-12 text-content-secondary duration-200 fade-in motion-reduce:animate-none">
-              <LoaderCircle
-                className="size-5 animate-spin motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-              {ui("Searching documents…")}
-            </div>
-          ) : result.isError ? (
-            <Empty
-              role="alert"
-              className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
-            >
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <SearchX aria-hidden="true" />
-                </EmptyMedia>
-                <EmptyTitle role="heading" aria-level={2}>
-                  {ui("Search is temporarily unavailable")}
-                </EmptyTitle>
-                <EmptyDescription>{ui("Please try again in a moment.")}</EmptyDescription>
-              </EmptyHeader>
-              <Button onClick={() => void result.refetch()}>{ui("Try again")}</Button>
-            </Empty>
-          ) : !result.data?.results.length ? (
-            <Empty className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <SearchX aria-hidden="true" />
-                </EmptyMedia>
-                <EmptyTitle role="heading" aria-level={2}>
-                  {ui("No matching documents")}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {ui("Try a broader phrase, remove a filter, or check the document code.")}
-                </EmptyDescription>
-              </EmptyHeader>
-              {hasFilters ? (
-                <Button prominence="secondary" onClick={clearFilters}>
-                  {ui("Clear filters")}
-                </Button>
-              ) : null}
-            </Empty>
-          ) : (
-            <div className="min-w-0 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-              <section aria-labelledby="search-results-heading" className="min-w-0">
-                <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
-                  <h2
-                    id="search-results-heading"
-                    className="font-main-ui-action text-content-primary"
-                  >
-                    {totalLabel === "1"
-                      ? ui("{{count}} result for “{{query}}”", {
-                          count: totalLabel,
-                          query: request.query,
-                        })
-                      : ui("{{count}} results for “{{query}}”", {
-                          count: totalLabel,
-                          query: request.query,
-                        })}
-                  </h2>
-                  {isSearchUpdating ? (
-                    <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
-                      <LoaderCircle
-                        className="size-3.5 animate-spin motion-reduce:animate-none"
-                        aria-hidden="true"
-                      />
-                      {ui("Updating")}
-                    </span>
-                  ) : null}
-                </header>
-                <ol className="divide-y divide-border-subtle">
-                  {result.data.results.map((item) => (
-                    <li key={item.documentId}>
-                      <SearchResultCard
-                        item={item}
-                        query={request.query ?? ""}
-                        onOpen={openDocument}
-                      />
-                    </li>
-                  ))}
-                </ol>
-                <TablePagination
-                  label={ui("Search results pages")}
-                  className="px-0"
-                  page={currentPage}
-                  totalPages={totalPages}
-                  summary={ui("Showing {{first}}–{{last}} of {{total}}", {
-                    first: currentPage * PAGE_SIZE + 1,
-                    last: currentPage * PAGE_SIZE + result.data.results.length,
-                    total: totalLabel,
-                  })}
-                  previousDisabled={currentPage <= 0}
-                  nextDisabled={!result.data.hasMore || currentPage + 1 >= MAX_PAGES}
-                  onPrevious={() => {
-                    setSelected(null);
-                    setRequest({ ...request, page: currentPage - 1 });
-                  }}
-                  onNext={() => {
-                    setSelected(null);
-                    setRequest({ ...request, page: currentPage + 1 });
-                  }}
-                />
-              </section>
-            </div>
+        <div
+          className={cn(
+            "mt-6",
+            request &&
+              showSourceFilter &&
+              "lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8",
           )}
+        >
+          {request && showSourceFilter ? (
+            <SearchSourceRail
+              options={sourceOptions}
+              value={sourceType ?? "all"}
+              busy={isSearchUpdating}
+              onChange={selectSourceType}
+              className="hidden lg:sticky lg:top-4 lg:block"
+            />
+          ) : null}
+          <div className="min-w-0" aria-busy={isSearchUpdating}>
+            {!request ? null : showLoadingScreen ? (
+              <div className="flex animate-in justify-center py-12 duration-200 fade-in motion-reduce:animate-none">
+                <BrandLoader label={ui("Searching documents…")} />
+              </div>
+            ) : result.isError ? (
+              <Empty
+                role="alert"
+                className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
+              >
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <SearchX aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle role="heading" aria-level={2}>
+                    {ui("Search is temporarily unavailable")}
+                  </EmptyTitle>
+                  <EmptyDescription>{ui("Please try again in a moment.")}</EmptyDescription>
+                </EmptyHeader>
+                <Button onClick={() => void result.refetch()}>{ui("Try again")}</Button>
+              </Empty>
+            ) : !result.data?.results.length ? (
+              <Empty className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <SearchX aria-hidden="true" />
+                  </EmptyMedia>
+                  <EmptyTitle role="heading" aria-level={2}>
+                    {ui("No matching documents")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {ui("Try a broader phrase, remove a filter, or check the document code.")}
+                  </EmptyDescription>
+                </EmptyHeader>
+                {hasFilters ? (
+                  <Button prominence="secondary" onClick={clearFilters}>
+                    {ui("Clear filters")}
+                  </Button>
+                ) : null}
+              </Empty>
+            ) : (
+              <div className="min-w-0 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
+                <section aria-labelledby="search-results-heading" className="min-w-0">
+                  <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
+                    <h2
+                      id="search-results-heading"
+                      className="font-main-ui-action text-content-primary"
+                    >
+                      {totalLabel === "1"
+                        ? ui("{{count}} result for “{{query}}”", {
+                            count: totalLabel,
+                            query: request.query,
+                          })
+                        : ui("{{count}} results for “{{query}}”", {
+                            count: totalLabel,
+                            query: request.query,
+                          })}
+                    </h2>
+                    {isSearchUpdating ? (
+                      <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
+                        <LoaderCircle
+                          className="size-3.5 animate-spin motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
+                        {ui("Updating")}
+                      </span>
+                    ) : null}
+                  </header>
+                  <ol className="divide-y divide-border-subtle">
+                    {result.data.results.map((item) => (
+                      <li key={item.documentId}>
+                        <SearchResultCard
+                          item={item}
+                          query={request.query ?? ""}
+                          onOpen={openDocument}
+                        />
+                      </li>
+                    ))}
+                  </ol>
+                  <TablePagination
+                    label={ui("Search results pages")}
+                    className="px-0"
+                    page={currentPage}
+                    totalPages={totalPages}
+                    summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+                      first: currentPage * PAGE_SIZE + 1,
+                      last: currentPage * PAGE_SIZE + result.data.results.length,
+                      total: totalLabel,
+                    })}
+                    previousDisabled={currentPage <= 0}
+                    nextDisabled={!result.data.hasMore || currentPage + 1 >= MAX_PAGES}
+                    onPrevious={() => {
+                      setSelected(null);
+                      setRequest({ ...request, page: currentPage - 1 });
+                    }}
+                    onNext={() => {
+                      setSelected(null);
+                      setRequest({ ...request, page: currentPage + 1 });
+                    }}
+                  />
+                </section>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -723,6 +776,34 @@ function withResultFileTypes(
     .filter((value): value is string => !!value && !known.has(value))
     .map((value) => ({ value, label: friendlyMediaType(value) }));
   return [...FILE_TYPE_OPTIONS, ...extra];
+}
+
+/** "All sources" and every catalog connector in catalog order; a connector without results cannot be chosen. */
+function searchSourceOptions(
+  facets: SourceFacets | undefined,
+  selected: DocumentSourceType | null,
+): SearchSourceOption[] {
+  const counts = new Map(facets?.types.map((facet) => [facet.type, facet.count]));
+  return [
+    {
+      value: "all",
+      label: "All sources",
+      count: facets?.total ?? 0,
+      icon: <TextSearch className="size-4 text-content-muted" />,
+    },
+    ...sourceProviders.map((provider) => {
+      const Icon = provider.icon;
+      const count = counts.get(provider.type) ?? 0;
+      return {
+        value: provider.type,
+        // Result cards name uploads the same way.
+        label: provider.type === "FILE" ? "Tệp tải lên" : provider.name,
+        count,
+        icon: <Icon className="size-4 text-content-muted" />,
+        disabled: count === 0 && provider.type !== selected,
+      };
+    }),
+  ];
 }
 
 function searchStatus(

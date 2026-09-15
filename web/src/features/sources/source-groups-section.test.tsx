@@ -8,8 +8,9 @@ import {
   ApplicationSessionContext,
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
+import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary, SourceGroup, SourceSummary } from "@/lib/hey-api/types.gen";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import { SourceGroupsSection } from "./source-groups-section";
 
 const ordinary: SourceGroup = { id: "team", name: "Knowledge team", systemKey: null };
@@ -119,7 +120,13 @@ function PickerSelection() {
   const [selected, setSelected] = useState(() => new Set(["admin", "basic", "unloaded"]));
   return (
     <>
-      <SourceGroupPicker selected={selected} knownGroups={systemGroups} onChange={setSelected} />
+      <GroupAccessPicker
+        selected={selected}
+        knownGroups={systemGroups}
+        load={(query) => listSourceGroupOptionsOptions({ query })}
+        description="Group members can search and read imported documents."
+        onChange={setSelected}
+      />
       <output aria-label="Submitted group IDs">{[...selected].sort().join(",")}</output>
     </>
   );
@@ -136,7 +143,7 @@ describe("ordinary Source associations", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     await user.click(await screen.findByRole("checkbox", { name: other.name }));
     expect(screen.getByLabelText("Submitted group IDs")).toHaveTextContent("other,team,unloaded");
-    const chips = screen.getByLabelText("Selected Source groups");
+    const chips = screen.getByLabelText("Selected groups");
     expect(within(chips).getByText(ordinary.name)).toBeVisible();
     expect(within(chips).getByText(other.name)).toBeVisible();
     expect(within(chips).queryByText(/Admin|Basic/)).not.toBeInTheDocument();

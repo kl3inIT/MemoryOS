@@ -476,7 +476,10 @@ describe("Google Drive enterprise selection", () => {
     });
     await server.finish();
     expect(await screen.findByRole("button", { name: "Edit selection" })).toBeEnabled();
-    expect(screen.queryByRole("textbox", { name: "File or folder links" })).not.toBeInTheDocument();
+    // Activation closes the draft editor; the activated links stay visible read-only.
+    expect(await screen.findByRole("textbox", { name: "File or folder links" })).toHaveAttribute(
+      "readonly",
+    );
   });
 
   it("retains the idempotency key after a lost response and does not replace active roots before activation", async () => {

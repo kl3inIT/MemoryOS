@@ -7,6 +7,7 @@ import type { ErrorMessage } from "@/lib/problem-presentation";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listGroupsOptions,
@@ -253,12 +254,10 @@ export function UserGroupsDialog({
                         key={group.id}
                         className={`flex items-center gap-3 px-4 py-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30 ${limitReached ? "cursor-not-allowed text-content-disabled" : "cursor-pointer hover:bg-surface-subtle"}`}
                       >
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={checked}
                           disabled={limitReached}
-                          className="size-4 shrink-0 accent-content-primary outline-none"
-                          onChange={() => {
+                          onCheckedChange={() => {
                             setSelectedIds((current) => {
                               const next = new Set(current);
                               if (checked) next.delete(group.id);

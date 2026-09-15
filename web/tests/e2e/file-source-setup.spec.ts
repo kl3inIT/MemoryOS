@@ -206,14 +206,20 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
     await expect(submit).toBeEnabled();
     if (failure === "none") {
-      await page.locator("summary").filter({ hasText: "Access groups" }).click();
+      await page
+        .locator('[data-slot="collapsible-trigger"]')
+        .filter({ hasText: "Access groups" })
+        .click();
       const groupSearch = page.getByRole("search");
       await groupSearch.getByRole("searchbox").fill("Knowledge team");
       await groupSearch.getByRole("searchbox").press("Enter");
       await groupSearch.getByRole("button", { name: "Search", exact: true }).click();
       await expect(page.getByRole("checkbox", { name: "Knowledge team" })).toBeVisible();
       expect(creates).toBe(0);
-      await page.locator("summary").filter({ hasText: "Access groups" }).click();
+      await page
+        .locator('[data-slot="collapsible-trigger"]')
+        .filter({ hasText: "Access groups" })
+        .click();
       await page.screenshot({
         path: testInfo.outputPath("file-setup-desktop.png"),
         fullPage: true,

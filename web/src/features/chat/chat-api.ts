@@ -6,6 +6,7 @@ import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { fileReference } from "./chat-files";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
+import { parseGeneratedImages, type GeneratedImage } from "./chat-image";
 
 export type ChatUiMessage = UIMessage<{
   serverStatus?: ChatMessage["status"];
@@ -15,6 +16,8 @@ export type ChatUiMessage = UIMessage<{
   sources?: ChatSource[];
   searchProgress?: SearchProgress;
   artifacts?: ChatArtifact[];
+  images?: GeneratedImage[];
+  imageGenerating?: boolean;
 }>;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;
@@ -105,6 +108,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
+      images: parseGeneratedImages((message as { images?: unknown }).images),
     },
   }));
 }

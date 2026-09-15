@@ -30,6 +30,7 @@ import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-
 import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatImages } from "./chat-images";
 import { ChatMessageTiming } from "./chat-message-timing";
 import {
   ChatComposerQuote,
@@ -231,6 +232,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
         </div>
         <ChatArtifactCards />
+        <ChatImages />
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}

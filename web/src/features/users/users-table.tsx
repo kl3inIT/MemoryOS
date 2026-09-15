@@ -8,6 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
 import { GroupTags } from "./group-tags";
@@ -96,8 +105,8 @@ export function UsersTable({
         tabIndex={0}
         className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-focus-ring/40"
       >
-        <table className="w-full min-w-[56rem] table-fixed border-collapse">
-          <caption className="sr-only">{ui("Tenant users")}</caption>
+        <Table className="w-full min-w-[56rem] table-fixed border-collapse">
+          <TableCaption className="sr-only">{ui("Tenant users")}</TableCaption>
           <colgroup>
             <col />
             <col className="w-[28%]" />
@@ -105,9 +114,9 @@ export function UsersTable({
             <col className="w-[18%]" />
             <col className="w-16" />
           </colgroup>
-          <thead className="border-b border-border-subtle bg-surface-subtle text-left">
-            <tr>
-              <th
+          <TableHeader className="border-b border-border-subtle bg-surface-subtle text-left">
+            <TableRow>
+              <TableHead
                 scope="col"
                 aria-sort={columnAriaSort(sort, "NAME", "EMAIL")}
                 className="h-11 px-4"
@@ -129,26 +138,30 @@ export function UsersTable({
                     onSortChange={onSortChange}
                   />
                 </span>
-              </th>
+              </TableHead>
               <StaticColumnHeader>{ui("Groups")}</StaticColumnHeader>
               <StaticColumnHeader>{ui("Account type")}</StaticColumnHeader>
-              <th scope="col" aria-sort={columnAriaSort(sort, "STATUS")} className="h-11 px-4">
+              <TableHead
+                scope="col"
+                aria-sort={columnAriaSort(sort, "STATUS")}
+                className="h-11 px-4"
+              >
                 <UsersSortButton
                   field="STATUS"
                   label={ui("Status")}
                   sort={sort}
                   onSortChange={onSortChange}
                 />
-              </th>
-              <th
+              </TableHead>
+              <TableHead
                 scope="col"
                 className="sticky right-0 z-10 h-11 w-16 bg-surface-subtle px-2 text-center"
               >
                 <span className="sr-only">{ui("Actions")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-subtle">
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-border-subtle">
             {entries.map((entry) => {
               const key = entry.actorId
                 ? `actor:${entry.actorId}`
@@ -162,19 +175,19 @@ export function UsersTable({
               const editableGroups = canEditGroups && Boolean(entry.actorId);
               return (
                 <Fragment key={key}>
-                  <tr className="group bg-surface-raised align-middle transition-colors hover:bg-surface-subtle">
-                    <td className="h-[4.5rem] px-4 py-3">
+                  <TableRow className="group bg-surface-raised align-middle transition-colors hover:bg-surface-subtle">
+                    <TableCell className="h-[4.5rem] px-4 py-3">
                       <UserIdentity entry={entry} />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <GroupTags
                         groups={entry.groups}
                         editable={editableGroups}
                         userLabel={label}
                         onEdit={(target) => openGroupEditor(entry, target)}
                       />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       {entry.accountType === "STANDARD" ? (
                         <span className="inline-flex items-center gap-1.5 font-main-ui-body text-content-secondary">
                           <User className="size-4 text-content-muted" aria-hidden="true" />
@@ -188,11 +201,11 @@ export function UsersTable({
                           —
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <UserStatus entry={entry} pendingAction={pendingAction} />
-                    </td>
-                    <td className="sticky right-0 w-16 bg-surface-raised px-2 py-3 text-center transition-colors group-hover:bg-surface-subtle">
+                    </TableCell>
+                    <TableCell className="sticky right-0 w-16 bg-surface-raised px-2 py-3 text-center transition-colors group-hover:bg-surface-subtle">
                       <UserRowActions
                         entry={entry}
                         pendingAction={pendingAction}
@@ -206,23 +219,23 @@ export function UsersTable({
                         onRotate={onRotate}
                         onRevoke={onRevoke}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   {error ? (
-                    <tr className="bg-status-danger-surface/60">
-                      <td
+                    <TableRow className="bg-status-danger-surface/60">
+                      <TableCell
                         colSpan={5}
                         className="border-l-2 border-status-danger-content px-4 py-2 font-secondary-body text-status-danger-content"
                       >
                         <p role="alert">{errorMessage(error)}</p>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : null}
                 </Fragment>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <TablePagination
@@ -271,9 +284,9 @@ export function UsersTable({
 
 function StaticColumnHeader({ children }: { children: string }) {
   return (
-    <th scope="col" className="h-11 px-4 font-secondary-action text-content-secondary">
+    <TableHead scope="col" className="h-11 px-4 font-secondary-action text-content-secondary">
       {children}
-    </th>
+    </TableHead>
   );
 }
 

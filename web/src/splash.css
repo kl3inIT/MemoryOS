@@ -1,0 +1,294 @@
+/*
+ * Boot splash shown by index.html before the application bundle runs. It is linked as a stylesheet
+ * rather than inlined because the production CSP only allows same-origin styles.
+ *
+ * public/splash-mode.js marks the root before first paint: data-memoryos-splash="full" on a tab's
+ * first load and "short" afterwards (reload, return from sign-in).
+ *
+ * Both modes open the same way: vertical ribbons slide in from alternating sides to draw the wordmark,
+ * then a light sheen crosses it. The full intro plays the sheen once; its exit (started by
+ * lib/boot-splash.ts once the intro has played and the application has rendered) pulls back, zooms
+ * through the O, bursts light ribbons outwards and opens an iris onto the application. The short
+ * form repeats the sheen while it waits and fades out.
+ */
+
+@property --memoryos-splash-hole {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: -12%;
+}
+
+.memoryos-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.memoryos-splash__logo {
+  position: relative;
+  width: min(480px, 78vw);
+  height: auto;
+  aspect-ratio: 1120 / 166;
+  overflow: visible;
+  transform-origin: 46.5% 49%;
+}
+
+/* Opening, both modes: ribbon draw-in, then the sheen. */
+
+.memoryos-splash__strip {
+  fill: #083372;
+  animation: memoryos-splash-strip 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.memoryos-splash__strips > g:nth-child(odd) > .memoryos-splash__strip {
+  --memoryos-splash-strip-from: -190px;
+}
+
+.memoryos-splash__strips > g:nth-child(even) > .memoryos-splash__strip {
+  --memoryos-splash-strip-from: 190px;
+}
+
+.memoryos-splash__strips > g:nth-child(2) > .memoryos-splash__strip {
+  animation-delay: 30ms;
+}
+.memoryos-splash__strips > g:nth-child(3) > .memoryos-splash__strip {
+  animation-delay: 60ms;
+}
+.memoryos-splash__strips > g:nth-child(4) > .memoryos-splash__strip {
+  animation-delay: 90ms;
+}
+.memoryos-splash__strips > g:nth-child(5) > .memoryos-splash__strip {
+  animation-delay: 120ms;
+}
+.memoryos-splash__strips > g:nth-child(6) > .memoryos-splash__strip {
+  animation-delay: 150ms;
+}
+.memoryos-splash__strips > g:nth-child(7) > .memoryos-splash__strip {
+  animation-delay: 180ms;
+}
+.memoryos-splash__strips > g:nth-child(8) > .memoryos-splash__strip {
+  animation-delay: 210ms;
+}
+.memoryos-splash__strips > g:nth-child(9) > .memoryos-splash__strip {
+  animation-delay: 240ms;
+}
+.memoryos-splash__strips > g:nth-child(10) > .memoryos-splash__strip {
+  animation-delay: 270ms;
+}
+.memoryos-splash__strips > g:nth-child(11) > .memoryos-splash__strip {
+  animation-delay: 300ms;
+}
+.memoryos-splash__strips > g:nth-child(12) > .memoryos-splash__strip {
+  animation-delay: 330ms;
+}
+.memoryos-splash__strips > g:nth-child(13) > .memoryos-splash__strip {
+  animation-delay: 360ms;
+}
+.memoryos-splash__strips > g:nth-child(14) > .memoryos-splash__strip {
+  animation-delay: 390ms;
+}
+
+/* Swap the strips for one solid wordmark once they land, so strip seams never stay visible. */
+.memoryos-splash__strips {
+  animation: memoryos-splash-hide 1ms linear 860ms forwards;
+}
+
+.memoryos-splash__solid {
+  fill: #083372;
+  opacity: 0;
+  animation: memoryos-splash-show 1ms linear 860ms forwards;
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash__sheen {
+  animation: memoryos-splash-sheen 520ms cubic-bezier(0.45, 0, 0.55, 1) 800ms both;
+}
+
+:root:not([data-memoryos-splash="full"]) .memoryos-splash__sheen {
+  animation: memoryos-splash-sheen-loop 1400ms cubic-bezier(0.45, 0, 0.55, 1) 800ms infinite both;
+}
+
+/* Full exit: pull back, zoom through the O, ribbon burst, iris reveal. */
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting {
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent var(--memoryos-splash-hole),
+    #000 calc(var(--memoryos-splash-hole) + 12%)
+  );
+  mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent var(--memoryos-splash-hole),
+    #000 calc(var(--memoryos-splash-hole) + 12%)
+  );
+  animation: memoryos-splash-reveal 620ms cubic-bezier(0.65, 0, 0.35, 1) 520ms forwards;
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__logo {
+  animation: memoryos-splash-zoom 760ms ease-out forwards;
+}
+
+.memoryos-splash__ribbons {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: scaleX(0.18);
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__ribbons {
+  animation: memoryos-splash-ribbons 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms forwards;
+}
+
+.memoryos-splash__ribbon {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: scaleY(0);
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__ribbon {
+  animation: memoryos-splash-ribbon 700ms cubic-bezier(0.22, 1, 0.36, 1) 260ms forwards;
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__ribbon--b {
+  animation-delay: 310ms;
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__ribbon--c {
+  animation-delay: 360ms;
+}
+
+:root[data-memoryos-splash="full"] .memoryos-splash.is-exiting .memoryos-splash__ribbon--d {
+  animation-delay: 410ms;
+}
+
+/* Short exit: fade out. */
+
+:root:not([data-memoryos-splash="full"]) .memoryos-splash__ribbons {
+  display: none;
+}
+
+:root:not([data-memoryos-splash="full"]) .memoryos-splash.is-exiting {
+  pointer-events: none;
+  animation: memoryos-splash-fade 300ms ease forwards;
+}
+
+@keyframes memoryos-splash-strip {
+  from {
+    transform: translateY(var(--memoryos-splash-strip-from));
+    fill: #4f7fe0;
+  }
+  to {
+    transform: translateY(0);
+    fill: #083372;
+  }
+}
+
+@keyframes memoryos-splash-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes memoryos-splash-hide {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes memoryos-splash-sheen {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(1500px);
+  }
+}
+
+@keyframes memoryos-splash-sheen-loop {
+  from {
+    transform: translateX(0);
+  }
+  50%,
+  to {
+    transform: translateX(1500px);
+  }
+}
+
+@keyframes memoryos-splash-zoom {
+  18% {
+    transform: scale(0.94);
+    animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0);
+  }
+  75% {
+    opacity: 1;
+  }
+  to {
+    transform: scale(24);
+    opacity: 0;
+  }
+}
+
+@keyframes memoryos-splash-ribbons {
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: scaleX(3);
+  }
+}
+
+@keyframes memoryos-splash-ribbon {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes memoryos-splash-reveal {
+  70% {
+    opacity: 1;
+  }
+  to {
+    --memoryos-splash-hole: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes memoryos-splash-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memoryos-splash,
+  .memoryos-splash * {
+    animation: none !important;
+  }
+
+  .memoryos-splash__strips,
+  .memoryos-splash__sheen,
+  .memoryos-splash__ribbons {
+    display: none;
+  }
+
+  .memoryos-splash__solid {
+    opacity: 1;
+  }
+
+  .memoryos-splash {
+    transition: opacity 200ms ease;
+  }
+
+  .memoryos-splash.is-exiting {
+    opacity: 0;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+}
