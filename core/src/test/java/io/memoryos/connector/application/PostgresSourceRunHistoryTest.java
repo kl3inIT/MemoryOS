@@ -375,7 +375,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(next.totalItems()).isEqualTo(4);
         assertThat(history.list(owner, source, query(null, 2)).lastSuccessful().id()).isEqualTo(later.id());
         assertThatThrownBy(() -> history.list(owner, source, new SourceRunHistoryService.Query(page.nextCursor(), 2,
-                SourceRunStatus.FAILED, null, null, null))).isInstanceOf(SourceException.class);
+                Set.of(SourceRunStatus.FAILED), null, null, null))).isInstanceOf(SourceException.class);
         var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PUBLIC))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
         assertThat(history.list(owner, foreign, query(null, 2)).totalItems()).isZero();
@@ -417,11 +417,16 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("UPDATE source_sync_attempts SET trigger_kind = 'SCHEDULED' WHERE id = :id")
                 .param("id", scheduled.id()).update();
         var first = history.list(owner, source, new SourceRunHistoryService.Query(null, 1,
-                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5)));
+                Set.of(SourceRunStatus.SUCCEEDED), SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5)));
         assertThat(first.items()).extracting(SourceRun::id).containsExactly(newest.id());
         assertThat(first.totalItems()).isEqualTo(2);
+        var combined = history.list(owner, source, new SourceRunHistoryService.Query(null, 5,
+                Set.of(SourceRunStatus.SUCCEEDED, SourceRunStatus.INDEXING), SourceRunTrigger.MANUAL,
+                start.plusSeconds(1), start.plusSeconds(5)));
+        assertThat(combined.items()).extracting(SourceRun::id).containsExactly(indexing.id(), newest.id(), oldest.id());
+        assertThat(combined.totalItems()).isEqualTo(3);
         var secondQuery = new SourceRunHistoryService.Query(first.nextCursor(), 1,
-                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5));
+                Set.of(SourceRunStatus.SUCCEEDED), SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5));
         var second = history.list(owner, source, secondQuery);
         assertThat(second.items()).extracting(SourceRun::id).containsExactly(oldest.id());
         assertThat(second.totalItems()).isEqualTo(2);
@@ -582,7 +587,7 @@ class PostgresSourceRunHistoryTest {
 
     private SourceRun run(UUID id) { return history.get(owner, source, id); }
     private static SourceRunHistoryService.Query query(String cursor, int size) {
-        return new SourceRunHistoryService.Query(cursor, size, null, null, null, null);
+        return new SourceRunHistoryService.Query(cursor, size, Set.of(), null, null, null);
     }
     private void list(GoogleDriveProvider.FileMetadata... values) {
         listing = List.of(values);

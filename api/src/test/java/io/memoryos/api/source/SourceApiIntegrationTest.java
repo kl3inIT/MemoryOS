@@ -358,6 +358,11 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty())
                 .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("status", "FAILED", "SUCCEEDED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.totalItems").value(3));
         mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(member)))
                 .andExpect(status().isForbidden());
     }
