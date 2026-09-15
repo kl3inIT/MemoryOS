@@ -1827,6 +1827,12 @@ Object.assign(vietnameseUi, {
   "MemoryOS đang đọc…": "MemoryOS is reading…",
   "Bật tiếng": "Unmute",
   "Tắt tiếng": "Mute",
+  "Nhận dạng tiếng Việt và tiếng Anh qua REST": "Vietnamese and English recognition over REST",
+  "Giọng Neural tiếng Việt và tiếng Anh": "Vietnamese and English neural voices",
+  "Địa chỉ tài nguyên Speech": "Speech resource endpoint",
+  "Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.":
+    "The Azure AI Speech resource endpoint, shown under Keys and Endpoint.",
+  "Voice ID trong thư viện giọng của ElevenLabs.": "A voice ID from your ElevenLabs voice library.",
 });
 Object.assign(vietnameseUi, {
   "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.":

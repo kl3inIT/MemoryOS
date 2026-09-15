@@ -148,6 +148,7 @@ export function VoiceProviderDialog({
     }
   }
 
+  const azure = provider.provider === "AZURE";
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent
@@ -172,7 +173,11 @@ export function VoiceProviderDialog({
           <fieldset disabled={!!pending} className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-endpoint`}>
-                {provider.requiresEndpoint ? ui("Địa chỉ máy chủ") : ui("Địa chỉ API")}
+                {azure
+                  ? ui("Địa chỉ tài nguyên Speech")
+                  : provider.requiresEndpoint
+                    ? ui("Địa chỉ máy chủ")
+                    : ui("Địa chỉ API")}
               </Label>
               <Input
                 id={`${id}-endpoint`}
@@ -180,14 +185,21 @@ export function VoiceProviderDialog({
                 required={provider.requiresEndpoint}
                 maxLength={2048}
                 inputMode="url"
-                placeholder={provider.defaultEndpoint || "http://speaches.internal:8000/v1"}
+                placeholder={
+                  provider.defaultEndpoint ||
+                  (azure
+                    ? "https://your-resource.cognitiveservices.azure.com"
+                    : "http://speaches.internal:8000/v1")
+                }
                 aria-describedby={`${id}-endpoint-hint`}
                 onChange={(event) => setEndpoint(event.target.value)}
               />
               <p id={`${id}-endpoint-hint`} className="text-xs text-content-muted">
-                {provider.requiresEndpoint
-                  ? ui("Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.")
-                  : ui("Để trống để dùng địa chỉ mặc định của nhà cung cấp.")}
+                {azure
+                  ? ui("Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.")
+                  : provider.requiresEndpoint
+                    ? ui("Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.")
+                    : ui("Để trống để dùng địa chỉ mặc định của nhà cung cấp.")}
               </p>
             </div>
             <div className="grid gap-1.5">
@@ -241,7 +253,11 @@ export function VoiceProviderDialog({
                 label={ui("Giọng đọc")}
                 value={voice}
                 options={provider.voices}
-                hint={ui("Nhập đúng tên giọng mà máy chủ cung cấp.")}
+                hint={
+                  provider.provider === "ELEVENLABS"
+                    ? ui("Voice ID trong thư viện giọng của ElevenLabs.")
+                    : ui("Nhập đúng tên giọng mà máy chủ cung cấp.")
+                }
                 onChange={setVoice}
               />
             )}
@@ -294,7 +310,7 @@ export function VoiceProviderDialog({
   );
 }
 
-/** Known identifiers as a list; OpenAI-compatible servers name their own models, so those are typed. */
+/** Known identifiers as a list; OpenAI-compatible models and ElevenLabs voice IDs are typed. */
 function ChoiceField({
   id,
   label,

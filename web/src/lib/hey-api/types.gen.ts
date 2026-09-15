@@ -133,7 +133,7 @@ export type WebConnectionResponse = {
 
 export type VoiceSelectionRequest = {
     function: 'STT' | 'TTS';
-    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     model?: string;
 };
 
@@ -149,7 +149,7 @@ export type VoiceConnectionRequest = {
 };
 
 export type VoiceConnectionResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     endpoint: string;
     sttModel: string;
     ttsModel: string;
@@ -1134,7 +1134,7 @@ export type VoiceAvailabilityResponse = {
 };
 
 export type VoiceProviderResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     requiresKey: boolean;
     requiresEndpoint: boolean;
     defaultEndpoint: string;
@@ -1764,7 +1764,7 @@ export type DeleteChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     };
     query: {
         revision: number;
@@ -1819,7 +1819,7 @@ export type SaveChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}';
@@ -4369,7 +4369,7 @@ export type TestChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}/test';

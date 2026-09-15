@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Server, Trash2 } from "lucide-react";
+import { AudioWaveform, CheckCircle2, Cloud, Server, Trash2 } from "lucide-react";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -19,6 +19,44 @@ import {
   type VoiceFunction,
   type VoiceProviderId,
 } from "./voice-providers";
+
+type Translate = ReturnType<typeof useAppTranslation>;
+
+/** Product names stay untranslated; only the self-hosted protocol has a descriptive name. */
+function providerName(provider: VoiceProviderId, ui: Translate) {
+  switch (provider) {
+    case "OPENAI":
+      return "OpenAI";
+    case "ELEVENLABS":
+      return "ElevenLabs";
+    case "AZURE":
+      return "Azure AI Speech";
+    default:
+      return ui("Tương thích OpenAI");
+  }
+}
+
+function providerSummary(provider: VoiceProviderId, fn: VoiceFunction, ui: Translate) {
+  switch (provider) {
+    case "OPENAI":
+      return fn === "STT" ? ui("Whisper và GPT-4o Transcribe") : ui("TTS-1 và TTS-1 HD");
+    case "ELEVENLABS":
+      return fn === "STT" ? "Scribe v2, Scribe v1" : "Multilingual v2, Flash v2.5, Turbo v2.5";
+    case "AZURE":
+      return fn === "STT"
+        ? ui("Nhận dạng tiếng Việt và tiếng Anh qua REST")
+        : ui("Giọng Neural tiếng Việt và tiếng Anh");
+    default:
+      return ui("Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches");
+  }
+}
+
+/** Only OpenAI has a brand mark in the application; other providers use a neutral icon. */
+function ProviderIcon({ provider }: { provider: VoiceProviderId }) {
+  if (provider === "OPENAI") return <ProviderLogo mark="OPENAI" className="size-5" />;
+  const Icon = provider === "ELEVENLABS" ? AudioWaveform : provider === "AZURE" ? Cloud : Server;
+  return <Icon className="size-5 text-content-secondary" aria-hidden="true" />;
+}
 
 export function VoiceProviderCard({
   fn,
@@ -40,7 +78,7 @@ export function VoiceProviderCard({
 }) {
   const ui = useAppTranslation();
   const [open, setOpen] = useState(false);
-  const name = provider.provider === "OPENAI" ? "OpenAI" : ui("Tương thích OpenAI");
+  const name = providerName(provider.provider, ui);
   const active = isDefault(connection, fn);
   const ready = connectionServes(provider, fn, connection);
   const detail = connection
@@ -50,11 +88,7 @@ export function VoiceProviderCard({
       ]
         .filter(Boolean)
         .join(" · ")
-    : provider.provider === "OPENAI"
-      ? fn === "STT"
-        ? ui("Whisper và GPT-4o Transcribe")
-        : ui("TTS-1 và TTS-1 HD")
-      : ui("Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches");
+    : providerSummary(provider.provider, fn, ui);
   return (
     <li
       aria-label={name}
@@ -64,11 +98,7 @@ export function VoiceProviderCard({
       )}
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-base">
-        {provider.provider === "OPENAI" ? (
-          <ProviderLogo mark="OPENAI" className="size-5" />
-        ) : (
-          <Server className="size-5 text-content-secondary" aria-hidden="true" />
-        )}
+        <ProviderIcon provider={provider.provider} />
       </span>
       <div className="mr-auto min-w-0 flex-1 basis-48">
         <div className="flex flex-wrap items-center gap-2">
