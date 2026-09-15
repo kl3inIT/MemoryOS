@@ -37,6 +37,8 @@ Design: [design.md](design.md).
 
 - [ ] API key authentication for every route except `/health`.
 - [ ] Structured JSON logs and metrics aligned with the [observability conventions](../../../guidelines/observability.md).
+- [ ] BuildKit layer cache for the `interpreter` CI job, so releases stop adding about 3 GB of unshared layers to the staging host.
+- [ ] A concurrency limit on executor runs sized to the staging host memory.
 
 ## Phase 3 — Java integration
 

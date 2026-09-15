@@ -47,7 +47,7 @@ Behaviour of the service, executor and Helm chart is otherwise unchanged in phas
 - **Staging.** Staging is one Docker Compose host where every service drops capabilities, and nothing mounts `docker.sock` or runs privileged (`infrastructure/deployment/compose.base.yaml`).
   - The Docker executor needs the host socket (`--user root`) or Docker-in-Docker (`--privileged`).
   - The owner accepted weaker isolation. This is still the first socket mount on the host, so phase 1 must keep the service on `memoryos-internal`, without a host port, and document that the socket grants host-level Docker control.
-  - On 2026-09-15 the owner asked to deploy phase 1 to staging ("ok đưa lên staging đi") with this socket mount.
+  - On 2026-09-15 the owner asked to deploy phase 1 to staging. The socket mount, root user and automatic deployment on merge were presented with the pull request; merging it records acceptance.
 - **Release pipeline.** Phase 1 adds the service and executor images to CI publication, `images.env` (six lines) and `deploy-staging.sh`. The executor image is pulled on the host by the deployment, not by the service. Operating constraints are in the [CI/CD runbook](../../../runbooks/ci-cd.md#interpreter-runtime).
 - **Rancher.** The Kubernetes executor could run in the Rancher `jmix-ocr` project. That cluster has no NetworkPolicy, and MemoryOS cannot change Pod Security labels there, so it is not the first target.
 - **Authentication.** Before the Java tool calls the service outside a private network, the service needs its own credential (as Docling has in MEM-79).

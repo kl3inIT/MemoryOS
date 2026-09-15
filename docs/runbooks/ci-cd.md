@@ -84,7 +84,7 @@ Operating constraints:
 
 - **Socket.** The service runs as root with `/var/run/docker.sock` mounted. A caller of its API runs code in containers it creates, and a compromised service controls the host's Docker daemon. It therefore joins only `memoryos-internal` with no host port, and executors run with `--network none`. Do not add a port, proxy route or network before the service has its own credential (MEM-110 phase 2).
 - **Capacity.** Each executor is a separate host container limited to 1 GiB memory and 30 s CPU, outside Compose resource settings. The service has no concurrency limit yet, so concurrent runs add host memory.
-- **Executor image.** The image is about 2.8 GB. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again.
+- **Executor image.** The image is about 2.8 GB. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
 
 ## Failure and recovery
 
