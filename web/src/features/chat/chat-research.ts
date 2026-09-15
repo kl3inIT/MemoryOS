@@ -27,7 +27,6 @@ export const researchSchema = z
   .default({ clarification: false, plan: null, agents: [] });
 
 export const researchPlanEventSchema = z.object({ text: z.string().min(1) });
-export const researchBranchingEventSchema = z.object({ branches: z.number().int().min(2).max(3) });
 export const researchAgentEventSchema = z.object({
   toolCallId: z.string().min(1).max(256),
   tabIndex: z.number().int().min(0).max(2),

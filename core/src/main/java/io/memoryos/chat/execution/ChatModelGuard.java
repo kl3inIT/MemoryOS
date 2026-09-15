@@ -80,6 +80,11 @@ public final class ChatModelGuard implements ChatModel {
         return calls.get() > 0 && accounted.get() == calls.get() && synchronousAccounted.get() == synchronousCalls.get();
     }
 
+    /** Whether this guard admitted any model call; an unused guard contributes no usage. */
+    public boolean used() {
+        return calls.get() > 0 || synchronousCalls.get() > 0;
+    }
+
 
     public int availableContextTokens() { return Math.max(0, inputLimit - lastStreamInput - 1024); }
 

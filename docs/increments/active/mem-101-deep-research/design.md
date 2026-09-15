@@ -175,6 +175,9 @@ Survival across restart, tools other than internal search, Web/URL reading and a
 | Setting only hides the button | Server also rejects research commands while disabled | A disabled mode must not run through the API |
 | No budget | One token/cost admission ledger shared by all research guards of a turn | Existing Chat limits; parallel agents must not each spend the whole budget |
 | Final report `max_tokens` 20,000 regardless of model | Phase limits capped by the model's configured maximum output | The request policy already clamps to the configured maximum; rejecting such models would hide research entirely |
+| Research agents receive the Persona's tools without a per-turn Web toggle | Agents get Web tools only when the turn has Web search on and an external search connection | Web access follows the existing per-turn Web toggle and connection authorization; the composer button does not depend on Web availability |
+| Research input limit is the model window minus the report tokens | Same; the Chat `context-token-limit` and Persona context limit bound only normal answers and history selection | Mirrors Onyx; research prompts carry agent reports that exceed the normal-answer limit |
+| Clarification text streams | Clarification text is emitted once the inference ends | The same inference may instead call `generate_plan`, and text before that call must not become the answer; bounded by the answer token limit |
 
 ## Spike evidence (2026-09-15)
 

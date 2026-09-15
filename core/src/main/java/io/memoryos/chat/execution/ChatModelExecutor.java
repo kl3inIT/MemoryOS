@@ -250,7 +250,9 @@ public final class ChatModelExecutor {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone()) accounting.accept(new Accounting(null, null, null));
                 else {
-                    boolean known = !guards.isEmpty() && guards.stream().allMatch(ChatModelGuard::usageKnown);
+                    // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
+                    var used = guards.stream().filter(ChatModelGuard::used).toList();
+                    boolean known = !used.isEmpty() && used.stream().allMatch(ChatModelGuard::usageKnown);
                     var usage = process.usage();
                     accounting.accept(new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
                             known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
