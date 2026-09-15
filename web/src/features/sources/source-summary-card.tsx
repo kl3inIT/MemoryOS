@@ -42,9 +42,7 @@ export function SourceSummaryCard({
         <dd className="mt-2">
           <SourceAccessBadge access={source.access} />
         </dd>
-        {accessHelp ? (
-          <dd className="mt-2 text-xs text-content-muted">{ui(accessHelp)}</dd>
-        ) : null}
+        {accessHelp ? <dd className="mt-2 text-xs text-content-muted">{ui(accessHelp)}</dd> : null}
       </div>
       <div>
         <dt className="text-content-muted">{ui("Documents indexed")}</dt>
