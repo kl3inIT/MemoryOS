@@ -66,6 +66,12 @@ import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
+const fileSections: readonly SourceSection[] = [
+  { value: "content", label: "Files" },
+  { value: "history", label: "Indexing history" },
+  { value: "settings", label: "Groups" },
+];
+
 const googleDriveSections: readonly SourceSection[] = [
   { value: "content", label: "Content" },
   { value: "history", label: "Sync history" },
@@ -1015,178 +1021,193 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               </p>
             ) : null}
 
-            {canUpload && detail.type === "FILE" ? (
-              <form
-                className="space-y-4 border-b border-border-subtle py-6"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void (activePendingFinalize ? retryFinalize() : submitFile());
-                }}
-              >
-                <div>
-                  <div className="flex items-center gap-3">
-                    <SourceSectionIcon icon={Upload} />
-                    <h2 className="font-heading-h3 text-content-primary">{ui("Upload content")}</h2>
-                  </div>
-                  <p className="mt-2 text-sm text-content-muted">
-                    {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file")}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="min-w-0 flex-1">
-                    <span className="sr-only">
-                      {ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
-                    </span>
-                    <Input
-                      ref={fileInput}
-                      type="file"
-                      accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                      disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                      onChange={(event) => {
-                        const selected = event.target.files?.[0] ?? null;
-                        if (
-                          selected &&
-                          (selected.size === 0 || selected.size > 100 * 1024 * 1024)
-                        ) {
-                          setFile(null);
-                          setError("Choose a file between 1 byte and 100 MiB.");
-                          event.target.value = "";
-                          return;
-                        }
-                        setError(null);
-                        setFile(selected);
-                      }}
-                      className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+            {detail.type === "GOOGLE_DRIVE" ? (
+              <>
+                <GoogleDrivePanel
+                  source={detail}
+                  sourceStale={sourceQuery.isError}
+                  disabled={managementBusy || detail.status === "DELETING"}
+                  onBusyChange={setDriveBusy}
+                  activeSection={section}
+                  content={filesPanel}
+                  settings={
+                    <SourceGroupsSection
+                      sourceId={selectedId}
+                      editable={canManageGroups}
+                      onAuthorityChanged={refreshAuthorityViews}
                     />
-                  </label>
-                  <Button
-                    type="submit"
-                    pending={uploadBusy}
-                    disabled={
-                      (!file && !activePendingFinalize) ||
-                      Boolean(pendingFinalize && !activePendingFinalize) ||
-                      busy ||
-                      detail.status === "DELETING"
-                    }
-                  >
-                    <Upload />
-                    {activePendingFinalize ? ui("Retry finalization") : ui("Upload file")}
-                  </Button>
-                  {uploadPhase !== "idle" || activePendingFinalize ? (
-                    <Button
-                      type="button"
-                      prominence="secondary"
-                      onClick={() => {
-                        if (activePendingFinalize && !uploadBusy) {
-                          setPendingFinalize(null);
-                          setUploadPhase("idle");
-                          setFile(null);
-                          if (fileInput.current) fileInput.current.value = "";
-                          setError(
-                            "Finalization cancelled. The unfinished object will expire automatically.",
-                          );
-                          notify({
-                            tone: "info",
-                            title: "Finalization cancelled",
-                            description: appText(
-                              "{{v1}}: the unfinished object will expire automatically.",
-                              { v1: activePendingFinalize.filename },
-                            ),
-                          });
-                        } else {
-                          uploadController.current?.abort(
-                            new DOMException("Upload cancelled", "AbortError"),
-                          );
-                        }
+                  }
+                  navigation={
+                    <>
+                      {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
+                        <p role="alert" className="text-sm text-status-danger-content">
+                          {ui(sourceStatusMessage(detail.errorCode))}
+                        </p>
+                      ) : null}
+                      <SourceSectionTabs sections={googleDriveSections} />
+                    </>
+                  }
+                />
+                <TabsContent
+                  value="history"
+                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
+                >
+                  <SourceRunHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+              </>
+            ) : (
+              <>
+                <SourceSectionTabs sections={fileSections} />
+                <TabsContent value="content">
+                  {canUpload ? (
+                    <form
+                      className="space-y-4 border-b border-border-subtle py-6"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void (activePendingFinalize ? retryFinalize() : submitFile());
                       }}
                     >
-                      <X />
-                      {ui("Cancel")}
-                    </Button>
-                  ) : null}
-                </div>
-                {uploadPhase !== "idle" || activePendingFinalize ? (
-                  <div className="mt-3" aria-live="polite">
-                    <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
-                      <span>
-                        {uploadPhase === "preparing"
-                          ? ui("Calculating SHA-256 before authorization")
-                          : uploadPhase === "uploading"
-                            ? ui("Uploading directly to object storage")
-                            : uploadPhase === "finalizing"
-                              ? ui("Verifying and registering the stored file")
-                              : ui("{{v1}} is stored but not finalized", {
-                                  v1: activePendingFinalize?.filename ?? ui("File"),
-                                })}
-                      </span>
-                      {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
-                    </div>
-                    {uploadPhase === "uploading" ? (
-                      <div
-                        role="progressbar"
-                        aria-label={ui("Direct upload progress")}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuenow={uploadProgress}
-                        className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
-                      >
-                        <div
-                          className="h-full rounded-full bg-content-primary transition-[width] duration-150"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <SourceSectionIcon icon={Upload} />
+                          <h2 className="font-heading-h3 text-content-primary">
+                            {ui("Upload content")}
+                          </h2>
+                        </div>
+                        <p className="mt-2 text-sm text-content-muted">
+                          {ui(
+                            "PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file",
+                          )}
+                        </p>
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </form>
-            ) : detail.type === "GOOGLE_DRIVE" ? (
-              <GoogleDrivePanel
-                source={detail}
-                sourceStale={sourceQuery.isError}
-                disabled={managementBusy || detail.status === "DELETING"}
-                onBusyChange={setDriveBusy}
-                activeSection={section}
-                content={filesPanel}
-                settings={
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <label className="min-w-0 flex-1">
+                          <span className="sr-only">
+                            {ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
+                          </span>
+                          <Input
+                            ref={fileInput}
+                            type="file"
+                            accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
+                            onChange={(event) => {
+                              const selected = event.target.files?.[0] ?? null;
+                              if (
+                                selected &&
+                                (selected.size === 0 || selected.size > 100 * 1024 * 1024)
+                              ) {
+                                setFile(null);
+                                setError("Choose a file between 1 byte and 100 MiB.");
+                                event.target.value = "";
+                                return;
+                              }
+                              setError(null);
+                              setFile(selected);
+                            }}
+                            className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+                          />
+                        </label>
+                        <Button
+                          type="submit"
+                          pending={uploadBusy}
+                          disabled={
+                            (!file && !activePendingFinalize) ||
+                            Boolean(pendingFinalize && !activePendingFinalize) ||
+                            busy ||
+                            detail.status === "DELETING"
+                          }
+                        >
+                          <Upload />
+                          {activePendingFinalize ? ui("Retry finalization") : ui("Upload file")}
+                        </Button>
+                        {uploadPhase !== "idle" || activePendingFinalize ? (
+                          <Button
+                            type="button"
+                            prominence="secondary"
+                            onClick={() => {
+                              if (activePendingFinalize && !uploadBusy) {
+                                setPendingFinalize(null);
+                                setUploadPhase("idle");
+                                setFile(null);
+                                if (fileInput.current) fileInput.current.value = "";
+                                setError(
+                                  "Finalization cancelled. The unfinished object will expire automatically.",
+                                );
+                                notify({
+                                  tone: "info",
+                                  title: "Finalization cancelled",
+                                  description: appText(
+                                    "{{v1}}: the unfinished object will expire automatically.",
+                                    { v1: activePendingFinalize.filename },
+                                  ),
+                                });
+                              } else {
+                                uploadController.current?.abort(
+                                  new DOMException("Upload cancelled", "AbortError"),
+                                );
+                              }
+                            }}
+                          >
+                            <X />
+                            {ui("Cancel")}
+                          </Button>
+                        ) : null}
+                      </div>
+                      {uploadPhase !== "idle" || activePendingFinalize ? (
+                        <div className="mt-3" aria-live="polite">
+                          <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
+                            <span>
+                              {uploadPhase === "preparing"
+                                ? ui("Calculating SHA-256 before authorization")
+                                : uploadPhase === "uploading"
+                                  ? ui("Uploading directly to object storage")
+                                  : uploadPhase === "finalizing"
+                                    ? ui("Verifying and registering the stored file")
+                                    : ui("{{v1}} is stored but not finalized", {
+                                        v1: activePendingFinalize?.filename ?? ui("File"),
+                                      })}
+                            </span>
+                            {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
+                          </div>
+                          {uploadPhase === "uploading" ? (
+                            <div
+                              role="progressbar"
+                              aria-label={ui("Direct upload progress")}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={uploadProgress}
+                              className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
+                            >
+                              <div
+                                className="h-full rounded-full bg-content-primary transition-[width] duration-150"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </form>
+                  ) : null}
+                  {filesPanel}
+                </TabsContent>
+                <TabsContent
+                  value="history"
+                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
+                >
+                  <SourceItemHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+                <TabsContent
+                  value="settings"
+                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised px-4 sm:px-5"
+                >
                   <SourceGroupsSection
                     sourceId={selectedId}
                     editable={canManageGroups}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
-                }
-                navigation={
-                  <>
-                    {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
-                      <p role="alert" className="text-sm text-status-danger-content">
-                        {ui(sourceStatusMessage(detail.errorCode))}
-                      </p>
-                    ) : null}
-                    <SourceSectionTabs sections={googleDriveSections} />
-                  </>
-                }
-              />
-            ) : null}
-
-            {detail.type !== "GOOGLE_DRIVE" ? filesPanel : null}
-            {detail.type === "GOOGLE_DRIVE" ? (
-              <TabsContent
-                value="history"
-                className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
-              >
-                <SourceRunHistory key={selectedId} sourceId={selectedId} />
-              </TabsContent>
-            ) : (
-              <SourceItemHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+              </>
             )}
-            {detail.type !== "GOOGLE_DRIVE" ? (
-              <div className="mt-5 rounded-xl border border-border-subtle bg-surface-raised px-4 sm:px-5">
-                <SourceGroupsSection
-                  sourceId={selectedId}
-                  editable={canManageGroups}
-                  onAuthorityChanged={refreshAuthorityViews}
-                />
-              </div>
-            ) : null}
           </Tabs>
         )}
       </div>

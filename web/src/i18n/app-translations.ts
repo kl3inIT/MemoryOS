@@ -374,6 +374,7 @@ export const vietnameseUi: Record<string, string> = {
 export const englishUi: Record<string, string> = {
   "Source sections": "Các phần của nguồn",
   "Source actions": "Thao tác nguồn",
+  "Indexing history": "Lịch sử lập chỉ mục",
   Content: "Nội dung",
   "Sync history": "Lịch sử đồng bộ",
   "Connection and settings": "Kết nối và cấu hình",
@@ -1308,8 +1309,8 @@ Object.assign(englishUi, {
   "Source groups": "Nhóm của nguồn",
   "Latest attempt:": "Lần xử lý gần nhất:",
   "File indexing attempts": "Lịch sử lập chỉ mục tệp",
-  "Each row processes one file version, including manual reindexing. Files above is the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.":
-    "Mỗi dòng xử lý một phiên bản tệp, gồm cả lập chỉ mục lại thủ công. Mục Tệp bên trên là kho hiện tại; lịch sử này ghi kết quả từng tệp. Thời gian vào hàng đợi chỉ hiển thị khi chưa ghi nhận thời điểm bắt đầu thực tế.",
+  "Each row processes one file version, including manual reindexing. The Files tab shows the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.":
+    "Mỗi dòng xử lý một phiên bản tệp, gồm cả lập chỉ mục lại thủ công. Tab Tệp là kho hiện tại; lịch sử này ghi kết quả từng tệp. Thời gian vào hàng đợi chỉ hiển thị khi chưa ghi nhận thời điểm bắt đầu thực tế.",
   Refresh: "Làm mới",
   "File attempts could not be refreshed. Displayed attempts may be out of date.":
     "Không làm mới được lịch sử xử lý tệp. Thông tin hiển thị có thể đã cũ.",

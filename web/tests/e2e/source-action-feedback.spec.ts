@@ -457,10 +457,7 @@ test("refreshed FILE history reloads the first page after retained attempts shri
       },
     });
   });
-  await page
-    .locator('[data-slot="collapsible-trigger"]')
-    .filter({ hasText: "File indexing attempts" })
-    .click();
+  await page.getByRole("tab", { name: "Indexing history" }).click();
   const history = page.getByRole("region", { name: "File indexing attempts", exact: true });
   await expect(history.getByRole("status")).toHaveText("1 / 2");
   await history.getByRole("button", { name: "Next indexing attempts" }).click();
