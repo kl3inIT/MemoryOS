@@ -92,7 +92,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
-  const [filesSize, setFilesSize] = useState(5);
+  const [filesSize, setFilesSize] = useState(25);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
   const filesHeading = useRef<HTMLHeadingElement | null>(null);
