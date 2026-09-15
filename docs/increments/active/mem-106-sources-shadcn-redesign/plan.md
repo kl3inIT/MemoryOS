@@ -13,9 +13,9 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 - [x] Add the missing components through the shadcn CLI: dialog, alert-dialog, sheet, tabs, table, dropdown-menu, tooltip, alert, progress, scroll-area, breadcrumb, radio-group, checkbox, switch, textarea, label, collapsible, toggle-group, select.
 - [x] Confirm the added components read the existing tokens; the repository already defines every shadcn colour variable, including the dark theme.
 - [x] Keep the `tone × prominence` button and adapt the three generated components that assume shadcn's button API.
-- [x] `ui/select` becomes the Radix select for Sources; the native control moves to `ui/native-select` for the untouched screens.
+- [x] The Radix select lives in `ui/radix-select` for Sources; main's native `ui/select` is untouched.
 - [x] Teach the test setup about Radix popups, and run `pnpm check`.
-- [x] Merge main (2026-09-15): keep main's token-bound `checkbox`, `label`, `table` and `tooltip`, keep both jsdom stubs (ResizeObserver from main, pointer capture from here), and point the Models screens at `ui/native-select`.
+- [x] Merge main (2026-09-15): keep main's token-bound `checkbox`, `label`, `table` and `tooltip`, keep both jsdom stubs (ResizeObserver from main, pointer capture from here), and restore every file outside Sources to main, including the Chat thread files an earlier restore had left behind.
 
 ### Task 2: Sources list and type picker
 

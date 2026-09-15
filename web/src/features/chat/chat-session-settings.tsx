@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/native-select";
+import { Select } from "@/components/ui/select";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";

@@ -5,7 +5,7 @@ import { CirclePlus, Search, SearchX, Users, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/native-select";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import { TablePagination } from "@/components/ui/table-pagination";

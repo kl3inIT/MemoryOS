@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/radix-select";
 import {
   useApplicationSession,
   useCapabilityAuthority,

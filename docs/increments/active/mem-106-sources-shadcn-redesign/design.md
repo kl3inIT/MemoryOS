@@ -2,7 +2,7 @@
 
 **Goal:** every Sources screen — list, creation, detail, indexing, index and run detail, settings and credentials — is built from shadcn/ui primitives and redesigned against a chosen enterprise reference. API contracts, authorization and sync behaviour stay as they are.
 
-**Boundary:** the owner limited this increment to the Sources area. Screens outside it keep their current markup; the primitives added here are available to them later, and the native select they still use moved to `ui/native-select` so the shadcn `ui/select` can be the Radix one.
+**Boundary:** the owner limited this increment to the Sources area; every file outside it stays as main has it. The primitives added here are available to other screens later. Main's native `ui/select` stays untouched, and the shadcn Radix select lives in `ui/radix-select`, used by Sources only.
 
 **Linear:** [MEM-106](https://linear.app/memory-os/issue/MEM-106). Builds on [MEM-105](../mem-105-source-access-modes/design.md), whose access modes the new screens must express.
 
@@ -17,13 +17,13 @@ The Sources area grew screen by screen. It now carries four hand-written tables,
 - `ui/select` wraps the native `<select>`; `ui/button` exposes its own `tone × prominence` API instead of shadcn variants.
 - The Sources feature is about 10,600 lines across `web/src/features/sources`.
 
-Main refresh (2026-09-15): main's registry migration (`bcf9c6e2`) already moved the Sources disclosures, tables and checkboxes to the token-bound shadcn `Collapsible`, `Table` and `Checkbox`, and its `checkbox`, `label`, `table` and `tooltip` replaced the copies this branch had generated. What remains in `web/src/features/sources`: one native `<select>` (the selection panel's content-type filter), the native `<textarea>` in `google-drive-links`, bare Radix `Dialog`/`Tabs` in `create-google-drive-source-page`, `google-drive-panel` and `source-detail-page`, and `title=` attributes in place of tooltips across ten files. Main's new Models screens use the native select and were pointed at `ui/native-select`, as the boundary requires.
+Main refresh (2026-09-15): main's registry migration (`bcf9c6e2`) already moved the Sources disclosures, tables and checkboxes to the token-bound shadcn `Collapsible`, `Table` and `Checkbox`, and its `checkbox`, `label`, `table` and `tooltip` replaced the copies this branch had generated. What remains in `web/src/features/sources`: one native `<select>` (the selection panel's content-type filter), the native `<textarea>` in `google-drive-links`, bare Radix `Dialog`/`Tabs` in `create-google-drive-source-page`, `google-drive-panel` and `source-detail-page`, and `title=` attributes in place of tooltips across ten files. An earlier restore of the screens outside Sources had kept pre-main copies of `chat-thread-controller` and `chat-transport`; every file outside Sources now matches main, and the Radix select moved to `ui/radix-select` so main's `ui/select` needs no change.
 
 ## Decisions
 
 1. **Add the missing primitives through the shadcn CLI** and bind them to the existing tokens in `tokens.css`/`theme.css` rather than to shadcn's default palette. The design language of Chat and Search does not change.
 2. **Keep the `Button` public API (`tone × prominence`) and rebuild its internals on the shadcn recipe.** Renaming the props would touch every feature for no user-visible gain; the exception and its reason belong in this document, as the acceptance criteria require.
-3. **`ui/select` becomes the Radix-backed shadcn `Select`,** used by the Sources screens. The previous native control lives on as `ui/native-select` for the screens this increment does not touch.
+3. **The Radix-backed shadcn `Select` lives in `ui/radix-select`,** used by the Sources screens. Main's native `ui/select` stays as it is for every other screen, so no file outside Sources changes.
 4. **One row-detail pattern.** A row that has more to say — an index attempt, a sync run — opens a right-hand `Sheet`, never a new page. The list stays in view.
 5. **Processing state is filtered by tabs with counts**, not by expanding a disclosure. `<details>` disappears from the feature.
 6. **Every error shows its translated code and the next action** (reindex, reconnect), instead of a bare message.
@@ -54,7 +54,7 @@ Each screen has one primary reference chosen after comparing several enterprise 
 
 ## Scope
 
-- `web/src/components/ui`: add the missing primitives, retire the native select, rebuild the button internals.
+- `web/src/components/ui`: add the missing primitives, including `radix-select`, and rebuild the button internals.
 - `web/src/features/sources`: redesign the fourteen screens above.
 - Tests: unit tests per redesigned surface, and the Playwright specs that name the changed structures.
 

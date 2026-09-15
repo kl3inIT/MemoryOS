@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
-import { Select } from "@/components/ui/native-select";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "./application-session-context";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";

@@ -5,7 +5,7 @@ import type { ErrorMessage } from "@/lib/problem-presentation";
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, User } from "lucide-react";
 import { Fragment, useRef, useState, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/native-select";
+import { Select } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
 import {
