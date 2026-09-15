@@ -40,6 +40,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat source reader](docs/increments/active/chat-source-reader/design.md) owns stepping between Chat sources, table rows opening on their PDF page, the expanded source dialog and the PDF range-load fallback with pdf.js image decoders.
 - [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
 - [Keycloak login theme](docs/increments/active/keycloak-login-theme/design.md) owns the `memoryos` login theme (centered brand card over `keycloak.v2`), its read-only mount and realm selection.
+- [MEM-108 — Provider card sync](docs/increments/active/provider-card-sync/design.md) owns the shared `ProviderCard` on the Models and Web search pages and the OpenRouter/Ollama brand marks; backend and connection dialogs are excluded.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 

@@ -111,6 +111,7 @@ export const vietnameseUi: Record<string, string> = {
   "Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.":
     "Used to read the full contents of search result pages.",
   "Đặt làm mặc định": "Set as Default",
+  "Gateway & tự triển khai": "Gateways & self-hosted",
   "Cài đặt Web": "Web settings",
   "Mở trang gốc": "Open original page",
   "Không truy cập được nguồn Web.": "Could not access the Web source.",
