@@ -2,6 +2,7 @@ package io.memoryos.api.security;
 
 import io.memoryos.iam.identity.ActorProfileRecorder;
 import io.memoryos.iam.identity.ExternalIdentityResolver;
+import io.memoryos.iam.identity.ProviderSessionTerminator;
 import io.memoryos.iam.invitation.InvitationService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
@@ -39,6 +40,7 @@ class SessionSecurityConfiguration {
             BrowserLoginProperties browserLoginProperties,
             TrustedIdentityAdmission trustedIdentityAdmission,
             JitAdmissionPolicy jitAdmissionPolicy,
+            ProviderSessionTerminator providerSessionTerminator,
             @Value("${memoryos.initial-tenant.id}") UUID tenantId,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {
@@ -81,6 +83,8 @@ class SessionSecurityConfiguration {
                         .failureHandler(new OAuth2LoginFailureHandler()))
                 .logout(logout -> logout
                         .logoutRequestMatcher(sessionLogoutRequest)
+                        // Added handlers run before the session is invalidated, while the provider session id is readable.
+                        .addLogoutHandler(new ProviderSessionLogoutHandler(providerSessionTerminator))
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
                         .deleteCookies("SESSION")
