@@ -130,9 +130,11 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
                                 view, settings.capabilities().reasoning(), hostedSearch, summaries, meters))
-                        : async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
+                        // Only the Chat Completions route carries the tools-with-reasoning constraint.
+                        : new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
+                                .openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                                .observationRegistry(observations).meterRegistry(meters).build());
+                                .observationRegistry(observations).meterRegistry(meters).build()));
                 return new Client(binding(modelName, settings, model, ChatTokenizerProfiles.hostedTokens()),
                         () -> { try { async.close(); } finally { sync.close(); } });
             } catch (RuntimeException | Error failure) { async.close(); throw failure; }
