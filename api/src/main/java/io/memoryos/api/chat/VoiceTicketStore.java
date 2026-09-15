@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.VoiceTicketPurpose;
 import io.memoryos.chat.ChatException;
 import io.memoryos.iam.identity.ActorId;
 import java.security.SecureRandom;
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Single-use voice WebSocket tickets (Onyx ws-token parity). A ticket lives 60 seconds in this API process and binds
- * the handshake to the member who requested it through a CSRF-protected call; tickets are never persisted.
+ * the handshake to the member who requested it through a CSRF-protected call and to one voice socket; tickets are never
+ * persisted.
  */
 @Component
 class VoiceTicketStore {
@@ -40,11 +42,11 @@ class VoiceTicketStore {
         @Override public @NonNull String toString() { return "VoiceTicket[redacted]"; }
     }
 
-    private record Ticket(ActorId actor, Instant expiresAt) {}
+    private record Ticket(ActorId actor, VoiceTicketPurpose purpose, Instant expiresAt) {}
 
     private record Window(Instant start, int count) {}
 
-    Issued issue(ActorId actor) {
+    Issued issue(ActorId actor, VoiceTicketPurpose purpose) {
         Instant now = clock.instant();
         var window = issued.compute(actor, (ignored, current) -> current == null || !now.isBefore(current.start().plusSeconds(60))
                 ? new Window(now, 1) : new Window(current.start(), current.count() + 1));
@@ -58,14 +60,15 @@ class VoiceTicketStore {
         random.nextBytes(bytes);
         String value = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         var expiresAt = now.plus(TIME_TO_LIVE);
-        tickets.put(value, new Ticket(actor, expiresAt));
+        tickets.put(value, new Ticket(actor, purpose, expiresAt));
         return new Issued(value, expiresAt);
     }
 
     /** Removes the ticket on every attempt, so a ticket cannot be retried after a failed handshake. */
-    boolean consume(@Nullable String value, ActorId actor) {
+    boolean consume(@Nullable String value, ActorId actor, VoiceTicketPurpose purpose) {
         if (value == null || value.length() != TICKET_LENGTH) return false;
         var ticket = tickets.remove(value);
-        return ticket != null && ticket.actor().equals(actor) && clock.instant().isBefore(ticket.expiresAt());
+        return ticket != null && ticket.actor().equals(actor) && ticket.purpose() == purpose
+                && clock.instant().isBefore(ticket.expiresAt());
     }
 }

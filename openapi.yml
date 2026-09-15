@@ -3632,7 +3632,8 @@ paths:
     post:
       tags:
       - Chat Voice
-      summary: Issue a 60-second single-use ticket for the voice transcription WebSocket
+      summary: Issue a 60-second single-use ticket for the transcription or read-aloud
+        voice WebSocket
       operationId: createChatVoiceTicket
       parameters:
       - name: X-MemoryOS-CSRF
@@ -3643,6 +3644,11 @@ paths:
           type: string
           enum:
           - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceTicketRequest"
       responses:
         "400":
           description: Invalid voice request
@@ -9877,6 +9883,14 @@ components:
       properties:
         search:
           type: boolean
+    VoiceTicketRequest:
+      type: object
+      properties:
+        purpose:
+          type: string
+          enum:
+          - TRANSCRIBE
+          - SYNTHESIZE
     VoiceTicketResponse:
       type: object
       properties:

@@ -1,9 +1,11 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
-import io.memoryos.chat.voice.VoiceTranscriptionService;
+import io.memoryos.api.chat.contract.VoiceTicketPurpose;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -14,18 +16,21 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
 /**
- * Admits a voice WebSocket only for the authenticated member holding a fresh ticket and voice authority. Spring's
- * default origin check keeps the handshake same-origin; the API security chain has already required a session.
+ * Admits a voice WebSocket only for the authenticated member holding a fresh ticket for that socket and the authority it
+ * needs. Spring's default origin check keeps the handshake same-origin; the API security chain has already required a
+ * session.
  */
 final class VoiceHandshakeInterceptor implements HandshakeInterceptor {
     static final String ACTOR = "memoryos.voice.actor";
     static final String LANGUAGE = "memoryos.voice.language";
     private final VoiceTicketStore tickets;
-    private final VoiceTranscriptionService transcription;
+    private final VoiceTicketPurpose purpose;
+    private final Consumer<ActorId> requireAccess;
 
-    VoiceHandshakeInterceptor(VoiceTicketStore tickets, VoiceTranscriptionService transcription) {
+    VoiceHandshakeInterceptor(VoiceTicketStore tickets, VoiceTicketPurpose purpose, Consumer<ActorId> requireAccess) {
         this.tickets = tickets;
-        this.transcription = transcription;
+        this.purpose = purpose;
+        this.requireAccess = requireAccess;
     }
 
     @Override
@@ -38,12 +43,12 @@ final class VoiceHandshakeInterceptor implements HandshakeInterceptor {
             return false;
         }
         var query = servlet.getServletRequest();
-        if (!tickets.consume(query.getParameter("ticket"), identity.actorId())) {
+        if (!tickets.consume(query.getParameter("ticket"), identity.actorId(), purpose)) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
         try {
-            transcription.requireAccess(identity.actorId());
+            requireAccess.accept(identity.actorId());
         } catch (BusinessException denied) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;

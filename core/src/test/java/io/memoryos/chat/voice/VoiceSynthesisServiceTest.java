@@ -104,6 +104,23 @@ class VoiceSynthesisServiceTest {
     }
 
     @Test
+    void streamingSpeechReadsAnswerPartsThroughTheProviderInOrder() throws Exception {
+        var audio = new ByteArrayOutputStream();
+        try (var speech = service.streaming(connection(), "voice-secret", 1.5, audio::writeBytes, released::incrementAndGet)) {
+            speech.append("Một.");
+            speech.append("Hai.");
+            speech.finish().get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        assertEquals("mp3-1;mp3-2;", audio.toString(UTF_8));
+        assertTrue(bodies.get(0).contains("\"input\":\"Một.\""));
+        assertTrue(bodies.get(0).contains("\"speed\":1.5"));
+        assertTrue(bodies.get(1).contains("\"input\":\"Hai.\""));
+        assertEquals(1, released.get());
+        assertEquals(1, meters.get("memoryos.chat.voice.request").tag("operation", "synthesize").tag("outcome", "succeeded")
+                .timer().count());
+    }
+
+    @Test
     void closingBeforeTheAudioIsWrittenCancelsAndReleasesOnce() {
         var speech = service.stream(connection(), "voice-secret", List.of("Một.", "Hai."), 1.0, released::incrementAndGet);
         speech.close();

@@ -5,7 +5,6 @@ import io.memoryos.chat.voice.ChunkedTranscriber;
 import io.memoryos.chat.voice.Transcript;
 import io.memoryos.chat.voice.VoiceTranscriptionService;
 import io.memoryos.iam.identity.ActorId;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -24,7 +23,6 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Voice transcription WebSocket (Onyx /voice/transcribe/stream parity). The browser sends PCM16 24 kHz mono binary
@@ -35,12 +33,10 @@ import tools.jackson.databind.ObjectMapper;
 class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
     static final String PATH = "/api/chat/voice/transcribe/stream";
     static final int MAX_BINARY_FRAME = 64 * 1024;
-    static final int MAX_TEXT_FRAME = 16 * 1024;
     static final Duration IDLE = Duration.ofSeconds(60);
     static final Duration MAX_SESSION = Duration.ofMinutes(10);
     private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
     private static final int SEND_BUFFER_BYTES = 256 * 1024;
-    private static final ObjectMapper JSON = new ObjectMapper();
     private final VoiceTranscriptionService transcription;
     private final ScheduledExecutorService watchdog =
             Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("voice-websocket-watchdog").factory());
@@ -69,7 +65,7 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
     public void afterConnectionEstablished(WebSocketSession session) {
         // Frames above these sizes are rejected by the container before they reach the handler.
         session.setBinaryMessageSizeLimit(MAX_BINARY_FRAME);
-        session.setTextMessageSizeLimit(MAX_TEXT_FRAME);
+        session.setTextMessageSizeLimit(VoiceSockets.MAX_TEXT_FRAME);
         var socket = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MILLIS, SEND_BUFFER_BYTES);
         var actor = (ActorId) session.getAttributes().get(VoiceHandshakeInterceptor.ACTOR);
         var language = (String) session.getAttributes().get(VoiceHandshakeInterceptor.LANGUAGE);
@@ -77,11 +73,7 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         try {
             transcriber = transcription.open(actor, language, transcript -> send(socket, transcript));
         } catch (BusinessException refused) {
-            switch (refused.code()) {
-                case "CHAT_CAPACITY_EXCEEDED" -> fail(socket, "VOICE_BUSY", CloseStatus.SERVICE_OVERLOAD);
-                case "CHAT_INVALID_REQUEST" -> fail(socket, "VOICE_INVALID_REQUEST", CloseStatus.POLICY_VIOLATION);
-                default -> fail(socket, "VOICE_UNAVAILABLE", CloseStatus.POLICY_VIOLATION);
-            }
+            VoiceSockets.refuse(socket, refused);
             return;
         }
         var live = new Live(socket, transcriber);
@@ -96,11 +88,11 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         var payload = message.getPayload();
         int size = payload.remaining();
         if (size % 2 != 0) {
-            fail(live.socket, "VOICE_INVALID_AUDIO", CloseStatus.POLICY_VIOLATION);
+            VoiceSockets.fail(live.socket, "VOICE_INVALID_AUDIO", CloseStatus.POLICY_VIOLATION);
             return;
         }
         if (live.bytes + size > VoiceTranscriptionService.MAX_RECORDING_BYTES) {
-            fail(live.socket, "VOICE_AUDIO_TOO_LARGE", CloseStatus.POLICY_VIOLATION);
+            VoiceSockets.fail(live.socket, "VOICE_AUDIO_TOO_LARGE", CloseStatus.POLICY_VIOLATION);
             return;
         }
         live.bytes += size;
@@ -116,28 +108,28 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         if (live == null) return;
         String type;
         try {
-            type = JSON.readTree(message.getPayload()).path("type").asString("");
+            type = VoiceSockets.JSON.readTree(message.getPayload()).path("type").asString("");
         } catch (RuntimeException malformed) {
             type = "";
         }
         if (!"end".equals(type)) {
-            fail(live.socket, "VOICE_INVALID_MESSAGE", CloseStatus.POLICY_VIOLATION);
+            VoiceSockets.fail(live.socket, "VOICE_INVALID_MESSAGE", CloseStatus.POLICY_VIOLATION);
             return;
         }
         if (!live.ending.compareAndSet(false, true)) return;
         live.transcriber.finish().whenComplete((text, failure) -> {
             if (failure != null) {
-                fail(live.socket, "VOICE_PROVIDER_FAILED", CloseStatus.SERVER_ERROR);
+                VoiceSockets.fail(live.socket, "VOICE_PROVIDER_FAILED", CloseStatus.SERVER_ERROR);
                 return;
             }
             send(live.socket, new Transcript(text, true));
-            close(live.socket, CloseStatus.NORMAL);
+            VoiceSockets.close(live.socket, CloseStatus.NORMAL);
         });
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
-        close(session, CloseStatus.SERVER_ERROR);
+        VoiceSockets.close(session, CloseStatus.SERVER_ERROR);
     }
 
     @Override
@@ -151,13 +143,15 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
     @Override
     public void destroy() {
         watchdog.shutdownNow();
-        sessions.values().forEach(live -> close(live.socket, CloseStatus.GOING_AWAY));
+        sessions.values().forEach(live -> VoiceSockets.close(live.socket, CloseStatus.GOING_AWAY));
     }
 
     private void expire(Live live) {
         long now = System.nanoTime();
-        if (now - live.startedNanos > MAX_SESSION.toNanos()) fail(live.socket, "VOICE_SESSION_TOO_LONG", CloseStatus.POLICY_VIOLATION);
-        else if (!live.ending.get() && now - live.lastAudioNanos > IDLE.toNanos()) fail(live.socket, "VOICE_IDLE", CloseStatus.POLICY_VIOLATION);
+        if (now - live.startedNanos > MAX_SESSION.toNanos())
+            VoiceSockets.fail(live.socket, "VOICE_SESSION_TOO_LONG", CloseStatus.POLICY_VIOLATION);
+        else if (!live.ending.get() && now - live.lastAudioNanos > IDLE.toNanos())
+            VoiceSockets.fail(live.socket, "VOICE_IDLE", CloseStatus.POLICY_VIOLATION);
     }
 
     private static void send(WebSocketSession socket, Transcript transcript) {
@@ -165,32 +159,6 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         body.put("type", "transcript");
         body.put("text", transcript.text());
         body.put("isFinal", transcript.isFinal());
-        write(socket, body);
-    }
-
-    private static void fail(WebSocketSession socket, String code, CloseStatus status) {
-        var body = new LinkedHashMap<String, Object>();
-        body.put("type", "error");
-        body.put("code", code);
-        write(socket, body);
-        close(socket, status);
-    }
-
-    private static void write(WebSocketSession socket, Map<String, Object> body) {
-        if (!socket.isOpen()) return;
-        try {
-            socket.sendMessage(new TextMessage(JSON.writeValueAsString(body)));
-        } catch (IOException | RuntimeException failed) {
-            close(socket, CloseStatus.SERVER_ERROR);
-        }
-    }
-
-    private static void close(WebSocketSession socket, CloseStatus status) {
-        if (!socket.isOpen()) return;
-        try {
-            socket.close(status);
-        } catch (IOException ignored) {
-            // The container releases the connection; afterConnectionClosed owns cleanup.
-        }
+        VoiceSockets.write(socket, body);
     }
 }
