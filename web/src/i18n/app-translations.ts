@@ -1903,6 +1903,12 @@ Object.assign(englishUi, {
   "Add Provider": "Thêm nhà cung cấp",
   "MemoryOS supports both popular providers and self-hosted models.":
     "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
+  "Gateways & Routers": "Gateway & Router",
+  "One key routed to several vendors.": "Một khóa định tuyến tới nhiều nhà cung cấp.",
+  "Hosted marketplace of models from many vendors.":
+    "Chợ mô hình trên cloud, gom nhiều nhà cung cấp.",
+  "Self-hosted proxy in front of your own provider keys.":
+    "Proxy tự triển khai đứng trước khóa của chính bạn.",
   "Self-hosted & Custom": "Tự triển khai & Tùy chỉnh",
   "GPT models from OpenAI.": "Mô hình GPT của OpenAI.",
   "Claude models from Anthropic.": "Mô hình Claude của Anthropic.",
@@ -1983,9 +1989,10 @@ Object.assign(englishUi, {
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
     "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
   "Provider name": "Tên nhà cung cấp",
-  Adapter: "Adapter",
+  Protocol: "Giao thức",
+  "OpenAI-compatible": "Chuẩn OpenAI",
   "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",
-  "Choose installed adapter": "Chọn adapter đã cài",
+  "Choose installed adapter": "Chọn giao thức đã cài",
   "Endpoint URL": "URL endpoint",
   "Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL credentials, queries and fragments are not accepted.":
     "HTTP nội bộ được hỗ trợ trên mạng tin cậy. Dùng HTTPS trên mạng không tin cậy; không chấp nhận thông tin xác thực, query hay fragment trong URL.",
@@ -1995,10 +2002,10 @@ Object.assign(englishUi, {
   Configured: "Đã cấu hình",
   "Not configured": "Chưa cấu hình",
   "Adapter unavailable": "Adapter không khả dụng",
-  "Credential action": "Hành động khóa",
-  "Keep existing key": "Giữ khóa hiện tại",
-  "Replace key": "Thay khóa",
-  "Remove key": "Xóa khóa",
+  "Credential action": "Khóa API của nhà cung cấp",
+  "Keep existing key": "Giữ khóa đang lưu",
+  "Replace key": "Nhập khóa mới",
+  "Remove key": "Xoá khóa đang lưu",
   "API key": "Khóa API",
   "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.":
     "Với khóa bắt buộc, hãy tắt nhà cung cấp trước khi xóa. Chọn mặc định Tenant khác trước nếu nhà cung cấp này đang phục vụ nó.",

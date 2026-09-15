@@ -3,10 +3,16 @@ import type { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import type { ErrorMessage } from "@/lib/problem-presentation";
+import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { chatActionProblem } from "./chat-action-utils";
 import { loadChatHistory, toUiMessages, type ChatHistory, type ChatUiMessage } from "./chat-api";
 import { MemoryOsChatTransport, type ConnectionState } from "./chat-transport";
+
+const sendProblems = {
+  CHAT_PROVIDER_UNAVAILABLE: { key: "chatProviderUnavailable" },
+  CHAT_CAPACITY_EXCEEDED: { key: "chatBusy" },
+  CHAT_INVALID_REQUEST: { key: "chatRejected" },
+} as const satisfies Record<string, ErrorMessage>;
 
 export type ChatThreadState = {
   session?: ChatSession;
@@ -239,8 +245,11 @@ export class ChatThreadController {
     }
   }
 
-  markUnfinished() {
-    this.set({ error: "unfinished" });
+  /** A named rejection tells the actor what to change; an unnamed transport failure keeps the generic notice. */
+  markUnfinished(cause?: unknown) {
+    const presented =
+      cause === undefined ? undefined : presentProblem(cause, "mutation", sendProblems);
+    this.set({ error: presented?.code ? presented.message : "unfinished" });
   }
 
   markUnavailable() {

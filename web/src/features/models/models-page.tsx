@@ -6,7 +6,9 @@ import {
   ChevronDown,
   Eye,
   ListPlus,
+  Network,
   Plug,
+  Route,
   Plus,
   Server,
   Settings2,
@@ -610,6 +612,59 @@ function ModelsAdministration() {
                 })
               }
             />
+          </div>
+          <div>
+            <h3 className="font-main-ui-action text-content-secondary">
+              {ui("Gateways & Routers")}
+            </h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <NewConnectionCard
+                preset={{
+                  name: "9Router",
+                  subtitle: "One key routed to several vendors.",
+                  baseUrl: "",
+                  logo: <ProviderLogo mark="NINEROUTER" />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({ kind: "provider", adapterType: "openai", name: "9Router" })
+                }
+              />
+              <NewConnectionCard
+                preset={{
+                  name: "OpenRouter",
+                  subtitle: "Hosted marketplace of models from many vendors.",
+                  baseUrl: "https://openrouter.ai/api/v1",
+                  logo: <Network />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({
+                    kind: "provider",
+                    adapterType: "openai",
+                    baseUrl: "https://openrouter.ai/api/v1",
+                    name: "OpenRouter",
+                  })
+                }
+              />
+              <NewConnectionCard
+                preset={{
+                  name: "LiteLLM Proxy",
+                  subtitle: "Self-hosted proxy in front of your own provider keys.",
+                  baseUrl: "http://localhost:4000/v1",
+                  logo: <Route />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({
+                    kind: "provider",
+                    adapterType: "openai",
+                    baseUrl: "http://localhost:4000/v1",
+                    name: "LiteLLM Proxy",
+                  })
+                }
+              />
+            </div>
           </div>
           <div>
             <h3 className="font-main-ui-action text-content-secondary">

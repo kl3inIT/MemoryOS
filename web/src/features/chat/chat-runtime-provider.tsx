@@ -114,7 +114,7 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
     generateId: () => crypto.randomUUID(),
     sendAutomaticallyWhen: () => false,
     throttle: 50,
-    onError: () => controller.markUnfinished(),
+    onError: (cause) => controller.markUnfinished(cause),
   });
   const runtime = useAISDKRuntime(chat, {
     adapters: { attachments, history },
