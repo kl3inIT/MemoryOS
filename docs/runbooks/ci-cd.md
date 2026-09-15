@@ -10,9 +10,9 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 `frontend-check` runs the frontend static/unit/build gate on a plain runner. Browser tests run as four Playwright shards (following Playwright's CI guidance: one worker per runner, scale with shards; `fullyParallel` splits by test) with matrix fail-fast disabled; all shards must succeed for `frontend` to pass. Each shard uploads a one-day `blob-report-<n>` artifact, and the non-gating `frontend-report` job merges them into the seven-day `frontend-tests` HTML report with traces, screenshots and videos. API and worker images stay on one runner to reuse their shared build layers. Image jobs build with BuildKit and `type=gha` layer caches (`backend-api`, `backend-worker`, `web`); the backend Dockerfile resolves Gradle dependencies in their own layer before copying sources. Core tests run in two JVMs, each cloning PostgreSQL fixtures from a template migrated once per JVM. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
 
-After successful main gates, publication loads the preserved API, worker and web images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
+After successful main gates, publication loads the preserved API, worker, web, interpreter and interpreter executor images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
-- `images.env`: three digest references and the full source SHA;
+- `images.env`: five digest references (API, worker, web, interpreter, interpreter executor) and the full source SHA;
 - `configuration.tar`: tracked infrastructure and Flyway migrations from that revision;
 - `SHA256SUMS`: configuration and image-reference checksums;
 - `manifest.json`: repository, source SHA, CI run ID and attempt.
@@ -55,9 +55,9 @@ Before SSH or changing containers, the workflow validates the release bundle and
 
 GitHub concurrency preserves a running deployment. A server `flock` excludes simultaneous mutations; `/apps/memoryos/deployments/pending` reserves the environment until health/revision verification and finalization complete. Failure or cancellation reports the attempted transaction without automatically rolling back. Any existing reservation remains for explicit operator recovery instead of allowing another release to overwrite an uncertain state.
 
-The server validates the existing healthy three-image set, retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
+The server validates the existing healthy runtime (API, worker, web, and the interpreter once an accepted release includes it), retains its actual image IDs and Compose paths, validates candidate configuration and image revisions, and rejects candidates missing an applied migration. After pulling images, free disk must exceed twice the database size plus 2 GB. It stops worker and API writers, creates a PostgreSQL custom-format backup, checks its restore catalogue and checksum, then starts API through normal Flyway. API readiness must succeed before worker/web rollout; the interpreter rolls out last. This single-instance topology has a maintenance interruption; it does not provide zero-downtime migration.
 
-After rollout, the workflow finalizes the healthy three-image set and reports deployment success. The user performs login, upload, indexing, Search and reader acceptance separately. CD creates no synthetic business data and does not claim those flows passed.
+After rollout, the workflow finalizes the healthy runtime and reports deployment success. The user performs login, upload, indexing, Search and reader acceptance separately. CD creates no synthetic business data and does not claim those flows passed.
 
 Acceptance rechecks running image IDs, revision labels and health. The script writes `deployments/current.env`, `deployments/current.compose`, the private `deployments/current.base.env` configuration snapshot, and the transaction result before releasing the reservation. A later rollback uses that accepted snapshot, even if the desired `.env.staging` configuration changes. Operator Compose commands must use the accepted configuration/image record; the original `.env.staging` remains the desired input for the next deployment:
 
@@ -70,6 +70,21 @@ docker compose --project-name memoryos --env-file /apps/memoryos/deployments/cur
 ```
 
 Do not run a second deployment outside this workflow/reservation protocol. Retain the current and previous image IDs, referenced configuration directories, and backups until a newer release and its recovery path have been accepted. Remove older unreferenced artifacts only after verifying those references; disk pressure fails preflight rather than pruning rollback material automatically.
+
+## Interpreter runtime
+
+`memoryos-interpreter` ([MEM-110](../increments/active/mem-110-memoryos-interpreter/design.md)) runs Python for the Chat `run_python` tool. No MemoryOS component calls it until MEM-110 phase 3.
+
+- **Release.** The CI `interpreter` job builds the service and executor images, tests them, and preserves both as `candidate-interpreter`.
+- **Pull.** The deployment pulls the service through Compose and the executor with `docker pull`, both with the job-scoped token, and checks both revision labels. The executor is not a Compose service: the interpreter starts one executor container per run on the host daemon.
+- **Acceptance.** The interpreter rolls out after worker and web and must be healthy. Its `/health` reports an error when Docker is unreachable or the executor image is missing.
+- **First release and rollback.** The first deployment that includes the interpreter has no previous interpreter to capture. Rolling back to a release without it stops the candidate interpreter container, because the previous Compose files have no interpreter service.
+
+Operating constraints:
+
+- **Socket.** The service runs as root with `/var/run/docker.sock` mounted. A caller of its API runs code in containers it creates, and a compromised service controls the host's Docker daemon. It therefore joins only `memoryos-internal` with no host port, and executors run with `--network none`. Do not add a port, proxy route or network before the service has its own credential (MEM-110 phase 2).
+- **Capacity.** Each executor is a separate host container limited to 1 GiB memory and 30 s CPU, outside Compose resource settings. The service has no concurrency limit yet, so concurrent runs add host memory.
+- **Executor image.** The image is about 2.8 GB. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
 
 ## Failure and recovery
 

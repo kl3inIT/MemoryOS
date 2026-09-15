@@ -33,6 +33,7 @@ jobs:
       backend: ${{ steps.scope.outputs.backend }}
       web: ${{ steps.scope.outputs.web }}
       landing: ${{ steps.scope.outputs.landing }}
+      interpreter: ${{ steps.scope.outputs.interpreter }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,6 +50,7 @@ jobs:
           backend=true
           web=true
           landing=true
+          interpreter=true
           # Main pushes always verify and publish every area. A pull request selects areas from its merge
           # commit, whose first parent is the base branch tip; unknown paths or an empty diff select all.
           if [[ "$EVENT_NAME" == pull_request ]]; then
@@ -57,6 +59,7 @@ jobs:
               backend=false
               web=false
               landing=false
+              interpreter=false
               for path in "${changed[@]}"; do
                 # Mirror paths-ignore: only root-level Markdown is documentation; nested .md can be source.
                 if [[ "$path" != */* && "$path" == *.md ]]; then
@@ -76,6 +79,9 @@ jobs:
                   core/*|connector/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
+                  interpreter/*)
+                    interpreter=true
+                    ;;
                   web/*)
                     web=true
                     ;;
@@ -86,13 +92,14 @@ jobs:
                     backend=true
                     web=true
                     landing=true
+                    interpreter=true
                     ;;
                 esac
               done
             fi
           fi
-          printf 'backend=%s\nweb=%s\nlanding=%s\n' "$backend" "$web" "$landing" >> "$GITHUB_OUTPUT"
-          printf 'Verification areas: backend=%s web=%s landing=%s\n' "$backend" "$web" "$landing" >> "$GITHUB_STEP_SUMMARY"
+          printf 'backend=%s\nweb=%s\nlanding=%s\ninterpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_OUTPUT"
+          printf 'Verification areas: backend=%s web=%s landing=%s interpreter=%s\n' "$backend" "$web" "$landing" "$interpreter" >> "$GITHUB_STEP_SUMMARY"
 
   check:
     needs: changes
@@ -429,6 +436,85 @@ jobs:
           compression-level: 1
           retention-days: 7
 
+  interpreter:
+    needs: changes
+    if: ${{ needs.changes.outputs.interpreter == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: interpreter/service
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify interpreter service
+        run: |
+          uv sync --frozen
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy .
+
+      # Integration and e2e tests start real executor containers from this image on the runner's daemon.
+      - name: Build executor image
+        working-directory: interpreter/executor
+        env:
+          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
+        run: |
+          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
+            --tag ghcr.io/kl3init/memoryos-interpreter-executor:latest \
+            --tag "memoryos-interpreter-executor:sha-$GITHUB_SHA" .
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration_tests --tb=short
+
+      - name: Build service image
+        env:
+          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
+        run: |
+          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
+            --tag memoryos-interpreter:ci --tag "memoryos-interpreter:sha-$GITHUB_SHA" .
+
+      - name: Run e2e tests against the service container
+        run: |
+          docker run --detach --name memoryos-interpreter-ci --publish 127.0.0.1:8000:8000 \
+            --user root --volume /var/run/docker.sock:/var/run/docker.sock memoryos-interpreter:ci
+          for _ in {1..30}; do
+            curl --silent --fail http://127.0.0.1:8000/health && break
+            sleep 2
+          done
+          uv run pytest tests/e2e --tb=short
+
+      - name: Show service logs on failure
+        if: ${{ failure() }}
+        run: docker logs memoryos-interpreter-ci || true
+
+      - name: Save interpreter images for publication
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/candidate"
+          docker save --output "$GITHUB_WORKSPACE/candidate/interpreter.tar" \
+            "memoryos-interpreter:sha-$GITHUB_SHA" "memoryos-interpreter-executor:sha-$GITHUB_SHA"
+
+      - name: Preserve verified interpreter images
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: candidate-interpreter
+          path: candidate/interpreter.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
+
   backend-images:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
@@ -518,7 +604,7 @@ jobs:
   gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, secrets]
+    needs: [changes, check, frontend-check, frontend, frontend-image, backend-images, landing, interpreter, secrets]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -533,12 +619,13 @@ jobs:
             | def selected(name; jobs): if $area[name] == "true"
                 then all(jobs[]; $jobs[.].result == "success")
                 else all(jobs[]; $jobs[.].result == "skipped") end;
-            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "landing", "secrets"]
+            ($jobs | keys) == ["backend-images", "changes", "check", "frontend", "frontend-check", "frontend-image", "interpreter", "landing", "secrets"]
             and $jobs.changes.result == "success"
             and $jobs.secrets.result == "success"
             and selected("backend"; ["check", "backend-images"])
             and selected("web"; ["frontend-check", "frontend", "frontend-image"])
             and selected("landing"; ["landing"])
+            and selected("interpreter"; ["interpreter"])
           ' <<< "$RESULTS"
 
   publish:
@@ -546,7 +633,7 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read # Read the verified main revision for the release bundle.
       packages: write # Publish the preserved images to GHCR after CI Gate succeeds.
@@ -567,8 +654,9 @@ jobs:
         run: |
           docker load --input candidate/backend.tar
           docker load --input candidate/web.tar
+          docker load --input candidate/interpreter.tar
           mkdir release
-          for component in api worker web; do
+          for component in api worker web interpreter interpreter-executor; do
             image="memoryos-$component:sha-$GITHUB_SHA"
             docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
               .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
@@ -582,7 +670,8 @@ jobs:
               [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
             ')
             [[ "$digest" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
-            printf 'MEMORYOS_%s_IMAGE=%s\n' "${component^^}" "$digest" >> release/images.env
+            key=${component//-/_}
+            printf 'MEMORYOS_%s_IMAGE=%s\n' "${key^^}" "$digest" >> release/images.env
           done
           printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
           git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration
