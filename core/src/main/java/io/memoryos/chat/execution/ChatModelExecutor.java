@@ -15,6 +15,7 @@ import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ImageMode;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.tools.EditImageTool;
 import io.memoryos.chat.tools.GenerateImageTool;
 import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
@@ -169,8 +170,15 @@ public final class ChatModelExecutor {
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
-                runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, setup.imageAccess().generate(), imageArtifacts,
+                var connection = setup.imageAccess().generate();
+                runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
                         setup.tenant(), setup.assistantMessageId(), fileActive, setup.deadline(), imageEvents, 4)));
+                // Mask names are known for image attachments admitted to this vision request.
+                var names = new java.util.HashMap<java.util.UUID, String>();
+                setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
+                runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
+                        setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
+                        fileActive, setup.deadline(), imageEvents, 4)));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());

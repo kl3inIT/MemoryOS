@@ -16,6 +16,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đã đọc trang": "Read pages",
   "+{{n}}": "+{{n}}",
   "Đã tạo ảnh": "Generated an image",
+  "Đã sửa ảnh": "Edited an image",
   "Đã suy nghĩ trong {{duration}}": "Thought for {{duration}}",
   "Đã suy nghĩ": "Thought",
   "Đã dừng suy nghĩ": "Stopped thinking",
@@ -355,6 +356,18 @@ export const vietnameseUi: Record<string, string> = {
   "Tải ảnh": "Download image",
   "Xem ảnh phóng to": "View image full size",
   "Đang tạo ảnh…": "Generating image…",
+  "Đang sửa ảnh…": "Editing image…",
+  "Sửa ảnh": "Edit image",
+  "Tô lên vùng muốn thay đổi. Không tô thì sửa toàn bộ ảnh.":
+    "Paint over the area to change. Leave it unpainted to edit the whole image.",
+  "Tô vùng cần sửa": "Paint the area to change",
+  "Cỡ cọ": "Brush size",
+  "Xoá vùng tô": "Clear painting",
+  "Mô tả thay đổi": "Describe the change",
+  "Ví dụ: đổi áo sang màu đỏ, giữ nguyên mọi thứ khác":
+    "For example: make the shirt red and keep everything else",
+  "Đưa vào khung chat": "Add to message",
+  "Không tạo được vùng tô. Hãy thử lại.": "Could not prepare the painted area. Try again.",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":

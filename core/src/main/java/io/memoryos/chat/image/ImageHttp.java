@@ -2,10 +2,13 @@ package io.memoryos.chat.image;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
@@ -21,6 +24,8 @@ public final class ImageHttp implements AutoCloseable {
     private final CloseableHttpClient client = client();
 
     public record Response(int status, byte[] bytes) {}
+    /** A binary multipart field, such as an input image. */
+    public record FilePart(String name, String filename, String contentType, byte[] bytes) {}
 
     private static CloseableHttpClient client() {
         var pool = PoolingHttpClientConnectionManagerBuilder.create()
@@ -37,6 +42,22 @@ public final class ImageHttp implements AutoCloseable {
         var request = new HttpUriRequestBase("POST", uri);
         headers.forEach(request::setHeader);
         request.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+        return execute(request);
+    }
+
+    /** Multipart form for edit endpoints; text fields keep their insertion order and are UTF-8. */
+    public Response postMultipart(URI uri, Map<String, String> headers, Map<String, String> fields, List<FilePart> files)
+            throws IOException {
+        var request = new HttpUriRequestBase("POST", uri);
+        headers.forEach(request::setHeader);
+        var entity = MultipartEntityBuilder.create();
+        fields.forEach((name, value) -> entity.addTextBody(name, value, ContentType.TEXT_PLAIN.withCharset(StandardCharsets.UTF_8)));
+        for (var file : files) entity.addBinaryBody(file.name(), file.bytes(), ContentType.create(file.contentType()), file.filename());
+        request.setEntity(entity.build());
+        return execute(request);
+    }
+
+    private Response execute(HttpUriRequestBase request) throws IOException {
         return client.execute(request, response -> {
             int status = response.getCode();
             var entity = response.getEntity();

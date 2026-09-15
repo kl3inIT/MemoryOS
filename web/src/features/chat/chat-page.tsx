@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -23,6 +23,7 @@ import { ChatComposerMenu } from "./chat-composer-menu";
 import type { WebSearchMode } from "./chat-web-preference";
 import type { ImageMode } from "./chat-image";
 import { ChatEditingContext } from "./chat-editing-context";
+import { ChatImageEditContext } from "./chat-image-edit-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
 import { ChatConversationSearch } from "./chat-conversation-search";
 import {
@@ -133,6 +134,16 @@ function ChatConversation({
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
   const [image, setImage] = useState<ImageMode>(transport.image);
   const busy = state.connection !== "ready" || state.checking;
+  const imageEditing = useMemo(
+    () => ({
+      enableImages: () => {
+        if (transport.image !== "off") return;
+        transport.selectImage("auto");
+        setImage("auto");
+      },
+    }),
+    [transport],
+  );
   const branches = useQuery({
     queryKey: ["chat-branches", session?.id],
     enabled: !!session,
@@ -215,140 +226,142 @@ function ChatConversation({
       }
     >
       <div className="flex h-full min-h-0 flex-col">
-        <ChatEditingContext.Provider
-          value={{
-            sessionId: session?.id,
-            busy,
-            branches: branches.data ?? [],
-            feedback: feedback.data ?? [],
-            edit: (userMessageId, text, clientRequestId, fileIds) =>
-              controller.mutate(async () => {
-                const { data } = await editChatMessage({
-                  path: { sessionId: session!.id, userMessageId },
-                  body: {
-                    text,
-                    clientRequestId,
-                    modelConfigurationId: model.choice.id,
-                    fileIds,
-                    webSearch,
-                  },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
-                });
-                transport.recordModelSelection(data);
-              }),
-            regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
-              controller.mutate(async () => {
-                const { data } = await regenerateChatMessage({
-                  path: { sessionId: session!.id, userMessageId },
-                  body: {
-                    clientRequestId,
-                    modelConfigurationId: modelConfigurationId ?? model.choice.id,
-                    webSearch,
-                  },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
-                });
-                transport.recordModelSelection(data);
-              }),
-            branch: (messageId, expectedChildId) =>
-              controller.mutate(() =>
-                selectChatBranch({
-                  path: { sessionId: session!.id },
-                  body: { messageId, expectedChildId },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
+        <ChatImageEditContext.Provider value={imageEditing}>
+          <ChatEditingContext.Provider
+            value={{
+              sessionId: session?.id,
+              busy,
+              branches: branches.data ?? [],
+              feedback: feedback.data ?? [],
+              edit: (userMessageId, text, clientRequestId, fileIds) =>
+                controller.mutate(async () => {
+                  const { data } = await editChatMessage({
+                    path: { sessionId: session!.id, userMessageId },
+                    body: {
+                      text,
+                      clientRequestId,
+                      modelConfigurationId: model.choice.id,
+                      fileIds,
+                      webSearch,
+                    },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  });
+                  transport.recordModelSelection(data);
                 }),
-              ),
-          }}
-        >
-          {(branches.isError || feedback.isError) && (
-            <p role="alert" className="px-4 text-sm">
-              {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
-              <Button
-                prominence="internal"
-                size="sm"
-                onClick={() => {
-                  void branches.refetch();
-                  void feedback.refetch();
-                }}
-              >
-                {ui("Tải lại")}
-              </Button>
-            </p>
-          )}
-          {state.attachmentError && (
-            <p role="alert" className="text-sm">
-              {problemMessage(state.attachmentError)}
-              <Button
-                type="button"
-                size="sm"
-                prominence="internal"
-                onClick={() => controller.setAttachmentError(undefined)}
-              >
-                {ui("Đóng")}
-              </Button>
-            </p>
-          )}
-          <ChatThread
-            welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
-            afterComposer={
-              project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
-            }
-            starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
-            composerMenu={
-              <ChatComposerMenu
-                disabled={busy}
-                web={{
-                  sessionId: session?.id,
-                  modelId: model.choice.id,
-                  value: webSearch,
-                  onChange: (mode) => {
-                    transport.selectWeb(mode);
-                    setWebSearch(mode);
-                  },
-                }}
-                image={{
-                  value: image,
-                  onChange: (mode) => {
-                    transport.selectImage(mode);
-                    setImage(mode);
-                  },
-                }}
-              />
-            }
-            modelPicker={
-              <ChatModelPicker
-                sessionId={transport.session?.id}
-                value={model.choice.id}
-                onChange={model.select}
-                disabled={busy}
-              />
-            }
-            modelNotice={
-              model.choice.fallback
-                ? ui(
-                    "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
-                  )
-                : undefined
-            }
-            connection={state.connection}
-            stopping={state.stopping}
-            onStop={() => void controller.stop()}
-            error={
-              state.error
-                ? typeof state.error === "string"
-                  ? t(state.error)
-                  : problemMessage(state.error)
-                : undefined
-            }
-            onCheck={() => controller.check()}
-            checking={state.checking}
-          />
-        </ChatEditingContext.Provider>
+              regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
+                controller.mutate(async () => {
+                  const { data } = await regenerateChatMessage({
+                    path: { sessionId: session!.id, userMessageId },
+                    body: {
+                      clientRequestId,
+                      modelConfigurationId: modelConfigurationId ?? model.choice.id,
+                      webSearch,
+                    },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  });
+                  transport.recordModelSelection(data);
+                }),
+              branch: (messageId, expectedChildId) =>
+                controller.mutate(() =>
+                  selectChatBranch({
+                    path: { sessionId: session!.id },
+                    body: { messageId, expectedChildId },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  }),
+                ),
+            }}
+          >
+            {(branches.isError || feedback.isError) && (
+              <p role="alert" className="px-4 text-sm">
+                {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
+                <Button
+                  prominence="internal"
+                  size="sm"
+                  onClick={() => {
+                    void branches.refetch();
+                    void feedback.refetch();
+                  }}
+                >
+                  {ui("Tải lại")}
+                </Button>
+              </p>
+            )}
+            {state.attachmentError && (
+              <p role="alert" className="text-sm">
+                {problemMessage(state.attachmentError)}
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="internal"
+                  onClick={() => controller.setAttachmentError(undefined)}
+                >
+                  {ui("Đóng")}
+                </Button>
+              </p>
+            )}
+            <ChatThread
+              welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
+              afterComposer={
+                project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
+              }
+              starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
+              composerMenu={
+                <ChatComposerMenu
+                  disabled={busy}
+                  web={{
+                    sessionId: session?.id,
+                    modelId: model.choice.id,
+                    value: webSearch,
+                    onChange: (mode) => {
+                      transport.selectWeb(mode);
+                      setWebSearch(mode);
+                    },
+                  }}
+                  image={{
+                    value: image,
+                    onChange: (mode) => {
+                      transport.selectImage(mode);
+                      setImage(mode);
+                    },
+                  }}
+                />
+              }
+              modelPicker={
+                <ChatModelPicker
+                  sessionId={transport.session?.id}
+                  value={model.choice.id}
+                  onChange={model.select}
+                  disabled={busy}
+                />
+              }
+              modelNotice={
+                model.choice.fallback
+                  ? ui(
+                      "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
+                    )
+                  : undefined
+              }
+              connection={state.connection}
+              stopping={state.stopping}
+              onStop={() => void controller.stop()}
+              error={
+                state.error
+                  ? typeof state.error === "string"
+                    ? t(state.error)
+                    : problemMessage(state.error)
+                  : undefined
+              }
+              onCheck={() => controller.check()}
+              checking={state.checking}
+            />
+          </ChatEditingContext.Provider>
+        </ChatImageEditContext.Provider>
       </div>
     </AppShell>
   );
