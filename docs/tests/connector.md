@@ -279,6 +279,9 @@ The [combined MEM-55/MEM-36 verification record](../increments/completed/mem-55-
 | Automatic synchronization is a Switch beside its state for editors; without edit permission only the state shows | `google-drive-enterprise.spec.ts` — permission refresh scenario; `google-drive-panel.test.tsx` |
 | A file indexing attempt opens in a side Sheet with its timeline, translated error, error code and attempt ID; a failed attempt points to Reindex in the Files tab | `source-item-history.test.tsx` |
 | Closing the run or attempt detail Sheet returns focus to the View details control that opened it | `source-history-presentation.test.tsx`, `source-item-history.test.tsx` |
+| Visibility is a dropdown: FILE offers Workspace members and Private, Google Drive adds Auto Sync, and each option carries its description | `source-metadata-dialog.test.tsx`; `file-source-setup.spec.ts` — global setup scenario |
+| Access groups appear only for Private, and always for scoped managers; switching back to Workspace members hides them | `file-source-setup.spec.ts` — global setup and scoped File creation scenarios; `google-drive-source-setup.spec.ts` — scoped setup scenario |
+| The group field adds chosen Groups as removable chips, searches on the server, hides system Groups and says when nothing matches | `source-group-picker.test.tsx` |
 
 Raw reservation/adoption/cleanup evidence is in [object storage](object-storage.md). Execution and extraction evidence is in [ingestion](ingestion.md); current Document/artifact evidence is in [document](document.md).
 

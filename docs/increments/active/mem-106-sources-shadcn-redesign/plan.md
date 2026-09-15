@@ -25,13 +25,13 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 3: Creation flows
 
-- [x] FILE: drop zone, name, access as RadioGroup cards, upload progress; the one-step rail is gone.
-- [x] Drive: the credential dialog on shadcn `Dialog`, access as the same cards, credential hints as `Tooltip`. Creation keeps the link field: discovery runs only after the Source exists, so the two-pane tree (4b) belongs to the selection panel on the Source detail page.
+- [x] FILE: drop zone, name, Visibility, upload progress; the one-step rail is gone. The first pass used RadioGroup access cards and an Access groups disclosure; the owner found the form crowded, so Visibility is now a Radix `Select` whose options carry a one-line description (Cohere "Create a connector"), and Access groups follow WRITER "Share playbook" and Onyx `AccessTypeGroupSelector`: a chip field with a searchable `Command` list, shown only for Private and always for scoped managers.
+- [x] Drive: the credential dialog on shadcn `Dialog`, the same Visibility dropdown and Access groups field (shown for Private, or for a scoped manager's Auto Sync, which the API requires Groups for), credential hints as `Tooltip`. The connector step lost its explanatory paragraphs; the credential line is just the account. Creation keeps the link field: discovery runs only after the Source exists, so the two-pane tree (4b) belongs to the selection panel on the Source detail page.
 - [x] Keep every existing validation and permission rule; only presentation changes.
 
 ### Task 4: Source detail shell
 
-- [x] Breadcrumb, status and access badges, action menu. Rename and visibility open a shadcn `Dialog` with the access cards from creation; deletion keeps its confirmation.
+- [x] Breadcrumb, status and access badges, action menu. Rename and visibility open a shadcn `Dialog` with the Visibility dropdown from creation; deletion keeps its confirmation.
 - [x] Tabs for overview, files, sync history, settings. Built on shadcn `Tabs`: FILE has Files, Indexing history and Groups; Drive keeps Content, Sync history and Connection and settings. The summary stays above the tabs rather than behind an Overview tab.
 - [x] Summary panel carrying access, groups, schedule and credential. It says who can read in words, lists the associated groups from the groups query cache and keeps the Drive interval and pause state; status and access moved to the header badges. The credential stays in the Credentials card (Task 6).
 
