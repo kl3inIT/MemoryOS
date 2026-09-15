@@ -1394,6 +1394,12 @@ Object.assign(englishUi, {
   "Active sources": "Nguồn đang hoạt động",
   "Workspace-visible sources": "Nguồn hiển thị trong không gian làm việc",
   "Total docs indexed": "Tổng tài liệu đã lập chỉ mục",
+  "Clear search and filters": "Xóa tìm kiếm và bộ lọc",
+  "Failed sources": "Nguồn thất bại",
+  "The Source list could not be loaded. Try again in a moment.":
+    "Không tải được danh sách nguồn. Hãy thử lại sau giây lát.",
+  "Connect files or Google Drive to make their content searchable in MemoryOS.":
+    "Kết nối tệp hoặc Google Drive để tìm kiếm nội dung của chúng trong MemoryOS.",
   "Total docs": "Tổng tài liệu",
   Manage: "Quản lý",
   "{{v1}} · system group": "{{v1}} · nhóm hệ thống",
