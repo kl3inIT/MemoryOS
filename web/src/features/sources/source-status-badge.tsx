@@ -5,11 +5,9 @@ import {
   defaultStatusPresentation,
   sourceAccessPresentation,
   sourceStatusPresentation,
+  statusPill,
 } from "./source-status-presentation";
 import { SourceHint } from "./source-hint";
-
-/** A pill outlined in its own tone, as Onyx draws connector status and access. */
-const pill = "gap-1.5 rounded-full border border-current/30";
 
 export function SourceStatusBadge({ status }: { status?: string }) {
   const ui = useAppTranslation();
@@ -19,7 +17,7 @@ export function SourceStatusBadge({ status }: { status?: string }) {
   const StatusIcon = presentation.icon;
 
   return (
-    <StatusBadge tone={presentation.tone} className={pill}>
+    <StatusBadge tone={presentation.tone} className={statusPill(presentation.tone)}>
       <StatusIcon
         className={`size-3 ${status === "INDEXING" ? "animate-spin motion-reduce:animate-none" : ""}`}
         aria-hidden="true"
@@ -37,7 +35,7 @@ export function SourceAccessBadge({ access }: { access: SourceSummary["access"] 
   return (
     <SourceHint hint={ui(presentation.title)}>
       <span className="inline-flex">
-        <StatusBadge tone={presentation.tone} className={pill}>
+        <StatusBadge tone={presentation.tone} className={statusPill(presentation.tone)}>
           <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
           {ui(presentation.label)}
         </StatusBadge>
