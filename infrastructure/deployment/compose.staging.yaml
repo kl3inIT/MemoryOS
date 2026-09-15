@@ -104,6 +104,9 @@ services:
       EXECUTOR_BACKEND: docker
       PYTHON_EXECUTOR_DOCKER_IMAGE: ${MEMORYOS_INTERPRETER_EXECUTOR_IMAGE:?Set MEMORYOS_INTERPRETER_EXECUTOR_IMAGE}
       PYTHON_EXECUTOR_DOCKER_NETWORK: none
+      LOG_FORMAT: json
+      # Each executor may use 1 GiB; this bounds executor memory on the host to about 4 GiB.
+      MAX_CONCURRENT_EXECUTIONS: ${MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS:-4}
       # deploy-staging.sh pulls the executor with job-scoped registry credentials; the service has none.
       PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC: "0"
     volumes:
