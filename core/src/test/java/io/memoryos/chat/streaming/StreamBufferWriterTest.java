@@ -63,6 +63,45 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder() throws Exception {
+        // Research events carry JSON payloads; the shared fixture's 2 KiB run bound would drop them as a gap.
+        var writer = new StreamBufferWriter(new ChatStreamProperties(65536, 131072, Duration.ofMinutes(10), Duration.ofMinutes(5),
+                32, Duration.ofMillis(25), 65536, 2, 4, 65536, 8, Duration.ofMillis(5), Duration.ofMinutes(1)));
+        var id = UUID.randomUUID();
+        writer.open(id);
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.plan("1. Rev"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.plan("enue"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.branching(2));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.agent("call_a", 0, "Revenue"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.agent("call_b", 1, "Costs"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_a", "Grew "));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_b", "Fell "));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_a", "[1]."));
+        writer.reasoning(id, "Agent b thinks", "call_b");
+        writer.reasoning(id, "Orchestrator thinks");
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.citations("call_a", java.util.List.of(new io.memoryos.chat.ChatResearchEvent.Citation(1, 3))));
+        writer.finish(id, Status.COMPLETED, null);
+        var events = new java.util.ArrayList<StreamBufferWriter.Event>();
+        try (var reader = writer.subscribe(id, 0)) {
+            for (var batch = reader.read(); ; batch = reader.read()) {
+                events.addAll(batch.events());
+                if (batch.done()) break;
+            }
+        }
+        assertEquals(java.util.List.of("research-plan", "research-plan", "top-level-branching", "research-agent-start", "research-agent-start",
+                        "intermediate-report", "intermediate-report", "intermediate-report", "reasoning", "reasoning", "intermediate-report-citations", "outcome"),
+                events.stream().map(StreamBufferWriter.Event::type).toList());
+        assertEquals("1. Revenue", events.subList(0, 2).stream().map(event -> Objects.requireNonNull(event.research()).text()).reduce("", String::concat));
+        // A pending delta belongs to one agent: another agent's delta flushes it first.
+        assertEquals(java.util.List.of("call_a", "call_b", "call_a"), events.subList(5, 8).stream()
+                .map(event -> Objects.requireNonNull(event.research()).toolCallId()).toList());
+        assertEquals("call_b", events.get(8).parentToolCallId());
+        assertEquals(null, events.get(9).parentToolCallId());
+        assertEquals(3, Objects.requireNonNull(events.get(10).research()).citations().getFirst().citationId());
+        for (int i = 0; i < events.size(); i++) assertEquals(i + 1, events.get(i).sequence());
+    }
+
+    @Test
     void slowReaderAndEvictionDoNotStopWriterAndAdmissionIsReleased() throws Exception {
         var writer = new StreamBufferWriter(limits);
         var id = UUID.randomUUID();

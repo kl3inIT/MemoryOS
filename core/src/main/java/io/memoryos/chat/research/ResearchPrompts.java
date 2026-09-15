@@ -344,6 +344,23 @@ public final class ResearchPrompts {
             Never provide more than 3 queries at once to `internal_search`.
             """;
 
+    // Tool definitions from deep_research/dr_mock_tools.py: the descriptions the model reads.
+    public static final String GENERATE_PLAN_TOOL_DESCRIPTION = "No clarification needed, generate a research plan for the user's query.";
+    public static final String RESEARCH_AGENT_TOOL_DESCRIPTION = "Conduct research on a specific topic.";
+    public static final String RESEARCH_AGENT_TASK_KEY = "task";
+    public static final String RESEARCH_AGENT_TASK_DESCRIPTION = "The research task to investigate, should be 1-2 descriptive sentences outlining the direction of investigation.";
+    public static final String GENERATE_REPORT_TOOL_DESCRIPTION = "Generate the final research report from all of the findings. Should be called when all aspects of the user's query have been researched, or maximum cycles are reached.";
+    public static final String THINK_TOOL_DESCRIPTION = "Use this for reasoning between research_agent calls and before calling generate_report. Think deeply about key results, identify knowledge gaps, and plan next steps.";
+    public static final String THINK_TOOL_REASONING_DESCRIPTION = "Your chain of thought reasoning, use paragraph format, no lists.";
+    public static final String RESEARCH_AGENT_THINK_TOOL_DESCRIPTION = "Use this for reasoning between research steps. Think deeply about key results, identify knowledge gaps, and plan next steps.";
+    public static final String RESEARCH_AGENT_THINK_TOOL_REASONING_DESCRIPTION = "Your chain of thought reasoning, can be as long as a lengthy paragraph.";
+    public static final String THINK_TOOL_RESPONSE_MESSAGE = "Acknowledged, please continue.";
+
+    // tools/fake_tools/research_agent.py, deep_research/dr_loop.py and prompts/tool_prompts.py.
+    public static final String RESEARCH_AGENT_TIMEOUT_MESSAGE = "Research Agent timed out after 30 minutes";
+    public static final String RESEARCH_AGENT_FAILURE_MESSAGE = "Research agent call failed. Try a different approach or continue without this result.";
+    public static final String TOOL_CALL_FAILURE_PROMPT = "LLM attempted to call a tool but failed. Most likely the tool name or arguments were misspelled.";
+
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z_]+)}");
 
     /**

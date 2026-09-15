@@ -247,7 +247,8 @@ public final class ChatTurnService implements AutoCloseable {
                         run.activity(event);
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
-                            case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text());
+                            case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text(), reasoning.parentToolCallId());
+                            case ChatResearchEvent research -> streams.research(run.setup.assistantMessageId(), research);
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
                     draining -> run.draining = draining);
@@ -409,7 +410,8 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void activity(ChatActivityEvent event) {
             check();
-            if (event instanceof ChatToolEvent tool && tool.source() != null) {
+            // A research agent numbers its own evidence; only sources merged into the turn join this sequence.
+            if (event instanceof ChatToolEvent tool && tool.source() != null && tool.parentToolCallId() == null) {
                 if (tool.source().citationId() != sources.size() + 1)
                     throw new IllegalStateException("Invalid Chat evidence sequence");
                 sources.add(tool.source());

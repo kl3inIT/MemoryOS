@@ -50,9 +50,12 @@ final class ChatActivityRecorder {
     private record Segment(int position, int textOffset, StringBuilder text) {}
 
     synchronized void accept(ChatActivityEvent event, int textOffset) {
+        // Research agent steps, their reasoning and research progress belong to the research tool call tree, not to
+        // the bounded top-level activity.
         switch (event) {
-            case ChatToolEvent tool -> tool(tool, textOffset);
-            case ChatReasoningDelta delta -> reasoning(delta.text(), textOffset);
+            case ChatToolEvent tool -> { if (tool.parentToolCallId() == null) tool(tool, textOffset); }
+            case ChatReasoningDelta delta -> { if (delta.parentToolCallId() == null) reasoning(delta.text(), textOffset); }
+            case ChatResearchEvent ignored -> { }
         }
     }
 

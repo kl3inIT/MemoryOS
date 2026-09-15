@@ -1252,12 +1252,15 @@ export type ToolEvent = {
     search: QueryPlan | null;
     documents: Array<ReadingDocument>;
     durationMs: number | null;
+    parentToolCallId: string | null;
+    tabIndex: number | null;
 };
 
 export type ReasoningEvent = {
     assistantMessageId: string;
     sequence: number;
     text: string;
+    parentToolCallId: string | null;
 };
 
 export type ImageEvent = {
@@ -1268,6 +1271,45 @@ export type ImageEvent = {
     id: string | null;
     mediaType: string | null;
     revisedPrompt: string | null;
+};
+
+export type ResearchPlanEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    text: string;
+};
+
+export type TopLevelBranchingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    branches: number;
+};
+
+export type ResearchAgentStartEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    tabIndex: number;
+    task: string;
+};
+
+export type IntermediateReportEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    text: string;
+};
+
+export type IntermediateReportCitationsEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    citations: Array<ResearchCitation>;
+};
+
+export type ResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatBranch = {
@@ -6071,7 +6113,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

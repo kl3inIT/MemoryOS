@@ -6050,9 +6050,11 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, reasoning, tool, image, outcome, reset. Content\
-        \ event id is assistantMessageId:sequence. Only outcome confirms a committed\
-        \ terminal state. Heartbeats are comments. A reset has no event id."
+      description: "Events: text-delta, reasoning, tool, image, research-plan, top-level-branching,\
+        \ research-agent-start, intermediate-report, intermediate-report-citations,\
+        \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
+        \ confirms a committed terminal state. Heartbeats are comments. A reset has\
+        \ no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -6116,6 +6118,11 @@ paths:
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
+                - $ref: "#/components/schemas/ResearchPlanEvent"
+                - $ref: "#/components/schemas/TopLevelBranchingEvent"
+                - $ref: "#/components/schemas/ResearchAgentStartEvent"
+                - $ref: "#/components/schemas/IntermediateReportEvent"
+                - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11148,14 +11155,25 @@ components:
           - integer
           - "null"
           format: int64
+        parentToolCallId:
+          type:
+          - string
+          - "null"
+        tabIndex:
+          type:
+          - integer
+          - "null"
+          format: int32
       required:
       - assistantMessageId
       - documents
       - durationMs
+      - parentToolCallId
       - search
       - sequence
       - source
       - stage
+      - tabIndex
       - toolCallId
       - toolName
     ReasoningEvent:
@@ -11169,8 +11187,13 @@ components:
           format: int64
         text:
           type: string
+        parentToolCallId:
+          type:
+          - string
+          - "null"
       required:
       - assistantMessageId
+      - parentToolCallId
       - sequence
       - text
     ImageEvent:
@@ -11211,6 +11234,109 @@ components:
       - sequence
       - stage
       - toolCallId
+    ResearchPlanEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
+    TopLevelBranchingEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        branches:
+          type: integer
+          format: int32
+      required:
+      - assistantMessageId
+      - branches
+      - sequence
+    ResearchAgentStartEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        tabIndex:
+          type: integer
+          format: int32
+        task:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - tabIndex
+      - task
+      - toolCallId
+    IntermediateReportEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
+      - toolCallId
+    IntermediateReportCitationsEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResearchCitation"
+      required:
+      - assistantMessageId
+      - citations
+      - sequence
+      - toolCallId
+    ResearchCitation:
+      type: object
+      properties:
+        marker:
+          type: integer
+          format: int32
+        citationId:
+          type: integer
+          format: int32
+      required:
+      - citationId
+      - marker
     ChatBranch:
       type: object
       properties:

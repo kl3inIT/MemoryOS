@@ -17,7 +17,7 @@
 - [ ] Orchestrator phases: clarification (skip after clarification), streamed plan, cycles with required tools and per-cycle prompt, forced report at 30 min or last cycle, synthetic failure responses, final report ≤20k.
 - [ ] Research agents: task-only history, `search_files`/`read_file` plus attached file names and IDs when the turn has attachments (file names also in the orchestrator prompt), cycles and reminders, force report at 12 min, 30 min timeout, intermediate report ≤10k; fan-out ≤3 through `SearchTasks` with Stop and cancellation.
 - [ ] Citations: per-agent evidence, merge by source key and marker renumbering, cited-only sources for the final report, no count cap (Chat-wide citation step).
-- [ ] Events: `parentToolCallId`/`tabIndex`, `research_plan`, `research_agent_start`, `intermediate_report`, `top_level_branching`; SSE, OpenAPI contract and generated client.
+- [x] Events: `parentToolCallId`/`tabIndex`, `research_plan`, `research_agent_start`, `intermediate_report`, `top_level_branching`; SSE, OpenAPI contract and generated client (2026-09-15: `ChatResearchEvent`, kebab-case wire names; web rendering stays in the UI step).
 - [ ] Persist the tool call tree, plan and clarification flag in the terminal finish; history returns them; Stop keeps partial output.
 - [ ] `think_tool` reasoning: Responses routing with argument deltas and `tool_choice`, or keep the paragraph baseline; record the decision.
 - [ ] UI: Deep research composer button with Onyx visibility and reset rules, plan block, agent tabs with nested steps and intermediate report on the MEM-100 timeline, inline final report; vi/en.
