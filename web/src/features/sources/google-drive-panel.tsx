@@ -916,6 +916,11 @@ export function GoogleDrivePanel({
             ) : null}
           </div>
         </div>
+        {configuration.errorCode ? (
+          <p className="mt-3 text-sm text-status-danger-content">
+            {ui(sourceStatusMessage(configuration.errorCode))}
+          </p>
+        ) : null}
       </div>
       {stale ? (
         <p role="alert" className="text-sm text-status-danger-content">
@@ -927,11 +932,6 @@ export function GoogleDrivePanel({
       {error ? (
         <p role="alert" className="text-sm text-status-danger-content">
           {ui(error)}
-        </p>
-      ) : null}
-      {configuration.errorCode ? (
-        <p className="text-sm text-status-danger-content">
-          {ui(sourceStatusMessage(configuration.errorCode))}
         </p>
       ) : null}
       {!connected ? (

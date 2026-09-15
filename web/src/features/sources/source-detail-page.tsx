@@ -977,8 +977,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               />
             ) : null}
             {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
-            {detail.errorCode &&
-            !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
+            {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
@@ -992,7 +991,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   disabled={managementBusy || detail.status === "DELETING"}
                   onBusyChange={setDriveBusy}
                   activeSection={section}
-                  content={filesPanel}
+                  content={
+                    <>
+                      {/* Google errors belong to the Synchronization section of the panel. */}
+                      {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
+                        <p role="alert" className="mb-3 text-sm text-status-danger-content">
+                          {ui(sourceStatusMessage(detail.errorCode))}
+                        </p>
+                      ) : null}
+                      {filesPanel}
+                    </>
+                  }
                   settings={
                     <SourceGroupsSection
                       sourceId={selectedId}
@@ -1000,16 +1009,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       onAuthorityChanged={refreshAuthorityViews}
                     />
                   }
-                  navigation={
-                    <>
-                      {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
-                        <p role="alert" className="text-sm text-status-danger-content">
-                          {ui(sourceStatusMessage(detail.errorCode))}
-                        </p>
-                      ) : null}
-                      <SourceSectionTabs sections={googleDriveSections} />
-                    </>
-                  }
+                  navigation={<SourceSectionTabs sections={googleDriveSections} />}
                 />
                 <TabsContent
                   value="history"
