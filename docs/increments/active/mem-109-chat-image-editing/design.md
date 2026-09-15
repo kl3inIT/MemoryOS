@@ -59,6 +59,10 @@ Schema lấy từ `GET /accounts/{id}/ai/models/schema`; chạy thật trên ả
 - Ảnh không tin cậy được giải mã có giới hạn kích thước và số pixel; mọi đầu vào gửi provider là PNG do server mã hoá lại.
 - Lỗi provider và credential không đi vào output của model hay UI; meter `memoryos.chat.image.request` giữ nhãn provider/outcome.
 
-## 7. Ngoài phạm vi
+## 7. Hạn chế đã biết
+
+Klein sửa toàn ảnh nên tông nền và vị trí chủ thể có thể xê dịch nhẹ. Khi có mask, pixel ngoài vùng tô vẫn giữ nguyên tuyệt đối, nhưng nét tô cắt qua vùng nền mịn có thể lộ đường nối (kiểm chứng live: dải ngang cắt qua nền và cổ cho vạch rõ). Biên được làm mềm vào trong khoảng 1,2% cạnh dài để giảm vạch; không tô cho kết quả liền mạch nhất. Cân bằng tông màu quanh biên là hướng cải thiện sau nếu cần.
+
+## 8. Ngoài phạm vi
 
 Tự động tạo mask, ghép nhiều ảnh, nút sửa trên ảnh tải lên (sửa bằng câu lệnh trong chat vẫn hoạt động), WebP làm nguồn sửa.

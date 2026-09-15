@@ -24,7 +24,9 @@ public final class ImageEditImages {
     private static final int MULTIPLE = 16;
     private static final int MIN_SIDE = MULTIPLE; // Klein accepts small sizes (48 px probed); only a zero side is invalid.
     private static final long MAX_PIXELS = 144_000_000L;
-    private static final int FEATHER = 4;
+    /** Inward feather of about 1.2% of the long side, so a provider's tone shift blends at the mask edge. */
+    private static final float FEATHER_SHARE = 0.012f;
+    private static final int MIN_FEATHER = 4;
 
     /** A normalized working image: the PNG sent to the provider and the same pixels kept for compositing. */
     public record Working(byte[] png, int width, int height, BufferedImage pixels) {}
@@ -68,7 +70,8 @@ public final class ImageEditImages {
             }
         }
         // Feather inward only: the edge softens inside the selection and nothing outside it changes.
-        float[] soft = blur(weights, width, height, FEATHER);
+        int radius = Math.max(MIN_FEATHER, Math.round(Math.max(width, height) * FEATHER_SHARE));
+        float[] soft = blur(weights, width, height, radius);
         for (int i = 0; i < weights.length; i++) weights[i] *= soft[i];
         return new Mask(weights, (double) selected / weights.length);
     }
