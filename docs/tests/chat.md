@@ -244,7 +244,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 
 | Contract | Test and boundary |
 | --- | --- |
-| Clarification ends the turn and the next research turn skips it; two parallel agents run through the product tool factory (`searchKnowledge` and an unknown tool); merged citations, known usage across all guards, plan/branching/tab/nested SSE placement and history `research` | `ChatSessionApiIntegrationTest.deepResearchClarifiesThenRunsParallelAgentsThroughProductToolsAndPersistsMergedCitations`: Spring API, real PostgreSQL, synthetic provider and search index |
+| Clarification ends the turn and the next research turn skips it; a replay returns the same turn and a changed `deepResearch` conflicts; two parallel agents run through the product tool factory (`searchKnowledge` and an unknown tool); merged citations, known usage across all guards, plan/branching/tab/nested SSE placement and history `research` | `ChatSessionApiIntegrationTest.deepResearchClarifiesThenRunsParallelAgentsThroughProductToolsAndPersistsMergedCitations`: Spring API, real PostgreSQL, synthetic provider and search index |
 | Stop during an agent's retrieval interrupts it, runs no report and persists the plan and the agent as failed | `ChatSessionApiIntegrationTest.stopDuringResearchAgentSearchInterruptsItSkipsTheReportAndPersistsThePlanAndFailedAgent` |
 | Setting readable by members, changed with `MODELS_MANAGE` and revision, research commands rejected while off | `ChatSessionApiIntegrationTest.deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff` |
 | Clarification flag, plan and agent tree stored with the terminal outcome, bounded, assistant rows only | `ChatPersistenceIntegrationTest.researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded` (real PostgreSQL); `ChatResearchRecorderTest` |
@@ -255,4 +255,4 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Live data part routing and history restore in the browser transport | `chat-transport.test.ts` |
 | Real provider run (opt-in `MEMORYOS_DR_LIVE=true` with `SPRING_AI_OPENAI_API_KEY`) | `ResearchExecutorLiveTest`: gpt-5-mini, plan, agent cycles, merged citations, usage from every guard |
 
-Open: replay conflict for a changed `deepResearch`, visual review of the research timeline, staging acceptance with the real corpus.
+Open: visual review of the research timeline, staging acceptance with the real corpus.

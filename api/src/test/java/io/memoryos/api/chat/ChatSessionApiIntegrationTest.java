@@ -596,7 +596,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals("Which country's leave policy?", asked.path("content").asText());
         assertTrue(asked.path("research").path("clarification").asBoolean());
 
-        var second = research(session, clarification, modelId);
+        String request = UUID.randomUUID().toString();
+        var second = research(session, clarification, modelId, request, true, 202);
         String id = second.path("assistantMessageId").asText();
         await().atMost(Duration.ofSeconds(30)).until(() -> !"RUNNING".equals(jdbc.sql("SELECT status FROM chat_message WHERE id = :id")
                 .param("id", UUID.fromString(id)).query(String.class).single()));
@@ -604,6 +605,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals("COMPLETED null", jdbc.sql("SELECT status || ' ' || coalesce(failure_code, 'null') FROM chat_message WHERE id = :id")
                 .param("id", UUID.fromString(id)).query(String.class).single());
         assertEquals(1, phases.get("clarification").get(), "the answer to a clarification skips clarification");
+        assertEquals(id, research(session, clarification, modelId, request, true, 202).path("assistantMessageId").asText(), "a replay returns the same turn");
+        research(session, clarification, modelId, request, false, 409);
         var saved = history(session).get(3);
         assertEquals("Vietnam grants twelve days of annual leave [1].", saved.path("content").asText());
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id = :id AND input_tokens IS NOT NULL")
@@ -696,11 +699,15 @@ class ChatSessionApiIntegrationTest {
     }
 
     private JsonNode research(JsonNode session, String parent, String modelId) throws Exception {
+        return research(session, parent, modelId, UUID.randomUUID().toString(), true, 202);
+    }
+
+    private JsonNode research(JsonNode session, String parent, String modelId, String request, boolean deepResearch, int expectedStatus) throws Exception {
         var body = Json.mapper().createObjectNode().put("parentMessageId", parent)
-                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Research annual leave").put("deepResearch", true).put("modelConfigurationId", modelId);
+                .put("clientRequestId", request).put("text", "Research annual leave").put("deepResearch", deepResearch).put("modelConfigurationId", modelId);
         return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
-                .content(body.toString())).andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+                .content(body.toString())).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString());
     }
 
     private static ChatResponse toolCalls(AssistantMessage.ToolCall... calls) {

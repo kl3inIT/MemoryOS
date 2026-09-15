@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuiState } from "@assistant-ui/react";
+import { TextMessagePartProvider, useAuiState } from "@assistant-ui/react";
 import { Brain, ListChecks, Search } from "lucide-react";
 import {
   ActivityChips,
@@ -8,6 +8,7 @@ import {
   ActivityGroupTrigger,
   ActivityStep,
 } from "@/components/assistant-ui/elements/activity-group";
+import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatResearchToolStep } from "./chat-activity-view";
@@ -58,7 +59,7 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
             status={active && !research.agents.length ? "running" : "done"}
             title={ui("Kế hoạch nghiên cứu")}
           >
-            <p className="text-sm whitespace-pre-wrap text-content-secondary">{research.plan}</p>
+            <ResearchMarkdown text={research.plan} running={active && !research.agents.length} />
           </ActivityStep>
         )}
         {[...cycles.entries()].map(([cycle, agents]) => (
@@ -121,7 +122,7 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
           })}
           {thoughts && (
             <ActivityStep icon={<Brain />} status="done" title={ui("Suy nghĩ")}>
-              <p className="text-sm whitespace-pre-wrap">{thoughts}</p>
+              <ResearchMarkdown text={thoughts} running={false} />
             </ActivityStep>
           )}
         </ol>
@@ -131,15 +132,26 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
           <summary className="cursor-pointer text-content-muted hover:text-content-primary">
             {ui("Báo cáo trung gian")}
           </summary>
-          <p className="mt-1.5 whitespace-pre-wrap text-content-secondary [overflow-wrap:anywhere]">
-            {report}
-          </p>
+          <div className="mt-1.5">
+            <ResearchMarkdown text={report} running={state === "running"} />
+          </div>
         </details>
       ) : (
         state === "failed" && (
           <p className="text-content-secondary">{ui("Tác tử nghiên cứu không hoàn thành.")}</p>
         )
       )}
+    </div>
+  );
+}
+
+/** Research text is model Markdown, rendered like reasoning with the answer renderer. */
+function ResearchMarkdown({ text, running }: { text: string; running: boolean }) {
+  return (
+    <div className="min-w-0 text-sm [overflow-wrap:anywhere] [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary">
+      <TextMessagePartProvider text={text} isRunning={running}>
+        <MarkdownText />
+      </TextMessagePartProvider>
     </div>
   );
 }

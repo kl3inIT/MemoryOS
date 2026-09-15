@@ -15,6 +15,7 @@ import {
   getChatFeedback,
   getChatProject,
   getChatSettings,
+  getChatWebAvailability,
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted } from "@/lib/hey-api/types.gen";
 import type { MemoryOsChatTransport } from "./chat-transport";
@@ -30,6 +31,7 @@ import { ChatConversationSearch } from "./chat-conversation-search";
 import {
   branchSchema,
   feedbackSchema,
+  loadPersonas,
   projectSchema,
   type Project,
   type Feedback,
@@ -145,9 +147,41 @@ function ChatConversation({
     queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
     retry: false,
   });
-  // As Onyx: Deep research is offered outside Projects while the organization setting is on.
+  const personas = useQuery({
+    queryKey: [
+      "chat-personas",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+    ],
+    queryFn: ({ signal }) => loadPersonas(signal),
+  });
+  const persona = session?.personaId
+    ? personas.data?.find((candidate) => candidate.id === session.personaId)
+    : personas.data?.find((candidate) => candidate.builtin);
+  const webAvailability = useQuery({
+    queryKey: [
+      "chat-web",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+      session?.id,
+    ],
+    queryFn: async ({ signal }) =>
+      (
+        await getChatWebAvailability({
+          query: { sessionId: session?.id },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    retry: false,
+  });
+  // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
+  // have internal Search or an external Web search connection (research never uses provider-hosted search).
   const researchAvailable =
-    !project && !session?.projectId && chatSettings.data?.deepResearchEnabled === true;
+    !project &&
+    !session?.projectId &&
+    chatSettings.data?.deepResearchEnabled === true &&
+    (persona?.searchEnabled === true || webAvailability.data?.searchAvailable === true);
   const busy = state.connection !== "ready" || state.checking;
   const imageEditing = useMemo(
     () => ({
