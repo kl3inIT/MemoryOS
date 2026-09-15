@@ -32,6 +32,8 @@ class McpServerRulesTest {
         assertCode("MCP_INVALID", () -> McpServerRules.headerTemplate(Map.of("X-Api-Key", "{api_key}", "X-User", "{email}"), McpAuthType.API_TOKEN));
         assertCode("MCP_INVALID", () -> McpServerRules.headerTemplate(Map.of("Mcp-Session-Id", "x"), McpAuthType.NONE));
         assertCode("MCP_INVALID", () -> McpServerRules.headerTemplate(Map.of("X-Team", "a", "x-team", "b"), McpAuthType.NONE));
+        assertCode("MCP_INVALID", () -> McpServerRules.headerTemplate(Map.of("authorization", "Bearer x"), McpAuthType.OAUTH));
+        assertEquals(Map.of("X-Team", "research"), McpServerRules.headerTemplate(Map.of("X-Team", "research"), McpAuthType.OAUTH));
     }
 
     @Test

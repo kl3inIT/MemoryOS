@@ -16,6 +16,7 @@ import io.memoryos.mcp.persistence.McpServerToolEntity;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,14 +49,15 @@ public class McpServerService {
     private final GroupScopeService groups;
     private final McpSecrets secrets;
     private final McpClients clients;
+    private final McpOAuthService oauth;
     private final TransactionTemplate transactions;
 
     public McpServerService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
                             JpaMcpCredentialRepository credentials, IamAuthorization authorization,
-                            GroupScopeService groups, McpSecrets secrets, McpClients clients,
+                            GroupScopeService groups, McpSecrets secrets, McpClients clients, McpOAuthService oauth,
                             PlatformTransactionManager transactionManager) {
         this.servers = servers; this.tools = tools; this.credentials = credentials; this.authorization = authorization;
-        this.groups = groups; this.secrets = secrets; this.clients = clients;
+        this.groups = groups; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
@@ -89,7 +91,7 @@ public class McpServerService {
 
     public record Refresh(ServerView server, List<ToolView> tools) {}
 
-    private record Target(String url, Map<String, String> headers, long revision) {
+    private record Target(UUID tenantId, String url, Map<String, String> headers, long revision, boolean oauth) {
         @Override public @NonNull String toString() { return "McpRefreshTarget[redacted]"; }
     }
 
@@ -171,12 +173,21 @@ public class McpServerService {
     /** Lists the server's tools with the administrator credential and replaces the stored snapshot. */
     public Refresh refreshTools(ActorId actor, UUID serverId) {
         Target target = Objects.requireNonNull(transactions.execute(status -> {
-            var server = server(read(actor), serverId);
-            return new Target(server.url(), headers(server), server.revision());
+            UUID tenant = read(actor);
+            var server = server(tenant, serverId);
+            return new Target(tenant, server.url(), headers(server), server.revision(), server.authType() == McpAuthType.OAUTH);
         }));
         List<McpToolDescriptor> listed;
-        try (var session = clients.open(target.url(), target.headers(), REFRESH_DEADLINE)) {
-            listed = session.listTools();
+        try {
+            Map<String, String> headers = target.headers();
+            if (target.oauth()) {
+                var authorized = new LinkedHashMap<>(headers);
+                authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, null));
+                headers = authorized;
+            }
+            try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
+                listed = session.listTools();
+            }
         } catch (McpException failure) {
             recordFailure(actor, serverId, target.revision(), "MCP_AUTHORIZATION_REQUIRED".equals(failure.code())
                     ? McpServerStatus.AWAITING_AUTH : McpServerStatus.DISCONNECTED);
@@ -300,7 +311,7 @@ public class McpServerService {
         return sharedCredential ? McpServerStatus.CREATED : McpServerStatus.AWAITING_AUTH;
     }
 
-    /** Headers for the administrator's refresh; per-User and OAuth credentials arrive with their flows. */
+    /** Headers for the administrator's refresh; OAuth adds the bearer token outside the transaction. */
     private Map<String, String> headers(McpServerEntity server) {
         Map<String, String> template = server.headerTemplate() == null ? null : openTemplate(server);
         return switch (server.authType()) {
@@ -314,7 +325,11 @@ public class McpServerService {
                 if (apiKey == null) throw McpException.credentialUnreadable();
                 yield McpServerRules.resolveHeaders(template, McpAuthType.API_TOKEN, apiKey);
             }
-            case OAUTH -> throw McpException.credentialRequired();
+            case OAUTH -> {
+                // PER_USER OAuth servers are refreshed with the administrator's own connection in Phase 3.
+                if (server.authPerformer() != McpAuthPerformer.ADMIN) throw McpException.credentialRequired();
+                yield McpServerRules.resolveHeaders(template, McpAuthType.OAUTH, null);
+            }
         };
     }
 

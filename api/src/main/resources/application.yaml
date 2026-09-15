@@ -130,6 +130,8 @@ memoryos:
     registration-id: memoryos
   mcp:
     credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
+    # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.
+    redirect-uri: ${MEMORYOS_MCP_REDIRECT_URI:}
     connect-timeout: 5s
     # Upper bound per MCP request; Chat turns further cap it by their remaining deadline.
     request-timeout: 30s

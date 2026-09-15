@@ -452,6 +452,163 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients/{clientId}:
+    put:
+      tags:
+      - MCP
+      summary: Replace a pre-registered OAuth client at the expected revision
+      operationId: updateMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthClientInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved OAuth client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Delete an OAuth client and the connections made with it
+      operationId: deleteMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: OAuth client and its connections deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/identity/me/language:
     put:
       tags:
@@ -3141,6 +3298,346 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/McpToolRefresh"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/discovery:
+    post:
+      tags:
+      - MCP
+      summary: Explicitly discover the server's authorization servers; nothing is
+        saved
+      operationId: discoverMcpServerOAuth
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Discovered authorization servers for review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthDiscovery"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients:
+    get:
+      tags:
+      - MCP
+      summary: List the server's labelled OAuth clients; requires MCP_MANAGE
+      operationId: listMcpServerOAuthClients
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: OAuth clients with secrets redacted
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - MCP
+      summary: "Add a pre-registered OAuth client, e.g. one organization's Internal\
+        \ app"
+      operationId: createMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthClientInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients/registrations:
+    post:
+      tags:
+      - MCP
+      summary: Register with a discovered authorization server by DCR or the client
+        metadata document
+      operationId: registerMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthRegistration"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/authorization:
+    post:
+      tags:
+      - MCP
+      summary: Start the administrator's OAuth connection for a shared-connection
+        server
+      operationId: startMcpServerOAuthAuthorization
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthAuthorizationInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Authorization URL for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthAuthorization"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7985,6 +8482,68 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/connection:
+    delete:
+      tags:
+      - MCP
+      summary: Remove the shared OAuth connection and revoke it at the authorization
+        server
+      operationId: disconnectMcpServerOAuth
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Shared connection removed and revoked best effort
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -8501,6 +9060,102 @@ components:
       - revision
       - snapshotAt
       - title
+    McpOAuthClientInput:
+      type: object
+      description: A pre-registered OAuth client; the secret is write-only
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        issuer:
+          type: string
+          maxLength: 2048
+        clientId:
+          type: string
+          maxLength: 2048
+        clientSecret:
+          $ref: "#/components/schemas/McpSecretChange"
+        tokenEndpointAuthMethod:
+          type: string
+          enum:
+          - NONE
+          - CLIENT_SECRET_BASIC
+          - CLIENT_SECRET_POST
+        authorizationEndpoint:
+          type: string
+          maxLength: 2048
+        tokenEndpoint:
+          type: string
+          maxLength: 2048
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+          maxLength: 2048
+        issParameterRequired:
+          type: boolean
+      required:
+      - authorizationEndpoint
+      - clientId
+      - clientSecret
+      - issParameterRequired
+      - issuer
+      - label
+      - tokenEndpoint
+      - tokenEndpointAuthMethod
+    McpOAuthClientView:
+      type: object
+      description: Client secrets and registration tokens are never returned
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        source:
+          type: string
+          enum:
+          - ADMIN
+          - REGISTERED
+          - METADATA_DOCUMENT
+        issuer:
+          type: string
+        clientId:
+          type: string
+        clientSecretConfigured:
+          type: boolean
+        tokenEndpointAuthMethod:
+          type: string
+          enum:
+          - NONE
+          - CLIENT_SECRET_BASIC
+          - CLIENT_SECRET_POST
+        authorizationEndpoint:
+          type: string
+        tokenEndpoint:
+          type: string
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+        issParameterRequired:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - authorizationEndpoint
+      - clientId
+      - clientSecretConfigured
+      - id
+      - issParameterRequired
+      - issuer
+      - label
+      - revision
+      - revocationEndpoint
+      - source
+      - tokenEndpoint
+      - tokenEndpointAuthMethod
     LanguagePreference:
       type: object
       additionalProperties: false
@@ -9792,6 +10447,94 @@ components:
       required:
       - server
       - tools
+    McpOAuthAuthorizationServer:
+      type: object
+      properties:
+        issuer:
+          type: string
+        authorizationEndpoint:
+          type: string
+        tokenEndpoint:
+          type: string
+        registrationEndpoint:
+          type:
+          - string
+          - "null"
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+        issParameterSupported:
+          type: boolean
+        registrationAvailable:
+          type: boolean
+        metadataDocumentAvailable:
+          type: boolean
+      required:
+      - authorizationEndpoint
+      - issParameterSupported
+      - issuer
+      - metadataDocumentAvailable
+      - registrationAvailable
+      - registrationEndpoint
+      - revocationEndpoint
+      - tokenEndpoint
+    McpOAuthDiscovery:
+      type: object
+      description: Review only; saving a client or scopes is a separate action
+      properties:
+        resource:
+          type: string
+        suggestedScopes:
+          type: array
+          items:
+            type: string
+        authorizationServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpOAuthAuthorizationServer"
+      required:
+      - authorizationServers
+      - resource
+      - suggestedScopes
+    McpOAuthRegistration:
+      type: object
+      description: Source REGISTERED uses DCR; METADATA_DOCUMENT uses the MemoryOS
+        client metadata document
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        issuer:
+          type: string
+          description: An issuer from the discovery review
+        source:
+          type: string
+          enum:
+          - ADMIN
+          - REGISTERED
+          - METADATA_DOCUMENT
+      required:
+      - issuer
+      - label
+      - source
+    McpOAuthAuthorizationInput:
+      type: object
+      properties:
+        oauthClientId:
+          type: string
+          format: uuid
+          description: The labelled OAuth client to connect with
+      required:
+      - oauthClientId
+    McpOAuthAuthorization:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: Navigate the browser here
+      required:
+      - authorizationUrl
     CreateInvitationRequest:
       type: object
       additionalProperties: false

@@ -41,4 +41,19 @@ Phase 1 defect found by the API test: the effective-capability SQL in `IamAuthor
 
 | Full API suite after the shared-context property change | `gradlew :api:test --no-daemon --max-workers=1` on `2b68a03e` | 21 suites, 166 tests, 0 failures; no JVM crash |
 
-Not run for 2a: `gradlew clean check` and the full web `pnpm check`. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.
+Not run for 2a: `gradlew clean check` and the full web `pnpm check`.
+
+## Phase 2b — 2026-09-16
+
+| Check | Command | Result |
+| --- | --- | --- |
+| V64 and IAM | `gradlew :core:test --tests 'io.memoryos.mcp.*' --tests io.memoryos.iam.group.PostgresIamAuthorizationTest --tests io.memoryos.ModulithArchitectureTest` | Passed: `McpPersistenceIntegrationTest` (4) validates the new columns under Hibernate `validate`; `PostgresIamAuthorizationTest` (10) now asserts `MODELS_MANAGE` and `MCP_MANAGE` authorize globally |
+| OAuth protocol | `gradlew :core:test --tests io.memoryos.mcp.McpOAuthProtocolTest` (JDK `HttpServer` stub) | 8 tests passed:<br>• discovery from the `WWW-Authenticate` challenge, preferring RFC 8414 path insertion<br>• fallback to root protected-resource metadata and OIDC path appending<br>• refusal on resource mismatch, missing `S256` or issuer mismatch<br>• redirects not followed<br>• DCR request shape and issued client<br>• code exchange with PKCE, `resource` and form-encoded basic authentication<br>• `invalid_grant` becomes `MCP_AUTHORIZATION_REQUIRED` without upstream text<br>• authorization URL keeps the endpoint query and never lets extra parameters override `state`; challenge parsing |
+| Server rules | `McpServerRulesTest` | 7 tests passed, including no `Authorization` header template on OAuth servers |
+| End-to-end administrator OAuth | `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects` (stub authorization server; fixture MCP server publishing RFC 9728 metadata) | Passed:<br>• create `OAUTH`/`AUTO_DISCOVERY` server (`AWAITING_AUTH`)<br>• discovery review<br>• DCR client with sealed secret<br>• issuer mismatch and missing required `iss` rejected<br>• code exchange carries `resource` and a verifier matching the `S256` challenge<br>• stale pending authorization rejected after the revision changed<br>• sealed token payload<br>• tool refresh refreshes the 30-second token first<br>• `invalid_grant` gives 409 `MCP_AUTHORIZATION_REQUIRED`, `REAUTH_REQUIRED` and `AWAITING_AUTH`<br>• disconnect revokes once<br>• client metadata document 404 for a loopback HTTP redirect origin |
+| Session-bound start and callback | `gradlew :api:test --tests io.memoryos.api.mcp.McpOAuthCallbackTest` | 4 tests passed:<br>• start requires the actor's session<br>• state and verifier bound to it, only the challenge in the URL<br>• callback completes once with the stored verifier and `iss`<br>• issuer mismatch, conflict, generic failure, `access_denied` and duplicate `iss` map to outcome codes without upstream detail<br>• unknown state, another actor or no session never complete |
+| OpenAPI and web client | `MEMORYOS_OPENAPI_WRITE=true` `OpenApiContractTest`; `pnpm generate:api`; `tsc -b --noEmit` | Passed with six new `/api/mcp/servers/{serverId}/oauth/...` paths; the diff removes no operation; typecheck clean |
+
+Spring Session JDBC owns the browser session, so MockMvc cannot supply a session-bound actor. The session path is covered at controller level (`McpOAuthCallbackTest`), as MEM-60 does with `GoogleDriveOAuthTest`. The integration test calls the same service methods against real persistence and HTTP.
+
+Not run for 2b: the full `:api:test`, `gradlew clean check`, the full web `pnpm check` and a live authorization server. Whether Google accepts the `resource` parameter remains a live-probe item. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.

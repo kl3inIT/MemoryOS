@@ -42,12 +42,15 @@ Evidence: [verification.md](verification.md#phase-2a--2026-09-16).
 
 Design: [OAuth setup (Phase 2b)](design.md#oauth-setup-phase-2b).
 
-- [ ] `V64`: `token_endpoint_auth_method`, `iss_parameter_required` on `mcp_oauth_client`.
-- [ ] Discovery (protected-resource metadata from `WWW-Authenticate` or well-known, authorization-server metadata in spec order, `S256` required) returning a review; nothing persisted until a client is created.
-- [ ] Clients: pre-registered (`KNOWN_PROVIDER` only source), CIMD document route, DCR with sealed secrets.
-- [ ] Administrator connect: `/login/oauth2/code/mcp` with its own security chain, session state bound to actor and revisions, PKCE, `resource`, `iss` validation, token exchange; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
-- [ ] Token refresh shared with Phase 3 (revision fencing, rotation, `invalid_grant` → `REAUTH_REQUIRED`), best-effort revocation on disconnect; tool refresh for `ADMIN` OAuth servers.
-- [ ] Integration tests with a stub authorization server (see design).
+- [x] `V64`: `token_endpoint_auth_method`, `iss_parameter_required` on `mcp_oauth_client`.
+- [x] Discovery (protected-resource metadata from `WWW-Authenticate` or well-known, authorization-server metadata in spec order, `S256` required) returning a review; nothing persisted until a client is created.
+- [x] Clients: pre-registered (`KNOWN_PROVIDER` only source), CIMD document route, DCR with sealed secrets.
+- [x] Administrator connect: `/login/oauth2/code/mcp` with its own security chain, session state bound to actor and revisions, PKCE, `resource`, `iss` validation, token exchange; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
+- [x] Token refresh shared with Phase 3 (revision fencing, rotation, `invalid_grant` → `REAUTH_REQUIRED`), best-effort revocation on disconnect; tool refresh for `ADMIN` OAuth servers.
+- [x] Integration tests with a stub authorization server (see design).
+- [ ] Create `MEMORYOS_MCP_REDIRECT_URI` where staging sets `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI` (owner to confirm the location).
+
+Evidence: [verification.md](verification.md#phase-2b--2026-09-16).
 
 ## Phase 3 — User credentials
 

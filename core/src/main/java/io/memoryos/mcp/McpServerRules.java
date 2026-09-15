@@ -86,6 +86,8 @@ final class McpServerRules {
             }
             if (!names.add(header.getKey().toLowerCase(Locale.ROOT)))
                 throw McpException.invalid("Each header can be configured once.");
+            if (authType == McpAuthType.OAUTH && "authorization".equalsIgnoreCase(header.getKey()))
+                throw McpException.invalid("OAuth servers send the Authorization header from their connection.");
             Matcher placeholders = PLACEHOLDER.matcher(header.getValue());
             while (placeholders.find()) {
                 if (authType != McpAuthType.API_TOKEN || !API_KEY.equals(placeholders.group(1)))

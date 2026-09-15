@@ -165,6 +165,39 @@ export type McpToolView = {
     revision: number;
 };
 
+/**
+ * A pre-registered OAuth client; the secret is write-only
+ */
+export type McpOAuthClientInput = {
+    label: string;
+    issuer: string;
+    clientId: string;
+    clientSecret: McpSecretChange;
+    tokenEndpointAuthMethod: 'NONE' | 'CLIENT_SECRET_BASIC' | 'CLIENT_SECRET_POST';
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    revocationEndpoint?: string | null;
+    issParameterRequired: boolean;
+};
+
+/**
+ * Client secrets and registration tokens are never returned
+ */
+export type McpOAuthClientView = {
+    id: string;
+    label: string;
+    source: 'ADMIN' | 'REGISTERED' | 'METADATA_DOCUMENT';
+    issuer: string;
+    clientId: string;
+    clientSecretConfigured: boolean;
+    tokenEndpointAuthMethod: 'NONE' | 'CLIENT_SECRET_BASIC' | 'CLIENT_SECRET_POST';
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    revocationEndpoint: string | null;
+    issParameterRequired: boolean;
+    revision: number;
+};
+
 export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
@@ -641,6 +674,52 @@ export type SourceTypeFacet = {
 export type McpToolRefresh = {
     server: McpServerView;
     tools: Array<McpToolView>;
+};
+
+export type McpOAuthAuthorizationServer = {
+    issuer: string;
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    registrationEndpoint: string | null;
+    revocationEndpoint: string | null;
+    issParameterSupported: boolean;
+    registrationAvailable: boolean;
+    metadataDocumentAvailable: boolean;
+};
+
+/**
+ * Review only; saving a client or scopes is a separate action
+ */
+export type McpOAuthDiscovery = {
+    resource: string;
+    suggestedScopes: Array<string>;
+    authorizationServers: Array<McpOAuthAuthorizationServer>;
+};
+
+/**
+ * Source REGISTERED uses DCR; METADATA_DOCUMENT uses the MemoryOS client metadata document
+ */
+export type McpOAuthRegistration = {
+    label: string;
+    /**
+     * An issuer from the discovery review
+     */
+    issuer: string;
+    source: 'ADMIN' | 'REGISTERED' | 'METADATA_DOCUMENT';
+};
+
+export type McpOAuthAuthorizationInput = {
+    /**
+     * The labelled OAuth client to connect with
+     */
+    oauthClientId: string;
+};
+
+export type McpOAuthAuthorization = {
+    /**
+     * Navigate the browser here
+     */
+    authorizationUrl: string;
 };
 
 export type CreateInvitationRequest = {
@@ -1802,6 +1881,118 @@ export type SetAllMcpServerToolsEnabledResponses = {
 };
 
 export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
+
+export type DeleteMcpServerOAuthClientData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        clientId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/oauth/clients/{clientId}';
+};
+
+export type DeleteMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteMcpServerOAuthClientError = DeleteMcpServerOAuthClientErrors[keyof DeleteMcpServerOAuthClientErrors];
+
+export type DeleteMcpServerOAuthClientResponses = {
+    /**
+     * OAuth client and its connections deleted
+     */
+    204: void;
+};
+
+export type DeleteMcpServerOAuthClientResponse = DeleteMcpServerOAuthClientResponses[keyof DeleteMcpServerOAuthClientResponses];
+
+export type UpdateMcpServerOAuthClientData = {
+    body: McpOAuthClientInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        clientId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/oauth/clients/{clientId}';
+};
+
+export type UpdateMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpServerOAuthClientError = UpdateMcpServerOAuthClientErrors[keyof UpdateMcpServerOAuthClientErrors];
+
+export type UpdateMcpServerOAuthClientResponses = {
+    /**
+     * Saved OAuth client
+     */
+    200: McpOAuthClientView;
+};
+
+export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientResponses[keyof UpdateMcpServerOAuthClientResponses];
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
@@ -3920,6 +4111,265 @@ export type RefreshMcpServerToolsResponses = {
 };
 
 export type RefreshMcpServerToolsResponse = RefreshMcpServerToolsResponses[keyof RefreshMcpServerToolsResponses];
+
+export type DiscoverMcpServerOAuthData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/discovery';
+};
+
+export type DiscoverMcpServerOAuthErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DiscoverMcpServerOAuthError = DiscoverMcpServerOAuthErrors[keyof DiscoverMcpServerOAuthErrors];
+
+export type DiscoverMcpServerOAuthResponses = {
+    /**
+     * Discovered authorization servers for review
+     */
+    200: McpOAuthDiscovery;
+};
+
+export type DiscoverMcpServerOAuthResponse = DiscoverMcpServerOAuthResponses[keyof DiscoverMcpServerOAuthResponses];
+
+export type ListMcpServerOAuthClientsData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients';
+};
+
+export type ListMcpServerOAuthClientsErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServerOAuthClientsError = ListMcpServerOAuthClientsErrors[keyof ListMcpServerOAuthClientsErrors];
+
+export type ListMcpServerOAuthClientsResponses = {
+    /**
+     * OAuth clients with secrets redacted
+     */
+    200: Array<McpOAuthClientView>;
+};
+
+export type ListMcpServerOAuthClientsResponse = ListMcpServerOAuthClientsResponses[keyof ListMcpServerOAuthClientsResponses];
+
+export type CreateMcpServerOAuthClientData = {
+    body: McpOAuthClientInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients';
+};
+
+export type CreateMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateMcpServerOAuthClientError = CreateMcpServerOAuthClientErrors[keyof CreateMcpServerOAuthClientErrors];
+
+export type CreateMcpServerOAuthClientResponses = {
+    /**
+     * Created
+     */
+    201: McpOAuthClientView;
+};
+
+export type CreateMcpServerOAuthClientResponse = CreateMcpServerOAuthClientResponses[keyof CreateMcpServerOAuthClientResponses];
+
+export type RegisterMcpServerOAuthClientData = {
+    body: McpOAuthRegistration;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients/registrations';
+};
+
+export type RegisterMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RegisterMcpServerOAuthClientError = RegisterMcpServerOAuthClientErrors[keyof RegisterMcpServerOAuthClientErrors];
+
+export type RegisterMcpServerOAuthClientResponses = {
+    /**
+     * Created
+     */
+    201: McpOAuthClientView;
+};
+
+export type RegisterMcpServerOAuthClientResponse = RegisterMcpServerOAuthClientResponses[keyof RegisterMcpServerOAuthClientResponses];
+
+export type StartMcpServerOAuthAuthorizationData = {
+    body: McpOAuthAuthorizationInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/authorization';
+};
+
+export type StartMcpServerOAuthAuthorizationErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StartMcpServerOAuthAuthorizationError = StartMcpServerOAuthAuthorizationErrors[keyof StartMcpServerOAuthAuthorizationErrors];
+
+export type StartMcpServerOAuthAuthorizationResponses = {
+    /**
+     * Authorization URL for the browser
+     */
+    200: McpOAuthAuthorization;
+};
+
+export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthorizationResponses[keyof StartMcpServerOAuthAuthorizationResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -7593,6 +8043,59 @@ export type ReadChatDocumentOriginalResponses = {
 };
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
+
+export type DisconnectMcpServerOAuthData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/connection';
+};
+
+export type DisconnectMcpServerOAuthErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DisconnectMcpServerOAuthError = DisconnectMcpServerOAuthErrors[keyof DisconnectMcpServerOAuthErrors];
+
+export type DisconnectMcpServerOAuthResponses = {
+    /**
+     * Shared connection removed and revoked best effort
+     */
+    204: void;
+};
+
+export type DisconnectMcpServerOAuthResponse = DisconnectMcpServerOAuthResponses[keyof DisconnectMcpServerOAuthResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

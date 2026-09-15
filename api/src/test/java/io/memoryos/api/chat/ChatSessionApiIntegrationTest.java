@@ -133,6 +133,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
         "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.mcp.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "memoryos.mcp.redirect-uri=http://127.0.0.1:8080/login/oauth2/code/mcp",
         "memoryos.chat.stream.heartbeat=100ms",
         "springdoc.api-docs.enabled=true",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
@@ -1661,6 +1662,160 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
             mockMvc.perform(get(server).with(authentication(actor))).andExpect(status().isNotFound());
         }
+    }
+
+    @Test
+    void mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects(
+            @org.springframework.beans.factory.annotation.Autowired io.memoryos.mcp.McpOAuthService mcpOAuth) throws Exception {
+        grantCapability("MCP_MANAGE");
+        var refreshes = new AtomicInteger();
+        var revocations = new AtomicInteger();
+        var invalidGrant = new java.util.concurrent.atomic.AtomicBoolean();
+        var tokenForms = new java.util.concurrent.CopyOnWriteArrayList<Map<String, String>>();
+        var authorizationServer = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        String issuer = "http://127.0.0.1:" + authorizationServer.getAddress().getPort();
+        authorizationServer.createContext("/", exchange -> {
+            String route = exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath();
+            String requestBody = new String(exchange.getRequestBody().readAllBytes(), UTF_8);
+            int status = 200;
+            Object response;
+            switch (route) {
+                case "GET /.well-known/oauth-authorization-server" -> response = Map.of("issuer", issuer,
+                        "authorization_endpoint", issuer + "/authorize", "token_endpoint", issuer + "/token",
+                        "registration_endpoint", issuer + "/register", "revocation_endpoint", issuer + "/revoke",
+                        "code_challenge_methods_supported", java.util.List.of("S256"),
+                        "authorization_response_iss_parameter_supported", true);
+                case "POST /register" -> {
+                    status = 201;
+                    response = Map.of("client_id", "dcr-client", "client_secret", "dcr-secret",
+                            "token_endpoint_auth_method", "client_secret_basic");
+                }
+                case "POST /token" -> {
+                    var form = formParameters(requestBody);
+                    tokenForms.add(form);
+                    if ("refresh_token".equals(form.get("grant_type"))) refreshes.incrementAndGet();
+                    if (invalidGrant.get()) {
+                        status = 400;
+                        response = Map.of("error", "invalid_grant", "error_description", "upstream detail");
+                    } else {
+                        // Shorter than the 60-second refresh margin, so the next use refreshes.
+                        response = Map.of("access_token", "fixture-oauth-access", "refresh_token", "fixture-oauth-refresh",
+                                "token_type", "Bearer", "expires_in", 30);
+                    }
+                }
+                case "POST /revoke" -> {
+                    revocations.incrementAndGet();
+                    response = Map.of();
+                }
+                default -> {
+                    status = 404;
+                    response = null;
+                }
+            }
+            byte[] bytes = response == null ? new byte[0] : Json.mapper().writeValueAsBytes(response);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        authorizationServer.start();
+        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.startOAuth("Bearer fixture-oauth-access", issuer)) {
+            var body = mcpServerBody("oauth" + (System.nanoTime() % 100000), fixture.url());
+            body.put("authType", "OAUTH").put("oauthProviderMode", "AUTO_DISCOVERY");
+            body.putObject("headers").put("action", "KEEP");
+            body.putObject("sharedApiKey").put("action", "KEEP");
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String id = created.path("id").asText();
+            String server = "/api/mcp/servers/" + id;
+            assertEquals("AWAITING_AUTH", created.path("status").asText());
+
+            var discovery = Json.mapper().readTree(mockMvc.perform(post(server + "/oauth/discovery").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var discovered = discovery.path("authorizationServers").get(0);
+            assertEquals(issuer, discovered.path("issuer").asText());
+            assertTrue(discovered.path("registrationAvailable").asBoolean());
+            assertFalse(discovered.path("metadataDocumentAvailable").asBoolean());
+
+            var registration = Json.mapper().createObjectNode().put("label", "Organization A").put("issuer", issuer).put("source", "REGISTERED");
+            var client = Json.mapper().readTree(mockMvc.perform(post(server + "/oauth/clients/registrations").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(registration.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            assertTrue(client.path("clientSecretConfigured").asBoolean());
+            assertTrue(client.path("issParameterRequired").asBoolean());
+            assertFalse(client.toString().contains("dcr-secret"));
+            String sealedSecret = jdbc.sql("SELECT client_secret FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(client.path("id").asText())).query(String.class).single();
+            assertTrue(sealedSecret.startsWith("v1:") && !sealedSecret.contains("dcr-secret"));
+
+            // Spring Session JDBC owns the browser session cookie, so the session-bound start and callback are covered
+            // by McpOAuthCallbackTest; the same service calls run here against real persistence, IAM and HTTP.
+            var actorId = actor.getPrincipal().actorId();
+            UUID serverId = UUID.fromString(id);
+            UUID clientId = UUID.fromString(client.path("id").asText());
+            var mismatched = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-1",
+                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-1"));
+            var mismatchedParameters = formParameters(mismatched.authorizationUrl().getRawQuery());
+            assertEquals(fixture.url(), mismatchedParameters.get("resource"));
+            assertEquals("S256", mismatchedParameters.get("code_challenge_method"));
+            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                            "https://evil.example")).code());
+            assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                            null)).code());
+
+            var launch = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-2",
+                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-2"));
+            mcpOAuth.completeAdministratorAuthorization(actorId, launch.pending(), "good-code", "verifier-2", issuer);
+            var exchanged = tokenForms.getLast();
+            assertEquals("good-code", exchanged.get("code"));
+            assertEquals(fixture.url(), exchanged.get("resource"));
+            assertEquals(formParameters(launch.authorizationUrl().getRawQuery()).get("code_challenge"),
+                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
+            // Connecting changed the server revision, so the earlier pending authorization can no longer complete.
+            assertEquals("MCP_CONFLICT", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
+                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "late-code", "verifier-1",
+                            issuer)).code());
+            String payload = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id IS NULL")
+                    .param("id", UUID.fromString(id)).query(String.class).single();
+            assertTrue(payload.startsWith("v1:") && !payload.contains("fixture-oauth"));
+
+            var refreshed = Json.mapper().readTree(mockMvc.perform(post(server + "/tools/refresh").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("CONNECTED", refreshed.path("server").path("status").asText());
+            assertEquals(1, refreshes.get());
+            assertEquals("fixture-oauth-refresh", tokenForms.getLast().get("refresh_token"));
+
+            invalidGrant.set(true);
+            var rejected = mockMvc.perform(post(server + "/tools/refresh").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("MCP_AUTHORIZATION_REQUIRED")).andReturn();
+            assertFalse(rejected.getResponse().getContentAsString().contains("upstream detail"));
+            assertEquals("REAUTH_REQUIRED", jdbc.sql("SELECT status FROM mcp_credential WHERE server_id=:id")
+                    .param("id", UUID.fromString(id)).query(String.class).single());
+            mockMvc.perform(get(server).with(authentication(actor))).andExpect(jsonPath("$.status").value("AWAITING_AUTH"));
+
+            mockMvc.perform(delete(server + "/oauth/connection").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(1, revocations.get());
+            mockMvc.perform(get(server).with(authentication(actor))).andExpect(jsonPath("$.sharedCredentialConfigured").value(false));
+            // The loopback HTTP redirect origin cannot host a Client ID Metadata Document.
+            mockMvc.perform(get("/mcp/oauth/client-metadata.json")).andExpect(status().isNotFound());
+        } finally {
+            authorizationServer.stop(0);
+        }
+    }
+
+    private static Map<String, String> formParameters(String raw) {
+        var parameters = new java.util.LinkedHashMap<String, String>();
+        if (raw == null || raw.isEmpty()) return parameters;
+        for (String pair : raw.split("&")) {
+            int separator = pair.indexOf('=');
+            parameters.putIfAbsent(java.net.URLDecoder.decode(pair.substring(0, separator), UTF_8),
+                    java.net.URLDecoder.decode(pair.substring(separator + 1), UTF_8));
+        }
+        return parameters;
     }
 
     private ObjectNode mcpServerBody(String slug, String url) {

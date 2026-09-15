@@ -55,6 +55,40 @@ public final class McpException extends BusinessException {
                 "A stored MCP credential cannot be read. Reconnect the server.");
     }
 
+    public static McpException oauthDiscoveryFailed(String message) {
+        return new McpException("MCP_OAUTH_DISCOVERY_FAILED", FailureCategory.VALIDATION, message);
+    }
+
+    public static McpException oauthNotConfigured() {
+        return new McpException("MCP_OAUTH_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
+                "MCP OAuth redirect URI is not configured. Contact the deployment owner.");
+    }
+
+    public static McpException oauthClientLabelTaken() {
+        return new McpException("MCP_OAUTH_CLIENT_LABEL_TAKEN", FailureCategory.CONFLICT,
+                "Another OAuth client of this server already uses this label.");
+    }
+
+    public static McpException oauthIssuerMismatch() {
+        return new McpException("MCP_OAUTH_ISSUER_MISMATCH", FailureCategory.CONFLICT,
+                "The authorization response did not come from the expected authorization server.");
+    }
+
+    public static McpException oauthRegistrationFailed() {
+        return new McpException("MCP_OAUTH_REGISTRATION_FAILED", FailureCategory.SERVICE_UNAVAILABLE,
+                "The authorization server did not register MemoryOS as a client.");
+    }
+
+    public static McpException oauthTokenFailed() {
+        return new McpException("MCP_OAUTH_TOKEN_FAILED", FailureCategory.SERVICE_UNAVAILABLE,
+                "The authorization server did not issue a usable token.");
+    }
+
+    public static McpException authorizationRequired() {
+        return new McpException("MCP_AUTHORIZATION_REQUIRED", FailureCategory.CONFLICT,
+                "Connect the MCP server before using its tools.");
+    }
+
     public static McpException authorizationRequired(Throwable cause) {
         return new McpException("MCP_AUTHORIZATION_REQUIRED", FailureCategory.CONFLICT,
                 "Connect the MCP server before using its tools.", cause);

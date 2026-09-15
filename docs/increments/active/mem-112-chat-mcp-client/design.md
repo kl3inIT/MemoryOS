@@ -185,7 +185,7 @@ Follows MCP authorization `2025-11-25` (the negotiated target) plus the `2026-07
 
 **Authorization request.**
 - Parameters: `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge` (`S256`), `resource` and additional parameters. `resource` is the canonical server URL (RFC 8707), sent always; whether Google tolerates it is a live-probe item.
-- Scope comes from the server override, then the challenge `scope`, then `scopes_supported`, otherwise it is omitted.
+- Scope is the server's configured `oauth_scopes`; the review suggests the challenge `scope`, then `scopes_supported`, for the administrator to save. Empty scopes are omitted. Starting an authorization never runs discovery, so runtime uses only persisted configuration.
 
 **Callback validation and tokens.**
 - An `error` parameter ends the flow with its category only.
