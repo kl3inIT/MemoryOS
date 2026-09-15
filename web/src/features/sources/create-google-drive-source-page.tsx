@@ -4,12 +4,19 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, TriangleAlert, X } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
 import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
@@ -461,9 +468,10 @@ function GoogleDriveSourceSetup() {
         <p role="alert">{ui("You do not have permission to manage credentials and Sources.")}</p>
       ) : null}
       {error && !modalOpen ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui(error)}
-        </p>
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
       ) : null}
       {tracking.operation && !createdSourceId ? (
         <div
@@ -945,150 +953,147 @@ function GoogleDriveSourceSetup() {
           </footer>
         </>
       )}
-      <Dialog.Root open={modalOpen} onOpenChange={changeModal}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
-          <Dialog.Content
-            aria-describedby="credential-modal-description"
-            onCloseAutoFocus={(event) => {
+      <Dialog open={modalOpen} onOpenChange={changeModal}>
+        <DialogContent
+          showCloseButton={false}
+          aria-describedby="credential-modal-description"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            modalTrigger.current?.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          className="flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border-default bg-surface-base p-0 shadow-2xl ring-0 sm:max-w-[calc(100dvw-2rem)] md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
+        >
+          <header className="flex shrink-0 items-center gap-3 px-6 py-4">
+            <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
+            {/* tailwind-merge cannot match font-heading-h3 against DialogTitle's defaults, so equal sizes displace them. */}
+            <DialogTitle className="min-w-0 flex-1 font-heading-h3 text-lg leading-7 font-semibold">
+              {reconnecting
+                ? ui("Reconnect a Google Drive credential")
+                : ui("Create a Google Drive credential")}
+            </DialogTitle>
+            <DialogClose asChild>
+              <IconButton
+                prominence="tertiary"
+                aria-label={ui("Close credential dialog")}
+                disabled={busy}
+              >
+                <X />
+              </IconButton>
+            </DialogClose>
+          </header>
+          <form
+            className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
+            onSubmit={(event) => {
               event.preventDefault();
-              modalTrigger.current?.focus();
+              void connect();
             }}
-            onEscapeKeyDown={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            onPointerDownOutside={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-base shadow-2xl outline-none md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
           >
-            <header className="flex shrink-0 items-center gap-3 px-6 py-4">
-              <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
-              <Dialog.Title className="min-w-0 flex-1 font-heading-h3">
-                {reconnecting
-                  ? ui("Reconnect a Google Drive credential")
-                  : ui("Create a Google Drive credential")}
-              </Dialog.Title>
-              <Dialog.Close asChild>
-                <IconButton
-                  prominence="tertiary"
-                  aria-label={ui("Close credential dialog")}
-                  disabled={busy}
-                >
-                  <X />
-                </IconButton>
-              </Dialog.Close>
-            </header>
-            <form
-              className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void connect();
-              }}
-            >
-              <div>
-                <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
-                <Dialog.Description
-                  id="credential-modal-description"
-                  className="mt-2 text-sm text-content-secondary"
-                >
-                  {ui("Authenticate with OAuth to access your Google Drive documents.")}
-                </Dialog.Description>
-              </div>
-              <div>
-                <label
-                  htmlFor="google-drive-credential-name"
-                  className="font-secondary-action text-content-primary"
-                >
-                  {ui("Credential name")}
-                </label>
-                <Input
-                  id="google-drive-credential-name"
-                  value={name}
-                  maxLength={120}
-                  required
-                  disabled={busy}
-                  readOnly={Boolean(reconnecting)}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={ui("e.g. Team Google account")}
-                  autoComplete="off"
-                  className="mt-2"
-                />
-              </div>
-              {reconnecting ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
-                  {ui(
-                    "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
-                  )}
-                </p>
-              ) : null}
-              {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={replaceClient}
-                    disabled={busy}
-                    onCheckedChange={(event) => {
-                      clientInput.current?.clear();
-                      setClientReady(false);
-                      setReplaceClient(event === true);
-                    }}
-                  />
-                  {ui("Replace OAuth app on reconnect")}
-                </label>
-              ) : null}
-              {needsClient ? (
-                <GoogleDriveOAuthClientInput
-                  ref={clientInput}
-                  disabled={busy || !canManage}
-                  onReadyChange={setClientReady}
-                />
-              ) : missingClient ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui(
-                    "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
-                  )}
-                </p>
-              ) : (
-                <p className="text-sm text-content-secondary">
-                  {ui("Reconnect reuses the OAuth app saved with this credential.")}
-                </p>
-              )}
-              <p className="text-sm text-content-secondary">
+            <div>
+              <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
+              <DialogDescription
+                id="credential-modal-description"
+                className="mt-2 text-sm text-content-secondary"
+              >
+                {ui("Authenticate with OAuth to access your Google Drive documents.")}
+              </DialogDescription>
+            </div>
+            <div>
+              <label
+                htmlFor="google-drive-credential-name"
+                className="font-secondary-action text-content-primary"
+              >
+                {ui("Credential name")}
+              </label>
+              <Input
+                id="google-drive-credential-name"
+                value={name}
+                maxLength={120}
+                required
+                disabled={busy}
+                readOnly={Boolean(reconnecting)}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={ui("e.g. Team Google account")}
+                autoComplete="off"
+                className="mt-2"
+              />
+            </div>
+            {reconnecting ? (
+              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
                 {ui(
-                  "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+                  "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
                 )}
               </p>
-              {error ? (
-                <p
-                  role="alert"
-                  className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-                >
-                  {ui(error)}
-                </p>
-              ) : null}
-              {leaving ? (
-                <p role="status" className="text-sm text-content-secondary">
-                  {ui("Continuing to Google…")}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                pending={authorizing || leaving}
-                disabled={
-                  busy ||
-                  unavailable ||
-                  missingClient ||
-                  !name.trim() ||
-                  (needsClient && !clientReady)
-                }
-              >
-                {ui("Authenticate")}
-              </Button>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            ) : null}
+            {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={replaceClient}
+                  disabled={busy}
+                  onCheckedChange={(event) => {
+                    clientInput.current?.clear();
+                    setClientReady(false);
+                    setReplaceClient(event === true);
+                  }}
+                />
+                {ui("Replace OAuth app on reconnect")}
+              </label>
+            ) : null}
+            {needsClient ? (
+              <GoogleDriveOAuthClientInput
+                ref={clientInput}
+                disabled={busy || !canManage}
+                onReadyChange={setClientReady}
+              />
+            ) : missingClient ? (
+              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                {ui(
+                  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
+                )}
+              </p>
+            ) : (
+              <p className="text-sm text-content-secondary">
+                {ui("Reconnect reuses the OAuth app saved with this credential.")}
+              </p>
+            )}
+            <p className="text-sm text-content-secondary">
+              {ui(
+                "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+              )}
+            </p>
+            {error ? (
+              <Alert variant="destructive">
+                <TriangleAlert aria-hidden="true" />
+                <AlertDescription>{ui(error)}</AlertDescription>
+              </Alert>
+            ) : null}
+            {leaving ? (
+              <p role="status" className="text-sm text-content-secondary">
+                {ui("Continuing to Google…")}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              pending={authorizing || leaving}
+              disabled={
+                busy ||
+                unavailable ||
+                missingClient ||
+                !name.trim() ||
+                (needsClient && !clientReady)
+              }
+            >
+              {ui("Authenticate")}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SettingsLayout>
   );
 }
