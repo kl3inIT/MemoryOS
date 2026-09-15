@@ -214,7 +214,8 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | --- | --- |
 | Source presentation metadata is optional for history, forbidden on Web sources, Drive URL shape validated | `ChatSource` compact constructor; `chat-evidence.ts` schema |
 | File-type/provider icon mapping, provider labels, decorative icon | `document-source-icon.test.tsx` |
-| Provenance pages, boxes, sheet names, malformed input, PDF box mapping and rotated pages | `source-provenance.test.ts` |
+| Provenance pages, boxes, sheet names, table rows (`tableRow`), malformed input, PDF box mapping and rotated pages | `source-provenance.test.ts` |
+| Source panel steps between sources (`Nguồn n / 2`, disabled ends, chip `aria-current`), opens a table row on its PDF page and a text passage on the passages; desktop expands into the preview dialog with the same tab, no second pdf.js canvas in the panel, Escape closes only the dialog and returns focus; mobile has no expand button | `chat.spec.ts` "source panel switches documents and restores focus" (desktop and mobile) |
 | Citation original PDF authority before/after storage open (also per byte range), magic bytes, size, closing rejected streams | `DocumentOriginalServiceTest` |
 | Only an actor-readable active mapping's current PDF version that produced the Document is served; provider file id is read | `SourceOriginalPdfQueryTest` |
 | Sources saved before presentation metadata read with null media type, empty source types and no provider URL | `ChatSourceLegacyJsonTest` |

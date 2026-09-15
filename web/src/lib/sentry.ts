@@ -11,7 +11,7 @@ interface RuntimeConfiguration {
 }
 
 export type WorkflowFailure = {
-  workflow: "file-source-upload" | "google-drive-sync" | "indexing" | "search";
+  workflow: "file-source-upload" | "google-drive-sync" | "indexing" | "search" | "pdf-view";
   stage: string;
   failureKind: string;
   httpStatus?: number;
