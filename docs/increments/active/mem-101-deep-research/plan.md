@@ -1,0 +1,26 @@
+# Implementation plan
+
+- [x] Read Onyx `160f9b143` deep research backend, prompts, persistence, stop handling, settings and renderers.
+- [x] Spike the orchestrator inference, required tool choice, tool history, raw chunk aggregation and parallel Stop with fixtures; live `gpt-5-mini` cycles and Responses `think_tool` deltas. Probe test is opt-in (`MEMORYOS_DR_SPIKE`) and is not a product contract.
+- [x] Owner: Chat-wide timing follows Onyx (2026-09-15).
+- [x] Owner: research agents get `search_files`/`read_file` when the turn has attachments (2026-09-15).
+- [x] Owner: no total turn deadline and no citation count cap, as Onyx (2026-09-15).
+- [x] Owner: Onyx composer button and administrator switch; Chat-wide changes stay in MEM-101 (2026-09-15).
+- [ ] Chat-wide timing first: replace the fixed turn deadline with a 30 min lease renewed every 60 s and reconcile lapsed leases only; move tool/runner remaining-time checks to per-call timeouts and audit every blocking call for an own timeout; 60 s provider read/write gap; refresh-on-write stream replay TTL (3600 s live, 600 s after completion, 16 MiB); browser recovery polls while the run is RUNNING; re-verify Stop, cancellation, reconnect, replay and process-death reconciliation for normal Chat.
+- [ ] Chat-wide citations: remove the 24-source count cap (`ChatSource`, `ChatEvidence`, `ChatTurnService`, `ChatTurnPersistence`, `ChatActivity`/recorder, V34 CHECK via new migration, web schemas, OpenAPI) and widen citation-marker token estimates; keep a storage byte bound or move sources to rows; re-verify history, sharing and citation opening.
+- [ ] Decide the research agent loop with a fixture test: Embabel `PromptRunner` with guard per-inference prompt composition, or the `streamInference` loop with direct `Tool.call`. Record the result in the design.
+- [ ] Migrations: `research_mode` command identity with replay conflict, `chat_message.is_clarification` and plan text, `chat_tool_call` tree with bounds, tenant `deepResearchEnabled` setting.
+- [ ] Administrator switch (enabled when unset) in Chat administration under model-management authority, member availability read, server rejection of research commands while disabled.
+- [ ] `memoryos.chat.research.*` properties for the Onyx phase limits (force-report times, agent timeout, token limits, cycles, agents, minimum context).
+- [ ] Port prompts verbatim with the MIT notice; reasoning variants by `Capabilities.reasoning`.
+- [ ] Orchestrator phases: clarification (skip after clarification), streamed plan, cycles with required tools and per-cycle prompt, forced report at 30 min or last cycle, synthetic failure responses, final report ≤20k.
+- [ ] Research agents: task-only history, `search_files`/`read_file` plus attached file names and IDs when the turn has attachments (file names also in the orchestrator prompt), cycles and reminders, force report at 12 min, 30 min timeout, intermediate report ≤10k; fan-out ≤3 through `SearchTasks` with Stop and cancellation.
+- [ ] Citations: per-agent evidence, merge by source key and marker renumbering, cited-only sources for the final report, no count cap (Chat-wide citation step).
+- [ ] Events: `parentToolCallId`/`tabIndex`, `research_plan`, `research_agent_start`, `intermediate_report`, `top_level_branching`; SSE, OpenAPI contract and generated client.
+- [ ] Persist the tool call tree, plan and clarification flag in the terminal finish; history returns them; Stop keeps partial output.
+- [ ] `think_tool` reasoning: Responses routing with argument deltas and `tool_choice`, or keep the paragraph baseline; record the decision.
+- [ ] UI: Deep research composer button with Onyx visibility and reset rules, plan block, agent tabs with nested steps and intermediate report on the MEM-100 timeline, inline final report; vi/en.
+- [ ] Observability spans and bounded metrics without content.
+- [ ] Tests: orchestrator loop and limits with SSE fixtures, cancellation, citation merge, persistence and replay conflict, disabled setting rejection; web button, plan/timeline/tabs; IDE inspection of changed files.
+- [ ] Consolidate durable facts into `docs/specs/chat.md` and `docs/tests/chat.md`; run `clean check`.
+- [ ] Live acceptance on staging with the real corpus: clarification, plan and report, parallel agents on the timeline, reload mid-run, Stop and limits, citations open authorized evidence only, administrator switch.

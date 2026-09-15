@@ -1,0 +1,172 @@
+# MEM-101 — Deep research
+
+Tracking: [MEM-101](https://linear.app/memory-os/issue/MEM-101) (`dathip04`). Depends on [MEM-100](../../completed/mem-100-agent-activity-timeline/design.md) (Done, PR #160), whose tool-neutral activity contract this increment extends.
+
+## Outcome
+
+A Deep research mode in Chat that behaves like Onyx: an optional clarification turn, a streamed research plan, an orchestrator that delegates up to three parallel research agents over internal Search and the Web, and a long final report with merged citations. Progress streams on the MEM-100 timeline and survives reload and tab close.
+
+## Accepted decisions (owner, 2026-09-15)
+
+- Mirror Onyx as closely as the Java stack allows. Departures below are recorded with their reason.
+- Reference checkout: Onyx `160f9b143` (main, 2026-09-15).
+- No survival across API restart. Onyx loses in-flight research on restart as well. Reload, tab close and client disconnect are covered by the existing background run, stream replay and history polling.
+- As Onyx: no plan approval or edit step, no time or cost estimate, the report renders inline as the answer.
+- For all Chat turns, not only research mode, as Onyx: no total turn deadline (a renewed run lease detects process death), 60 s provider read gap, refresh-on-write stream replay, browser recovery while the run is RUNNING, and no citation count cap. See [Chat-wide timing](#chat-wide-timing-owner-2026-09-15-all-chat-as-onyx) and [Citations](#citations).
+- Entry and administration as Onyx: a separate Deep research composer button and a tenant administrator switch, enabled by default. See [Entry and administrator setting](#entry-and-administrator-setting).
+- One Linear issue: the Chat-wide timing and citation changes are delivered under MEM-101, before research mode.
+
+## Reference behavior (Onyx `160f9b143`)
+
+Paths: `backend/onyx/deep_research/dr_loop.py`, `deep_research/dr_mock_tools.py`, `deep_research/utils.py`, `tools/fake_tools/research_agent.py`, `prompts/deep_research/{orchestration_layer,research_agent,dr_tool_prompts}.py`, `chat/citation_utils.py` (`collapse_citations`), `chat/process_message.py` (entry, stop, persistence), `db/models.py` (`ToolCall`, `ChatMessage.is_clarification`), `server/query_and_chat/placement.py`, `server/settings/{models,store}.py`, `web/src/sections/input/AppInputBar.tsx`, `web/src/hooks/useDeepResearchToggle.ts`, `web/src/views/admin/ChatPreferencesPage.tsx`, `web/.../timeline/renderers/deepresearch/{DeepResearchPlanRenderer,ResearchAgentRenderer}.tsx`.
+
+| Step | Observed behavior |
+| --- | --- |
+| Entry | Request flag `deep_research`. Rejected for projects and multi-model; model needs ≥50,000 input tokens. |
+| Clarification | One inference with only `generate_plan`. No tool call → the text is a clarification (≤5 numbered questions), message `is_clarification=true`, turn ends. The next turn skips clarification when the previous assistant message was one. |
+| Plan | One streamed inference without tools: ≤6 numbered steps, emitted as `DeepResearchPlanStart/Delta`. Not persisted. |
+| Orchestrator | ≤8 cycles (4 for reasoning models), `tool_choice=REQUIRED`, `max_tokens=1024`. Tools `research_agent(task)`, `generate_report`, and `think_tool` for non-reasoning models only. Cycle count is formatted into the system prompt each cycle; cycle 1 adds `FIRST_CYCLE_REMINDER`. ≤3 parallel agents per cycle. After 30 min or on the last cycle the report is forced. A failed agent yields a synthetic failure tool response. |
+| Research agent | Thread per agent. History starts with only the `task`. ≤8 cycles, `tool_choice=REQUIRED`, `max_tokens=1000`. Tools: internal search, `web_search`, `open_url`, `think_tool`, `generate_report`. Only the first tool type of a batch runs, sequentially. Open-URL reminder after a Web search with results. Report forced after 12 min; 30 min timeout returns a timeout message but cannot kill the thread. Intermediate report ≤10k tokens, citation markers kept. |
+| Citation merge | `collapse_citations` renumbers each agent's markers by `document_id` into the turn mapping. |
+| Final report | No tools, ≤20k tokens, all intermediate reports in history, plan in a reminder, only cited documents passed. |
+| Persistence | `tool_call` tree (`parent_tool_call_id`, `turn_number`, `tab_index`, `reasoning_tokens`, arguments, response) written at turn end; Stop saves partial output. |
+| Stream/UI | `Placement(turn_index, tab_index, sub_turn_index)`, `TopLevelBranching`, `ResearchAgentStart`, `IntermediateReportStart/Delta/CitedDocs`. Plan renderer, per-agent renderer with task, nested tool groups and intermediate report. |
+| Setting and button | `Settings.deep_research_enabled` in the KV settings store, read as enabled when unset (`svcSS.ts:123`), switched on the admin Chat Preferences page. The composer shows a separate button outside projects when the setting is on and the agent has internal or Web search; it is disabled in multi-model mode and resets on session switch, agent change and reload. The backend does not check the setting. |
+
+## Design
+
+### Two control layers
+
+| Layer | Owner | Mechanism |
+| --- | --- | --- |
+| Clarification → plan → orchestrator cycles → final report | MemoryOS code, ported from `dr_loop.py` | One inference per step through `LlmMessageStreamer.streamInference` over `ChatModelGuard` |
+| Research agent loop | See [research agents](#research-agents) | Existing tools (`SearchTool`, `WebTools`) |
+
+`ChatModelExecutor` states that MemoryOS owns no inference/tool loop. Research mode is the intentional exception that the [MEM-11 design](../../completed/mem-11-production-chat/design.md) reserved for deep research ("workflow riêng"). The spike verified that `streamInference` performs one inference, returns tool calls without executing them, and records usage through the guard.
+
+### Orchestrator phases
+
+- Prompts are ported verbatim from `orchestration_layer.py` and `research_agent.py` with the Onyx MIT notice. Reasoning variants and the 8/4 cycle cap follow `ModelSettings.Capabilities.reasoning`. The spike showed that a truncated prompt with a static cycle counter made `gpt-5-mini` call `research_agent` to "synthesize a report" instead of `generate_report`; the per-cycle counter, first-cycle reminder and `generate_report` conditions are load-bearing.
+- `tool_choice=required` is set on orchestrator and agent inference requests (verified on Chat Completions, live).
+- `ChatModelGuard` final-cycle policy strips tools and adds the Chat last-cycle reminder. Research guards use `cycles = maxCycles + 1` and an identity final request so MemoryOS, not the guard, forces `generate_report`, as Onyx does.
+- Clarification is skipped when the previous assistant message has `is_clarification`. Research mode is rejected for Project chats and for models whose context window is below 50,000 tokens.
+
+### Research agents
+
+Baseline: run each agent through the existing Embabel `PromptRunner` tool loop, with one `ChatModelGuard` per agent sharing the turn `AgentProcess` (its invocation list is a `CopyOnWriteArrayList`, so concurrent recording is safe). The guard already rewrites each inference prompt (`ChatPrompts.forInference`); the research variant composes the Onyx per-cycle system prompt and open-URL reminder there, and ends the loop at 12 minutes so MemoryOS runs the intermediate-report inference.
+
+Evidence gap: Embabel streaming does not call loop inspectors or transformers (MEM-11 probe), and Chat tool guidance for `searchKnowledge`/`web_search`/`open_url` would be added to agent prompts. If the guard hook cannot express the per-cycle prompt, forced report and Onyx tool guidance, the fallback is the same `streamInference` loop as the orchestrator with direct `Tool.call`. The first implementation step decides with a fixture test.
+
+Tools: Onyx allows `{internal search, web_search, open_url}` plus `think_tool`/`generate_report` (`dr_loop.py:255`; its TODO lists non-search tools as a future extension). MEM-110 `run_python` and image generation are excluded.
+
+Attached files (owner, 2026-09-15): when the turn has attachments, research agents also get `search_files` and `read_file`, the agent prompt lists the attached file names and IDs, and the orchestrator prompt lists the file names so tasks can direct agents to them. Without attachments the tool set is Onyx's.
+
+| Item | Content |
+| --- | --- |
+| Requirement | Research must use the files the user attached. |
+| Reference behavior | Onyx inlines attached file text into chat history (`chat_utils.build_file_context`), so clarification, plan, orchestrator and final report read it; agents see only their task. Onyx `FileReaderTool` is available only with `DISABLE_VECTOR_DB` (`file_reader_tool.py:78`). |
+| MemoryOS gap | Non-image attachments reach the model only through `search_files`/`read_file` (`ChatFileInputs` inlines images only). Copying Onyx's tool set would hide attachments from research entirely. |
+| Chosen | Reuse the existing authorized, bounded file tools with evidence registration in research agents. |
+| Cost | Tool-list departure; the orchestrator plans from file names, not content; extra tool cycles; agents may read the same file. |
+| Rejected baseline | Inline file text into history as Onyx: a new Chat-wide mechanism, context overflow for large files, and agents still see only their task. |
+| Revisit | If plans are weak without file content, add a bounded file preview to the orchestrator prompt. Not in scope. |
+
+Departure: Onyx runs only the first tool type of a batch because its `Placement` cannot distinguish nested parallel calls. MemoryOS events carry real tool call IDs, so mixed batches run sequentially without that filter.
+
+### Parallelism and cancellation
+
+Agents of one cycle run through `SearchTasks` (≤3, below its 4-thread bound) under the turn's scope. Stop and cancellation stop every agent and close provider connections (spike: 3 connections closed 9 ms after cancel). This is stricter than Onyx, which cannot stop timed-out threads.
+
+### Citations
+
+Each agent registers evidence in its own `ChatEvidence` with markers kept; after the cycle, sources are merged into the turn evidence by source key and intermediate report markers are renumbered, as `collapse_citations` does. The final report receives only cited sources.
+
+Source count (owner, 2026-09-15: as Onyx). Onyx has no citation count cap: `DynamicCitationProcessor` and `collapse_citations` number every cited document, and only per-tool results are bounded (`NUM_INTERNET_SEARCH_RESULTS` 10, `NUM_RETURNED_HITS` 50, `MAX_CHUNKS_FED_TO_CHAT` 25, `open_url` 15,000 characters per URL). MemoryOS caps every Chat turn at 24 sources in `ChatSource.citationId`, `ChatEvidence`, `ChatTurnService`, `ChatTurnPersistence`, `ChatActivity` and its recorder, the V34 `chat_message.sources` CHECK (≤24 entries, 131,072 bytes), the web schemas and OpenAPI. The count cap is removed for all Chat turns, so sources are bounded by tool result limits, cycles and budgets. Storage keeps a byte bound (or moves sources to rows), and citation-marker token estimates that assume `[24]` are widened.
+
+### Persistence
+
+- V62: `research_mode` in command identity; replay with a different mode conflicts, as `webSearch` does.
+- V63: `chat_message.is_clarification` and the persisted plan text. Persisting the plan departs from Onyx so reload shows it; editing it stays out of scope.
+- V64: `chat_tool_call` tree mirroring Onyx `tool_call`: `parent_tool_call_id`, `turn_number`, `tab_index`, bounded arguments summary, response or intermediate report, reasoning. Written by the terminal finish in the same transaction as `sources`, `artifacts` and `activity`. Orchestrator-level steps stay within the MEM-100 `activity` bounds; nested agent steps live in the table.
+- The administrator setting is tenant-owned Chat configuration next to the existing Web and image connection defaults; its migration number follows the Chat-wide steps.
+
+### Entry and administrator setting
+
+Owner, 2026-09-15: as Onyx.
+
+- Administrator switch: a tenant `deepResearchEnabled` Chat setting, enabled when unset, with the Onyx title "Deep Research" and description ("Agentic research system that works across the web and connected sources. Uses significantly more tokens per query."). MemoryOS has no Chat Preferences page; the switch lives in Chat administration under the existing model-management authority, beside the Web search settings. Members read availability, as for Web search.
+- Composer button: a separate Deep research button in the composer action row, not a `+` menu item. It shows when the chat is not in a Project, the setting is on, and internal Search or Web search is available for the turn. The selection is browser state for the current chat: it resets when switching to another existing chat or reloading, and survives creating a new chat from the empty composer, as `useDeepResearchToggle` does. MemoryOS has no multi-model or agent switch, so those Onyx conditions have no counterpart.
+- Departure: Onyx only hides the button; MemoryOS also rejects research commands while the setting is off, because a disabled mode must not run through the public API.
+
+### Streaming, events and UI
+
+- `ChatToolEvent` gains `parentToolCallId` and `tabIndex`. New events: `research_plan` (delta), `research_agent_start`, `intermediate_report` (delta, cited sources), `top_level_branching`. SSE and OpenAPI follow the MEM-100 rename rules.
+- UI reuses the assistant-ui `activity-group` timeline: plan block, one tab per parallel agent with task, nested tool steps and expandable intermediate report, then the final report as the answer. Onyx renderers are the behavior reference. Entry is described in [Entry and administrator setting](#entry-and-administrator-setting).
+
+### think_tool reasoning streaming
+
+Spring AI aggregates tool-call chunks before MemoryOS sees them (spike P4), so on Chat Completions `think_tool` reasoning appears as a whole paragraph at cycle end. The OpenAI Responses stream delivers the arguments incrementally (spike L2: 214 deltas, first after 3.8 s, concatenation equal to the final arguments), and `OpenAiResponsesChatModel.StreamState` is MemoryOS code that sees every event.
+
+Decision to take in implementation, per the conventions' departure record:
+
+| Item | Content |
+| --- | --- |
+| Requirement | Onyx streams `think_tool` reasoning live for non-reasoning models. |
+| Proposed | Route research inferences on Responses-capable OpenAI connections through `OpenAiResponsesChatModel`; map `functionCallArgumentsDelta` of `think_tool` items to `ChatReasoningDelta` with the Onyx JSON-prefix stripping; add `tool_choice` to Responses requests (currently absent). |
+| Cost | Responses routing independent of `webSearch`/`reasoningSummary`, plus fixture tests. OpenAI-compatible endpoints without Responses keep the baseline. |
+| Simpler baseline | Paragraph at cycle end. Reasoning models are unaffected because they use MEM-100 reasoning summaries. |
+
+### Limits
+
+A `memoryos.chat.research.*` block holds the Onyx values: orchestrator force-report 30 min, agent force-report 12 min and timeout 30 min, orchestrator `max_tokens` 1024, agent 1000, intermediate report 10k, final report 20k, ≥50k context, ≤3 agents, cycles 8/4 and 8. Onyx has no total turn deadline; research phases enforce these limits themselves. Research turns use the same run lease as all Chat turns (see [Chat-wide timing](#chat-wide-timing-owner-2026-09-15-all-chat-as-onyx)), so no separate research deadline exists.
+
+### Chat-wide timing (owner, 2026-09-15: all Chat, as Onyx)
+
+Compared on 2026-09-15 against Onyx `160f9b143`:
+
+| Item | Onyx | MemoryOS before this increment | Change |
+| --- | --- | --- | --- |
+| Turn deadline | None. A processing fence (`chat_processing_checker.py`, TTL 30 min) is refreshed every 60 s while the writer lives (`process_message.py:1492`); a lapsed fence marks a dead run, resume ends and the client renders the persisted message (`chat_backend.py` resume-stream) | `deadline_at = reservation + memoryos.chat.execution.deadline` (2 min, capped at 30 min); `expireRuns` fails RUNNING rows 5 s past it; tools and the runner derive remaining time from it (`SearchTool`, `WebTools`, `FileReaderTool`, `GenerateImageTool`, `ChatModelExecutor`) | `deadline_at` becomes a lease renewed every 60 s to now + 30 min while the run lives; `expireRuns` reconciles only lapsed leases (process death). No total turn bound: cycles, token/cost budgets and per-call timeouts bound work; tools use their own timeouts instead of the turn remainder. Every blocking call must keep an own timeout |
+| Provider call timeout | 60 s gap between packets (`LLM_SOCKET_READ_TIMEOUT`, `DR_REPORT_LLM_TIMEOUT_S`); no total bound | Total call timeout equals the turn deadline (`ChatModelResolver` → `OpenAiCancellation` `callTimeout`; read/write default to it) | Read/write gap 60 s; no total bound beyond cancellation, Stop and the run lease |
+| Stream replay | TTL 3600 s refreshed per write; 600 s after completion; 16 MiB (`CHAT_STREAM_BUFFER_*`) | Each chunk expires 10 min after creation (`StreamBufferWriter.expire`); 4 MiB per run | Refresh-on-write TTL, completion retention and byte cap as Onyx |
+| Browser recovery | Resume from cursor without a time cap (`useChatSessionController`) | 3 × 65 s SSE attempts, then history polling for at most 31 min (`chat-transport.ts`) | Poll while the run is RUNNING; a lapsed lease ends it through reconciliation |
+| Heartbeat | 15 s | 15 s | None |
+| First-chunk retry | 2 (`LLM_FIRST_CHUNK_MAX_RETRIES`) | 0 (MEM-11) | None; not part of this decision |
+| Stop | Cache fence; running threads continue | Local cancellation closes provider connections | None; MemoryOS keeps stronger cancellation |
+
+These changes apply to every Chat turn and are delivered and re-verified (Stop, cancellation, reconnect, replay, process-death reconciliation) before research mode depends on them.
+
+### Observability
+
+Spans per phase (`clarification_step`, `research_plan_step`, `research_execution_step`, `research_agent`, `generate_intermediate_report`, `generate_report`) and bounded metrics for cycles, agents, timeouts and forced reports. No question, task, plan or document content in telemetry.
+
+## Out of scope
+
+Survival across restart, tools other than internal search, Web/URL reading and attached-file reading (`run_python`, coding agent), user-provided prompts, plan approval or editing, report export, Project chats, multi-model research.
+
+## Departures from Onyx
+
+| Onyx | MemoryOS | Reason |
+| --- | --- | --- |
+| Timed-out agent threads keep running | Stop and cancellation stop agents | Existing cancellation contract; avoids unbounded cost |
+| Plan not persisted | Plan persisted | Reload shows progress |
+| Attached file text inlined into history; agents have no file tools | Agents get `search_files`/`read_file` when the turn has attachments | MemoryOS attachments reach the model only through these tools |
+| First tool type per agent batch | Mixed batches, sequential | Onyx workaround for `Placement`; MemoryOS has tool call IDs |
+| Setting only hides the button | Server also rejects research commands while disabled | A disabled mode must not run through the API |
+| No budget | Token/cost budget per guard | Existing Chat limits |
+
+## Spike evidence (2026-09-15)
+
+`api/src/test/java/io/memoryos/api/chat/DeepResearchSpikeProbeTest.java`, opt-in via `MEMORYOS_DR_SPIKE=true`; live probes also need `MEMORYOS_DR_SPIKE_LIVE=true` and `SPRING_AI_OPENAI_API_KEY`. All four passed. Fixture probes use a local OpenAI-compatible SSE server.
+
+| Probe | Result |
+| --- | --- |
+| P1 one orchestrator inference | `streamInference` streamed pre-tool text, returned 3 `research_agent` calls, executed no tool, recorded usage once through `ChatModelGuard`. |
+| P2 request | `tool_choice: "required"`, 3 tools, `stream: true`; `parallel_tool_calls` omitted (provider default). |
+| P3 second cycle | History serialized as `system, user, assistant(3 tool_calls), tool×3` with matching IDs; model returned `generate_report`. |
+| P4 raw chunks | Tool calls reach MemoryOS only fully aggregated, once per inference. |
+| P5 parallel Stop | Three concurrent streams under `SearchTasks`; `scope.cancel()` closed all three connections in 9 ms and drained the scope. |
+| L1 live `gpt-5-mini`, Chat Completions | Cycle 1 (8.9 s): 3 parallel self-contained `research_agent` tasks. Cycle 2 (2.7 s) accepted the tool history but called `research_agent` to synthesize instead of `generate_report` under the truncated spike prompt. |
+| L2 live `gpt-4.1-mini`, Responses SDK | `think_tool` arguments arrived as 214 deltas between 3.8 s and 6.5 s; joined deltas equal the final 1,261-character arguments. |
+
+Not proven: parallel Embabel tool loops per agent, the Responses product route for research, full Onyx prompts on a real model, usage after Stop (unknown, as in Chat), and staging corpus acceptance.
