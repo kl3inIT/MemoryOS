@@ -239,6 +239,7 @@ Out of scope: stdio; MCP resources, prompts, sampling, elicitation (Onyx client 
 - Redirect URIs: HTTPS, no raw IP, host under a public suffix; internal-only DNS is sufficient because the browser performs the redirect.
 - CIMD differs: the authorization server fetches MemoryOS's client metadata document, so that URL must be reachable by it. Self-hosted deployments without inbound access use `KNOWN_PROVIDER` or DCR.
 - Each Google Workspace organization creates an `Internal` Web client, enables Drive API and Drive MCP API, adds the MCP callback; Workspace admins may need to trust the app under API controls.
+- Google issues a refresh token only with `access_type=offline`, and on reconnection only with `prompt=consent`. Administrators put both in the server's additional authorization parameters. Without them a connection expires after about an hour and becomes `REAUTH_REQUIRED`.
 
 ## Verification
 

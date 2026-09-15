@@ -304,7 +304,11 @@ public class McpOAuthService {
         try {
             tokens = protocol.refresh(snapshot.tokenEndpoint(), snapshot.client(), refreshToken, snapshot.resource());
         } catch (McpException failure) {
-            if ("MCP_AUTHORIZATION_REQUIRED".equals(failure.code())) requireReauthorization(tenantId, serverId, snapshot);
+            if (!"MCP_AUTHORIZATION_REQUIRED".equals(failure.code())) throw failure;
+            // With refresh-token rotation, a concurrent refresh that won makes this one's grant invalid.
+            String winner = winnerToken(tenantId, snapshot);
+            if (winner != null) return winner;
+            requireReauthorization(tenantId, serverId, snapshot);
             throw failure;
         }
         return inTransaction(() -> {
@@ -364,6 +368,14 @@ public class McpOAuthService {
         if (payload.get(ACCESS_TOKEN) == null) throw McpException.credentialUnreadable();
         return new TokenSnapshot(credential.getId(), credential.revision(), ownerActorId, payload, credential.accessExpiresAt(),
                 URI.create(client.tokenEndpoint()), protocolClient(client), McpOAuthProtocol.canonicalResource(server.url()));
+    }
+
+    /** A newer, active and fresh token written by a concurrent refresh, or null. */
+    private @Nullable String winnerToken(UUID tenantId, TokenSnapshot snapshot) {
+        return transactions.execute(status -> credentials.findById(snapshot.credentialId())
+                .filter(credential -> credential.tenantId().equals(tenantId) && credential.revision() != snapshot.revision()
+                        && credential.status() == McpCredentialStatus.ACTIVE && fresh(credential.accessExpiresAt()))
+                .map(credential -> open(credential).get(ACCESS_TOKEN)).orElse(null));
     }
 
     private void requireReauthorization(UUID tenantId, UUID serverId, TokenSnapshot snapshot) {

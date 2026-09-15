@@ -1672,6 +1672,7 @@ class ChatSessionApiIntegrationTest {
         var revocations = new AtomicInteger();
         var invalidGrant = new java.util.concurrent.atomic.AtomicBoolean();
         var tokenForms = new java.util.concurrent.CopyOnWriteArrayList<Map<String, String>>();
+        var tokenAuthorizations = new java.util.concurrent.CopyOnWriteArrayList<String>();
         var authorizationServer = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         String issuer = "http://127.0.0.1:" + authorizationServer.getAddress().getPort();
         authorizationServer.createContext("/", exchange -> {
@@ -1693,6 +1694,7 @@ class ChatSessionApiIntegrationTest {
                 case "POST /token" -> {
                     var form = formParameters(requestBody);
                     tokenForms.add(form);
+                    tokenAuthorizations.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
                     if ("refresh_token".equals(form.get("grant_type"))) refreshes.incrementAndGet();
                     if (invalidGrant.get()) {
                         status = 400;
@@ -1800,6 +1802,69 @@ class ChatSessionApiIntegrationTest {
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
             assertEquals(1, revocations.get());
             mockMvc.perform(get(server).with(authentication(actor))).andExpect(jsonPath("$.sharedCredentialConfigured").value(false));
+            // Google-style acceptance: a known provider with one administrator-entered client per organization.
+            var knownBody = mcpServerBody("known" + (System.nanoTime() % 100000), fixture.url());
+            knownBody.put("authType", "OAUTH").put("oauthProviderMode", "KNOWN_PROVIDER");
+            knownBody.putObject("headers").put("action", "KEEP");
+            knownBody.putObject("sharedApiKey").put("action", "KEEP");
+            knownBody.putArray("oauthScopes").add("files:read");
+            knownBody.putObject("oauthAdditionalParameters").put("access_type", "offline");
+            var known = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(knownBody.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String knownServer = "/api/mcp/servers/" + known.path("id").asText();
+            UUID knownServerId = UUID.fromString(known.path("id").asText());
+            mockMvc.perform(post(knownServer + "/oauth/discovery").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_INVALID"));
+
+            var organizationA = oauthClientBody("Organization A", issuer, "org-a-client", "org-a-secret", "CLIENT_SECRET_POST");
+            assertFalse(Json.mapper().readValue(organizationA.toString(), io.memoryos.api.mcp.contract.McpOAuthClientRequest.class)
+                    .toString().contains("org-a-secret"));
+            var clientA = Json.mapper().readTree(mockMvc.perform(post(knownServer + "/oauth/clients").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(organizationA.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            assertTrue(clientA.path("clientSecretConfigured").asBoolean());
+            assertFalse(clientA.toString().contains("org-a-secret"));
+            var clientB = Json.mapper().readTree(mockMvc.perform(post(knownServer + "/oauth/clients").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(oauthClientBody("Organization B", issuer, "org-b-client", "org-b-secret", "CLIENT_SECRET_POST").toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            mockMvc.perform(post(knownServer + "/oauth/clients").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(organizationA.toString()))
+                    .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MCP_OAUTH_CLIENT_LABEL_TAKEN"));
+            String clientBPath = knownServer + "/oauth/clients/" + clientB.path("id").asText();
+            String sealedB = jdbc.sql("SELECT client_secret FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(clientB.path("id").asText())).query(String.class).single();
+            assertTrue(sealedB.startsWith("v1:") && !sealedB.contains("org-b-secret"));
+
+            var keepSecret = oauthClientBody("Organization B", issuer, "org-b-client", null, "CLIENT_SECRET_POST");
+            var updatedB = Json.mapper().readTree(mockMvc.perform(put(clientBPath).param("revision", clientB.path("revision").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(keepSecret.toString())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(updatedB.path("clientSecretConfigured").asBoolean());
+            mockMvc.perform(put(clientBPath).param("revision", updatedB.path("revision").asText()).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(oauthClientBody("Organization B", issuer, "org-b-client", null, "NONE").toString()))
+                    .andExpect(status().isBadRequest());
+
+            invalidGrant.set(false);
+            UUID clientBId = UUID.fromString(clientB.path("id").asText());
+            var knownLaunch = mcpOAuth.startAdministratorAuthorization(actorId, knownServerId, clientBId, "state-known",
+                    io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-known"));
+            var knownParameters = formParameters(knownLaunch.authorizationUrl().getRawQuery());
+            assertEquals("org-b-client", knownParameters.get("client_id"));
+            assertEquals("files:read", knownParameters.get("scope"));
+            assertEquals("offline", knownParameters.get("access_type"));
+            mcpOAuth.completeAdministratorAuthorization(actorId, knownLaunch.pending(), "known-code", "verifier-known", null);
+            assertEquals("org-b-client", tokenForms.getLast().get("client_id"));
+            assertEquals("org-b-secret", tokenForms.getLast().get("client_secret"));
+            assertEquals("null", tokenAuthorizations.getLast());
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", knownServerId).query(Long.class).single());
+            mockMvc.perform(delete(clientBPath).param("revision", updatedB.path("revision").asText()).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", knownServerId).query(Long.class).single());
+            mockMvc.perform(get(knownServer).with(authentication(actor))).andExpect(jsonPath("$.status").value("AWAITING_AUTH"));
+
             // The loopback HTTP redirect origin cannot host a Client ID Metadata Document.
             mockMvc.perform(get("/mcp/oauth/client-metadata.json")).andExpect(status().isNotFound());
         } finally {
@@ -1816,6 +1881,15 @@ class ChatSessionApiIntegrationTest {
                     java.net.URLDecoder.decode(pair.substring(separator + 1), UTF_8));
         }
         return parameters;
+    }
+
+    private static ObjectNode oauthClientBody(String label, String issuer, String clientId, String secret, String method) {
+        var body = Json.mapper().createObjectNode().put("label", label).put("issuer", issuer).put("clientId", clientId)
+                .put("tokenEndpointAuthMethod", method).put("authorizationEndpoint", issuer + "/authorize")
+                .put("tokenEndpoint", issuer + "/token").put("issParameterRequired", false);
+        if (secret == null) body.putObject("clientSecret").put("action", "KEEP");
+        else body.putObject("clientSecret").put("action", "REPLACE").put("value", secret);
+        return body;
     }
 
     private ObjectNode mcpServerBody(String slug, String url) {

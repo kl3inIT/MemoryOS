@@ -300,13 +300,15 @@ public final class McpOAuthProtocol {
         for (URI url : authorizationServerMetadataUrls(issuerUri)) {
             JsonNode metadata = optionalJson(url);
             if (metadata == null) continue;
-            if (!trimTrailingSlash(issuer).equals(trimTrailingSlash(optionalText(metadata, "issuer", 2048))))
+            // RFC 8414 §3.3: the metadata issuer is authoritative; the callback iss is compared with it exactly.
+            String metadataIssuer = text(metadata, "issuer", 2048);
+            if (!trimTrailingSlash(issuer).equals(trimTrailingSlash(metadataIssuer)))
                 throw McpException.oauthDiscoveryFailed("The authorization server metadata names a different issuer.");
             if (!strings(metadata, "code_challenge_methods_supported", 32).contains("S256"))
                 throw McpException.oauthDiscoveryFailed("The authorization server does not support PKCE S256.");
             String registration = optionalText(metadata, "registration_endpoint", 2048);
             String revocation = optionalText(metadata, "revocation_endpoint", 2048);
-            return new AuthorizationServer(issuer,
+            return new AuthorizationServer(metadataIssuer,
                     endpoint(text(metadata, "authorization_endpoint", 2048), true),
                     endpoint(text(metadata, "token_endpoint", 2048), false),
                     registration == null ? null : endpoint(registration, false),

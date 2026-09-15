@@ -81,8 +81,9 @@ class McpOAuthProtocolTest {
     @Test
     void fallsBackToRootProtectedResourceAndOidcPathAppending() {
         routes.put("POST /mcp", exchange -> respond(exchange, 405, null));
+        // The protected-resource metadata adds a trailing slash; the stored issuer is the metadata's own value.
         routes.put("GET /.well-known/oauth-protected-resource", exchange -> respond(exchange, 200, Map.of(
-                "resource", origin + "/mcp/", "authorization_servers", List.of(origin + "/tenant1"))));
+                "resource", origin + "/mcp/", "authorization_servers", List.of(origin + "/tenant1/"))));
         routes.put("GET /tenant1/.well-known/openid-configuration", exchange -> respond(exchange, 200, metadata(origin + "/tenant1")));
 
         var discovery = protocol.discover(origin + "/mcp");
