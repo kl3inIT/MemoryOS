@@ -110,6 +110,8 @@ The JVM listens on loopback port `5005` and waits for the debugger. OMP `17.3.5`
 
 `infrastructure/keycloak/configure-memoryos-realm.sh` creates or reuses the named local initial owner, disables public self-registration, requires verified email, configures realm SMTP, retains public client `memoryos-integration`, reconciles confidential `memoryos-web`, `memoryos-mailpit`, `memoryos-pgweb`, `memoryos-redisinsight`, and `memoryos-minio-console`, and creates confidential service-account client `memoryos-user-provisioner`. The application and OAuth2 Proxy clients require S256 PKCE. The pinned native MinIO Console does not emit a `code_challenge`, so its confidential client instead relies on its secret, exact `/oauth_callback`, OIDC state, and claim-based authorization without a Keycloak PKCE requirement. The script creates realm role `memoryos-inspector`, assigns it only to the realm-local initial owner, exposes that role only to the three inspection clients, and maps it to the MinIO `policy` claim. The master bootstrap administrator is never an inspection identity or client audience. The provisioner receives only realm-local `manage-users`; reconciliation fails closed if broader direct `realm-management` roles are present.
 
+The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `shared-keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait shared-keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
+
 Required operator environment:
 
 ```text

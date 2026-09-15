@@ -186,6 +186,7 @@ configure_realm() {
     jq -cn '{
         displayName: "MemoryOS",
         displayNameHtml: "MemoryOS",
+        loginTheme: "memoryos",
         registrationAllowed: false,
         registrationEmailAsUsername: true,
         loginWithEmailAllowed: true,

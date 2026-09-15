@@ -39,6 +39,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
 - [Chat source reader](docs/increments/active/chat-source-reader/design.md) owns stepping between Chat sources, table rows opening on their PDF page, the expanded source dialog and the PDF range-load fallback with pdf.js image decoders.
 - [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
+- [Keycloak login theme](docs/increments/active/keycloak-login-theme/design.md) owns the `memoryos` login theme (centered brand card over `keycloak.v2`), its read-only mount and realm selection.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 
