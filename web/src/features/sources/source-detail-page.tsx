@@ -991,17 +991,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   disabled={managementBusy || detail.status === "DELETING"}
                   onBusyChange={setDriveBusy}
                   activeSection={section}
-                  content={
-                    <>
-                      {/* Google errors belong to the Synchronization section of the panel. */}
-                      {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
-                        <p role="alert" className="mb-3 text-sm text-status-danger-content">
-                          {ui(sourceStatusMessage(detail.errorCode))}
-                        </p>
-                      ) : null}
-                      {filesPanel}
-                    </>
-                  }
+                  content={filesPanel}
                   settings={
                     <SourceGroupsSection
                       sourceId={selectedId}
