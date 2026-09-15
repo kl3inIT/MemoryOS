@@ -1318,6 +1318,11 @@ Object.assign(englishUi, {
   "Loading file attempts…": "Đang tải lịch sử xử lý tệp…",
   "File indexing attempt records": "Bản ghi lập chỉ mục tệp",
   "File indexing attempts, newest first": "Lịch sử lập chỉ mục tệp, mới nhất trước",
+  "Indexing attempt details": "Chi tiết lần lập chỉ mục",
+  "View details for {{v1}} queued {{v2}}": "Xem chi tiết {{v1}}, xếp hàng lúc {{v2}}",
+  "Attempt ID": "Mã lần lập chỉ mục",
+  "To index this file again, use Reindex in the Files tab.":
+    "Để lập chỉ mục lại tệp này, dùng Lập chỉ mục lại trong tab Tệp.",
   Started: "Bắt đầu",
   "Completed / duration": "Hoàn tất / thời gian xử lý",
   "Error message": "Thông báo lỗi",

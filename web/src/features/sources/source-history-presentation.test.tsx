@@ -135,6 +135,16 @@ describe("Source execution and current-file history", () => {
     expect(list.queryByText("Completed", { exact: true })).not.toBeInTheDocument();
   });
 
+  it("returns focus to the control that opened the run Sheet", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    const opener = screen.getByRole("button", { name: /^View details for run started/ });
+    await user.click(opener);
+    await screen.findByRole("dialog", { name: "Run details" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
   it("filters runs by status through the API and clears the filter", async () => {
     const user = userEvent.setup();
     showHistory([run]);

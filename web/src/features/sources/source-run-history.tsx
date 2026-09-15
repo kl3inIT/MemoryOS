@@ -2,7 +2,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { History, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
@@ -110,6 +110,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
   const [detailRun, setDetailRun] = useState<SourceRun | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const detailOpener = useRef<HTMLElement | null>(null);
   const history = useQuery({
     ...listSourceRunsOptions({
       path: { sourceId },
@@ -129,7 +130,8 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
     setCursor(undefined);
     setPrevious([]);
   };
-  const viewDetails = (run: SourceRun) => {
+  const viewDetails = (run: SourceRun, opener: HTMLElement) => {
+    detailOpener.current = opener;
     setDetailRun(run);
     setDetailOpen(true);
   };
@@ -203,7 +205,11 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       <HistoryTime value={run.startedAt} />
                       <RunOutcome run={run} />
                     </div>
-                    <Button size="sm" prominence="tertiary" onClick={() => viewDetails(run)}>
+                    <Button
+                      size="sm"
+                      prominence="tertiary"
+                      onClick={(event) => viewDetails(run, event.currentTarget)}
+                    >
                       {ui("View details")}
                       <span className="sr-only"> — {ui(label)}</span>
                     </Button>
@@ -291,7 +297,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                               ? new Date(run.startedAt).toLocaleString(uiLocale())
                               : ui("at an unknown time"),
                           })}
-                          onClick={() => viewDetails(run)}
+                          onClick={(event) => viewDetails(run, event.currentTarget)}
                         >
                           {ui("View details")}
                         </Button>
@@ -341,7 +347,14 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
         </>
       ) : null}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-xl">
+        <SheetContent
+          className="w-full gap-0 overflow-y-auto sm:max-w-xl"
+          onCloseAutoFocus={(event) => {
+            // Opened without a SheetTrigger, so Radix has no trigger to refocus.
+            event.preventDefault();
+            detailOpener.current?.focus();
+          }}
+        >
           <SheetHeader className="border-b border-border-subtle pr-12">
             <SheetTitle className="font-heading-h3 text-content-primary">
               {ui("Run details")}
