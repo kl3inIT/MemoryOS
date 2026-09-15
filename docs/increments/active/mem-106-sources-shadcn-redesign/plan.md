@@ -45,11 +45,11 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 - [x] Run history Table with status filter. The filter is the Sources list filter menu, shared as `SourceFilterMenu`, and passes `status` to `GET /api/sources/{sourceId}/runs`.
 - [x] Run detail Sheet: identifiers, start, end, duration, counters, errors. The inline list-detail pane is gone; the Sheet returns focus to the row that opened it.
-- [ ] Settings tab: access, groups, schedule, pause switch, AlertDialog confirmations.
-- [ ] Credentials card: reconnect and replace-OAuth-app flows.
+- [x] Settings tab: access, groups, schedule, pause switch, AlertDialog confirmations. Access is changed from the header dialog and Groups keep their section; the pause is a `Switch` beside the Automatic synchronization state in the summary, replacing the Pause/Resume button; credential confirmations stay on the AlertDialog-based `ConfirmDialog`.
+- [x] Credentials card: reconnect and replace-OAuth-app flows. Both flows keep their rules. The disclosure's Manage connection/Close label and chevron now follow the Radix `data-state`; `group-open` never matched the Collapsible, so the label never changed.
 
 ### Task 7: Verification
 
 - [ ] `pnpm check` and the affected Playwright suites.
 - [ ] Orca captures of every screen in the map at desktop and 390px, placed beside their references in `verification.md`.
-- [ ] Update the browser section of the connector spec; open the PR; update Linear MEM-106.
+- [ ] Update the browser section of the connector spec; open the PR; update Linear MEM-106. The spec section is updated.
