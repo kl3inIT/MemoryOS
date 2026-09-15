@@ -339,6 +339,205 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/voice/selection:
+    put:
+      tags:
+      - Chat Voice
+      summary: Select the speech-to-text or text-to-speech default; null turns the
+        function off
+      operationId: selectChatVoiceProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Voice selection saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections/{provider}:
+    put:
+      tags:
+      - Chat Voice
+      summary: Verify and save one voice connection; a first connection may select
+        one function
+      operationId: saveChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Verified and saved voice connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat Voice
+      summary: Disconnect a voice provider and clear its stored credential
+      operationId: deleteChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Voice connection removed from both functions
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -3429,6 +3628,176 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/voice/tickets:
+    post:
+      tags:
+      - Chat Voice
+      summary: Issue a 60-second single-use ticket for the voice transcription WebSocket
+      operationId: createChatVoiceTicket
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Single-use voice WebSocket ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceTicketResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/synthesize:
+    post:
+      tags:
+      - Chat Voice
+      summary: Read text aloud with the Tenant's default text-to-speech provider
+      operationId: synthesizeChatVoice
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSynthesisRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid text or playback speed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat read authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "No text-to-speech provider, provider unavailable or busy"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "MP3 audio, streamed as the provider produces it"
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections/{provider}/test:
+    post:
+      tags:
+      - Chat Voice
+      summary: Verify a stored voice connection with the provider
+      operationId: testChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Provider accepted the stored endpoint and credential
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions:
     get:
       tags:
@@ -4790,6 +5159,104 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/voice/settings:
+    get:
+      tags:
+      - Chat Voice
+      summary: Read the current member's voice settings
+      operationId: getChatVoiceSettings
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The current member's voice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    patch:
+      tags:
+      - Chat Voice
+      summary: Change the current member's voice settings; absent values are kept
+      operationId: updateChatVoiceSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated voice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users:
     get:
       tags:
@@ -5736,6 +6203,154 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/WebConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice:
+    get:
+      tags:
+      - Chat Voice
+      summary: Read whether speech-to-text and text-to-speech are configured
+      operationId: getChatVoiceAvailability
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Configured voice availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/providers:
+    get:
+      tags:
+      - Chat Voice
+      summary: List implemented voice providers with suggested models and voices
+      operationId: listChatVoiceProviders
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Implemented voice providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections:
+    get:
+      tags:
+      - Chat Voice
+      summary: List voice connections for model managers
+      operationId: listChatVoiceConnections
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Voice connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceConnectionResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7719,6 +8334,100 @@ components:
       - endpoint
       - engineId
       - provider
+    VoiceSelectionRequest:
+      type: object
+      properties:
+        function:
+          type: string
+          enum:
+          - STT
+          - TTS
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - function
+    VoiceConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        sttModel:
+          type: string
+          maxLength: 200
+          minLength: 0
+        ttsModel:
+          type: string
+          maxLength: 200
+          minLength: 0
+        ttsVoice:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        activate:
+          type: string
+          enum:
+          - STT
+          - TTS
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+      - sttModel
+      - ttsModel
+      - ttsVoice
+    VoiceConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+        endpoint:
+          type: string
+        sttModel:
+          type: string
+        ttsModel:
+          type: string
+        ttsVoice:
+          type: string
+        credentialConfigured:
+          type: boolean
+        sttActive:
+          type: boolean
+        ttsActive:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - endpoint
+      - provider
+      - sttModel
+      - ttsModel
+      - ttsVoice
     Title:
       type: object
       properties:
@@ -9168,6 +9877,32 @@ components:
       properties:
         search:
           type: boolean
+    VoiceTicketResponse:
+      type: object
+      properties:
+        ticket:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - ticket
+    VoiceSynthesisRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 32000
+          minLength: 0
+        speed:
+          type: number
+          format: double
+          maximum: 2.0
+          minimum: 0.5
+      required:
+      - speed
+      - text
     CreateChatSession:
       type: object
       properties:
@@ -9418,6 +10153,32 @@ components:
         expiresAt:
           type: string
           format: date-time
+    VoiceSettingsRequest:
+      type: object
+      properties:
+        autoSend:
+          type: boolean
+        autoPlayback:
+          type: boolean
+        playbackSpeed:
+          type: number
+          format: double
+          maximum: 2.0
+          minimum: 0.5
+    VoiceSettingsResponse:
+      type: object
+      properties:
+        autoSend:
+          type: boolean
+        autoPlayback:
+          type: boolean
+        playbackSpeed:
+          type: number
+          format: double
+      required:
+      - autoPlayback
+      - autoSend
+      - playbackSpeed
     AccountType:
       type: string
       enum:
@@ -10605,6 +11366,50 @@ components:
           items:
             type: string
             format: uuid
+    VoiceAvailabilityResponse:
+      type: object
+      properties:
+        sttAvailable:
+          type: boolean
+        ttsAvailable:
+          type: boolean
+      required:
+      - sttAvailable
+      - ttsAvailable
+    VoiceProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+        requiresKey:
+          type: boolean
+        requiresEndpoint:
+          type: boolean
+        defaultEndpoint:
+          type: string
+        sttModels:
+          type: array
+          items:
+            type: string
+        ttsModels:
+          type: array
+          items:
+            type: string
+        voices:
+          type: array
+          items:
+            type: string
+      required:
+      - defaultEndpoint
+      - provider
+      - requiresEndpoint
+      - requiresKey
+      - sttModels
+      - ttsModels
+      - voices
     SharedSession:
       type: object
       properties:
