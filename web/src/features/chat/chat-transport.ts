@@ -36,7 +36,6 @@ const eventSchema = z.object({
 const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
 const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
-  failureCode: z.string().max(64).nullable().default(null),
   hasArtifacts: z.boolean().default(false),
 });
 const imageSchema = eventSchema.extend({
@@ -48,7 +47,6 @@ const imageSchema = eventSchema.extend({
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
   state: (state: ConnectionState) => void;
-  failed: (code: string | null) => void;
   accepted: (session: ChatSession, userId: string, localId: string) => void;
   canceled: () => void;
   error: (error: unknown) => void;
@@ -97,7 +95,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   session?: ChatSession;
   callbacks: Callbacks = {
     state: () => {},
-    failed: () => {},
     accepted: () => {},
     canceled: () => {},
     error: () => {},
@@ -128,7 +125,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     return () => {
       this.callbacks = {
         state: () => {},
-        failed: () => {},
         accepted: () => {},
         canceled: () => {},
         error: () => {},
@@ -297,7 +293,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let images: GeneratedImage[] = [];
     let imageGenerating = false;
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
-    let failureCode: string | null = null;
     let fallback = false;
     const createdAt = this.runCreatedAt;
     yield {
@@ -355,7 +350,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
-              failureCode = terminal.failureCode;
               hasArtifacts = terminal.hasArtifacts;
               break;
             } else if (envelope.event === "tool") {
@@ -428,7 +422,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             const delta = message.content.slice(text.length);
             if (delta) yield* activity.text(delta);
             outcome = message.status;
-            // The recovery poll reads committed history, which carries the status without a failure code.
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
@@ -472,7 +465,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         return;
       }
       if (outcome === "FAILED") {
-        this.callbacks.failed(failureCode);
         yield {
           type: "error",
           errorText: "The reply could not finish. Any saved partial answer is shown.",

@@ -24,6 +24,7 @@ import reactor.core.scheduler.Scheduler;
 /** Per-turn integration of native streaming with accounting and final-cycle policy. */
 @NullMarked
 public final class ChatModelGuard implements ChatModel {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ChatModelGuard.class);
     private final ChatModel delegate;
     private final AgentProcess process;
     private final LlmMetadata model;
@@ -154,9 +155,10 @@ public final class ChatModelGuard implements ChatModel {
                     })
                     .concatWith(Flux.defer(() -> {
                         if (!finished.get()) return Flux.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"));
-                        // A provider that answers despite the forced tool choice did not search; that is not an answer.
+                        // A provider may answer despite the forced tool choice. Its answer is still an answer;
+                        // only the forcing failed, so record that instead of discarding the turn.
                         if (requiredWebSearch && cycle == 1 && !requiredToolSeen.get())
-                            return Flux.error(new IllegalStateException("CHAT_WEB_SEARCH_SKIPPED"));
+                            LOG.warn("Provider answered without the forced web_search tool choice; the turn kept its unsearched answer.");
                         return Flux.<ChatResponse>empty();
                     }))
                     .doOnComplete(record).doOnError(ignored -> record.run()).doOnCancel(record);

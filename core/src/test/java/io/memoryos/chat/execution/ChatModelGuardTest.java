@@ -205,7 +205,7 @@ class ChatModelGuardTest {
                 ChatResponseMetadata.builder().usage(new DefaultUsage(tokens, tokens)).build());
     }
 
-    @Test void requiredWebForcesAToolChoiceTheOpenAiAdapterSendsWithoutChangingSharedOptions() {
+    @Test void requiredWebForcesAToolChoiceTheOpenAiAdapterSendsAndKeepsAnIgnoredTurnsAnswer() {
         var scoped = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
         scoped.requireWebSearch();
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
@@ -213,9 +213,11 @@ class ChatModelGuardTest {
             // The adapter forwards its typed option and silently drops anything else, so assert the sent form.
             var choice = assertInstanceOf(com.openai.models.chat.completions.ChatCompletionToolChoiceOption.class, options.getToolChoice());
             assertEquals("web_search", choice.namedToolChoice().orElseThrow().function().name());
-            return Flux.just(response("Unsupported provider ignored choice", "stop", 12));
+            return Flux.just(response("Provider ignored the forced choice", "stop", 12));
         });
-        assertEquals("CHAT_WEB_SEARCH_SKIPPED", assertThrows(IllegalStateException.class, () -> scoped.stream(prompt).blockLast()).getMessage());
+        // A provider that answers anyway still answered; forcing failed, the turn did not.
+        assertEquals("Provider ignored the forced choice",
+                java.util.Objects.requireNonNull(scoped.stream(prompt).blockLast()).getResult().getOutput().getText());
         assertEquals("auto", assertInstanceOf(OpenAiChatOptions.class, prompt.getOptions()).getToolChoice());
     }
 }
