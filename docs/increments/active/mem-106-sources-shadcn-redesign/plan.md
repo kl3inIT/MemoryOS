@@ -19,15 +19,15 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 2: Sources list and type picker
 
-- [ ] `sources-page`: DataTable with a search field and filters for type, status and access; badges for status and access; empty and error states from `ui/empty`.
-- [ ] `source-catalog-page`: reference-style provider cards.
+- [x] `sources-page`: one table with a search field, Provider, Status and Access filter menus, an overview of counts, status and access badges, and `ui/empty` states. TanStack Table is not used, since nothing sorts or pages yet.
+- [x] `source-catalog-page`: provider cards that say what each type connects.
 - [ ] Update the list unit tests and the Playwright spec that walks the catalog.
 
 ### Task 3: Creation flows
 
-- [ ] FILE: drop zone, name, access as RadioGroup cards, upload progress.
-- [ ] Drive: credential, scope, access and group steps, with the two-pane selection tree and a footer selection count.
-- [ ] Keep every existing validation and permission rule; only presentation changes.
+- [x] FILE: drop zone, name, access as RadioGroup cards, upload progress; the one-step rail is gone.
+- [x] Drive: the credential dialog on shadcn `Dialog`, access as the same cards, credential hints as `Tooltip`. Creation keeps the link field: discovery runs only after the Source exists, so the two-pane tree (4b) belongs to the selection panel on the Source detail page.
+- [x] Keep every existing validation and permission rule; only presentation changes.
 
 ### Task 4: Source detail shell
 
