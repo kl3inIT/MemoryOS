@@ -802,6 +802,27 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(select).toBeVisible();
 });
 
+test("the credentials disclosure shows Close and turns its chevron while open", async ({
+  page,
+}) => {
+  await enterprisePage(page, true);
+  await page.goto(`/admin/sources/${source.id}`);
+  await page.getByRole("tab", { name: "Connection and settings" }).click();
+  const credentials = page.getByRole("region", { name: "Credentials" });
+  const chevron = credentials.locator("svg.lucide-chevron-down");
+  await credentials.getByRole("button", { name: /Manage connection$/ }).click();
+  const close = credentials.getByRole("button", { name: /Close$/ });
+  await expect(close).toBeFocused();
+  await expect(credentials.getByText("Manage connection", { exact: true })).toBeHidden();
+  await expect(chevron).toHaveCSS("rotate", "180deg");
+  await expect(credentials.getByRole("button", { name: "Reconnect Google Drive" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(credentials.getByRole("button", { name: /Manage connection$/ })).toBeFocused();
+  await expect(credentials.getByText("Close", { exact: true })).toBeHidden();
+  await expect(chevron).not.toHaveCSS("rotate", "180deg");
+  await expect(credentials.getByRole("button", { name: "Reconnect Google Drive" })).toHaveCount(0);
+});
+
 test("unavailable approved documents can be deselected but not approved again", async ({
   page,
 }) => {
