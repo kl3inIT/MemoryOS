@@ -230,7 +230,7 @@ export function CreateFileSourcePage() {
         }}
       >
         <div>
-          <label htmlFor="file-source-name" className="font-secondary-action text-content-primary">
+          <label htmlFor="file-source-name" className="text-sm font-medium text-content-primary">
             {ui("Source name")}
           </label>
           <Input
@@ -244,14 +244,11 @@ export function CreateFileSourcePage() {
           />
         </div>
         <div className="space-y-2">
-          <span
-            id="file-source-access-label"
-            className="font-secondary-action text-content-primary"
-          >
+          <span id="file-source-access-label" className="text-sm font-medium text-content-primary">
             {ui("Visibility")}
           </span>
           {scoped ? (
-            <p className="font-secondary-body text-content-muted">
+            <p className="text-sm text-content-muted">
               {ui("Private · only members of the selected groups can search and read these files.")}
             </p>
           ) : (
@@ -275,7 +272,7 @@ export function CreateFileSourcePage() {
           />
         ) : null}
         <div>
-          <span className="font-secondary-action text-content-primary">{ui("File")}</span>
+          <span className="text-sm font-medium text-content-primary">{ui("File")}</span>
           <div
             className={`relative mt-2 rounded-lg border border-dashed px-4 py-10 text-center transition-colors ${dragging ? "border-content-primary bg-surface-subtle" : "border-border-default bg-surface-sunken"}`}
             onDragOver={(event) => {
@@ -315,7 +312,7 @@ export function CreateFileSourcePage() {
                 event.target.value = "";
               }}
             />
-            <p className="mt-3 font-secondary-body text-content-muted">
+            <p className="mt-3 text-sm text-content-muted">
               {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB")}
             </p>
           </div>
@@ -323,8 +320,8 @@ export function CreateFileSourcePage() {
             <div className="mt-3 flex items-center gap-3 rounded-lg border border-border-subtle px-4 py-3">
               <FileText className="size-5 shrink-0 text-content-muted" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="break-all font-secondary-action text-content-primary">{file.name}</p>
-                <p className="font-secondary-body text-content-muted">
+                <p className="break-all text-sm font-medium text-content-primary">{file.name}</p>
+                <p className="text-sm text-content-muted">
                   {file.size < 1024
                     ? ui("{{v1}} B", { v1: file.size })
                     : ui("{{v1}} KiB", { v1: (file.size / 1024).toFixed(1) })}

@@ -72,7 +72,7 @@ export function SourceGroupPicker({
 
   return (
     <div className="space-y-2">
-      <span id={labelId} className="font-secondary-action text-content-primary">
+      <span id={labelId} className="text-sm font-medium text-content-primary">
         {label}
       </span>
       <Popover open={open} onOpenChange={setOpen}>

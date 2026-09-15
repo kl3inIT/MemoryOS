@@ -565,7 +565,10 @@ function GoogleDriveSourceSetup() {
             </p>
           ) : null}
           <div>
-            <label htmlFor="google-drive-source-name" className="font-secondary-action">
+            <label
+              htmlFor="google-drive-source-name"
+              className="text-sm font-medium text-content-primary"
+            >
               {ui("Source name")}
             </label>
             <Input
@@ -587,7 +590,7 @@ function GoogleDriveSourceSetup() {
           <div className="space-y-2">
             <span
               id="google-drive-source-access-label"
-              className="font-secondary-action text-content-primary"
+              className="text-sm font-medium text-content-primary"
             >
               {ui("Visibility")}
             </span>
@@ -1013,7 +1016,7 @@ function GoogleDriveSourceSetup() {
             <div>
               <label
                 htmlFor="google-drive-credential-name"
-                className="font-secondary-action text-content-primary"
+                className="text-sm font-medium text-content-primary"
               >
                 {ui("Credential name")}
               </label>

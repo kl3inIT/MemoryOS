@@ -1029,10 +1029,11 @@ Object.assign(englishUi, {
   Scope: "Phạm vi",
   "Selected files and folders": "Tệp và thư mục đã chọn",
   "Entire My Drive": "Toàn bộ My Drive",
-  "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.":
-    "Toàn bộ Drive của tôi của tài khoản OAuth đã kết nối, gồm tệp được hỗ trợ trong các thư mục. Không quét mục Được chia sẻ với tôi, bộ nhớ dùng chung hoặc Drive của người khác.",
-  "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.":
-    "Chọn liên kết tệp hoặc thư mục cụ thể{{v1}}. Chỉ đồng bộ các tệp và nội dung thư mục đó.",
+  "Every supported file in the connected account's My Drive. Files shared with you and shared drives are not included.":
+    "Mọi tệp được hỗ trợ trong My Drive của tài khoản đã kết nối. Không gồm tệp được chia sẻ với bạn và bộ nhớ dùng chung.",
+  "Only the files and folders you link below, up to {{count}}.":
+    "Chỉ các tệp và thư mục bạn dán liên kết bên dưới, tối đa {{count}}.",
+  "Only the files and folders you link below.": "Chỉ các tệp và thư mục bạn dán liên kết bên dưới.",
   "File or folder links": "Liên kết tệp hoặc thư mục",
   " links · Read only": " liên kết · Chỉ đọc",
   "{{v1}} explicit roots": "{{v1}} mục gốc được chọn",
@@ -1956,7 +1957,6 @@ Object.assign(englishUi, {
   "The selection request exceeds the server's {{count}}-byte limit. Reduce the submitted links.":
     "Yêu cầu lựa chọn vượt giới hạn {{count}} byte của máy chủ. Hãy giảm số liên kết gửi lên.",
   "Use at most {{count}} file or folder links.": "Dùng tối đa {{count}} liên kết tệp hoặc thư mục.",
-  " (up to {{count}})": " (tối đa {{count}})",
   "{{count}} of {{max}} explicit roots": "{{count}} / {{max}} tệp hoặc thư mục gốc",
   "{{count}} explicit roots": "{{count}} tệp hoặc thư mục gốc",
   "{{filename}}: processing may still be running. Refresh the source to check its status.":

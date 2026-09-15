@@ -155,28 +155,28 @@ export function GoogleDriveLinks({
     <div className="space-y-3">
       {onScopeModeChange ? (
         <>
-          <div className="flex items-center gap-2">
-            <h3 className="font-heading-h3 text-content-primary">{ui("Selected content")}</h3>
-            <HelpPopover label={ui("Selected content")}>
-              <p>
-                {ui(
-                  "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
-                )}
-              </p>
-              <p>
-                {ui(
-                  "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.",
-                )}
-              </p>
-              <p>
-                {ui(
-                  "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.",
-                )}
-              </p>
-            </HelpPopover>
-          </div>
           <fieldset disabled={disabled} className="space-y-2">
-            <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
+            {/* A field label like the rest of the form, not a second heading (Cohere's connector form). */}
+            <legend className="flex items-center gap-1.5 text-sm font-medium text-content-primary">
+              {ui("Scope")}
+              <HelpPopover label={ui("Scope")}>
+                <p>
+                  {ui(
+                    "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
+                  )}
+                </p>
+                <p>
+                  {ui(
+                    "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.",
+                  )}
+                </p>
+                <p>
+                  {ui(
+                    "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.",
+                  )}
+                </p>
+              </HelpPopover>
+            </legend>
             {/* A plain stacked radio list, as in Pipedrive's and Airtable's sync scope choices. */}
             <RadioGroup
               className="gap-3"
@@ -204,19 +204,13 @@ export function GoogleDriveLinks({
                       <p id={`${id}-scope-description`} className="text-sm text-content-muted">
                         {mode === "GENERAL"
                           ? ui(
-                              "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.",
+                              "Every supported file in the connected account's My Drive. Files shared with you and shared drives are not included.",
                             )
-                          : ui(
-                              "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.",
-                              {
-                                v1: policy
-                                  ? ui(" (up to {{count}})", {
-                                      count:
-                                        policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
-                                    })
-                                  : "",
-                              },
-                            )}
+                          : policy
+                            ? ui("Only the files and folders you link below, up to {{count}}.", {
+                                count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                              })
+                            : ui("Only the files and folders you link below.")}
                       </p>
                     ) : null}
                   </div>
@@ -229,7 +223,7 @@ export function GoogleDriveLinks({
       {scopeMode === "SPECIFIC" ? (
         <div>
           {readOnly || !showLabel ? null : (
-            <label htmlFor={id} className="font-secondary-action text-content-primary">
+            <label htmlFor={id} className="text-sm font-medium text-content-primary">
               {ui("File or folder links")}
             </label>
           )}

@@ -121,9 +121,7 @@ export function SourceMetadataDialog({
           </DialogHeader>
           {field === "name" ? (
             <label className="grid gap-2">
-              <span className="font-secondary-action text-content-primary">
-                {ui("Source name")}
-              </span>
+              <span className="text-sm font-medium text-content-primary">{ui("Source name")}</span>
               <Input
                 value={name}
                 maxLength={120}
@@ -134,7 +132,7 @@ export function SourceMetadataDialog({
             </label>
           ) : (
             <div className="grid gap-2">
-              <span id={accessLabelId} className="font-secondary-action text-content-primary">
+              <span id={accessLabelId} className="text-sm font-medium text-content-primary">
                 {ui("Visibility")}
               </span>
               <SourceAccessChoice
