@@ -1020,15 +1020,15 @@ Object.assign(englishUi, {
   "Continuing to Google…": "Đang chuyển đến Google…",
   Authenticate: "Xác thực",
   "Selected content": "Nội dung đã chọn",
-  "For Specific, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.":
-    "Với phạm vi cụ thể, dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chỉ đồng bộ các tệp và nội dung thư mục đã chọn. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu.",
-  "OAuth permissions are broader than a Specific selection. General synchronizes the connected account's My Drive tree, not all content accessible to the account.":
-    "Quyền OAuth rộng hơn phạm vi cụ thể. Phạm vi toàn bộ đồng bộ cây Drive của tôi của tài khoản đã kết nối, không phải tất cả nội dung tài khoản có thể truy cập.",
+  "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.":
+    "Với Tệp và thư mục đã chọn, dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chỉ đồng bộ các tệp và nội dung thư mục đã chọn. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu.",
+  "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.":
+    "Quyền OAuth rộng hơn các tệp và thư mục đã chọn. Toàn bộ My Drive đồng bộ cây My Drive của tài khoản đã kết nối, không phải tất cả nội dung tài khoản có thể truy cập.",
   "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.":
     "Định dạng hỗ trợ: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT và Markdown. Giới hạn dung lượng và xử lý hiện có vẫn áp dụng.",
   Scope: "Phạm vi",
-  General: "Toàn bộ",
-  Specific: "Cụ thể",
+  "Selected files and folders": "Tệp và thư mục đã chọn",
+  "Entire My Drive": "Toàn bộ My Drive",
   "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.":
     "Toàn bộ Drive của tôi của tài khoản OAuth đã kết nối, gồm tệp được hỗ trợ trong các thư mục. Không quét mục Được chia sẻ với tôi, bộ nhớ dùng chung hoặc Drive của người khác.",
   "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.":

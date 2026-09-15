@@ -160,12 +160,12 @@ export function GoogleDriveLinks({
             <HelpPopover label={ui("Selected content")}>
               <p>
                 {ui(
-                  "For Specific, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
+                  "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
                 )}
               </p>
               <p>
                 {ui(
-                  "OAuth permissions are broader than a Specific selection. General synchronizes the connected account's My Drive tree, not all content accessible to the account.",
+                  "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.",
                 )}
               </p>
               <p>
@@ -177,37 +177,52 @@ export function GoogleDriveLinks({
           </div>
           <fieldset disabled={disabled} className="space-y-2">
             <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
+            {/* A plain stacked radio list, as in Pipedrive's and Airtable's sync scope choices. */}
             <RadioGroup
-              className="flex flex-wrap gap-3"
+              className="gap-3"
               value={scopeMode}
               onValueChange={(mode) => onScopeModeChange(mode as "SPECIFIC" | "GENERAL")}
             >
               {(["SPECIFIC", "GENERAL"] as const).map((mode) => (
-                <label
-                  key={mode}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border-default px-3 has-checked:bg-surface-subtle has-disabled:cursor-default"
-                >
-                  <RadioGroupItem value={mode} aria-describedby={`${id}-scope-description`} />
-                  {mode === "GENERAL" ? ui("General") : ui("Specific")}
-                </label>
+                <div key={mode} className="flex items-start gap-3">
+                  <RadioGroupItem
+                    id={`${id}-scope-${mode}`}
+                    value={mode}
+                    className="mt-0.5"
+                    aria-describedby={scopeMode === mode ? `${id}-scope-description` : undefined}
+                  />
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor={`${id}-scope-${mode}`}
+                      className="cursor-pointer text-sm text-content-primary"
+                    >
+                      {mode === "GENERAL"
+                        ? ui("Entire My Drive")
+                        : ui("Selected files and folders")}
+                    </label>
+                    {scopeMode === mode ? (
+                      <p id={`${id}-scope-description`} className="text-sm text-content-muted">
+                        {mode === "GENERAL"
+                          ? ui(
+                              "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.",
+                            )
+                          : ui(
+                              "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.",
+                              {
+                                v1: policy
+                                  ? ui(" (up to {{count}})", {
+                                      count:
+                                        policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                                    })
+                                  : "",
+                              },
+                            )}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               ))}
             </RadioGroup>
-            <p id={`${id}-scope-description`} className="text-sm text-content-secondary">
-              {scopeMode === "GENERAL"
-                ? ui(
-                    "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.",
-                  )
-                : ui(
-                    "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.",
-                    {
-                      v1: policy
-                        ? ui(" (up to {{count}})", {
-                            count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
-                          })
-                        : "",
-                    },
-                  )}
-            </p>
           </fieldset>
         </>
       ) : null}

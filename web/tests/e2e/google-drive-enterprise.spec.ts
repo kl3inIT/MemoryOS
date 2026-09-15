@@ -540,7 +540,7 @@ test("one credential creates independent Specific and General sources with separ
   await expect(page.getByText("15 minutes", { exact: true })).toBeVisible();
   await page.goto(`/admin/sources/new/google-drive?credentialId=${credential.id}&step=connector`);
   await page.getByLabel("Source name").fill("Whole account");
-  await page.getByRole("radio", { name: "General", exact: true }).check();
+  await page.getByRole("radio", { name: "Entire My Drive", exact: true }).check();
   await page.getByRole("button", { name: "Create Source", exact: true }).click();
   await expect(page.getByText("Pending validation", { exact: true })).toBeVisible();
   server.finish();
