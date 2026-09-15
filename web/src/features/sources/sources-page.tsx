@@ -2,19 +2,10 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, ChevronDown, Files, Settings, TriangleAlert, X } from "lucide-react";
+import { BookOpen, Files, Settings, TriangleAlert, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -25,7 +16,6 @@ import {
 } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import {
   Table,
@@ -40,13 +30,12 @@ import { useCapabilityAuthority } from "@/features/identity/application-session-
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
+import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { findSourceProvider, sourceProviders } from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 import { sourceAccessOptions, sourceStatusOptions } from "./source-status-presentation";
 
 type SourceFilterKey = "type" | "status" | "access";
-type SourceFilterOption = { value: string; label: string };
-
 /** An empty value leaves that attribute unfiltered. */
 const noFilters: Record<SourceFilterKey, string> = { type: "", status: "", access: "" };
 
@@ -281,53 +270,6 @@ function SourceOverview({ sources }: { sources: SourceSummary[] }) {
         </div>
       ))}
     </dl>
-  );
-}
-
-function SourceFilterMenu({
-  label,
-  allLabel,
-  options,
-  value,
-  onValueChange,
-}: {
-  label: string;
-  allLabel: string;
-  options: readonly SourceFilterOption[];
-  value: string;
-  onValueChange: (value: string) => void;
-}) {
-  const ui = useAppTranslation();
-
-  const selected = options.find((option) => option.value === value);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" prominence="secondary">
-          {ui(label)}
-          {selected ? (
-            <>
-              <Separator orientation="vertical" className="h-4" />
-              <span className="text-content-primary">{ui(selected.label)}</span>
-            </>
-          ) : null}
-          <ChevronDown aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56">
-        <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          <DropdownMenuRadioItem value="">{ui(allLabel)}</DropdownMenuRadioItem>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {ui(option.label)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

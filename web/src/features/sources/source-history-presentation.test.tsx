@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -90,11 +91,11 @@ function showHistory(items: SourceRun[], runErrors: SourceRunError[] = []) {
 describe("Source execution and current-file history", () => {
   it("shows unchanged source runs with real per-run counters rather than new-document or corpus totals", () => {
     showHistory([run]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.getByText("No changes")).toBeInTheDocument();
     expect(list.getByText("30 sec")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
-    const detail = within(screen.getByRole("complementary", { name: "Run details" }));
+    const detail = within(screen.getByRole("dialog", { name: "Run details" }));
     expect(detail.getByText("Checked").nextElementSibling).toHaveTextContent(/^3$/);
     expect(detail.getByText("Indexed").nextElementSibling).toHaveTextContent(/^0$/);
     expect(detail.getByText("Unchanged").nextElementSibling).toHaveTextContent(/^3$/);
@@ -110,10 +111,10 @@ describe("Source execution and current-file history", () => {
       counts: { ...run.counts, scanned: null, published: null, unchanged: null },
     };
     showHistory([legacy]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.queryByText("No changes")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
-    const detail = within(screen.getByRole("complementary", { name: "Run details" }));
+    const detail = within(screen.getByRole("dialog", { name: "Run details" }));
     expect(detail.getByText("Checked").nextElementSibling).toHaveTextContent(/^Unknown$/);
     expect(detail.getByText("Indexed").nextElementSibling).toHaveTextContent(/^Unknown$/);
     expect(detail.getByText("Unchanged").nextElementSibling).toHaveTextContent(/^Unknown$/);
@@ -128,10 +129,31 @@ describe("Source execution and current-file history", () => {
       counts: { ...run.counts, acquired: 1, indexingPending: 1 },
     };
     showHistory([pending]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.getByText("In progress")).toBeInTheDocument();
     expect(list.queryByText("No changes")).not.toBeInTheDocument();
     expect(list.queryByText("Completed", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("filters runs by status through the API and clears the filter", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    const statusOf = () =>
+      vi
+        .mocked(fetch)
+        .mock.calls.map(([request]) =>
+          new URL((request as Request).url).searchParams.get("status"),
+        );
+
+    await user.click(screen.getByRole("button", { name: /^Status/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Failed" }));
+
+    expect(screen.getByRole("button", { name: /^Status\s*Failed/ })).toBeInTheDocument();
+    await waitFor(() => expect(statusOf()).toContain("FAILED"));
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByRole("button", { name: /^Status$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
 
   it("preserves failures and refuses no-change claims when prior work or unknown outcomes remain", () => {

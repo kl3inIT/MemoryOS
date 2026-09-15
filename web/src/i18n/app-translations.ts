@@ -376,6 +376,8 @@ export const englishUi: Record<string, string> = {
   "Source actions": "Thao tác nguồn",
   "Indexing history": "Lịch sử lập chỉ mục",
   "Who can read": "Ai có thể đọc",
+  Activity: "Hoạt động",
+  Duration: "Thời lượng",
   Content: "Nội dung",
   "Sync history": "Lịch sử đồng bộ",
   "Connection and settings": "Kết nối và cấu hình",

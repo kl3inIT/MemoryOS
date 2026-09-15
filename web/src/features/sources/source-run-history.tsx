@@ -2,13 +2,27 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
-import { History, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
+import { History, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
 import {
   getSourceRunOptions,
@@ -19,7 +33,8 @@ import type { SourceRun, SourceRunCounts, SourceRunError } from "@/lib/hey-api/t
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration, runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
-import { ExpandableRow, ListDetailLayout } from "./list-detail-layout";
+import { ExpandableRow } from "./expandable-row";
+import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "./source-section-icon";
 
 const primaryCounts: Array<[keyof SourceRunCounts, string]> = [
@@ -68,16 +83,38 @@ const outcomeLegend: Array<
   ["Unknown", "neutral", "The outcome was not recorded."],
 ];
 
+/** Run statuses a reader filters by, labelled like the outcome legend. */
+const runStatusFilter: { label: string; allLabel: string; options: readonly SourceFilterOption[] } =
+  {
+    label: "Status",
+    allLabel: "All statuses",
+    options: [
+      { value: "SUCCEEDED", label: "Completed" },
+      { value: "COMPLETED_WITH_ERRORS", label: "Completed with errors" },
+      { value: "FAILED", label: "Failed" },
+      { value: "QUEUED", label: "Queued" },
+      { value: "ACQUIRING", label: "Acquiring" },
+      { value: "INDEXING", label: "Indexing" },
+      { value: "RETRY_SCHEDULED", label: "Retry scheduled" },
+      { value: "RECOVERY_PENDING", label: "Recovery pending" },
+      { value: "SUPERSEDED", label: "Superseded" },
+      { value: "CANCELLED", label: "Cancelled" },
+    ],
+  };
+
 export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   const ui = useAppTranslation();
   const [size, setSize] = useState(5);
+  const [status, setStatus] = useState<SourceRun["status"] | "">("");
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
-  const [selectedRun, setSelectedRun] = useState<SourceRun | null>(null);
-  const detailsTrigger = useRef<HTMLElement | null>(null);
-  const closeButton = useRef<HTMLButtonElement | null>(null);
+  const [detailRun, setDetailRun] = useState<SourceRun | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const history = useQuery({
-    ...listSourceRunsOptions({ path: { sourceId }, query: { size, cursor } }),
+    ...listSourceRunsOptions({
+      path: { sourceId },
+      query: { size, cursor, status: status || undefined },
+    }),
     retry: false,
     staleTime: 0,
     placeholderData: keepPreviousData,
@@ -88,14 +125,14 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
     setCursor(undefined);
     setPrevious([]);
   }
-  const viewDetails = (run: SourceRun, trigger: HTMLElement) => {
-    detailsTrigger.current = trigger;
-    setSelectedRun(run);
+  const firstPage = () => {
+    setCursor(undefined);
+    setPrevious([]);
   };
-  const selectedRunId = selectedRun?.id;
-  useLayoutEffect(() => {
-    if (selectedRunId) closeButton.current?.focus();
-  }, [selectedRunId]);
+  const viewDetails = (run: SourceRun) => {
+    setDetailRun(run);
+    setDetailOpen(true);
+  };
   const summaryRuns = (
     [
       ["Current run", history.data?.current],
@@ -166,11 +203,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       <HistoryTime value={run.startedAt} />
                       <RunOutcome run={run} />
                     </div>
-                    <Button
-                      size="sm"
-                      prominence="tertiary"
-                      onClick={(event) => viewDetails(run, event.currentTarget)}
-                    >
+                    <Button size="sm" prominence="tertiary" onClick={() => viewDetails(run)}>
                       {ui("View details")}
                       <span className="sr-only"> — {ui(label)}</span>
                     </Button>
@@ -179,125 +212,155 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
               ))}
             </dl>
           ) : null}
-          <ListDetailLayout
-            detailLabel={ui("Run details")}
-            list={
-              <div className="overflow-hidden rounded-xl border border-border-subtle">
-                <ul
-                  aria-label={ui("Source indexing attempts, newest first")}
-                  className="divide-y divide-border-subtle"
-                >
+          <div className="flex flex-wrap items-center gap-2">
+            <SourceFilterMenu
+              {...runStatusFilter}
+              value={status}
+              onValueChange={(next) => {
+                setStatus(next as SourceRun["status"] | "");
+                firstPage();
+              }}
+            />
+            {status ? (
+              <Button
+                size="sm"
+                prominence="tertiary"
+                onClick={() => {
+                  setStatus("");
+                  firstPage();
+                }}
+              >
+                {ui("Clear filters")}
+              </Button>
+            ) : null}
+          </div>
+          <div className="overflow-hidden rounded-xl border border-border-subtle">
+            <div
+              role="region"
+              aria-label={ui("Sync history")}
+              tabIndex={0}
+              className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+            >
+              <Table
+                aria-label={ui("Source indexing attempts, newest first")}
+                className="min-w-[44rem] text-left text-sm"
+              >
+                <TableHeader className="bg-surface-sunken text-content-muted">
+                  <TableRow>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Started")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Status")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Duration")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Activity")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 text-right font-medium">
+                      <span className="sr-only">{ui("Run details")}</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {history.data.items.map((run) => (
-                    <li key={run.id} className="min-w-0">
-                      <button
-                        type="button"
-                        aria-current={selectedRun?.id === run.id || undefined}
-                        aria-label={ui("View details for run started {{v1}}", {
-                          v1: run.startedAt
-                            ? new Date(run.startedAt).toLocaleString(uiLocale())
-                            : ui("at an unknown time"),
-                        })}
-                        className={`block min-h-11 w-full min-w-0 px-4 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-focus-ring ${
-                          selectedRun?.id === run.id
-                            ? "bg-surface-subtle"
-                            : "hover:bg-surface-subtle/40"
-                        }`}
-                        onClick={(event) => viewDetails(run, event.currentTarget)}
-                      >
-                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-content-primary">
-                          <HistoryTime value={run.startedAt} />
-                          <RunOutcome run={run} />
-                          <span className="text-xs text-content-muted">
-                            <RunDuration run={run} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <RunActivity run={run} />
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {!history.data.items.length ? (
-                  <p className="px-4 py-8 text-center text-sm text-content-muted">
-                    {ui("No Source executions on this page.")}
-                  </p>
-                ) : null}
-                <TablePagination
-                  label={ui("Source attempt pages")}
-                  page={previous.length}
-                  totalPages={totalPages}
-                  previousLabel={ui("Previous source attempts")}
-                  nextLabel={ui("Next source attempts")}
-                  previousDisabled={!previous.length || history.isFetching}
-                  nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
-                  onPrevious={() => {
-                    setCursor(previous.at(-1));
-                    setPrevious((pages) => pages.slice(0, -1));
-                  }}
-                  onNext={() => {
-                    setPrevious((pages) => [...pages, cursor]);
-                    setCursor(history.data?.nextCursor ?? undefined);
-                  }}
-                >
-                  <PageSizeSelect
-                    label={ui("Source attempts per page")}
-                    rowsLabel={ui("Rows")}
-                    value={size}
-                    sizes={[5, 10, 25, 50]}
-                    disabled={history.isFetching}
-                    onSizeChange={(next) => {
-                      setSize(next);
-                      setCursor(undefined);
-                      setPrevious([]);
-                    }}
-                  />
-                </TablePagination>
-              </div>
-            }
-            detail={
-              selectedRun ? (
-                <div className="min-w-0">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <h3 className="font-heading-h3 text-content-primary">{ui("Run details")}</h3>
-                    <IconButton
-                      ref={closeButton}
-                      prominence="tertiary"
-                      aria-label={ui("Close run details")}
-                      onClick={() => {
-                        setSelectedRun(null);
-                        detailsTrigger.current?.focus();
-                      }}
+                    <TableRow
+                      key={run.id}
+                      data-state={detailOpen && detailRun?.id === run.id ? "selected" : undefined}
                     >
-                      <X />
-                    </IconButton>
-                  </div>
-                  <RunDetails key={selectedRun.id} initialRun={selectedRun} />
-                </div>
-              ) : null
-            }
-          />
-          <Collapsible className="rounded-lg border border-border-subtle px-4 py-3 text-sm">
-            <CollapsibleTrigger className="min-h-11 cursor-pointer py-2 text-content-secondary focus-visible:outline-2 focus-visible:outline-focus-ring">
-              {ui("What do the different statuses mean?")}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <dl className="mt-2 space-y-2 pb-1">
-                {outcomeLegend.map(([label, tone, description]) => (
-                  <div key={label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <dt>
-                      <StatusBadge tone={tone} size="sm">
-                        {ui(label)}
-                      </StatusBadge>
-                    </dt>
-                    <dd className="min-w-0 flex-1 text-content-muted">{ui(description)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </CollapsibleContent>
-          </Collapsible>
+                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-primary">
+                        <HistoryTime value={run.startedAt} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <RunOutcome run={run} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-muted">
+                        <RunDuration run={run} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 whitespace-normal">
+                        <RunActivity run={run} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <Button
+                          size="sm"
+                          prominence="tertiary"
+                          aria-label={ui("View details for run started {{v1}}", {
+                            v1: run.startedAt
+                              ? new Date(run.startedAt).toLocaleString(uiLocale())
+                              : ui("at an unknown time"),
+                          })}
+                          onClick={() => viewDetails(run)}
+                        >
+                          {ui("View details")}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!history.data.items.length ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="px-4 py-8 text-center text-content-muted">
+                        {ui("No Source executions on this page.")}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+            <TablePagination
+              label={ui("Source attempt pages")}
+              page={previous.length}
+              totalPages={totalPages}
+              previousLabel={ui("Previous source attempts")}
+              nextLabel={ui("Next source attempts")}
+              previousDisabled={!previous.length || history.isFetching}
+              nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+              onPrevious={() => {
+                setCursor(previous.at(-1));
+                setPrevious((pages) => pages.slice(0, -1));
+              }}
+              onNext={() => {
+                setPrevious((pages) => [...pages, cursor]);
+                setCursor(history.data?.nextCursor ?? undefined);
+              }}
+            >
+              <PageSizeSelect
+                label={ui("Source attempts per page")}
+                rowsLabel={ui("Rows")}
+                value={size}
+                sizes={[5, 10, 25, 50]}
+                disabled={history.isFetching}
+                onSizeChange={(next) => {
+                  setSize(next);
+                  firstPage();
+                }}
+              />
+            </TablePagination>
+          </div>
         </>
       ) : null}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-xl">
+          <SheetHeader className="border-b border-border-subtle pr-12">
+            <SheetTitle className="font-heading-h3 text-content-primary">
+              {ui("Run details")}
+            </SheetTitle>
+            <SheetDescription>
+              {detailRun?.startedAt ? (
+                <HistoryTime value={detailRun.startedAt} />
+              ) : (
+                ui("at an unknown time")
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          {detailRun ? (
+            <div className="min-w-0 space-y-4 p-4">
+              <RunDetails key={detailRun.id} initialRun={detailRun} />
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }
