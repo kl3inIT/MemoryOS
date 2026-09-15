@@ -119,10 +119,18 @@ public final class ChatTurnService implements AutoCloseable {
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
                 boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns turns && turns.nativeWebSearch();
-                if (!binding.toolCalling() || (!nativeSearch && web == null)) throw ChatException.providerUnavailable();
+                if (!binding.toolCalling() || (!nativeSearch && web == null)) {
+                    LOG.warn("Web search rejected for model {}: toolCalling={} native={} connections={}",
+                            resolved.modelConfigurationId(), binding.toolCalling(), nativeSearch, web != null);
+                    throw ChatException.webUnavailable();
+                }
                 if (!nativeSearch) {
                     webAccess = web.resolve(actor);
-                    if (webAccess.search() == null) throw ChatException.providerUnavailable();
+                    if (webAccess.search() == null) {
+                        LOG.warn("Web search rejected for model {}: no active usable search connection",
+                                resolved.modelConfigurationId());
+                        throw ChatException.webUnavailable();
+                    }
                     // Required mode forces an OpenAI function tool choice; provider models may be decorated or Responses-backed.
                     if (command.webSearch() == WebSearchMode.required && !"OpenAI".equals(binding.service().getProvider()))
                         throw ChatException.invalid("This model adapter does not support required Web search.");
