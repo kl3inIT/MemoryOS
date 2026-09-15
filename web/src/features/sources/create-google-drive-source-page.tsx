@@ -12,13 +12,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/radix-select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -55,6 +48,7 @@ import type {
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
+import { SourceAccessChoice } from "./source-access-choice";
 import { GoogleDriveLinks } from "./google-drive-links";
 import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
 import {
@@ -581,31 +575,24 @@ function GoogleDriveSourceSetup() {
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="google-drive-source-access" className="font-secondary-action">
+            <span
+              id="google-drive-source-access-label"
+              className="font-secondary-action text-content-primary"
+            >
               {ui("Visibility")}
-            </label>
-            <Select
+            </span>
+            <SourceAccessChoice
+              id="google-drive-source-access"
+              labelledBy="google-drive-source-access-label"
+              modes={globalManage ? ["SYNC", "PRIVATE", "PUBLIC"] : ["SYNC", "PRIVATE"]}
               value={access}
               disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
               onValueChange={(next) => {
                 if (tracking.terminal) tracking.forget();
-                setAccess(next as SourceSummary["access"]);
+                setAccess(next);
                 setError(null);
               }}
-            >
-              <SelectTrigger id="google-drive-source-access" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SYNC">
-                  {ui("Auto Sync · people who can open each file in Google Drive")}
-                </SelectItem>
-                <SelectItem value="PRIVATE">{ui("Private · selected group members")}</SelectItem>
-                {globalManage ? (
-                  <SelectItem value="PUBLIC">{ui("Public · everyone in this Tenant")}</SelectItem>
-                ) : null}
-              </SelectContent>
-            </Select>
+            />
             <p className="text-sm text-content-muted">
               {access === "SYNC"
                 ? ui(
