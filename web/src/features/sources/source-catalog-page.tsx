@@ -1,10 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, CloudUpload, SearchX } from "lucide-react";
+import { CloudUpload } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sourceCategories, sourceProviders } from "./source-provider-catalog";
@@ -76,62 +74,28 @@ export function SourceCatalogPage() {
               >
                 {ui(category)}
               </h2>
-              <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:flex sm:flex-wrap">
                 {providers.map((provider) => {
                   const ProviderIcon = provider.icon;
-                  const titleId = `source-provider-${provider.type.toLowerCase()}`;
                   return (
-                    <li key={provider.type}>
-                      <Link
-                        to={provider.setupPath}
-                        aria-labelledby={titleId}
-                        aria-describedby={`${titleId}-description`}
-                        className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                      >
-                        <Card
-                          size="sm"
-                          className="h-full transition-colors group-hover:border-border-default group-hover:bg-surface-subtle"
-                        >
-                          <CardHeader className="gap-3">
-                            <span className="grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-base text-content-primary">
-                              <ProviderIcon className="size-5" aria-hidden="true" />
-                            </span>
-                            <CardTitle id={titleId} className="font-main-ui-action">
-                              {ui(provider.name)}
-                            </CardTitle>
-                            <CardDescription id={`${titleId}-description`}>
-                              {ui(provider.description)}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="mt-auto flex items-center gap-1 font-secondary-action text-content-secondary group-hover:text-content-primary">
-                            {ui("Set up")}
-                            <ArrowRight
-                              className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-                              aria-hidden="true"
-                            />
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    </li>
+                    <Link
+                      key={provider.type}
+                      to={provider.setupPath}
+                      className="flex min-h-36 min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border-subtle bg-surface-sunken p-4 text-center text-content-primary transition-colors hover:border-border-default hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-40"
+                    >
+                      <ProviderIcon className="size-8" aria-hidden="true" />
+                      <span className="text-sm font-medium">{ui(provider.name)}</span>
+                    </Link>
                   );
                 })}
-              </ul>
+              </div>
             </section>
           );
         })}
       </div>
 
       {matchingProviders.length === 0 ? (
-        <Empty className="border border-dashed border-border-subtle py-12">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <SearchX aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle className="font-main-ui-action">
-              {ui("No sources match your search.")}
-            </EmptyTitle>
-          </EmptyHeader>
-        </Empty>
+        <p className="pt-14 text-sm text-content-muted">{ui("No sources match your search.")}</p>
       ) : null}
     </SettingsLayout>
   );

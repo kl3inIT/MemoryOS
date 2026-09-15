@@ -1238,11 +1238,6 @@ Object.assign(englishUi, {
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",
   "See sources": "Xem nguồn",
-  "Set up": "Thiết lập",
-  "Upload PDF, Word, PowerPoint, Excel, CSV, text and Markdown files.":
-    "Tải lên tệp PDF, Word, PowerPoint, Excel, CSV, văn bản và Markdown.",
-  "Index selected Google Drive files and folders and keep them up to date.":
-    "Lập chỉ mục các tệp và thư mục Google Drive đã chọn và luôn giữ chúng cập nhật.",
   "Search sources": "Tìm nguồn",
   "No sources match your search.": "Không có nguồn phù hợp với tìm kiếm.",
   "Source status could not be refreshed. Displayed values may be out of date.":
