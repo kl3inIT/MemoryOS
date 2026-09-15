@@ -50,6 +50,6 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 7: Verification
 
-- [ ] `pnpm check` and the affected Playwright suites.
+- [x] `pnpm check` and the affected Playwright suites. `pnpm check` passes (54 files, 295 unit tests, routes and build); the Sources Playwright suites pass 45/45, plus the credentials disclosure scenario.
 - [ ] Orca captures of every screen in the map at desktop and 390px, placed beside their references in `verification.md`.
 - [ ] Update the browser section of the connector spec; open the PR; update Linear MEM-106. The spec section is updated.
