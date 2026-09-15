@@ -33,19 +33,39 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                             String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
                             Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
                             io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
-                            io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
+                            io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess,
+                            Research research) {
+    /**
+     * Deep research state of the turn: whether it runs, whether the previous answer was a clarification question (Onyx
+     * skips clarification then), the account language for user-facing research prompts and the turn's attached files.
+     */
+    public record Research(boolean enabled, boolean skipClarification, @org.jspecify.annotations.Nullable String uiLanguage, List<ChatFileDescriptor> files) {
+        public static final Research OFF = new Research(false, false, null, List.of());
+        public Research { files = List.copyOf(files); }
+    }
+    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
+                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
+                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
+                         io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
+                         io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
+        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts,
+                webSearch, webAccess, image, imageAccess, Research.OFF);
+    }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts,
                 io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null),
-                io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null));
+                io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null), Research.OFF);
     }
     public ChatTurnSetup withWeb(io.memoryos.chat.WebSearchMode intent, io.memoryos.chat.web.WebConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, intent, access, image, imageAccess);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, intent, access, image, imageAccess, research);
     }
     public ChatTurnSetup withImage(io.memoryos.chat.ImageMode intent, io.memoryos.chat.image.ImageConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, intent, access);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, intent, access, research);
+    }
+    public ChatTurnSetup withResearch(Research value) {
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, image, imageAccess, value);
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
@@ -74,6 +94,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         fileIds = Set.copyOf(fileIds);
         images = Map.copyOf(images);
         Objects.requireNonNull(binding);
+        if (research == null) research = Research.OFF;
     }
 
     private static final class Hosted {

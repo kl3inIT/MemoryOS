@@ -361,6 +361,40 @@ public final class ResearchPrompts {
     public static final String RESEARCH_AGENT_FAILURE_MESSAGE = "Research agent call failed. Try a different approach or continue without this result.";
     public static final String TOOL_CALL_FAILURE_PROMPT = "LLM attempted to call a tool but failed. Most likely the tool name or arguments were misspelled.";
 
+    // prompts/user_info.py: the reply-language line deep research appends to user-facing prompts (with_language_section).
+    public static final String USER_LANGUAGE_PROMPT = "## Language\nThe user's interface language is {language}. Reply in {language}. If the user explicitly asks for another language, use that one.\n";
+    public static final String QUERY_LANGUAGE_PROMPT = "## Language\nReply in the language the user writes in.\n";
+
+    private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", java.util.Locale.ENGLISH);
+    private static final Map<String, String> LANGUAGE_NAMES = Map.of("vi", "Vietnamese");
+
+    /**
+     * Onyx {@code build_language_section}: an account language other than English names the reply language. MemoryOS
+     * offers English and Vietnamese; Onyx has no Vietnamese, so its name is the only addition.
+     */
+    public static String languageSection(@org.jspecify.annotations.Nullable String uiLanguage) {
+        String name = uiLanguage == null ? null : LANGUAGE_NAMES.get(uiLanguage);
+        return name == null ? QUERY_LANGUAGE_PROMPT : USER_LANGUAGE_PROMPT.replace("{language}", name);
+    }
+
+    /** Onyx {@code with_language_section}. */
+    public static String withLanguage(String prompt, String languageSection) {
+        return prompt + "\n\n" + languageSection;
+    }
+
+    /** Onyx {@code get_current_llm_day_time(full_sentence=False)}: server-local day, as {@code datetime.now()}. */
+    public static String currentDatetime(java.time.ZonedDateTime now) {
+        return DAY.format(now);
+    }
+
+    /** Onyx {@code generate_tools_description}. */
+    public static String toolList(java.util.List<String> names) {
+        if (names.isEmpty()) return "";
+        if (names.size() == 1) return names.getFirst();
+        if (names.size() == 2) return names.get(0) + " and " + names.get(1);
+        return String.join(", ", names.subList(0, names.size() - 1)) + ", and " + names.getLast();
+    }
+
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z_]+)}");
 
     /**
@@ -381,7 +415,12 @@ public final class ResearchPrompts {
             matcher.appendReplacement(output, java.util.regex.Matcher.quoteReplacement(value));
         }
         matcher.appendTail(output);
-        String text = output.toString();
+        return text(output.toString());
+    }
+
+    /** A prompt Onyx sends without {@code str.format}: only the tool names are renamed, braces stay literal. */
+    public static String text(String template) {
+        String text = template;
         for (var name : TOOL_NAMES.entrySet()) text = text.replace("`" + name.getKey() + "`", "`" + name.getValue() + "`")
                 .replace("## " + name.getKey() + "\n", "## " + name.getValue() + "\n").replace(" " + name.getKey() + " ", " " + name.getValue() + " ");
         return text;

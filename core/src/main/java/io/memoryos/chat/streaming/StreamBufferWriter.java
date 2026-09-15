@@ -108,6 +108,8 @@ public final class StreamBufferWriter {
             case BRANCHING -> publishNow(id, "top-level-branching", event);
             case AGENT_START -> publishNow(id, "research-agent-start", event);
             case REPORT_CITATIONS -> publishNow(id, "intermediate-report-citations", event);
+            // History carries the clarification flag; the question itself streams as answer text.
+            case CLARIFICATION -> { }
         }
     }
 

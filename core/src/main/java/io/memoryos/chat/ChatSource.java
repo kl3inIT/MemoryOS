@@ -65,6 +65,11 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
         if (web == null && fileId == null && provenance.isEmpty() || provenance.size() > 60 || provenance.stream().anyMatch(p -> p.ordinal() < startOrdinal || p.ordinal() > endOrdinal))
             throw new IllegalArgumentException("Invalid Chat source provenance");
     }
+    /** The same evidence under another citation number, when a research agent's source is merged into the turn. */
+    public ChatSource withCitationId(int id) {
+        return new ChatSource(id, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, web,
+                mediaType, sourceTypes, providerUrl);
+    }
     public record FileLocation(@Nullable Integer offset, @Nullable Integer count,
                                @Nullable UUID generation, @Nullable Integer ordinal) {
         public FileLocation {

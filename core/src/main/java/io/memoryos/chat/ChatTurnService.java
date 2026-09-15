@@ -41,6 +41,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
     private final @Nullable ChatSettingsService settings;
+    private final io.memoryos.chat.research.@Nullable ResearchProperties research;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -65,6 +66,15 @@ public final class ChatTurnService implements AutoCloseable {
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web,
+            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            io.memoryos.chat.research.@Nullable ResearchProperties research) {
+        this.research = research;
         this.persistence = persistence;
         this.model = model;
         this.models = models;
@@ -123,6 +133,12 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
             var binding = resolved.binding();
+            if (command.deepResearch()) {
+                // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
+                int minimum = research == null ? 50_000 : research.minimumContextTokens();
+                if (!binding.toolCalling() || binding.contextWindow() < minimum || persistence.inProject(actor, session))
+                    throw ChatException.researchUnavailable();
+            }
             String contribution = java.util.stream.Stream.concat(
                     java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
                     binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
@@ -131,12 +147,14 @@ public final class ChatTurnService implements AutoCloseable {
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
                 boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns turns && turns.nativeWebSearch();
-                if (!binding.toolCalling() || (!nativeSearch && web == null)) {
+                // Research agents always search through the Web tools, as Onyx does, even when the model hosts search.
+                boolean externalSearch = !nativeSearch || command.deepResearch();
+                if (!binding.toolCalling() || (externalSearch && web == null)) {
                     LOG.warn("Web search rejected for model {}: toolCalling={} native={} connections={}",
                             resolved.modelConfigurationId(), binding.toolCalling(), nativeSearch, web != null);
                     throw ChatException.webUnavailable();
                 }
-                if (!nativeSearch) {
+                if (externalSearch) {
                     webAccess = web.resolve(actor);
                     if (webAccess.search() == null) {
                         LOG.warn("Web search rejected for model {}: no active usable search connection",
@@ -159,6 +177,7 @@ public final class ChatTurnService implements AutoCloseable {
             var context = persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
+            if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
@@ -230,6 +249,16 @@ public final class ChatTurnService implements AutoCloseable {
                 streams.discard(message);
             }
         } finally { lock.unlock(); }
+    }
+
+    private static ChatTurnSetup.Research researchState(ChatTurnPersistence.TurnContext context, ChatTurnSetup setup) {
+        // Onyx skips clarification when the previous assistant message was a clarification question.
+        boolean skip = context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT).findFirst()
+                .map(message -> message.research().clarification()).orElse(false);
+        var files = new java.util.LinkedHashMap<UUID, ChatFileDescriptor>();
+        java.util.stream.Stream.concat(context.workspaceFiles().stream(), context.newestFirst().stream().flatMap(message -> message.files().stream()))
+                .filter(file -> setup.fileIds().contains(file.id())).forEach(file -> files.putIfAbsent(file.id(), file));
+        return new ChatTurnSetup.Research(true, skip, context.uiLanguage(), List.copyOf(files.values()));
     }
 
     private static Accepted accepted(ChatTurnPersistence.Reservation reservation) {
@@ -419,6 +448,7 @@ public final class ChatTurnService implements AutoCloseable {
                 sources.add(tool.source());
             }
             // The plan is stored with the outcome; beyond its column bound the rest is dropped, never failing the turn.
+            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.CLARIFICATION) clarification = true;
             if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA && plan.length() < ChatResearch.MAX_PLAN)
                 plan.append(research.text(), 0, Math.min(research.text().length(), ChatResearch.MAX_PLAN - plan.length()));
             recorder.accept(event, content.length());

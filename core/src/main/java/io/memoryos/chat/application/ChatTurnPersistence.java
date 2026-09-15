@@ -196,6 +196,13 @@ public class ChatTurnPersistence {
         });
     }
 
+    /** Deep research is rejected for Project chats, as Onyx; the session's Project is read before reserving. */
+    @Transactional(readOnly = true)
+    public boolean inProject(ActorId actor, UUID session) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable).projectId() != null;
+    }
+
     private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
         if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
                 || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())

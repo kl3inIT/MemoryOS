@@ -59,6 +59,27 @@ public final class ChatEvidence {
         return source;
     }
 
+    /**
+     * Merges the cited sources of a research agent's own evidence into this turn evidence, as Onyx
+     * {@code collapse_citations}: a source already present keeps its number, a new one takes the next number and is
+     * published under the agent call. Returns each merged agent citation number with its turn citation number; a
+     * source beyond the storage bound is left out.
+     */
+    public java.util.Map<Integer, Integer> merge(ChatEvidence agent, java.util.Set<Integer> cited, ChatToolEvent.Call call) {
+        LinkedHashMap<String, ChatSource> entries;
+        synchronized (agent) { entries = new LinkedHashMap<>(agent.sources); }
+        var mapping = new java.util.LinkedHashMap<Integer, Integer>();
+        synchronized (this) {
+            for (var entry : entries.entrySet()) {
+                var source = entry.getValue();
+                if (!cited.contains(source.citationId())) continue;
+                var merged = register(entry.getKey(), source::withCitationId, call);
+                if (merged != null) mapping.put(source.citationId(), merged.citationId());
+            }
+        }
+        return mapping;
+    }
+
     private ChatToolEvent.Call currentCall() {
         var current = calls.get();
         return current == null ? FILE_READER : current;

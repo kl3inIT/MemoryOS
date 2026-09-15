@@ -14,13 +14,18 @@ public record ChatResearchEvent(Kind kind, @Nullable String toolCallId, @Nullabl
     /** Bounded like a tool argument summary; Onyx asks for a 1-2 sentence task. */
     public static final int MAX_TASK = 4000;
 
-    public enum Kind { PLAN_DELTA, BRANCHING, AGENT_START, REPORT_DELTA, REPORT_CITATIONS }
+    /** {@code CLARIFICATION} marks the answer as a clarification question; it is persisted, not streamed. */
+    public enum Kind { PLAN_DELTA, BRANCHING, AGENT_START, REPORT_DELTA, REPORT_CITATIONS, CLARIFICATION }
 
     /** {@code marker} is the agent's citation number, {@code citationId} the merged turn source. */
     public record Citation(int marker, int citationId) {
         public Citation {
             if (marker < 1 || citationId < 1) throw new IllegalArgumentException("Invalid research citation");
         }
+    }
+
+    public static ChatResearchEvent clarification() {
+        return new ChatResearchEvent(Kind.CLARIFICATION, null, null, null, null, List.of());
     }
 
     public static ChatResearchEvent plan(String text) {
