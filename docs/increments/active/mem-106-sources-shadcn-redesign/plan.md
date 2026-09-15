@@ -31,14 +31,14 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 4: Source detail shell
 
-- [ ] Breadcrumb, status and access badges, action menu.
-- [ ] Tabs for overview, files, sync history, settings.
+- [x] Breadcrumb, status and access badges, action menu. Rename and visibility open a shadcn `Dialog` with the access cards from creation; deletion keeps its confirmation.
+- [x] Tabs for overview, files, sync history, settings. Built on shadcn `Tabs`: FILE has Files, Indexing history and Groups; Drive keeps Content, Sync history and Connection and settings. The summary stays above the tabs rather than behind an Overview tab.
 - [ ] Summary panel carrying access, groups, schedule and credential.
 
 ### Task 5: Files and indexing
 
 - [ ] Files tab: status tabs with counts, Table rows, per-row reindex in a menu, progress line while indexing.
-- [ ] Index attempts: Tabs plus Table, replacing the `<details>` disclosure and the hand-written table.
+- [x] Index attempts: Tabs plus Table, replacing the `<details>` disclosure and the hand-written table. They load when the Indexing history tab opens.
 - [ ] Index attempt detail in a Sheet: status, timeline, translated error code, reindex.
 
 ### Task 6: Sync history and settings
