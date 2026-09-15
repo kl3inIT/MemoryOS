@@ -37,7 +37,7 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 5: Files and indexing
 
-- [ ] Files tab: status tabs with counts, Table rows, per-row reindex in a menu, progress line while indexing.
+- [ ] Files tab: status tabs with counts, Table rows, per-row reindex in a menu, progress line while indexing. Done: each file row has an actions menu (Reindex, Remove with its confirmation) that a pending action blocks, and the upload bar is the shadcn `Progress`. Open: status tabs with counts need a status filter and per-status counts on `GET /api/sources/{sourceId}/items`, which pages by cursor only, so counts from one page would mislead; an indeterminate progress line has no honest value to show, so the Work pending label and row statuses stay.
 - [x] Index attempts: Tabs plus Table, replacing the `<details>` disclosure and the hand-written table. They load when the Indexing history tab opens.
 - [ ] Index attempt detail in a Sheet: status, timeline, translated error code, reindex.
 
