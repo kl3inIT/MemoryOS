@@ -163,7 +163,7 @@ export function ChatWebModes({
       </div>
       <WebAvailabilityNote support={support} />
       {support.canManage && (
-        <Link to="/settings/web" className={composerMenuRow} onClick={onDone}>
+        <Link to="/admin/web-search" className={composerMenuRow} onClick={onDone}>
           <Settings aria-hidden="true" />
           {ui("Cài đặt Web")}
         </Link>

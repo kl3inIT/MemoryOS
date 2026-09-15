@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { ManagedModel, ManagedProvider } from "./model-catalog";
@@ -20,7 +21,6 @@ export function ModelPicker({
   options,
   disabled,
   placeholder,
-  inheritLabel,
   ariaLabel,
   onChange,
 }: {
@@ -28,8 +28,6 @@ export function ModelPicker({
   options: ModelPickerOption[];
   disabled?: boolean;
   placeholder: string;
-  /** Persona pickers offer an explicit Inherit choice. */
-  inheritLabel?: string;
   ariaLabel: string;
   onChange: (modelId: string) => void;
 }) {
@@ -47,7 +45,10 @@ export function ModelPicker({
             .includes(needle),
         )
       : options;
-    const byProvider = new Map<string, { provider: ManagedProvider; options: ModelPickerOption[] }>();
+    const byProvider = new Map<
+      string,
+      { provider: ManagedProvider; options: ModelPickerOption[] }
+    >();
     for (const option of visible) {
       const group = byProvider.get(option.provider.id) ?? {
         provider: option.provider,
@@ -84,9 +85,7 @@ export function ModelPicker({
               </span>
             </>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-content-muted">
-              {value === "" && inheritLabel ? inheritLabel : placeholder}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-content-muted">{placeholder}</span>
           )}
           <ChevronDown
             className={cn(
@@ -112,20 +111,6 @@ export function ModelPicker({
             className="pl-8"
           />
         </div>
-        {inheritLabel && (
-          <button
-            type="button"
-            onClick={() => {
-              onChange("");
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-main-ui-body hover:bg-surface-base"
-          >
-            <span className="size-4" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate">{inheritLabel}</span>
-            {value === "" && <Check className="size-4 text-content-primary" aria-hidden="true" />}
-          </button>
-        )}
         <div className="max-h-72 overflow-y-auto">
           {groups.map((group) => {
             const isCollapsed = collapsed[group.provider.id] ?? false;
@@ -167,12 +152,21 @@ export function ModelPicker({
                           {option.model.displayName}
                         </span>
                         <span className="block truncate font-secondary-body text-content-muted">
-                          {option.model.modelName}
-                          {option.note ? ` · ${option.note}` : ""}
+                          {option.note
+                            ? ui(
+                                appText("{{model}} · {{note}}", {
+                                  model: option.model.modelName,
+                                  note: option.note,
+                                }),
+                              )
+                            : option.model.modelName}
                         </span>
                       </span>
                       {value === option.model.id && (
-                        <Check className="size-4 shrink-0 text-content-primary" aria-hidden="true" />
+                        <Check
+                          className="size-4 shrink-0 text-content-primary"
+                          aria-hidden="true"
+                        />
                       )}
                     </button>
                   ))}

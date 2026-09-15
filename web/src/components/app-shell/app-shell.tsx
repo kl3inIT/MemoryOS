@@ -2,7 +2,6 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  Boxes,
   Globe,
   KeyRound,
   Menu,
@@ -10,6 +9,7 @@ import {
   PanelLeftOpen,
   Plug,
   Settings2,
+  Sparkles,
   User,
   Users,
   X,
@@ -27,7 +27,7 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "models" | "web" | "providers";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -196,7 +196,16 @@ function SidebarContents({
             {canManageModels ? (
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
-                  to="/settings/web"
+                  to="/admin/models"
+                  icon={<Sparkles className="size-4" />}
+                  selected={adminPage === "models"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Mô hình")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/web-search"
                   icon={<Globe className="size-4" />}
                   selected={adminPage === "web"}
                   collapsed={collapsed}
@@ -216,19 +225,6 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Sources")}
-                </SidebarTab>
-              </SidebarSection>
-            ) : null}
-            {canManageModels ? (
-              <SidebarSection title="AI" collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/models"
-                  icon={<Boxes className="size-4" />}
-                  selected={adminPage === "models"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  Models
                 </SidebarTab>
               </SidebarSection>
             ) : null}
@@ -410,7 +406,7 @@ export function AppShell({
         <main
           id="main-content"
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none"
+          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable_both-edges]"
         >
           {children}
         </main>

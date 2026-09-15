@@ -76,9 +76,8 @@ function showHistory(items: SourceRun[]) {
       <SourceRunHistory sourceId={run.sourceId} />
     </QueryClientProvider>,
   );
-  const details = result.container.querySelector("details")!;
-  details.open = true;
-  fireEvent(details, new Event("toggle"));
+  // The disclosure is a Collapsible trigger, so the history loads on a real activation.
+  fireEvent.click(result.container.querySelector("[data-slot=collapsible-trigger]")!);
   return result;
 }
 

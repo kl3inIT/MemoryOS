@@ -48,8 +48,6 @@ export function useAdminAccess() {
           ? "/admin/users"
           : canManageProviders
             ? "/admin/identity-providers"
-            : canManageModels
-              ? "/admin/models"
-              : "/settings/web",
+            : "/admin/models",
   } as const;
 }

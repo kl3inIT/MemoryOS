@@ -8,7 +8,6 @@ import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.
 import { ApplicationSessionBoundary } from "@/features/identity/application-session-boundary";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { ModelEditor } from "./model-editor";
-import { ModelDefaults } from "./model-defaults";
 import { ModelsPage } from "./models-page";
 import { ProviderEditor } from "./provider-editor";
 import type { InstalledAdapter, ManagedModel, ManagedProvider } from "./model-catalog";
@@ -23,6 +22,7 @@ const adapter: InstalledAdapter = {
   credentialRequirement: "REQUIRED",
   tokenizerProfiles: [{ id: "openai-o200k-v1", displayName: "OpenAI" }],
   nativeWebSearch: true,
+  knownModels: [],
 };
 const provider: ManagedProvider = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -80,6 +80,8 @@ describe("provider secret lifetime and coherent Access", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
+        // The Access picker also reads Group options; only mutations are counted here.
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
         requests.push(request);
         return pending.promise;
       }),
@@ -120,7 +122,14 @@ describe("provider secret lifetime and coherent Access", () => {
       pending.resolve(Response.json({ ...provider, revision: 4 }));
     });
     expect(requests).toHaveLength(1);
-    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    expect(
+      JSON.stringify(
+        client
+          .getQueryCache()
+          .getAll()
+          .map((query) => query.state),
+      ),
+    ).not.toContain("synthetic-secret-not-for-storage");
     expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
     client.clear();
   });
@@ -191,6 +200,8 @@ describe("provider secret lifetime and coherent Access", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (request: Request) => {
+        // The Access picker also reads Group options; only mutations are counted here.
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
         writes.push(request);
         return Response.json({
           ...provider,
@@ -483,59 +494,6 @@ describe("provider deletion reconciliation", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(screen.queryByText(provider.name, { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    client.clear();
-  });
-});
-
-describe("Persona saved selection", () => {
-  it("labels a saved hidden selection and sends Inherit with its own revision and no model ID", async () => {
-    let selected: { personaId: string; modelConfigurationId: string | null; revision: number } = {
-      personaId,
-      modelConfigurationId: model.id,
-      revision: 47,
-    };
-    const writes: Request[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        const path = new URL(request.url).pathname;
-        if (request.method === "PUT") {
-          writes.push(request);
-          selected = { ...selected, modelConfigurationId: null, revision: 48 };
-          return Response.json(selected);
-        }
-        if (path === "/api/chat/model-personas")
-          return Response.json({ items: [{ id: personaId, name: "Builtin" }], nextCursor: null });
-        if (path === "/api/chat/model-default")
-          return Response.json({ modelConfigurationId: model.id, revision: 12 });
-        return Response.json(selected);
-      }),
-    );
-    const client = createMemoryOsQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <ModelDefaults
-          providers={[provider]}
-          models={[{ ...model, visible: false }]}
-          adapters={[adapter]}
-        />
-      </QueryClientProvider>,
-    );
-    const selector = await screen.findByLabelText("Persona", { exact: true });
-    fireEvent.change(selector, { target: { value: personaId } });
-    const defaultPicker = await screen.findByRole("button", { name: "Persona model default" });
-    fireEvent.click(defaultPicker);
-    const savedOption = await screen.findByRole("button", { name: /Saved model/ });
-    expect(savedOption).toBeDisabled();
-    expect(savedOption.textContent).toMatch(/saved; hidden or unavailable/);
-    fireEvent.click(screen.getByRole("button", { name: "Inherit Tenant default" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Persona default" }));
-    await waitFor(() => expect(writes).toHaveLength(1));
-    const url = new URL(writes[0]!.url);
-    expect(url.searchParams.get("revision")).toBe("47");
-    expect(url.searchParams.has("modelConfigurationId")).toBe(false);
-    expect(writes[0]!.headers.get("X-MemoryOS-CSRF")).toBe("1");
-    await waitFor(() => expect(defaultPicker.textContent).toContain("Inherit Tenant default"));
     client.clear();
   });
 });

@@ -1,0 +1,271 @@
+import {
+  keepPreviousData,
+  useQuery,
+  type QueryKey,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
+import { Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { AppCopy } from "@/i18n/app-text";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+
+/** Group option shape shared by every capability that associates Groups with a resource. */
+export type GroupOption = { id: string; name: string; systemKey?: string | null };
+export type GroupOptionPage = { items: GroupOption[]; totalPages: number };
+
+type GroupAccessPickerProps<TPage extends GroupOptionPage, TError, TKey extends QueryKey> = {
+  selected: ReadonlySet<string>;
+  /** Paged options for the caller's capability, so authorization stays with the owning endpoint. */
+  load: (query: {
+    search: string;
+    page: number;
+    size: number;
+  }) => UseQueryOptions<TPage, TError, TPage, TKey>;
+  description: AppCopy;
+  knownGroups?: readonly GroupOption[];
+  required?: boolean;
+  disabled?: boolean;
+  className?: string;
+  onChange: (groupIds: Set<string>) => void;
+};
+
+const noKnownGroups: readonly GroupOption[] = [];
+
+export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey extends QueryKey>({
+  selected,
+  load,
+  description,
+  knownGroups = noKnownGroups,
+  required = false,
+  disabled = false,
+  className,
+  onChange,
+}: GroupAccessPickerProps<TPage, TError, TKey>) {
+  const ui = useAppTranslation();
+
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const options = useQuery({
+    ...load({ search, page, size: 25 }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+  const totalPages = options.data?.totalPages;
+  if (!options.isPlaceholderData && totalPages !== undefined) {
+    const lastPage = Math.max(totalPages - 1, 0);
+    if (page > lastPage) setPage(lastPage);
+  }
+
+  const [rememberedGroups, setRememberedGroups] = useState<Map<string, GroupOption>>(
+    () => new Map(),
+  );
+  const knownById = useMemo(() => {
+    const groups = new Map(rememberedGroups);
+    for (const group of knownGroups) groups.set(group.id, group);
+    for (const group of options.data?.items ?? []) groups.set(group.id, group);
+    return groups;
+  }, [knownGroups, options.data?.items, rememberedGroups]);
+  const ordinarySelected = useMemo(
+    () =>
+      new Set(
+        [...selected].filter((id) => {
+          const group = knownById.get(id);
+          return !group || !group.systemKey;
+        }),
+      ),
+    [knownById, selected],
+  );
+  const selectedGroups = [...ordinarySelected]
+    .map((groupId) => knownById.get(groupId))
+    .filter((group): group is GroupOption => Boolean(group));
+  const rows = (options.data?.items ?? []).filter((group) => !group.systemKey);
+
+  // Keep selected metadata across pages without dropping IDs from unloaded pages.
+  const rememberedSelection = new Map<string, GroupOption>();
+  for (const id of ordinarySelected) {
+    const group = knownById.get(id);
+    if (group) rememberedSelection.set(id, group);
+  }
+  if (
+    rememberedGroups.size !== rememberedSelection.size ||
+    [...rememberedSelection].some(([id, group]) => rememberedGroups.get(id) !== group)
+  ) {
+    setRememberedGroups(rememberedSelection);
+  }
+
+  useEffect(() => {
+    if (ordinarySelected.size !== selected.size) onChange(ordinarySelected);
+  }, [onChange, ordinarySelected, selected.size]);
+
+  function searchGroups() {
+    setSearch(searchDraft.trim());
+    setPage(0);
+  }
+
+  return (
+    <div className={className}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-secondary-action text-content-primary">{ui("Access groups")}</h3>
+          <p className="mt-1 font-secondary-body text-content-muted">{ui(description)}</p>
+        </div>
+        <span className="font-secondary-body tabular-nums text-content-muted">
+          {ordinarySelected.size} {ui("selected")}
+        </span>
+      </div>
+
+      {selectedGroups.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1" aria-label={ui("Selected groups")}>
+          {selectedGroups.map((group) => (
+            <Badge
+              key={group.id}
+              variant="secondary"
+              className="bg-surface-subtle text-content-secondary"
+            >
+              {group.name}
+            </Badge>
+          ))}
+          {ordinarySelected.size > selectedGroups.length ? (
+            <Badge variant="outline" className="text-content-muted">
+              +{ordinarySelected.size - selectedGroups.length}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div role="search" className="mt-3 flex gap-2">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">{ui("Search available groups")}</span>
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            size="sm"
+            disabled={disabled}
+            value={searchDraft}
+            maxLength={200}
+            placeholder={ui("Search groups…")}
+            className="bg-surface-sunken pl-9"
+            onChange={(event) => setSearchDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              searchGroups();
+            }}
+          />
+        </label>
+        <Button
+          type="button"
+          size="sm"
+          prominence="secondary"
+          disabled={disabled}
+          onClick={searchGroups}
+        >
+          {ui("Search")}
+        </Button>
+      </div>
+
+      {options.isPending ? (
+        <p role="status" className="mt-4 px-2 py-5 font-main-ui-body text-content-muted">
+          {ui("Loading groups")}
+        </p>
+      ) : options.isError ? (
+        <div className="mt-4 rounded-xl border border-border-subtle p-4">
+          <p role="alert" className="font-main-ui-body text-content-secondary">
+            {ui("Available groups could not be loaded. Your selection is unchanged.")}
+          </p>
+          <Button
+            size="sm"
+            prominence="secondary"
+            className="mt-3"
+            disabled={disabled}
+            onClick={() => void options.refetch()}
+          >
+            {ui("Try again")}
+          </Button>
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-7 text-center">
+          <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
+          <p className="mt-2 font-main-ui-body text-content-muted">
+            {search ? ui("No groups match your search.") : ui("No groups are available.")}
+          </p>
+        </div>
+      ) : (
+        <div
+          data-slot="group-options"
+          className="mt-3 max-h-72 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised"
+        >
+          {rows.map((group) => {
+            const checked = ordinarySelected.has(group.id);
+            const limitReached = disabled || (ordinarySelected.size >= 100 && !checked);
+            return (
+              <label
+                key={group.id}
+                className={`flex items-center gap-3 px-4 py-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30 ${limitReached ? "cursor-not-allowed text-content-disabled" : "cursor-pointer hover:bg-surface-subtle"}`}
+              >
+                <Checkbox
+                  checked={checked}
+                  disabled={limitReached}
+                  onCheckedChange={() => {
+                    const next = new Set(ordinarySelected);
+                    if (checked) next.delete(group.id);
+                    else next.add(group.id);
+                    onChange(next);
+                  }}
+                />
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-muted">
+                  <Users className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
+                  {group.name}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      {required && ordinarySelected.size === 0 ? (
+        <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
+          {ui("Select at least one group.")}
+        </p>
+      ) : null}
+
+      {options.data && options.data.totalPages > 1 ? (
+        <nav
+          aria-label={ui("Group option pages")}
+          className="mt-3 flex items-center justify-end gap-2"
+        >
+          <Button
+            size="sm"
+            prominence="secondary"
+            disabled={disabled || page === 0}
+            onClick={() => setPage(page - 1)}
+          >
+            {ui("Previous")}
+          </Button>
+          <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
+            {ui("Page")} {page + 1} {ui("of")} {options.data.totalPages}
+          </span>
+          <Button
+            size="sm"
+            prominence="secondary"
+            disabled={disabled || page + 1 >= options.data.totalPages}
+            onClick={() => setPage(page + 1)}
+          >
+            {ui("Next")}
+          </Button>
+        </nav>
+      ) : null}
+    </div>
+  );
+}

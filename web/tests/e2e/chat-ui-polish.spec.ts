@@ -97,14 +97,14 @@ for (const width of [1440, 390]) {
       configured = true;
       await route.fulfill({ json: {} });
     });
-    await page.goto("/settings/web");
+    await page.goto("/admin/web-search");
     if (width === 1440) {
       const administration = page.getByRole("navigation", { name: "Điều hướng quản trị" });
       await expect(administration.getByRole("link", { name: "Tìm kiếm Web" })).toBeVisible();
     }
     const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
     const reader = page.getByRole("region", { name: "Trình đọc trang Web", exact: true });
-    await expect(search.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(6);
+    await expect(search.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(7);
     await expect(reader.getByRole("button", { name: "Kết nối", exact: true })).toHaveCount(3);
     await expect(reader).toContainText("Trình đọc MemoryOS");
     await page.screenshot({ path: `../output/playwright/web-settings-search-${width}.png` });

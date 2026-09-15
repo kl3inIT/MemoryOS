@@ -7,8 +7,7 @@ import type { RefObject } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewContent } from "./document-preview-content";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { readSearchDocumentOriginal } from "@/lib/hey-api/sdk.gen";
+import { client } from "@/lib/hey-api/client.gen";
 import { EvidenceViewSwitch, type PdfEvidence } from "./evidence-view-switch";
 import { readSourceLocation } from "./source-provenance";
 
@@ -39,23 +38,16 @@ export function DocumentPreviewDialog({
   onClose,
 }: DocumentPreviewDialogProps) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const location = readSourceLocation(selection.provenance ?? []);
   const { documentId, generation } = selection;
   const pdf: PdfEvidence | undefined =
     selection.mediaType === "application/pdf" && location.pages.length
       ? {
-          queryKey: ["search", actorId, authorizationVersion, documentId, generation],
-          load: async (signal) =>
-            (
-              await readSearchDocumentOriginal({
-                path: { documentId },
-                query: { generation },
-                parseAs: "blob",
-                signal,
-                throwOnError: true,
-              })
-            ).data as Blob,
+          url: client.buildUrl({
+            url: "/api/search/documents/{documentId}/original",
+            path: { documentId },
+            query: { generation },
+          }),
           pages: location.pages,
           boxes: location.boxes,
         }
@@ -114,7 +106,8 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          <EvidenceViewSwitch pdf={pdf}>
+          {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
+          <EvidenceViewSwitch pdf={pdf} defaultView="pdf">
             <DocumentPreviewContent selection={selection} />
           </EvidenceViewSwitch>
         </Dialog.Content>

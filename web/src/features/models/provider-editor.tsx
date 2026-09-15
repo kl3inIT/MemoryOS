@@ -2,11 +2,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
-import { listChatProvidersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
+import {
+  listChatGroupOptionsOptions,
+  listChatProvidersOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
@@ -46,6 +52,10 @@ export function ProviderEditor({
   );
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? preferredBaseUrl ?? "");
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
+  const [isPublic, setIsPublic] = useState(initial?.isPublic ?? true);
+  const [groupIds, setGroupIds] = useState<ReadonlySet<string>>(
+    () => new Set(initial?.groupIds ?? []),
+  );
   const [credentialAction, setCredentialAction] = useState<CredentialAction>(
     initial ? "KEEP" : "REPLACE",
   );
@@ -67,6 +77,7 @@ export function ProviderEditor({
     !baseUrl.trim() ||
     !adapter ||
     credentialMissing ||
+    (!isPublic && groupIds.size === 0) ||
     (credentialAction === "REPLACE" && !keyReady);
 
   function clearSecret() {
@@ -96,8 +107,8 @@ export function ProviderEditor({
       adapterType,
       baseUrl: baseUrl.trim(),
       enabled,
-      isPublic: baseline?.isPublic ?? false,
-      groupIds: baseline?.groupIds ?? [],
+      isPublic,
+      groupIds: [...groupIds],
       personaIds: baseline?.personaIds ?? [],
       credential:
         credentialAction === "REPLACE"
@@ -160,6 +171,8 @@ export function ProviderEditor({
           if (!current) throw new Error("Provider unavailable");
           setBaseline(current);
           setAdapterType(current.adapterType);
+          setIsPublic(current.isPublic);
+          setGroupIds(new Set(current.groupIds));
         }
         setCredentialAction("KEEP");
         action.reconciled();
@@ -171,10 +184,11 @@ export function ProviderEditor({
 
   return (
     <CatalogDialog
-      title={baseline ? ui(appText("Edit provider: {{name}}", { name: baseline.name })) : ui("Add provider")}
-      description={ui(
-        "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.",
-      )}
+      title={
+        baseline
+          ? ui(appText("Edit provider: {{name}}", { name: baseline.name }))
+          : ui("Add provider")
+      }
       onClose={() => {
         clearSecret();
         action.cancel();
@@ -240,32 +254,50 @@ export function ProviderEditor({
               }}
             />
           </label>
-          <p className="font-secondary-body text-content-muted">
-            {ui(
-              "Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL credentials, queries and fragments are not accepted.",
-            )}
-          </p>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <label className="flex items-center justify-between gap-3 font-main-ui-body">
+            {ui("Provider enabled")}
+            <Switch
               checked={enabled}
-              onChange={(event) => {
-                setEnabled(event.target.checked);
+              onCheckedChange={(checked) => {
+                setEnabled(checked);
                 setSaved(false);
               }}
             />
-            {ui("Provider enabled")}
           </label>
-          <p className="font-secondary-body text-content-muted">
-            {ui(
-              appText("Credential: {{status}}. Presence does not prove decryption or connectivity. Requirement: {{requirement}}.", {
-                status: baseline?.credentialConfigured
-                  ? appText("Configured")
-                  : appText("Not configured"),
-                requirement: adapter?.credentialRequirement ?? appText("Adapter unavailable"),
-              }),
+          <fieldset className="space-y-3">
+            <legend className="font-main-ui-action">{ui("Who can use this provider")}</legend>
+            <RadioGroup
+              value={isPublic ? "public" : "groups"}
+              onValueChange={(value) => {
+                setIsPublic(value === "public");
+                setSaved(false);
+              }}
+            >
+              <label className="flex items-center gap-2 font-main-ui-body">
+                <RadioGroupItem value="public" />
+                {ui("Every Tenant member")}
+              </label>
+              <label className="flex items-center gap-2 font-main-ui-body">
+                <RadioGroupItem value="groups" />
+                {ui("Selected Groups only")}
+              </label>
+            </RadioGroup>
+            {!isPublic && (
+              <GroupAccessPicker
+                selected={groupIds}
+                required
+                disabled={action.pending}
+                load={(query) => listChatGroupOptionsOptions({ query })}
+                description={appText(
+                  "Members of the selected Groups can use this provider in Chat.",
+                )}
+                onChange={(next) => {
+                  setGroupIds(next);
+                  setSaved(false);
+                }}
+              />
             )}
-          </p>
+          </fieldset>
           <label className="block space-y-1">
             {ui("Credential action")}
             <Select
@@ -296,13 +328,6 @@ export function ProviderEditor({
               }}
             />
           </label>
-          {credentialAction === "REMOVE" && (
-            <p className="font-secondary-body text-content-muted">
-              {ui(
-                "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.",
-              )}
-            </p>
-          )}
           {credentialMissing && (
             <p role="alert">
               {ui(
@@ -311,22 +336,6 @@ export function ProviderEditor({
             </p>
           )}
         </fieldset>
-        {baseline && (
-          <p className="break-all font-secondary-body text-content-muted">
-            {ui(
-              appText(
-                "Provider {{id}} · revision {{revision}} · {{visibility}}; {{groups}} Group and {{personas}} Persona associations retained.",
-                {
-                  id: baseline.id,
-                  revision: baseline.revision,
-                  visibility: baseline.isPublic ? appText("Public") : appText("Restricted"),
-                  groups: baseline.groupIds.length,
-                  personas: baseline.personaIds.length,
-                },
-              ),
-            )}
-          </p>
-        )}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>
@@ -343,7 +352,7 @@ export function ProviderEditor({
             </Button>
           </div>
         )}
-        {action.error && <p role="alert">{action.error}</p>}
+        {action.error && <p role="alert">{ui(action.error)}</p>}
         {saved && <p role="status">{ui("Provider saved. No connectivity claim has been made.")}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button

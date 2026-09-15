@@ -1,3 +1,13 @@
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
@@ -50,11 +60,11 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   }
 
   return (
-    <details
+    <Collapsible
       className="group/history relative mt-8 min-w-0 border-t border-border-subtle pt-6"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onOpenChange={setOpen}
     >
-      <summary className="min-h-10 cursor-pointer list-none pr-24 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&::-webkit-details-marker]:hidden">
+      <CollapsibleTrigger className="min-h-10 cursor-pointer list-none pr-24 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&::-webkit-details-marker]:hidden">
         <h2 className="inline-flex items-center gap-3 align-middle font-heading-h3">
           <SourceSectionIcon icon={History} />
           <span>{ui("Indexing attempts")}</span>
@@ -80,117 +90,122 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
             </p>
           </HelpPopover>
         </h2>
-      </summary>
-      {open ? (
-        <section aria-label={ui("Source indexing attempts")} className="mt-4 min-w-0 space-y-2">
-          <div className="absolute right-0 top-7">
-            <Button
-              size="sm"
-              prominence="tertiary"
-              pending={history.isFetching}
-              onClick={() => void history.refetch()}
-            >
-              <RefreshCw aria-hidden="true" /> {ui("Refresh")}
-            </Button>
-          </div>
-          {history.isError ? (
-            <p role="alert" className="text-sm text-status-danger-content">
-              {ui(
-                "Source attempts could not be refreshed. Displayed outcomes may be out of date. Retry with Refresh.",
-              )}
-            </p>
-          ) : history.isPending ? (
-            <p role="status" className="text-sm text-content-muted">
-              {ui("Loading source attempts…")}
-            </p>
-          ) : null}
-          {history.data ? (
-            <>
-              <div
-                role="region"
-                aria-label={ui("Source execution records")}
-                tabIndex={0}
-                className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        {open ? (
+          <section aria-label={ui("Source indexing attempts")} className="mt-4 min-w-0 space-y-2">
+            <div className="absolute right-0 top-7">
+              <Button
+                size="sm"
+                prominence="tertiary"
+                pending={history.isFetching}
+                onClick={() => void history.refetch()}
               >
-                <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
-                  <caption className="sr-only">
-                    {ui("Source indexing attempts, newest first")}
-                  </caption>
-                  <thead className="border-b border-border-subtle text-xs text-content-muted">
-                    <tr>
-                      {[
-                        "Started",
-                        "Outcome",
-                        "Checked",
-                        "Indexed",
-                        "Unchanged",
-                        "Completed / duration",
-                        "Errors",
-                      ].map((heading) => (
-                        <th key={heading} scope="col" className="px-3 py-2 font-normal">
-                          {ui(heading)}
-                        </th>
+                <RefreshCw aria-hidden="true" /> {ui("Refresh")}
+              </Button>
+            </div>
+            {history.isError ? (
+              <p role="alert" className="text-sm text-status-danger-content">
+                {ui(
+                  "Source attempts could not be refreshed. Displayed outcomes may be out of date. Retry with Refresh.",
+                )}
+              </p>
+            ) : history.isPending ? (
+              <p role="status" className="text-sm text-content-muted">
+                {ui("Loading source attempts…")}
+              </p>
+            ) : null}
+            {history.data ? (
+              <>
+                <div
+                  role="region"
+                  aria-label={ui("Source execution records")}
+                  tabIndex={0}
+                  className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+                >
+                  <Table className="w-full min-w-[58rem] border-collapse text-left text-sm">
+                    <TableCaption className="sr-only">
+                      {ui("Source indexing attempts, newest first")}
+                    </TableCaption>
+                    <TableHeader className="border-b border-border-subtle text-xs text-content-muted">
+                      <TableRow>
+                        {[
+                          "Started",
+                          "Outcome",
+                          "Checked",
+                          "Indexed",
+                          "Unchanged",
+                          "Completed / duration",
+                          "Errors",
+                        ].map((heading) => (
+                          <TableHead key={heading} scope="col" className="px-3 py-2 font-normal">
+                            {ui(heading)}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-border-subtle">
+                      {history.data.items.map((run) => (
+                        <SourceRunRow key={run.id} run={run} />
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-subtle">
-                    {history.data.items.map((run) => (
-                      <SourceRunRow key={run.id} run={run} />
-                    ))}
-                    {!history.data.items.length ? (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-6 text-center text-content-muted">
-                          {ui("No Source executions on this page.")}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-              <TablePagination
-                label={ui("Source attempt pages")}
-                page={previous.length}
-                totalPages={totalPages}
-                previousLabel={ui("Previous source attempts")}
-                nextLabel={ui("Next source attempts")}
-                previousDisabled={!previous.length || history.isFetching}
-                nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
-                onPrevious={() => {
-                  setCursor(previous.at(-1));
-                  setPrevious((pages) => pages.slice(0, -1));
-                }}
-                onNext={() => {
-                  setPrevious((pages) => [...pages, cursor]);
-                  setCursor(history.data?.nextCursor ?? undefined);
-                }}
-              >
-                <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                  {ui("Rows")}{" "}
-                  <Select
-                    aria-label={ui("Source attempts per page")}
-                    size="sm"
-                    className="w-auto px-2"
-                    value={size}
-                    disabled={history.isFetching}
-                    onChange={(event) => {
-                      setSize(Number(event.target.value));
-                      setCursor(undefined);
-                      setPrevious([]);
-                    }}
-                  >
-                    {[5, 10, 25, 50].map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              </TablePagination>
-            </>
-          ) : null}
-        </section>
-      ) : null}
-    </details>
+                      {!history.data.items.length ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="px-3 py-6 text-center text-content-muted"
+                          >
+                            {ui("No Source executions on this page.")}
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </TableBody>
+                  </Table>
+                </div>
+                <TablePagination
+                  label={ui("Source attempt pages")}
+                  page={previous.length}
+                  totalPages={totalPages}
+                  previousLabel={ui("Previous source attempts")}
+                  nextLabel={ui("Next source attempts")}
+                  previousDisabled={!previous.length || history.isFetching}
+                  nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+                  onPrevious={() => {
+                    setCursor(previous.at(-1));
+                    setPrevious((pages) => pages.slice(0, -1));
+                  }}
+                  onNext={() => {
+                    setPrevious((pages) => [...pages, cursor]);
+                    setCursor(history.data?.nextCursor ?? undefined);
+                  }}
+                >
+                  <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+                    {ui("Rows")}{" "}
+                    <Select
+                      aria-label={ui("Source attempts per page")}
+                      size="sm"
+                      className="w-auto px-2"
+                      value={size}
+                      disabled={history.isFetching}
+                      onChange={(event) => {
+                        setSize(Number(event.target.value));
+                        setCursor(undefined);
+                        setPrevious([]);
+                      }}
+                    >
+                      {[5, 10, 25, 50].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                </TablePagination>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -206,41 +221,43 @@ function SourceRunRow({ run }: { run: SourceRun }) {
     (run.counts.acquisitionFailed ?? 0) > 0 ||
     (run.counts.indexingFailed ?? 0) > 0;
   return (
-    <tr className="align-top hover:bg-surface-base">
-      <td className="whitespace-nowrap px-3 py-3 text-content-primary">
+    <TableRow className="align-top hover:bg-surface-base">
+      <TableCell className="whitespace-nowrap px-3 py-3 text-content-primary">
         <HistoryTime value={run.startedAt} />
-      </td>
-      <td className="max-w-xs px-3 py-3">
+      </TableCell>
+      <TableCell className="max-w-xs px-3 py-3">
         <RunOutcome run={run} />
         {relevantCounts.length > 0 || run.nextRetryAt ? (
-          <details className="mt-1 text-xs text-content-muted">
-            <summary className="cursor-pointer py-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
+          <Collapsible className="mt-1 text-xs text-content-muted">
+            <CollapsibleTrigger className="cursor-pointer py-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
               {ui("Details")}
-            </summary>
-            <dl>
-              {relevantCounts.map(([field, label]) => (
-                <div key={field}>
-                  <dt className="inline">{ui(label)}: </dt>
-                  <dd className="inline">
-                    {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {run.nextRetryAt ? (
-              <p className="mt-1">
-                {ui("Next retry:")} <HistoryTime value={run.nextRetryAt} />
-              </p>
-            ) : null}
-          </details>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <dl>
+                {relevantCounts.map(([field, label]) => (
+                  <div key={field}>
+                    <dt className="inline">{ui(label)}: </dt>
+                    <dd className="inline">
+                      {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {run.nextRetryAt ? (
+                <p className="mt-1">
+                  {ui("Next retry:")} <HistoryTime value={run.nextRetryAt} />
+                </p>
+              ) : null}
+            </CollapsibleContent>
+          </Collapsible>
         ) : null}
-      </td>
+      </TableCell>
       {["scanned", "published", "unchanged"].map((field) => (
-        <td key={field} className="px-3 py-3 tabular-nums text-content-secondary">
+        <TableCell key={field} className="px-3 py-3 tabular-nums text-content-secondary">
           {run.counts[field as keyof SourceRunCounts]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-        </td>
+        </TableCell>
       ))}
-      <td className="whitespace-nowrap px-3 py-3 text-content-secondary">
+      <TableCell className="whitespace-nowrap px-3 py-3 text-content-secondary">
         {run.completedAt && !runIsActive(run) ? (
           <>
             <HistoryTime value={run.completedAt} />
@@ -253,8 +270,8 @@ function SourceRunRow({ run }: { run: SourceRun }) {
             {runIsActive(run) ? ui("In progress") : ui("Not recorded")}
           </span>
         )}
-      </td>
-      <td className="max-w-sm px-3 py-3 text-xs text-content-muted">
+      </TableCell>
+      <TableCell className="max-w-sm px-3 py-3 text-xs text-content-muted">
         {run.errorCode ? (
           <p className="break-words text-status-danger-content">
             {ui(sourceStatusMessage(run.errorCode))}
@@ -269,8 +286,8 @@ function SourceRunRow({ run }: { run: SourceRun }) {
         ) : (
           "—"
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -290,86 +307,88 @@ function RunErrors({ run }: { run: SourceRun }) {
     refetchInterval: open && runIsActive(run) ? 5_000 : false,
   });
   return (
-    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
+    <Collapsible onOpenChange={setOpen}>
+      <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
         {ui("Error details")}
-      </summary>
-      {open ? (
-        <>
-          {errors.isError ? (
-            <p role="alert">
-              {ui("Errors could not be loaded.")}{" "}
-              <Button size="sm" prominence="tertiary" onClick={() => void errors.refetch()}>
-                {ui("Retry")}
-              </Button>
-            </p>
-          ) : errors.isPending ? (
-            <p role="status">{ui("Loading errors…")}</p>
-          ) : null}
-          {errors.data ? (
-            <>
-              <ul className="space-y-2">
-                {errors.data.items.map((error) => (
-                  <li key={error.id} className="break-words">
-                    <p className="font-medium text-content-primary">
-                      {error.fileName ?? ui("Source execution")}
-                    </p>
-                    <p>
-                      {ui(
-                        (
-                          {
-                            PROVIDER: "Provider",
-                            STORAGE_READ: "Reading storage",
-                            STORAGE_WRITE: "Writing storage",
-                            EXTRACTION: "Extraction",
-                            PUBLICATION: "Publication",
-                            SYSTEM: "System",
-                          } as const
-                        )[error.stage],
-                      )}
-                      : {ui(sourceStatusMessage(error.code))}
-                    </p>
-                    <HistoryTime value={error.occurredAt} />
-                  </li>
-                ))}
-              </ul>
-              {!errors.data.items.length ? (
-                <p>
-                  {ui(
-                    "No retained details on this page. Review the Source connection and retry synchronization if the error persists.",
-                  )}
-                </p>
-              ) : null}
-              {previous.length || errors.data.nextCursor ? (
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    size="sm"
-                    prominence="tertiary"
-                    disabled={!previous.length || errors.isFetching}
-                    onClick={() => {
-                      setCursor(previous.at(-1));
-                      setPrevious((pages) => pages.slice(0, -1));
-                    }}
-                  >
-                    {ui("Previous errors")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    prominence="tertiary"
-                    disabled={!errors.data.nextCursor || errors.isFetching}
-                    onClick={() => {
-                      setPrevious((pages) => [...pages, cursor]);
-                      setCursor(errors.data.nextCursor ?? undefined);
-                    }}
-                  >
-                    {ui("Next errors")}
-                  </Button>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </>
-      ) : null}
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        {open ? (
+          <>
+            {errors.isError ? (
+              <p role="alert">
+                {ui("Errors could not be loaded.")}{" "}
+                <Button size="sm" prominence="tertiary" onClick={() => void errors.refetch()}>
+                  {ui("Retry")}
+                </Button>
+              </p>
+            ) : errors.isPending ? (
+              <p role="status">{ui("Loading errors…")}</p>
+            ) : null}
+            {errors.data ? (
+              <>
+                <ul className="space-y-2">
+                  {errors.data.items.map((error) => (
+                    <li key={error.id} className="break-words">
+                      <p className="font-medium text-content-primary">
+                        {error.fileName ?? ui("Source execution")}
+                      </p>
+                      <p>
+                        {ui(
+                          (
+                            {
+                              PROVIDER: "Provider",
+                              STORAGE_READ: "Reading storage",
+                              STORAGE_WRITE: "Writing storage",
+                              EXTRACTION: "Extraction",
+                              PUBLICATION: "Publication",
+                              SYSTEM: "System",
+                            } as const
+                          )[error.stage],
+                        )}
+                        : {ui(sourceStatusMessage(error.code))}
+                      </p>
+                      <HistoryTime value={error.occurredAt} />
+                    </li>
+                  ))}
+                </ul>
+                {!errors.data.items.length ? (
+                  <p>
+                    {ui(
+                      "No retained details on this page. Review the Source connection and retry synchronization if the error persists.",
+                    )}
+                  </p>
+                ) : null}
+                {previous.length || errors.data.nextCursor ? (
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      size="sm"
+                      prominence="tertiary"
+                      disabled={!previous.length || errors.isFetching}
+                      onClick={() => {
+                        setCursor(previous.at(-1));
+                        setPrevious((pages) => pages.slice(0, -1));
+                      }}
+                    >
+                      {ui("Previous errors")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      prominence="tertiary"
+                      disabled={!errors.data.nextCursor || errors.isFetching}
+                      onClick={() => {
+                        setPrevious((pages) => [...pages, cursor]);
+                        setCursor(errors.data.nextCursor ?? undefined);
+                      }}
+                    >
+                      {ui("Next errors")}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

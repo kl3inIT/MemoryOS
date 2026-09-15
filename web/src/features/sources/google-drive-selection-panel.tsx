@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Input, inputVariants } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -174,13 +175,18 @@ export function GoogleDriveSelectionPanel({
     if (mode && mode !== draftFocus.current) {
       if (mode === "roots") input.current?.focus();
       else {
-        const checkbox = selectionControl.current?.querySelector<HTMLInputElement>("input");
-        if (checkbox && !checkbox.disabled) checkbox.focus();
+        // The registry checkbox is a button with role=checkbox, not an input.
+        const checkbox = selectionControl.current?.querySelector<HTMLElement>('[role="checkbox"]');
+        const usable =
+          checkbox && !checkbox.matches(':disabled, [aria-disabled="true"], [data-disabled]');
+        if (usable) checkbox.focus();
         else cancelButton.current?.focus();
       }
     }
     if (!mode && draftFocus.current) {
-      const select = selectionControl.current?.querySelector<HTMLButtonElement>("button");
+      const select = selectionControl.current?.querySelector<HTMLButtonElement>(
+        'button:not([role="checkbox"])',
+      );
       if (select?.isConnected) select.focus();
       else editButton.current?.focus();
       selectionControl.current = null;
@@ -559,19 +565,21 @@ export function GoogleDriveSelectionPanel({
             </p>
           ) : null}
           {configuration.discoveryErrors.length ? (
-            <details className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
-              <summary className="min-h-11 cursor-pointer">
+            <Collapsible className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
+              <CollapsibleTrigger className="min-h-11 cursor-pointer">
                 {ui("Discovery could not check")} {configuration.discoveryErrors.length}{" "}
                 {ui("inputs")}
-              </summary>
-              <ul>
-                {configuration.discoveryErrors.map((failure) => (
-                  <li key={`${failure.fileId}:${failure.code}`} className="break-words">
-                    {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
-                  </li>
-                ))}
-              </ul>
-            </details>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <ul>
+                  {configuration.discoveryErrors.map((failure) => (
+                    <li key={`${failure.fileId}:${failure.code}`} className="break-words">
+                      {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
+                    </li>
+                  ))}
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
           ) : null}
         </>
       ) : null}
@@ -742,91 +750,93 @@ export function GoogleDriveSelectionPanel({
       ) : null}
       {draft && !draft.editingRoots ? draftActions : null}
       {configuration.scopeMode === "SPECIFIC" ? (
-        <details className="text-sm">
-          <summary className="min-h-11 cursor-pointer py-3 text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
+        <Collapsible className="text-sm">
+          <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
             {ui("File and folder links")}
-          </summary>
-          <div className="flex flex-wrap items-start gap-2">
-            {!draft?.editingRoots ? (
-              <Button
-                ref={editButton}
-                prominence="secondary"
-                disabled={disabled || busy || tracking.recovering || tracking.uncertain}
-                pending={action === "load"}
-                onClick={() => {
-                  if (draft) {
-                    selectionControl.current = null;
-                    setDraft({ ...draft, editingRoots: true });
-                  } else loadDraft();
-                }}
-              >
-                {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
-              </Button>
-            ) : null}
-            {draft?.editingRoots ? (
-              <div
-                className="w-full space-y-3 rounded-lg border border-border-default p-4"
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
-                    event.preventDefault();
-                    setDraft(null);
-                    setError(null);
-                  }
-                }}
-              >
-                <GoogleDriveLinks
-                  policy={policy.data}
-                  scopeMode={configuration.scopeMode}
-                  value={draft.links}
-                  inputRef={input}
-                  disabled={controlsDisabled || conflicted}
-                  errorMessage=""
-                  onChange={(value) => {
-                    if (tracking.terminal) tracking.forget();
-                    setDraft({ ...draft, links: value });
-                    setError(null);
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="flex flex-wrap items-start gap-2">
+              {!draft?.editingRoots ? (
+                <Button
+                  ref={editButton}
+                  prominence="secondary"
+                  disabled={disabled || busy || tracking.recovering || tracking.uncertain}
+                  pending={action === "load"}
+                  onClick={() => {
+                    if (draft) {
+                      selectionControl.current = null;
+                      setDraft({ ...draft, editingRoots: true });
+                    } else loadDraft();
                   }}
-                />
-                {draftActions}
-              </div>
-            ) : null}
-            {!draft?.editingRoots ? (
-              <>
-                {savedLinks && savedLinks.revision === configuration.revision ? (
-                  <div className="w-full">
-                    <GoogleDriveLinks
-                      policy={policy.data}
-                      scopeMode="SPECIFIC"
-                      value={savedLinks.links.join("\n")}
-                      disabled={false}
-                      readOnly
-                      onChange={() => {}}
-                    />
-                  </div>
-                ) : (
-                  <Button
-                    prominence="secondary"
-                    pending={action === "links"}
-                    disabled={busy}
-                    onClick={() =>
-                      void perform("links", async (signal) => {
-                        const { data } = await getGoogleDriveSelectionDraft({
-                          path: { sourceId },
-                          signal,
-                          throwOnError: true,
-                        });
-                        signal.throwIfAborted();
-                        setSavedLinks(data);
-                      })
+                >
+                  {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
+                </Button>
+              ) : null}
+              {draft?.editingRoots ? (
+                <div
+                  className="w-full space-y-3 rounded-lg border border-border-default p-4"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
+                      event.preventDefault();
+                      setDraft(null);
+                      setError(null);
                     }
-                  >
-                    {ui("Load saved links")}
-                  </Button>
-                )}
-              </>
-            ) : null}
-          </div>
-        </details>
+                  }}
+                >
+                  <GoogleDriveLinks
+                    policy={policy.data}
+                    scopeMode={configuration.scopeMode}
+                    value={draft.links}
+                    inputRef={input}
+                    disabled={controlsDisabled || conflicted}
+                    errorMessage=""
+                    onChange={(value) => {
+                      if (tracking.terminal) tracking.forget();
+                      setDraft({ ...draft, links: value });
+                      setError(null);
+                    }}
+                  />
+                  {draftActions}
+                </div>
+              ) : null}
+              {!draft?.editingRoots ? (
+                <>
+                  {savedLinks && savedLinks.revision === configuration.revision ? (
+                    <div className="w-full">
+                      <GoogleDriveLinks
+                        policy={policy.data}
+                        scopeMode="SPECIFIC"
+                        value={savedLinks.links.join("\n")}
+                        disabled={false}
+                        readOnly
+                        onChange={() => {}}
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      prominence="secondary"
+                      pending={action === "links"}
+                      disabled={busy}
+                      onClick={() =>
+                        void perform("links", async (signal) => {
+                          const { data } = await getGoogleDriveSelectionDraft({
+                            path: { sourceId },
+                            signal,
+                            throwOnError: true,
+                          });
+                          signal.throwIfAborted();
+                          setSavedLinks(data);
+                        })
+                      }
+                    >
+                      {ui("Load saved links")}
+                    </Button>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
     </section>
   );

@@ -1,6 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { appText } from "@/i18n/app-text";
@@ -13,6 +16,10 @@ import {
 import { createChatModel, updateChatModel, validateChatModel } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
+  compactTokens,
+  findKnownModel,
+  matchesKnownModel,
+  millionTokenPrice,
   changeModelDraft,
   modelBody,
   modelDraft,
@@ -25,16 +32,105 @@ import {
 } from "./model-catalog";
 import { useModelAction } from "./use-model-action";
 
+type Change = <K extends keyof ModelDraft>(key: K, value: ModelDraft[K]) => void;
+
+/** Limits and capabilities the runtime enforces; typed only for a model the catalog does not declare. */
+function Specs({ draft, change }: { draft: ModelDraft; change: Change }) {
+  const ui = useAppTranslation();
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block space-y-1">
+          {ui("Context window (tokens)")}
+          <Input
+            type="number"
+            required
+            min={256}
+            max={10_000_000}
+            step={1}
+            value={draft.contextWindow}
+            onChange={(event) => change("contextWindow", event.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          {ui("Maximum output (tokens)")}
+          <Input
+            type="number"
+            required
+            min={1}
+            step={1}
+            value={draft.maxOutputTokens}
+            onChange={(event) => change("maxOutputTokens", event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {(
+          [
+            ["toolCalling", "Tool calling"],
+            ["vision", "Vision input"],
+            ["reasoning", "Reasoning"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="flex items-center gap-2 font-main-ui-body">
+            <Checkbox
+              checked={draft[key]}
+              onCheckedChange={(checked) => change(key, checked === true)}
+            />
+            {ui(label)}
+          </label>
+        ))}
+        <label className="flex items-center gap-2 font-main-ui-body text-content-muted">
+          <Checkbox checked disabled aria-label={ui("Streaming (required)")} />
+          {ui("Streaming (required)")}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function Prices({ draft, change }: { draft: ModelDraft; change: Change }) {
+  const ui = useAppTranslation();
+  return (
+    <fieldset className="space-y-3">
+      <legend className="font-main-ui-action">{ui("Pricing · USD per million tokens")}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1">
+          {ui("Input price")}
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={draft.inputPrice}
+            onChange={(event) => change("inputPrice", event.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          {ui("Output price")}
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={draft.outputPrice}
+            onChange={(event) => change("outputPrice", event.target.value)}
+          />
+        </label>
+      </div>
+    </fieldset>
+  );
+}
 type ValidationObservation = { providerRevision: number; modelRevision: number; message: string };
 
 export function ModelEditor({
   initial,
+  modelName,
   models,
   provider,
   adapter,
   onClose,
 }: {
   initial?: ManagedModel;
+  modelName?: string;
   models: ManagedModel[];
   provider: ManagedProvider;
   adapter?: InstalledAdapter;
@@ -44,16 +140,23 @@ export function ModelEditor({
   const ui = useAppTranslation();
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
-  const [draft, setDraft] = useState(() => modelDraft(initial));
+  const [draft, setDraft] = useState(() =>
+    modelName
+      ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
+      : modelDraft(initial, adapter),
+  );
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationObservation | null>(null);
   const [saved, setSaved] = useState(false);
   const validationGeneration = useRef(0);
   const latest = baseline && models.find((model) => model.id === baseline.id);
-  const dirty = !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline));
+  const dirty =
+    !baseline || JSON.stringify(draft) !== JSON.stringify(modelDraft(baseline, adapter));
   const conflicted =
     action.conflict || Boolean(baseline && (!latest || latest.revision !== baseline.revision));
   const invalid = modelDraftError(draft, adapter);
+  // Limits, capabilities and prices belong to the model; typing them is only for an undeclared one.
+  const declared = matchesKnownModel(draft, findKnownModel(adapter, draft.modelName));
   const displayedValidation =
     validation &&
     !dirty &&
@@ -72,7 +175,7 @@ export function ModelEditor({
     }
     setValidation(null);
     setSaved(false);
-    setDraft((current) => changeModelDraft(current, key, value));
+    setDraft((current) => changeModelDraft(current, key, value, adapter));
   }
 
   async function save() {
@@ -100,7 +203,7 @@ export function ModelEditor({
             });
         signal.throwIfAborted();
         setBaseline(result.data);
-        setDraft(modelDraft(result.data));
+        setDraft(modelDraft(result.data, adapter));
         await refreshModelCatalog(client);
         signal.throwIfAborted();
         setSaved(true);
@@ -180,8 +283,12 @@ export function ModelEditor({
           providerRevision: snapshot.providerRevision,
           modelRevision: snapshot.modelRevision,
           message: result.reachable
-            ? ui("Saved connection reached the model. This does not certify model quality, capabilities or cancellation.")
-            : ui("The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown."),
+            ? ui(
+                "Saved connection reached the model. This does not certify model quality, capabilities or cancellation.",
+              )
+            : ui(
+                "The saved connection check completed, but the model was not reachable. Review the endpoint, model name and credentials; no provider payload is shown.",
+              ),
         });
       });
     } catch {
@@ -193,15 +300,12 @@ export function ModelEditor({
 
   return (
     <CatalogDialog
-      title={baseline ? ui(appText("Edit model: {{name}}", { name: baseline.displayName })) : ui("Add model")}
-      description={
-        <span>
-          {provider.name} · <span className="break-all">{provider.id}</span>.{" "}
-          {ui(
-            "Settings describe this model explicitly; changing its name or profile never silently changes capabilities.",
-          )}
-        </span>
+      title={
+        baseline
+          ? ui(appText("Edit model: {{name}}", { name: baseline.displayName }))
+          : ui("Add model")
       }
+      description={provider.name}
       onClose={() => {
         action.cancel();
         onClose();
@@ -220,6 +324,7 @@ export function ModelEditor({
               {ui("API model name")}
               <Input
                 required
+                list="known-chat-models"
                 maxLength={200}
                 value={draft.modelName}
                 onChange={(event) => change("modelName", event.target.value)}
@@ -235,177 +340,116 @@ export function ModelEditor({
               />
             </label>
           </div>
-          <label className="block space-y-1">
-            {ui("Tokenizer profile")}
-            <Select
-              value={draft.tokenizerProfile}
-              onChange={(event) => change("tokenizerProfile", event.target.value)}
-            >
-              <option value="">{ui("Choose an installed profile")}</option>
-              {draft.tokenizerProfile &&
-                !adapter?.tokenizerProfiles.some(
-                  (profile) => profile.id === draft.tokenizerProfile,
-                ) && (
-                  <option value={draft.tokenizerProfile}>
-                    {ui(appText("{{profile}} (unavailable)", { profile: draft.tokenizerProfile }))}
-                  </option>
-                )}
-              {adapter?.tokenizerProfiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName} · {profile.id}
-                </option>
-              ))}
-            </Select>
+          <datalist id="known-chat-models">
+            {adapter?.knownModels.map((known) => (
+              <option key={known.modelName} value={known.modelName} />
+            ))}
+          </datalist>
+          {declared ? (
+            <dl className="grid gap-x-6 gap-y-2 font-main-ui-body sm:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Context window (tokens)")}</dt>
+                <dd className="tabular-nums">{compactTokens(Number(draft.contextWindow))}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Maximum output (tokens)")}</dt>
+                <dd className="tabular-nums">{compactTokens(Number(draft.maxOutputTokens))}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Input price")}</dt>
+                <dd className="tabular-nums">
+                  {millionTokenPrice(Number(draft.inputPrice)) ?? ui("Unknown")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Output price")}</dt>
+                <dd className="tabular-nums">
+                  {millionTokenPrice(Number(draft.outputPrice)) ?? ui("Unknown")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 sm:col-span-2">
+                <dt className="text-content-muted">{ui("Capabilities")}</dt>
+                <dd>
+                  {[
+                    draft.toolCalling ? ui("Tool calling") : null,
+                    draft.vision ? ui("Vision input") : null,
+                    draft.reasoning ? ui("Reasoning") : null,
+                    ui("Streaming (required)"),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <Specs draft={draft} change={change} />
+          )}
+          <label className="flex items-center gap-2 font-main-ui-body">
+            <Checkbox
+              checked={draft.visible}
+              onCheckedChange={(checked) => change("visible", checked === true)}
+            />
+            {ui("Visible in selection lists")}
           </label>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block space-y-1">
-              {ui("Context window (tokens)")}
-              <Input
-                type="number"
-                required
-                min={256}
-                max={10_000_000}
-                step={1}
-                value={draft.contextWindow}
-                onChange={(event) => change("contextWindow", event.target.value)}
+          <Collapsible className="group">
+            <CollapsibleTrigger className="flex min-h-11 cursor-pointer items-center gap-2 font-main-ui-action focus-visible:outline-2 focus-visible:outline-focus-ring">
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 transition-transform group-has-[[data-state=open]]:rotate-180"
               />
-            </label>
-            <label className="block space-y-1">
-              {ui("Maximum output (tokens)")}
-              <Input
-                type="number"
-                required
-                min={1}
-                step={1}
-                value={draft.maxOutputTokens}
-                onChange={(event) => change("maxOutputTokens", event.target.value)}
-              />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.visible}
-                onChange={(event) => change("visible", event.target.checked)}
-              />
-              {ui("Visible in selection lists")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked disabled />
-              {ui("Streaming (required)")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.toolCalling}
-                onChange={(event) => change("toolCalling", event.target.checked)}
-              />
-              {ui("Tool calling")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.vision}
-                onChange={(event) => change("vision", event.target.checked)}
-              />
-              {ui("Vision input")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.reasoning}
-                onChange={(event) => change("reasoning", event.target.checked)}
-              />
-              {ui("Reasoning")}
-            </label>
-          </div>
-          <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">{ui("Request options")}</legend>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.completionTokens}
-                onChange={(event) => change("completionTokens", event.target.checked)}
-              />
-              {ui("Use maxCompletionTokens option family")}
-            </label>
-            <p className="font-secondary-body text-content-muted">
-              {ui(
-                "This boolean chooses the output-token field family, not the output limit. Completion-token mode removes sampling overrides. Blank optional fields are omitted.",
+              {ui("Advanced options")}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-4">
+              {declared && (
+                <>
+                  <Specs draft={draft} change={change} />
+                  <Prices draft={draft} change={change} />
+                </>
               )}
-            </p>
-            {!draft.completionTokens && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    ["temperature", "Temperature", 0, 2],
-                    ["topP", "Top P", 0, 1],
-                    ["frequencyPenalty", "Frequency penalty", -2, 2],
-                    ["presencePenalty", "Presence penalty", -2, 2],
-                  ] as const
-                ).map(([key, label, min, max]) => (
-                  <label key={key} className="block space-y-1">
-                    {ui(label)}
+              <fieldset className="space-y-3">
+                <legend className="font-main-ui-action">{ui("Request options")}</legend>
+                <label className="flex items-center gap-2 font-main-ui-body">
+                  <Checkbox
+                    checked={draft.completionTokens}
+                    onCheckedChange={(checked) => change("completionTokens", checked === true)}
+                  />
+                  {ui("Use maxCompletionTokens option family")}
+                </label>
+                {!draft.completionTokens && !draft.reasoning && (
+                  <label className="block max-w-xs space-y-1">
+                    {ui("Temperature")}
                     <Input
                       type="number"
-                      min={min}
-                      max={max}
+                      min={0}
+                      max={2}
                       step="any"
-                      value={draft[key]}
-                      onChange={(event) => change(key, event.target.value)}
+                      value={draft.temperature}
+                      onChange={(event) => change("temperature", event.target.value)}
                     />
                   </label>
-                ))}
-              </div>
-            )}
-            {draft.reasoning && (
-              <label className="block space-y-1">
-                {ui("Reasoning effort")}
-                <Select
-                  value={draft.reasoningEffort}
-                  onChange={(event) => change("reasoningEffort", event.target.value)}
-                >
-                  <option value="">{ui("Provider default (omitted)")}</option>
-                  {["minimal", "low", "medium", "high"].map((effort) => (
-                    <option key={effort} value={effort}>
-                      {effort}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            )}
-          </fieldset>
-          <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">{ui("Pricing · USD per million tokens")}</legend>
-            <p className="font-secondary-body text-content-muted">
-              {ui("Leave both blank for Unknown. Explicit zero means known free pricing, not Unknown.")}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1">
-                {ui("Input price")}
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={draft.inputPrice}
-                  onChange={(event) => change("inputPrice", event.target.value)}
-                />
-              </label>
-              <label className="block space-y-1">
-                {ui("Output price")}
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={draft.outputPrice}
-                  onChange={(event) => change("outputPrice", event.target.value)}
-                />
-              </label>
-            </div>
-          </fieldset>
+                )}
+                {draft.reasoning && (
+                  <label className="block space-y-1">
+                    {ui("Reasoning effort")}
+                    <Select
+                      value={draft.reasoningEffort}
+                      onChange={(event) => change("reasoningEffort", event.target.value)}
+                    >
+                      <option value="">{ui("Provider default (omitted)")}</option>
+                      {["minimal", "low", "medium", "high"].map((effort) => (
+                        <option key={effort} value={effort}>
+                          {effort}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                )}
+              </fieldset>
+            </CollapsibleContent>
+          </Collapsible>
+          {!declared && <Prices draft={draft} change={change} />}
         </fieldset>
-        {invalid && <p role="status">{invalid}</p>}
+        {invalid && <p role="status">{ui(invalid)}</p>}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>
@@ -422,25 +466,9 @@ export function ModelEditor({
             </Button>
           </div>
         )}
-        {action.error && <p role="alert">{action.error}</p>}
+        {action.error && <p role="alert">{ui(action.error)}</p>}
         {saved && <p role="status">{ui("Model saved.")}</p>}
-        {baseline && (
-          <p className="break-all font-secondary-body text-content-muted">
-            {ui(
-              appText("Model {{id}} · model revision {{modelRevision}} · provider revision {{providerRevision}}", {
-                id: baseline.id,
-                modelRevision: baseline.revision,
-                providerRevision: provider.revision,
-              }),
-            )}
-          </p>
-        )}
         {displayedValidation && <p role="status">{displayedValidation}</p>}
-        <p className="font-secondary-body text-content-muted">
-          {ui(
-            "Validate is available only for clean saved settings and reconciles both saved revisions. Edits, closing and authority changes discard pending results.",
-          )}
-        </p>
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             prominence="secondary"

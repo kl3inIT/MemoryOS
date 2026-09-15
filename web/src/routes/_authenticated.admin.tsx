@@ -22,26 +22,29 @@ export const Route = createFileRoute("/_authenticated/admin")({
         : undefined;
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
-    const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
+    const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
+    const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
         ? "groups"
-        : modelsSelected
-          ? "models"
-          : providersSelected
-            ? "providers"
-            : "sources";
+        : providersSelected
+          ? "providers"
+          : modelsSelected
+            ? "models"
+            : webSearchSelected
+              ? "web"
+              : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
         : page === "groups"
           ? canReadGroups
-          : page === "models"
-            ? canManageModels
-            : page === "providers"
-              ? canManageProviders
+          : page === "providers"
+            ? canManageProviders
+            : page === "models" || page === "web"
+              ? canManageModels
               : canReadSources;
 
     if (!allowed) {
@@ -57,11 +60,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
             ? "Users"
             : page === "groups"
               ? "Groups"
-              : page === "models"
-                ? "Models"
-                : page === "providers"
-                  ? "Sign-in providers"
-                  : "Sources",
+              : page === "providers"
+                ? "Sign-in providers"
+                : page === "models"
+                  ? "Models"
+                  : page === "web"
+                    ? "Tìm kiếm Web"
+                    : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >
