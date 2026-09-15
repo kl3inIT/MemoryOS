@@ -29,7 +29,7 @@ import reactor.core.scheduler.Schedulers;
 class ChatEventStreamTest {
     private final UUID assistant = UUID.randomUUID();
     private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(
-            4096, 16384, Duration.ofMinutes(1), 512, Duration.ofMillis(25), 2048,
+            4096, 16384, Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 2048,
             4, 8, 2048, 16, Duration.ofSeconds(15), Duration.ofMinutes(1)));
 
     @Test

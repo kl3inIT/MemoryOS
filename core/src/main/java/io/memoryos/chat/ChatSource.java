@@ -58,7 +58,7 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
         } else if (documentId != null || generation != null || startOrdinal != 0 || endOrdinal != 0 || !provenance.isEmpty()) {
             throw new IllegalArgumentException("File citations identify a file, not a fabricated document passage");
         }
-        if (citationId < 1 || citationId > 24 || title == null || title.length() > 1024
+        if (citationId < 1 || title == null || title.length() > 1024
                 || startOrdinal < 0 || endOrdinal < startOrdinal || endOrdinal > 9999)
             throw new IllegalArgumentException("Invalid Chat source");
         provenance = List.copyOf(provenance);

@@ -67,7 +67,10 @@ class ChatRuntimeConfiguration {
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
                                     io.memoryos.chat.image.ImageConnectionService images) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
+        // Context refresh completes before the web server accepts requests, so no send can race this.
+        service.failOrphanedRuns();
+        return service;
     }
 
     @Bean

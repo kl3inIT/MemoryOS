@@ -165,7 +165,7 @@ flowchart LR
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
 
-Chat inference runs in the API process and does not use the ingestion worker or Redis journal. PostgreSQL owns sessions, message branches, command identity, outcome, deadline and model metadata. A bounded in-memory buffer supports live SSE and short replay; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+Chat inference runs in the API process and does not use the ingestion worker or Redis journal. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded in-memory buffer supports live SSE and short replay; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 

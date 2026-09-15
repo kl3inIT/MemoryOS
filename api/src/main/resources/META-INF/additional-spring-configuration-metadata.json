@@ -27,7 +27,7 @@
       "name": "memoryos.chat.execution.maintenance-interval",
       "type": "java.time.Duration",
       "defaultValue": "1s",
-      "description": "Interval for pending terminal persistence and stale deadline reconciliation."
+      "description": "Interval for pending terminal persistence, due run lease renewal and lapsed lease reconciliation."
     },
     {
       "name": "memoryos.chat.catalog.encryption-key",

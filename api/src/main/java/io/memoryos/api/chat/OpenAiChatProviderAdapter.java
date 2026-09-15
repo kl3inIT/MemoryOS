@@ -112,13 +112,13 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     }
 
     @Override
-    public Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout) {
+    public Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout) {
         validate(connection.baseUrl(), modelName, settings);
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
         var sync = OpenAIOkHttpClient.builder().baseUrl(connection.baseUrl()).apiKey(connection.credential())
-                .maxRetries(0).timeout(timeout).build();
+                .maxRetries(0).timeout(OpenAiCancellation.gap(readTimeout)).build();
         try {
-            var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
+            var async = asyncClient(connection.baseUrl(), connection.credential(), readTimeout);
             try {
                 // Hosted Web search and displayable reasoning summaries are Responses API features.
                 boolean hostedSearch = supportsNativeWebSearch(settings);
@@ -169,8 +169,8 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 settings.capabilities().toolCalling(), settings.capabilities().vision());
     }
 
-    static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration timeout) {
-        return new OpenAiCancellation(baseUrl, credential, timeout);
+    static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration readTimeout) {
+        return new OpenAiCancellation(baseUrl, credential, readTimeout);
     }
 
     private static void number(Map<String, Object> options, String key, double min, double max) {

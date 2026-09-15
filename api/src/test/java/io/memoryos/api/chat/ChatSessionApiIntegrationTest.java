@@ -852,7 +852,7 @@ class ChatSessionApiIntegrationTest {
         var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
-                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), Instant.now().plusSeconds(10), binding);
+                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {});
@@ -977,7 +977,7 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void lateCompletionCannotOverwritePersistedDeadlineOutcome() throws Exception {
+    void lateCompletionCannotOverwriteReconciledLeaseOutcome() throws Exception {
         var streaming = new CountDownLatch(1);
         var complete = Sinks.<ChatResponse>one();
         when(model.stream(any(Prompt.class))).thenReturn(Flux.concat(Flux.just(response("Partial", "", 0)),
@@ -986,7 +986,7 @@ class ChatSessionApiIntegrationTest {
         var reply = send(session, UUID.randomUUID().toString());
         String id = reply.path("assistantMessageId").asText();
         assertTrue(streaming.await(8, TimeUnit.SECONDS));
-        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '1 second', status = 'FAILED', failure_code = 'CHAT_INTERRUPTED', finished_at = clock_timestamp() WHERE id = :id")
+        jdbc.sql("UPDATE chat_message SET status = 'FAILED', failure_code = 'CHAT_INTERRUPTED', finished_at = clock_timestamp() WHERE id = :id")
                 .param("id", UUID.fromString(id)).update();
         complete.tryEmitValue(response(" late", "stop", 12));
         awaitOutcome(id, "FAILED");

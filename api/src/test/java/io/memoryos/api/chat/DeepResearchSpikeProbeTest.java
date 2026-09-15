@@ -277,6 +277,79 @@ class DeepResearchSpikeProbeTest {
         } finally { sdk.close(); }
     }
 
+    /**
+     * P6, research agent loop decision: one streamInference per cycle through the guard with direct Tool.call,
+     * a per-cycle system prompt, only the first tool type of a batch executed, generate_report as a loop signal,
+     * and the intermediate report as a tool-free inference over the kept history. The Embabel PromptRunner loop
+     * cannot express the last three (it executes every call, returns only text and exposes no history).
+     */
+    @Test
+    void researchAgentLoopRunsDirectToolCallsAndWritesTheIntermediateReport() throws Exception {
+        var requests = new CopyOnWriteArrayList<JsonNode>();
+        var responses = new ConcurrentLinkedQueue<String>();
+        responses.add(toolStart(0, "call_0", "internal_search") + toolArgs(0, "{\"query\":\"revenue\"}")
+                + toolStart(1, "call_1", "web_search") + toolArgs(1, "{\"query\":\"revenue news\"}")
+                + finish("tool_calls") + usage(40, 10) + "data: [DONE]\n\n");
+        responses.add(toolStart(0, "call_2", "generate_report") + toolArgs(0, "{}") + finish("tool_calls") + usage(60, 5) + "data: [DONE]\n\n");
+        responses.add(content("Revenue grew [1].") + finish("stop") + usage(80, 12) + "data: [DONE]\n\n");
+        var server = sseServer(requests, responses);
+        var executed = new CopyOnWriteArrayList<String>();
+        Tool.Function search = input -> { executed.add("internal_search:" + input); return Tool.Result.text("[1] Revenue grew 12%"); };
+        Tool.Function web = input -> { executed.add("web_search:" + input); return Tool.Result.text("unused"); };
+        Tool.Function report = input -> { throw new AssertionError("generate_report is a loop signal, never executed"); };
+        var internalSearch = Tool.Companion.of("internal_search", "Search internal documents.",
+                Tool.InputSchema.of(Tool.Parameter.string("query", "Query")), Tool.Metadata.DEFAULT, search);
+        var webSearch = Tool.Companion.of("web_search", "Search the public web.",
+                Tool.InputSchema.of(Tool.Parameter.string("query", "Query")), Tool.Metadata.DEFAULT, web);
+        var generateReport = Tool.Companion.of("generate_report", "Write the intermediate report.", Tool.InputSchema.empty(), Tool.Metadata.DEFAULT, report);
+        var tools = List.of(internalSearch, webSearch, generateReport);
+        var byName = Map.of("internal_search", internalSearch, "web_search", webSearch, "generate_report", generateReport);
+        try (var client = client(server.getAddress().getPort())) {
+            var chunks = new CopyOnWriteArrayList<String>();
+            // Research guards use one extra cycle and an identity final request: the loop, not the guard, forces the report.
+            var guard = new ChatModelGuard(requiredTools(client.binding().service().getChatModel(), chunks), process,
+                    client.binding().service(), budget, 8 + 1, () -> {}, client.binding().policy(), 12000, prompt -> prompt);
+            guard.outputLimit(1000);
+            var streamer = new StreamingLlmService(client.binding().withModel(guard)).createMessageStreamer(new LlmOptions().withMaxTokens(1000));
+            List<Message> history = new ArrayList<>(List.of(new UserMessage("Research: revenue in 2025")));
+            boolean reportRequested = false;
+            for (int cycle = 1; cycle <= 8 && !reportRequested; cycle++) {
+                var request = new ArrayList<Message>();
+                request.add(new SystemMessage("You are a research agent. You are on cycle " + cycle + " of 8."));
+                request.addAll(history);
+                var events = streamer.streamInference(request, tools).collectList().block(Duration.ofSeconds(20));
+                assertNotNull(events);
+                var message = assertInstanceOf(LlmInferenceStreamEvent.Complete.class, events.getLast()).getMessage();
+                var calls = assertInstanceOf(AssistantMessageWithToolCalls.class, message).getToolCalls();
+                String first = calls.getFirst().getName();
+                var kept = calls.stream().filter(call -> call.getName().equals(first)).toList();
+                if (first.equals("generate_report")) { reportRequested = true; continue; }
+                history.add(new AssistantMessageWithToolCalls("", kept));
+                for (var call : kept) {
+                    var result = assertInstanceOf(Tool.Result.Text.class, byName.get(call.getName()).call(call.getArguments()));
+                    history.add(new ToolResultMessage(call.getId(), call.getName(), result.getContent()));
+                }
+            }
+            assertTrue(reportRequested);
+            var reportRequest = new ArrayList<Message>(List.of(new SystemMessage("Write the intermediate report and keep citation markers.")));
+            reportRequest.addAll(history);
+            var text = streamer.streamInference(reportRequest, List.of())
+                    .filter(LlmInferenceStreamEvent.Content.class::isInstance)
+                    .map(event -> ((LlmInferenceStreamEvent.Content) event).getText()).collectList().block(Duration.ofSeconds(20));
+            assertNotNull(text);
+            System.out.println("SPIKE P6 executed=" + executed + " requests=" + requests.size() + " report=" + String.join("", text));
+            assertEquals("Revenue grew [1].", String.join("", text));
+            assertEquals(List.of("internal_search:{\"query\":\"revenue\"}"), executed, "Only the first tool type of a batch runs");
+            assertEquals("required", requests.get(0).path("tool_choice").asString());
+            assertTrue(requests.get(0).path("messages").toString().contains("cycle 1 of 8"));
+            assertTrue(requests.get(1).path("messages").toString().contains("cycle 2 of 8"));
+            assertEquals(1, find(requests.get(1).path("messages"), "assistant").path("tool_calls").size());
+            assertTrue(requests.get(2).path("tool_choice").isMissingNode(), "The report inference has no tools");
+            assertEquals(0, requests.get(2).path("tools").size());
+            verify(process, times(3)).recordLlmInvocation(any());
+        } finally { server.stop(0); }
+    }
+
     private List<Tool> orchestratorTools() {
         Tool.Function refuse = input -> { toolExecutions.incrementAndGet(); return Tool.Result.text("must not run"); };
         return List.of(

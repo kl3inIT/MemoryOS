@@ -387,6 +387,40 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void startupReconciliationFailsRunningRowsWithLiveLeasesAndLeavesFinishedRows() {
+        var session = sessions.create(owner, "Orphaned");
+        var orphaned = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var other = sessions.create(owner, "Finished");
+        var finished = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(turns.finish(other.id(), finished.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
+        // The lease is still live: only startup knows no process owns the row.
+        assertEquals(0, turns.expireRuns());
+        assertTrue(turns.failOrphanedRuns() >= 1);
+        assertEquals(0, turns.failOrphanedRuns());
+        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), orphaned.assistantMessageId()));
+        assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
+                .param("id", orphaned.assistantMessageId()).query(String.class).single());
+        assertEquals(ChatMessage.Status.COMPLETED, turns.authorizeReply(owner, other.id(), finished.assistantMessageId()));
+        assertFalse(turns.finish(session.id(), orphaned.assistantMessageId(), ChatMessage.Status.COMPLETED, "late"));
+        // The session accepts the next question at once.
+        reserve(session, orphaned.assistantMessageId(), UUID.randomUUID(), "Next question");
+    }
+
+    @Test
+    void answerStoresMoreThanTwentyFourSourcesAndTheColumnKeepsAByteBound() {
+        var session = sessions.create(owner, "Many sources");
+        var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var sources = java.util.stream.IntStream.rangeClosed(1, 30)
+                .mapToObj(index -> new ChatSource(index, null, null, "File " + index, 0, 0, List.of(), UUID.randomUUID())).toList();
+        assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Answer [30]", null, null, null, null, null, sources));
+        assertEquals(30, sessions.history(owner, session.id(), null, 20).getLast().sources().size());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET sources = jsonb_build_array(repeat('x', 1048576)) WHERE id = :id")
+                .param("id", pair.assistantMessageId()).update(), "Stored sources stay bounded to 1 MiB");
+    }
+
+    @Test
     void createsPrivateSessionWithOneRootAndSharedDefaultPersona() {
         var first = sessions.create(owner, "First");
         var second = sessions.create(owner, "Second");
@@ -540,14 +574,38 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
-    void deadlineRejectsLateCompletionAndRetainsPartialFailure() {
-        var session = sessions.create(owner, "Deadline");
+    void lapsedButUnreconciledLeaseStillAcceptsTheLiveOutcome() {
+        var session = sessions.create(owner, "Lapsed lease");
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        // A slow renewal is not a failure: only reconciliation ends the row, and a live finish proves the process is alive.
         jdbc.sql("UPDATE chat_message SET deadline_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = :id")
                 .param("id", pair.assistantMessageId()).update();
-        assertTrue(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Partial"));
-        assertEquals(ChatMessage.Status.FAILED, sessions.history(owner, session.id(), null, 20).getLast().status());
+        assertTrue(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
+        assertEquals(ChatMessage.Status.COMPLETED, sessions.history(owner, session.id(), null, 20).getLast().status());
         assertFalse(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late"));
+    }
+
+    @Test
+    void leaseRenewalKeepsRunningRowsAndReconciliationFailsOnlyLapsedLeases() {
+        var session = sessions.create(owner, "Renewed lease");
+        var live = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var other = sessions.create(owner, "Lapsed lease");
+        var lapsed = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() + interval '2 seconds' WHERE id = :id")
+                .param("id", live.assistantMessageId()).update();
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
+                .param("id", lapsed.assistantMessageId()).update();
+        assertEquals(java.util.Set.of(live.assistantMessageId(), lapsed.assistantMessageId()),
+                turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), java.time.Duration.ofMinutes(30)));
+        assertEquals(0, turns.expireRuns(), "Renewed leases are not reconciled");
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
+                .param("id", lapsed.assistantMessageId()).update();
+        assertEquals(1, turns.expireRuns());
+        assertEquals(ChatMessage.Status.RUNNING, turns.authorizeReply(owner, session.id(), live.assistantMessageId()));
+        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, other.id(), lapsed.assistantMessageId()));
+        // A reconciled row is not renewed, so its process learns it no longer owns the run.
+        assertEquals(java.util.Set.of(live.assistantMessageId()),
+                turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), java.time.Duration.ofMinutes(30)));
     }
 
     @Test

@@ -69,6 +69,9 @@ public final class ChatModelExecutor {
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
 
+    /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
+    private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
+
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         var context = contexts.getObject();
@@ -142,9 +145,7 @@ public final class ChatModelExecutor {
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             java.util.List<com.embabel.chat.Message> messages;
             try (var ignored = fileWork.enter()) {
-                var remaining = Duration.between(Instant.now(), setup.deadline());
-                if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
-                messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), remaining, fileActive);
+                messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
             }
             if (selected.toolCalling()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
@@ -152,39 +153,38 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
-                        fileWork, setup.deadline(), events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
+                        fileWork, events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
                 guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
-                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));
+                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.tenant(), setup.assistantMessageId(), fileActive, setup.deadline(), imageEvents, 4)));
+                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
-                        fileActive, setup.deadline(), imageEvents, 4)));
+                        fileActive, imageEvents, 4)));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
-            Duration remaining = Duration.between(Instant.now(), setup.deadline());
-            if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
+            // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()
-                    .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast(remaining);
+                    .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast();
         } finally {
             if (searchTool != null) searchTool.close();
             fileCancellation.dispose();

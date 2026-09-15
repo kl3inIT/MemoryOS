@@ -27,6 +27,7 @@ public final class StreamBufferWriter {
     private final LongSupplier millis;
     private final LinkedHashMap<UUID, Stream> streams = new LinkedHashMap<>();
     private int readers;
+    private long total;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public StreamBufferWriter(ChatStreamProperties limits) {
@@ -61,17 +62,18 @@ public final class StreamBufferWriter {
     public record Batch(List<Event> events, boolean done, @Nullable String reset) {
     }
 
-    private record Chunk(Event event, int bytes, long created) {
+    private record Chunk(Event event, int bytes) {
     }
 
     public synchronized void open(UUID id) {
         if (streams.containsKey(id)) throw new IllegalStateException("Chat stream already exists");
-        long capacity = Math.min(limits.maxStreams(), limits.totalBytes() / limits.runBytes());
-        while (streams.size() >= capacity) {
+        while (streams.size() >= limits.maxStreams()) {
             var old = streams.values().stream().filter(s -> s.done).findFirst().orElseThrow(ChatException::busy);
             remove(old);
         }
-        streams.put(id, new Stream(id));
+        var stream = new Stream(id);
+        stream.writtenAt = millis.getAsLong();
+        streams.put(id, stream);
     }
 
     public synchronized void append(UUID id, String text) {
@@ -135,7 +137,7 @@ public final class StreamBufferWriter {
         for (var stream : new ArrayList<>(streams.values())) {
             flush(stream);
             expire(stream);
-            if (stream.done && millis.getAsLong() - stream.finishedAt >= limits.ttl().toMillis()) remove(stream);
+            if (stream.done && millis.getAsLong() - stream.finishedAt >= limits.doneTtl().toMillis()) remove(stream);
         }
     }
 
@@ -191,8 +193,10 @@ public final class StreamBufferWriter {
         int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
                 + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length)
                 + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length);
-        stream.chunks.addLast(new Chunk(event, bytes, millis.getAsLong()));
+        stream.chunks.addLast(new Chunk(event, bytes));
         stream.bytes += bytes;
+        total += bytes;
+        stream.writtenAt = millis.getAsLong();
         for (var reader : new ArrayList<>(stream.readers)) {
             reader.liveBytes += bytes;
             if (reader.liveBytes > limits.readerBytes()) reader.reset("BUFFER_GAP");
@@ -202,17 +206,27 @@ public final class StreamBufferWriter {
     }
 
     private void trim(Stream stream) {
-        while (!stream.chunks.isEmpty() && stream.bytes + stream.pendingBytes > limits.runBytes()) {
-            stream.bytes -= stream.chunks.removeFirst().bytes();
-            stream.gap = "BUFFER_GAP";
+        while (!stream.chunks.isEmpty() && stream.bytes + stream.pendingBytes > limits.runBytes()) drop(stream, "BUFFER_GAP");
+        // Held bytes, not reservations, are bounded: completed replays go first, then this run's oldest events.
+        while (total > limits.totalBytes()) {
+            var completed = streams.values().stream().filter(other -> other.done && other != stream).findFirst();
+            if (completed.isPresent()) remove(completed.get());
+            else if (!stream.chunks.isEmpty()) drop(stream, "BUFFER_GAP");
+            else break;
         }
     }
 
+    /** As Onyx's refresh-on-write TTL: a live replay expires only after a whole idle TTL; completion has its own TTL. */
     private void expire(Stream stream) {
-        while (!stream.chunks.isEmpty() && millis.getAsLong() - stream.chunks.getFirst().created() >= limits.ttl().toMillis()) {
-            stream.bytes -= stream.chunks.removeFirst().bytes();
-            stream.gap = "BUFFER_EXPIRED";
-        }
+        if (stream.done || millis.getAsLong() - stream.writtenAt < limits.ttl().toMillis()) return;
+        while (!stream.chunks.isEmpty()) drop(stream, "BUFFER_EXPIRED");
+    }
+
+    private void drop(Stream stream, String gap) {
+        int bytes = stream.chunks.removeFirst().bytes();
+        stream.bytes -= bytes;
+        total -= bytes;
+        stream.gap = gap;
     }
 
     private void remove(Stream stream) {
@@ -220,6 +234,7 @@ public final class StreamBufferWriter {
         for (var reader : new ArrayList<>(stream.readers)) reader.reset("BUFFER_MISSING");
         stream.chunks.clear();
         stream.pending.setLength(0);
+        total -= stream.bytes;
         stream.bytes = 0;
         stream.pendingBytes = 0;
     }
@@ -233,6 +248,7 @@ public final class StreamBufferWriter {
         int bytes;
         int pendingBytes;
         long sequence;
+        long writtenAt;
         long flushedAt;
         long finishedAt;
         boolean done;

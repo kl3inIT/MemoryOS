@@ -59,7 +59,8 @@ final class ChatActivityRecorder {
     private void tool(ChatToolEvent event, int textOffset) {
         var step = steps.get(event.toolCallId());
         if (event.stage() == ChatToolEvent.Stage.SOURCE) {
-            if (step != null && step.citations.size() < 24) step.citations.add(event.source().citationId());
+            // No count cap; the byte budget in seal() drops citation detail when history would not fit.
+            if (step != null) step.citations.add(event.source().citationId());
             return;
         }
         if (step == null) {

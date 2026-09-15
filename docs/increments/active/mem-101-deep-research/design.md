@@ -57,6 +57,8 @@ Baseline: run each agent through the existing Embabel `PromptRunner` tool loop, 
 
 Evidence gap: Embabel streaming does not call loop inspectors or transformers (MEM-11 probe), and Chat tool guidance for `searchKnowledge`/`web_search`/`open_url` would be added to agent prompts. If the guard hook cannot express the per-cycle prompt, forced report and Onyx tool guidance, the fallback is the same `streamInference` loop as the orchestrator with direct `Tool.call`. The first implementation step decides with a fixture test.
 
+Decision (2026-09-15): research agents use the same `streamInference` loop as the orchestrator, with direct `Tool.call`. Fixture P6 (`DeepResearchSpikeProbeTest.researchAgentLoopRunsDirectToolCallsAndWritesTheIntermediateReport`) drives one guarded inference per cycle with a per-cycle system prompt and `tool_choice=required`, applies Onyx's first-tool-type filter (showing the loop controls which calls run; the product keeps the mixed-batch departure below), treats `generate_report` as a loop signal without executing it, and writes the intermediate report as a tool-free inference over the kept history; the guard records every inference. The `PromptRunner` baseline is rejected on code evidence: its streaming loop executes every returned call, returns only text (no history for the intermediate report), cannot stop at the 12-minute force-report point, and `ChatModelGuard` composes a fixed `ChatPrompts.forInference` prompt. Research agents therefore reuse tool instances (`SearchTool`, `WebTools`, `FileReaderTool`) through `Tool.fromInstance` and call them directly.
+
 Tools: Onyx allows `{internal search, web_search, open_url}` plus `think_tool`/`generate_report` (`dr_loop.py:255`; its TODO lists non-search tools as a future extension). MEM-110 `run_python` and image generation are excluded.
 
 Attached files (owner, 2026-09-15): when the turn has attachments, research agents also get `search_files` and `read_file`, the agent prompt lists the attached file names and IDs, and the orchestrator prompt lists the file names so tasks can direct agents to them. Without attachments the tool set is Onyx's.
@@ -85,10 +87,10 @@ Source count (owner, 2026-09-15: as Onyx). Onyx has no citation count cap: `Dyna
 
 ### Persistence
 
-- V62: `research_mode` in command identity; replay with a different mode conflicts, as `webSearch` does.
-- V63: `chat_message.is_clarification` and the persisted plan text. Persisting the plan departs from Onyx so reload shows it; editing it stays out of scope.
-- V64: `chat_tool_call` tree mirroring Onyx `tool_call`: `parent_tool_call_id`, `turn_number`, `tab_index`, bounded arguments summary, response or intermediate report, reasoning. Written by the terminal finish in the same transaction as `sources`, `artifacts` and `activity`. Orchestrator-level steps stay within the MEM-100 `activity` bounds; nested agent steps live in the table.
-- The administrator setting is tenant-owned Chat configuration next to the existing Web and image connection defaults; its migration number follows the Chat-wide steps.
+- V65: `research_mode` in command identity; replay with a different mode conflicts, as `webSearch` does.
+- V66: `chat_message.is_clarification` and the persisted plan text. Persisting the plan departs from Onyx so reload shows it; editing it stays out of scope.
+- V67: `chat_tool_call` tree mirroring Onyx `tool_call`: `parent_tool_call_id`, `turn_number`, `tab_index`, bounded arguments summary, response or intermediate report, reasoning. Written by the terminal finish in the same transaction as `sources`, `artifacts` and `activity`. Orchestrator-level steps stay within the MEM-100 `activity` bounds; nested agent steps live in the table.
+- The administrator setting is tenant-owned Chat configuration next to the existing Web and image connection defaults; V68. (V63/V64 relax the Chat-wide source count cap.)
 
 ### Entry and administrator setting
 
@@ -128,13 +130,23 @@ Compared on 2026-09-15 against Onyx `160f9b143`:
 | --- | --- | --- | --- |
 | Turn deadline | None. A processing fence (`chat_processing_checker.py`, TTL 30 min) is refreshed every 60 s while the writer lives (`process_message.py:1492`); a lapsed fence marks a dead run, resume ends and the client renders the persisted message (`chat_backend.py` resume-stream) | `deadline_at = reservation + memoryos.chat.execution.deadline` (2 min, capped at 30 min); `expireRuns` fails RUNNING rows 5 s past it; tools and the runner derive remaining time from it (`SearchTool`, `WebTools`, `FileReaderTool`, `GenerateImageTool`, `ChatModelExecutor`) | `deadline_at` becomes a lease renewed every 60 s to now + 30 min while the run lives; `expireRuns` reconciles only lapsed leases (process death). No total turn bound: cycles, token/cost budgets and per-call timeouts bound work; tools use their own timeouts instead of the turn remainder. Every blocking call must keep an own timeout |
 | Provider call timeout | 60 s gap between packets (`LLM_SOCKET_READ_TIMEOUT`, `DR_REPORT_LLM_TIMEOUT_S`); no total bound | Total call timeout equals the turn deadline (`ChatModelResolver` → `OpenAiCancellation` `callTimeout`; read/write default to it) | Read/write gap 60 s; no total bound beyond cancellation, Stop and the run lease |
-| Stream replay | TTL 3600 s refreshed per write; 600 s after completion; 16 MiB (`CHAT_STREAM_BUFFER_*`) | Each chunk expires 10 min after creation (`StreamBufferWriter.expire`); 4 MiB per run | Refresh-on-write TTL, completion retention and byte cap as Onyx |
+| Stream replay | TTL 3600 s refreshed per write; 600 s after completion; 16 MiB (`CHAT_STREAM_BUFFER_*`) | Each chunk expires 10 min after creation (`StreamBufferWriter.expire`); 4 MiB per run | Refresh-on-write TTL, completion retention and byte cap as Onyx; the process total bounds held bytes, not reservations (below) |
 | Browser recovery | Resume from cursor without a time cap (`useChatSessionController`) | 3 × 65 s SSE attempts, then history polling for at most 31 min (`chat-transport.ts`) | Poll while the run is RUNNING; a lapsed lease ends it through reconciliation |
 | Heartbeat | 15 s | 15 s | None |
 | First-chunk retry | 2 (`LLM_FIRST_CHUNK_MAX_RETRIES`) | 0 (MEM-11) | None; not part of this decision |
 | Stop | Cache fence; running threads continue | Local cancellation closes provider connections | None; MemoryOS keeps stronger cancellation |
 
 These changes apply to every Chat turn and are delivered and re-verified (Stop, cancellation, reconnect, replay, process-death reconciliation) before research mode depends on them.
+
+Implementation decisions (2026-09-15):
+
+- Configuration: `memoryos.chat.execution.deadline` is replaced by `lease-ttl` (30 min), `lease-renewal` (60 s) and `provider-read-timeout` (60 s). No deployment override of the old key exists. The `deadline_at` column keeps its name and now stores the lease expiry.
+- Renewal runs in the existing one-second maintenance tick, only for runs whose last renewal is at least `lease-renewal` old, in one `UPDATE … RETURNING id`. A failed renewal is logged and retried; it never stops the run (Onyx never kills a run over a fence refresh). A run whose row is no longer RUNNING is interrupted locally.
+- The terminal write no longer turns a past `deadline_at` into `CHAT_DEADLINE`: a live process finishing proves it was alive. Only reconciliation fails a row, and the `status = 'RUNNING'` predicate then rejects the late write. `CHAT_DEADLINE` is no longer produced.
+- `TurnContext`/`ChatTurnSetup` carry no deadline. Own bounds: helper calls `helper-timeout` (60 s); Web batches 30 s; file reads, file search and attachment materialization 60 s; image calls the image client's 5 s connect and 120 s response timeouts; the final answer stream has no total (`blockLast()`), bounded by the read gap, Stop and the lease.
+- The provider `Timeout` sets connect, read and write to `provider-read-timeout` and `request` to zero (no total); per-request helper timeouts still rebuild the OkHttp call with their own total. Model listing (`reportedModels`) uses the same value as its connect and request bound.
+- Stream replay, a departure in accounting only: Onyx stores the buffer compressed in Redis without a process total. MemoryOS holds it in heap, so `total-bytes` (64 MiB) bounds bytes actually held instead of reserving `run-bytes` per open buffer. With a 16 MiB run cap the old reservation would have admitted only four buffers, below `concurrency` 8. When held bytes exceed the total, completed buffers are evicted first, then the writing run loses its oldest events as a gap; up to `max-streams` buffers stay open. Over its run cap, Onyx marks the buffer truncated and stops appending; MemoryOS keeps its existing drop-oldest gap, so a reader that falls behind still reaches the terminal outcome.
+- Owner decision (2026-09-15), a departure from Onyx: API startup fails every RUNNING row with `CHAT_INTERRUPTED` before the web server accepts requests, so a hard-killed process does not leave sessions blocked for the 30 min lease once the API is back. Onyx waits for its fence TTL. It relies on the single-replica deployment: several API replicas or an overlapping rolling deploy would fail another process's live runs, so that change must remove it. A failed startup pass is logged and lease reconciliation remains the fallback.
 
 ### Observability
 

@@ -8,7 +8,6 @@ import io.memoryos.chat.catalog.ChatModelResolver;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
@@ -34,7 +33,7 @@ import reactor.core.publisher.Sinks;
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
     private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
-            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS", "CHAT_DEADLINE",
+            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS",
             "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
@@ -141,7 +140,7 @@ public final class ChatTurnService implements AutoCloseable {
                 if (imageAccess.generate() == null) throw ChatException.providerUnavailable();
             }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
-            reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
+            reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
             if (!reserved.created()) return accepted(reserved);
@@ -245,8 +244,7 @@ public final class ChatTurnService implements AutoCloseable {
             run.finish(ChatMessage.Status.COMPLETED, null);
         } catch (RuntimeException failure) {
             boolean userStop = run.stopReason.get() == StopReason.USER;
-            String code = !Instant.now().isBefore(run.setup.deadline()) ? "CHAT_DEADLINE"
-                    : run.stopReason.get() == StopReason.INTERRUPTED ? "CHAT_INTERRUPTED" : failureCode(failure);
+            String code = run.stopReason.get() == StopReason.INTERRUPTED ? "CHAT_INTERRUPTED" : failureCode(failure);
             run.finish(userStop ? ChatMessage.Status.CANCELED : ChatMessage.Status.FAILED,
                     userStop ? null : code);
             // Provider exceptions may contain prompts/credentials. Never log their payload or stack here.
@@ -277,14 +275,49 @@ public final class ChatTurnService implements AutoCloseable {
         if (run.persisted && run.drained && active.remove(run.setup.assistantMessageId(), run)) permits.release();
     }
 
-    /** Only pending outcomes and stale deadlines touch the database; Stop is local. */
+    /**
+     * Only pending outcomes and due lease renewals touch the database; Stop is local. A turn has no total deadline:
+     * the lease is renewed while this process runs it, so only a dead process lets it lapse into reconciliation.
+     */
     public void maintain() {
+        long now = System.nanoTime();
+        var due = new ArrayList<Active>();
         for (var run : active.values()) {
             if (run.outcome != null) { finalizeRun(run); continue; }
-            if (!Instant.now().isBefore(run.setup.deadline())) run.cancel(StopReason.INTERRUPTED);
+            if (now - run.renewedAt >= limits.leaseRenewal().toNanos()) due.add(run);
+        }
+        if (!due.isEmpty()) {
+            try {
+                var renewed = persistence.renewLeases(due.stream().map(run -> run.setup.assistantMessageId()).toList(), limits.leaseTtl());
+                for (var run : due) {
+                    run.renewedAt = now;
+                    // The row already ended elsewhere (reconciled after a lapse, or deleted); this process no longer owns it.
+                    if (!renewed.contains(run.setup.assistantMessageId())) run.cancel(StopReason.INTERRUPTED);
+                }
+            } catch (RuntimeException failure) {
+                // Never stop a live run over a failed renewal; the next tick retries well inside the lease.
+                LOG.warn("Chat lease renewal unavailable ({})", failure.getClass().getSimpleName());
+            }
         }
         try { persistence.expireRuns(); }
-        catch (RuntimeException failure) { LOG.warn("Chat deadline reconciliation unavailable ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) { LOG.warn("Chat lease reconciliation unavailable ({})", failure.getClass().getSimpleName()); }
+    }
+
+    /**
+     * Before the first send: a new process owns no run, so on the single-replica deployment every RUNNING row belongs to
+     * a process that died without shutdown. Failing them now avoids waiting for the lease. A departure from Onyx, which
+     * waits for its fence TTL; running several API replicas requires removing this. Lease reconciliation stays the fallback.
+     */
+    public void failOrphanedRuns() {
+        if (!active.isEmpty()) throw new IllegalStateException("Orphan reconciliation must run before any send");
+        try {
+            int failed = 0;
+            for (int batch; (batch = persistence.failOrphanedRuns()) > 0; ) failed += batch;
+            if (failed > 0) LOG.warn("Chat startup failed {} runs left RUNNING by a previous process", failed);
+        } catch (RuntimeException failure) {
+            LOG.warn("Chat startup orphan reconciliation unavailable ({}); lease reconciliation remains responsible",
+                    failure.getClass().getSimpleName());
+        }
     }
 
     private void finalizeRun(Active run) {
@@ -317,7 +350,7 @@ public final class ChatTurnService implements AutoCloseable {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException | TimeoutException incomplete) {
-            LOG.warn("Chat shutdown drain incomplete; durable deadline reconciliation remains responsible");
+            LOG.warn("Chat shutdown drain incomplete; durable lease reconciliation remains responsible");
         }
     }
 
@@ -346,6 +379,7 @@ public final class ChatTurnService implements AutoCloseable {
         volatile boolean drained;
         volatile boolean persisted;
         volatile boolean deleted;
+        volatile long renewedAt = System.nanoTime();
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
@@ -364,7 +398,7 @@ public final class ChatTurnService implements AutoCloseable {
         synchronized void activity(ChatActivityEvent event) {
             check();
             if (event instanceof ChatToolEvent tool && tool.source() != null) {
-                if (sources.size() >= 24 || tool.source().citationId() != sources.size() + 1)
+                if (tool.source().citationId() != sources.size() + 1)
                     throw new IllegalStateException("Invalid Chat evidence sequence");
                 sources.add(tool.source());
             }
@@ -376,13 +410,12 @@ public final class ChatTurnService implements AutoCloseable {
                 var activity = recorder.seal();
                 if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), Instant.now().isBefore(setup.deadline()) ? "CHAT_INTERRUPTED" : "CHAT_DEADLINE", List.copyOf(sources), artifacts, activity);
+                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity);
                 else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts, activity);
             }
         }
         void check() {
             if (stopReason.get() != null || outcome != null) throw new CancellationException("Chat stopped");
-            if (!Instant.now().isBefore(setup.deadline())) throw new IllegalStateException("CHAT_DEADLINE");
         }
     }
 }

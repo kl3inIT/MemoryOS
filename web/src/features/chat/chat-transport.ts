@@ -402,9 +402,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       if (!outcome) {
         this.callbacks.state("recovering");
-        // Covers the server's maximum 30-minute deadline plus finalization grace.
-        const until = Date.now() + 31 * 60_000;
-        while (!outcome && Date.now() < until) {
+        // A turn has no total deadline, as Onyx: poll while it is RUNNING. The server lease fails a dead run.
+        while (!outcome) {
           signal.throwIfAborted();
           // Only the reply after its stable USER parent is needed; don't reload a long transcript on every poll.
           if (!this.runParentId) throw new Error("Reply parent is unavailable");
@@ -429,8 +428,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             imageGenerating = false;
           } else await pause(2000, signal);
         }
-        if (!outcome)
-          throw new Error("Reply status could not be confirmed; check the conversation again");
       }
       // Terminal SSE carries only a flag so bounded replay buffers never contain large UI specs.
       // Reuse the authorized history reader, scoped to the stable user parent, exactly once.

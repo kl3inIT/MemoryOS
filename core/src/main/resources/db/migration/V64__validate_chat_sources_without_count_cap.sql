@@ -1,0 +1,1 @@
+ALTER TABLE chat_message VALIDATE CONSTRAINT chat_message_sources_valid;

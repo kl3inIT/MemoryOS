@@ -177,12 +177,13 @@ public class JdbcChatRepository {
         selectChild(session, parent, user);
     }
 
-    public void insertAssistant(UUID session, UUID user, UUID assistant, Duration timeout) {
+    /** {@code deadline_at} holds the run lease expiry, renewed while the owning process is alive. */
+    public void insertAssistant(UUID session, UUID user, UUID assistant, Duration lease) {
         jdbc.sql("""
                         INSERT INTO chat_message(id, session_id, parent_message_id, role, status, deadline_at)
-                        VALUES (:id, :session, :parent, 'ASSISTANT', 'RUNNING', clock_timestamp() + :timeout * interval '1 millisecond')
+                        VALUES (:id, :session, :parent, 'ASSISTANT', 'RUNNING', clock_timestamp() + :lease * interval '1 millisecond')
                         """).param("id", assistant).param("session", session).param("parent", user)
-                .param("timeout", timeout.toMillis()).update();
+                .param("lease", lease.toMillis()).update();
         selectChild(session, user, assistant);
         touch(session);
     }
@@ -315,14 +316,26 @@ public class JdbcChatRepository {
                 .query(JdbcChatRepository::message).list();
     }
 
-    public record Control(Status status, Instant deadline, @Nullable String failureCode) {
+    public record Control(Status status, @Nullable String failureCode) {
     }
 
     public Control control(UUID assistant) {
         return jdbc.sql("""
-                SELECT status, deadline_at, failure_code FROM chat_message WHERE id = :id AND role = 'ASSISTANT'
+                SELECT status, failure_code FROM chat_message WHERE id = :id AND role = 'ASSISTANT'
                 """).param("id", assistant).query((row, ignored) -> new Control(Status.valueOf(row.getString("status")),
-                row.getTimestamp("deadline_at").toInstant(), row.getString("failure_code"))).single();
+                row.getString("failure_code"))).single();
+    }
+
+    /**
+     * At most one reply per session is RUNNING, so these row locks never overlap a session-first terminal lock cycle.
+     * Returns the renewed IDs; a row that already ended is not renewed.
+     */
+    public java.util.Set<UUID> renewLeases(java.util.Collection<UUID> assistants, Duration lease) {
+        if (assistants.isEmpty()) return java.util.Set.of();
+        return java.util.Set.copyOf(jdbc.sql("""
+                UPDATE chat_message SET deadline_at = clock_timestamp() + :lease * interval '1 millisecond'
+                WHERE id IN (:ids) AND role = 'ASSISTANT' AND status = 'RUNNING' RETURNING id
+                """).param("ids", assistants).param("lease", lease.toMillis()).query(UUID.class).list());
     }
 
     public boolean finish(UUID session, UUID assistant, Status status, String content,
@@ -349,10 +362,10 @@ public class JdbcChatRepository {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return false;
+        // A lapsed but unreconciled lease is not a failure: a live process finishing proves it was alive.
+        // Once reconciliation has failed the row, the RUNNING predicate rejects this late write.
         int changed = jdbc.sql("""
-                        UPDATE chat_message SET
-                            status = CASE WHEN deadline_at <= clock_timestamp() THEN 'FAILED' ELSE :status END,
-                            failure_code = CASE WHEN deadline_at <= clock_timestamp() THEN 'CHAT_DEADLINE' ELSE :failure END,
+                        UPDATE chat_message SET status = :status, failure_code = :failure,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb),
                             activity = CAST(:activity AS jsonb), finished_at = clock_timestamp()
@@ -365,6 +378,18 @@ public class JdbcChatRepository {
                 .param("activity", JSON.writeValueAsString(activity)).update();
         if (changed == 1) touch(session);
         return changed == 1;
+    }
+
+    /** One bounded batch of every RUNNING row, regardless of lease; only valid when no process can own one. */
+    public int failOrphanedRuns() {
+        return jdbc.sql("""
+                WITH orphaned AS (
+                    SELECT id FROM chat_message WHERE status = 'RUNNING' ORDER BY deadline_at LIMIT 100 FOR UPDATE SKIP LOCKED
+                ) UPDATE chat_message m SET status = 'FAILED',
+                    failure_code = 'CHAT_INTERRUPTED',
+                    finished_at = clock_timestamp()
+                FROM orphaned o WHERE m.id = o.id AND m.status = 'RUNNING'
+                """).update();
     }
 
     public int expireRuns() {

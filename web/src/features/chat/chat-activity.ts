@@ -61,7 +61,7 @@ export const activitySchema = z
           queries: z.array(z.string().min(1).max(500)).max(8).default([]),
           filters: filtersSchema.nullish(),
           documents: z.array(readingDocumentSchema).max(10).default([]),
-          citations: z.array(z.number().int().min(1).max(24)).max(24).default([]),
+          citations: z.array(z.number().int().min(1)).default([]),
         }),
       )
       .max(32)
@@ -159,7 +159,7 @@ export class ActivityChunks {
       if (!cited.includes(event.source.citationId))
         this.citations = {
           ...this.citations,
-          [event.toolCallId]: [...cited, event.source.citationId].slice(0, 24),
+          [event.toolCallId]: [...cited, event.source.citationId],
         };
       // Hosted search cites after its step completes; a finished part keeps its output and the
       // citations travel in message metadata instead.
