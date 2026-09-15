@@ -1821,7 +1821,7 @@ export const getChatSession = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Read or resume reply events; reset requires persisted history
  *
- * Events: text-delta, search, image, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
+ * Events: text-delta, reasoning, tool, image, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
  */
 export const streamChatMessage = <ThrowOnError extends boolean = false>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, StreamChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

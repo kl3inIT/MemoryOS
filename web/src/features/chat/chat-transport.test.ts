@@ -39,6 +39,7 @@ const row: ChatMessage = {
   artifacts: [],
   files: [],
   sources: [],
+  activity: { steps: [], reasoning: [] },
   images: [],
   id: runId,
   sessionId: session.id,
@@ -154,7 +155,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(toUiMessages([{ ...row, artifacts }])[0]?.metadata?.artifacts).toEqual(artifacts);
   });
 
-  it("replays search plans once and retains them while selected documents are being read", async () => {
+  it("streams one server-executed tool part whose input carries progress and fails it on Stop", async () => {
     const search = {
       queries: ["HR-2026"],
       filters: { sources: ["FILE"], created: null, updated: null },
@@ -168,38 +169,38 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         endOrdinal: fixtureSource.endOrdinal,
       },
     ];
-    const plan = packet(1, "search", {
-      toolCallId: "s1",
-      stage: "SEARCHING",
-      source: null,
-      search,
-      documents: [],
-    });
+    const tool = { toolCallId: "s1", toolName: "searchKnowledge", source: null, durationMs: null };
+    const plan = packet(1, "tool", { ...tool, stage: "SEARCHING", search, documents: [] });
     fixture(() =>
       sse(
         plan +
           plan +
-          packet(2, "search", {
-            toolCallId: "s1",
-            stage: "EXPANDING",
-            source: null,
-            search: null,
-            documents,
-          }) +
+          packet(2, "tool", { ...tool, stage: "EXPANDING", search: null, documents }) +
           packet(3, "outcome", { status: "CANCELED" }),
       ),
     );
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));
-    const metadata = chunks.filter((chunk) => chunk.type === "message-metadata");
-    expect(metadata).toHaveLength(3);
-    expect(metadata[1]).toMatchObject({
-      messageMetadata: {
-        sources: [],
-        searchProgress: { s1: { stage: "EXPANDING", search, documents } },
+    expect(chunks.filter((chunk) => chunk.type === "tool-input-start")).toEqual([
+      {
+        type: "tool-input-start",
+        toolCallId: "s1",
+        toolName: "searchKnowledge",
+        providerExecuted: true,
+        dynamic: true,
       },
+    ]);
+    const inputs = chunks.filter((chunk) => chunk.type === "tool-input-available");
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]).toMatchObject({
+      input: { stage: "EXPANDING", queries: ["HR-2026"], filters: search.filters, documents },
     });
-    expect(metadata[2]).toMatchObject({
-      messageMetadata: { searchProgress: {}, serverStatus: "CANCELED" },
+    expect(chunks.find((chunk) => chunk.type === "tool-output-error")).toMatchObject({
+      toolCallId: "s1",
+      errorText: "TOOL_FAILED",
+    });
+    expect(chunks.some((chunk) => chunk.type === "text-start")).toBe(false);
+    expect(chunks.filter((chunk) => chunk.type === "message-metadata").at(-1)).toMatchObject({
+      messageMetadata: { serverStatus: "CANCELED" },
     });
   });
 
@@ -240,8 +241,9 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
   });
 
   it("feeds sequenced sources into native message state once and retains them on Stop", async () => {
-    const source = packet(2, "search", {
+    const source = packet(2, "tool", {
       toolCallId: "s1",
+      toolName: "searchKnowledge",
       stage: "SOURCE",
       source: fixtureSource,
     });
@@ -254,10 +256,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(chunks.filter((chunk) => chunk.type === "message-metadata")).toEqual([
       {
         type: "message-metadata",
-        messageMetadata: {
-          sources: [fixtureSource],
-          searchProgress: { s1: { stage: "SOURCE", search: null, documents: [] } },
-        },
+        messageMetadata: { sources: [fixtureSource] },
       },
       {
         type: "message-metadata",
@@ -266,7 +265,6 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           artifacts: [],
           images: [],
           imageGenerating: false,
-          searchProgress: {},
           serverStatus: "CANCELED",
         },
       },
@@ -314,7 +312,12 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
   it("advances over search progress events without losing the text stream or falling back to history", async () => {
     const fetch = fixture(() =>
       sse(
-        packet(1, "search", { toolCallId: "search-1", stage: "STARTED", source: null }) +
+        packet(1, "tool", {
+          toolCallId: "search-1",
+          toolName: "searchKnowledge",
+          stage: "STARTED",
+          source: null,
+        }) +
           packet(2, "text-delta", { text: "Answer [1]" }) +
           packet(3, "outcome", { status: "COMPLETED", failureCode: null }),
       ),
@@ -325,6 +328,122 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     ]);
     expect(chunks.at(-1)).toEqual({ type: "finish", finishReason: "stop" });
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("orders reasoning, tool steps and answer text into separate parts and skips unknown events", async () => {
+    const call = {
+      toolCallId: "call_1",
+      toolName: "web_search",
+      source: null,
+      search: null,
+      documents: [],
+      durationMs: null,
+    };
+    fixture(() =>
+      sse(
+        packet(1, "reasoning", { text: "Checking " }) +
+          packet(2, "reasoning", { text: "sources" }) +
+          packet(3, "tool", { ...call, stage: "STARTED" }) +
+          packet(4, "future-event", { anything: true }) +
+          packet(5, "tool", { ...call, stage: "COMPLETED", durationMs: 1200 }) +
+          packet(6, "text-delta", { text: "Answer" }) +
+          packet(7, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.map((chunk) => chunk.type).filter((type) => type !== "message-metadata")).toEqual(
+      [
+        "start",
+        "reasoning-start",
+        "reasoning-delta",
+        "reasoning-delta",
+        "reasoning-end",
+        "tool-input-start",
+        "tool-input-available",
+        "tool-input-available",
+        "tool-output-available",
+        "text-start",
+        "text-delta",
+        "text-end",
+        "finish",
+      ],
+    );
+    expect(chunks.find((chunk) => chunk.type === "tool-output-available")).toMatchObject({
+      toolCallId: "call_1",
+      output: { durationMs: 1200 },
+    });
+  });
+
+  it("keeps hosted-search citations that arrive after the step finished in message metadata", async () => {
+    const call = { toolCallId: "ws_1", toolName: "web_search", search: null, documents: [] };
+    fixture(() =>
+      sse(
+        packet(1, "tool", { ...call, stage: "STARTED", source: null, durationMs: null }) +
+          packet(2, "tool", { ...call, stage: "COMPLETED", source: null, durationMs: 900 }) +
+          packet(3, "tool", { ...call, stage: "SOURCE", source: fixtureSource, durationMs: null }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "tool-output-available")).toHaveLength(1);
+    expect(chunks.filter((chunk) => chunk.type === "tool-input-available")).toHaveLength(2);
+    expect(chunks.find((chunk) => chunk.type === "message-metadata")).toMatchObject({
+      messageMetadata: { sources: [fixtureSource], toolCitations: { ws_1: [1] } },
+    });
+  });
+
+  it("rebuilds saved reasoning, tool steps and text in streamed order", () => {
+    const [message] = toUiMessages([
+      {
+        ...row,
+        content: "Before. After.",
+        activity: {
+          steps: [
+            {
+              position: 1,
+              toolCallId: "call_1",
+              toolName: "searchKnowledge",
+              status: "COMPLETED",
+              startedAt: row.createdAt,
+              durationMs: 800,
+              textOffset: 7,
+              queries: ["leave"],
+              documents: [],
+              citations: [1],
+            },
+            {
+              position: 2,
+              toolCallId: "call_2",
+              toolName: "read_file",
+              status: "FAILED",
+              startedAt: row.createdAt,
+              durationMs: 20,
+              textOffset: 14,
+              queries: [],
+              documents: [],
+              citations: [],
+            },
+          ],
+          reasoning: [{ position: 0, textOffset: 0, text: "Plan" }],
+        },
+      },
+    ]);
+    expect(message!.parts.map((part) => part.type)).toEqual([
+      "reasoning",
+      "text",
+      "dynamic-tool",
+      "text",
+      "dynamic-tool",
+      "text",
+    ]);
+    expect(message!.parts[1]).toEqual({ type: "text", text: "Before." });
+    expect(message!.parts[2]).toMatchObject({
+      state: "output-available",
+      input: { queries: ["leave"], citations: [1], durationMs: 800 },
+    });
+    expect(message!.parts[3]).toEqual({ type: "text", text: " After." });
+    expect(message!.parts[4]).toMatchObject({ state: "output-error", errorText: "TOOL_FAILED" });
+    expect(toUiMessages([row])[0]!.parts.map((part) => part.type)).toEqual(["text"]);
   });
 
   it("uses server IDs and stable request identity, ignores duplicate replay and finishes only on outcome", async () => {

@@ -215,33 +215,36 @@ export function ProviderEditor({
               }}
             />
           </label>
-          <label className="block space-y-1">
-            {ui("Adapter")}
-            <Select
-              value={adapterType}
-              disabled={Boolean(baseline)}
-              onChange={(event) => {
-                setAdapterType(event.target.value);
-                clearSecret();
-                setSaved(false);
-              }}
-            >
-              {!adapter && (
-                <option value={adapterType}>
-                  {ui(
-                    appText("{{adapter}} (unavailable)", {
-                      adapter: adapterType || appText("Choose installed adapter"),
-                    }),
-                  )}
-                </option>
-              )}
-              {adapters.map((entry) => (
-                <option key={entry.type} value={entry.type}>
-                  {entry.type}
-                </option>
-              ))}
-            </Select>
-          </label>
+          {/* One installed protocol offers no choice; a second one makes the selection meaningful. */}
+          {(adapters.length > 1 || !adapter) && (
+            <label className="block space-y-1">
+              {ui("Protocol")}
+              <Select
+                value={adapterType}
+                disabled={Boolean(baseline)}
+                onChange={(event) => {
+                  setAdapterType(event.target.value);
+                  clearSecret();
+                  setSaved(false);
+                }}
+              >
+                {!adapter && (
+                  <option value={adapterType}>
+                    {ui(
+                      appText("{{adapter}} (unavailable)", {
+                        adapter: adapterType || appText("Choose installed adapter"),
+                      }),
+                    )}
+                  </option>
+                )}
+                {adapters.map((entry) => (
+                  <option key={entry.type} value={entry.type}>
+                    {entry.type === "openai" ? ui("OpenAI-compatible") : entry.type}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
           <label className="block space-y-1">
             {ui("Endpoint URL")}
             <Input

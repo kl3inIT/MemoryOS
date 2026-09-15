@@ -69,7 +69,7 @@ All decisions were approved with the user on 2026-09-15.
 
 ### Data and contract
 
-- **V61 migration:**
+- **V63 migration:**
   - drop `ck_pairs_access`;
   - update `RESTRICTED` to `PRIVATE`;
   - add `CHECK (access_type IN ('PUBLIC','PRIVATE','SYNC'))`.
@@ -148,7 +148,7 @@ Two consumers use this same fragment, so what is indexed and what is rechecked c
   - index-time tokens equal recheck decisions;
   - FILE rejects SYNC;
   - a scoped manager cannot choose Public;
-  - the V61 migration.
+  - the V63 migration.
 - **Search integration with OpenSearch:**
   - all three modes × readers inside and outside the ACL or Group;
   - a mode change and an ACL change are reflected through the ACCESS refresh without re-embedding.

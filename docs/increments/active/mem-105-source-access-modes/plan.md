@@ -4,7 +4,7 @@
 
 **Goal:** Replace PUBLIC/RESTRICTED with Public, Private and Auto Sync Source access, and enforce the retained Google Drive permissions in Search, Chat document search, citations and original-PDF reads.
 
-**Architecture:** V61 renames RESTRICTED to PRIVATE and adds SYNC. One SQL rule in `JdbcSourceDocumentRepository` derives Auto Sync grant tokens from the last successful MEM-88 snapshot. The same rule is used for index-time `DocumentAccess` and for the post-query `READ_SCOPE` recheck. Reader tokens come from the verified login email in `actor_profiles`. `GoogleDriveAclChanged` and mode changes enqueue the existing in-place ACCESS refresh.
+**Architecture:** V63 renames RESTRICTED to PRIVATE and adds SYNC. One SQL rule in `JdbcSourceDocumentRepository` derives Auto Sync grant tokens from the last successful MEM-88 snapshot. The same rule is used for index-time `DocumentAccess` and for the post-query `READ_SCOPE` recheck. Reader tokens come from the verified login email in `actor_profiles`. `GoogleDriveAclChanged` and mode changes enqueue the existing in-place ACCESS refresh.
 
 **Tech stack:** Spring Boot, `JdbcClient`, Flyway and PostgreSQL (JSONB), OpenSearch, React/TanStack and hey-api.
 
@@ -36,7 +36,7 @@
 
 ---
 
-### Task 1: V61 and the three-value enum
+### Task 1: V63 and the three-value enum
 
 **Files:**
 - Create: `core/src/main/resources/db/migration/V56__source_access_modes.sql`
@@ -141,7 +141,7 @@ Replace `SourceAccess.RESTRICTED` with `SourceAccess.PRIVATE` in main code. The 
   - `SearchIndexWorkIntegrationTest`
   - `SourceApiIntegrationTest`
 
-  Keep `RESTRICTED` where a test seeds a pre-V61 schema (`GroupMigrationSeedTest`, `GoogleDriveOAuthClientMigrationTest`, and the first test of `SourceSearchMetadataMigrationTest`). In `SourceSearchMetadataMigrationTest`, give `seed(...)` a `String driveAccess` parameter: the V34 test passes `"RESTRICTED"` and the others pass `"PRIVATE"`. In its first test, migrate to the latest version after asserting the V35 backfill and before using the repository, because the Task 3 SQL reads V54 tables.
+  Keep `RESTRICTED` where a test seeds a pre-V63 schema (`GroupMigrationSeedTest`, `GoogleDriveOAuthClientMigrationTest`, and the first test of `SourceSearchMetadataMigrationTest`). In `SourceSearchMetadataMigrationTest`, give `seed(...)` a `String driveAccess` parameter: the V34 test passes `"RESTRICTED"` and the others pass `"PRIVATE"`. In its first test, migrate to the latest version after asserting the V35 backfill and before using the repository, because the Task 3 SQL reads V54 tables.
 
 - [x] **Step 6: Run.** `.\gradlew.bat :core:compileTestJava :core:test --tests '*SourceAccessModesMigrationTest' --tests '*SourceSearchMetadataMigrationTest' --tests '*PostgresSourceLifecycleTest' --tests '*GroupMigrationSeedTest' --tests '*GoogleDriveOAuthClientMigrationTest'`. Expected: PASS.
 
@@ -194,7 +194,7 @@ static SourceAccess access(SourceType type, boolean global, @Nullable SourceAcce
     - pass `creation.access()` to `selections.submit(...)`.
   - `JdbcGoogleDriveSelectionRepository.submit(..., List<GroupId> groupIds, SourceAccess access)` inserts `access_type` with `.param("access", access.name())`.
   - `Intent` gains `@Nullable SourceAccess access`, read as `r.getString("access_type") == null ? null : SourceAccess.valueOf(r.getString("access_type"))`.
-  - `requireIntent` and `activate` call `sourceAccess.lockCreation/creation(intent.actorId(), SourceType.GOOGLE_DRIVE, intentAccess(intent), intent.groupIds())`, where `intentAccess` returns `PRIVATE` for a legacy `null` (the pre-V61 behaviour).
+  - `requireIntent` and `activate` call `sourceAccess.lockCreation/creation(intent.actorId(), SourceType.GOOGLE_DRIVE, intentAccess(intent), intent.groupIds())`, where `intentAccess` returns `PRIVATE` for a legacy `null` (the pre-V63 behaviour).
   - `activate` passes the resolved access to `drive.create(..., roots, access)`.
   - `JdbcGoogleDriveSourceRepository.create(..., List<Root> roots, SourceAccess access)` binds `:access` instead of `'RESTRICTED'`.
   - `JdbcGoogleDriveCredentialRepository.credentialId` drops `AND p.access_type = 'RESTRICTED'`; the Drive connector-type predicate already identifies the Source.

@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 import com.embabel.agent.api.tool.Tool;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatEvidence;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.WebSearchMode;
 import io.memoryos.chat.tools.WebTools;
@@ -52,7 +52,7 @@ class WebToolsTest {
             return List.of(new WebProviderClient.Result("https://example.com", "Good page", "Verified excerpt"));
         });
         var evidence = new ChatEvidence();
-        var events = new ArrayList<ChatSearchEvent>();
+        var events = new ArrayList<ChatToolEvent>();
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
                     Instant.now().plusSeconds(10), events::add, () -> 5000, new JTokkitTokenCountEstimator());
@@ -61,7 +61,7 @@ class WebToolsTest {
             assertTrue(result.contains("1 request(s) failed"));
             assertFalse(result.contains("secret upstream"));
             assertEquals(1, evidence.snapshot().size());
-            assertEquals(ChatSearchEvent.Stage.COMPLETED, events.getLast().stage());
+            assertEquals(ChatToolEvent.Stage.COMPLETED, events.getLast().stage());
             assertTrue(tools.webSearch(List.of("news")).contains("already attempted"));
             verify(client, times(1)).search(connection, "news");
             verify(client, times(1)).search(connection, "unavailable");
@@ -92,7 +92,7 @@ class WebToolsTest {
         var connection = new WebConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), WebProvider.BRAVE, "", "", null, 1);
         when(client.search(connection, "news")).thenReturn(List.of(new WebProviderClient.Result("https://example.com", "Title", "Verified text")));
         var evidence = new ChatEvidence(); evidence.file(UUID.randomUUID(), "Existing file", "text/plain");
-        var events = new ArrayList<ChatSearchEvent>(); evidence.publishTo(events::add);
+        var events = new ArrayList<ChatToolEvent>(); evidence.publishTo(events::add);
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
                     Instant.now().plusSeconds(10), events::add, () -> 5000, new JTokkitTokenCountEstimator());
@@ -103,8 +103,8 @@ class WebToolsTest {
         var web = evidence.snapshot().get(1).web();
         assertNotNull(web);
         assertEquals("https://example.com", web.url());
-        assertEquals(ChatSearchEvent.Stage.COMPLETED, events.getLast().stage());
-        assertTrue(events.stream().anyMatch(event -> event.stage() == ChatSearchEvent.Stage.SEARCHING && event.search() != null && event.search().queries().equals(List.of("news"))));
+        assertEquals(ChatToolEvent.Stage.COMPLETED, events.getLast().stage());
+        assertTrue(events.stream().anyMatch(event -> event.stage() == ChatToolEvent.Stage.SEARCHING && event.search() != null && event.search().queries().equals(List.of("news"))));
     }
     @Test void legacyCommandIsOfflineAndWebEvidenceCannotPretendToBeDocument() {
         var command = new ChatCommand(ChatCommand.Operation.SEND, UUID.randomUUID(), UUID.randomUUID(), "Question", null);

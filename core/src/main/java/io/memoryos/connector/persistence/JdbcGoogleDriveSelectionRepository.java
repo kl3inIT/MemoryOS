@@ -192,7 +192,7 @@ public class JdbcGoogleDriveSelectionRepository {
                         groupIds(work),intentAccess(r.getString("access_type")))).single();
     }
 
-    /** Creation intents submitted before V61 carry no access and keep the Private behaviour they were created with. */
+    /** Creation intents submitted before V63 carry no access and keep the Private behaviour they were created with. */
     private static SourceAccess intentAccess(@Nullable String stored) {
         return stored == null ? SourceAccess.PRIVATE : SourceAccess.valueOf(stored);
     }
