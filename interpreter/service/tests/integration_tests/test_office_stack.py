@@ -10,13 +10,22 @@ from memoryos_interpreter.main import create_app
 
 VIETNAMESE = "Báo cáo doanh thu quý 3 — Hà Nội, Đà Nẵng"
 
+# onnxruntime (via markitdown's magika) logs this at import on Hyper-V hosts such as GitHub runners;
+# no setting silences it (microsoft/onnxruntime#27092).
+ONNXRUNTIME_DEVICE_DISCOVERY_WARNING = "device_discovery.cc"
+
 
 def _execute(client: TestClient, code: str) -> dict[str, object]:
     response = client.post("/v1/execute", json={"code": code, "timeout_ms": 30000})
     assert response.status_code == 200
     payload: dict[str, object] = response.json()
     assert payload["exit_code"] == 0, payload
-    assert payload["stderr"] == "", payload
+    stderr = [
+        line
+        for line in str(payload["stderr"]).splitlines()
+        if ONNXRUNTIME_DEVICE_DISCOVERY_WARNING not in line
+    ]
+    assert stderr == [], payload
     return payload
 
 
