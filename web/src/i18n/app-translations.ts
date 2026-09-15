@@ -1234,6 +1234,11 @@ Object.assign(englishUi, {
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",
   "See sources": "Xem nguồn",
+  "Set up": "Thiết lập",
+  "Upload PDF, Word, PowerPoint, Excel, CSV, text and Markdown files.":
+    "Tải lên tệp PDF, Word, PowerPoint, Excel, CSV, văn bản và Markdown.",
+  "Index selected Google Drive files and folders and keep them up to date.":
+    "Lập chỉ mục các tệp và thư mục Google Drive đã chọn và luôn giữ chúng cập nhật.",
   "Search sources": "Tìm nguồn",
   "No sources match your search.": "Không có nguồn phù hợp với tìm kiếm.",
   "Source status could not be refreshed. Displayed values may be out of date.":
@@ -1389,17 +1394,17 @@ Object.assign(englishUi, {
   "Connected sources table": "Bảng nguồn đã kết nối",
   "Connected sources": "Nguồn đã kết nối",
   "No sources match your search and filters.": "Không có nguồn phù hợp với tìm kiếm và bộ lọc.",
-  "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
-  "Total sources": "Tổng số nguồn",
-  "Active sources": "Nguồn đang hoạt động",
-  "Workspace-visible sources": "Nguồn hiển thị trong không gian làm việc",
-  "Total docs indexed": "Tổng tài liệu đã lập chỉ mục",
   "Clear search and filters": "Xóa tìm kiếm và bộ lọc",
   "Failed sources": "Nguồn thất bại",
   "The Source list could not be loaded. Try again in a moment.":
     "Không tải được danh sách nguồn. Hãy thử lại sau giây lát.",
   "Connect files or Google Drive to make their content searchable in MemoryOS.":
     "Kết nối tệp hoặc Google Drive để tìm kiếm nội dung của chúng trong MemoryOS.",
+  "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
+  "Total sources": "Tổng số nguồn",
+  "Active sources": "Nguồn đang hoạt động",
+  "Workspace-visible sources": "Nguồn hiển thị trong không gian làm việc",
+  "Total docs indexed": "Tổng tài liệu đã lập chỉ mục",
   "Total docs": "Tổng tài liệu",
   Manage: "Quản lý",
   "{{v1}} · system group": "{{v1}} · nhóm hệ thống",
