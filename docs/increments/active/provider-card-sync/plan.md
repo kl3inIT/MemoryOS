@@ -10,7 +10,7 @@
 ## 2. Pages
 
 - [x] Models: "Add Provider" grid uses `ProviderCard`; connection rows reuse the tile and infer OpenRouter, 9Router and Ollama marks from the base URL.
-- [x] Web search: wide layout, grouped two-column grid, crawler and provider-hosted search on `ProviderCard`, token headings.
+- [x] Web search: original single-column layout and sections; search, crawler and provider-hosted search rows on `ProviderCard` (two-column grouped variant reviewed and rejected by the owner on 2026-09-15).
 
 ## 3. Verification and documents
 

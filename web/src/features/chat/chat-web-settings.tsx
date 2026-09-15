@@ -67,13 +67,18 @@ const providerDetails = {
   NINEROUTER: { description: "9router.com", endpoint: "" },
   FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
 };
-/** Hosted search APIs first, then gateways and self-hosted engines, as on the Models page. */
-const searchServices: Provider[] = ["EXA", "SERPER", "BRAVE", "GOOGLE_PSE", "TAVILY"];
-const searchGateways: Provider[] = ["NINEROUTER", "SEARXNG"];
+const searchProviders: Provider[] = [
+  "EXA",
+  "SERPER",
+  "BRAVE",
+  "GOOGLE_PSE",
+  "SEARXNG",
+  "NINEROUTER",
+  "TAVILY",
+];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
-const providerGrid = "grid grid-cols-1 gap-2 sm:grid-cols-2";
 const notice =
-  "rounded-2xl border border-border-default bg-surface-sunken px-4 py-3 font-secondary-body text-content-secondary";
+  "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
 
 function InUseBadge({ children }: { children: ReactNode }) {
   return (
@@ -144,7 +149,7 @@ export function ChatWebSettings() {
     );
   const builtInReader = !query.data?.some((c) => c.contentActive);
   return (
-    <SettingsLayout wide>
+    <SettingsLayout>
       <PageHeader
         title={ui("Tìm kiếm Web")}
         icon={<Globe />}
@@ -159,16 +164,9 @@ export function ChatWebSettings() {
         <p role="status">{ui("Đang tải…")}</p>
       ) : (
         <>
-          <section aria-label={ui("Công cụ tìm kiếm")} className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="font-heading-h3">{ui("Công cụ tìm kiếm")}</h2>
-                <p className="font-secondary-body text-content-muted">
-                  {ui(
-                    "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.",
-                  )}
-                </p>
-              </div>
+          <section aria-label={ui("Công cụ tìm kiếm")} className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">{ui("Công cụ tìm kiếm")}</h2>
               <Button
                 size="sm"
                 prominence="secondary"
@@ -178,57 +176,50 @@ export function ChatWebSettings() {
                 {ui("Tắt công cụ tìm kiếm")}
               </Button>
             </div>
+            <p className="text-sm text-content-muted">
+              {ui(
+                "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.",
+              )}
+            </p>
             {!query.data?.some((c) => c.searchActive) && (
               <p className={notice}>{ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}</p>
             )}
-            <div className={providerGrid}>
-              {searchServices.map((provider) => card(provider, true))}
-            </div>
-            <div>
-              <h3 className="font-main-ui-action text-content-secondary">
-                {ui("Gateway & tự triển khai")}
-              </h3>
-              <div className={`mt-2 ${providerGrid}`}>
-                {searchGateways.map((provider) => card(provider, true))}
-              </div>
+            <div className="space-y-3">
+              {searchProviders.map((provider) => card(provider, true))}
             </div>
           </section>
-          <section aria-label={ui("Trình đọc trang Web")} className="space-y-4">
-            <div>
-              <h2 className="font-heading-h3">{ui("Trình đọc trang Web")}</h2>
-              <p className="font-secondary-body text-content-muted">
-                {ui("Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.")}
-              </p>
-            </div>
-            <div className={providerGrid}>
-              <ProviderCard
-                logo={<Globe />}
-                name={ui("Trình đọc MemoryOS")}
-                description={ui("Tích hợp sẵn, không cần khóa API.")}
-                selected={builtInReader}
-                actions={
-                  builtInReader ? (
-                    <InUseBadge>{ui("Đang dùng")}</InUseBadge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      prominence="secondary"
-                      disabled={pending}
-                      onClick={() => void select(false, null)}
-                    >
-                      {ui("Dùng trình đọc tích hợp")}
-                    </Button>
-                  )
-                }
-              />
-              {readerProviders.map((provider) => card(provider, false))}
-            </div>
+          <section aria-label={ui("Trình đọc trang Web")} className="mt-8 space-y-3">
+            <h2 className="text-lg font-semibold">{ui("Trình đọc trang Web")}</h2>
+            <p className="text-sm text-content-muted">
+              {ui("Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.")}
+            </p>
+            <ProviderCard
+              logo={<Globe />}
+              name={ui("Trình đọc MemoryOS")}
+              description={ui("Tích hợp sẵn, không cần khóa API.")}
+              selected={builtInReader}
+              actions={
+                builtInReader ? (
+                  <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+                ) : (
+                  <Button
+                    size="sm"
+                    prominence="secondary"
+                    disabled={pending}
+                    onClick={() => void select(false, null)}
+                  >
+                    {ui("Dùng trình đọc tích hợp")}
+                  </Button>
+                )
+              }
+            />
+            {readerProviders.map((provider) => card(provider, false))}
           </section>
           <NativeSearchSection onChanged={changed} />
         </>
       )}
       {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
+        <p role="alert" className="mt-4 text-sm text-status-danger-content">
           {problemMessage(error)}
         </p>
       )}
@@ -554,12 +545,12 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
   if (adapters.isPending || providers.isPending) return null;
   if (nativeProviders.length === 0) return null;
   return (
-    <section aria-label={ui("Tìm kiếm của nhà cung cấp mô hình")} className="space-y-4">
-      <h2 className="font-heading-h3">{ui("Tìm kiếm của nhà cung cấp mô hình")}</h2>
+    <section aria-label={ui("Tìm kiếm của nhà cung cấp mô hình")} className="mt-8 space-y-3">
+      <h2 className="text-lg font-semibold">{ui("Tìm kiếm của nhà cung cấp mô hình")}</h2>
       {rows.length === 0 ? (
         <p className={notice}>{ui("Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.")}</p>
       ) : (
-        <ul className={providerGrid}>
+        <ul className="space-y-3">
           {rows.map(({ provider, model }) => {
             const enabled = model.settings?.options?.webSearch === "native";
             const toolCalling = !!model.settings?.capabilities?.toolCalling;
@@ -595,7 +586,7 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
         </ul>
       )}
       {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
+        <p role="alert" className="text-sm text-status-danger-content">
           {problemMessage(error)}
         </p>
       )}
