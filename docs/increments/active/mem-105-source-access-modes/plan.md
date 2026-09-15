@@ -416,10 +416,11 @@ public void aclChanged(GoogleDriveAclChanged event) {
 
 ### Task 7: Verification
 
-- [ ] Run `.\gradlew.bat clean check` and `pnpm check`, and record the results in `verification.md`.
+- [x] Run `.\gradlew.bat clean check` and `pnpm check`, and record the results in `verification.md`.
 - [ ] **Live local runtime through Orca,** with the YOUNGXV AUTO Drive fixture:
   - two local accounts, one whose verified email is on the fixture ACL and one that is not;
   - switch the Source to Auto Sync, then Private (with and without Group membership), then Public;
   - check Search results and a Chat answer's citations for each account in each mode;
   - record counts only, with no email addresses, and change no staging permissions.
+  - Partially done on 2026-09-15: the owner-only Auto Sync run is recorded in [verification.md](verification.md); a second reader is still open.
 - [ ] Open the PR against the MEM-88 branch (retarget to `main` after #151 merges), update Linear MEM-105, and move the increment's durable facts into the specs.
