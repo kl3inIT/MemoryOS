@@ -33,6 +33,11 @@ final class SessionLogoutSuccessHandler implements LogoutSuccessHandler {
             @NonNull HttpServletResponse response,
             @Nullable Authentication authentication
     ) {
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        if (ProviderSessionLogoutHandler.providerSessionEnded(request)) {
+            // The provider session is already gone, so the browser needs no provider logout page.
+            return;
+        }
         String postLogoutRedirectUri = ServletUriComponentsBuilder.fromRequest(request)
                 .replacePath(request.getContextPath() + "/")
                 .replaceQuery(null)
@@ -47,7 +52,6 @@ final class SessionLogoutSuccessHandler implements LogoutSuccessHandler {
                 .toUriString();
 
         response.setHeader(LOGOUT_LOCATION_HEADER, providerLogoutUri);
-        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
     }
 
     private static URI resolveEndSessionEndpoint(ClientRegistration clientRegistration) {

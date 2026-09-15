@@ -129,7 +129,33 @@ class DefaultIdentityProviderAdministrationTest {
         assertEquals("S256", stored.getConfig().get("pkceMethod"));
         assertEquals("client_secret_basic", stored.getConfig().get("clientAuthMethod"));
         assertEquals("s3cret", stored.getConfig().get("clientSecret"));
+        assertEquals(DISCOVERED.logoutUrl(), stored.getConfig().get("logoutUrl"));
+        assertEquals("true", stored.getConfig().get("backchannelSupported"));
         assertTrue(allowlist.allowedAliases().contains("tasco"));
+    }
+
+    @Test
+    void updateSyncsBackchannelLogoutWithTheLogoutUrl() {
+        gateway.providers.put("tasco", oidcProvider("tasco", Map.of(
+                "issuer", UPSTREAM_ISSUER,
+                "logoutUrl", DISCOVERED.logoutUrl(),
+                "clientId", "memoryos-broker"
+        )));
+        gateway.providers.put("partner", oidcProvider("partner", Map.of(
+                "issuer", UPSTREAM_ISSUER,
+                "backchannelSupported", "true",
+                "clientId", "memoryos-broker"
+        )));
+
+        administration.update(admin, "tasco", new IdentityProviderUpdate(
+                null, "Tasco SSO", null, "memoryos-broker", null, true, false
+        ));
+        administration.update(admin, "partner", new IdentityProviderUpdate(
+                null, "Partner SSO", null, "memoryos-broker", null, true, false
+        ));
+
+        assertEquals("true", gateway.providers.get("tasco").getConfig().get("backchannelSupported"));
+        assertNull(gateway.providers.get("partner").getConfig().get("backchannelSupported"));
     }
 
     @Test
@@ -223,6 +249,15 @@ class DefaultIdentityProviderAdministrationTest {
         }
         assertTrue(gateway.providers.isEmpty());
         assertTrue(allowlist.allowedAliases().isEmpty());
+    }
+
+    private static IdentityProviderRepresentation oidcProvider(String alias, Map<String, String> config) {
+        var provider = new IdentityProviderRepresentation();
+        provider.setAlias(alias);
+        provider.setProviderId("oidc");
+        provider.setEnabled(true);
+        provider.setConfig(config);
+        return provider;
     }
 
     private static final class FakeGateway implements IdentityProviderGateway {

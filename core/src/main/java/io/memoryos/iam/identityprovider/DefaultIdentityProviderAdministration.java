@@ -174,6 +174,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         config.put("syncMode", "IMPORT");
         config.put("defaultScope", "openid");
         config.put("hideOnLoginPage", "false");
+        syncBackchannelLogout(config);
         representation.setConfig(config);
         return representation;
     }
@@ -217,7 +218,19 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         if (update.clientSecret() != null) {
             config.put("clientSecret", update.clientSecret());
         }
+        syncBackchannelLogout(config);
         existing.setConfig(config);
+    }
+
+    // Sign-out deletes the Keycloak session through the admin API, which reaches the upstream provider
+    // only by back-channel logout; without it the upstream session signs the browser straight back in.
+    private static void syncBackchannelLogout(Map<String, String> config) {
+        String logoutUrl = config.get("logoutUrl");
+        if (logoutUrl == null || logoutUrl.isBlank()) {
+            config.remove("backchannelSupported");
+        } else {
+            config.put("backchannelSupported", "true");
+        }
     }
 
     private static IdentityProviderView toView(
