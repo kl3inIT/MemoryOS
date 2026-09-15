@@ -39,4 +39,6 @@ Every Gradle test suite has therefore passed, but across two runs rather than on
 
 Phase 1 defect found by the API test: the effective-capability SQL in `IamAuthorizationRepository` and `GroupProjectionRepository` listed ordinary grants explicitly without `MCP_MANAGE`, so a granted Group did not authorize. Both lists now include it; the API test is the regression.
 
+| Full API suite after the shared-context property change | `gradlew :api:test --no-daemon --max-workers=1` on `2b68a03e` | 21 suites, 166 tests, 0 failures; no JVM crash |
+
 Not run for 2a: `gradlew clean check` and the full web `pnpm check`. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.

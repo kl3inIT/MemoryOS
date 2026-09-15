@@ -153,6 +153,68 @@ New `core` package `io.memoryos.mcp`: servers, OAuth clients, tool snapshots, cr
 
 - `MCP_MANAGE`: servers, clients, admin credentials, discovery, tool refresh and enablement, group access.
 - Using a server: `CHAT_WRITE` plus tenant-wide flag or Group membership. Per-User credentials are never replaced by another User's.
+- Administration (implemented in 2a): a server is either organization-wide or restricted to Groups, not both, which keeps one access mode visible in the form. Changing URL, authentication type or performer removes stored credentials; a URL change also removes the tool snapshot. The administrator-typed header template is kept.
+
+### OAuth setup (Phase 2b)
+
+Follows MCP authorization `2025-11-25` (the negotiated target) plus the `2026-07-28` `iss` and issuer-keyed credential rules. Each step names its reference.
+
+**Callback and state.** `GET /login/oauth2/code/mcp` with its own `@Order(0)` security chain, as `GoogleDriveCallbackSecurityConfiguration` does for `/login/oauth2/code/google-drive`; otherwise Spring's OAuth2 login filter would claim the path. `MEMORYOS_MCP_REDIRECT_URI` is configured like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI` and must end in that path. Pending state lives in the HTTP session, as in `GoogleDriveAuthorizationSessionState`:
+- It holds actor, Tenant, server, OAuth client, the server and client revisions, `state`, PKCE verifier and a 10-minute expiry.
+- It is consumed once and requires the same authenticated actor.
+- The callback rejects the grant when either revision changed (Onyx parity).
+- The browser returns to the originating page with an outcome code only.
+
+**Discovery** (administrator action, outside transactions; `java.net.http.HttpClient` without redirects; bounded responses and timeouts):
+1. An unauthenticated MCP request is sent. On `401`, `WWW-Authenticate` `resource_metadata` and `scope` are read. Otherwise the client probes `/.well-known/oauth-protected-resource/<path>` and then the root.
+2. The protected-resource metadata `resource` must identify the server URL (RFC 9728 §3.3), and `authorization_servers` must be non-empty. With several servers, the administrator chooses.
+3. Authorization-server metadata is probed in the spec order:
+   - Issuer with a path: RFC 8414 path insertion, then OIDC discovery with path insertion, then OIDC discovery with path appending.
+   - Issuer without a path: RFC 8414, then OIDC discovery.
+4. The metadata `issuer` must equal the requested issuer, and `code_challenge_methods_supported` must contain `S256`; otherwise setup refuses.
+5. The result (issuer, endpoints, registration options, suggested scopes) is returned for review and persisted only when the administrator creates a client from it.
+- Discovered endpoints must pass the MCP endpoint policy; authorization endpoints may carry a query.
+
+**Clients**, in spec priority:
+1. Pre-registered (`ADMIN`): the administrator enters client ID and secret, for example a Google `Internal` Web client. `KNOWN_PROVIDER` servers use only this source.
+2. Client ID Metadata Document (`METADATA_DOCUMENT`), when `client_id_metadata_document_supported` is true and the redirect origin is HTTPS.
+   - The `client_id` is `<redirect origin>/mcp/oauth/client-metadata.json`, served publicly.
+   - The document carries `client_id`, `client_name`, `redirect_uris`, the `authorization_code` and `refresh_token` grant types and `token_endpoint_auth_method` `none`.
+3. Dynamic Client Registration (`REGISTERED`), when `registration_endpoint` exists. `client_secret` and `registration_access_token` are sealed with their purposes, keyed by the client row.
+- A new `V64` adds `token_endpoint_auth_method` (`none`, `client_secret_basic`, `client_secret_post`) and `iss_parameter_required` to `mcp_oauth_client`.
+
+**Authorization request.**
+- Parameters: `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge` (`S256`), `resource` and additional parameters. `resource` is the canonical server URL (RFC 8707), sent always; whether Google tolerates it is a live-probe item.
+- Scope comes from the server override, then the challenge `scope`, then `scopes_supported`, otherwise it is omitted.
+
+**Callback validation and tokens.**
+- An `error` parameter ends the flow with its category only.
+- If `iss` is present it must equal the client issuer. It is required when `iss_parameter_required` is set (RFC 9207, MCP `2026-07-28`).
+- Token request: `code`, `redirect_uri`, `code_verifier` and `resource`, with the stored client authentication. The response must be a `Bearer` token.
+- The credential payload (access token, refresh token, scope) is sealed with purpose `CREDENTIAL`, `access_expires_at` is recorded, and upstream bodies are never kept.
+
+**Refresh**, one implementation for administrator (2b) and User (Phase 3) credentials:
+- It runs before use when the access token expires within 60 seconds, sending `refresh_token` and `resource` and accepting a rotated refresh token.
+- The write is fenced by credential revision. A concurrent refresh that loses reloads and uses the winner's token.
+- `invalid_grant` sets `REAUTH_REQUIRED` and maps to `MCP_AUTHORIZATION_REQUIRED`; transport failures map to `MCP_UNAVAILABLE`.
+- Disconnect revokes at `revocation_endpoint` best effort (RFC 7009), as MEM-60 does.
+
+**Administrator connect.** `ADMIN`-performer OAuth servers store the shared credential through this flow; tool refresh then uses it. `PER_USER` connect is Phase 3.
+
+**API.**
+- `POST /api/mcp/servers/{id}/oauth/discovery` returns the review and persists nothing.
+- CRUD under `/api/mcp/servers/{id}/oauth/clients` (create from review, pre-registered or DCR).
+- `POST /api/mcp/servers/{id}/oauth/authorization` takes `{clientId}` and returns the authorization URL.
+- `GET /mcp/oauth/client-metadata.json` (public) and the hidden callback.
+
+**Tests** use a stub authorization server and the fixture MCP server:
+- `401` with `resource_metadata` and well-known fallbacks.
+- Path-insertion order and OIDC fallback.
+- Refusal without `S256`.
+- Issuer mismatch and redirects not followed.
+- DCR sealing, CIMD document shape.
+- State replay, changed revision, wrong or missing required `iss`.
+- Token exchange with `resource`, refresh rotation, `invalid_grant`.
 
 ### Chat turn
 

@@ -1,7 +1,9 @@
 package io.memoryos.mcp.persistence;
 
 import io.memoryos.mcp.McpOAuthClientSource;
+import io.memoryos.mcp.McpTokenEndpointAuthMethod;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -33,6 +35,10 @@ public class McpOAuthClientEntity implements Persistable<UUID> {
     @Column(name = "revocation_endpoint", length = 2048) private @Nullable String revocationEndpoint;
     @Column(name = "registration_client_uri", length = 2048) private @Nullable String registrationClientUri;
     @Column(name = "registration_access_token", columnDefinition = "text") private @Nullable String registrationAccessToken;
+    @Convert(converter = McpTokenEndpointAuthMethodConverter.class)
+    @Column(name = "token_endpoint_auth_method", nullable = false, length = 24)
+    private McpTokenEndpointAuthMethod tokenEndpointAuthMethod;
+    @Column(name = "iss_parameter_required", nullable = false) private boolean issParameterRequired;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Version private long revision = 1;
@@ -46,12 +52,15 @@ public class McpOAuthClientEntity implements Persistable<UUID> {
     }
 
     public void configure(String label, String issuer, String clientId, @Nullable String clientSecret,
-                          String authorizationEndpoint, String tokenEndpoint, @Nullable String revocationEndpoint,
-                          @Nullable String registrationClientUri, @Nullable String registrationAccessToken, Instant now) {
+                          McpTokenEndpointAuthMethod tokenEndpointAuthMethod, String authorizationEndpoint,
+                          String tokenEndpoint, @Nullable String revocationEndpoint, @Nullable String registrationClientUri,
+                          @Nullable String registrationAccessToken, boolean issParameterRequired, Instant now) {
         this.label = label; this.issuer = issuer; this.clientId = clientId; this.clientSecret = clientSecret;
+        this.tokenEndpointAuthMethod = tokenEndpointAuthMethod;
         this.authorizationEndpoint = authorizationEndpoint; this.tokenEndpoint = tokenEndpoint;
         this.revocationEndpoint = revocationEndpoint; this.registrationClientUri = registrationClientUri;
-        this.registrationAccessToken = registrationAccessToken; updatedAt = now;
+        this.registrationAccessToken = registrationAccessToken; this.issParameterRequired = issParameterRequired;
+        updatedAt = now;
     }
 
     @Override public UUID getId() { return id; }
@@ -69,6 +78,8 @@ public class McpOAuthClientEntity implements Persistable<UUID> {
     public @Nullable String revocationEndpoint() { return revocationEndpoint; }
     public @Nullable String registrationClientUri() { return registrationClientUri; }
     public @Nullable String registrationAccessToken() { return registrationAccessToken; }
+    public McpTokenEndpointAuthMethod tokenEndpointAuthMethod() { return tokenEndpointAuthMethod; }
+    public boolean issParameterRequired() { return issParameterRequired; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
     public long revision() { return revision; }

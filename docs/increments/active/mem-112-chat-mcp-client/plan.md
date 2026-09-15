@@ -40,9 +40,14 @@ Evidence: [verification.md](verification.md#phase-2a--2026-09-16).
 
 ### 2b — OAuth setup
 
-- [ ] `KNOWN_PROVIDER` endpoints; discovery (RFC 9728/8414) with admin review and persisted endpoints; CIMD document route; DCR for authorization servers without CIMD.
-- [ ] Admin OAuth connect, `iss` validation; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
-- [ ] Integration tests: stub authorization server (discovery, CIMD, DCR, `iss`).
+Design: [OAuth setup (Phase 2b)](design.md#oauth-setup-phase-2b).
+
+- [ ] `V64`: `token_endpoint_auth_method`, `iss_parameter_required` on `mcp_oauth_client`.
+- [ ] Discovery (protected-resource metadata from `WWW-Authenticate` or well-known, authorization-server metadata in spec order, `S256` required) returning a review; nothing persisted until a client is created.
+- [ ] Clients: pre-registered (`KNOWN_PROVIDER` only source), CIMD document route, DCR with sealed secrets.
+- [ ] Administrator connect: `/login/oauth2/code/mcp` with its own security chain, session state bound to actor and revisions, PKCE, `resource`, `iss` validation, token exchange; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
+- [ ] Token refresh shared with Phase 3 (revision fencing, rotation, `invalid_grant` → `REAUTH_REQUIRED`), best-effort revocation on disconnect; tool refresh for `ADMIN` OAuth servers.
+- [ ] Integration tests with a stub authorization server (see design).
 
 ## Phase 3 — User credentials
 

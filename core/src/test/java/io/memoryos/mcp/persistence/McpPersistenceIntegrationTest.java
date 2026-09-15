@@ -12,6 +12,7 @@ import io.memoryos.mcp.McpCredentialStatus;
 import io.memoryos.mcp.McpOAuthClientSource;
 import io.memoryos.mcp.McpOAuthProviderMode;
 import io.memoryos.mcp.McpServerStatus;
+import io.memoryos.mcp.McpTokenEndpointAuthMethod;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -182,8 +183,8 @@ class McpPersistenceIntegrationTest {
     private static McpOAuthClientEntity client(UUID id, UUID tenantId, UUID serverId, String label) {
         var client = new McpOAuthClientEntity(id, tenantId, serverId, McpOAuthClientSource.ADMIN, NOW);
         client.configure(label, "https://accounts.google.com", label.replace(' ', '-') + ".apps.googleusercontent.com", "v1:sealed",
-                "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token",
-                "https://oauth2.googleapis.com/revoke", null, null, NOW);
+                McpTokenEndpointAuthMethod.CLIENT_SECRET_BASIC, "https://accounts.google.com/o/oauth2/v2/auth",
+                "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/revoke", null, null, true, NOW);
         return client;
     }
 
