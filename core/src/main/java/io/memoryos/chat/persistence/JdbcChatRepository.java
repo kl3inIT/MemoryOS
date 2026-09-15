@@ -124,25 +124,27 @@ public class JdbcChatRepository {
                         row.getObject("assistant_message_id", UUID.class), row.getObject("requested_model_id", UUID.class),
                         row.getObject("selected_model_id", UUID.class), row.getString("fallback_reason"),
                         ChatCommand.Operation.valueOf(row.getString("operation")),
-                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), io.memoryos.chat.WebSearchMode.valueOf(row.getString("web_search")))).optional();
+                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), io.memoryos.chat.WebSearchMode.valueOf(row.getString("web_search")),
+                        row.getBoolean("deep_research"))).optional();
     }
 
     public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
                                   @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason,
-                                  ChatCommand.Operation operation, List<UUID> fileIds, io.memoryos.chat.WebSearchMode webSearch) {
+                                  ChatCommand.Operation operation, List<UUID> fileIds, io.memoryos.chat.WebSearchMode webSearch,
+                                  boolean deepResearch) {
     }
 
     public void saveCommand(UUID session, ChatCommand command, UUID user, UUID assistant,
                             @Nullable UUID selectedModel, @Nullable String fallback) {
         jdbc.sql("""
                 INSERT INTO chat_command(session_id, request_id, operation, target_message_id, request_text,
-                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason, file_ids, web_search)
-                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback, CAST(:files AS jsonb), :web)
+                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason, file_ids, web_search, deep_research)
+                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback, CAST(:files AS jsonb), :web, :research)
                 """).param("session", session).param("request", command.requestId()).param("operation", command.operation().name())
                 .param("target", command.targetMessageId()).param("text", command.text())
                 .param("requested", command.modelConfigurationId(), Types.OTHER).param("user", user).param("assistant", assistant)
                 .param("selected", selectedModel, Types.OTHER).param("fallback", fallback, Types.VARCHAR)
-                .param("files", JSON.writeValueAsString(command.fileIds())).param("web", command.webSearch().name()).update();
+                .param("files", JSON.writeValueAsString(command.fileIds())).param("web", command.webSearch().name()).param("research", command.deepResearch()).update();
     }
 
     public void saveModelSelection(UUID session, UUID user, UUID assistant, @Nullable UUID requested, UUID selected, @Nullable String fallback) {

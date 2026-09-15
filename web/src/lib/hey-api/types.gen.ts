@@ -131,6 +131,19 @@ export type WebConnectionResponse = {
     revision?: number;
 };
 
+export type ChatSettingsRequest = {
+    deepResearchEnabled: boolean;
+    revision?: number;
+};
+
+export type ChatSettingsResponse = {
+    /**
+     * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
+     */
+    deepResearchEnabled: boolean;
+    revision: number;
+};
+
 export type Title = {
     title: string;
 };
@@ -666,6 +679,10 @@ export type Send = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
 };
 
 export type Accepted = {
@@ -680,6 +697,10 @@ export type Regenerate = {
     modelConfigurationId?: string;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
 };
 
 export type Edit = {
@@ -689,6 +710,10 @@ export type Edit = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
 };
 
 export type Cancellation = {
@@ -1633,6 +1658,94 @@ export type SaveChatWebConnectionResponses = {
 };
 
 export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
+
+export type GetChatSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings';
+};
+
+export type GetChatSettingsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatSettingsError = GetChatSettingsErrors[keyof GetChatSettingsErrors];
+
+export type GetChatSettingsResponses = {
+    /**
+     * Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type GetChatSettingsResponse = GetChatSettingsResponses[keyof GetChatSettingsResponses];
+
+export type SaveChatSettingsData = {
+    body: ChatSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings';
+};
+
+export type SaveChatSettingsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatSettingsError = SaveChatSettingsErrors[keyof SaveChatSettingsErrors];
+
+export type SaveChatSettingsResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
 
 export type GenerateChatTitleData = {
     body?: never;

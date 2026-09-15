@@ -421,6 +421,24 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void deepResearchModeIsPartOfCommandIdentity() {
+        var session = sessions.create(owner, "Research identity");
+        var request = UUID.randomUUID();
+        var research = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
+                WebSearchMode.off, ImageMode.off, true);
+        var reserved = turns.reserve(owner, session.id(), research, java.time.Duration.ofMinutes(30), 32000, null);
+        assertTrue(reserved.created());
+        assertTrue(jdbc.sql("SELECT deep_research FROM chat_command WHERE session_id = :session AND request_id = :request")
+                .param("session", session.id()).param("request", request).query(Boolean.class).single());
+        var replay = turns.reserve(owner, session.id(), research, java.time.Duration.ofMinutes(30), 32000, null);
+        assertEquals(reserved.assistantMessageId(), replay.assistantMessageId());
+        var ordinary = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
+                WebSearchMode.off, ImageMode.off, false);
+        assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class,
+                () -> turns.reserve(owner, session.id(), ordinary, java.time.Duration.ofMinutes(30), 32000, null)).code());
+    }
+
+    @Test
     void createsPrivateSessionWithOneRootAndSharedDefaultPersona() {
         var first = sessions.create(owner, "First");
         var second = sessions.create(owner, "Second");

@@ -1570,6 +1570,38 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff() throws Exception {
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(true));
+        var disable = "{\"deepResearchEnabled\":false,\"revision\":0}";
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(disable)).andExpect(status().isForbidden());
+        grantModelManagement();
+        var saved = mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(disable))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(false))
+                .andReturn().getResponse().getContentAsString();
+        long revision = Json.mapper().readTree(saved).path("revision").asLong();
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"deepResearchEnabled\":true,\"revision\":" + (revision + 7) + "}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(false));
+        var session = create();
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Research the market").put("deepResearch", true);
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("CHAT_RESEARCH_UNAVAILABLE"));
+        assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM chat_command WHERE session_id = :session")
+                .param("session", UUID.fromString(session.path("id").asText())).query(Long.class).single());
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"deepResearchEnabled\":true,\"revision\":" + revision + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(true));
+    }
+
+    @Test
     void webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent() throws Exception {
         mockMvc.perform(get("/api/chat/web/connections").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/web").with(authentication(actor))).andExpect(status().isOk());

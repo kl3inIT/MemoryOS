@@ -40,6 +40,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatModelResolver models;
     private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
+    private final @Nullable ChatSettingsService settings;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -57,11 +58,19 @@ public final class ChatTurnService implements AutoCloseable {
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images) {
+        this(persistence, model, limits, executor, streams, models, web, images, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web,
+            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this.persistence = persistence;
         this.model = model;
         this.models = models;
         this.web = web;
         this.images = images;
+        this.settings = settings;
         this.limits = limits;
         this.executor = executor;
         this.streams = streams;
@@ -104,6 +113,9 @@ public final class ChatTurnService implements AutoCloseable {
     private Accepted sendLocked(ActorId actor, UUID session, ChatCommand command) {
         var previous = persistence.existing(actor, session, command);
         if (previous.isPresent()) return accepted(previous.orElseThrow());
+        // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
+        if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
+            throw ChatException.researchUnavailable();
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;

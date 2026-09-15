@@ -66,8 +66,8 @@ class ChatRuntimeConfiguration {
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
-                                    io.memoryos.chat.image.ImageConnectionService images) {
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
+                                    io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings) {
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings);
         // Context refresh completes before the web server accepts requests, so no send can race this.
         service.failOrphanedRuns();
         return service;

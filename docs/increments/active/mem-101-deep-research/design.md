@@ -87,10 +87,10 @@ Source count (owner, 2026-09-15: as Onyx). Onyx has no citation count cap: `Dyna
 
 ### Persistence
 
-- V65: `research_mode` in command identity; replay with a different mode conflicts, as `webSearch` does.
-- V66: `chat_message.is_clarification` and the persisted plan text. Persisting the plan departs from Onyx so reload shows it; editing it stays out of scope.
-- V67: `chat_tool_call` tree mirroring Onyx `tool_call`: `parent_tool_call_id`, `turn_number`, `tab_index`, bounded arguments summary, response or intermediate report, reasoning. Written by the terminal finish in the same transaction as `sources`, `artifacts` and `activity`. Orchestrator-level steps stay within the MEM-100 `activity` bounds; nested agent steps live in the table.
-- The administrator setting is tenant-owned Chat configuration next to the existing Web and image connection defaults; V68. (V63/V64 relax the Chat-wide source count cap.)
+- V65 (implemented): `chat_command.deep_research` in command identity (request field `deepResearch`, absent means false, as Onyx's `deep_research` flag); replay with a different mode conflicts, as `webSearch` does. The same migration adds the tenant `chat_settings` row (below).
+- With the orchestrator: `chat_message.is_clarification` and the persisted plan text. Persisting the plan departs from Onyx so reload shows it; editing it stays out of scope.
+- With research persistence: `chat_tool_call` tree mirroring Onyx `tool_call`: `parent_tool_call_id`, `turn_number`, `tab_index`, bounded arguments summary, response or intermediate report, reasoning. Written by the terminal finish in the same transaction as `sources`, `artifacts` and `activity`. Orchestrator-level steps stay within the MEM-100 `activity` bounds; nested agent steps live in the table.
+- The administrator setting is tenant-owned Chat configuration next to the existing Web and image connection defaults: `chat_settings(tenant_id, deep_research_enabled DEFAULT TRUE, revision)` in V65; no row means enabled. Clarification and tool-call schema are added with the code that writes them, so no unused columns ship ahead of it. (V63/V64 relax the Chat-wide source count cap.)
 
 ### Entry and administrator setting
 

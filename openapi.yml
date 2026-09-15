@@ -339,6 +339,104 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings:
+    get:
+      tags:
+      - Chat Settings
+      summary: "Read Tenant Chat settings, such as whether Deep research is offered"
+      operationId: getChatSettings
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Settings
+      summary: Change Tenant Chat settings for model managers
+      operationId: saveChatSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -7720,6 +7818,30 @@ components:
       - endpoint
       - engineId
       - provider
+    ChatSettingsRequest:
+      type: object
+      properties:
+        deepResearchEnabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - deepResearchEnabled
+    ChatSettingsResponse:
+      type: object
+      properties:
+        deepResearchEnabled:
+          type: boolean
+          description: "Deep research: agentic research across the web and connected\
+            \ sources; uses significantly more tokens per query."
+        revision:
+          type: integer
+          format: int64
+      required:
+      - deepResearchEnabled
+      - revision
     Title:
       type: object
       properties:
@@ -9222,6 +9344,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
       required:
       - clientRequestId
       - parentMessageId
@@ -9263,6 +9388,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
       required:
       - clientRequestId
     Edit:
@@ -9296,6 +9424,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
       required:
       - clientRequestId
       - text
