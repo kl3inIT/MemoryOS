@@ -338,7 +338,7 @@ A separate real Chromium session against the local Vite surface used controlled 
 
 | Contract | Retained check |
 | --- | --- |
-| V56 renames RESTRICTED to PRIVATE, accepts only PUBLIC/PRIVATE/SYNC and adds nullable creation-intent access | `SourceAccessModesMigrationTest.renamesRestrictedToPrivateAndAcceptsOnlyTheThreeModes` |
+| V61 renames RESTRICTED to PRIVATE, accepts only PUBLIC/PRIVATE/SYNC and adds nullable creation-intent access | `SourceAccessModesMigrationTest.renamesRestrictedToPrivateAndAcceptsOnlyTheThreeModes` |
 | Defaults follow Source type and authority; SYNC needs Google Drive; PUBLIC needs global authority | `SourceAccessPolicyTest.defaultsFollowTheSourceTypeAndAuthority`, `autoSyncNeedsGoogleDriveAndPublicNeedsGlobalAuthority` |
 | Drive creation defaults to Auto Sync and keeps a requested mode through the validation intent | `GoogleDriveCredentialAuthorityTest.driveCreationDefaultsToAutoSyncAndKeepsTheRequestedMode` |
 | FILE rejects SYNC at creation (400) and on change (409); global managers switch a Drive Source among all three modes; scoped managers cannot change modes | `SourceApiIntegrationTest.enforcesScopedSourceHttpSurfacesAndImmediateAssociationRevocation`, `PostgresSourceLifecycleTest.publicAndPartiallyManagedSourcesAreReadOnlyButGlobalAuthorityCanEdit` |

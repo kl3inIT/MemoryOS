@@ -190,7 +190,7 @@ A Source that is indexing other items keeps its retrieval-eligible Documents rea
 
 ## Source access modes
 
-Each Pair stores one `SourceAccess` ([MEM-105](../increments/active/mem-105-source-access-modes/design.md)); V56 renamed RESTRICTED to PRIVATE.
+Each Pair stores one `SourceAccess` ([MEM-105](../increments/active/mem-105-source-access-modes/design.md)); V61 renamed RESTRICTED to PRIVATE.
 
 | Mode | Value | Source types | A reader sees a Document when |
 | --- | --- | --- | --- |
@@ -198,7 +198,7 @@ Each Pair stores one `SourceAccess` ([MEM-105](../increments/active/mem-105-sour
 | Private | `PRIVATE` | FILE, Google Drive | they are a member of an ordinary Group associated with the Source |
 | Auto Sync | `SYNC` | Google Drive | the file's retained Google permissions grant them; Group associations only scope management |
 
-FILE creation defaults to PUBLIC for global managers and PRIVATE for scoped managers; Google Drive creation defaults to SYNC and carries the requested mode through its validation intent. Existing Drive Sources became PRIVATE in V56, so their behaviour did not change, and a pending pre-V56 creation intent activates as PRIVATE. Public requires global `SOURCES_MANAGE`. Scoped managers choose Private or Auto Sync and still associate at least one Group they manage. `POST /api/sources/{sourceId}/access` changes the mode under exclusive global `SOURCES_MANAGE`; FILE → SYNC is a conflict, and SYNC on FILE creation is invalid.
+FILE creation defaults to PUBLIC for global managers and PRIVATE for scoped managers; Google Drive creation defaults to SYNC and carries the requested mode through its validation intent. Existing Drive Sources became PRIVATE in V61, so their behaviour did not change, and a pending pre-V61 creation intent activates as PRIVATE. Public requires global `SOURCES_MANAGE`. Scoped managers choose Private or Auto Sync and still associate at least one Group they manage. `POST /api/sources/{sourceId}/access` changes the mode under exclusive global `SOURCES_MANAGE`; FILE → SYNC is a conflict, and SYNC on FILE creation is invalid.
 
 Auto Sync interprets each permission of the file's last successful snapshot as in Onyx, with the deviations recorded in the increment. Every role can read.
 
