@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { fileTypeOf } from "./file-types";
 import { SourceHint } from "./source-hint";
@@ -16,7 +17,14 @@ export function FileTypeIcon({
   return (
     <SourceHint hint={label}>
       <span className="mt-0.5 shrink-0">
-        <img src={type.icon} alt="" draggable={false} className="size-4" />
+        {/* Bundled icon data renders on the first paint rather than after mount. */}
+        <Icon
+          icon={type.icon}
+          ssr
+          aria-hidden="true"
+          className="size-4"
+          style={type.color ? { color: type.color } : undefined}
+        />
         <span className="sr-only">{label}: </span>
       </span>
     </SourceHint>

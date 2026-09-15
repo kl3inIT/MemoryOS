@@ -1,57 +1,77 @@
-import archiveIcon from "material-icon-theme/icons/zip.svg";
-import audioIcon from "material-icon-theme/icons/audio.svg";
-import databaseIcon from "material-icon-theme/icons/database.svg";
-import documentIcon from "material-icon-theme/icons/document.svg";
-import emailIcon from "material-icon-theme/icons/email.svg";
-import epubIcon from "material-icon-theme/icons/epub.svg";
-import fileIcon from "material-icon-theme/icons/file.svg";
-import folderIcon from "material-icon-theme/icons/folder.svg";
-import fontIcon from "material-icon-theme/icons/font.svg";
-import htmlIcon from "material-icon-theme/icons/html.svg";
-import imageIcon from "material-icon-theme/icons/image.svg";
-import jsonIcon from "material-icon-theme/icons/json.svg";
-import logIcon from "material-icon-theme/icons/log.svg";
-import markdownIcon from "material-icon-theme/icons/markdown.svg";
-import pdfIcon from "material-icon-theme/icons/pdf.svg";
-import powerpointIcon from "material-icon-theme/icons/powerpoint.svg";
-import svgIcon from "material-icon-theme/icons/svg.svg";
-import tableIcon from "material-icon-theme/icons/table.svg";
-import videoIcon from "material-icon-theme/icons/video.svg";
-import wordIcon from "material-icon-theme/icons/word.svg";
-import xmlIcon from "material-icon-theme/icons/xml.svg";
-import yamlIcon from "material-icon-theme/icons/yaml.svg";
+import type { IconifyIcon } from "@iconify/react";
+import googleDocsIcon from "@iconify-icons/simple-icons/googledocs";
+import googleSheetsIcon from "@iconify-icons/simple-icons/googlesheets";
+import googleSlidesIcon from "@iconify-icons/simple-icons/googleslides";
+import fileIcon from "@iconify-icons/vscode-icons/default-file";
+import folderIcon from "@iconify-icons/vscode-icons/default-folder";
+import audioIcon from "@iconify-icons/vscode-icons/file-type-audio";
+import databaseIcon from "@iconify-icons/vscode-icons/file-type-db";
+import epubIcon from "@iconify-icons/vscode-icons/file-type-epub";
+import excelIcon from "@iconify-icons/vscode-icons/file-type-excel";
+import fontIcon from "@iconify-icons/vscode-icons/file-type-font";
+import htmlIcon from "@iconify-icons/vscode-icons/file-type-html";
+import imageIcon from "@iconify-icons/vscode-icons/file-type-image";
+import jsonIcon from "@iconify-icons/vscode-icons/file-type-json";
+import logIcon from "@iconify-icons/vscode-icons/file-type-log";
+import markdownIcon from "@iconify-icons/vscode-icons/file-type-markdown";
+import emailIcon from "@iconify-icons/vscode-icons/file-type-outlook";
+import pdfIcon from "@iconify-icons/vscode-icons/file-type-pdf2";
+import powerpointIcon from "@iconify-icons/vscode-icons/file-type-powerpoint";
+import sqlIcon from "@iconify-icons/vscode-icons/file-type-sql";
+import svgIcon from "@iconify-icons/vscode-icons/file-type-svg";
+import textIcon from "@iconify-icons/vscode-icons/file-type-text";
+import videoIcon from "@iconify-icons/vscode-icons/file-type-video";
+import wordIcon from "@iconify-icons/vscode-icons/file-type-word";
+import xmlIcon from "@iconify-icons/vscode-icons/file-type-xml";
+import yamlIcon from "@iconify-icons/vscode-icons/file-type-yaml";
+import archiveIcon from "@iconify-icons/vscode-icons/file-type-zip";
 
-/** A file type's name and its Material Icon Theme glyph, the icons VS Code shows per extension. */
-export type FileType = { label: string; icon: string };
+/**
+ * A file type's name and icon: the vscode-icons logos for Office, PDF and other formats, and
+ * Google's single-colour product marks, tinted with their brand colour, for Google-native files.
+ */
+export type FileType = { label: string; icon: IconifyIcon; color?: string };
 
-const type = (label: string, icon: string): FileType => ({ label, icon });
+const type = (label: string, icon: IconifyIcon, color?: string): FileType => ({
+  label,
+  icon,
+  color,
+});
+
+const googleBrand = { docs: "#4285F4", sheets: "#34A853", slides: "#FBBC04" } as const;
 
 const genericFile = type("File", fileIcon);
 const image = type("Image", imageIcon);
 const audio = type("Audio", audioIcon);
 const video = type("Video", videoIcon);
-const text = type("Text", documentIcon);
+const text = type("Text", textIcon);
 
 /** Google-native types have no extension, so their MIME type names them. */
 const byMimeType = new Map<string, FileType>([
   ["application/vnd.google-apps.folder", type("Folder", folderIcon)],
-  ["application/vnd.google-apps.document", type("Google Docs", documentIcon)],
-  ["application/vnd.google-apps.spreadsheet", type("Google Sheets", tableIcon)],
-  ["application/vnd.google-apps.presentation", type("Google Slides", powerpointIcon)],
+  ["application/vnd.google-apps.document", type("Google Docs", googleDocsIcon, googleBrand.docs)],
+  [
+    "application/vnd.google-apps.spreadsheet",
+    type("Google Sheets", googleSheetsIcon, googleBrand.sheets),
+  ],
+  [
+    "application/vnd.google-apps.presentation",
+    type("Google Slides", googleSlidesIcon, googleBrand.slides),
+  ],
   ["application/pdf", type("PDF", pdfIcon)],
   ["application/msword", type("Word", wordIcon)],
   [
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     type("Word", wordIcon),
   ],
-  ["application/vnd.ms-excel", type("Excel", tableIcon)],
-  ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type("Excel", tableIcon)],
+  ["application/vnd.ms-excel", type("Excel", excelIcon)],
+  ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type("Excel", excelIcon)],
   ["application/vnd.ms-powerpoint", type("PowerPoint", powerpointIcon)],
   [
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     type("PowerPoint", powerpointIcon),
   ],
-  ["text/csv", type("CSV", tableIcon)],
+  ["text/csv", type("CSV", excelIcon)],
   ["text/markdown", type("Markdown", markdownIcon)],
   ["text/html", type("HTML", htmlIcon)],
   ["application/json", type("JSON", jsonIcon)],
@@ -63,11 +83,11 @@ const byExtension = new Map<string, FileType>(
   (
     [
       [["doc", "docx", "docm", "dotx"], type("Word", wordIcon)],
-      [["odt", "rtf"], type("Document", documentIcon)],
-      [["xls", "xlsx", "xlsm", "xlsb"], type("Excel", tableIcon)],
-      [["ods"], type("Spreadsheet", tableIcon)],
-      [["csv"], type("CSV", tableIcon)],
-      [["tsv"], type("TSV", tableIcon)],
+      [["odt", "rtf"], type("Document", wordIcon)],
+      [["xls", "xlsx", "xlsm", "xlsb"], type("Excel", excelIcon)],
+      [["ods"], type("Spreadsheet", excelIcon)],
+      [["csv"], type("CSV", excelIcon)],
+      [["tsv"], type("TSV", excelIcon)],
       [["ppt", "pptx", "pptm"], type("PowerPoint", powerpointIcon)],
       [["odp", "key"], type("Presentation", powerpointIcon)],
       [["pdf"], type("PDF", pdfIcon)],
@@ -86,7 +106,8 @@ const byExtension = new Map<string, FileType>(
       [["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz"], type("Archive", archiveIcon)],
       [["eml", "msg", "mbox"], type("Email", emailIcon)],
       [["epub"], type("EPUB", epubIcon)],
-      [["sql", "db", "sqlite", "sqlite3"], type("Database", databaseIcon)],
+      [["sql"], type("Database", sqlIcon)],
+      [["db", "sqlite", "sqlite3"], type("Database", databaseIcon)],
       [["ttf", "otf", "woff", "woff2"], type("Font", fontIcon)],
     ] satisfies Array<[string[], FileType]>
   ).flatMap(([extensions, fileType]) =>

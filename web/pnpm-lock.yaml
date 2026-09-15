@@ -23,6 +23,15 @@ importers:
       '@fontsource-variable/hanken-grotesk':
         specifier: 5.3.0
         version: 5.3.0
+      '@iconify-icons/simple-icons':
+        specifier: ^2.0.3
+        version: 2.0.3
+      '@iconify-icons/vscode-icons':
+        specifier: ^2.0.4
+        version: 2.0.4
+      '@iconify/react':
+        specifier: ^6.0.2
+        version: 6.0.2(react@19.2.8)
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
@@ -65,9 +74,6 @@ importers:
       lucide-react:
         specifier: 1.34.0
         version: 1.34.0(react@19.2.8)
-      material-icon-theme:
-        specifier: 5.38.1
-        version: 5.38.1
       pdfjs-dist:
         specifier: 6.3.289
         version: 6.3.289
@@ -517,6 +523,20 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
+
+  '@iconify-icons/simple-icons@2.0.3':
+    resolution: {integrity: sha512-dD0hLlAnjm5Aw4/crbbEfHzU+0JUd0PLsfZIo4AwDae07kBFM+Gx3WK8YTJahhdEzmHn2/SSRggI9DdVcCyHwg==}
+
+  '@iconify-icons/vscode-icons@2.0.4':
+    resolution: {integrity: sha512-B5LxcCGRKScbGC8+3S2ehdiPJJv9c7xCUzjvobrMcLpPn+CXo8h25wS3ivajNQKYpwp8G/mh/gZBk2BEJmrSOw==}
+
+  '@iconify/react@6.0.2':
+    resolution: {integrity: sha512-SMmC2sactfpJD427WJEDN6PMyznTFMhByK9yLW0gOTtnjzzbsi/Ke/XqsumsavFPwNiXs8jSiYeZTmLCLwO+Fg==}
+    peerDependencies:
+      react: '>=16'
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2439,9 +2459,6 @@ packages:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
 
-  chroma-js@3.2.0:
-    resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
-
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
 
@@ -3322,10 +3339,6 @@ packages:
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
-
-  material-icon-theme@5.38.1:
-    resolution: {integrity: sha512-14cFM4NJGdbuo68rIZTq9TSX0f5BtA6VF+eNX3zq23Z5NoEeVtM4Zn4PpZ0ERl++50jCBrywKFWXmOjbxf0xTA==}
-    engines: {vscode: ^1.55.0}
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -5027,6 +5040,21 @@ snapshots:
   '@hono/node-server@2.1.1(hono@4.13.3)':
     dependencies:
       hono: 4.13.3
+
+  '@iconify-icons/simple-icons@2.0.3':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-icons/vscode-icons@2.0.4':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/react@6.0.2(react@19.2.8)':
+    dependencies:
+      '@iconify/types': 2.0.0
+      react: 19.2.8
+
+  '@iconify/types@2.0.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -6754,8 +6782,6 @@ snapshots:
     dependencies:
       readdirp: 5.1.1
 
-  chroma-js@3.2.0: {}
-
   class-variance-authority@0.7.1:
     dependencies:
       clsx: 2.1.1
@@ -7537,10 +7563,6 @@ snapshots:
   make-event-props@2.0.0: {}
 
   markdown-table@3.0.4: {}
-
-  material-icon-theme@5.38.1:
-    dependencies:
-      chroma-js: 3.2.0
 
   math-intrinsics@1.1.0: {}
 
