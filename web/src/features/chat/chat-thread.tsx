@@ -5,8 +5,8 @@ import {
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  groupPartByType,
   useAuiState,
-  type TextMessagePartProps,
 } from "@assistant-ui/react";
 import { ArrowDown, ArrowUp, Copy, Square } from "lucide-react";
 import type { ReactNode } from "react";
@@ -16,7 +16,6 @@ import { ConnectionState as ConnectionNotice } from "@/components/assistant-ui/e
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import {
   ChatMarkdownLink,
-  ChatSearchStatus,
   ChatSources,
   ChatSourcesProvider,
   ChatSourcesWorkspace,
@@ -45,6 +44,15 @@ import { ComposerAttachments } from "@/components/assistant-ui/elements/attachme
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatImages } from "./chat-images";
 import { ChatMessageTiming } from "./chat-message-timing";
+import { ChatActivityGroup, ChatReasoningStep, ChatToolStep } from "./chat-activity-view";
+import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
+
+const activityGroups = groupPartByType({
+  reasoning: ["group-activity"],
+  "tool-call": ["group-activity"],
+});
+const answerPlugins = [remarkCitations];
+const answerComponents = { a: ChatMarkdownLink };
 import {
   ChatComposerQuote,
   ChatSelectionToolbar,
@@ -254,11 +262,38 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
-        <ChatSearchStatus />
-        {/* Only the answer body can be quoted, not status, sources or actions. */}
-        <div data-aui-quote-selectable>
-          <MessagePrimitive.Parts components={{ Text: AnswerMarkdown, Empty: EmptyAnswer }} />
-        </div>
+        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="empty">
+          {({ part, children }) => {
+            switch (part.type) {
+              case "group-activity":
+                return (
+                  <ChatActivityGroup
+                    indices={part.indices}
+                    running={part.status.type === "running"}
+                  >
+                    {children}
+                  </ChatActivityGroup>
+                );
+              case "reasoning":
+                return <ChatReasoningStep running={part.status.type === "running"} />;
+              case "tool-call":
+                return <ChatToolStep part={part} />;
+              case "text":
+                // Only the answer body can be quoted, not activity, sources or actions.
+                return part.text.trim() ? (
+                  <div data-aui-quote-selectable>
+                    <MarkdownText remarkPlugins={answerPlugins} components={answerComponents} />
+                  </div>
+                ) : null;
+              case "indicator":
+                return (
+                  <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />
+                );
+              default:
+                return null;
+            }
+          }}
+        </MessagePrimitive.GroupedParts>
         <ChatArtifactCards />
         <ChatImages />
         {(serverStatus === "CANCELED" || canceled) && (
@@ -296,13 +331,4 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
       </ChatSourcesProvider>
     </MessagePrimitive.Root>
   );
-}
-
-function EmptyAnswer() {
-  return null;
-}
-
-function AnswerMarkdown({ text }: TextMessagePartProps) {
-  if (!text.trim()) return null;
-  return <MarkdownText remarkPlugins={[remarkCitations]} components={{ a: ChatMarkdownLink }} />;
 }

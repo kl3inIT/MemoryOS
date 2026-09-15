@@ -1,7 +1,7 @@
 /**
  * Reads the location recorded in chunk provenance. The JSON is written by each extraction route
  * (Docling `prov` items with `page_no`/`bbox`, spreadsheet `sheetName`, table rows wrapping the block
- * provenance in `source`), so every field is optional and malformed input yields no location.
+ * provenance in `source` with their `tableRow`), so every field is optional and malformed input yields no location.
  */
 export type ProvenanceBox = {
   page: number;
@@ -16,6 +16,8 @@ export type SourceLocation = {
   pages: number[];
   sheet?: string;
   boxes: ProvenanceBox[];
+  /** A cited passage is a table row, whose page keeps the columns that the passage text flattens. */
+  table: boolean;
 };
 
 const MAX_BOXES = 60;
@@ -24,6 +26,8 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
   const pages = new Set<number>();
   const boxes: ProvenanceBox[] = [];
   let sheet: string | undefined;
+  let table = false;
+  let pagesFound = 0;
   for (const json of provenanceJson) {
     let value: unknown;
     try {
@@ -33,7 +37,7 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
     }
     visit(value, 0);
   }
-  return { pages: [...pages].sort((a, b) => a - b), sheet, boxes };
+  return { pages: [...pages].sort((a, b) => a - b), sheet, boxes, table };
 
   function visit(value: unknown, depth: number) {
     if (depth > 4 || value === null || typeof value !== "object") return;
@@ -44,13 +48,19 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
     const record = value as Record<string, unknown>;
     const page = record.page_no;
     if (Number.isInteger(page) && (page as number) > 0 && (page as number) <= 10000) {
+      pagesFound++;
       pages.add(page as number);
       const box = readBox(page as number, record.bbox);
       if (box && boxes.length < MAX_BOXES) boxes.push(box);
     }
     if (!sheet && typeof record.sheetName === "string" && record.sheetName.trim())
       sheet = record.sheetName.trim().slice(0, 120);
-    if ("source" in record) visit(record.source, depth + 1);
+    if ("source" in record) {
+      const before = pagesFound;
+      visit(record.source, depth + 1);
+      // A table row counts only when its wrapped block provenance records a page.
+      if (Number.isInteger(record.tableRow) && pagesFound > before) table = true;
+    }
   }
 }
 

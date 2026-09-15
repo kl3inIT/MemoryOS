@@ -92,7 +92,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 
 ### 4.1 Dữ liệu
 
-**`chat_voice_connection`** — V59, Chat sở hữu, JPA `VoiceConnectionEntity`:
+**`chat_voice_connection`** — V63, Chat sở hữu, JPA `VoiceConnectionEntity`:
 
 | Cột | Onyx | Ghi chú |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 
 - Cấu hình riêng của Azure (`speech_region`, `stt_languages`) được thêm bằng migration khi adapter Azure hoàn thành; hiện chưa khai báo trước.
 
-**`chat_voice_settings`** — V60, JDBC `JdbcVoiceSettingsRepository`:
+**`chat_voice_settings`** — V64, JDBC `JdbcVoiceSettingsRepository`:
 - **Cột:** `tenant_id`, `actor_id` (khóa ngoại tới `tenant_memberships`), `auto_send` (false), `auto_playback` (false), `playback_speed` (1.0, CHECK 0.5–2.0).
 - **Ghi dữ liệu:** partial update nguyên tử bằng `INSERT … ON CONFLICT DO UPDATE SET x = COALESCE(:x, x)`, không đọc rồi ghi.
 - **Khác Onyx:** Onyx lưu thành cột trên bảng `user`. MemoryOS để bảng này thuộc Chat, không ghi vào bảng IAM [MemoryOS].

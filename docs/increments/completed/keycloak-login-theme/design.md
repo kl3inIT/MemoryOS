@@ -1,0 +1,22 @@
+# MemoryOS Keycloak login theme
+
+Owner request 2026-09-15: replace the default Keycloak login look with a simple branded page. After reviewing Mobbin references the owner chose the Mercor layout: a centered white card on a soft glow, the brand mark at the top of the card, username and password fields, a primary sign-in button, and a button for each configured identity provider.
+
+## Scope
+
+- A `memoryos` login theme that extends `keycloak.v2` and changes presentation only: `theme.properties`, one stylesheet, the traced MemoryOS wordmark as an SVG and two English message overrides ("Continue to MemoryOS", "Or continue with"). No FreeMarker template is overridden, so every login-type page (sign in, reset password, required actions, errors) keeps the upstream markup, accessibility and behaviour and gains the same card.
+- Provider buttons are Keycloak's own `social.providers` list, so a provider added through Keycloak or the MEM-95 administration appears without theme changes. Each provider gets a full-width button with its Keycloak display name, or its alias when no display name is set, so long names stay readable.
+- Owner follow-ups the same day: solid colours only, with no gradients, soft shadows or glows; the page background is flat and the card has a border instead of a shadow. Hover turns buttons a stronger colour: Sign In darkens and a provider button fills navy with white content. Field focus is a blue border; button keyboard focus is a solid 2 px outline.
+- The Tasco button shows the Tasco wordmark at the name's cap height, about 11 px for the 16 px button font (`resources/img/tasco-logo.png`, a copy of the landing asset `landing/src/assets/logos/tasco.png`), in place of the default icon and after the display name configured in Keycloak, so a display name of "Đăng nhập với" reads "Đăng nhập với [TASCO]". The owner first asked for the logo alone, then for the display name with the logo on its right. The PNG is a CSS mask on an inline `::after` of the name, sized to the text's cap height and set on the text baseline so the logo's letters share their top and bottom with the name's capitals; it is painted in the button's text colour, so logo and name are dark at rest and white on hover. Centering the logo as a separate flex item left it visibly higher than the letters, because the name's box includes diacritics and descenders. The logo is decorative: the accessible name is the display name only, so "Đăng nhập với" is announced without "Tasco" unless the display name includes it or `social-providers.ftl` is overridden. The rule is keyed to the `tasco` identity-provider alias from [MEM-59](../../completed/mem-59-tasco-jit/design.md); another alias falls back to the default icon and name. Google appeared only as a local test provider and is not part of the theme.
+- `darkMode=false`: the card is designed for a light page and stays light when the operating system prefers dark.
+- The realm keeps its existing settings: email as username, self-registration disabled. Password reset, remember-me and the locale selector appear only if the realm enables them, and inherit the card styles.
+- Keycloak 26.7 ships no Vietnamese login messages, so the page stays in the realm's current language; localizing Keycloak remains outside the [localization contract](../../../specs/localization.md).
+
+## Delivery
+
+- Theme source lives in `infrastructure/keycloak/themes/memoryos/login/` and ships in the release configuration archive with the rest of `infrastructure/`.
+- `shared-keycloak` bind-mounts it read-only at `/opt/keycloak/themes/memoryos`, the same relative-mount pattern used for PostgreSQL, MinIO, Redis and OpenSearch scripts. Folder themes are read at runtime, so the optimized image needs no rebuild; Keycloak caches themes in production, so it must be recreated to load a new or changed theme.
+- `configure-memoryos-realm.sh` sets `loginTheme: "memoryos"`. Keycloak falls back to its default theme when a configured theme is missing, but the operator order is still: recreate `shared-keycloak` with the mount, then run the realm script.
+- CD only rolls out `api`, `worker` and `web`; recreating the shared Keycloak and replaying the realm script stay explicit operator steps.
+
+Out of scope: overriding FreeMarker templates, account or email themes, Vietnamese Keycloak translations, custom provider icons, a dark variant, and deployment to the shared runtime without the owner.

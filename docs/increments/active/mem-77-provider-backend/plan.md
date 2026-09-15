@@ -93,7 +93,7 @@ The user authorized committing/pushing the MEM-77 continuation to `anhnd`, then 
 | Native/profile contract | Existing `openai` adapter; required `tokenizerProfile`; `openai-o200k-v1` and `smollm2-135m-12fd25f-v1`; adapter descriptors expose required `tokenizerProfiles: [{id, displayName}]` |
 | Admission | One shared gateway generation slot, queue/wait zero, excess `429`; existing global Chat/Validate admission unchanged; no queue service |
 | Prompt safety | Same immutable policy for mandatory-prompt admission before reservation, bounded history and every native request; separate last-cycle tools-off |
-| Pricing | Local pricing null; existing `MEMORYOS_CHAT_COST_BUDGET_USD=1.7976931348623157E308`; token/deadline/output/resource limits remain finite |
+| Pricing | Local pricing null; Chat cost budget unset (no monetary cap); token/deadline/output/resource limits remain finite |
 | Rotation | Inference API key + revision-checked local BYOK replacement; retain catalog AES key; no new re-encryption system |
 | Publication | Candidate verification → approved merge/main CI bundle → reserved target rollout/smoke → acceptance; no PR-build deployment or health-only closure |
 

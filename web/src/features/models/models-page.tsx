@@ -1,12 +1,12 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowRightLeft,
   Boxes,
   Brain,
   ChevronDown,
   Eye,
   ListPlus,
   Plug,
+  Route,
   Plus,
   Server,
   Settings2,
@@ -38,6 +38,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ProviderCard, providerTileClassName } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { hasProviderMark, type ProviderMark } from "@/components/provider-logos/provider-marks";
 import {
@@ -105,9 +106,14 @@ export function ModelsPage() {
 
 /** Brand marks are display only; the adapter type still selects the protocol. */
 function providerMark(provider: ManagedProvider): ProviderMark | null {
+  // OpenAI-compatible vendors share the `openai` adapter, so the endpoint names the brand first.
+  const baseUrl = provider.baseUrl.toLowerCase();
+  if (/anthropic|claude/.test(baseUrl)) return "ANTHROPIC";
+  if (baseUrl.includes("openrouter.ai")) return "OPENROUTER";
+  if (baseUrl.includes("9router")) return "NINEROUTER";
+  if (/ollama|:11434\b/.test(baseUrl)) return "OLLAMA";
   const adapter = provider.adapterType.toUpperCase();
-  if (hasProviderMark(adapter)) return adapter;
-  return /anthropic|claude/.test(provider.baseUrl) ? "ANTHROPIC" : null;
+  return hasProviderMark(adapter) ? adapter : null;
 }
 function providerStatus(provider: ManagedProvider) {
   if (!provider.enabled) return { label: "Disabled", tone: "neutral" as const };
@@ -177,7 +183,7 @@ function ConnectionCard({
   const adapter = adapters.find((entry) => entry.type === provider.adapterType);
   const mark = providerMark(provider);
   return (
-    <Card size="sm" className="overflow-visible">
+    <Card size="sm" className="gap-0 overflow-visible py-0">
       <div className="flex w-full items-center gap-3 rounded-2xl px-4 py-3">
         <button
           type="button"
@@ -186,7 +192,7 @@ function ConnectionCard({
           onClick={() => setOpen((current) => !current)}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors hover:bg-surface-base"
         >
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-base text-content-secondary">
+          <span className={cn(providerTileClassName, "text-content-secondary")}>
             {mark ? <ProviderLogo mark={mark} /> : <Server className="size-4" aria-hidden="true" />}
           </span>
           <span className="min-w-0 flex-1">
@@ -240,7 +246,7 @@ function ConnectionCard({
         </span>
       </div>
       {open && (
-        <CardContent className="space-y-3 border-t border-border-subtle pt-4">
+        <CardContent className="space-y-3 border-t border-border-subtle pt-4 pb-4">
           {models.length > 0 ? (
             <Table className="min-w-lg">
               <TableCaption className="sr-only">
@@ -373,24 +379,22 @@ function NewConnectionCard({
 }) {
   const ui = useAppTranslation();
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-label={ui(appText("Connect {{name}}", { name: preset.name }))}
-      onClick={onConnect}
-      className="flex items-center gap-3 rounded-2xl border border-border-subtle px-4 py-3 text-left transition-colors hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-base text-content-primary [&_svg]:size-5">
-        {preset.logo}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-main-ui-action">{preset.name}</span>
-        <span className="block font-secondary-body text-content-muted">{ui(preset.subtitle)}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1 font-secondary-body text-content-muted">
-        {ui("Connect")} <ArrowRightLeft className="size-4" aria-hidden="true" />
-      </span>
-    </button>
+    <ProviderCard
+      logo={preset.logo}
+      name={preset.name}
+      description={ui(preset.subtitle)}
+      actions={
+        <Button
+          size="sm"
+          prominence="secondary"
+          disabled={disabled}
+          aria-label={ui(appText("Connect {{name}}", { name: preset.name }))}
+          onClick={onConnect}
+        >
+          {ui("Connect")}
+        </Button>
+      }
+    />
   );
 }
 
@@ -613,6 +617,59 @@ function ModelsAdministration() {
           </div>
           <div>
             <h3 className="font-main-ui-action text-content-secondary">
+              {ui("Gateways & Routers")}
+            </h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <NewConnectionCard
+                preset={{
+                  name: "9Router",
+                  subtitle: "One key routed to several vendors.",
+                  baseUrl: "",
+                  logo: <ProviderLogo mark="NINEROUTER" />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({ kind: "provider", adapterType: "openai", name: "9Router" })
+                }
+              />
+              <NewConnectionCard
+                preset={{
+                  name: "OpenRouter",
+                  subtitle: "Hosted marketplace of models from many vendors.",
+                  baseUrl: "https://openrouter.ai/api/v1",
+                  logo: <ProviderLogo mark="OPENROUTER" />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({
+                    kind: "provider",
+                    adapterType: "openai",
+                    baseUrl: "https://openrouter.ai/api/v1",
+                    name: "OpenRouter",
+                  })
+                }
+              />
+              <NewConnectionCard
+                preset={{
+                  name: "LiteLLM Proxy",
+                  subtitle: "Self-hosted proxy in front of your own provider keys.",
+                  baseUrl: "http://localhost:4000/v1",
+                  logo: <Route />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({
+                    kind: "provider",
+                    adapterType: "openai",
+                    baseUrl: "http://localhost:4000/v1",
+                    name: "LiteLLM Proxy",
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <h3 className="font-main-ui-action text-content-secondary">
               {ui("Self-hosted & Custom")}
             </h3>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -621,7 +678,7 @@ function ModelsAdministration() {
                   name: "Ollama",
                   subtitle: "Open-weight models running on your own machine or server.",
                   baseUrl: "http://localhost:11434/v1",
-                  logo: <Server />,
+                  logo: <ProviderLogo mark="OLLAMA" />,
                 }}
                 disabled={unavailable || (providers.data?.length ?? 0) >= 64}
                 onConnect={() =>

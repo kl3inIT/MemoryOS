@@ -26,6 +26,11 @@ export const en = {
     sources: "Sources",
     sourcesCount: "Sources · {{total}}",
     back: "Back to sources",
+    previousSource: "Previous source",
+    nextSource: "Next source",
+    sourcePosition: "Source {{index}} / {{total}}",
+    expand: "Expand",
+    expandedView: "This source is open in the expanded view.",
     closeFile: "Close file",
     closeSources: "Close sources",
     documentSource: "Document · Source {{number}}",
@@ -168,6 +173,13 @@ export const en = {
     unavailable: "The service is temporarily unavailable. Try again later.",
     voiceProviderUnavailable:
       "The voice provider could not be reached or rejected the key. Check the address, key and model, then try again.",
+    chatProviderUnavailable:
+      "The model provider rejected the request or could not be reached. Check the provider and model, then retry.",
+    chatWebUnavailable:
+      "Web search is not available: no enabled Web provider, or this model has no tool calling.",
+    chatBusy: "Chat is at capacity. Wait a moment and send again.",
+    chatRejected:
+      "The question was rejected before it ran. Shorten it or pick a model with a larger context window.",
     webProviderUnavailable:
       "The Web provider could not be reached or rejected the request. Check the address and key, then test again.",
     network: "Couldn’t connect. Check your connection and try again.",

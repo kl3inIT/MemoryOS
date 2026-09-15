@@ -9,7 +9,6 @@ const state = vi.hoisted(() => ({
   availability: {
     searchAvailable: true,
     automaticModelIds: ["a", "b"],
-    requiredModelIds: ["a"],
     nativeModelIds: [] as string[],
     inheritedModelId: "a",
   },
@@ -86,23 +85,29 @@ it("lets a declared native-search model use Web without an external connection",
       />,
     );
     expect(screen.queryByText("No search engine connected.")).not.toBeInTheDocument();
-    const required = screen.getByRole("radio", { name: "Require Web search" });
-    expect(required).toBeEnabled();
-    await userEvent.click(required);
-    expect(change).toHaveBeenCalledExactlyOnceWith("required");
+    const auto = screen.getByRole("radio", { name: "Use Web automatically" });
+    expect(auto).toBeEnabled();
+    await userEvent.click(auto);
+    expect(change).toHaveBeenCalledExactlyOnceWith("auto");
     expect(done).toHaveBeenCalledOnce();
   } finally {
     state.availability.nativeModelIds = [];
   }
 });
 
-it("uses adapter capabilities for required mode, never model-name guesses", async () => {
+it("offers Web to a tool-capable model only, never guessing from its name", async () => {
   const change = vi.fn();
+  const { unmount } = render(
+    <ChatWebModes value="off" modelId="c" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />,
+  );
+  expect(screen.getByRole("radio", { name: "Use Web automatically" })).toBeDisabled();
+  expect(screen.getByRole("radio", { name: "Web off" })).toHaveAttribute("aria-checked", "true");
+  await userEvent.click(screen.getByRole("radio", { name: "Use Web automatically" }));
+  expect(change).not.toHaveBeenCalled();
+  unmount();
   render(
     <ChatWebModes value="off" modelId="b" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />,
   );
-  expect(screen.getByRole("radio", { name: "Require Web search" })).toBeDisabled();
-  expect(screen.getByRole("radio", { name: "Web off" })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(screen.getByRole("radio", { name: "Use Web automatically" }));
   expect(change).toHaveBeenCalledExactlyOnceWith("auto");
 });
@@ -133,7 +138,7 @@ it("restores URL evidence without inventing a document identity and rejects unsa
   );
 });
 
-it("toggles Web for this turn from the menu row and keeps its options reachable", async () => {
+it("enabling Web from the menu row allows a search without forcing one, and keeps its options reachable", async () => {
   const change = vi.fn();
   const configure = vi.fn();
   const done = vi.fn();
@@ -143,7 +148,7 @@ it("toggles Web for this turn from the menu row and keeps its options reachable"
   const toggle = screen.getByRole("button", { name: "Web search" });
   expect(toggle).toHaveAttribute("aria-pressed", "false");
   await userEvent.click(toggle);
-  expect(change).toHaveBeenCalledExactlyOnceWith("required");
+  expect(change).toHaveBeenCalledExactlyOnceWith("auto");
   expect(done).toHaveBeenCalledOnce();
   await userEvent.click(screen.getByRole("button", { name: "Web options" }));
   expect(configure).toHaveBeenCalledOnce();
@@ -152,6 +157,4 @@ it("toggles Web for this turn from the menu row and keeps its options reachable"
     "aria-pressed",
     "true",
   );
-  await userEvent.click(screen.getByRole("button", { name: "Web search" }));
-  expect(change).toHaveBeenLastCalledWith("off");
 });

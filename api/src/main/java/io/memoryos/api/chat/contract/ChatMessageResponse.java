@@ -21,13 +21,13 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatSourceResponse> sources,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatFileDescriptor> files,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images) {
 
     /** A generated image attached to an assistant reply; bytes are served at /api/chat/image-artifacts/{id}/content. */
     public record ImageRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
-
     public static ChatMessageResponse from(ChatMessage message) {
         return from(message, List.of());
     }
@@ -35,6 +35,6 @@ public record ChatMessageResponse(
     public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
                 message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
-                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), images);
+                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images);
     }
 }

@@ -51,7 +51,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ### Backend
 
-- [x] `mig:V59__chat_voice_connections.sql`: một dòng mỗi provider, CHECK provider có tên, CHECK active phải có model/giọng, partial unique `stt_active`/`tts_active`.
+- [x] `mig:V63__chat_voice_connections.sql` (đánh số lại từ V59 khi merge `main`, vì `main` đã dùng V59–V62): một dòng mỗi provider, CHECK provider có tên, CHECK active phải có model/giọng, partial unique `stt_active`/`tts_active`.
 - [x] `core:chat/voice/VoiceProvider.java`, `VoiceFunction.java`.
 - [x] `core:chat/voice/VoiceConnectionService.java`:
   - list, probe (key nháp), save (KEEP/REPLACE/REMOVE, kích hoạt khi tạo mới), delete, select (kèm model TTS), forTest, resolve;
@@ -79,7 +79,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 ### Backend
 
 - [x] `spring-boot-starter-websocket` (`gradle/libs.versions.toml`, `api/build.gradle.kts`).
-- [x] `mig:V60__chat_voice_settings.sql`; `core:chat/voice/VoiceSettings.java`, `VoiceSettingsService.java`; `core:chat/persistence/JdbcVoiceSettingsRepository.java` (partial update nguyên tử).
+- [x] `mig:V64__chat_voice_settings.sql` (trước là V60); `core:chat/voice/VoiceSettings.java`, `VoiceSettingsService.java`; `core:chat/persistence/JdbcVoiceSettingsRepository.java` (partial update nguyên tử).
 - [x] `core:chat/voice/Pcm16.java`, `Transcript.java`, `ChunkedTranscriber.java`, `VoiceTranscriptionService.java`.
 - [x] `api:chat/VoiceTicketStore.java`, `VoiceSessionController.java` (`/tickets`, `/settings`), `VoiceHandshakeInterceptor.java`, `TranscribeWebSocketHandler.java`, `VoiceWebSocketConfiguration.java`; contract `VoiceTicketResponse`, `VoiceSettings{Request,Response}`.
 - [x] `web/nginx.conf`: location WebSocket nhập bằng giọng nói. `web/vite.config.ts`: `ws: true`.

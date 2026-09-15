@@ -67,7 +67,7 @@ import org.springframework.context.annotation.Import;
         "SqlWithoutWhere"
 })
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestKeycloakProvisioningConfiguration.class)
+@Import({TestKeycloakProvisioningConfiguration.class, TestProviderSessionConfiguration.class})
 class SessionSecurityIntegrationTest {
 
 
@@ -84,6 +84,7 @@ class SessionSecurityIntegrationTest {
     private static final String CLIENT_ID = "memoryos-web";
     private static final String PROVIDER_ID_TOKEN_MARKER = "provider-id-token-marker";
     private static final String PROVIDER_ACCESS_TOKEN = "provider-access-token";
+    private static final String PROVIDER_SESSION_ID = "provider-session-id";
 
     @LocalServerPort
     private int port;
@@ -275,6 +276,7 @@ class SessionSecurityIntegrationTest {
     @Test
     void authenticatesAndSignsOutTheInitialOwnerWithoutProviderState() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
+        TestProviderSessionConfiguration.reset(true);
         UUID ownerActorId = jdbcClient.sql("""
                         SELECT actor_id FROM external_identity_bindings
                         WHERE issuer = :issuer AND subject = 'initial-owner'
@@ -354,6 +356,40 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(204, logout.statusCode());
+            assertEquals(List.of(PROVIDER_SESSION_ID), TestProviderSessionConfiguration.endedSessions());
+            assertTrue(logout.headers().firstValue(SessionLogoutSuccessHandler.LOGOUT_LOCATION_HEADER).isEmpty());
+            assertEquals(
+                    401,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+            assertTrue(cookies.getCookieStore().getCookies().stream()
+                    .noneMatch(cookie -> "SESSION".equals(cookie.getName())));
+        }
+    }
+
+    @Test
+    void fallsBackToTheProviderLogoutPageWhenTheProviderSessionCannotBeEnded() throws Exception {
+        AUTHENTICATING_SUBJECT.set("initial-owner");
+        TestProviderSessionConfiguration.reset(false);
+        var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+
+        try (var client = client(cookies)) {
+            assertEquals(302, completeOAuth(client, "/oauth2/authorization/memoryos").statusCode());
+            assertEquals(
+                    200,
+                    client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
+            );
+
+            var logout = client.send(
+                    HttpRequest.newBuilder(baseUri().resolve("/logout"))
+                            .header(BrowserMutation.HEADER, BrowserMutation.VALUE)
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            assertEquals(204, logout.statusCode());
+            assertEquals(List.of(PROVIDER_SESSION_ID), TestProviderSessionConfiguration.endedSessions());
             URI providerLogout = URI.create(logout.headers()
                     .firstValue(SessionLogoutSuccessHandler.LOGOUT_LOCATION_HEADER)
                     .orElseThrow());
@@ -368,8 +404,8 @@ class SessionSecurityIntegrationTest {
                     401,
                     client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
             );
-            assertTrue(cookies.getCookieStore().getCookies().stream()
-                    .noneMatch(cookie -> "SESSION".equals(cookie.getName())));
+        } finally {
+            TestProviderSessionConfiguration.reset(true);
         }
     }
 
@@ -1321,6 +1357,7 @@ class SessionSecurityIntegrationTest {
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plusSeconds(300)))
                 .claim("nonce", grant.nonce())
+                .claim("sid", PROVIDER_SESSION_ID)
                 .claim("session_leak_marker", PROVIDER_ID_TOKEN_MARKER)
                 .build();
         String idToken = signedToken(claims);

@@ -26,6 +26,11 @@ export const vi = {
     sources: "Nguồn",
     sourcesCount: "Nguồn · {{total}}",
     back: "Về danh sách nguồn",
+    previousSource: "Nguồn trước",
+    nextSource: "Nguồn tiếp",
+    sourcePosition: "Nguồn {{index}} / {{total}}",
+    expand: "Mở rộng",
+    expandedView: "Nguồn này đang mở ở chế độ mở rộng.",
     closeFile: "Đóng tệp",
     closeSources: "Đóng nguồn",
     documentSource: "Tài liệu · Nguồn {{number}}",
@@ -167,6 +172,13 @@ export const vi = {
     unavailable: "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
     voiceProviderUnavailable:
       "Không kết nối được nhà cung cấp giọng nói hoặc khóa bị từ chối. Kiểm tra địa chỉ, khóa và mô hình rồi thử lại.",
+    chatProviderUnavailable:
+      "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
+    chatWebUnavailable:
+      "Tìm kiếm Web chưa dùng được: chưa có nhà cung cấp Web nào đang bật, hoặc mô hình này không gọi được công cụ.",
+    chatBusy: "Chat đang quá tải. Chờ một chút rồi gửi lại.",
+    chatRejected:
+      "Câu hỏi bị từ chối trước khi chạy. Hãy hỏi ngắn hơn hoặc chọn mô hình có context window lớn hơn.",
     webProviderUnavailable:
       "Không kết nối được nhà cung cấp Web hoặc yêu cầu bị từ chối. Kiểm tra địa chỉ và khóa rồi kiểm tra lại.",
     network: "Không thể kết nối. Hãy kiểm tra kết nối mạng rồi thử lại.",

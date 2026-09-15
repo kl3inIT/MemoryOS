@@ -11,7 +11,7 @@ interface RuntimeConfiguration {
 }
 
 export type WorkflowFailure = {
-  workflow: "file-source-upload" | "google-drive-sync" | "indexing" | "search";
+  workflow: "file-source-upload" | "google-drive-sync" | "indexing" | "search" | "pdf-view";
   stage: string;
   failureKind: string;
   httpStatus?: number;
@@ -62,17 +62,10 @@ export function initializeSentry() {
 function sentryConfiguration() {
   const runtime = window.__MEMORYOS_RUNTIME_CONFIG__;
   return {
-    dsn: nonBlank(runtime?.sentryDsn) ?? nonBlank(import.meta.env.VITE_MEMORYOS_SENTRY_DSN),
-    environment:
-      nonBlank(runtime?.sentryEnvironment) ??
-      nonBlank(import.meta.env.VITE_MEMORYOS_SENTRY_ENVIRONMENT) ??
-      "local",
-    release:
-      nonBlank(runtime?.release) ?? nonBlank(import.meta.env.VITE_MEMORYOS_RELEASE) ?? "local",
-    replayEnabled:
-      enabled(runtime?.sentryReplayEnabled) ??
-      enabled(import.meta.env.VITE_MEMORYOS_SENTRY_REPLAY_ENABLED) ??
-      false,
+    dsn: nonBlank(runtime?.sentryDsn),
+    environment: nonBlank(runtime?.sentryEnvironment) ?? "local",
+    release: nonBlank(runtime?.release) ?? "local",
+    replayEnabled: enabled(runtime?.sentryReplayEnabled) ?? false,
   };
 }
 

@@ -45,11 +45,11 @@ export function AccountMenu({
         credentials: "same-origin",
         headers: sameOriginMutationHeaders,
       });
-      const providerLogoutUrl = response.headers.get(logoutLocationHeader);
-      if (response.status !== 204 || !providerLogoutUrl) {
+      if (response.status !== 204) {
         throw new Error("Session logout failed");
       }
-      window.location.assign(providerLogoutUrl);
+      // The server ends the identity-provider session itself and names a provider logout page only when it could not.
+      window.location.assign(response.headers.get(logoutLocationHeader) ?? "/");
     } catch {
       setSignOutState("error");
     }

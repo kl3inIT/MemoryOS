@@ -4,6 +4,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { captureWorkflowFailure } from "@/lib/sentry";
 import { mostVisiblePage, pageHeight, pagesToRender } from "./pdf-page-window";
 import { formatPages, pdfBoxRect, type PdfPageView, type ProvenanceBox } from "./source-provenance";
 
@@ -15,7 +16,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 // pdf.js reads the original by HTTP range: after the first response headers it cancels the full download and
 // requests only the 1 MiB chunks the rendered pages need. Originals up to 2 MiB are still read whole.
-const PDF_OPTIONS = { disableStream: true, disableAutoFetch: true, rangeChunkSize: 1024 * 1024 };
+// Image decoders (JBIG2, JPEG 2000) for scanned originals, copied from pdfjs-dist by vite.config.ts. The CSP does not
+// allow WebAssembly, so pdf.js uses their JavaScript fallbacks.
+const wasmUrl = `/assets/pdfjs-${pdfjs.version}/`;
+const RANGE_OPTIONS = {
+  disableStream: true,
+  disableAutoFetch: true,
+  rangeChunkSize: 1024 * 1024,
+  wasmUrl,
+};
+// When range loading fails, one whole read, as before range support; the failure is reported.
+const WHOLE_OPTIONS = { disableRange: true, wasmUrl };
 // Multiples of the fit-to-width size: a Letter page in a 400px panel needs 2–3× for body text.
 const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
 
@@ -36,6 +47,7 @@ export function DocumentPdfView({
   const container = useRef<HTMLDivElement>(null);
   const fitWidth = Math.max(240, useWidth(container));
   const [zoom, setZoom] = useState(0);
+  const [wholeFile, setWholeFile] = useState(false);
   const renderedWidth = Math.round(fitWidth * ZOOM_STEPS[zoom]!);
   const [pageCount, setPageCount] = useState<number>();
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
@@ -177,11 +189,20 @@ export function DocumentPdfView({
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 [scrollbar-gutter:stable] sm:px-5"
       >
         <Document
+          key={wholeFile ? "whole" : "range"}
           file={file}
-          options={PDF_OPTIONS}
+          options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
           suspense={false}
           loading={status(ui("Đang tải trang PDF…"))}
-          error={failed}
+          error={wholeFile ? failed : status(ui("Đang tải trang PDF…"))}
+          onLoadError={(error) => {
+            captureWorkflowFailure(error, {
+              workflow: "pdf-view",
+              stage: wholeFile ? "whole-load" : "range-load",
+              failureKind: error.name,
+            });
+            setWholeFile(true);
+          }}
           onLoadSuccess={(document) => setPageCount(document.numPages)}
           className="w-fit min-w-full space-y-5"
         >

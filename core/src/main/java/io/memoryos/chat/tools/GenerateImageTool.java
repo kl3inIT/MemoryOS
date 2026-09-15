@@ -32,7 +32,7 @@ public final class GenerateImageTool {
         this.messageId = messageId; this.active = active; this.deadline = deadline; this.events = events; this.maxCalls = maxCalls;
     }
 
-    @LlmTool(name = "generate_image", description = "Generate a new image from a text description and show it to the user in this reply. Use when the user asks to create, draw, paint, render, or illustrate a picture. Describe the desired image in detail, in English. Not for editing an existing image and not for charts or diagrams. The generated image is shown to the user automatically; reply with a short confirmation and never output image data or a URL yourself.")
+    @LlmTool(name = "generate_image", description = "Generate a new image from a text description and show it to the user in this reply. Use when the user asks to create, draw, paint, render, or illustrate a picture. Describe the desired image in detail, in English. Not for changing an existing image (use edit_image) and not for charts or diagrams. The generated image is shown to the user automatically; reply with a short confirmation and never output image data or a URL yourself.")
     public synchronized String generateImage(
             @LlmTool.Param(description = "A detailed English description of the image to generate, at most 4000 characters.") String prompt,
             @LlmTool.Param(description = "Optional image size such as 1024x1024, 1536x1024, or 1024x1536. Omit for the provider default.") @Nullable String size) {
@@ -49,7 +49,7 @@ public final class GenerateImageTool {
             active.run();
             var id = artifacts.store(tenant, messageId, result);
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.COMPLETED, id, result.mediaType(), result.revisedPrompt()));
-            return "Image generated and shown to the user (id=" + id + ")."
+            return "Image generated and shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The prompt was refined to: " + result.revisedPrompt());
         } catch (Exception failed) {
             active.run(); // Cancellation and deadline must propagate, not become an ordinary tool result.

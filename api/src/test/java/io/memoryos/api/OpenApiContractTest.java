@@ -236,7 +236,7 @@ class OpenApiContractTest {
         assertTrue(validationFields.has("reachable"));
         assertTrue(validationFields.has("failureCode"));
         assertEquals(2, validationFields.size());
-        var searchSource = actual.path("components").path("schemas").path("SearchEvent")
+        var searchSource = actual.path("components").path("schemas").path("ToolEvent")
                 .path("properties").path("source");
         assertFalse(searchSource.has("$ref"), "A sibling object reference would reject null progress sources");
         assertEquals(2, searchSource.path("oneOf").size());
