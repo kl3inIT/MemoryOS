@@ -381,7 +381,8 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await files.getByRole("button", { name: "Next files" }).click();
   await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeEnabled();
   await expect(row(uploaded.filename)).toHaveCount(0);
-  await files.getByRole("combobox", { name: "Files per page" }).selectOption("10");
+  await files.getByRole("combobox", { name: "Files per page" }).click();
+  await page.getByRole("option", { name: "10", exact: true }).click();
   await expect(files.getByRole("status")).toHaveText("1 / 6");
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(row("File-10.txt")).toHaveCount(0);
@@ -389,7 +390,8 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await expect(files.getByRole("status")).toHaveText("2 / 6");
   await expect(row("File-10.txt")).toBeVisible();
   await expect(row(uploaded.filename)).toHaveCount(0);
-  await files.getByRole("combobox", { name: "Files per page" }).selectOption("50");
+  await files.getByRole("combobox", { name: "Files per page" }).click();
+  await page.getByRole("option", { name: "50", exact: true }).click();
   await expect(files.getByRole("status")).toHaveText("1 / 2");
   await expect(row(uploaded.filename)).toBeVisible();
   await expect(row("File-26.txt")).toBeVisible();
