@@ -166,6 +166,11 @@ export const en = {
       "This item has changed. Reload its latest version before trying again. Your draft is preserved.",
     notFound: "This item is no longer available.",
     unavailable: "The service is temporarily unavailable. Try again later.",
+    chatProviderUnavailable:
+      "The model provider rejected the request or could not be reached. Check the provider and model, then retry.",
+    chatBusy: "Chat is at capacity. Wait a moment and send again.",
+    chatRejected:
+      "The question was rejected before it ran. Shorten it or pick a model with a larger context window.",
     webProviderUnavailable:
       "The Web provider could not be reached or rejected the request. Check the address and key, then test again.",
     network: "Couldn’t connect. Check your connection and try again.",
