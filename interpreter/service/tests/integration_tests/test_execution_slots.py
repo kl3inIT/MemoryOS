@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memoryos_interpreter.api import routes
-from memoryos_interpreter.api.routes import ExecutionSlots
+from memoryos_interpreter.api.routes import ExecutionSlots, _SlotStreamingResponse
 from memoryos_interpreter.main import create_app
 from memoryos_interpreter.services.executor_base import (
     ExecutionResult,
@@ -100,3 +100,51 @@ def test_zero_disables_the_limit() -> None:
     acquired = [slots.try_acquire() for _ in range(10)]
 
     assert all(slot is not None for slot in acquired)
+
+
+def test_stream_slot_is_freed_only_after_the_body_cleans_up() -> None:
+    slots = ExecutionSlots(1)
+    slot = slots.try_acquire()
+    assert slot is not None
+    events: list[str] = []
+
+    def body() -> Generator[str, None, None]:
+        try:
+            yield "event: output\n\n"
+        finally:
+            events.append("executor cleaned up")
+            events.append("slot freed" if slots.try_acquire() is None else "slot already free")
+            slot.release()
+
+    content = body()
+    next(content)
+    _SlotStreamingResponse(content, slot)._close_body()
+
+    assert events == ["executor cleaned up", "slot freed"]
+    assert slots.try_acquire() is not None
+
+
+def test_stream_that_never_started_releases_its_slot() -> None:
+    slots = ExecutionSlots(1)
+    slot = slots.try_acquire()
+    assert slot is not None
+
+    def body() -> Generator[str, None, None]:
+        yield "event: output\n\n"
+
+    _SlotStreamingResponse(body(), slot)._close_body()
+
+    assert slots.try_acquire() is not None
+
+
+def test_negative_limit_is_rejected_at_startup(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib
+
+    from memoryos_interpreter import app_configs
+
+    monkeypatch.setenv("MAX_CONCURRENT_EXECUTIONS", "-1")
+    with pytest.raises(ValueError, match="MAX_CONCURRENT_EXECUTIONS"):
+        importlib.reload(app_configs)
+
+    monkeypatch.delenv("MAX_CONCURRENT_EXECUTIONS")
+    importlib.reload(app_configs)

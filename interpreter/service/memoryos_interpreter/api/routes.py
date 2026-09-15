@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.types import Receive, Scope, Send
 
 from memoryos_interpreter.app_configs import get_settings
@@ -76,28 +77,47 @@ class _ExecutionSlot:
 
 
 class _SlotStreamingResponse(StreamingResponse):
-    """Releases the execution slot when the response ends, including on client disconnect."""
+    """Frees the execution slot only after the executor is cleaned up, also on client disconnect.
 
-    def __init__(self, content: Iterator[str], slot: _ExecutionSlot, **kwargs: object) -> None:
+    The body generator releases the slot in its own ``finally``, after closing the executor stream.
+    When the response ends, the generator is closed so that cleanup runs now. A generator that never
+    started holds no executor, so its slot is released here.
+    """
+
+    def __init__(
+        self, content: Generator[str, None, None], slot: _ExecutionSlot, **kwargs: object
+    ) -> None:
         super().__init__(content, **kwargs)  # type: ignore[arg-type]
+        self._content = content
         self._slot = slot
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
             await super().__call__(scope, receive, send)
         finally:
-            self._slot.release()
+            await run_in_threadpool(self._close_body)
+
+    def _close_body(self) -> None:
+        try:
+            self._content.close()
+        except ValueError:
+            # A worker thread is still producing a chunk; the generator releases the slot when
+            # that chunk returns and the generator is closed.
+            return
+        self._slot.release()
 
 
 _execution_slots: ExecutionSlots | None = None
+_execution_slots_lock = threading.Lock()
 
 
 def get_execution_slots() -> ExecutionSlots:
     """Get or create the global ExecutionSlots instance."""
     global _execution_slots
-    if _execution_slots is None:
-        _execution_slots = ExecutionSlots(get_settings().max_concurrent_executions)
-    return _execution_slots
+    with _execution_slots_lock:
+        if _execution_slots is None:
+            _execution_slots = ExecutionSlots(get_settings().max_concurrent_executions)
+        return _execution_slots
 
 
 def _acquire_execution_slot() -> _ExecutionSlot:
@@ -238,18 +258,19 @@ def execute_stream(req: ExecuteRequest) -> StreamingResponse:
     # Acquired before the response starts, so a full service can still answer 429.
     slot = _acquire_execution_slot()
 
-    def generate() -> Iterator[str]:
+    def generate() -> Generator[str, None, None]:
+        events = execute_python_streaming(
+            code=req.code,
+            stdin=req.stdin,
+            timeout_ms=req.timeout_ms,
+            max_output_bytes=settings.max_output_bytes,
+            cpu_time_limit_sec=settings.cpu_time_limit_sec,
+            memory_limit_mb=settings.memory_limit_mb,
+            files=staged_files,
+            last_line_interactive=req.last_line_interactive,
+        )
         try:
-            for event in execute_python_streaming(
-                code=req.code,
-                stdin=req.stdin,
-                timeout_ms=req.timeout_ms,
-                max_output_bytes=settings.max_output_bytes,
-                cpu_time_limit_sec=settings.cpu_time_limit_sec,
-                memory_limit_mb=settings.memory_limit_mb,
-                files=staged_files,
-                last_line_interactive=req.last_line_interactive,
-            ):
+            for event in events:
                 if isinstance(event, StreamChunk):
                     yield StreamOutputEvent(stream=event.stream, data=event.data).to_sse()
 
@@ -263,6 +284,10 @@ def execute_stream(req: ExecuteRequest) -> StreamingResponse:
 
         except Exception as exc:
             yield StreamErrorEvent(message=str(exc)).to_sse()
+        finally:
+            # Closing the executor stream kills its container before the slot is freed.
+            events.close()
+            slot.release()
 
     return _SlotStreamingResponse(
         generate(),

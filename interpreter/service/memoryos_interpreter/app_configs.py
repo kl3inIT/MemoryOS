@@ -59,6 +59,8 @@ MEMORY_LIMIT_MB = int(os.environ.get("MEMORY_LIMIT_MB") or 1024)
 # MemoryOS addition: executions running at once; further requests get HTTP 429. Each executor may
 # use MEMORY_LIMIT_MB, so the limit bounds executor memory on the host. 0 disables the limit.
 MAX_CONCURRENT_EXECUTIONS = int(os.environ.get("MAX_CONCURRENT_EXECUTIONS") or 4)
+if MAX_CONCURRENT_EXECUTIONS < 0:
+    raise ValueError("MAX_CONCURRENT_EXECUTIONS must be 0 (unlimited) or positive")
 
 # API server configuration
 HOST = os.environ.get("HOST") or "0.0.0.0"  # noqa: S104
