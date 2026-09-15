@@ -1224,7 +1224,8 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(confirmation).not.toBeVisible();
   await expect(page.getByText("No files yet")).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete source" }).click();
+  await page.getByRole("button", { name: "Source actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete source" }).click();
   confirmation = page.getByRole("alertdialog");
   await expect(
     confirmation.getByRole("heading", { name: "Delete Product documentation?" }),

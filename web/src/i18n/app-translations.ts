@@ -373,6 +373,7 @@ export const vietnameseUi: Record<string, string> = {
 
 export const englishUi: Record<string, string> = {
   "Source sections": "Các phần của nguồn",
+  "Source actions": "Thao tác nguồn",
   Content: "Nội dung",
   "Sync history": "Lịch sử đồng bộ",
   "Connection and settings": "Kết nối và cấu hình",

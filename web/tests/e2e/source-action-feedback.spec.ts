@@ -664,7 +664,7 @@ test("only successful deletion navigates and its terminal notice expires on the 
   page,
 }) => {
   const server = await sourcePage(page);
-  await page.getByRole("button", { name: "Delete source", exact: true }).click();
+  await openSourceAction(page, "Delete source");
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
   await dialog.getByRole("button", { name: "Delete source", exact: true }).click();
@@ -672,7 +672,7 @@ test("only successful deletion navigates and its terminal notice expires on the 
   await expect(
     page.getByRole("listitem", { name: "Source deletion requested", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Delete source", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Source actions" })).toBeDisabled();
   await expect(
     page.getByRole("row").filter({ hasText: "First.txt" }).getByRole("button", { name: "Reindex" }),
   ).toBeDisabled();
@@ -683,7 +683,7 @@ test("only successful deletion navigates and its terminal notice expires on the 
     page.getByRole("listitem", { name: "Source deletion failed", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("listitem", { name: "Source deleted", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Delete source", exact: true }).click();
+  await openSourceAction(page, "Delete source");
   await dialog.getByRole("button", { name: "Delete source", exact: true }).click();
   await expect.poll(() => server.operations.length).toBe(2);
   server.operations[1]!.status = "SUPERSEDED";
@@ -692,7 +692,7 @@ test("only successful deletion navigates and its terminal notice expires on the 
     page.getByRole("listitem", { name: "Source deletion superseded", exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/admin\/sources\//);
-  await page.getByRole("button", { name: "Delete source", exact: true }).click();
+  await openSourceAction(page, "Delete source");
   await dialog.getByRole("button", { name: "Delete source", exact: true }).click();
   await expect.poll(() => server.operations.length).toBe(3);
   server.operations[2]!.status = "SUCCEEDED";
@@ -714,7 +714,7 @@ test("deletion with unavailable operation status keeps the Source open without d
 }) => {
   const server = await sourcePage(page);
   server.unavailableStatus = true;
-  await page.getByRole("button", { name: "Delete source", exact: true }).click();
+  await openSourceAction(page, "Delete source");
   const dialog = page.getByRole("alertdialog");
   await dialog.getByRole("button", { name: "Delete source", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -733,7 +733,7 @@ test("accepted deletion never traps navigation and its observer stops when leavi
 }) => {
   const server = await sourcePage(page);
   await page.clock.install();
-  await page.getByRole("button", { name: "Delete source", exact: true }).click();
+  await openSourceAction(page, "Delete source");
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete source", exact: true })
@@ -742,7 +742,7 @@ test("accepted deletion never traps navigation and its observer stops when leavi
   await expect(
     page.getByRole("listitem", { name: "Source deletion requested", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Delete source", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Source actions" })).toBeDisabled();
   await page.clock.runFor(1_600);
   await expect.poll(() => server.operationReads.length).toBe(1);
   await page.getByRole("main").getByRole("link", { name: "Sources", exact: true }).click();
@@ -970,3 +970,8 @@ test("cancelling an in-flight finalization retry keeps recovery and ignores the 
   await expect(retry).toHaveCount(0);
   await expect(input).toBeEnabled();
 });
+
+async function openSourceAction(page: Page, action: string) {
+  await page.getByRole("button", { name: "Source actions" }).click();
+  await page.getByRole("menuitem", { name: action, exact: true }).click();
+}

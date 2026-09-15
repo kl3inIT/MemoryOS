@@ -3,18 +3,17 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  DatabaseZap,
-  FileText,
-  LoaderCircle,
-  RefreshCw,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { DatabaseZap, FileText, LoaderCircle, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -22,13 +21,6 @@ import { Input } from "@/components/ui/input";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/radix-select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
@@ -52,10 +44,8 @@ import {
   listSourcesQueryKey,
   reindexSourceItemMutation,
   removeSourceItemMutation,
-  renameSourceMutation,
-  updateSourceAccessMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceItem, SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
+import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
@@ -68,6 +58,9 @@ import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
+import { SourceActionsMenu } from "./source-actions-menu";
+import { type SourceMetadataField, SourceMetadataDialog } from "./source-metadata-dialog";
+import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 import { type SourceSection, SourceSectionTabs } from "./source-section-tabs";
 import { can } from "@/lib/resource-permissions";
 
@@ -113,6 +106,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const backLinkRef = useRef<HTMLAnchorElement>(null);
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
+  const [sourceDialog, setSourceDialog] = useState<SourceMetadataField | "delete" | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
   useLayoutEffect(() => {
@@ -633,6 +628,14 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const canRemoveItems = can(detail, "removeItems");
   const canDelete = can(detail, "delete");
   const canManageGroups = can(detail, "edit");
+  const canRename = can(detail, "edit");
+  const canChangeAccess = can(detail, "publish");
+  if (
+    (sourceDialog === "name" && !canRename) ||
+    (sourceDialog === "access" && !canChangeAccess) ||
+    (sourceDialog === "delete" && !canDelete)
+  )
+    setSourceDialog(null);
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const managementBusy =
     uploadBusy ||
@@ -649,7 +652,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     sourceQuery.isError ||
     itemsQuery.isError ||
     driveBusy;
-  const ProviderIcon = findSourceProvider(detail?.type)?.icon ?? FileText;
+  const provider = findSourceProvider(detail?.type);
+  const ProviderIcon = provider?.icon ?? FileText;
   async function refreshAuthorityViews() {
     backLinkRef.current?.focus();
     await queryClient.invalidateQueries();
@@ -874,14 +878,29 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
 
   return (
     <SettingsLayout wide>
-      <Link
-        ref={backLinkRef}
-        to="/admin"
-        className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {ui("Sources")}
-      </Link>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link
+                ref={backLinkRef}
+                to="/admin"
+                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+              >
+                {ui("Sources")}
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {detail ? (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate">{detail.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          ) : null}
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {error ? (
         <p
@@ -943,38 +962,51 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               icon={<ProviderIcon />}
               iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
               title={detail.name}
+              description={
+                <span className="flex flex-wrap items-center gap-2">
+                  <SourceStatusBadge status={detail.status} />
+                  <SourceAccessBadge access={detail.access} />
+                  {provider ? <span>{ui(provider.name)}</span> : null}
+                </span>
+              }
               actions={
-                canDelete ? (
-                  <ConfirmDialog
-                    trigger={
-                      <Button
-                        tone="danger"
-                        prominence="tertiary"
-                        disabled={busy || cleanupPending || detail.status === "DELETING"}
-                      >
-                        <Trash2 />
-                        {ui("Delete source")}
-                      </Button>
-                    }
-                    title={ui("Delete {{v1}}?", { v1: detail.name })}
-                    description={ui(
-                      "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
-                      { v1: detail.name },
-                    )}
-                    confirmLabel={ui("Delete source")}
-                    pendingLabel={ui("Deleting source")}
-                    onConfirm={deleteSelectedSource}
-                    errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
-                  />
-                ) : null
+                <SourceActionsMenu
+                  triggerRef={actionsTrigger}
+                  disabled={busy || detail.status === "DELETING"}
+                  onRename={canRename ? () => setSourceDialog("name") : undefined}
+                  onChangeAccess={canChangeAccess ? () => setSourceDialog("access") : undefined}
+                  onDelete={canDelete ? () => setSourceDialog("delete") : undefined}
+                />
               }
             />
-            <SourceMetadataEditor
-              key={`${detail.id}:${JSON.stringify(detail.permissions)}`}
-              source={detail}
-              disabled={busy || sourceQuery.isError || detail.status === "DELETING"}
-              onSaved={refreshAuthorityViews}
-            />
+            {canDelete ? (
+              <ConfirmDialog
+                open={sourceDialog === "delete"}
+                onOpenChange={(open) => setSourceDialog(open ? "delete" : null)}
+                restoreFocusRef={actionsTrigger}
+                successFocusRef={backLinkRef}
+                title={ui("Delete {{v1}}?", { v1: detail.name })}
+                description={ui(
+                  "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
+                  { v1: detail.name },
+                )}
+                confirmLabel={ui("Delete source")}
+                pendingLabel={ui("Deleting source")}
+                onConfirm={deleteSelectedSource}
+                errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+              />
+            ) : null}
+            {sourceDialog === "name" || sourceDialog === "access" ? (
+              <SourceMetadataDialog
+                key={sourceDialog}
+                source={detail}
+                field={sourceDialog}
+                disabled={busy || detail.status === "DELETING"}
+                restoreFocusRef={actionsTrigger}
+                onClose={() => setSourceDialog(null)}
+                onSaved={refreshAuthorityViews}
+              />
+            ) : null}
             {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
             {detail.errorCode &&
             !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
@@ -1159,170 +1191,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         )}
       </div>
     </SettingsLayout>
-  );
-}
-
-function SourceMetadataEditor({
-  source,
-  disabled,
-  onSaved,
-}: {
-  source: SourceSummary;
-  disabled: boolean;
-  onSaved: () => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const rename = useMutation(renameSourceMutation());
-  const updateAccess = useMutation(updateSourceAccessMutation());
-  const [editing, setEditing] = useState<"name" | "access" | null>(null);
-  const [name, setName] = useState(source.name);
-  const [access, setAccess] = useState<SourceSummary["access"]>(source.access);
-  const [error, setError] = useState<AppCopy | null>(null);
-  const canRename = can(source, "edit");
-  const canManageAccess = can(source, "publish");
-  const googleDrive = source.type === "GOOGLE_DRIVE";
-  const pending = rename.isPending || updateAccess.isPending;
-  if (editing === "access" && !canManageAccess) {
-    setEditing(null);
-    setAccess(source.access);
-    setError(null);
-  }
-
-  async function save() {
-    if (disabled || pending) return;
-    setError(null);
-    try {
-      if (editing === "name" && canRename && name.trim()) {
-        await rename.mutateAsync({
-          path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
-          body: { name: name.trim() },
-        });
-      } else if (editing === "access" && canManageAccess) {
-        await updateAccess.mutateAsync({
-          path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
-          body: { access },
-        });
-      } else return;
-      setEditing(null);
-      await onSaved();
-    } catch (cause) {
-      setError(sourceMutationError(cause, "metadata"));
-    }
-  }
-
-  if (!canRename && !canManageAccess) return null;
-  return (
-    <section aria-label={ui("Source settings")} className="mb-6 space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {canRename ? (
-          <Button
-            prominence="tertiary"
-            disabled={disabled || pending}
-            onClick={() => {
-              setName(source.name);
-              setError(null);
-              setEditing("name");
-            }}
-          >
-            {ui("Rename source")}
-          </Button>
-        ) : null}
-        {canManageAccess ? (
-          <Button
-            prominence="tertiary"
-            disabled={disabled || pending}
-            onClick={() => {
-              setAccess(source.access);
-              setError(null);
-              setEditing("access");
-            }}
-          >
-            {ui("Change visibility")}
-          </Button>
-        ) : null}
-      </div>
-      {editing ? (
-        <form
-          className="space-y-3 rounded-lg border border-border-subtle p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          {editing === "name" ? (
-            <label className="block space-y-2">
-              <span>{ui("Source name")}</span>
-              <Input
-                value={name}
-                maxLength={120}
-                required
-                disabled={disabled || pending}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-          ) : (
-            <label className="block space-y-2">
-              <span>{ui("Visibility")}</span>
-              <Select
-                value={access}
-                disabled={disabled || pending}
-                onValueChange={(next) => setAccess(next as SourceSummary["access"])}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PUBLIC">{ui("Public · everyone in this Tenant")}</SelectItem>
-                  <SelectItem value="PRIVATE">
-                    {ui("Private · associated group members")}
-                  </SelectItem>
-                  {googleDrive ? (
-                    <SelectItem value="SYNC">
-                      {ui("Auto Sync · people who can open each file in Google Drive")}
-                    </SelectItem>
-                  ) : null}
-                </SelectContent>
-              </Select>
-              <span className="block text-sm text-content-muted">
-                {googleDrive
-                  ? ui(
-                      "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.",
-                    )
-                  : ui(
-                      "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
-                    )}
-              </span>
-            </label>
-          )}
-          {error ? (
-            <p role="alert" className="text-sm text-status-danger-content">
-              {ui(error)}
-            </p>
-          ) : null}
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              pending={pending}
-              disabled={disabled || (editing === "name" && !name.trim())}
-            >
-              {editing === "name" ? ui("Save name") : ui("Save visibility")}
-            </Button>
-            <Button
-              prominence="secondary"
-              disabled={pending}
-              onClick={() => {
-                setEditing(null);
-                setError(null);
-              }}
-            >
-              {ui("Cancel")}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-    </section>
   );
 }
 

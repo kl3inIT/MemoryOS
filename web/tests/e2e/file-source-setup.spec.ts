@@ -408,6 +408,8 @@ test("scoped File creation requires managed groups and never publishes files", a
   await page.getByRole("button", { name: "Upload and create" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Change visibility" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Delete source" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Source actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Rename source" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Change visibility" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Delete source" })).toHaveCount(0);
 });
