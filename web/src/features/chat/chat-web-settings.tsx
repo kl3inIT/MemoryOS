@@ -1,11 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, CheckCircle2, Cpu, Globe, Settings2 } from "lucide-react";
+import { CheckCircle2, Cpu, Globe, Settings2 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -336,23 +335,22 @@ function ConnectionCard({
             </Button>
           )}
           {configured ? (
-            <IconButton
-              prominence="tertiary"
-              size="sm"
-              aria-label={ui("Cấu hình")}
-              disabled={disabled || pending}
-              onClick={() => setOpen(true)}
-            >
-              <Settings2 />
-            </IconButton>
-          ) : (
             <Button
               size="sm"
               prominence="tertiary"
               disabled={disabled || pending}
               onClick={() => setOpen(true)}
             >
-              {ui("Kết nối")} <ArrowRightLeft aria-hidden="true" />
+              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled || pending}
+              onClick={() => setOpen(true)}
+            >
+              {ui("Kết nối")}
             </Button>
           )}
         </>

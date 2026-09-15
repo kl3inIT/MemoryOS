@@ -1,6 +1,5 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowRightLeft,
   Boxes,
   Brain,
   ChevronDown,
@@ -387,12 +386,12 @@ function NewConnectionCard({
       actions={
         <Button
           size="sm"
-          prominence="tertiary"
+          prominence="secondary"
           disabled={disabled}
           aria-label={ui(appText("Connect {{name}}", { name: preset.name }))}
           onClick={onConnect}
         >
-          {ui("Connect")} <ArrowRightLeft aria-hidden="true" />
+          {ui("Connect")}
         </Button>
       }
     />

@@ -11,6 +11,7 @@ Reference: Onyx `40eb240df` renders Web Search, Voice, Image Generation and Trac
 ## Decisions
 
 - One `ProviderCard` in `web/src/components/provider-logos/provider-card.tsx`, composed from the shadcn registry `Item` (`web/src/components/ui/item.tsx`, adapted to MemoryOS tokens: subtle border, `font-main-ui-*` type, shared focus ring). It owns the brand tile, name, one-line description, selected treatment and the trailing action slot. Pages keep their own behaviour.
+- Card style (owner follow-up on 2026-09-15, chosen from screenshots of the merged card, the pre-#190 Web card and a hybrid): brand marks sit unframed in a fixed 36px slot, cards use 16px vertical padding, "Connect" is a secondary `Button` without an arrow, and "Configure" is a tertiary `Button` with its icon and visible label. A framed tile inside the bordered card read as nested boxes, and an icon-only Configure was less discoverable.
 - The card is not itself a button. Actions are `Button` controls, so every card stays keyboard reachable; Models' "Connect" keeps its `Connect {{name}}` accessible name.
 - Web search keeps its single-column list, provider order and sections; only its cards change to `ProviderCard`, including the built-in crawler and provider-hosted search rows. The owner reviewed a two-column grouped variant on 2026-09-15 and kept the original layout.
 - Web search keeps one active provider per capability ("In use", "Connected", "Set as Default", "Configure"). Models keeps "Available connections" with expandable model tables; only its logo tile is shared.
