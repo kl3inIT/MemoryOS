@@ -9,7 +9,13 @@ import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   useApplicationSession,
   useCapabilityAuthority,
@@ -259,13 +265,17 @@ export function CreateFileSourcePage() {
               </p>
             ) : (
               <Select
-                id="file-source-access"
                 value={access}
                 disabled={busy || Boolean(sourceId)}
-                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "PRIVATE")}
+                onValueChange={(next) => setAccess(next as "PUBLIC" | "PRIVATE")}
               >
-                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                <option value="PRIVATE">{ui("Private · selected group members")}</option>
+                <SelectTrigger id="file-source-access" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC">{ui("Public · everyone in this Tenant")}</SelectItem>
+                  <SelectItem value="PRIVATE">{ui("Private · selected group members")}</SelectItem>
+                </SelectContent>
               </Select>
             )}
           </div>

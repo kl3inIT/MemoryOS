@@ -21,7 +21,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
-import { Select } from "@/components/ui/select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
@@ -835,27 +842,18 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           setCursor(itemsQuery.data?.nextCursor ?? undefined);
         }}
       >
-        <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-          {ui("Rows")}
-          <Select
-            aria-label={ui("Files per page")}
-            size="sm"
-            className="w-auto px-2"
-            value={filesSize}
-            disabled={itemsQuery.isFetching}
-            onChange={(event) => {
-              setFilesSize(Number(event.target.value));
-              setCursor(undefined);
-              setPrevious([]);
-            }}
-          >
-            {[5, 10, 25, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <PageSizeSelect
+          label={ui("Files per page")}
+          rowsLabel={ui("Rows")}
+          value={filesSize}
+          sizes={[5, 10, 25, 50, 100]}
+          disabled={itemsQuery.isFetching}
+          onSizeChange={(size) => {
+            setFilesSize(size);
+            setCursor(undefined);
+            setPrevious([]);
+          }}
+        />
       </TablePagination>
     </section>
   ) : null;
@@ -1273,15 +1271,22 @@ function SourceMetadataEditor({
               <Select
                 value={access}
                 disabled={disabled || pending}
-                onChange={(event) => setAccess(event.target.value as SourceSummary["access"])}
+                onValueChange={(next) => setAccess(next as SourceSummary["access"])}
               >
-                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                <option value="PRIVATE">{ui("Private · associated group members")}</option>
-                {googleDrive ? (
-                  <option value="SYNC">
-                    {ui("Auto Sync · people who can open each file in Google Drive")}
-                  </option>
-                ) : null}
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC">{ui("Public · everyone in this Tenant")}</SelectItem>
+                  <SelectItem value="PRIVATE">
+                    {ui("Private · associated group members")}
+                  </SelectItem>
+                  {googleDrive ? (
+                    <SelectItem value="SYNC">
+                      {ui("Auto Sync · people who can open each file in Google Drive")}
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
               </Select>
               <span className="block text-sm text-content-muted">
                 {googleDrive

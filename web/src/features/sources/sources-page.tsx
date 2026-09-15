@@ -15,13 +15,22 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+
+/** Radix selects reject an empty option value, so "any" stands for an unset filter. */
+const anyFilterValue = "any";
 
 export function SourcesPage() {
   const ui = useAppTranslation();
@@ -166,41 +175,53 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Status")}
             <Select
-              size="sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              value={statusFilter || anyFilterValue}
+              onValueChange={(next) => setStatusFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All statuses")}</option>
-              <option value="NOT_STARTED">{ui("Scheduled")}</option>
-              <option value="INDEXING">{ui("Indexing")}</option>
-              <option value="ACTIVE">{ui("Active")}</option>
-              <option value="FAILED">{ui("Failed")}</option>
-              <option value="DELETING">{ui("Deleting")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All statuses")}</SelectItem>
+                <SelectItem value="NOT_STARTED">{ui("Scheduled")}</SelectItem>
+                <SelectItem value="INDEXING">{ui("Indexing")}</SelectItem>
+                <SelectItem value="ACTIVE">{ui("Active")}</SelectItem>
+                <SelectItem value="FAILED">{ui("Failed")}</SelectItem>
+                <SelectItem value="DELETING">{ui("Deleting")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Provider")}
             <Select
-              size="sm"
-              value={providerFilter}
-              onChange={(event) => setProviderFilter(event.target.value)}
+              value={providerFilter || anyFilterValue}
+              onValueChange={(next) => setProviderFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All providers")}</option>
-              <option value="FILE">{ui("File")}</option>
-              <option value="GOOGLE_DRIVE">{ui("Google Drive")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All providers")}</SelectItem>
+                <SelectItem value="FILE">{ui("File")}</SelectItem>
+                <SelectItem value="GOOGLE_DRIVE">{ui("Google Drive")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Access")}
             <Select
-              size="sm"
-              value={accessFilter}
-              onChange={(event) => setAccessFilter(event.target.value)}
+              value={accessFilter || anyFilterValue}
+              onValueChange={(next) => setAccessFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All access")}</option>
-              <option value="PUBLIC">{ui("Workspace members")}</option>
-              <option value="PRIVATE">{ui("Private")}</option>
-              <option value="SYNC">{ui("Auto Sync")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All access")}</SelectItem>
+                <SelectItem value="PUBLIC">{ui("Workspace members")}</SelectItem>
+                <SelectItem value="PRIVATE">{ui("Private")}</SelectItem>
+                <SelectItem value="SYNC">{ui("Auto Sync")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <Button

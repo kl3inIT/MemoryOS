@@ -12,7 +12,13 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -567,22 +573,26 @@ function GoogleDriveSourceSetup() {
               {ui("Visibility")}
             </label>
             <Select
-              id="google-drive-source-access"
               value={access}
               disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
-              onChange={(event) => {
+              onValueChange={(next) => {
                 if (tracking.terminal) tracking.forget();
-                setAccess(event.target.value as SourceSummary["access"]);
+                setAccess(next as SourceSummary["access"]);
                 setError(null);
               }}
             >
-              <option value="SYNC">
-                {ui("Auto Sync · people who can open each file in Google Drive")}
-              </option>
-              <option value="PRIVATE">{ui("Private · selected group members")}</option>
-              {globalManage ? (
-                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-              ) : null}
+              <SelectTrigger id="google-drive-source-access" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SYNC">
+                  {ui("Auto Sync · people who can open each file in Google Drive")}
+                </SelectItem>
+                <SelectItem value="PRIVATE">{ui("Private · selected group members")}</SelectItem>
+                {globalManage ? (
+                  <SelectItem value="PUBLIC">{ui("Public · everyone in this Tenant")}</SelectItem>
+                ) : null}
+              </SelectContent>
             </Select>
             <p className="text-sm text-content-muted">
               {access === "SYNC"

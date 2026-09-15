@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
 import type { UserGroupOption } from "./user-groups-dialog";
 import type { UserRoleFilter, UsersSearch } from "./users-search";

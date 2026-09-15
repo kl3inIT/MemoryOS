@@ -1,6 +1,8 @@
 # MEM-106 — shadcn adoption and Sources redesign
 
-**Goal:** every browser surface is built from shadcn/ui primitives, and every Sources screen — list, creation, detail, indexing, index and run detail, settings and credentials — is redesigned against a chosen enterprise reference. API contracts, authorization and sync behaviour stay as they are.
+**Goal:** every Sources screen — list, creation, detail, indexing, index and run detail, settings and credentials — is built from shadcn/ui primitives and redesigned against a chosen enterprise reference. API contracts, authorization and sync behaviour stay as they are.
+
+**Boundary:** the owner limited this increment to the Sources area. Screens outside it keep their current markup; the primitives added here are available to them later, and the native select they still use moved to `ui/native-select` so the shadcn `ui/select` can be the Radix one.
 
 **Linear:** [MEM-106](https://linear.app/memory-os/issue/MEM-106). Builds on [MEM-105](../mem-105-source-access-modes/design.md), whose access modes the new screens must express.
 
@@ -19,7 +21,7 @@ The Sources area grew screen by screen. It now carries four hand-written tables,
 
 1. **Add the missing primitives through the shadcn CLI** and bind them to the existing tokens in `tokens.css`/`theme.css` rather than to shadcn's default palette. The design language of Chat and Search does not change.
 2. **Keep the `Button` public API (`tone × prominence`) and rebuild its internals on the shadcn recipe.** Renaming the props would touch every feature for no user-visible gain; the exception and its reason belong in this document, as the acceptance criteria require.
-3. **Replace `ui/select`** with the Radix-backed shadcn `Select`, keeping the current props so call sites move in one mechanical pass.
+3. **`ui/select` becomes the Radix-backed shadcn `Select`,** used by the Sources screens. The previous native control lives on as `ui/native-select` for the screens this increment does not touch.
 4. **One row-detail pattern.** A row that has more to say — an index attempt, a sync run — opens a right-hand `Sheet`, never a new page. The list stays in view.
 5. **Processing state is filtered by tabs with counts**, not by expanding a disclosure. `<details>` disappears from the feature.
 6. **Every error shows its translated code and the next action** (reindex, reconnect), instead of a bare message.
@@ -52,11 +54,11 @@ Each screen has one primary reference chosen after comparing several enterprise 
 
 - `web/src/components/ui`: add the missing primitives, retire the native select, rebuild the button internals.
 - `web/src/features/sources`: redesign the fourteen screens above.
-- The rest of `web/src`: replace bare Radix usage, `<details>`, hand-written tables, native form controls and `title=` tooltips with the new primitives.
 - Tests: unit tests per redesigned surface, and the Playwright specs that name the changed structures.
 
 ## Out of scope
 
+- Every screen outside Sources: Chat, Search, Users, Groups and settings keep their current components.
 - API, OpenAPI, authorization, sync and ingestion behaviour.
 - New product capability. A screen that does not exist today (index attempt detail, sync run detail) presents data the API already returns.
 
@@ -66,6 +68,6 @@ Every redesigned screen must hold at 390px, be operable by keyboard and screen r
 
 ## Risks
 
-- **Breadth.** The sweep touches every feature. It is staged: primitives first, then Sources screen by screen, then the rest of `web/src`, so each commit stays reviewable.
+- **Breadth.** Even limited to Sources the change is large. It is staged: primitives first, then one screen per commit, so each stays reviewable.
 - **Token drift.** shadcn defaults would introduce a second palette. Every added component is re-pointed at the existing tokens in the same commit that adds it.
 - **Test churn.** Structural changes break selectors. Tests are updated with the screen they cover, never in a separate sweep.

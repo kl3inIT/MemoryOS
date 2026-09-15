@@ -6,7 +6,7 @@ import { History, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { HelpPopover } from "@/components/ui/help-popover";
-import { Select } from "@/components/ui/select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
 import {
@@ -239,27 +239,18 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                     setCursor(history.data?.nextCursor ?? undefined);
                   }}
                 >
-                  <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                    {ui("Rows")}
-                    <Select
-                      aria-label={ui("Source attempts per page")}
-                      size="sm"
-                      className="w-auto px-2"
-                      value={size}
-                      disabled={history.isFetching}
-                      onChange={(event) => {
-                        setSize(Number(event.target.value));
-                        setCursor(undefined);
-                        setPrevious([]);
-                      }}
-                    >
-                      {[5, 10, 25, 50].map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
+                  <PageSizeSelect
+                    label={ui("Source attempts per page")}
+                    rowsLabel={ui("Rows")}
+                    value={size}
+                    sizes={[5, 10, 25, 50]}
+                    disabled={history.isFetching}
+                    onSizeChange={(next) => {
+                      setSize(next);
+                      setCursor(undefined);
+                      setPrevious([]);
+                    }}
+                  />
                 </TablePagination>
               </div>
             }

@@ -1,6 +1,6 @@
 # MEM-106 — implementation plan
 
-**Goal:** ship the shadcn foundation, then redesign every Sources screen against its chosen reference, then sweep the rest of `web/src`.
+**Goal:** ship the shadcn foundation, then redesign every Sources screen against its chosen reference. Only the Sources area changes.
 
 **Design:** [design.md](design.md). **Linear:** [MEM-106](https://linear.app/memory-os/issue/MEM-106).
 
@@ -10,11 +10,11 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 1: Primitives
 
-- [ ] Add the missing components through the shadcn CLI: dialog, alert-dialog, sheet, tabs, table, dropdown-menu, tooltip, alert, progress, scroll-area, breadcrumb, radio-group, checkbox, switch, textarea, label, collapsible, toggle-group, select.
-- [ ] Re-point each added component at the existing tokens; no shadcn default colour survives.
-- [ ] Rebuild `ui/button` internals on the shadcn recipe, keeping the `tone × prominence` API.
-- [ ] Replace the native `ui/select` with the Radix-backed component behind the same props, and fix the call sites.
-- [ ] Unit test the token binding and the button variants; run `pnpm check`.
+- [x] Add the missing components through the shadcn CLI: dialog, alert-dialog, sheet, tabs, table, dropdown-menu, tooltip, alert, progress, scroll-area, breadcrumb, radio-group, checkbox, switch, textarea, label, collapsible, toggle-group, select.
+- [x] Confirm the added components read the existing tokens; the repository already defines every shadcn colour variable, including the dark theme.
+- [x] Keep the `tone × prominence` button and adapt the three generated components that assume shadcn's button API.
+- [x] `ui/select` becomes the Radix select for Sources; the native control moves to `ui/native-select` for the untouched screens.
+- [x] Teach the test setup about Radix popups, and run `pnpm check`.
 
 ### Task 2: Sources list and type picker
 
@@ -47,12 +47,7 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 - [ ] Settings tab: access, groups, schedule, pause switch, AlertDialog confirmations.
 - [ ] Credentials card: reconnect and replace-OAuth-app flows.
 
-### Task 7: The rest of `web/src`
-
-- [ ] Replace bare Radix, `<details>`, hand-written tables and progress bars, native radio/checkbox/textarea and `title=` tooltips across the other features.
-- [ ] Record any deliberate exception in the design.
-
-### Task 8: Verification
+### Task 7: Verification
 
 - [ ] `pnpm check` and the affected Playwright suites.
 - [ ] Orca captures of every screen in the map at desktop and 390px, placed beside their references in `verification.md`.

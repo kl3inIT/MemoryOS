@@ -1,11 +1,19 @@
 import * as React from "react";
-import { cn } from "cn";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import { Slot } from "radix-ui";
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+  const ui = useAppTranslation();
+
   return (
-    <nav aria-label="breadcrumb" data-slot="breadcrumb" className={cn(className)} {...props} />
+    <nav
+      aria-label={ui("Breadcrumb")}
+      data-slot="breadcrumb"
+      className={cn(className)}
+      {...props}
+    />
   );
 }
 
@@ -78,6 +86,8 @@ function BreadcrumbSeparator({ children, className, ...props }: React.ComponentP
 }
 
 function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span">) {
+  const ui = useAppTranslation();
+
   return (
     <span
       data-slot="breadcrumb-ellipsis"
@@ -87,7 +97,7 @@ function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span"
       {...props}
     >
       <MoreHorizontalIcon />
-      <span className="sr-only">More</span>
+      <span className="sr-only">{ui("More")}</span>
     </span>
   );
 }

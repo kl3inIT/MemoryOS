@@ -1050,7 +1050,9 @@ Object.assign(englishUi, {
 
 Object.assign(englishUi, {
   "Manage connection": "Quản lý kết nối",
+  Breadcrumb: "Đường dẫn phân cấp",
   Close: "Đóng",
+  More: "Thêm",
   "This credential is shared. Reconnecting or disconnecting affects all Sources using it":
     "Thông tin kết nối này được dùng chung. Kết nối lại hoặc ngắt kết nối ảnh hưởng đến mọi nguồn đang dùng",
   " ({{v1}} Sources)": " ({{v1}} nguồn)",

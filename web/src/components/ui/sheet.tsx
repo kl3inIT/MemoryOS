@@ -1,7 +1,8 @@
 "use client";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 
 import * as React from "react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,8 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -66,7 +69,7 @@ function SheetContent({
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <Button prominence="tertiary" size="sm" className="absolute top-3 right-3">
               <XIcon />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{ui("Close")}</span>
             </Button>
           </SheetPrimitive.Close>
         )}

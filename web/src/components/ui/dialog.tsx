@@ -1,7 +1,8 @@
 "use client";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 
 import * as React from "react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -63,7 +66,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button prominence="tertiary" size="sm" className="absolute top-2 right-2">
               <XIcon />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{ui("Close")}</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -86,6 +89,8 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean;
 }) {
+  const ui = useAppTranslation();
+
   return (
     <div
       data-slot="dialog-footer"
@@ -98,7 +103,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button prominence="secondary">Close</Button>
+          <Button prominence="secondary">{ui("Close")}</Button>
         </DialogPrimitive.Close>
       )}
     </div>
