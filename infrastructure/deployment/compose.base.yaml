@@ -212,6 +212,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      # Folder themes are read at runtime, so the optimized image needs no rebuild; recreate Keycloak to load changes.
+      - ../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro
     ports:
       - 127.0.0.1:${MEMORYOS_KEYCLOAK_HOST_PORT:-18180}:8080
     networks:

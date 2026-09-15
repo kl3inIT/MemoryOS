@@ -2,14 +2,10 @@ package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.annotation.LlmTool;
-import com.embabel.agent.api.tool.callback.AfterToolCallContext;
-import com.embabel.agent.api.tool.callback.BeforeToolCallContext;
-import com.embabel.agent.api.tool.callback.ToolCallInspector;
-import com.embabel.agent.api.tool.Tool.Result;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.prompts.SearchPrompts;
 import io.memoryos.connector.SourceSearchScope;
@@ -47,7 +43,6 @@ import java.time.ZoneOffset;
 import java.util.concurrent.CancellationException;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
-import org.jspecify.annotations.NonNull;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
@@ -56,7 +51,8 @@ import reactor.core.publisher.Mono;
 import org.jspecify.annotations.Nullable;
 
 /** One per turn. Embabel owns inference/tool continuation; this tool owns grounded retrieval. */
-public final class SearchTool implements ToolCallInspector, AutoCloseable {
+public final class SearchTool implements AutoCloseable {
+    private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "searchKnowledge");
     private final DocumentSearchService search;
     private final ActorId actor;
     private final PromptRunner selectionRunner;
@@ -64,11 +60,10 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
     private final ChatSearchProperties limits;
     private final Runnable checkActive;
     private final IntSupplier availableTokens;
-    private final Consumer<ChatSearchEvent> events;
+    private final Consumer<ChatToolEvent> events;
     private final io.memoryos.chat.ChatEvidence evidence;
-    private String toolCallId = "";
+    private final io.memoryos.chat.ChatToolActivity activity;
     private int calls;
-    private boolean failed;
     private final SearchTasks.Scope work;
     private final Disposable cancellation;
     private final List<Message> history;
@@ -88,25 +83,27 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
-                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
+                      IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
                       Instant deadline, SearchTimings timings) {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, deadline, timings, List.of());
     }
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
-                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
+                      IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
                       Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds) {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation,
-                messages, deadline, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence());
+                messages, deadline, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence(), new io.memoryos.chat.ChatToolActivity(events));
         evidence.publishTo(events);
     }
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
-                      IntSupplier availableTokens, Consumer<ChatSearchEvent> events, Mono<?> cancellation, List<Message> messages,
-                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence) {
+                      IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
+                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
+                      io.memoryos.chat.ChatToolActivity activity) {
         this.evidence = evidence;
+        this.activity = activity;
         this.allowedSourceIds = Set.copyOf(allowedSourceIds);
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
         this.limits = limits;
@@ -126,18 +123,8 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         this.cancellation = cancellation.subscribe(ignored -> work.cancel());
     }
 
-    @Override public void beforeToolCall(@NonNull BeforeToolCallContext context) {
-        checkActive.run();
-        toolCallId = context.getToolCall().getId();
-        failed = false;
-        progress(ChatSearchEvent.Stage.STARTED);
-    }
-
-    @Override public void afterToolCall(@NonNull AfterToolCallContext context) {
-        checkActive.run();
-        progress(failed || context.getResult() instanceof Result.Error
-                ? ChatSearchEvent.Stage.FAILED : ChatSearchEvent.Stage.COMPLETED);
-    }
+    /** The runner-wide inspector that owns this tool's call identity and terminal stage. */
+    public io.memoryos.chat.ChatToolActivity activity() { return activity; }
 
     public record SemanticQuery(String query) {}
     public record KeywordQueries(List<String> queries) {}
@@ -185,13 +172,13 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             queries.forEach(q -> addQuery(requests, new SearchQuery(q, false, .7)));
             if (preparation.reuseExpansion()) expansion.keywords().forEach(q -> addQuery(requests, new SearchQuery(q, true, 1)));
             if (question.length() <= 2000) addQuery(requests, new SearchQuery(question, false, .5));
-            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.SEARCHING, null,
-                    new ChatSearchEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters), List.of()));
+            events.accept(new ChatToolEvent(call(),
+                    new ChatToolEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters)));
             scopeNote = scopeNote(filters.sources(), requests.values().stream().map(SearchQuery::text).distinct().toList());
             var result = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
             checkActive.run();
             if (result.hits().isEmpty()) return "No authorized evidence found. Do not invent an organization-specific answer.";
-            progress(ChatSearchEvent.Stage.SELECTING);
+            progress(ChatToolEvent.Stage.SELECTING);
             var candidates = new ArrayList<SearchSection>();
             String selectionQuery = limited(question, limits.selectionTokens() / 4);
             var sectionEntries = new ArrayList<java.util.Map<String, Object>>();
@@ -229,8 +216,8 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             checkActive.run();
             if (selectedSections.isEmpty())
                 return "No authorized evidence remains. Do not invent an organization-specific answer.";
-            events.accept(new ChatSearchEvent(toolCallId, ChatSearchEvent.Stage.EXPANDING, null, null, selectedSections.stream()
-                    .map(s -> new ChatSearchEvent.ReadingDocument(s.anchor().documentId(), s.anchor().generation(),
+            events.accept(ChatToolEvent.reading(call(), selectedSections.stream()
+                    .map(s -> new ChatToolEvent.ReadingDocument(s.anchor().documentId(), s.anchor().generation(),
                             readingTitle(s.anchor().title()), s.start(), s.end())).toList()));
             var groups = new LinkedHashMap<String, TreeMap<Integer, SearchPage.Passage>>();
             var metadata = new LinkedHashMap<String, SearchHit>();
@@ -272,7 +259,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
             return output.length() == prefixLength ? "No evidence fits the available context." : output.toString();
         } catch (SearchUnavailableException unavailable) {
             checkActive.run();
-            failed = true;
+            activity.fail();
             return "Document search is unavailable. Do not claim that no matching documents exist.";
         }
     }
@@ -595,7 +582,7 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
                 included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
                 .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList(), null, null, null,
                 hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
-                io.memoryos.connector.DocumentSourceMetadata.providerUrl(hit.origins())), toolCallId);
+                io.memoryos.connector.DocumentSourceMetadata.providerUrl(hit.origins())), call());
         if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included));
     }
 
@@ -610,7 +597,11 @@ public final class SearchTool implements ToolCallInspector, AutoCloseable {
         return title.substring(0, end);
     }
 
-    private void progress(ChatSearchEvent.Stage stage) { events.accept(new ChatSearchEvent(toolCallId, stage, null)); }
+    private void progress(ChatToolEvent.Stage stage) { events.accept(new ChatToolEvent(call(), stage)); }
+    private ChatToolEvent.Call call() {
+        var current = activity.current();
+        return current == null ? SEARCH_CALL : current;
+    }
     public java.util.concurrent.CompletableFuture<Void> whenDrained() { return work.drained(); }
     @Override public void close() {
         cancellation.dispose();

@@ -12,9 +12,10 @@ import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseStreamEvent;
 import com.openai.models.responses.Tool;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatReasoningDelta;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
-import io.memoryos.chat.execution.NativeWebSearch;
+import io.memoryos.chat.execution.ChatModelTurns;
 import io.memoryos.retrieval.SearchFilters;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
@@ -45,34 +46,45 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
 /**
- * OpenAI Responses API with hosted {@code web_search}, used only for a Chat turn that requested Web.
- * Helpers and turns without Web keep the Chat Completions delegate. Requests are stateless
+ * OpenAI Responses API for a Chat turn that uses hosted {@code web_search} or displayable reasoning summaries.
+ * Helpers and turns needing neither keep the Chat Completions delegate. Requests are stateless
  * ({@code store=false}); output items needed by the next tool cycle ride in assistant message properties.
  */
 @org.jspecify.annotations.NullMarked
-final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
+final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
     static final String OUTPUT_ITEMS = "memoryos.openai.responses.output";
     private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
     private final ChatModel completions;
     private final OpenAIClientAsync client;
     private final boolean reasoning;
+    private final boolean webSearch;
+    private final boolean summaries;
     private final MeterRegistry meters;
     private final @Nullable Turn turn;
     private final AtomicBoolean firstRequest = new AtomicBoolean(true);
 
     OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, MeterRegistry meters) {
-        this(completions, client, reasoning, meters, null);
+        this(completions, client, reasoning, true, false, meters);
     }
 
-    private OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, MeterRegistry meters, @Nullable Turn turn) {
+    OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, boolean webSearch, boolean summaries, MeterRegistry meters) {
+        this(completions, client, reasoning, webSearch, summaries, meters, null);
+    }
+
+    private OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, boolean webSearch, boolean summaries,
+                                     MeterRegistry meters, @Nullable Turn turn) {
         this.completions = completions;
         this.client = client;
         this.reasoning = reasoning;
+        this.webSearch = webSearch;
+        this.summaries = summaries && reasoning;
         this.meters = meters;
         this.turn = turn;
     }
 
-    @Override public ChatModel forTurn(Turn value) { return new OpenAiResponsesChatModel(completions, client, reasoning, meters, value); }
+    @Override public ChatModel forTurn(Turn value) { return new OpenAiResponsesChatModel(completions, client, reasoning, webSearch, summaries, meters, value); }
+
+    @Override public boolean nativeWebSearch() { return webSearch; }
 
     /** Synchronous helpers (selection, classification) never search the Web. */
     @Override public ChatResponse call(Prompt prompt) { return completions.call(prompt); }
@@ -81,12 +93,14 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
     public Flux<ChatResponse> stream(Prompt prompt) {
         var active = turn;
         if (active == null) return completions.stream(prompt);
+        boolean web = webSearch && active.webSearch();
+        if (!web && !summaries) return completions.stream(prompt);
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS"));
         // The final-cycle policy removes every tool callback; hosted search is a tool as well.
         boolean tools = options.getToolCallbacks() != null && !options.getToolCallbacks().isEmpty();
-        boolean required = active.required() && firstRequest.getAndSet(false);
+        boolean required = web && active.webRequired() && firstRequest.getAndSet(false);
         ResponseCreateParams params;
-        try { params = request(prompt, options, tools, required); }
+        try { params = request(prompt, options, tools, web, required); }
         catch (RuntimeException invalid) { return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS")); }
         return Flux.create(sink -> {
             var state = new StreamState(active, sink, required);
@@ -104,7 +118,7 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
         }, FluxSink.OverflowStrategy.BUFFER);
     }
 
-    private ResponseCreateParams request(Prompt prompt, OpenAiChatOptions options, boolean tools, boolean required) {
+    private ResponseCreateParams request(Prompt prompt, OpenAiChatOptions options, boolean tools, boolean web, boolean required) {
         var mapper = ObjectMappers.jsonMapper();
         var input = new ArrayList<ResponseInputItem>();
         for (var message : prompt.getInstructions())
@@ -115,8 +129,10 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
         if (maxOutput != null) builder.maxOutputTokens(maxOutput.longValue());
         if (options.getTemperature() != null) builder.temperature(options.getTemperature());
         if (options.getTopP() != null) builder.topP(options.getTopP());
-        if (options.getReasoningEffort() != null)
-            builder.putAdditionalBodyProperty("reasoning", JsonValue.from(Map.of("effort", options.getReasoningEffort())));
+        var reasoningOptions = new LinkedHashMap<String, Object>();
+        if (options.getReasoningEffort() != null) reasoningOptions.put("effort", options.getReasoningEffort());
+        if (summaries) reasoningOptions.put("summary", "auto");
+        if (!reasoningOptions.isEmpty()) builder.putAdditionalBodyProperty("reasoning", JsonValue.from(reasoningOptions));
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {
             var declared = new ArrayList<Tool>();
@@ -130,9 +146,13 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
                 function.put("strict", false);
                 declared.add(mapper.convertValue(function, Tool.class));
             }
-            declared.add(mapper.convertValue(Map.of("type", "web_search"), Tool.class));
+            if (web) declared.add(mapper.convertValue(Map.of("type", "web_search"), Tool.class));
             builder.tools(declared);
             if (required) builder.toolChoice(mapper.convertValue(Map.of("type", "web_search"), ResponseCreateParams.ToolChoice.class));
+            // A forced function tool (for example required external Web search) keeps its Chat Completions meaning.
+            else if (options.getToolChoice() instanceof Map<?, ?> choice && choice.get("function") instanceof Map<?, ?> function
+                    && function.get("name") instanceof String name)
+                builder.toolChoice(mapper.convertValue(Map.of("type", "function", "name", name), ResponseCreateParams.ToolChoice.class));
         }
         return builder.build();
     }
@@ -180,7 +200,7 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
         private final FluxSink<ChatResponse> sink;
         private final boolean required;
         private final Set<String> started = new HashSet<>();
-        private @Nullable String lastSearch;
+        private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
 
@@ -195,6 +215,8 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
             event.outputTextDelta().ifPresent(delta -> {
                 if (!delta.delta().isEmpty()) sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(delta.delta()).build()))));
             });
+            event.reasoningSummaryPartAdded().ifPresent(part -> { if (part.summaryIndex() > 0) turn.events().accept(new ChatReasoningDelta("\n\n")); });
+            event.reasoningSummaryTextDelta().ifPresent(delta -> reason(delta.delta()));
             event.webSearchCallInProgress().ifPresent(progress -> start(progress.itemId()));
             event.webSearchCallSearching().ifPresent(progress -> start(progress.itemId()));
             event.outputItemDone().ifPresent(done -> done(done.item()));
@@ -204,7 +226,16 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
         }
 
         private void start(String itemId) {
-            if (started.add(itemId)) turn.events().accept(new ChatSearchEvent(id(itemId), ChatSearchEvent.Stage.STARTED, null));
+            if (started.add(itemId)) turn.events().accept(new ChatToolEvent(webCall(itemId), ChatToolEvent.Stage.STARTED));
+        }
+
+        private void reason(String text) {
+            for (int offset = 0; offset < text.length(); ) {
+                int end = Math.min(text.length(), offset + 4000);
+                if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) end--;
+                turn.events().accept(new ChatReasoningDelta(text.substring(offset, end)));
+                offset = end;
+            }
         }
 
         private void done(ResponseOutputItem item) {
@@ -215,14 +246,14 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
         private void search(ResponseFunctionWebSearch call) {
             start(call.id());
             searched = true;
-            lastSearch = id(call.id());
+            lastSearch = webCall(call.id());
             meters.counter("memoryos.chat.native_web_search.calls", "provider", "openai", "status", call.status().asString()).increment();
             var queries = call.action().search().flatMap(ResponseFunctionWebSearch.Action.Search::queries).orElse(List.of()).stream()
                     .filter(query -> !query.isBlank() && query.length() <= 2000).distinct().limit(8).toList();
             if (!queries.isEmpty())
-                turn.events().accept(new ChatSearchEvent(lastSearch, ChatSearchEvent.Stage.SEARCHING, null,
-                        new ChatSearchEvent.QueryPlan(queries, new SearchFilters(Set.of(), null, null)), List.of()));
-            turn.events().accept(new ChatSearchEvent(lastSearch, ChatSearchEvent.Stage.COMPLETED, null));
+                turn.events().accept(new ChatToolEvent(lastSearch,
+                        new ChatToolEvent.QueryPlan(queries, new SearchFilters(Set.of(), null, null))));
+            turn.events().accept(ChatToolEvent.finished(lastSearch, false, null));
         }
 
         private void cite(ResponseOutputMessage message) {
@@ -240,7 +271,7 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
                     try {
                         turn.evidence().register("web:" + citation.url(), number -> new ChatSource(number, null, null,
                                 title.substring(0, Math.min(title.length(), 255)), 0, 0, List.of(), null, null,
-                                new ChatSource.WebLocation(citation.url(), excerpt, Instant.now())), lastSearch == null ? "web-native" : lastSearch);
+                                new ChatSource.WebLocation(citation.url(), excerpt, Instant.now())), lastSearch == null ? NATIVE_SEARCH : lastSearch);
                     } catch (IllegalArgumentException unsafeOrInvalid) {
                         // Provider URLs remain untrusted; an unsupported URL is not evidence.
                     }
@@ -269,6 +300,8 @@ final class OpenAiResponsesChatModel implements ChatModel, NativeWebSearch {
             sink.complete();
         }
 
-        private static String id(String itemId) { return "web-native-" + itemId; }
+        private static final ChatToolEvent.Call NATIVE_SEARCH = new ChatToolEvent.Call("web-native", "web_search");
+
+        private static ChatToolEvent.Call webCall(String itemId) { return new ChatToolEvent.Call("web-native-" + itemId, "web_search"); }
     }
 }

@@ -5952,9 +5952,9 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, search, image, outcome, reset. Content event\
-        \ id is assistantMessageId:sequence. Only outcome confirms a committed terminal\
-        \ state. Heartbeats are comments. A reset has no event id."
+      description: "Events: text-delta, reasoning, tool, image, outcome, reset. Content\
+        \ event id is assistantMessageId:sequence. Only outcome confirms a committed\
+        \ terminal state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -6015,7 +6015,8 @@ paths:
                 - $ref: "#/components/schemas/TextDeltaEvent"
                 - $ref: "#/components/schemas/OutcomeEvent"
                 - $ref: "#/components/schemas/ResetEvent"
-                - $ref: "#/components/schemas/SearchEvent"
+                - $ref: "#/components/schemas/ToolEvent"
+                - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
       security:
       - bearerAuth: []
@@ -10647,6 +10648,57 @@ components:
         rootMessageId:
           type: string
           format: uuid
+    ActivityStep:
+      type: object
+      properties:
+        position:
+          type: integer
+          format: int32
+        toolCallId:
+          type: string
+        toolName:
+          type: string
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - FAILED
+        startedAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+          format: int64
+        textOffset:
+          type: integer
+          format: int32
+        queries:
+          type: array
+          items:
+            type: string
+        filters:
+          $ref: "#/components/schemas/SearchFilters"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReadingDocument"
+        citations:
+          type: array
+          items:
+            type: integer
+            format: int32
+    ChatActivity:
+      type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityStep"
+        reasoning:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReasoningSegment"
     ChatArtifact:
       type: object
       properties:
@@ -10723,11 +10775,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChatArtifact"
+        activity:
+          $ref: "#/components/schemas/ChatActivity"
         images:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
       required:
+      - activity
       - artifacts
       - content
       - createdAt
@@ -10821,6 +10876,15 @@ components:
       - id
       - mediaType
       - revisedPrompt
+    Interval:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
     Provenance:
       type: object
       properties:
@@ -10832,6 +10896,49 @@ components:
       required:
       - ordinal
       - provenanceJson
+    ReadingDocument:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        generation:
+          type: string
+          format: uuid
+        title:
+          type: string
+        startOrdinal:
+          type: integer
+          format: int32
+        endOrdinal:
+          type: integer
+          format: int32
+    ReasoningSegment:
+      type: object
+      properties:
+        position:
+          type: integer
+          format: int32
+        textOffset:
+          type: integer
+          format: int32
+        text:
+          type: string
+    SearchFilters:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
+          uniqueItems: true
+        created:
+          $ref: "#/components/schemas/Interval"
+        updated:
+          $ref: "#/components/schemas/Interval"
     WebLocation:
       type: object
       properties:
@@ -10899,15 +11006,6 @@ components:
       required:
       - assistantMessageId
       - reason
-    Interval:
-      type: object
-      properties:
-        from:
-          type: string
-          format: date-time
-        to:
-          type: string
-          format: date-time
     QueryPlan:
       type: object
       properties:
@@ -10917,24 +11015,7 @@ components:
             type: string
         filters:
           $ref: "#/components/schemas/SearchFilters"
-    ReadingDocument:
-      type: object
-      properties:
-        documentId:
-          type: string
-          format: uuid
-        generation:
-          type: string
-          format: uuid
-        title:
-          type: string
-        startOrdinal:
-          type: integer
-          format: int32
-        endOrdinal:
-          type: integer
-          format: int32
-    SearchEvent:
+    ToolEvent:
       type: object
       properties:
         assistantMessageId:
@@ -10944,6 +11025,8 @@ components:
           type: integer
           format: int64
         toolCallId:
+          type: string
+        toolName:
           type: string
         stage:
           type: string
@@ -10968,29 +11051,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ReadingDocument"
+        durationMs:
+          type:
+          - integer
+          - "null"
+          format: int64
       required:
       - assistantMessageId
       - documents
+      - durationMs
       - search
       - sequence
       - source
       - stage
       - toolCallId
-    SearchFilters:
+      - toolName
+    ReasoningEvent:
       type: object
       properties:
-        sources:
-          type: array
-          items:
-            type: string
-            enum:
-            - FILE
-            - GOOGLE_DRIVE
-          uniqueItems: true
-        created:
-          $ref: "#/components/schemas/Interval"
-        updated:
-          $ref: "#/components/schemas/Interval"
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
     ImageEvent:
       type: object
       properties:

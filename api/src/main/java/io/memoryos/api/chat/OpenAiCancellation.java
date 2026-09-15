@@ -70,12 +70,12 @@ final class OpenAiCancellation implements AutoCloseable {
         };
     }
 
-    /** Same cancellation scope, preserving the provider's native Web-search turn view. */
+    /** Same cancellation scope, preserving the provider's per-turn view (hosted Web search, reasoning). */
     ChatModel decorateNative(Function<OpenAIClientAsync, ChatModel> modelFactory) {
         return new Native(modelFactory.apply(client), modelFactory, null);
     }
 
-    private final class Native implements ChatModel, io.memoryos.chat.execution.NativeWebSearch {
+    private final class Native implements ChatModel, io.memoryos.chat.execution.ChatModelTurns {
         private final ChatModel model;
         private final Function<OpenAIClientAsync, ChatModel> modelFactory;
         private final @Nullable Turn turn;
@@ -87,6 +87,9 @@ final class OpenAiCancellation implements AutoCloseable {
         }
 
         @Override public ChatModel forTurn(Turn value) { return new Native(model, modelFactory, value); }
+        @Override public boolean nativeWebSearch() {
+            return model instanceof io.memoryos.chat.execution.ChatModelTurns turns && turns.nativeWebSearch();
+        }
         @Override public ChatResponse call(Prompt prompt) { return model.call(prompt); }
         @Override public Flux<ChatResponse> stream(Prompt prompt) {
             return Flux.defer(() -> {
@@ -94,8 +97,8 @@ final class OpenAiCancellation implements AutoCloseable {
                 try {
                     var view = client.withOptions(options -> options.httpClient(scope));
                     var rebuilt = modelFactory.apply(view);
-                    var streaming = turn != null && rebuilt instanceof io.memoryos.chat.execution.NativeWebSearch nativeModel
-                            ? nativeModel.forTurn(turn) : rebuilt;
+                    var streaming = turn != null && rebuilt instanceof io.memoryos.chat.execution.ChatModelTurns turnModel
+                            ? turnModel.forTurn(turn) : rebuilt;
                     return streaming.stream(prompt)
                             .doOnCancel(scope::close)
                             .doFinally(ignored -> scope.close());
