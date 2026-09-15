@@ -37,7 +37,6 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
 - [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
-- [MEM-100 — Agent activity timeline](docs/increments/active/mem-100-agent-activity-timeline/design.md) owns persisted tool steps and reasoning in Chat, rendered with assistant-ui grouped parts; Deep research (MEM-101) is excluded.
 - [Chat source reader](docs/increments/active/chat-source-reader/design.md) owns stepping between Chat sources, table rows opening on their PDF page, the expanded source dialog and the PDF range-load fallback with pdf.js image decoders.
 - [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
 
