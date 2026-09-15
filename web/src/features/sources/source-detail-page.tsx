@@ -14,7 +14,6 @@ import {
   X,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { Tabs } from "radix-ui";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
@@ -31,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -68,9 +68,16 @@ import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
+import { type SourceSection, SourceSectionTabs } from "./source-section-tabs";
 import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
+
+const googleDriveSections: readonly SourceSection[] = [
+  { value: "content", label: "Content" },
+  { value: "history", label: "Sync history" },
+  { value: "settings", label: "Connection and settings" },
+];
 
 export function SourceDetailPage() {
   const { sourceId } = useParams({
@@ -931,7 +938,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             </Button>
           </div>
         ) : (
-          <Tabs.Root value={section} onValueChange={setSection}>
+          <Tabs value={section} onValueChange={setSection} className="block">
             <PageHeader
               icon={<ProviderIcon />}
               iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
@@ -1122,24 +1129,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                         {ui(sourceStatusMessage(detail.errorCode))}
                       </p>
                     ) : null}
-                    <Tabs.List
-                      aria-label={ui("Source sections")}
-                      className="flex flex-wrap gap-1 border-b border-border-subtle"
-                    >
-                      {[
-                        ["content", "Content"],
-                        ["history", "Sync history"],
-                        ["settings", "Connection and settings"],
-                      ].map(([value, label]) => (
-                        <Tabs.Trigger
-                          key={value}
-                          value={value}
-                          className="min-h-11 border-b-2 border-transparent px-4 py-3 text-sm font-medium text-content-muted hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=active]:border-content-primary data-[state=active]:text-content-primary"
-                        >
-                          {ui(label)}
-                        </Tabs.Trigger>
-                      ))}
-                    </Tabs.List>
+                    <SourceSectionTabs sections={googleDriveSections} />
                   </>
                 }
               />
@@ -1147,12 +1137,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
 
             {detail.type !== "GOOGLE_DRIVE" ? filesPanel : null}
             {detail.type === "GOOGLE_DRIVE" ? (
-              <Tabs.Content
+              <TabsContent
                 value="history"
                 className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
               >
                 <SourceRunHistory key={selectedId} sourceId={selectedId} />
-              </Tabs.Content>
+              </TabsContent>
             ) : (
               <SourceItemHistory key={selectedId} sourceId={selectedId} />
             )}
@@ -1165,7 +1155,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 />
               </div>
             ) : null}
-          </Tabs.Root>
+          </Tabs>
         )}
       </div>
     </SettingsLayout>

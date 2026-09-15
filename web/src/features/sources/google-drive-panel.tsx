@@ -4,7 +4,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, KeyRound, Pencil, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Tabs } from "radix-ui";
+import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -691,8 +691,8 @@ export function GoogleDrivePanel({
           )}
         </div>
         {navigation}
-        <Tabs.Content value="content">{content}</Tabs.Content>
-        <Tabs.Content value="settings">{settings}</Tabs.Content>
+        <TabsContent value="content">{content}</TabsContent>
+        <TabsContent value="settings">{settings}</TabsContent>
       </>
     );
   }
@@ -897,7 +897,7 @@ export function GoogleDrivePanel({
         </p>
       ) : null}
       {navigation}
-      <Tabs.Content
+      <TabsContent
         value="settings"
         forceMount
         hidden={activeSection !== "settings"}
@@ -1057,8 +1057,8 @@ export function GoogleDrivePanel({
           </Collapsible>
         </section>
         {settings}
-      </Tabs.Content>
-      <Tabs.Content
+      </TabsContent>
+      <TabsContent
         value="content"
         forceMount
         hidden={activeSection !== "content"}
@@ -1095,7 +1095,7 @@ export function GoogleDrivePanel({
           </section>
         )}
         {content}
-      </Tabs.Content>
+      </TabsContent>
     </section>
   );
 }

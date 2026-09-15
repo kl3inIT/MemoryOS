@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Tabs } from "radix-ui";
+import { Tabs } from "@/components/ui/tabs";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -313,7 +313,7 @@ function setup(
       <QueryClientProvider client={queryClient}>
         <ApplicationSessionProvider session={session}>
           <ActionNotifications>
-            <Tabs.Root value={activeSection}>
+            <Tabs value={activeSection}>
               <GoogleDrivePanel
                 source={currentSource}
                 sourceStale={sourceStale}
@@ -322,7 +322,7 @@ function setup(
                 content={null}
                 settings={null}
               />
-            </Tabs.Root>
+            </Tabs>
           </ActionNotifications>
         </ApplicationSessionProvider>
       </QueryClientProvider>
