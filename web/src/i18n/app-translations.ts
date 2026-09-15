@@ -1165,7 +1165,7 @@ Object.assign(englishUi, {
   "Loading selection page…": "Đang tải trang lựa chọn…",
   "Selection results": "Kết quả lựa chọn",
   "No matching items": "Không có kết quả phù hợp",
-  "items on this page": "mục trên trang này",
+  "Items {{v1}}–{{v2}}": "Mục {{v1}}–{{v2}}",
   "Previous selection page": "Trang lựa chọn trước",
   "Next selection page": "Trang lựa chọn tiếp",
   "File and folder links": "Liên kết tệp và thư mục",
@@ -1182,8 +1182,8 @@ Object.assign(englishUi, {
   "Loading selected content…": "Đang tải nội dung đã chọn…",
   "Selection or discovery changed. Refresh before expanding this content. Your draft is retained.":
     "Lựa chọn hoặc kết quả tìm liên kết đã thay đổi. Làm mới trước khi mở rộng nội dung. Bản nháp được giữ lại.",
-  "More content could not be loaded. The items already shown and your draft are retained.":
-    "Không tải được thêm nội dung. Các mục đã hiển thị và bản nháp được giữ lại.",
+  "This page could not be loaded. Your draft is retained.":
+    "Không tải được trang này. Bản nháp được giữ lại.",
   "This content could not be loaded. It is not an empty folder or a completed discovery.":
     "Không tải được nội dung này. Điều đó không có nghĩa là thư mục trống hoặc đã tìm liên kết xong.",
   "Refresh selected content": "Làm mới nội dung đã chọn",
@@ -1196,9 +1196,10 @@ Object.assign(englishUi, {
     "Chưa ghi nhận liên kết cho tệp này. Tệp có thể chưa được kiểm tra hoặc chưa tìm liên kết xong.",
   "No selected content is available in this scope.":
     "Chưa có nội dung được chọn trong phạm vi này.",
-  "Load more in {{v1}}": "Tải thêm trong {{v1}}",
-  "Load more selected content": "Tải thêm nội dung đã chọn",
-  "Load more": "Tải thêm",
+  "Previous page in {{v1}}": "Trang trước trong {{v1}}",
+  "Next page in {{v1}}": "Trang tiếp trong {{v1}}",
+  "Previous page of selected content": "Trang trước của nội dung đã chọn",
+  "Next page of selected content": "Trang tiếp của nội dung đã chọn",
   "Already shown earlier in this branch. Its sync selection is shared.":
     "Đã hiển thị trước đó trong nhánh này. Lựa chọn đồng bộ được dùng chung.",
   "Folder · Contents included": "Thư mục · Đã bao gồm nội dung",

@@ -2,7 +2,7 @@ import { uiLocale } from "@/i18n/format";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { statusLabel } from "@/i18n/status-copy";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderTree, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   getGoogleDriveConfigurationQueryKey,
   getGoogleDriveSelectionQueryKey,
@@ -41,6 +42,13 @@ import type {
 import { GoogleDriveLinks } from "./google-drive-links";
 import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
+import { SelectionPager } from "./google-drive-selection-pager";
+import {
+  firstSelectionPage,
+  nextSelectionPage,
+  previousSelectionPage,
+  type SelectionPaging,
+} from "./google-drive-selection-paging";
 import { GoogleDriveSelectionRow, GoogleDriveSelectionTree } from "./google-drive-selection-tree";
 import {
   isGoogleDriveRevisionConflict,
@@ -91,7 +99,9 @@ export function GoogleDriveSelectionPanel({
   const input = useRef<HTMLTextAreaElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
   const selectionControl = useRef<HTMLElement | null>(null);
+  const selectionItem = useRef<string | null>(null);
   const draftFocus = useRef<"roots" | "approval" | null>(null);
   const [error, setError] = useState<AppCopy | null>(null);
   const [revisionConflict, setRevisionConflict] = useState(false);
@@ -101,13 +111,12 @@ export function GoogleDriveSelectionPanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const authority = `${sourceId}:${session.actorId}:${configuration.revision}:${configuration.discoveryRevision}:${configuration.credentialRevision}`;
   const filtered = Boolean(search || kind);
-  const [paging, setPaging] = useState<{
-    authority: string;
-    cursor?: string;
-    previous: Array<string | undefined>;
-  }>({ authority, previous: [] });
-  const cursor = paging.authority === authority ? paging.cursor : undefined;
-  const previous = paging.authority === authority ? paging.previous : [];
+  const [paging, setPaging] = useState<{ authority: string } & SelectionPaging>({
+    authority,
+    ...firstSelectionPage,
+  });
+  const resultsPage = paging.authority === authority ? paging : firstSelectionPage;
+  const cursor = resultsPage.cursor;
   const pageRequest = {
     path: { sourceId },
     query: { search: search || undefined, kind: kind || undefined, size: 25, cursor },
@@ -122,6 +131,8 @@ export function GoogleDriveSelectionPanel({
       });
       return data;
     },
+    // The shown page stays while the next one loads, so the pager keeps its place and focus.
+    placeholderData: keepPreviousData,
     retry: false,
     enabled: filtered,
   });
@@ -173,12 +184,14 @@ export function GoogleDriveSelectionPanel({
     page.discoveryRevision === configuration.discoveryRevision &&
     page.credentialRevision === configuration.credentialRevision;
   const rows = useMemo(() => (pageMatches ? page.items : []), [pageMatches, page]);
+  // A page kept while another authority's page loads is not a changed page.
+  const pageStale = Boolean(page && !pageMatches && !selection.isPlaceholderData);
   const searchVisible = searchOpen || Boolean(search);
   const clearFilters = () => {
     setSearchInput("");
     setSearch("");
     setKind("");
-    setPaging({ authority, previous: [] });
+    setPaging({ authority, ...firstSelectionPage });
   };
   const controlsDisabled =
     disabled || busy || submitted || tracking.uncertain || tracking.recovering;
@@ -206,12 +219,19 @@ export function GoogleDriveSelectionPanel({
       }
     }
     if (!mode && draftFocus.current) {
-      const select = selectionControl.current?.querySelector<HTMLButtonElement>(
-        'button:not([role="checkbox"])',
-      );
-      if (select?.isConnected) select.focus();
+      // Paging a tree branch away and back replaces its rows, so find the item's control again.
+      const recorded = selectionControl.current;
+      const control =
+        !recorded || recorded.isConnected
+          ? recorded
+          : [
+              ...(panel.current?.querySelectorAll<HTMLElement>("[data-selection-control]") ?? []),
+            ].find((element) => element.dataset.selectionControl === selectionItem.current);
+      const select = control?.querySelector<HTMLButtonElement>('button:not([role="checkbox"])');
+      if (select) select.focus();
       else editButton.current?.focus();
       selectionControl.current = null;
+      selectionItem.current = null;
     }
     draftFocus.current = mode;
   }, [draft, busy]);
@@ -294,7 +314,10 @@ export function GoogleDriveSelectionPanel({
   function loadDraft(target?: GoogleDriveSelectionItemResponse, control?: HTMLElement) {
     if (target && (target.coveredByRoots || (!target.selected && target.status !== "AVAILABLE")))
       return;
-    if (!draft || control) selectionControl.current = control ?? null;
+    if (!draft || control) {
+      selectionControl.current = control ?? null;
+      selectionItem.current = control ? (target?.id ?? null) : null;
+    }
     void perform("load", async (signal) => {
       const { data } = await getGoogleDriveSelectionDraft({
         path: { sourceId },
@@ -380,7 +403,7 @@ export function GoogleDriveSelectionPanel({
           ? "Validation status is unavailable. Work may still be running; this is not a failed validation."
           : policy.isError
             ? "Selection limits are unavailable; saving is disabled."
-            : filtered && (selection.isError || (page && !pageMatches))
+            : filtered && (selection.isError || pageStale)
               ? "This selection page is unavailable or changed. No selections were removed from your draft."
               : validation));
   const draftActions = draft ? (
@@ -421,7 +444,7 @@ export function GoogleDriveSelectionPanel({
     </div>
   ) : null;
   return (
-    <section aria-label={ui("Selected content")} className="min-w-0 space-y-3">
+    <section ref={panel} aria-label={ui("Selected content")} className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <SourceSectionIcon icon={FolderTree} />
@@ -523,7 +546,7 @@ export function GoogleDriveSelectionPanel({
               setSearchInput("");
               if (search) {
                 setSearch("");
-                setPaging({ authority, previous: [] });
+                setPaging({ authority, ...firstSelectionPage });
               }
             }}
           >
@@ -550,7 +573,7 @@ export function GoogleDriveSelectionPanel({
                   value={kind || allKinds}
                   onValueChange={(next) => {
                     setKind(next === allKinds ? "" : (next as typeof kind));
-                    setPaging({ authority, previous: [] });
+                    setPaging({ authority, ...firstSelectionPage });
                   }}
                 >
                   <SelectTrigger aria-label={ui("Content type")} className="w-full">
@@ -757,7 +780,7 @@ export function GoogleDriveSelectionPanel({
           onSubmit={(event) => {
             event.preventDefault();
             setSearch(searchInput.trim());
-            setPaging({ authority, previous: [] });
+            setPaging({ authority, ...firstSelectionPage });
           }}
         >
           <label className="min-w-0 flex-1">
@@ -806,11 +829,11 @@ export function GoogleDriveSelectionPanel({
       )}
       {filtered ? (
         <>
-          {selection.isError || (page && !pageMatches) ? (
+          {selection.isError || pageStale ? (
             <Button
               prominence="secondary"
               onClick={() => {
-                setPaging({ authority, previous: [] });
+                setPaging({ authority, ...firstSelectionPage });
                 void selection.refetch();
                 void onActivated().catch(() =>
                   setError("Source status could not be refreshed. Your draft is retained."),
@@ -829,7 +852,11 @@ export function GoogleDriveSelectionPanel({
               {rows.length ? (
                 <ul
                   aria-label={ui("Selection results")}
-                  className="divide-y divide-border-subtle border-y border-border-subtle text-sm"
+                  aria-busy={selection.isPlaceholderData || undefined}
+                  className={cn(
+                    "divide-y divide-border-subtle border-y border-border-subtle text-sm transition-opacity motion-reduce:transition-none",
+                    selection.isPlaceholderData && "opacity-60",
+                  )}
                 >
                   {rows.map((item) => (
                     <li key={`${item.kind}:${item.id}`} className="min-w-0">
@@ -859,42 +886,23 @@ export function GoogleDriveSelectionPanel({
                   </EmptyContent>
                 </Empty>
               )}
-              {previous.length || page.nextCursor ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-content-muted">
-                    {rows.length} {ui("items on this page")}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      aria-label={ui("Previous selection page")}
-                      prominence="secondary"
-                      disabled={!previous.length || selection.isFetching}
-                      onClick={() =>
-                        setPaging({
-                          authority,
-                          cursor: previous.at(-1),
-                          previous: previous.slice(0, -1),
-                        })
-                      }
-                    >
-                      {ui("Previous")}
-                    </Button>
-                    <Button
-                      aria-label={ui("Next selection page")}
-                      prominence="secondary"
-                      disabled={!page.nextCursor || selection.isFetching}
-                      onClick={() =>
-                        setPaging({
-                          authority,
-                          cursor: page.nextCursor ?? undefined,
-                          previous: [...previous, cursor],
-                        })
-                      }
-                    >
-                      {ui("Next")}
-                    </Button>
-                  </div>
-                </div>
+              {resultsPage.previous.length || page.nextCursor ? (
+                <SelectionPager
+                  paging={resultsPage}
+                  count={rows.length}
+                  hasNext={Boolean(page.nextCursor)}
+                  busy={selection.isPlaceholderData}
+                  previousLabel={ui("Previous selection page")}
+                  nextLabel={ui("Next selection page")}
+                  onPrevious={() => setPaging({ authority, ...previousSelectionPage(resultsPage) })}
+                  onNext={() => {
+                    if (page.nextCursor)
+                      setPaging({
+                        authority,
+                        ...nextSelectionPage(resultsPage, page.nextCursor, rows.length),
+                      });
+                  }}
+                />
               ) : null}
             </>
           ) : null}
