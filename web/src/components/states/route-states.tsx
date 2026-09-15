@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { Link, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { Brand } from "@/components/brand";
+import { BrandLoader } from "@/components/brand-loader";
 import { ApplicationError } from "@/components/states/application-error";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +12,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
   const ui = useAppTranslation();
@@ -43,11 +43,7 @@ export function RoutePending({ label }: { label?: string }) {
       aria-label={label ?? ui("Loading page")}
       role="status"
     >
-      <div className="flex w-56 flex-col items-center gap-5">
-        <Brand compact />
-        <Skeleton className="h-px w-full rounded-none" />
-        <p className="font-secondary-body text-content-muted">{label ?? ui("Loading page")}</p>
-      </div>
+      <BrandLoader label={label ?? ui("Loading page")} size="lg" />
     </main>
   );
 }

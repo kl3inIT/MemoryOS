@@ -6,6 +6,7 @@ import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { createIdentityProvider, updateIdentityProvider } from "@/lib/hey-api/sdk.gen";
 import type { IdentityProviderResponse } from "@/lib/hey-api/types.gen";
@@ -280,22 +281,18 @@ export function IdentityProviderDialog({
 
               {isEditing ? (
                 <label className="flex items-start gap-2 font-secondary-action text-content-secondary">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={enabled}
-                    className="mt-0.5 size-4 shrink-0 accent-content-primary outline-none"
-                    onChange={(event) => setEnabled(event.target.checked)}
+                    onCheckedChange={(event) => setEnabled(event === true)}
                   />
                   {ui("Allow sign-in through this provider")}
                 </label>
               ) : null}
 
               <label className="flex items-start gap-2 font-secondary-action text-content-secondary">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={jitAllowed}
-                  className="mt-0.5 size-4 shrink-0 accent-content-primary outline-none"
-                  onChange={(event) => setJitAllowed(event.target.checked)}
+                  onCheckedChange={(event) => setJitAllowed(event === true)}
                 />
                 {ui("Allow just-in-time admission")}
               </label>

@@ -40,7 +40,7 @@ class SourceSearchMetadataMigrationTest {
             assertEquals(1, flyway.migrate().migrationsExecuted);
             assertEquals(0, flyway.migrate().migrationsExecuted);
             flyway.validate();
-            // The read rules use later tables; V56 renames the Drive RESTRICTED access to PRIVATE.
+            // The read rules use later tables; V61 renames the Drive RESTRICTED access to PRIVATE.
             Flyway.configure().dataSource(database).locations("classpath:db/migration").load().migrate();
 
             var repository = new JdbcSourceDocumentRepository(jdbc);
@@ -234,7 +234,7 @@ class SourceSearchMetadataMigrationTest {
         seed(jdbc, tenant, source, credential, document, drive, active, "PRIVATE");
     }
 
-    /** {@code driveAccess} is the stored non-public value of the schema under test (RESTRICTED before V56). */
+    /** {@code driveAccess} is the stored non-public value of the schema under test (RESTRICTED before V61). */
     private static void seed(JdbcClient jdbc, TenantId tenant, UUID source, UUID credential, UUID document, boolean drive, boolean active,
             String driveAccess) {
         if (source.equals(credential)) jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test',:kind,'ACTIVE')")

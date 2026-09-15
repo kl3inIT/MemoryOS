@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ComposerPrimitive } from "@assistant-ui/react";
-import { ArrowLeft, ChevronRight, FileText, Globe, Plus, Upload, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, FileText, Globe, ImagePlus, Plus, Upload, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -9,6 +9,8 @@ import { ChatFilePickerContent, ChatRecentFilesDialog } from "./chat-file-picker
 import { composerMenuRow } from "./chat-composer-menu-row";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import type { WebSearchMode } from "./chat-web-preference";
+import { ChatImageToggle } from "./chat-image-options";
+import type { ImageMode } from "./chat-image";
 import { useComposerFileSelection } from "./use-composer-file-selection";
 
 /**
@@ -17,6 +19,7 @@ import { useComposerFileSelection } from "./use-composer-file-selection";
  */
 export function ChatComposerMenu({
   web,
+  image,
   disabled,
 }: {
   web: {
@@ -24,6 +27,10 @@ export function ChatComposerMenu({
     onChange: (mode: WebSearchMode) => void;
     sessionId?: string;
     modelId?: string;
+  };
+  image: {
+    value: ImageMode;
+    onChange: (mode: ImageMode) => void;
   };
   disabled: boolean;
 }) {
@@ -82,6 +89,7 @@ export function ChatComposerMenu({
               </button>
               <div role="separator" className="my-1 border-t border-border-subtle" />
               <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
+              <ChatImageToggle {...image} onDone={close} />
             </div>
           )}
           {view === "files" && (
@@ -128,6 +136,22 @@ export function ChatComposerMenu({
             title={ui("Tắt Web")}
             disabled={disabled}
             onClick={() => web.onChange("off")}
+          >
+            <X />
+          </IconButton>
+        </span>
+      )}
+      {image.value !== "off" && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
+          <ImagePlus className="size-3.5" aria-hidden="true" />
+          {ui("Tạo ảnh")}
+          <IconButton
+            size="sm"
+            prominence="internal"
+            aria-label={ui("Tắt tạo ảnh")}
+            title={ui("Tắt tạo ảnh")}
+            disabled={disabled}
+            onClick={() => image.onChange("off")}
           >
             <X />
           </IconButton>

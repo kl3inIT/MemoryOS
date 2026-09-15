@@ -1,3 +1,4 @@
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -276,23 +277,25 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
               ) : null
             }
           />
-          <details className="rounded-lg border border-border-subtle px-4 py-3 text-sm">
-            <summary className="min-h-11 cursor-pointer py-2 text-content-secondary focus-visible:outline-2 focus-visible:outline-focus-ring">
+          <Collapsible className="rounded-lg border border-border-subtle px-4 py-3 text-sm">
+            <CollapsibleTrigger className="min-h-11 cursor-pointer py-2 text-content-secondary focus-visible:outline-2 focus-visible:outline-focus-ring">
               {ui("What do the different statuses mean?")}
-            </summary>
-            <dl className="mt-2 space-y-2 pb-1">
-              {outcomeLegend.map(([label, tone, description]) => (
-                <div key={label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <dt>
-                    <StatusBadge tone={tone} size="sm">
-                      {ui(label)}
-                    </StatusBadge>
-                  </dt>
-                  <dd className="min-w-0 flex-1 text-content-muted">{ui(description)}</dd>
-                </div>
-              ))}
-            </dl>
-          </details>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <dl className="mt-2 space-y-2 pb-1">
+                {outcomeLegend.map(([label, tone, description]) => (
+                  <div key={label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <dt>
+                      <StatusBadge tone={tone} size="sm">
+                        {ui(label)}
+                      </StatusBadge>
+                    </dt>
+                    <dd className="min-w-0 flex-1 text-content-muted">{ui(description)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CollapsibleContent>
+          </Collapsible>
         </>
       ) : null}
     </section>
@@ -403,25 +406,27 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
                 )
               : ui(sourceStatusMessage(run.errorCode))}
           </p>
-          <details className="mt-2 text-xs text-content-secondary">
-            <summary className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
+          <Collapsible className="mt-2 text-xs text-content-secondary">
+            <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
               {ui("Technical details")}
-            </summary>
-            <dl className="space-y-2">
-              <div>
-                <dt>{ui("Error code")}</dt>
-                <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-                  <code>{run.errorCode}</code>
-                </dd>
-              </div>
-              <div>
-                <dt>{ui("Run ID")}</dt>
-                <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-                  <code>{run.id}</code>
-                </dd>
-              </div>
-            </dl>
-          </details>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <dl className="space-y-2">
+                <div>
+                  <dt>{ui("Error code")}</dt>
+                  <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+                    <code>{run.errorCode}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{ui("Run ID")}</dt>
+                  <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+                    <code>{run.id}</code>
+                  </dd>
+                </div>
+              </dl>
+            </CollapsibleContent>
+          </Collapsible>
         </section>
       ) : null}
       <section className="space-y-3">
@@ -460,33 +465,35 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
             );
           })}
         </dl>
-        <details className="text-xs text-content-muted">
-          <summary className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
+        <Collapsible className="text-xs text-content-muted">
+          <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
             {ui("More counts and definitions")}
-          </summary>
-          <dl className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {additionalCounts
-              .filter(([field]) => run.counts[field] !== 0)
-              .map(([field, label]) => (
-                <div key={field}>
-                  <dt>{ui(label)}</dt>
-                  <dd className="mt-1 tabular-nums text-content-primary">
-                    {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-                  </dd>
-                </div>
-              ))}
-          </dl>
-          <p className="leading-relaxed">
-            {ui(
-              "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
-            )}
-          </p>
-          {run.counts.alreadyPending !== 0 ? (
-            <p className="mt-2 leading-relaxed">
-              {ui("Already pending belongs to earlier work, not indexing owned by this run.")}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <dl className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {additionalCounts
+                .filter(([field]) => run.counts[field] !== 0)
+                .map(([field, label]) => (
+                  <div key={field}>
+                    <dt>{ui(label)}</dt>
+                    <dd className="mt-1 tabular-nums text-content-primary">
+                      {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+            <p className="leading-relaxed">
+              {ui(
+                "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
+              )}
             </p>
-          ) : null}
-        </details>
+            {run.counts.alreadyPending !== 0 ? (
+              <p className="mt-2 leading-relaxed">
+                {ui("Already pending belongs to earlier work, not indexing owned by this run.")}
+              </p>
+            ) : null}
+          </CollapsibleContent>
+        </Collapsible>
       </section>
       {run.detailsExpired ? (
         <section className="space-y-3">

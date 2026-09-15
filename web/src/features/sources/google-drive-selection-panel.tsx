@@ -12,6 +12,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input, inputVariants } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -202,13 +203,18 @@ export function GoogleDriveSelectionPanel({
     if (mode && mode !== draftFocus.current) {
       if (mode === "roots") input.current?.focus();
       else {
-        const checkbox = selectionControl.current?.querySelector<HTMLInputElement>("input");
-        if (checkbox && !checkbox.disabled) checkbox.focus();
+        // The registry checkbox is a button with role=checkbox, not an input.
+        const checkbox = selectionControl.current?.querySelector<HTMLElement>('[role="checkbox"]');
+        const usable =
+          checkbox && !checkbox.matches(':disabled, [aria-disabled="true"], [data-disabled]');
+        if (usable) checkbox.focus();
         else cancelButton.current?.focus();
       }
     }
     if (!mode && draftFocus.current) {
-      const select = selectionControl.current?.querySelector<HTMLButtonElement>("button");
+      const select = selectionControl.current?.querySelector<HTMLButtonElement>(
+        'button:not([role="checkbox"])',
+      );
       if (select?.isConnected) select.focus();
       else editButton.current?.focus();
       selectionControl.current = null;
@@ -727,18 +733,20 @@ export function GoogleDriveSelectionPanel({
         </section>
       ) : null}
       {configuration.scopeMode === "SPECIFIC" && configuration.discoveryErrors.length ? (
-        <details className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
-          <summary className="min-h-11 cursor-pointer">
+        <Collapsible className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
+          <CollapsibleTrigger className="min-h-11 cursor-pointer">
             {ui("Discovery could not check")} {configuration.discoveryErrors.length} {ui("inputs")}
-          </summary>
-          <ul>
-            {configuration.discoveryErrors.map((failure) => (
-              <li key={`${failure.fileId}:${failure.code}`} className="break-words">
-                {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
-              </li>
-            ))}
-          </ul>
-        </details>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul>
+              {configuration.discoveryErrors.map((failure) => (
+                <li key={`${failure.fileId}:${failure.code}`} className="break-words">
+                  {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
       {searchVisible ? (
         <form

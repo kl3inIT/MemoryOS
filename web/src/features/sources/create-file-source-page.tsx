@@ -1,3 +1,4 @@
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -26,13 +27,14 @@ import {
   createFileSourceMutation,
   finalizeSourceUploadMutation,
   initiateSourceUploadMutation,
+  listSourceGroupOptionsOptions,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { sourceMutationError } from "./source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceSetupSteps } from "./source-setup-steps";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();
@@ -279,12 +281,12 @@ export function CreateFileSourcePage() {
               </Select>
             )}
           </div>
-          <details
-            open={groupPickerOpen}
-            onToggle={(event) => setGroupPickerOpen(event.currentTarget.open)}
+          <Collapsible
+            defaultOpen={Boolean(groupPickerOpen)}
+            onOpenChange={setGroupPickerOpen}
             className="rounded-xl border border-border-subtle bg-surface-raised"
           >
-            <summary className="cursor-pointer list-none rounded-xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30 sm:px-5">
+            <CollapsibleTrigger className="cursor-pointer list-none rounded-xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30 sm:px-5">
               <span className="flex items-center justify-between gap-3">
                 <span>
                   <span className="block font-secondary-action text-content-primary">
@@ -304,25 +306,31 @@ export function CreateFileSourcePage() {
                       : ui("None")}
                 </span>
               </span>
-            </summary>
-            {groupPickerOpen ? (
-              <div className="border-t border-border-subtle p-4 sm:p-5">
-                <SourceGroupPicker
-                  selected={groupIds}
-                  required={scoped}
-                  disabled={busy || Boolean(sourceId)}
-                  onChange={setGroupIds}
-                />
-                <p className="mt-3 font-secondary-body text-content-muted">
-                  {scoped
-                    ? ui("Select at least one managed group. New Sources are private.")
-                    : ui(
-                        "Leave the selection empty for no group associations. Global Source management does not require an association.",
-                      )}
-                </p>
-              </div>
-            ) : null}
-          </details>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {groupPickerOpen ? (
+                <div className="border-t border-border-subtle p-4 sm:p-5">
+                  <GroupAccessPicker
+                    load={(query) => listSourceGroupOptionsOptions({ query })}
+                    description={appText(
+                      "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
+                    )}
+                    selected={groupIds}
+                    required={scoped}
+                    disabled={busy || Boolean(sourceId)}
+                    onChange={setGroupIds}
+                  />
+                  <p className="mt-3 font-secondary-body text-content-muted">
+                    {scoped
+                      ? ui("Select at least one managed group. New Sources are private.")
+                      : ui(
+                          "Leave the selection empty for no group associations. Global Source management does not require an association.",
+                        )}
+                  </p>
+                </div>
+              ) : null}
+            </CollapsibleContent>
+          </Collapsible>
           <div>
             <span className="font-secondary-action text-content-primary">{ui("File")}</span>
             <div

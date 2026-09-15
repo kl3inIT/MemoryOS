@@ -3,7 +3,8 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type ProxyOptions } from "vite";
+import { readdirSync, readFileSync } from "node:fs";
+import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 
 const apiTarget = process.env.MEMORYOS_API_URL ?? "http://127.0.0.1:18080";
 const sentryBuildConfiguration = {
@@ -30,8 +31,44 @@ const apiProxy: ProxyOptions = {
   },
 };
 
+/**
+ * pdf.js loads its image decoders from `wasmUrl` by fixed file names. They are emitted under a directory named for
+ * the pdf.js release, so the immutable asset cache never mixes decoders from another release.
+ */
+function pdfjsDecoders(): Plugin {
+  const root = fileURLToPath(new URL("./node_modules/pdfjs-dist/", import.meta.url));
+  const version = (JSON.parse(readFileSync(`${root}package.json`, "utf8")) as { version: string })
+    .version;
+  const directory = `assets/pdfjs-${version}/`;
+  const files = readdirSync(`${root}wasm`).filter((name) =>
+    /^(jbig2|openjpeg)[\w-]*\.(wasm|js)$/.test(name),
+  );
+  const read = (name: string) => readFileSync(`${root}wasm/${name}`);
+  return {
+    name: "memoryos-pdfjs-decoders",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const path = request.url?.split("?")[0] ?? "";
+        const name = path.startsWith(`/${directory}`) ? path.slice(directory.length + 1) : "";
+        if (!files.includes(name)) return next();
+        response.setHeader(
+          "Content-Type",
+          name.endsWith(".wasm") ? "application/wasm" : "text/javascript",
+        );
+        response.end(read(name));
+      });
+    },
+    generateBundle() {
+      for (const name of files) {
+        this.emitFile({ type: "asset", fileName: `${directory}${name}`, source: read(name) });
+      }
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
+    pdfjsDecoders(),
     tailwindcss(),
     tanstackRouter({
       target: "react",

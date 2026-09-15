@@ -83,7 +83,7 @@ class DocumentSearchServiceTest {
                 hit(second, generation, 0, .9), hit(first, generation, 2, .9), hit(first, generation, 1, .9)));
         when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(first, generation, second, generation, hidden, generation));
         when(access.readableDocuments(any(), any())).thenReturn(Set.of(first, second));
-        var page = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 1));
+        var page = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 1, List.of()));
         assertEquals(1, page.results().size()); assertTrue(page.hasMore()); assertEquals(2, page.totalResults());
         assertEquals(first, page.results().getFirst().documentId());
         var section = page.results().getFirst().sections().getFirst();
@@ -92,7 +92,7 @@ class DocumentSearchServiceTest {
         assertEquals(2, section.endOrdinal());
         assertEquals(1, section.matchingOrdinal());
         assertEquals("Passage 1\nPassage 2", section.content());
-        var next = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 1, 1));
+        var next = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 1, 1, List.of()));
         assertEquals(second, next.results().getFirst().documentId()); assertFalse(next.hasMore()); assertEquals(2, next.totalResults());
         assertEquals(0, next.results().getFirst().sections().getFirst().startOrdinal());
         assertEquals(0, next.results().getFirst().sections().getFirst().endOrdinal());
@@ -104,7 +104,7 @@ class DocumentSearchServiceTest {
         givenHits(document, List.of(hit(document, generation, 11, .95), hit(document, generation, 40, .9),
                 hit(document, generation, 10, .5), hit(document, generation, 11, .4)));
 
-        var result = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 10)).results().getFirst();
+        var result = service.search(actor, new SearchRequest("nghỉ phép", List.of(), null, 0, 10, List.of())).results().getFirst();
 
         assertEquals(.95, result.score());
         assertEquals(2, result.sections().size());
@@ -123,7 +123,7 @@ class DocumentSearchServiceTest {
                 hit(document, generation, 30, .8), hit(document, generation, 20, .7),
                 hit(document, generation, 12, .3), hit(document, generation, 11, .2), hit(document, generation, 10, .1)));
 
-        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10))
+        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10, List.of()))
                 .results().getFirst().sections();
 
         assertEquals(List.of(10, 40, 30), sections.stream().map(SearchPage.Section::startOrdinal).toList());
@@ -138,12 +138,48 @@ class DocumentSearchServiceTest {
         var document = UUID.randomUUID();
         givenHits(document, List.of(hit(document, generation, 12, .9), hit(document, generation, 10, .9)));
 
-        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10))
+        var sections = service.search(actor, new SearchRequest("leave", List.of(), null, 0, 10, List.of()))
                 .results().getFirst().sections();
 
         assertEquals(List.of(10, 12), sections.stream().map(SearchPage.Section::startOrdinal).toList());
         assertEquals(List.of(10, 12), sections.stream().map(SearchPage.Section::endOrdinal).toList());
         verify(documents, never()).read(any(), any(), any());
+    }
+
+    @Test
+    void countsConnectorsAcrossEveryCandidateAndFiltersWithinThoseCandidates() {
+        var tenant = new TenantId(UUID.randomUUID());
+        UUID upload = UUID.randomUUID(), drive = UUID.randomUUID(), both = UUID.randomUUID();
+        givenSearchAccess(tenant);
+        when(index.identity()).thenReturn("space"); when(index.candidateLimit()).thenReturn(500);
+        when(index.search(any(), any(), any(), any(), any())).thenReturn(List.of(
+                hit(upload, generation, 0, .9), hit(drive, generation, 0, .8), hit(both, generation, 0, .7)));
+        when(documents.currentGenerations(any(), any(), any())).thenReturn(Map.of(upload, generation, drive, generation, both, generation));
+        when(access.readableDocuments(any(), any())).thenReturn(Set.of(upload, drive, both));
+        var scope = new SourceSearchScope(tenant, actor, Map.of());
+        when(sourceSearch.scope(actor)).thenReturn(scope);
+        when(sourceSearch.readableMetadata(scope, List.of(upload, drive, both))).thenReturn(Map.of(
+                upload, List.of(origin(SourceType.FILE)), drive, List.of(origin(SourceType.GOOGLE_DRIVE)),
+                both, List.of(origin(SourceType.FILE), origin(SourceType.GOOGLE_DRIVE))));
+        var facets = new SearchPage.SourceFacets(3, List.of(
+                new SearchPage.SourceTypeFacet(SourceType.FILE, 2), new SearchPage.SourceTypeFacet(SourceType.GOOGLE_DRIVE, 2)));
+
+        var everything = service.search(actor, new SearchRequest("báo cáo", List.of(), null, 0, 1, List.of()));
+        assertEquals(3, everything.totalResults());
+        assertEquals(facets, everything.sourceFacets());
+        assertEquals(List.of(SourceType.FILE), everything.results().getFirst().sourceTypes());
+
+        var driveOnly = service.search(actor, new SearchRequest("báo cáo", List.of(), null, 0, 10, List.of(SourceType.GOOGLE_DRIVE)));
+        assertEquals(List.of(drive, both), driveOnly.results().stream().map(SearchPage.Result::documentId).toList());
+        assertEquals(2, driveOnly.totalResults());
+        assertFalse(driveOnly.hasMore());
+        assertEquals(facets, driveOnly.sourceFacets());
+        assertEquals(List.of(SourceType.FILE, SourceType.GOOGLE_DRIVE), driveOnly.results().getLast().sourceTypes());
+        verify(sourceSearch, times(2)).readableMetadata(scope, List.of(upload, drive, both));
+    }
+
+    private DocumentSourceMetadata origin(SourceType type) {
+        return new DocumentSourceMetadata(UUID.randomUUID(), UUID.randomUUID(), type, Instant.EPOCH, Instant.EPOCH, List.of());
     }
 
     private void givenHits(UUID document, List<SearchHit> hits) {
@@ -168,7 +204,7 @@ class DocumentSearchServiceTest {
                 .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant required"));
 
         var failure = assertThrows(IamException.class,
-                () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10)));
+                () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10, List.of())));
 
         assertEquals(IamFailureReason.ACCESS_DENIED.code(), failure.code());
         verifyNoInteractions(index, documents, access);
@@ -190,7 +226,7 @@ class DocumentSearchServiceTest {
     @Test
     void unprovisionedActorCannotReachProviderOrReadPassages() {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.empty());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10)));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.search(actor, new SearchRequest("hello", List.of(), null, 0, 10, List.of())));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.document(actor, UUID.randomUUID(), generation, 0));
         verifyNoInteractions(index, documents, access, authorization);
     }
@@ -338,7 +374,7 @@ class DocumentSearchServiceTest {
                     .thenThrow(new IamException(IamFailureReason.ACCESS_DENIED, "Search grant revoked"));
             return List.of();
         });
-        assertThrows(IamException.class, () -> service.search(actor, new SearchRequest("private", List.of(), null, 0, 10)));
+        assertThrows(IamException.class, () -> service.search(actor, new SearchRequest("private", List.of(), null, 0, 10, List.of())));
     }
 
     @Test
@@ -349,7 +385,7 @@ class DocumentSearchServiceTest {
             when(access.readableDocuments(any(), any())).thenReturn(Set.of());
             return List.of(hit(document, generation, 0, 1));
         });
-        assertTrue(service.search(actor, new SearchRequest("private", List.of(), null, 0, 10)).results().isEmpty());
+        assertTrue(service.search(actor, new SearchRequest("private", List.of(), null, 0, 10, List.of())).results().isEmpty());
     }
 
     @Test
@@ -489,10 +525,10 @@ class DocumentSearchServiceTest {
     @Test
     void springMvcDebugFormattingCannotExpandQueriesOrDocumentText() {
         String privateText = "private compensation figures";
-        assertFalse(new SearchRequest(privateText, List.of(), null, 0, 10).toString().contains(privateText));
+        assertFalse(new SearchRequest(privateText, List.of(), null, 0, 10, List.of()).toString().contains(privateText));
         var result = new SearchPage.Result(UUID.randomUUID(), generation, privateText, "text/plain", Instant.EPOCH, .9,
                 List.of(new SearchPage.Section(0, 0, 0, .9, privateText, List.of(new SearchPage.ChunkProvenance(0, "[]")))));
-        assertFalse(new SearchPage(List.of(result), 0, false, 1, 500).toString().contains(privateText));
+        assertFalse(new SearchPage(List.of(result), 0, false, 1, 500, new SearchPage.SourceFacets(1, List.of())).toString().contains(privateText));
         assertFalse(new SearchDocument(result.documentId(), generation, privateText,
                 List.of(new SearchPage.Passage(0, privateText, "[]")), 0, 1, false)
                 .toString().contains(privateText));

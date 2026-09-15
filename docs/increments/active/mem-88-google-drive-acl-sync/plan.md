@@ -57,5 +57,5 @@ See [design](design.md#acl-inspector-removal--approved-2026-09-14).
 
 ## Redundant content version removal (MEM-104)
 
-- [x] Drop `google_drive_membership.content_provider_version` from V54 before merge, with the `unchanged()` fallback, the five-argument `observe` and the `releaseConfirmed` COALESCE.
+- [x] Drop `google_drive_membership.content_provider_version` from V59 before merge, with the `unchanged()` fallback, the five-argument `observe` and the `releaseConfirmed` COALESCE.
 - [x] Run the connector suites and record the result in [verification](verification.md#redundant-content-version-removal--2026-09-14).

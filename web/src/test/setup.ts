@@ -3,6 +3,15 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import { i18n } from "@/i18n";
 
+// Radix primitives measure their trigger; jsdom ships no ResizeObserver.
+if (!("ResizeObserver" in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 // jsdom implements neither pointer capture nor scrollIntoView, which Radix popup
 // primitives (Select, DropdownMenu) call while opening.
 beforeEach(() => {

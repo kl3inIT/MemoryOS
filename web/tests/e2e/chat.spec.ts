@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
 import { fixtureModels, fixtureSource } from "../fixtures/chat-data";
 
 const identity = {
@@ -368,14 +368,14 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(
     panel.getByRole("link", { name: "Mở Employee handbook trong Google Drive" }),
   ).toHaveAttribute("href", fixtureSource.providerUrl!);
-  const originalReads: URL[] = [];
+  const originalPdf = rangedHandbookPdf();
+  const originalReads: { url: URL; range?: string }[] = [];
   await page.route(`**/api/chat/documents/${fixtureSource.documentId}/original?*`, (route) => {
-    originalReads.push(new URL(route.request().url()));
-    return route.fulfill({
-      status: 200,
-      contentType: "application/octet-stream",
-      body: readFileSync(new URL("../fixtures/cited-handbook.pdf", import.meta.url)),
+    originalReads.push({
+      url: new URL(route.request().url()),
+      range: route.request().headers()["range"],
     });
+    return fulfillPdfRange(route, originalPdf);
   });
   await panel.getByRole("tab", { name: "Trang PDF" }).click();
   await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
@@ -384,9 +384,26 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   );
   await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
   await expect(panel.locator('[data-slot="pdf-citation-box"]')).toHaveCount(2);
-  expect(originalReads.map((url) => url.searchParams.get("generation"))).toEqual([
-    fixtureSource.generation,
-  ]);
+  expect(new Set(originalReads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
+    new Set([fixtureSource.generation]),
+  );
+  // One whole-file response supplies the headers; the cited page then needs only a few ranges of the original.
+  expect(originalReads.filter(({ range }) => !range)).toHaveLength(1);
+  expect(originalReads.some(({ range }) => range)).toBe(true);
+  expect(
+    rangedBytes(
+      originalReads.map(({ range }) => range),
+      originalPdf.length,
+    ),
+  ).toBeLessThan(originalPdf.length / 2);
+  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
+  const lastPage = panel.locator('[data-slot="pdf-page"][data-page="12"]');
+  await lastPage.scrollIntoViewIfNeeded();
+  await expect(lastPage).toHaveAttribute("data-rendered", "true");
+  await expect(lastPage.locator("canvas")).toBeVisible();
+  await expect(panel.getByText("Trang 12 / 12")).toBeVisible();
+  await panel.getByRole("button", { name: "Về đoạn trích dẫn" }).click();
+  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
   await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
   await panel.getByRole("button", { name: "Phần trước" }).click();
@@ -694,6 +711,14 @@ for (const mobile of [false, true]) {
       citationId: 2,
       documentId: "30000000-0000-4000-8000-000000000002",
       title: "Employee handbook",
+      // A table row: its page view opens first.
+      provenance: [
+        {
+          ordinal: 3,
+          provenanceJson:
+            '{"source":[{"page_no":1,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}],"tableRow":2}',
+        },
+      ],
     };
     await page.route(`**/api/chat/sessions/${session.id}/messages?*`, async (route) => {
       const response = await route.fetch();
@@ -731,6 +756,10 @@ for (const mobile of [false, true]) {
         },
       });
     });
+    const originalPdf = rangedHandbookPdf();
+    await page.route("**/api/chat/documents/*/original?*", (route) =>
+      fulfillPdfRange(route, originalPdf),
+    );
     await page.reload();
     await expect(page.getByRole("button", { name: "Mở nguồn 1: Employee handbook" })).toHaveText(
       "1 · Employee handbook",
@@ -750,11 +779,65 @@ for (const mobile of [false, true]) {
     await expect(
       panel.getByRole("heading", { name: "Employee handbook", exact: true }),
     ).toBeVisible();
-    await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
-      "Submit requests to your manager.",
+    // A table row opens on its PDF page instead of the flattened passage text.
+    await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
     await panel.getByRole("button", { name: "Về danh sách nguồn" }).click();
     await panel.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" }).click();
+    await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
+      "Employees receive 17 days.",
+    );
+    // Sources step in place; a table row opens on its PDF page, a text passage on the passages.
+    await expect(panel.getByText("Nguồn 1 / 2")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Nguồn trước" })).toBeDisabled();
+    await panel.getByRole("button", { name: "Nguồn tiếp" }).click();
+    await expect(panel.getByText("Nguồn 2 / 2")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Nguồn tiếp" })).toBeDisabled();
+    // The mobile sheet is modal, so the answer behind it leaves the accessibility tree.
+    if (!mobile) {
+      await expect(
+        page.getByRole("button", { name: "Mở nguồn 2: Employee handbook" }),
+      ).toHaveAttribute("aria-current", "true");
+    }
+    await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+      "data-rendered",
+      "true",
+    );
+    if (mobile) {
+      await expect(panel.getByRole("button", { name: "Mở rộng" })).toHaveCount(0);
+    } else {
+      await panel.getByRole("button", { name: "Mở rộng" }).click();
+      const expanded = page.getByRole("dialog");
+      await expect(expanded.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(expanded.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+        "data-rendered",
+        "true",
+      );
+      await expect(panel.locator("canvas")).toHaveCount(0);
+      await expanded.getByRole("tab", { name: "Đoạn trích" }).click();
+      await page.keyboard.press("Escape");
+      await expect(expanded).toBeHidden();
+      await expect(panel).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Mở rộng" })).toBeFocused();
+      await expect(panel.getByRole("tab", { name: "Đoạn trích" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    }
+    await panel.getByRole("button", { name: "Nguồn trước" }).click();
+    await expect(panel.getByRole("tab", { name: "Đoạn trích" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
       "Employees receive 17 days.",
     );

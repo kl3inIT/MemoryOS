@@ -173,6 +173,12 @@ Chat inference runs in the API process and does not use the ingestion worker or 
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
+Chat provider/model/default lifecycle uses capability-owned Spring Data JPA repositories and Hibernate revisions; authority projections, conflict-safe initialization and bulk reference mechanics remain JDBC. Access uses IAM `MODELS_MANAGE`, Group/Persona access and stable model configuration UUIDs. Organization BYOK is encrypted using a deployment-managed AES key. `/admin/models` implements Models-only navigation and provider/model/default administration through generated clients, independently of Tenant administration. Its bounded Persona projection respects builtin/current-actor ownership and stays separate from the assistant editor and Chat model selector. Access editing remains deferred. See the [catalog contract](docs/specs/chat-models.md).
+
+Each turn resolves a native Embabel/Spring AI binding once and acquires a bounded client lease. API composition registers the existing OpenAI protocol adapter with the hosted O200K estimator profile; the executor neither selects providers nor decodes provider options. A shared immutable policy measures pre-reservation mandatory framing, bounded history and every converted native request/Validate. Raw HTTP cancellation precedes blocked-reader closure. No vendored tokenizer assets or native libraries ship in either deployable.
+
+The managed deployment source under `infrastructure/inference/managed` and explicit inference Compose overlays owns pinned asset provisioning, private API → gateway → unpublished vLLM topology, one-slot/zero-queue admission, maintenance/drain and guarded credential/serving recovery. The existing reserved deployment transaction validates manifests/images/host receipts and retains its Flyway-history guard. No application health dependency on inference is added. [Operations](docs/runbooks/ci-cd.md#managed-inference-operations) describe the source contract; [MEM-77 evidence](docs/increments/active/mem-77-provider-backend/verification.md#implementation-and-controlled-evidence--2026-09-11) separates controlled provision/tokenizer/transport/UI checks from unverified final API image, real inference, workload and authorized target acceptance. No deployment, publication or web/image tool completion is claimed.
+
 ## Identity and authorization
 
 ```mermaid
@@ -212,7 +218,7 @@ Google authorization is a separate Connector credential flow. Its callback canno
 
 Flyway owns schema evolution and runs from the API composition root. Released migrations are append-only; local or historical review databases with divergent unpublished histories are not upgrade targets. Verification uses fresh disposable databases or an explicit data-preserving migration plan.
 
-The merged layout has 48 migrations. Published main V1–V42 stay unchanged, including Chat uploads/message files, 100 MiB binary admission, automatic titles, account language and read-only message artifacts in V37–V42. PR #106 integrates the feature migrations under these nonconflicting versions:
+The merged layout has 55 migrations. Published main V1–V53 stay unchanged, including Chat uploads/message files, 100 MiB binary admission, automatic titles, account language, read-only message artifacts, Web connections, history search and Search access in V37–V52. The MEM-77 tokenizer-profile backfill lands as `V54__backfill_model_tokenizer_profile.sql` without changing catalog identity/revisions or transcript history, and `V55__chat_web_gateway_provider.sql` widens the `chat_web_connection` provider constraint for the 9Router search gateway without touching stored connections. PR #106 integrates the feature migrations under these nonconflicting versions:
 
 | Historical local version | Current filename |
 | --- | --- |

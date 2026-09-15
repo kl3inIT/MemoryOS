@@ -74,8 +74,11 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="MemoryOS API" \
       org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
       org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.created="${BUILD_DATE}"
-ENV MEMORYOS_APPLICATION_JAR=api.jar
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      io.memoryos.chat.tokenizer-profiles="openai-o200k-v1"
+ENV MEMORYOS_APPLICATION_JAR=api.jar \
+    JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED" \
+    OPT_OUT_TRACKING=true
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/dependencies/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/spring-boot-loader/ ./
 COPY --from=build --chown=1654:1654 /workspace/api-extracted/snapshot-dependencies/ ./

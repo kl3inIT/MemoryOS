@@ -59,3 +59,12 @@
 - [x] CI `ModulithArchitectureTest`: `DocumentOriginalService` opens stored objects, so the `retrieval` module now allows `objectstorage` (already allowed for `chat`, `connector` and `document`; `objectstorage` depends only on `iam`, so no cycle). `ARCHITECTURE.md` shows the edge.
 - [ ] `ChatSessionApiIntegrationTest` run (needs Docker PostgreSQL; not run locally for RAM).
 - [ ] Desktop screenshots in `D:\MemoryOS\output\search-web\`.
+
+## Whole-document PDF by HTTP range (owner-approved 2026-09-14)
+
+- [x] `ObjectStorage.openRange` + S3 implementation; `S3ObjectStorageIntegrationTest` reads a clamped range from MinIO.
+- [x] `DocumentOriginalService` per-range authority, metadata inspection, provider range check, `%PDF-` from byte 0, 416 only for readers; `DocumentOriginalServiceTest` (9 cases).
+- [x] `DocumentOriginalResponses` 200/206/416 headers and parsing; `DocumentOriginalResponsesTest`; OpenAPI 206/416 and `Range` header, client regenerated.
+- [x] `DocumentPdfView` whole document with placeholders, range options, current-page counter and return action; `pdf-page-window.test.ts`.
+- [x] Browser: generated 12-page 6 MiB PDF served by range in `search.spec.ts` and `chat.spec.ts`; old `cited-handbook.pdf` removed.
+- [ ] Staging measurement: requests, statuses and bytes for one opening of an ~18 MB original from the nginx access log, compared with the whole-file baseline.

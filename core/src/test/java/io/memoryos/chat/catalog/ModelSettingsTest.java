@@ -22,7 +22,14 @@ class ModelSettingsTest {
         assertEquals(0.5, settings.options().get("temperature"));
     }
 
+    @Test
+    void profileIdentityCannotBeMissingOrBlank() {
+        for (String profile : new String[] { null, "", " " })
+            assertThrows(ChatException.class, () -> new ModelSettings(4096, 1024,
+                    new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, profile));
+    }
+
     private ModelSettings settings(Map<String, Object> options) {
-        return new ModelSettings(4096, 1024, new ModelSettings.Capabilities(true, false, false, false), options, null);
+        return new ModelSettings(4096, 1024, new ModelSettings.Capabilities(true, false, false, false), options, null, "openai-o200k-v1");
     }
 }

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "./chat-dialog";
@@ -40,6 +41,8 @@ export function SharingDialog({
   const link = new URL(`/shared/${sessionId}`, window.location.origin).toString();
   const selected = enabled ?? sharing.data?.enabled ?? false;
   const ready = !!sharing.data && !sharing.isFetching && !sharing.isError;
+  // The choice is local until save, so an authoritative refetch gates saving, not selecting.
+  const choosable = !!sharing.data && !sharing.isError;
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
@@ -111,7 +114,15 @@ export function SharingDialog({
       )}
       {sharing.data && !sharing.isError && (
         <>
-          <div role="radiogroup" aria-label={ui("Quyền chia sẻ")} className="space-y-2">
+          <RadioGroup
+            aria-label={ui("Quyền chia sẻ")}
+            className="space-y-2"
+            value={String(selected)}
+            onValueChange={(next) => {
+              setEnabled(next === "true");
+              setCopyState("idle");
+            }}
+          >
             {[
               {
                 value: false,
@@ -135,17 +146,10 @@ export function SharingDialog({
                     : "border-border-subtle hover:bg-surface-sunken",
                 )}
               >
-                <input
-                  type="radio"
-                  name="sharing-access"
-                  className="size-4 shrink-0 accent-content-primary"
+                <RadioGroupItem
+                  value={String(value)}
                   aria-label={ui(title)}
-                  checked={selected === value}
-                  disabled={!ready}
-                  onChange={() => {
-                    setEnabled(value);
-                    setCopyState("idle");
-                  }}
+                  disabled={!choosable}
                 />
                 <Icon className="size-5 shrink-0" />
                 <span>
@@ -154,7 +158,7 @@ export function SharingDialog({
                 </span>
               </label>
             ))}
-          </div>
+          </RadioGroup>
           {sharing.data.enabled && selected && (
             <label className="block space-y-2">
               <span className="text-sm">{ui("Liên kết chỉ đọc")}</span>

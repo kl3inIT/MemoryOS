@@ -13,11 +13,27 @@ public record SearchPageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int page,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean hasMore,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Readable Documents among the bounded candidates") int totalResults,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int candidateLimit) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int candidateLimit,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Readable candidates before the connector filter, in total and per connector")
+        SourceFacets sourceFacets) {
     public static SearchPageResponse from(SearchPage page) {
+        var facets = page.sourceFacets();
         return new SearchPageResponse(page.results().stream().map(Result::from).toList(),
-                page.page(), page.hasMore(), page.totalResults(), page.candidateLimit());
+                page.page(), page.hasMore(), page.totalResults(), page.candidateLimit(),
+                new SourceFacets(facets.total(), facets.types().stream()
+                        .map(facet -> new SourceTypeFacet(facet.type(), facet.count())).toList()));
     }
+
+    public record SourceFacets(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Candidates before the connector filter") int total,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Connectors with at least one readable candidate; a Document mapped to two connectors counts in both")
+            List<SourceTypeFacet> types) { }
+
+    public record SourceTypeFacet(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) SourceType type,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int count) { }
 
     public record Result(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID documentId,
