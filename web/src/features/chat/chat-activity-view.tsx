@@ -4,6 +4,7 @@ import { Brain, FileText, Globe, ImageIcon, LayoutDashboard, Search, Wrench } fr
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
+  ActivityChips,
   ActivityGroupContent,
   ActivityGroupRoot,
   ActivityGroupTrigger,
@@ -11,10 +12,7 @@ import {
 } from "@/components/assistant-ui/elements/activity-group";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
-import { field } from "@/components/assistant-ui/elements/surfaces";
-import { WebSearch } from "@/components/assistant-ui/elements/web-search";
 import { DocumentSourceIcon } from "@/features/search/document-source-icon";
-import { cn } from "@/lib/utils";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
 import type { ChatSource } from "./chat-evidence";
 
@@ -37,37 +35,73 @@ function toolProgress(args: unknown): ToolProgress {
       };
 }
 
-function toolState(part: {
-  isError?: boolean;
-  result?: unknown;
-  status: { type: string };
-}): ToolState {
+/** A step without a result only runs while its message runs; a stopped or failed turn leaves it failed. */
+function toolState(
+  part: { isError?: boolean; result?: unknown; status: { type: string } },
+  messageRunning: boolean,
+): ToolState {
   if (part.isError) return "failed";
   if (part.result !== undefined) return "done";
-  return part.status.type === "incomplete" ? "failed" : "running";
+  return messageRunning && part.status.type !== "incomplete" ? "running" : "failed";
 }
 
-function formatDuration(ms: number | null | undefined) {
-  if (ms === null || ms === undefined) return undefined;
-  if (ms < 1000) return "<1s";
-  const seconds = Math.round(ms / 1000);
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+/** Date only, as filters are day bounds; the Onyx timeline uses the same since/before/from–to wording. */
+function filterDate(value: string) {
+  return new Intl.DateTimeFormat(uiLocale(), { dateStyle: "medium", timeZone: "UTC" }).format(
+    new Date(value),
+  );
 }
 
-function toolTitle(ui: Translate, name: string, stage: ToolProgress["stage"], state: ToolState) {
+/** "Tệp tải lên (từ 1 thg 9, 2026)" or undefined when the search had no effective filter. */
+function searchScope(ui: Translate, filters: ToolProgress["filters"]) {
+  if (!filters) return undefined;
+  const sources = filters.sources
+    .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
+    .join(", ");
+  const bounds = filters.updated ?? filters.created;
+  const window =
+    bounds?.from && bounds.to
+      ? ui("từ {{start}} đến {{end}}", {
+          start: filterDate(bounds.from),
+          end: filterDate(bounds.to),
+        })
+      : bounds?.from
+        ? ui("từ {{date}}", { date: filterDate(bounds.from) })
+        : bounds?.to
+          ? ui("trước {{date}}", { date: filterDate(bounds.to) })
+          : undefined;
+  if (!sources && !window) return undefined;
+  const scope = sources || ui("tài liệu");
+  return window ? ui("{{scope}} ({{window}})", { scope, window }) : scope;
+}
+
+/** The step's own label: what it did and where, never raw arguments. */
+function stepTitle(
+  ui: Translate,
+  part: ToolPart,
+  progress: ToolProgress,
+  cited: ChatSource[],
+  state: ToolState,
+) {
   const running = state === "running";
-  switch (name) {
-    case "searchKnowledge":
-      if (!running) return ui("Đã tìm trong tài liệu");
-      if (stage === "SELECTING") return ui("Đang chọn đoạn liên quan…");
-      if (stage === "EXPANDING" || stage === "SOURCE") return ui("Đang đọc ngữ cảnh tài liệu…");
-      return ui("Đang tìm trong tài liệu…");
+  switch (part.toolName) {
+    case "searchKnowledge": {
+      const scope = searchScope(ui, progress.filters);
+      if (scope)
+        return running
+          ? ui("Đang tìm trong {{scope}}…", { scope })
+          : ui("Đã tìm trong {{scope}}", { scope });
+      return running ? ui("Đang tìm trong tài liệu…") : ui("Đã tìm trong tài liệu");
+    }
     case "web_search":
       return running ? ui("Đang tìm trên Web…") : ui("Đã tìm trên Web");
     case "open_url":
-      return running ? ui("Đang đọc trang Web…") : ui("Đã đọc trang Web");
-    case "read_file":
-      return running ? ui("Đang đọc tệp…") : ui("Đã đọc tệp");
+      return running ? ui("Đang đọc trang…") : ui("Đã đọc trang");
+    case "read_file": {
+      const file = cited.find((source) => source.fileId)?.title;
+      if (running) return ui("Đang đọc tệp…");
+      return file ? ui("Đã đọc {{file}}", { file }) : ui("Đã đọc tệp");
+    }
     case "search_files":
       return running ? ui("Đang tìm trong tệp…") : ui("Đã tìm trong tệp");
     case "render_gui":
@@ -76,6 +110,32 @@ function toolTitle(ui: Translate, name: string, stage: ToolProgress["stage"], st
       return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
+  }
+}
+
+/** The group header names the live phase while the assistant works. */
+function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
+  const stage = toolProgress(tool.args).stage;
+  if (tool.toolName === "searchKnowledge") {
+    if (stage === "SELECTING") return ui("Đang chọn đoạn liên quan…");
+    if (stage === "EXPANDING" || stage === "SOURCE") return ui("Đang đọc ngữ cảnh tài liệu…");
+    return ui("Đang tìm trong tài liệu…");
+  }
+  switch (tool.toolName) {
+    case "web_search":
+      return ui("Đang tìm trên Web…");
+    case "open_url":
+      return ui("Đang đọc trang…");
+    case "read_file":
+      return ui("Đang đọc tệp…");
+    case "search_files":
+      return ui("Đang tìm trong tệp…");
+    case "render_gui":
+      return ui("Đang tạo thẻ trình bày…");
+    case "generate_image":
+      return ui("Đang tạo ảnh…");
+    default:
+      return ui("Đang dùng công cụ…");
   }
 }
 
@@ -147,10 +207,8 @@ export function ChatActivityGroup({
   );
   let label: string;
   if (running) {
-    const current = tools.findLast((tool) => toolState(tool) === "running");
-    label = current
-      ? toolTitle(ui, current.toolName, toolProgress(current.args).stage, "running")
-      : ui("Đang suy luận…");
+    const current = tools.findLast((tool) => toolState(tool, running) === "running");
+    label = current ? liveTitle(ui, current) : ui("Đang suy nghĩ…");
   } else if (stopped) {
     label = ui("Đã dừng suy nghĩ");
   } else {
@@ -174,13 +232,17 @@ export function ChatReasoningStep({ running }: { running: boolean }) {
     <ActivityStep
       icon={<Brain />}
       status={running ? "running" : "done"}
-      title={running ? ui("Đang suy luận…") : ui("Suy luận")}
+      title={running ? ui("Đang suy nghĩ…") : ui("Suy nghĩ")}
     >
       <div className="text-sm [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-muted">
         <MarkdownText />
       </div>
     </ActivityStep>
   );
+}
+
+function hostname(url: string) {
+  return new URL(url).hostname.replace(/^www\./, "");
 }
 
 export function ChatToolStep({ part }: { part: ToolPart }) {
@@ -196,158 +258,59 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
       ],
   );
   const citationIds = [...new Set([...progress.citations, ...(lateCitations ?? [])])];
-  const state = toolState(part);
+  const messageRunning = useAuiState((state) => state.message.status?.type === "running");
+  const state = toolState(part, messageRunning);
   const cited = citationIds.flatMap((id) => {
     const source = sources.find((candidate) => candidate.citationId === id);
     return source ? [source] : [];
   });
-  const title = toolTitle(ui, part.toolName, progress.stage, state);
-  const web = part.toolName === "web_search" || part.toolName === "open_url";
-  const filters = progress.filters;
-  const details =
-    progress.queries.length > 0 ||
-    !!filters?.sources.length ||
-    !!filters?.created ||
-    !!filters?.updated ||
-    progress.documents.length > 0 ||
-    cited.length > 0;
+  const searching = ["searchKnowledge", "web_search", "search_files"].includes(part.toolName);
+  // Reading candidates while searching; the evidence the step actually returned once it finished.
+  const reading =
+    part.toolName === "searchKnowledge" && progress.documents.length > 0 && state === "running"
+      ? progress.documents.map((document) => ({
+          key: `${document.documentId}:${document.startOrdinal}`,
+          icon: <FileText />,
+          label: document.title,
+        }))
+      : part.toolName === "read_file"
+        ? []
+        : cited.map((source) => ({
+            key: String(source.citationId),
+            icon: source.web ? (
+              <SourceIcon domain={hostname(source.web.url)} fallback="globe" />
+            ) : (
+              <DocumentSourceIcon
+                size="xs"
+                mediaType={source.mediaType}
+                sourceTypes={source.sourceTypes}
+              />
+            ),
+            label: source.web ? hostname(source.web.url) : source.title,
+            title: source.title,
+          }));
+  const queries = progress.queries.map((query) => ({ key: query, icon: <Search />, label: query }));
+  const noResults = searching && state === "done" && progress.queries.length > 0 && !reading.length;
   return (
     <ActivityStep
       icon={toolIcon(part.toolName)}
       status={state}
-      title={state === "failed" ? ui("{{step}} · không hoàn tất", { step: title }) : title}
-      meta={state === "running" ? undefined : formatDuration(progress.durationMs)}
+      title={stepTitle(ui, part, progress, cited, state)}
     >
-      {web && details ? (
-        <WebSearch
-          query={progress.queries.join(" · ")}
-          searching={state === "running"}
-          label={
-            state === "failed"
-              ? ui("Không truy cập được nguồn Web.")
-              : ui("Nguồn Web: {{count}}", { count: cited.length })
-          }
-          results={cited.flatMap((source) =>
-            source.web
-              ? [
-                  {
-                    title: source.title,
-                    url: source.web.url,
-                    domain: new URL(source.web.url).hostname,
-                  },
-                ]
-              : [],
+      {(queries.length > 0 || reading.length > 0 || noResults) && (
+        <div className="space-y-1.5 text-xs">
+          {queries.length > 0 && (
+            <ActivityChips items={queries} moreLabel={(n) => ui("+{{n}}", { n })} />
           )}
-        />
-      ) : details ? (
-        <ToolDetails progress={progress} running={state === "running"} cited={cited} />
-      ) : null}
-    </ActivityStep>
-  );
-}
-
-function ToolDetails({
-  progress,
-  running,
-  cited,
-}: {
-  progress: ToolProgress;
-  running: boolean;
-  cited: ChatSource[];
-}) {
-  const ui = useAppTranslation();
-  const filters = progress.filters;
-  const bound = (value: string | null) => (value ? displayDate(value) : ui("Không giới hạn"));
-  return (
-    <div className="space-y-2 text-xs leading-5">
-      {progress.queries.length > 0 && (
-        <ul aria-label={ui("Truy vấn tìm kiếm")} className="flex flex-wrap gap-1.5">
-          {progress.queries.map((query) => (
-            <li
-              key={query}
-              className={cn(
-                field,
-                "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1",
-              )}
-            >
-              <Search aria-hidden="true" className="size-3 shrink-0" />
-              <span className="truncate" title={query}>
-                {query}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!!filters?.sources.length && (
-        <p>
-          {ui("Nguồn:")}{" "}
-          {filters.sources
-            .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
-            .join(", ")}
-        </p>
-      )}
-      {filters?.created && (
-        <p>
-          {ui("Ngày tạo:")} {bound(filters.created.from)} – {bound(filters.created.to)}
-        </p>
-      )}
-      {filters?.updated && (
-        <p>
-          {ui("Ngày cập nhật:")} {bound(filters.updated.from)} – {bound(filters.updated.to)}
-        </p>
-      )}
-      {progress.documents.length > 0 && (
-        <div>
-          <p>{running ? ui("Đang đọc tài liệu") : ui("Tài liệu đã đọc")}</p>
-          <ul className="mt-1 space-y-0.5">
-            {progress.documents.map((document) => (
-              <li
-                key={`${document.documentId}:${document.startOrdinal}`}
-                className="flex min-w-0 items-center gap-1.5"
-              >
-                <FileText aria-hidden="true" className="size-3 shrink-0" />
-                <span className="truncate" title={document.title}>
-                  {document.title}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {reading.length > 0 && (
+            <>
+              <p>{state === "running" ? ui("Đang đọc") : ui("Đã đọc")}</p>
+              <ActivityChips items={reading} moreLabel={(n) => ui("+{{n}}", { n })} />
+            </>
+          )}
+          {noResults && <p>{ui("Không tìm thấy kết quả")}</p>}
         </div>
       )}
-      {cited.length > 0 && (
-        <ul aria-label={ui("Nguồn được trích dẫn")} className="space-y-0.5">
-          {cited.map((source) => (
-            <li key={source.citationId} className="flex min-w-0 items-center gap-1.5">
-              {source.web ? (
-                <SourceIcon
-                  domain={new URL(source.web.url).hostname.replace(/^www\./, "")}
-                  fallback="globe"
-                />
-              ) : (
-                <DocumentSourceIcon
-                  size="xs"
-                  mediaType={source.mediaType}
-                  sourceTypes={source.sourceTypes}
-                />
-              )}
-              <span className="truncate" title={source.title}>
-                {source.title}
-              </span>
-              <span className="shrink-0 tabular-nums">[{source.citationId}]</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function displayDate(value: string) {
-  return (
-    new Intl.DateTimeFormat(uiLocale(), {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "UTC",
-    }).format(new Date(value)) + " UTC"
+    </ActivityStep>
   );
 }

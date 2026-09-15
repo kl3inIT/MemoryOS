@@ -20,7 +20,7 @@ function Group({ open, active }: { open?: boolean; active: boolean }) {
         steps={active ? undefined : "2 steps"}
       />
       <ActivityGroupContent>
-        <ActivityStep icon={<Search />} status="done" title="Searched documents" meta="2s">
+        <ActivityStep icon={<Search />} status="done" title="Searched documents">
           <span>annual leave policy</span>
         </ActivityStep>
         <ActivityStep icon={<Search />} status="failed" title="Read files · not completed" />

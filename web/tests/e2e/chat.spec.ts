@@ -193,14 +193,14 @@ test("shows effective search queries, open time bounds and selected documents be
   await expect(page.getByText("Checking the latest HR policy before answering.")).toBeVisible();
   await expect(page.getByText("annual leave policy", { exact: true })).toBeVisible();
   await expect(page.getByText("HR-2026", { exact: true })).toBeVisible();
-  await expect(page.getByText("Nguồn: Tệp tải lên", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Ngày cập nhật:.*UTC.*Không giới hạn/)).toBeVisible();
-  await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toBeVisible();
+  // Filters read as the step scope, like the Onyx search step, not as separate debug lines.
+  await expect(page.getByText(/Đang tìm trong Tệp tải lên \(từ 1 thg 9, 2026\)…/)).toBeVisible();
+  await expect(page.getByText("Đang đọc", { exact: true })).toBeVisible();
   await expect(page.getByText(fixtureSource.title, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /1 source/i })).toHaveCount(0);
   await page.screenshot({ path: "../.tmp/chat-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
-  await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Đang đọc", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Đã dừng suy nghĩ.*2 bước/ })).toBeVisible();
 });
 
