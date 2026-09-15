@@ -13,6 +13,24 @@ mkdir -p "$state"
 exec 9>"$state/lock"
 flock --nonblock 9 || { echo 'Another staging operation owns the lock' >&2; exit 1; }
 
+# Release images in images.env order. The interpreter starts executor containers from the last one
+# on the host daemon, so it is pulled and verified here but is not a Compose service.
+images=(api worker web interpreter interpreter-executor)
+
+image_key() {
+  local key=${1//-/_}
+  printf 'MEMORYOS_%s_IMAGE' "${key^^}"
+}
+
+image_reference() {
+  sed -n "s/^$(image_key "$1")=//p" "$2"
+}
+
+# A runtime accepted before MEM-110 has no interpreter.
+has_interpreter() {
+  grep -q "^$(image_key interpreter)=" "$1"
+}
+
 schema() {
   docker exec memoryos-postgres sh -c \
     'exec psql -U "$POSTGRES_USER" -d memoryos -At -c "$1"' sh \
@@ -29,13 +47,24 @@ compose() {
 rollout() {
   compose up -d --no-deps --pull never --wait --wait-timeout 240 api
   compose up -d --no-deps --pull never --wait --wait-timeout 240 worker web
+  if has_interpreter "$tx/$target.env"; then
+    compose up -d --no-deps --pull never --wait --wait-timeout 240 interpreter
+  fi
 }
 
 verify_runtime() {
   local component reference image sha
+  local components=(api worker web)
   sha=$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/$target.env")
-  for component in api worker web; do
-    reference=$(sed -n "s/^MEMORYOS_${component^^}_IMAGE=//p" "$tx/$target.env")
+  if has_interpreter "$tx/$target.env"; then
+    components+=(interpreter)
+    reference=$(image_reference interpreter-executor "$tx/$target.env")
+    docker image inspect "$reference" | jq --exit-status --arg sha "$sha" '
+      .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
+    ' > /dev/null
+  fi
+  for component in "${components[@]}"; do
+    reference=$(image_reference "$component" "$tx/$target.env")
     image=$(docker image inspect --format '{{.Id}}' "$reference")
     docker inspect "memoryos-$component" | jq --exit-status --arg image "$image" --arg sha "$sha" '
       .[0] | .State.Running and (.State.Restarting | not) and .State.Health.Status == "healthy"
@@ -56,9 +85,9 @@ if [[ "$mode" == deploy ]]; then
   jq --exit-status --arg sha "${release:0:40}" '
     .repository == "kl3inIT/MemoryOS" and .sha == $sha
   ' "$tx/manifest.json" > /dev/null
-  [[ $(wc -l < "$tx/images.env") == 4 ]]
-  for component in api worker web; do
-    reference=$(sed -n "s/^MEMORYOS_${component^^}_IMAGE=//p" "$tx/images.env")
+  [[ $(wc -l < "$tx/images.env") == 6 ]]
+  for component in "${images[@]}"; do
+    reference=$(image_reference "$component" "$tx/images.env")
     [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
   done
   [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]]
@@ -70,19 +99,29 @@ if [[ "$mode" == deploy ]]; then
   done
 
   # Capture actual image IDs and Compose files, including the previous SSH-built release.
-  previous=$(docker inspect memoryos-api memoryos-worker memoryos-web | jq --exit-status '
-    if length == 3 and all(.[]; .State.Running and .State.Health.Status == "healthy")
+  previous_components=(api worker web)
+  if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
+    previous_components+=(interpreter)
+  fi
+  previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
+    if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
       and ([.[].Config.Labels["org.opencontainers.image.revision"]] | unique | length) == 1
       and ([.[].Config.Labels["com.docker.compose.project.config_files"]] | unique | length) == 1
     then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
   ')
   previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")
   [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
-  for component in api worker web; do
+  for component in "${previous_components[@]}"; do
     image=$(jq --raw-output --arg name "/memoryos-$component" '.[] | select(.name == $name) | .image' <<< "$previous")
     [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]]
-    printf 'MEMORYOS_%s_IMAGE=%s\n' "${component^^}" "$image" >> "$tx/previous.env"
+    printf '%s=%s\n' "$(image_key "$component")" "$image" >> "$tx/previous.env"
   done
+  if has_interpreter "$tx/previous.env"; then
+    # Executors are not containers between runs; the accepted record holds their image.
+    reference=$(image_reference interpreter-executor "$state/current.env")
+    [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]]
+    printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
+  fi
   printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
   jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
   while IFS= read -r file; do
@@ -110,9 +149,10 @@ if [[ "$mode" == deploy ]]; then
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${3:?registry user}" --password-stdin
-  compose pull api worker web
-  for component in api worker web; do
-    reference=$(sed -n "s/^MEMORYOS_${component^^}_IMAGE=//p" "$tx/candidate.env")
+  compose pull api worker web interpreter
+  docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
+  for component in "${images[@]}"; do
+    reference=$(image_reference "$component" "$tx/candidate.env")
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
@@ -143,6 +183,10 @@ elif [[ "$mode" == rollback ]]; then
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;
   }
+  if ! has_interpreter "$tx/previous.env"; then
+    # The previous Compose files have no interpreter service to restore; leave the candidate one stopped.
+    target=candidate; compose stop --timeout 65 interpreter
+  fi
   target=previous; rollout; verify_runtime
   touch "$tx/rolled-back"
   echo 'Previous images restored and healthy; finish records recovery'

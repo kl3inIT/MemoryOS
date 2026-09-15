@@ -28,10 +28,10 @@ Design: [design.md](design.md).
 
 ## Phase 1 — staging runtime
 
-- [ ] Publish `memoryos-interpreter` and `memoryos-interpreter-executor` images with the verified release.
-- [ ] Extend `images.env`, `deploy-staging.sh` and its tests for the new images; pre-pull the executor image on the host.
-- [ ] Compose service on `memoryos-internal` only, no host port, `PYTHON_EXECUTOR_DOCKER_NETWORK=none`, socket mount documented in a runbook.
-- [ ] Health verified on staging.
+- [x] Publish `memoryos-interpreter` and `memoryos-interpreter-executor` images with the verified release (OCI labels, `candidate-interpreter`, publish loop).
+- [x] Extend `images.env` (six lines), `deploy-staging.sh` and its tests for the new images; pre-pull the executor image on the host; handle a runtime accepted before the interpreter.
+- [x] Compose service on `memoryos-internal` only, no host port, `PYTHON_EXECUTOR_DOCKER_NETWORK=none`, socket mount documented in the [CI/CD runbook](../../../runbooks/ci-cd.md#interpreter-runtime).
+- [ ] Health verified on staging: the `Deploy staging` run after merge passes `verify_runtime` with `memoryos-interpreter` healthy.
 
 ## Phase 2 — service hardening
 
@@ -96,3 +96,11 @@ Design: [design.md](design.md).
   - Exit 0 in 5.8 s, with empty stderr.
   - `to_markdown` output was correct.
   - The PDF text read back as "Báo cáo doanh thu quý 3 — Hà Nội".
+
+### Phase 1 — release and deployment, local, 2026-09-15
+
+- `python -m unittest discover -s infrastructure/deployment`: 8 passed, including the interpreter release-contract and internal-network tests.
+- ShellCheck on `deploy-staging.sh` and actionlint 1.7.12 on `ci.yml` and `deploy-staging.yml`: pass.
+- `docker compose config --quiet` with `compose.base.yaml`, `compose.staging.yaml` and `compose.search.staging.yaml` and a placeholder environment: pass. The rendered service has no ports, only `memoryos-internal`, and the socket bind.
+- The service image built with `VCS_REF` carries the revision and source labels.
+- Rehearsal of the staging settings: `--network none`, read-only root, `/tmp` tmpfs of 512 MB, all capabilities dropped, `no-new-privileges`, root with the socket, watchdog off. The container became healthy, `/health` returned `ok` 0.1.0, and a pandas plus fpdf2 Vietnamese PDF run exited 0 with empty stderr and returned `r.pdf`.

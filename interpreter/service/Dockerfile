@@ -1,6 +1,14 @@
 # Dockerfile for the FastAPI application service (distinct from executor image)
 FROM python:3.11-slim
 
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.title="MemoryOS Interpreter" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
 # This can be toggled off to build a Kubernetes only image
 # Without Docker-in-Docker and Docker-out-of-Docker support, this cannot work with Docker Compose
 ARG SKIP_NESTED_DOCKER=0

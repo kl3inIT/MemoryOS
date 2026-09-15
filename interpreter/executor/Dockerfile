@@ -1,5 +1,13 @@
 FROM python:3.11-slim
 
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.title="MemoryOS Interpreter Executor" \
+      org.opencontainers.image.source="https://github.com/kl3inIT/MemoryOS" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
 # Install build prerequisites and uv for dependency management
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

@@ -453,6 +453,10 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
+      - name: Resolve image metadata
+        id: meta
+        run: printf 'build-date=%s\n' "$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Verify interpreter service
         run: |
           uv sync --frozen
@@ -463,13 +467,22 @@ jobs:
       # Integration and e2e tests start real executor containers from this image on the runner's daemon.
       - name: Build executor image
         working-directory: interpreter/executor
-        run: docker build --tag ghcr.io/kl3init/memoryos-interpreter-executor:latest .
+        env:
+          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
+        run: |
+          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
+            --tag ghcr.io/kl3init/memoryos-interpreter-executor:latest \
+            --tag "memoryos-interpreter-executor:sha-$GITHUB_SHA" .
 
       - name: Run integration tests
         run: uv run pytest tests/integration_tests --tb=short
 
       - name: Build service image
-        run: docker build --tag memoryos-interpreter:ci .
+        env:
+          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
+        run: |
+          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
+            --tag memoryos-interpreter:ci --tag "memoryos-interpreter:sha-$GITHUB_SHA" .
 
       - name: Run e2e tests against the service container
         run: |
@@ -484,6 +497,23 @@ jobs:
       - name: Show service logs on failure
         if: ${{ failure() }}
         run: docker logs memoryos-interpreter-ci || true
+
+      - name: Save interpreter images for publication
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/candidate"
+          docker save --output "$GITHUB_WORKSPACE/candidate/interpreter.tar" \
+            "memoryos-interpreter:sha-$GITHUB_SHA" "memoryos-interpreter-executor:sha-$GITHUB_SHA"
+
+      - name: Preserve verified interpreter images
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: candidate-interpreter
+          path: candidate/interpreter.tar
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
 
   backend-images:
     needs: changes
@@ -603,7 +633,7 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read # Read the verified main revision for the release bundle.
       packages: write # Publish the preserved images to GHCR after CI Gate succeeds.
@@ -624,8 +654,9 @@ jobs:
         run: |
           docker load --input candidate/backend.tar
           docker load --input candidate/web.tar
+          docker load --input candidate/interpreter.tar
           mkdir release
-          for component in api worker web; do
+          for component in api worker web interpreter interpreter-executor; do
             image="memoryos-$component:sha-$GITHUB_SHA"
             docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
               .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha
@@ -639,7 +670,8 @@ jobs:
               [.[0].RepoDigests[] | select(startswith($repo))] | if length == 1 then .[0] else error("Ambiguous digest") end
             ')
             [[ "$digest" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
-            printf 'MEMORYOS_%s_IMAGE=%s\n' "${component^^}" "$digest" >> release/images.env
+            key=${component//-/_}
+            printf 'MEMORYOS_%s_IMAGE=%s\n' "${key^^}" "$digest" >> release/images.env
           done
           printf 'MEMORYOS_RELEASE=%s\n' "$GITHUB_SHA" >> release/images.env
           git archive --format=tar --output=release/configuration.tar HEAD infrastructure core/src/main/resources/db/migration
