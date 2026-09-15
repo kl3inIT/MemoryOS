@@ -83,4 +83,22 @@ class ChatWebPromptsTest {
         messages.add(new UserMessage("Different question"));
         assertFalse(ChatPrompts.forInference(new Prompt(messages, original.getOptions()), true, false).toString().contains("After web_search"));
     }
+
+    @Test void everyCallableToolDescribesItselfUnderExactlyOneHeading() {
+        String attachments = ChatPrompts.forInference(prompt(Set.of("search_files", "read_file", "render_gui"), null), false, false).toString();
+        assertTrue(attachments.contains("## search_files and read_file"));
+        assertTrue(attachments.contains("## render_gui"));
+        assertFalse(attachments.contains("web_search"));
+        assertEquals(1, headings(attachments));
+        String all = ChatPrompts.forInference(prompt(Set.of("searchKnowledge", "web_search", "open_url",
+                "search_files", "read_file", "generate_image", "render_gui"), null), false, false).toString();
+        for (String block : List.of("## searchKnowledge", "## web_search", "## open_url",
+                "## search_files and read_file", "## generate_image", "## render_gui"))
+            assertTrue(all.contains(block), block);
+        assertEquals(1, headings(all));
+    }
+
+    private static int headings(String text) {
+        return text.split("# Tools", -1).length - 1;
+    }
 }
