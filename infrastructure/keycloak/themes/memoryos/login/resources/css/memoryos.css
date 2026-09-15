@@ -1,0 +1,308 @@
+/*
+ * MemoryOS login theme. Extends keycloak.v2 and only restyles it: a centered white card with the
+ * MemoryOS wordmark on a flat page, with solid colours and no gradients, soft shadows or glows.
+ * Every page keeps the keycloak.v2 markup and behaviour.
+ */
+
+:root {
+  --memoryos-navy: #083372;
+  --memoryos-navy-strong: #052452;
+  --memoryos-blue: #1f55b8;
+  --memoryos-text: #0f172a;
+  --memoryos-text-secondary: #334155;
+  --memoryos-muted: #64748b;
+  --memoryos-border: #dde2ea;
+  --memoryos-border-strong: #c3cad6;
+  --memoryos-font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --keycloak-card-top-color: transparent;
+  --pf-v5-global--FontFamily--text: var(--memoryos-font);
+  --pf-v5-global--FontFamily--heading: var(--memoryos-font);
+}
+
+.login-pf body {
+  min-height: 100%;
+  background: #f4f6f9;
+  color: var(--memoryos-text);
+  font-family: var(--memoryos-font);
+}
+
+/* Page and card */
+
+.pf-v5-c-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.pf-v5-c-login__container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 2rem 2rem 1.75rem;
+  background: #ffffff;
+  border: 1px solid #e7e9ee;
+  border-radius: 0.875rem;
+}
+
+.pf-v5-c-login__header {
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+#kc-header-wrapper {
+  width: 9.5rem;
+  height: 1.4rem;
+  margin: 0 auto;
+  background: url("../img/memoryos-wordmark.svg") center / contain no-repeat;
+  color: transparent !important;
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+/* PatternFly aligns the main panel to the start; stretch it so short forms keep the card width. */
+.pf-v5-c-login__main {
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pf-v5-c-login__main-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border-top: 0;
+}
+
+#kc-page-title {
+  margin: 0;
+  color: var(--memoryos-text);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.pf-v5-c-login__main-body,
+.pf-v5-c-login__main-footer {
+  padding: 0;
+}
+
+/* Fields */
+
+.pf-v5-c-form {
+  --pf-v5-c-form--GridGap: 1rem;
+}
+
+.pf-v5-c-form__label-text {
+  color: var(--memoryos-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-border);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-border);
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-border);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-border);
+  --pf-v5-c-form-control--before--BorderBottomWidth: 1px;
+  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: transparent;
+  min-height: 2.5rem;
+  border-radius: 0.5rem;
+  color: var(--memoryos-text);
+}
+
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after {
+  border-radius: inherit;
+}
+
+.pf-v5-c-form-control:hover {
+  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-border-strong);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-border-strong);
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-border-strong);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-border-strong);
+}
+
+/* The blue border below replaces the square browser outline on the inner input. */
+.pf-v5-c-form-control > input:focus,
+.pf-v5-c-form-control > input:focus-visible {
+  outline: none;
+}
+
+.pf-v5-c-form-control:focus-within {
+  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-blue);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-blue);
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-blue);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-blue);
+}
+
+/* The password field and its visibility toggle read as one control. */
+.pf-v5-c-input-group > .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  --pf-v5-c-button--BorderRadius: 0 0.5rem 0.5rem 0;
+  --pf-v5-c-button--after--BorderRadius: 0 0.5rem 0.5rem 0;
+  --pf-v5-c-button--after--BorderColor: var(--memoryos-border);
+  --pf-v5-c-button--m-control--after--BorderBottomColor: var(--memoryos-border);
+  min-height: 2.5rem;
+  color: var(--memoryos-muted);
+}
+
+.pf-v5-c-form__helper-text a,
+#kc-info-wrapper a {
+  color: var(--memoryos-blue);
+  font-size: 0.8125rem;
+}
+
+/* Buttons: flat fills; hover and keyboard focus turn to a stronger navy. */
+
+.pf-v5-c-login .pf-v5-c-button {
+  --pf-v5-c-button--BorderRadius: 0.5rem;
+  --pf-v5-c-button--after--BorderRadius: 0.5rem;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.pf-v5-c-login .pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--memoryos-navy);
+  min-height: 2.5rem;
+}
+
+.pf-v5-c-login .pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-login .pf-v5-c-button.pf-m-primary:focus-visible {
+  background-color: var(--memoryos-navy-strong);
+}
+
+.pf-v5-c-login .pf-v5-c-button.pf-m-secondary {
+  --pf-v5-c-button--m-secondary--Color: var(--memoryos-text);
+  --pf-v5-c-button--m-secondary--BackgroundColor: #ffffff;
+  --pf-v5-c-button--m-secondary--after--BorderColor: var(--memoryos-border);
+  --pf-v5-c-button--after--BorderWidth: 1px;
+  --pf-v5-c-button--hover--after--BorderWidth: 1px;
+  min-height: 2.5rem;
+  font-weight: 500;
+}
+
+.pf-v5-c-login .pf-v5-c-button:focus-visible {
+  outline: 2px solid var(--memoryos-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-v5-c-login .pf-v5-c-button {
+    transition: none;
+  }
+}
+
+/* Identity providers: "Or continue with" divider, then one full-width button per provider, so any
+   configured display name stays readable. */
+
+.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 1.5rem 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::before,
+.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::after {
+  flex: 1;
+  height: 1px;
+  background: #e7e9ee;
+  content: "";
+}
+
+.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) .pf-v5-c-login__main-footer-band-item {
+  color: var(--memoryos-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+#kc-social-providers {
+  width: 100%;
+}
+
+#kc-social-providers ul {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+#kc-social-providers li {
+  grid-column: auto;
+  min-width: 0;
+  padding: 0;
+}
+
+#kc-social-providers a {
+  justify-content: center !important;
+  gap: 0.5rem;
+  padding-inline: 0.75rem;
+}
+
+#kc-social-providers a:hover,
+#kc-social-providers a:focus-visible {
+  --pf-v5-c-button--after--BorderColor: var(--memoryos-navy);
+  background-color: var(--memoryos-navy);
+  color: #ffffff;
+}
+
+#kc-social-providers a > span {
+  overflow: hidden;
+  margin: 0 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kc-social-providers svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+
+#kc-social-providers svg:not(.google) {
+  fill: currentColor;
+  filter: none;
+}
+
+/* Tasco: the logo follows the display name configured in Keycloak (for example "Đăng nhập với").
+   It sits inline on the text baseline at cap height so it lines up with the letters, painted in the
+   button text colour (dark at rest, white on hover). Keyed to the `tasco` identity-provider alias;
+   other providers keep the default icon and their display name. */
+#social-tasco > svg {
+  display: none;
+}
+
+#social-tasco > span::after {
+  display: inline-block;
+  height: 0.7em;
+  aspect-ratio: 859 / 125;
+  margin-inline-start: 0.4em;
+  background-color: currentColor;
+  vertical-align: baseline;
+  content: "";
+  -webkit-mask: url("../img/tasco-logo.png") center / contain no-repeat;
+  mask: url("../img/tasco-logo.png") center / contain no-repeat;
+}
