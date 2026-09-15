@@ -46,7 +46,7 @@ export function SourceFilterMenu({
           <ChevronDown aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56">
+      <DropdownMenuContent align="start" className="w-auto min-w-56">
         <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
