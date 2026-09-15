@@ -944,6 +944,7 @@ Object.assign(englishUi, {
   "Open created Source": "Mở nguồn đã tạo",
   "Retry finalization": "Thử xác nhận hoàn tất lại",
   "Retry upload": "Thử tải lên lại",
+  "Upload progress": "Tiến độ tải lên",
   "Upload and create": "Tải lên và tạo",
   "Google authorization was not completed. You can try connecting again.":
     "Chưa hoàn tất cấp quyền Google. Bạn có thể thử kết nối lại.",
