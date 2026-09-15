@@ -39,12 +39,12 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 - [ ] Files tab: status tabs with counts, Table rows, per-row reindex in a menu, progress line while indexing. Done: each file row has an actions menu (Reindex, Remove with its confirmation) that a pending action blocks, and the upload bar is the shadcn `Progress`. Open: status tabs with counts need a status filter and per-status counts on `GET /api/sources/{sourceId}/items`, which pages by cursor only, so counts from one page would mislead; an indeterminate progress line has no honest value to show, so the Work pending label and row statuses stay.
 - [x] Index attempts: Tabs plus Table, replacing the `<details>` disclosure and the hand-written table. They load when the Indexing history tab opens.
-- [ ] Index attempt detail in a Sheet: status, timeline, translated error code, reindex.
+- [x] Index attempt detail in a Sheet: status, timeline, translated error code, reindex. The Sheet shows status, duration, the queued/started/completed timeline, the translated error, error code and attempt ID. Reindex is not offered there: `SourceIndexAttempt` carries no item identity, so a failed attempt points to Reindex in the Files tab.
 
 ### Task 6: Sync history and settings
 
 - [x] Run history Table with status filter. The filter is the Sources list filter menu, shared as `SourceFilterMenu`, and passes `status` to `GET /api/sources/{sourceId}/runs`.
-- [x] Run detail Sheet: identifiers, start, end, duration, counters, errors. The inline list-detail pane is gone; the Sheet returns focus to the row that opened it.
+- [x] Run detail Sheet: identifiers, start, end, duration, counters, errors. The inline list-detail pane is gone. Both Sheets open without a `SheetTrigger`, so they return focus to the View details control themselves; Radix would otherwise focus the page body.
 - [x] Settings tab: access, groups, schedule, pause switch, AlertDialog confirmations. Access is changed from the header dialog and Groups keep their section; the pause is a `Switch` beside the Automatic synchronization state in the summary, replacing the Pause/Resume button; credential confirmations stay on the AlertDialog-based `ConfirmDialog`.
 - [x] Credentials card: reconnect and replace-OAuth-app flows. Both flows keep their rules. The disclosure's Manage connection/Close label and chevron now follow the Radix `data-state`; `group-open` never matched the Collapsible, so the label never changed.
 
