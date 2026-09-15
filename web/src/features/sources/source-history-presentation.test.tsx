@@ -145,26 +145,31 @@ describe("Source execution and current-file history", () => {
     await waitFor(() => expect(opener).toHaveFocus());
   });
 
-  it("filters runs by status through the API and clears the filter", async () => {
+  it("filters runs by several statuses through the API and clears the filter", async () => {
     const user = userEvent.setup();
     showHistory([run]);
-    const statusOf = () =>
+    const statusesOf = () =>
       vi
         .mocked(fetch)
         .mock.calls.map(([request]) =>
-          new URL((request as Request).url).searchParams.get("status"),
+          new URL((request as Request).url).searchParams.getAll("status").join(","),
         );
 
     await user.click(screen.getByRole("button", { name: /^Status$/ }));
-    await user.click(screen.getByRole("menuitemradio", { name: "Failed" }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Failed" }));
+    // The menu stays open, so a second status is one more click.
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Completed" }));
+    await user.keyboard("{Escape}");
 
-    expect(screen.getByRole("button", { name: /^Status:\s*Failed/ })).toBeInTheDocument();
-    await waitFor(() => expect(statusOf()).toContain("FAILED"));
+    expect(
+      screen.getByRole("button", { name: /^Status:\s*Completed, Failed/ }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(statusesOf()).toContain("SUCCEEDED,FAILED"));
 
     await user.click(screen.getByRole("button", { name: "Clear status filter" }));
     expect(screen.getByRole("button", { name: /^Status$/ })).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Clear status filter" })).not.toBeInTheDocument();
-    await waitFor(() => expect(statusOf().at(-1)).toBeNull());
+    await waitFor(() => expect(statusesOf().at(-1)).toBe(""));
   });
 
   it("opens a run from its row with its trigger, stages and file counts", async () => {

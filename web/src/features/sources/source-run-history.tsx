@@ -158,7 +158,7 @@ const toneText: Record<StatusTone, string> = {
 export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   const ui = useAppTranslation();
   const [size, setSize] = useState(5);
-  const [status, setStatus] = useState<SourceRun["status"] | "">("");
+  const [statuses, setStatuses] = useState<SourceRun["status"][]>([]);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
   const [detailRun, setDetailRun] = useState<SourceRun | null>(null);
@@ -167,7 +167,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   const history = useQuery({
     ...listSourceRunsOptions({
       path: { sourceId },
-      query: { size, cursor, status: status || undefined },
+      query: { size, cursor, status: statuses.length ? statuses : undefined },
     }),
     retry: false,
     staleTime: 0,
@@ -279,9 +279,9 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
             <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-raised px-3 py-2">
               <SourceFilterMenu
                 {...runStatusFilter}
-                value={status}
+                value={statuses}
                 onValueChange={(next) => {
-                  setStatus(next as SourceRun["status"] | "");
+                  setStatuses(next as SourceRun["status"][]);
                   firstPage();
                 }}
               />

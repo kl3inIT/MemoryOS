@@ -3,10 +3,9 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -30,8 +29,8 @@ function ToneDot({ tone }: { tone: StatusTone }) {
 }
 
 /**
- * A single-choice filter chip in Stripe's list style: a dashed "+ Status" while unset, then
- * "Status | value" with its own clear button.
+ * A multi-choice filter chip in Stripe's list style: a dashed "+ Status" while unset, then
+ * "Status | chosen values" with its own clear button. The menu stays open while values are ticked.
  */
 export function SourceFilterMenu({
   label,
@@ -43,27 +42,34 @@ export function SourceFilterMenu({
   label: string;
   clearLabel: string;
   options: readonly SourceFilterOption[];
-  value: string;
-  onValueChange: (value: string) => void;
+  value: readonly string[];
+  onValueChange: (value: string[]) => void;
 }) {
   const ui = useAppTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
-  const selected = options.find((option) => option.value === value);
+  const selected = options.filter((option) => value.includes(option.value));
+  const toggle = (changed: string, checked: boolean) =>
+    // Values follow the option order, so the chip and the request stay stable.
+    onValueChange(
+      options
+        .map((option) => option.value)
+        .filter((option) => (option === changed ? checked : value.includes(option))),
+    );
 
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-lg border border-border-default",
-        selected ? "bg-surface-raised" : "border-dashed",
+        "inline-flex max-w-full items-center rounded-lg border border-border-default",
+        selected.length ? "bg-surface-raised" : "border-dashed",
       )}
     >
-      {selected ? (
+      {selected.length ? (
         <IconButton
           size="sm"
           aria-label={ui(clearLabel)}
           className="rounded-r-none"
           onClick={() => {
-            onValueChange("");
+            onValueChange([]);
             // The clear button unmounts with the value, so focus stays on the chip.
             trigger.current?.focus();
           }}
@@ -77,16 +83,22 @@ export function SourceFilterMenu({
             ref={trigger}
             size="sm"
             prominence="tertiary"
-            className={selected ? "rounded-l-none pl-1" : undefined}
+            className={cn("min-w-0", selected.length && "rounded-l-none pl-1")}
           >
-            {selected ? null : <CirclePlus aria-hidden="true" />}
+            {selected.length ? null : <CirclePlus aria-hidden="true" />}
             {ui(label)}
-            {selected ? (
+            {selected.length ? (
               <>
                 <span className="sr-only">: </span>
-                <span aria-hidden="true" className="h-4 w-px bg-border-default" />
-                <ToneDot tone={selected.tone} />
-                <span className="text-content-primary">{ui(selected.label)}</span>
+                <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-default" />
+                <span aria-hidden="true" className="flex shrink-0 -space-x-0.5">
+                  {selected.map((option) => (
+                    <ToneDot key={option.value} tone={option.tone} />
+                  ))}
+                </span>
+                <span className="max-w-56 truncate text-content-primary">
+                  {selected.map((option) => ui(option.label)).join(", ")}
+                </span>
                 <ChevronDown aria-hidden="true" />
               </>
             ) : null}
@@ -95,14 +107,18 @@ export function SourceFilterMenu({
         <DropdownMenuContent align="start" className="w-auto min-w-56">
           <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-            {options.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <ToneDot tone={option.tone} />
-                {ui(option.label)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
+          {options.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={value.includes(option.value)}
+              onCheckedChange={(checked) => toggle(option.value, checked)}
+              // Several values are usually ticked in one visit.
+              onSelect={(event) => event.preventDefault()}
+            >
+              <ToneDot tone={option.tone} />
+              {ui(option.label)}
+            </DropdownMenuCheckboxItem>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
