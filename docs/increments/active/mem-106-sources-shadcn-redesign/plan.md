@@ -15,7 +15,7 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 - [x] Keep the `tone × prominence` button and adapt the three generated components that assume shadcn's button API.
 - [x] The Radix select lives in `ui/radix-select` for Sources; main's native `ui/select` is untouched.
 - [x] Teach the test setup about Radix popups, and run `pnpm check`.
-- [x] Merge main (2026-09-15): keep main's token-bound `checkbox`, `label`, `table` and `tooltip`, keep both jsdom stubs (ResizeObserver from main, pointer capture from here), and restore every file outside Sources to main, including the Chat thread files an earlier restore had left behind.
+- [x] Merge main (2026-09-15): keep main's token-bound `checkbox`, `label`, `table` and `tooltip`, keep both jsdom stubs (ResizeObserver from main, pointer capture from here), and restore every file outside Sources to main.
 
 ### Task 2: Sources list and type picker
 
