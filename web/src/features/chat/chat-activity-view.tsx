@@ -108,6 +108,8 @@ function stepTitle(
       return running ? ui("Đang tạo thẻ trình bày…") : ui("Đã tạo thẻ trình bày");
     case "generate_image":
       return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
+    case "edit_image":
+      return running ? ui("Đang sửa ảnh…") : ui("Đã sửa ảnh");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -134,6 +136,8 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
       return ui("Đang tạo thẻ trình bày…");
     case "generate_image":
       return ui("Đang tạo ảnh…");
+    case "edit_image":
+      return ui("Đang sửa ảnh…");
     default:
       return ui("Đang dùng công cụ…");
   }
@@ -152,6 +156,7 @@ function toolIcon(name: string) {
     case "render_gui":
       return <LayoutDashboard />;
     case "generate_image":
+    case "edit_image":
       return <ImageIcon />;
     default:
       return <Wrench />;

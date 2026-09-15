@@ -184,4 +184,19 @@ class ChatTurnSetupTest {
         var noTools = new ChatModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, false, false);
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, noTools, ""));
     }
+
+    @Test
+    void earlierGeneratedImagesAreNamedOnTheirAnswerEvenWithoutText() {
+        var image = UUID.randomUUID();
+        var imageOnly = message(ChatMessage.Role.ASSISTANT, "");
+        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer",
+                List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
+                Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT, java.util.Map.of(), List.of(), null,
+                java.util.Map.of(imageOnly.id(), List.of(image)));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
+        assertEquals(List.of("Draw a man", "Make the shirt red"), setup.messages().stream()
+                .filter(m -> m instanceof UserMessage).map(Message::getContent).toList());
+        assertTrue(setup.messages().stream().anyMatch(m -> m instanceof com.embabel.chat.AssistantMessage
+                && m.getContent().contains("(image_id): " + image)));
+    }
 }

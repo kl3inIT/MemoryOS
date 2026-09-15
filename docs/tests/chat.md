@@ -228,3 +228,10 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Image provider adapters decode base64 (OpenAI `data[0].b64_json`, Cloudflare `result.image`) and never disclose provider errors/credentials | `ImageProviderClientTest` |
 | `generate_image` stages → adopts → records one artifact, enforces the per-turn limit, and streams GENERATING/COMPLETED/FAILED | `GenerateImageToolTest` |
 | Generated-image element reveals on load, opens a fullscreen viewer, and the composer toggles image mode | `image-generation.test.tsx`; `chat-image-options.test.tsx` |
+| Edit adapters: Cloudflare klein multipart (`prompt`, working `width`/`height`, `input_image_0`) and OpenAI `images/edits` with `input_fidelity=high`; the returned bytes decide the media type; failures disclose nothing; the timer is tagged `operation=edit` | `ImageProviderClientTest` |
+| Working images accept PNG/JPEG only and fit the long side to 1024 on multiples of 16; mask coverage ignores transparent pixels; compositing keeps every pixel outside the mask | `ImageEditImagesTest` |
+| `edit_image` edits a session image or an attached image with lineage, refuses ids outside the conversation and empty masks before a provider call, lets the mask name choose the image, enforces the per-reply limit and discloses no provider error | `EditImageToolTest` |
+| Earlier generated images are named on their answers, even an answer without text | `ChatTurnSetupTest` |
+| Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
+| `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
+| The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
