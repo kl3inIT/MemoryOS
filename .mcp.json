@@ -3,6 +3,10 @@
     "assistant-ui": {
       "type": "http",
       "url": "https://www.assistant-ui.com/mcp"
+    },
+    "mobbin": {
+      "type": "http",
+      "url": "https://api.mobbin.com/mcp"
     }
   }
 }
