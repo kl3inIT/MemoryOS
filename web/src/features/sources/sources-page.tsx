@@ -194,7 +194,8 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
             >
               <option value="">{ui("All access")}</option>
               <option value="PUBLIC">{ui("Workspace members")}</option>
-              <option value="RESTRICTED">{ui("Restricted")}</option>
+              <option value="PRIVATE">{ui("Private")}</option>
+              <option value="SYNC">{ui("Auto Sync")}</option>
             </Select>
           </label>
           <Button

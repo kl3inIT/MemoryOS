@@ -326,12 +326,12 @@ class PostgresSourceLifecycleTest {
         GroupId b = new GroupId(UUID.randomUUID());
         addScopedManager(b);
         var publicSource = service.createFileSource(owner, "Public", List.of(a), null);
-        var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.RESTRICTED);
+        var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.PRIVATE);
         jdbcClient.sql("""
                 INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id, is_manager)
                 VALUES (:tenant, :group, :actor, FALSE)
                 """).param("tenant", tenantId).param("group", b.value()).param("actor", manager.value()).update();
-        var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.RESTRICTED);
+        var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.PRIVATE);
         for (var source : List.of(publicSource, shared, memberOnly)) {
             assertEquals(SourcePermissions.NONE, service.getSource(manager, source.id()).permissions());
             assertThrows(SourceException.class, () -> service.renameSource(manager, source.id(), "Denied"));
@@ -349,12 +349,24 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
         long before = jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single();
-        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.RESTRICTED);
+        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PRIVATE);
         assertThat(jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single()).isGreaterThan(before);
         assertTrue(service.getSource(manager, publicSource.id()).permissions().edit());
         service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
         assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
+        assertThrows(SourceException.class, () -> service.updateSourceAccess(owner, publicSource.id(), SourceAccess.SYNC));
+        assertEquals(SourceAccess.PUBLIC, service.getSource(owner, publicSource.id()).access());
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='GOOGLE_DRIVE'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:source)
+                """).param("source", shared.id().value()).update();
+        assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.SYNC));
+        for (var mode : List.of(SourceAccess.SYNC, SourceAccess.PUBLIC, SourceAccess.PRIVATE)) {
+            service.updateSourceAccess(owner, shared.id(), mode);
+            assertEquals(mode.name(), jdbcClient.sql("SELECT access_type FROM connector_credential_pairs WHERE id=:source")
+                    .param("source", shared.id().value()).query(String.class).single());
+        }
     }
 
     @Test
@@ -370,7 +382,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.createFileSource(manager, "System", List.of(adminGroupId()), null));
         assertEquals(0L, count("connector_credential_pairs"));
         var source = service.createFileSource(manager, "Private", List.of(managed), null);
-        assertEquals(SourceAccess.RESTRICTED, source.access());
+        assertEquals(SourceAccess.PRIVATE, source.access());
         assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
         assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
     }
@@ -382,7 +394,7 @@ class PostgresSourceLifecycleTest {
         GroupId other = new GroupId(UUID.randomUUID());
         ActorId stranger = addScopedManager(other);
         var own = service.createFileSource(manager, "Own", List.of(managed), null);
-        var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.RESTRICTED);
+        var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.PRIVATE);
         jdbcClient.sql("DELETE FROM source_group_grants WHERE tenant_id=:tenant")
                 .param("tenant", tenantId).update();
         assertEquals(new SourcePermissions(true, true, false, false, false), service.getSource(manager, own.id()).permissions());
@@ -390,7 +402,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(SourceException.class, () -> service.deleteSource(manager, foreign.id()));
         service.updateSourceAccess(owner, own.id(), SourceAccess.PUBLIC);
         assertThrows(SourceException.class, () -> service.deleteSource(manager, own.id()));
-        service.updateSourceAccess(owner, own.id(), SourceAccess.RESTRICTED);
+        service.updateSourceAccess(owner, own.id(), SourceAccess.PRIVATE);
         var deletion = service.deleteSource(manager, own.id());
         assertEquals(deletion, service.deleteSource(manager, own.id()));
         var delivery = dispatch(OperationWorkload.CLEANUP);
@@ -436,8 +448,8 @@ class PostgresSourceLifecycleTest {
         ActorId manager = addScopedManager(managedGroupId);
         GroupId foreignGroupId = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroupId);
-        var managed = service.createFileSource(owner, "Managed source", List.of(managedGroupId), SourceAccess.RESTRICTED);
-        var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.RESTRICTED);
+        var managed = service.createFileSource(owner, "Managed source", List.of(managedGroupId), SourceAccess.PRIVATE);
+        var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.PRIVATE);
         var managedUpload = upload(
                 manager,
                 managed.id(),
@@ -543,7 +555,7 @@ class PostgresSourceLifecycleTest {
         ActorId manager = addScopedManager(managedGroupId);
         GroupId foreignGroupId = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroupId);
-        SourceId sourceId = service.createFileSource(owner, "Revoked source", List.of(managedGroupId), SourceAccess.RESTRICTED).id();
+        SourceId sourceId = service.createFileSource(owner, "Revoked source", List.of(managedGroupId), SourceAccess.PRIVATE).id();
         byte[] content = "revoked during verification".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization upload = service.initiateUpload(
                 manager,

@@ -245,7 +245,7 @@ class GoogleDriveSelectionTreeTest {
         var root = file("my-drive", true, List.of());
         f.files.put("root", root);
         f.files.put(root.id(), root);
-        var receipt = f.service.create(f.owner,UUID.randomUUID(),"My Drive",f.credential,ScopeMode.GENERAL,List.of(),List.of());
+        var receipt = f.service.create(f.owner,UUID.randomUUID(),"My Drive",f.credential,ScopeMode.GENERAL,List.of(),List.of(),null);
         f.finish(receipt);
         var source = receipt.sourceId();
         assertEquals(List.of("my-drive"), ids(tree(f, source, null, null, 25)));

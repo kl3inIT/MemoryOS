@@ -149,7 +149,7 @@ FILE and Drive binary admission is bounded at 100 MiB; native snapshots retain t
 
 Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
 
-Direct Search and passage reads require current global `SEARCH_READ`. Actor-bound eligibility permits active PUBLIC FILE Sources and authorized private FILE Sources, with fresh membership, origin and generation checks after index IO and during expansion. It does not grant Drive document access or expose private Chat attachments through general Search.
+Direct Search and passage reads require current global `SEARCH_READ`. Actor-bound eligibility permits active FILE and Google Drive Sources by access mode: Public, Private through an associated Group, or Auto Sync through the file's retained Google permissions matched to the reader's verified email ([Source access modes](docs/specs/connector.md#source-access-modes)). Membership, origin, grant and generation are rechecked after index IO and during expansion. Private Chat attachments are not exposed through general Search.
 
 ## Chat execution and retrieval
 
@@ -198,7 +198,7 @@ sequenceDiagram
     API->>Capability: Execute authorized operation
 ```
 
-Keycloak is the browser credential store and enterprise identity broker. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization. IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
+Keycloak is the browser credential store and enterprise identity broker. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization; a verified login email is only matched against provider permissions of Auto Sync Sources ([ADR 0011](docs/decisions/0011-verified-email-source-permission-matching.md)). IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
 
 Protected Admin/Basic Groups persist `SYSTEM_ADMIN`/`SYSTEM_BASIC`. Admin expands to every enum capability; Basic implies `SEARCH_READ`, `CHAT_READ`, `CHAT_WRITE`, `IMAGE_GENERATE` and `LLM_GATEWAY_USE`. Only Users, Groups, Sources and Models management are assignable ordinary grants. Chat retains its membership/resource policy rather than granular Chat-token enforcement; image/gateway vocabulary does not claim feature delivery. The [Identity contract](docs/specs/identity.md) defines protected memberships, peer-manager restrictions, Onyx identity presentation and the `manage_grants` gate that hides ordinary Group Permissions and its registry query.
 

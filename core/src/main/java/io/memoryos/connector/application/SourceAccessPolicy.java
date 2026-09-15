@@ -3,6 +3,7 @@ package io.memoryos.connector.application;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.Authority;
@@ -54,17 +55,37 @@ public class SourceAccessPolicy {
         return current;
     }
 
-    public Creation creation(ActorId actorId, @Nullable SourceAccess requestedAccess, Collection<GroupId> groupIds) {
-        return resolve(authorization.require(actorId, IamCapability.SOURCES_MANAGE, true), actorId, requestedAccess, groupIds);
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Creation lockCreation(ActorId actorId, @Nullable SourceAccess requestedAccess, Collection<GroupId> groupIds) {
-        return resolve(authorization.lockAndRequireScopedMutation(actorId, IamCapability.SOURCES_MANAGE), actorId,
+    public Creation creation(ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,
+            Collection<GroupId> groupIds) {
+        return resolve(authorization.require(actorId, IamCapability.SOURCES_MANAGE, true), actorId, type,
                 requestedAccess, groupIds);
     }
 
-    private Creation resolve(IamAccess authority, ActorId actorId, @Nullable SourceAccess requestedAccess,
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Creation lockCreation(ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,
+            Collection<GroupId> groupIds) {
+        return resolve(authorization.lockAndRequireScopedMutation(actorId, IamCapability.SOURCES_MANAGE), actorId, type,
+                requestedAccess, groupIds);
+    }
+
+    /**
+     * FILE defaults to PUBLIC for global managers and PRIVATE for scoped managers; Google Drive defaults to SYNC.
+     * SYNC needs provider permissions, and only global managers may publish to every member.
+     */
+    static SourceAccess access(SourceType type, boolean global, @Nullable SourceAccess requested) {
+        SourceAccess access = requested != null ? requested
+                : type == SourceType.GOOGLE_DRIVE ? SourceAccess.SYNC
+                : global ? SourceAccess.PUBLIC : SourceAccess.PRIVATE;
+        if (access == SourceAccess.SYNC && type != SourceType.GOOGLE_DRIVE) {
+            throw SourceException.invalid("Auto Sync requires a Google Drive source.", "sync access without provider permissions");
+        }
+        if (!global && access == SourceAccess.PUBLIC) {
+            throw SourceException.invalid("Managed sources cannot be public.", "scoped source publication denied");
+        }
+        return access;
+    }
+
+    private Creation resolve(IamAccess authority, ActorId actorId, SourceType type, @Nullable SourceAccess requestedAccess,
             Collection<GroupId> groupIds) {
         LinkedHashSet<GroupId> distinct = new LinkedHashSet<>();
         for (GroupId id : Objects.requireNonNull(groupIds, "groupIds must not be null")) {
@@ -72,10 +93,7 @@ public class SourceAccessPolicy {
         }
         if (distinct.size() > 100) throw SourceException.invalid("Select no more than 100 groups.", "source group limit exceeded");
         boolean global = authority.authority() == Authority.GLOBAL;
-        SourceAccess access = requestedAccess == null ? (global ? SourceAccess.PUBLIC : SourceAccess.RESTRICTED) : requestedAccess;
-        if (!global && access == SourceAccess.PUBLIC) {
-            throw SourceException.invalid("Managed sources must be restricted.", "scoped source publication denied");
-        }
+        SourceAccess access = access(type, global, requestedAccess);
         List<GroupId> groups = List.copyOf(distinct);
         if (global) {
             groupScopes.validateGroupIds(authority.tenantId(), groups);

@@ -99,7 +99,7 @@ export function SourceGroupsSection({
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
         {ui(
-          "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.",
+          "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.",
         )}
       </p>
 
@@ -138,7 +138,7 @@ export function SourceGroupsSection({
           <GroupAccessPicker
             load={(query) => listSourceGroupOptionsOptions({ query })}
             description={appText(
-              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+              "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
             )}
             className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=group-options]]:rounded-none [&_[data-slot=group-options]]:border-x-0 [&_[data-slot=group-options]]:bg-transparent"
             selected={selectedIds}

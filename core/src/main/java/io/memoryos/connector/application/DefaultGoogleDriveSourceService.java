@@ -17,6 +17,7 @@ import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
 import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceType;
 import java.util.UUID;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -86,27 +87,29 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     @Override
-    public SelectionReceipt create(ActorId actor, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links, List<GroupId> groupIds) {
+    public SelectionReceipt create(ActorId actor, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode,
+            List<String> links, List<GroupId> groupIds, @Nullable SourceAccess access) {
         if (name == null || name.isBlank() || name.strip().length() > 120)
             throw SourceException.invalid("Source name must contain 1 to 120 characters.", "invalid source name");
         Objects.requireNonNull(credentialId, "credentialId must not be null");
         Objects.requireNonNull(requestId, "requestId must not be null");
-        var tenant = sourceAccess.creation(actor, SourceAccess.RESTRICTED, groupIds).authority().tenantId();
+        var tenant = sourceAccess.creation(actor, SourceType.GOOGLE_DRIVE, access, groupIds).authority().tenantId();
         var ids = rootIds(scopeMode, links);
         policy.requireSize(name, links, List.of());
         return Objects.requireNonNull(transactions.execute(_ -> {
-            var creation = sourceAccess.lockCreation(actor, SourceAccess.RESTRICTED, groupIds);
+            var creation = sourceAccess.lockCreation(actor, SourceType.GOOGLE_DRIVE, access, groupIds);
             if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
             var groups = creation.groupIds().stream().sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
-            String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links,
-                    groups.stream().map(group -> group.value().toString()).toList());
+            var hashed = new java.util.ArrayList<>(groups.stream().map(group -> group.value().toString()).toList());
+            hashed.add(creation.access().name());
+            String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links, hashed);
             var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
             DefaultGoogleDriveAuthorizationService.requireCredentialOwner(creation.authority(), actor, credential);
             if (!credential.usable()) throw SourceException.conflict("Google connection is unavailable");
             var receipt = selections.receipt(tenant, actor, requestId, hash);
             if (receipt.isPresent()) return receipt.get();
                 return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
-                    credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value(), groups);
+                    credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value(), groups, creation.access());
         }));
     }
 
@@ -170,7 +173,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                 approvals.add(candidate);
             }
             return selections.submit(tenant, actor, requestId, hash, source, saved.credentialId(), saved.credentialRevision(),
-                    expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value(), List.of());
+                    expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value(), List.of(), null);
         }));
     }
 
@@ -473,7 +476,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var tenant = work.tenantId();
         // Creation can attach groups: take exclusive IAM authority before any tenant/source locks.
         var authority = intent.name() != null
-                ? sourceAccess.lockCreation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).authority()
+                ? sourceAccess.lockCreation(intent.actorId(), SourceType.GOOGLE_DRIVE, intent.access(), intent.groupIds()).authority()
                 : authorization.lockAndRequire(intent.actorId(), IamCapability.SOURCES_MANAGE, false);
         if (intent.credentialId() == null || !tenant.equals(authority.tenantId()) || !sources.lockActiveTenant(tenant))
             throw SourceException.staleConfiguration();
@@ -497,9 +500,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var tenant = work.tenantId();
         var source = work.sourceId();
         if (intent.name() != null) {
-            drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
-            var groups = sourceAccess.creation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).groupIds();
-            sourceGroups.replace(tenant, source, groups);
+            var creation = sourceAccess.creation(intent.actorId(), SourceType.GOOGLE_DRIVE, intent.access(), intent.groupIds());
+            drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())),
+                    intent.scopeMode(), roots, creation.access());
+            sourceGroups.replace(tenant, source, creation.groupIds());
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             boolean changed = !Set.copyOf(drive.roots(tenant, source).stream().map(Root::id).toList())

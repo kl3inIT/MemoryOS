@@ -320,7 +320,7 @@ test("scoped File creation requires managed groups and never publishes files", a
     id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
     name: "Private knowledge",
     type: "FILE",
-    access: "RESTRICTED",
+    access: "PRIVATE",
     status: "ACTIVE",
     pendingWork: false,
     documentCount: 0,
@@ -355,7 +355,7 @@ test("scoped File creation requires managed groups and never publishes files", a
         json: { items: [group], page: 0, size: 25, totalItems: 1, totalPages: 1 },
       });
     } else if (path === "/api/sources/file") {
-      expect(request.postDataJSON()).toMatchObject({ access: "RESTRICTED", groupIds: [group.id] });
+      expect(request.postDataJSON()).toMatchObject({ access: "PRIVATE", groupIds: [group.id] });
       expect(request.headers()["x-memoryos-csrf"]).toBe("1");
       created = true;
       await route.fulfill({ status: 201, json: source });

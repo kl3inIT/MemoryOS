@@ -11,6 +11,7 @@ import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceSummary;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
@@ -115,7 +116,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     ) {
         ActorId requiredActorId = requireActorId(actorId);
         String normalizedName = requireName(name);
-        var creation = sourceAccess.lockCreation(requiredActorId, requestedAccess, groupIds);
+        var creation = sourceAccess.lockCreation(requiredActorId, SourceType.FILE, requestedAccess, groupIds);
         IamAccess access = creation.authority();
         var pair = sources.createFileSource(access.tenantId(), requiredActorId, normalizedName, creation.access());
         sourceGroups.replace(access.tenantId(), pair.sourceId(), creation.groupIds());

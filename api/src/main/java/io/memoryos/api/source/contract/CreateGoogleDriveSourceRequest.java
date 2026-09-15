@@ -1,6 +1,7 @@
 package io.memoryos.api.source.contract;
 
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
+import io.memoryos.connector.SourceAccess;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,4 +22,7 @@ public record CreateGoogleDriveSourceRequest(
         List<@NotBlank @Size(max = 2048) String> links,
         @Size(max = 100) @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
                 description = "Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.")
-        @Nullable List<@NotNull UUID> groupIds) {}
+        @Nullable List<@NotNull UUID> groupIds,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "PUBLIC, PRIVATE or SYNC; defaults to SYNC. PUBLIC requires global Source management.")
+        @Nullable SourceAccess access) {}

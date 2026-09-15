@@ -1190,16 +1190,15 @@ function SourceMetadataEditor({
   const updateAccess = useMutation(updateSourceAccessMutation());
   const [editing, setEditing] = useState<"name" | "access" | null>(null);
   const [name, setName] = useState(source.name);
-  const [access, setAccess] = useState<"PUBLIC" | "RESTRICTED">(
-    source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED",
-  );
+  const [access, setAccess] = useState<SourceSummary["access"]>(source.access);
   const [error, setError] = useState<AppCopy | null>(null);
   const canRename = can(source, "edit");
-  const canManageAccess = source.type === "FILE" && can(source, "publish");
+  const canManageAccess = can(source, "publish");
+  const googleDrive = source.type === "GOOGLE_DRIVE";
   const pending = rename.isPending || updateAccess.isPending;
   if (editing === "access" && !canManageAccess) {
     setEditing(null);
-    setAccess(source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED");
+    setAccess(source.access);
     setError(null);
   }
 
@@ -1249,7 +1248,7 @@ function SourceMetadataEditor({
             prominence="tertiary"
             disabled={disabled || pending}
             onClick={() => {
-              setAccess(source.access === "PUBLIC" ? "PUBLIC" : "RESTRICTED");
+              setAccess(source.access);
               setError(null);
               setEditing("access");
             }}
@@ -1283,15 +1282,24 @@ function SourceMetadataEditor({
               <Select
                 value={access}
                 disabled={disabled || pending}
-                onChange={(event) => setAccess(event.target.value as "PUBLIC" | "RESTRICTED")}
+                onChange={(event) => setAccess(event.target.value as SourceSummary["access"])}
               >
                 <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                <option value="RESTRICTED">{ui("Private · associated group members")}</option>
+                <option value="PRIVATE">{ui("Private · associated group members")}</option>
+                {googleDrive ? (
+                  <option value="SYNC">
+                    {ui("Auto Sync · people who can open each file in Google Drive")}
+                  </option>
+                ) : null}
               </Select>
               <span className="block text-sm text-content-muted">
-                {ui(
-                  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
-                )}
+                {googleDrive
+                  ? ui(
+                      "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.",
+                    )
+                  : ui(
+                      "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
+                    )}
               </span>
             </label>
           )}

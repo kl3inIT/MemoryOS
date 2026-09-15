@@ -429,7 +429,7 @@ export type SourceSummary = {
     id: string;
     name: string;
     type: string;
-    access: string;
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
     status: string;
     pendingWork: boolean;
     documentCount: number;
@@ -451,7 +451,7 @@ export type UpdateGoogleDrivePauseRequest = {
 };
 
 export type UpdateSourceAccessRequest = {
-    access: 'PUBLIC' | 'RESTRICTED';
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -470,6 +470,10 @@ export type CreateGoogleDriveSourceRequest = {
      * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
      */
     groupIds?: Array<string> | null;
+    /**
+     * PUBLIC, PRIVATE or SYNC; defaults to SYNC. PUBLIC requires global Source management.
+     */
+    access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type CreateFileSourceRequest = {
@@ -478,7 +482,10 @@ export type CreateFileSourceRequest = {
      * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
      */
     groupIds?: Array<string> | null;
-    access?: 'PUBLIC' | 'RESTRICTED';
+    /**
+     * PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+     */
+    access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type SearchRequest = {

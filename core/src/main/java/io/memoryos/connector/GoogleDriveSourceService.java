@@ -8,7 +8,9 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public interface GoogleDriveSourceService {
-    SelectionReceipt create(ActorId actorId, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode, List<String> links, List<GroupId> groupIds);
+    /** {@code access} defaults to {@link SourceAccess#SYNC}. */
+    SelectionReceipt create(ActorId actorId, UUID requestId, String name, CredentialId credentialId, ScopeMode scopeMode,
+            List<String> links, List<GroupId> groupIds, @Nullable SourceAccess access);
     Configuration configuration(ActorId actorId, SourceId sourceId);
     SelectionReceipt replaceRoots(ActorId actorId, UUID requestId, SourceId sourceId, long expectedRevision,
             long expectedDiscoveryRevision, long expectedCredentialRevision, ScopeMode scopeMode,

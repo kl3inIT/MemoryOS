@@ -36,6 +36,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
 - [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
 - [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing.
+- [MEM-105 — Source access modes](docs/increments/active/mem-105-source-access-modes/design.md) owns Public/Private/Auto Sync Source access and enforcement of Google Drive permissions in Search and Chat.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
 - [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
 - [Chat source reader](docs/increments/active/chat-source-reader/design.md) owns stepping between Chat sources, table rows opening on their PDF page, the expanded source dialog and the PDF range-load fallback with pdf.js image decoders.
