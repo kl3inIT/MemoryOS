@@ -22,8 +22,9 @@ Xem [design.md](design.md). Nhánh: `phamnhatanh811/mem-109-chat-image-editing`.
 ## Phase 3 — Hoàn thiện
 
 - ✅ Cập nhật `docs/specs/chat.md`, `docs/tests/chat.md`.
-- ⏳ `./gradlew clean check` và `pnpm check` xanh.
-- ⏳ PR vào main, CI xanh mới merge; verify trên staging; chuyển increment sang `completed/`, cập nhật roadmap.
+- ✅ CI xanh trên PR #193 (`clean check` backend, frontend-check, 4 shard e2e, backend-images).
+- ✅ Merge vào main (`97836eb5`); increment chuyển sang `completed/`, roadmap cập nhật.
+- ⏳ Verify trên staging: sửa ảnh đã sinh, ảnh tải lên, có mask.
 
 ## Rủi ro
 

@@ -1,6 +1,6 @@
 # MEM-109 — Sửa ảnh trong Chat
 
-Trạng thái: In Progress. Linear: [MEM-109](https://linear.app/memory-os/issue/MEM-109). Nền: [MEM-97](../../completed/mem-97-chat-image-generation/design.md) (sinh ảnh). Kế hoạch: [plan.md](plan.md).
+Trạng thái: Delivered — [PR #193](https://github.com/kl3inIT/MemoryOS/pull/193), merge `97836eb5`. Linear: [MEM-109](https://linear.app/memory-os/issue/MEM-109). Nền: [MEM-97](../../completed/mem-97-chat-image-generation/design.md) (sinh ảnh). Kế hoạch: [plan.md](plan.md).
 
 ## 1. Vấn đề
 
