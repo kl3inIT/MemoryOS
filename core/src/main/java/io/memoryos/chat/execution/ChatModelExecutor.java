@@ -76,7 +76,7 @@ public final class ChatModelExecutor {
         try {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
-                    new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, Math.min(4096, limits.tokenBudget())), 1,
+                    new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
                     () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
                     selected.policy(), Math.min(3000, selected.contextWindow() - Math.min(128, selected.maxOutputTokens())), selected.finalRequest());
             guard.outputLimit(Math.min(128, selected.maxOutputTokens()));
@@ -118,7 +118,7 @@ public final class ChatModelExecutor {
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
-                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
+                new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
