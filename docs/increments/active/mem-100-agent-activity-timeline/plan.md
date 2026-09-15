@@ -21,7 +21,7 @@ Design: [design.md](design.md). Branch: `mem-100-agent-activity-timeline`.
 
 ## 2. Persistence and history
 
-- [x] V54 `chat_message.activity` with CHECK constraints (ASSISTANT-only, step count, reasoning length, byte cap).
+- [x] V59 `chat_message.activity` with CHECK constraints (ASSISTANT-only, step count, reasoning length, byte cap).
 - [x] Collect steps, summaries, `textOffset` and bounded reasoning in `ChatTurnService.Active`; seal in `finish`.
 - [x] Write `activity` in `JdbcChatRepository.finish` with `sources`/`artifacts`; map it in `ChatMessage` and `ChatMessageResponse`.
 - [x] `openapi.yml`: `ToolEvent`, `ReasoningEvent`, `ChatMessage.activity`; regenerate the hey-api client.

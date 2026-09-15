@@ -1,6 +1,7 @@
 package io.memoryos.chat.streaming;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatToolEvent;
 import tools.jackson.databind.ObjectMapper;
 import io.memoryos.chat.ChatMessage.Status;
@@ -38,7 +39,12 @@ public final class StreamBufferWriter {
     }
 
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
+                        @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
+                        @Nullable ChatImageEvent image, boolean hasArtifacts) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, null, hasArtifacts);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool) {
             this(assistantMessageId, sequence, type, text, status, failureCode, tool, false);
@@ -118,6 +124,13 @@ public final class StreamBufferWriter {
         publish(stream, new Event(id, ++stream.sequence, "tool", null, null, null, event));
     }
 
+    public synchronized void image(UUID id, ChatImageEvent event) {
+        var stream = require(id);
+        if (stream.done) return;
+        flush(stream);
+        publish(stream, new Event(id, ++stream.sequence, "image", null, null, null, null, event, false));
+    }
+
     public synchronized void flush() {
         for (var stream : new ArrayList<>(streams.values())) {
             flush(stream);
@@ -176,7 +189,8 @@ public final class StreamBufferWriter {
 
     private void publish(Stream stream, Event event) {
         int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
-                + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length);
+                + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length)
+                + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length);
         stream.chunks.addLast(new Chunk(event, bytes, millis.getAsLong()));
         stream.bytes += bytes;
         for (var reader : new ArrayList<>(stream.readers)) {

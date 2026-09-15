@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.DocumentSourceMetadata;
+import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.iam.identity.ActorId;
@@ -15,6 +16,7 @@ import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -62,24 +64,48 @@ public class DocumentSearchService {
             hits.stream()
                     .sorted(HIT_ORDER)
                     .forEach(h -> grouped.computeIfAbsent(h.documentId(), _ -> new ArrayList<>()).add(h));
-            var all = grouped.values().stream().map(group -> {
+            var candidates = grouped.values().stream().map(group -> {
                 var best = group.getFirst();
                 return new SearchPage.Result(best.documentId(), best.generation(), best.title(), best.mediaType(),
                         best.updatedAt(), best.score(), mergeSections(group));
             }).toList();
+            // Connector counts, the connector filter and page metadata all come from the Source mappings this actor may
+            // read, so a connector the actor cannot read is neither counted nor matched.
+            var origins = readableOrigins(actor, candidates);
+            var all = request.sourceTypes().isEmpty() ? candidates : candidates.stream()
+                    .filter(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
+                            .anyMatch(origin -> request.sourceTypes().contains(origin.type())))
+                    .toList();
             int start = Math.min(request.page() * request.pageSize(), all.size());
             int end = Math.min(start + request.pageSize(), all.size());
-            var page = all.subList(start, end);
-            // Presentation metadata for the returned page only, limited to Source mappings this actor may read.
-            var origins = page.isEmpty() ? Map.<UUID, List<DocumentSourceMetadata>>of()
-                    : sourceSearch.readableMetadata(sourceSearch.scope(actor), page.stream().map(SearchPage.Result::documentId).toList());
-            var results = page.stream().map(result -> result.withOrigins(origins.getOrDefault(result.documentId(), List.of()))).toList();
+            var results = all.subList(start, end).stream()
+                    .map(result -> result.withOrigins(origins.getOrDefault(result.documentId(), List.of()))).toList();
             outcome = "success";
-            return new SearchPage(results, request.page(), end < all.size(), all.size(), search.candidateLimit());
+            return new SearchPage(results, request.page(), end < all.size(), all.size(), search.candidateLimit(),
+                    sourceFacets(candidates, origins));
         } finally {
             metrics.timer("memoryos.search.query.duration", "outcome", outcome)
                     .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
         }
+    }
+
+    private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(ActorId actor, List<SearchPage.Result> candidates) {
+        if (candidates.isEmpty()) return Map.of();
+        var scope = sourceSearch.scope(actor);
+        var ids = candidates.stream().map(SearchPage.Result::documentId).toList();
+        var origins = new HashMap<UUID, List<DocumentSourceMetadata>>();
+        for (int offset = 0; offset < ids.size(); offset += 1000)
+            origins.putAll(sourceSearch.readableMetadata(scope, ids.subList(offset, Math.min(offset + 1000, ids.size()))));
+        return origins;
+    }
+
+    private static SearchPage.SourceFacets sourceFacets(List<SearchPage.Result> candidates,
+            Map<UUID, List<DocumentSourceMetadata>> origins) {
+        var counts = new EnumMap<SourceType, Integer>(SourceType.class);
+        candidates.forEach(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
+                .map(DocumentSourceMetadata::type).distinct().forEach(type -> counts.merge(type, 1, Integer::sum)));
+        return new SearchPage.SourceFacets(candidates.size(), counts.entrySet().stream()
+                .map(entry -> new SearchPage.SourceTypeFacet(entry.getKey(), entry.getValue())).toList());
     }
 
     /** Caller supplies an owner-authorized file-to-document scope; never widens to organization Search. */

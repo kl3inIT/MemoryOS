@@ -3,6 +3,7 @@ package io.memoryos.chat.catalog;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
@@ -51,7 +52,7 @@ class ModelCatalogSelectionTest {
         final ActorId actor = new ActorId(UUID.randomUUID());
         final ModelCatalogRepository catalog = mock(ModelCatalogRepository.class);
         final ModelSettings settings = new ModelSettings(36096, 4096,
-                new ModelSettings.Capabilities(true, true, true, true), Map.of(), null);
+                new ModelSettings.Capabilities(true, true, true, true), Map.of(), null, "openai-o200k-v1");
         final ModelCatalogRepository.Provider provider = provider();
         final ModelCatalogRepository.Provider otherProvider = provider();
         final ModelCatalogRepository.Model defaultModel = new ModelCatalogRepository.Model(defaultId, tenant, provider.id(), "luna", "Luna", true, settings, 1);
@@ -78,16 +79,16 @@ class ModelCatalogSelectionTest {
             when(catalog.model(tenant, otherId)).thenReturn(Optional.of(otherModel));
             when(catalog.provider(tenant, otherProvider.id())).thenReturn(Optional.of(otherProvider));
             when(catalog.defaultModel(tenant)).thenReturn(new ModelCatalogRepository.Default(defaultId, 1));
-            when(catalog.personaModel(tenant, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
+            when(catalog.personaModel(tenant, actor.value(), persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
-                    mock(ProviderCredentials.class), new PersonaProperties(), null);
+                    mock(ProviderCredentials.class), mock(GroupScopeService.class), new PersonaProperties(), null);
         }
         ModelCatalogRepository.Provider provider() {
             return new ModelCatalogRepository.Provider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",
                     true, true, null, 1, Set.of(), Set.of());
         }
         void preferPersona() {
-            when(catalog.personaModel(tenant, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, otherId, 1));
+            when(catalog.personaModel(tenant, actor.value(), persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, otherId, 1));
         }
         List<UUID> defaults() {
             return service.availableModelsForPersona(actor, persona).stream().filter(ModelCatalogService.AvailableModel::isDefault)

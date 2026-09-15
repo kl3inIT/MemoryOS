@@ -360,6 +360,7 @@ export async function handleChatFixture(
         sources: [],
         files: [],
         activity: { steps: [], reasoning: [] },
+        images: [],
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -375,6 +376,7 @@ export async function handleChatFixture(
         sources: [],
         files: [],
         activity: { steps: [], reasoning: [] },
+        images: [],
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -422,6 +424,26 @@ export async function handleChatFixture(
         source: null,
       });
     if (state.mode === "grounded-progress") {
+      // Keep committed activity in step with the stream, so a Stop before completion restores it too.
+      state.messages.at(-1)!.activity = {
+        steps: [
+          {
+            position: 1,
+            toolCallId: "search-1",
+            toolName: "searchKnowledge",
+            status: "FAILED",
+            startedAt: new Date().toISOString(),
+            durationMs: 400,
+            textOffset: 0,
+            queries: ["annual leave policy", "HR-2026"],
+            documents: [],
+            citations: [],
+          },
+        ],
+        reasoning: [
+          { position: 0, textOffset: 0, text: "Checking the latest HR policy before answering." },
+        ],
+      };
       emit(run, "tool", {
         toolCallId: "search-1",
         toolName: "searchKnowledge",

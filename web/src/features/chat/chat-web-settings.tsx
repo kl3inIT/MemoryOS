@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Cpu, Globe } from "lucide-react";
-import { Dialog, Switch } from "radix-ui";
+import { Dialog } from "radix-ui";
+import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ const providers = [
   "SERPER",
   "GOOGLE_PSE",
   "SEARXNG",
+  "NINEROUTER",
   "FIRECRAWL",
 ] as const;
 const names = {
@@ -47,6 +49,7 @@ const names = {
   SERPER: "Serper",
   GOOGLE_PSE: "Google PSE",
   SEARXNG: "SearXNG",
+  NINEROUTER: "9Router",
   FIRECRAWL: "Firecrawl",
 };
 type Provider = (typeof providers)[number];
@@ -60,9 +63,18 @@ const providerDetails = {
     endpoint: "https://customsearch.googleapis.com",
   },
   SEARXNG: { description: "searxng.org", endpoint: "" },
+  NINEROUTER: { description: "9router.com", endpoint: "" },
   FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
 };
-const searchProviders: Provider[] = ["EXA", "SERPER", "BRAVE", "GOOGLE_PSE", "SEARXNG", "TAVILY"];
+const searchProviders: Provider[] = [
+  "EXA",
+  "SERPER",
+  "BRAVE",
+  "GOOGLE_PSE",
+  "SEARXNG",
+  "NINEROUTER",
+  "TAVILY",
+];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
 
 export function ChatWebSettings() {
@@ -373,19 +385,36 @@ function ConnectionCard({
                   <span>
                     {provider === "SEARXNG"
                       ? ui("Địa chỉ SearXNG")
-                      : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
+                      : provider === "NINEROUTER"
+                        ? ui("Địa chỉ 9Router")
+                        : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
                   </span>
                   <Input
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
-                    required={provider === "SEARXNG"}
+                    required={provider === "SEARXNG" || provider === "NINEROUTER"}
                     maxLength={2048}
-                    placeholder={providerDetails[provider].endpoint || "https://searx.example.com"}
+                    placeholder={
+                      provider === "NINEROUTER"
+                        ? "https://9router.example.com/v1"
+                        : providerDetails[provider].endpoint || "https://searx.example.com"
+                    }
                   />
                 </label>
                 {provider === "GOOGLE_PSE" && (
                   <label className="block space-y-1">
                     <span>{ui("Mã công cụ tìm kiếm")}</span>
+                    <Input
+                      value={engineId}
+                      onChange={(e) => setEngineId(e.target.value)}
+                      required
+                      maxLength={200}
+                    />
+                  </label>
+                )}
+                {provider === "NINEROUTER" && (
+                  <label className="block space-y-1">
+                    <span>{ui("Engine tìm kiếm")}</span>
                     <Input
                       value={engineId}
                       onChange={(e) => setEngineId(e.target.value)}
@@ -550,16 +579,7 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
                 </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-main-ui-action">{model.displayName || model.modelName}</h3>
-                  <p className="mt-1 text-sm text-content-muted">
-                    {toolCalling
-                      ? provider.name
-                      : ui(
-                          "{{provider}} · Mô hình này không hỗ trợ công cụ nên không dùng được tìm kiếm.",
-                          {
-                            provider: provider.name,
-                          },
-                        )}
-                  </p>
+                  <p className="mt-1 text-sm text-content-muted">{provider.name}</p>
                 </div>
                 {enabled && (
                   <StatusBadge tone="success" className="gap-1 text-xs">
@@ -567,18 +587,19 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
                     {ui("Đang dùng")}
                   </StatusBadge>
                 )}
-                <Switch.Root
-                  type="button"
+                {!toolCalling && (
+                  <StatusBadge tone="neutral" className="text-xs">
+                    {ui("Không hỗ trợ công cụ")}
+                  </StatusBadge>
+                )}
+                <Switch
                   checked={enabled}
                   disabled={!toolCalling || pending !== undefined}
                   aria-label={ui("Tìm kiếm Web của nhà cung cấp cho {{name}}", {
                     name: model.displayName || model.modelName,
                   })}
                   onCheckedChange={(checked) => void toggle(model, checked)}
-                  className="inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border-default bg-surface-sunken p-0.5 outline-none transition-colors data-[state=checked]:border-content-primary data-[state=checked]:bg-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Switch.Thumb className="pointer-events-none block size-3.5 rounded-full bg-content-primary shadow-xs transition-transform data-[state=checked]:translate-x-4 data-[state=checked]:bg-surface-base" />
-                </Switch.Root>
+                />
               </li>
             );
           })}

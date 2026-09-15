@@ -29,6 +29,7 @@ import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-
 import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
+import { ChatImages } from "./chat-images";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatActivityGroup, ChatReasoningStep, ChatToolStep } from "./chat-activity-view";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
@@ -266,6 +267,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
           }}
         </MessagePrimitive.GroupedParts>
         <ChatArtifactCards />
+        <ChatImages />
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}

@@ -8,7 +8,11 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
-/** One runner-wide inspector: every tool call publishes STARTED and a terminal stage under its provider call ID. */
+/**
+ * One runner-wide inspector: every tool call publishes STARTED and a terminal stage under its provider call ID.
+ * It tracks one call in progress, which relies on the default sequential Embabel tool loop; a parallel tool loop
+ * would need per-call state before it could be enabled for Chat.
+ */
 public final class ChatToolActivity implements ToolCallInspector {
     private final Consumer<? super ChatToolEvent> events;
     private volatile ChatToolEvent.@Nullable Call current;

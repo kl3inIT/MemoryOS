@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useAuiState, type EnrichedPartState } from "@assistant-ui/react";
-import { Brain, FileText, Globe, LayoutDashboard, Search, Wrench } from "lucide-react";
+import { Brain, FileText, Globe, ImageIcon, LayoutDashboard, Search, Wrench } from "lucide-react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -72,6 +72,8 @@ function toolTitle(ui: Translate, name: string, stage: ToolProgress["stage"], st
       return running ? ui("Đang tìm trong tệp…") : ui("Đã tìm trong tệp");
     case "render_gui":
       return running ? ui("Đang tạo thẻ trình bày…") : ui("Đã tạo thẻ trình bày");
+    case "generate_image":
+      return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -89,6 +91,8 @@ function toolIcon(name: string) {
       return <FileText />;
     case "render_gui":
       return <LayoutDashboard />;
+    case "generate_image":
+      return <ImageIcon />;
     default:
       return <Wrench />;
   }

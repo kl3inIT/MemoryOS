@@ -52,7 +52,7 @@ Reasoning is provider-neutral in everything above the adapter: the event, persis
 
 ### Persistence
 
-Migration V54 adds `chat_message.activity jsonb NOT NULL DEFAULT '{}'`, ASSISTANT-only, with CHECK constraints in the style of V34/V42:
+V59 adds `chat_message.activity jsonb NOT NULL` (default `{"steps": [], "reasoning": []}`) with a `NOT VALID` CHECK validated by V60, ASSISTANT-only, requiring both keys, in the style of V34/V42:
 
 - `steps`: at most 32 entries of `{toolCallId, toolName, status, startedAt, durationMs, textOffset, summary}`.
 - `reasoning`: at most 16,000 characters plus a truncation marker, with `textOffset`.

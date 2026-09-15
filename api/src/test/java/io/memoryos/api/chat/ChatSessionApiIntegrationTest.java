@@ -79,6 +79,9 @@ import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.chat.execution.ChatRequestPolicy;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.iam.tenant.TenantId;
@@ -200,7 +203,7 @@ class ChatSessionApiIntegrationTest {
         when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
-                call.getArgument(1), call.getArgument(2), model), () -> {}))
+                call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
         other = actor();
@@ -846,13 +849,13 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ChatModelBinding(service, prompt -> prompt);
+        var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), Instant.now().plusSeconds(10), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
-            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {});
+            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
             assertEquals(12L, accounting.get().input());
             assertEquals(12L, accounting.get().output());
@@ -1006,6 +1009,10 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var provider = createProvider("http://model.internal:8000/v1", true);
         assertTrue(provider.path("credentialConfigured").asBoolean());
+        var redactedRequest = Json.mapper().readValue(providerBody("http://model.internal:8000/v1", true).toString(),
+                io.memoryos.api.chat.contract.ChatProviderRequest.class);
+        assertFalse(redactedRequest.toString().contains("fixture-byok"));
+        assertFalse(redactedRequest.credential().toString().contains("fixture-byok"));
         assertFalse(provider.toString().contains("fixture-byok"));
         assertFalse(provider.has("credential"));
         String stored = jdbc.sql("SELECT credential FROM llm_provider WHERE id=:id")
@@ -1025,6 +1032,173 @@ class ChatSessionApiIntegrationTest {
         var failed = mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(invalid.toString())).andExpect(status().isBadRequest()).andReturn();
         assertFalse(failed.getResponse().getContentAsString().contains("fixture-byok"));
+    }
+
+    @Test
+    void personaProjectionRequiresAuthorityPagesByUuidAndRejectsInvalidAnchors() throws Exception {
+        long before = jdbc.sql("SELECT count(*) FROM persona WHERE tenant_id = :tenant")
+                .param("tenant", TENANT).query(Long.class).single();
+        mockMvc.perform(get("/api/chat/model-personas").with(authentication(actor))).andExpect(status().isForbidden());
+        assertEquals(before, jdbc.sql("SELECT count(*) FROM persona WHERE tenant_id = :tenant")
+                .param("tenant", TENANT).query(Long.class).single());
+        grantModelManagement();
+        var seeded = new java.util.ArrayList<UUID>();
+        try {
+            for (int i = 0; i < 27; i++) {
+                UUID id = i == 0 ? UUID.fromString("abcdef00-0000-4000-8000-000000000001") : UUID.randomUUID();
+                seeded.add(id);
+                jdbc.sql("INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model) VALUES (:id,:tenant,:owner,'Duplicate name','private instruction','legacy model')")
+                        .param("id", id).param("tenant", TENANT).param("owner", actor.getPrincipal().actorId().value()).update();
+            }
+            var first = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(25, first.path("items").size());
+            assertEquals(first.path("items").get(24).path("id").asText(), first.path("nextCursor").asText());
+            var expected = jdbc.sql("SELECT id::text FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL "
+                            + "AND (builtin_key IS NOT NULL OR owner_actor_id=:actor) ORDER BY id")
+                    .param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).query(String.class).list();
+            var seen = new java.util.ArrayList<String>();
+            String cursor = null;
+            do {
+                var request = get("/api/chat/model-personas").param("limit", "7").with(authentication(actor));
+                if (cursor != null) request.param("cursor", cursor);
+                var page = Json.mapper().readTree(mockMvc.perform(request).andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString());
+                assertTrue(page.has("nextCursor"));
+                assertTrue(page.path("items").size() <= 7);
+                for (var item : page.path("items")) {
+                    assertEquals(2, item.size());
+                    assertTrue(item.has("id") && item.has("name"));
+                    seen.add(item.path("id").asText());
+                }
+                cursor = page.path("nextCursor").isNull() ? null : page.path("nextCursor").asText();
+                assertTrue(seen.size() <= expected.size(), "Pagination must terminate without duplicates");
+            } while (cursor != null);
+            assertEquals(expected, seen);
+            var last = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").param("cursor", expected.getLast())
+                            .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(0, last.path("items").size());
+            assertTrue(last.path("nextCursor").isNull());
+            for (String invalid : List.of("", "1-1-1-1-1", seeded.getFirst().toString().toUpperCase(java.util.Locale.ROOT),
+                    UUID.randomUUID().toString())) {
+                mockMvc.perform(get("/api/chat/model-personas").param("cursor", invalid).with(authentication(actor)))
+                        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+            }
+            for (String limit : List.of("0", "101")) {
+                mockMvc.perform(get("/api/chat/model-personas").param("limit", limit).with(authentication(actor))).andExpect(status().isBadRequest());
+            }
+            mockMvc.perform(get("/api/chat/model-personas").param("limit", "100").with(authentication(actor))).andExpect(status().isOk());
+        } finally {
+            for (var id : seeded) jdbc.sql("DELETE FROM persona WHERE tenant_id = :tenant AND id = :id")
+                    .param("tenant", TENANT).param("id", id).update();
+        }
+    }
+
+    @Test
+    void modelManagementCannotListReadOrMutatePrivateOrDeletedPersonasOwnedByOthers() throws Exception {
+        grantModelManagement();
+        UUID own = UUID.randomUUID(), foreign = UUID.randomUUID(), deletedOwn = UUID.randomUUID(), deletedForeign = UUID.randomUUID();
+        var owners = Map.of(own, actor.getPrincipal().actorId().value(), foreign, other.getPrincipal().actorId().value(),
+                deletedOwn, actor.getPrincipal().actorId().value(), deletedForeign, other.getPrincipal().actorId().value());
+        try {
+            for (var entry : owners.entrySet()) {
+                jdbc.sql("""
+                        INSERT INTO persona(id,tenant_id,owner_actor_id,name,instructions,model)
+                        VALUES (:id,:tenant,:owner,'Private assistant','Private instructions','legacy')
+                        """).param("id", entry.getKey()).param("tenant", TENANT).param("owner", entry.getValue()).update();
+            }
+            jdbc.sql("UPDATE persona SET deleted_at=CURRENT_TIMESTAMP WHERE id IN (:ids)")
+                    .param("ids", List.of(deletedOwn, deletedForeign)).update();
+            var defaults = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String modelId = defaults.path("modelConfigurationId").asText();
+            var page = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").param("limit", "100")
+                            .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            UUID builtin = jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
+                    .param("tenant", TENANT).query(UUID.class).single();
+            var visible = new java.util.HashSet<UUID>();
+            for (var item : page.path("items")) visible.add(UUID.fromString(item.path("id").asText()));
+            assertEquals(Set.of(own, builtin), visible);
+            for (UUID inaccessible : List.of(foreign, deletedOwn, deletedForeign)) {
+                var before = jdbc.sql("SELECT model_configuration_id,model_revision,revision FROM persona WHERE id=:id")
+                        .param("id", inaccessible).query().singleRow();
+                mockMvc.perform(get("/api/chat/model-personas").param("cursor", inaccessible.toString()).with(authentication(actor)))
+                        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+                String path = "/api/chat/personas/" + inaccessible + "/model";
+                mockMvc.perform(get(path).with(authentication(actor))).andExpect(status().isNotFound())
+                        .andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+                mockMvc.perform(put(path).param("revision", before.get("model_revision").toString()).param("modelConfigurationId", modelId)
+                                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                        .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+                assertEquals(before, jdbc.sql("SELECT model_configuration_id,model_revision,revision FROM persona WHERE id=:id")
+                        .param("id", inaccessible).query().singleRow());
+            }
+            String ownPath = "/api/chat/personas/" + own + "/model";
+            var selection = Json.mapper().readTree(mockMvc.perform(get(ownPath).with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            long revision = selection.path("revision").asLong();
+            mockMvc.perform(put(ownPath).param("revision", Long.toString(revision)).param("modelConfigurationId", modelId)
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").value(modelId))
+                    .andExpect(jsonPath("$.revision").value(revision + 1));
+            mockMvc.perform(get("/api/chat/personas/" + own).with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1));
+            mockMvc.perform(put(ownPath).param("revision", Long.toString(revision))
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(put(ownPath).param("revision", Long.toString(revision + 1))
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+            mockMvc.perform(get("/api/chat/personas/" + builtin + "/model").with(authentication(actor)))
+                    .andExpect(status().isOk());
+        } finally {
+            jdbc.sql("DELETE FROM persona WHERE tenant_id=:tenant AND id IN (:ids)")
+                    .param("tenant", TENANT).param("ids", owners.keySet()).update();
+        }
+    }
+
+    @Test
+    void tokenizerProfileIsRequiredAndValidatedWithoutOpeningProviderClients() throws Exception {
+        grantModelManagement();
+        var descriptors = Json.mapper().readTree(mockMvc.perform(get("/api/chat/provider-adapters").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var profiles = new java.util.HashSet<String>();
+        for (var descriptor : descriptors) {
+            if (!descriptor.path("type").asText().equals("openai")) continue;
+            for (var profile : descriptor.path("tokenizerProfiles")) {
+                profiles.add(profile.path("id").asText());
+                assertFalse(profile.path("displayName").asText().isBlank());
+            }
+        }
+        assertEquals(java.util.Set.of("openai-o200k-v1"), profiles);
+        var provider = createProvider("http://profiles.internal/v1", true);
+        String path = "/api/chat/providers/" + provider.path("id").asText() + "/models";
+        for (String profile : List.of("", "unknown-profile")) {
+            var body = modelBody("invalid-profile", 0.2);
+            ((ObjectNode) body.path("settings")).put("tokenizerProfile", profile);
+            mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
+        }
+        var missing = modelBody("missing-profile", 0.2);
+        ((ObjectNode) missing.path("settings")).remove("tokenizerProfile");
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(missing.toString())).andExpect(status().isBadRequest());
+        ((ObjectNode) missing.path("settings")).putNull("tokenizerProfile");
+        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(missing.toString())).andExpect(status().isBadRequest());
+        var local = modelBody("local-profile", 0.2);
+        var settings = (ObjectNode) local.path("settings");
+        settings.put("tokenizerProfile", "openai-o200k-v1").put("contextWindow", 1024).put("maxOutputTokens", 128);
+        settings.putObject("capabilities").put("streaming", true).put("toolCalling", false).put("vision", false).put("reasoning", false);
+        var saved = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(local.toString())).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        assertEquals("openai-o200k-v1", saved.path("settings").path("tokenizerProfile").asText());
+        assertTrue(saved.path("settings").has("pricing") && saved.path("settings").path("pricing").isNull());
+        var reloaded = Json.mapper().readTree(mockMvc.perform(get(path).with(authentication(actor))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        assertEquals(saved, reloaded.get(0));
+        verify(providerAdapter, never()).create(any(), any(), any(), any());
     }
 
     @Test
@@ -1066,6 +1240,16 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(put("/api/chat/personas/" + personaId + "/model").param("revision", saved.path("revision").asText())
                     .param("modelConfigurationId", chosen.path("id").asText()).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk());
+            var personas = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-personas").param("limit", "100").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            boolean foundBuiltin = false;
+            for (var item : personas.path("items")) {
+                if (item.path("id").asText().equals(personaId)) foundBuiltin = true;
+            }
+            assertTrue(foundBuiltin);
+            mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").value(chosen.path("id").asText()))
+                    .andExpect(jsonPath("$.revision").value(saved.path("revision").asLong() + 1));
             when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 3)));
             var sent = send(session, UUID.randomUUID().toString());
             awaitOutcome(sent.path("assistantMessageId").asText(), "COMPLETED");
@@ -1076,8 +1260,11 @@ class ChatSessionApiIntegrationTest {
             assertEquals("SELECTION_UNAVAILABLE", fallback.path("fallbackReason").asText());
             assertNotEquals(chosen.path("id").asText(), fallback.path("modelConfigurationId").asText());
         } finally {
-            mockMvc.perform(put("/api/chat/personas/" + personaId + "/model").param("revision", Long.toString(saved.path("revision").asLong() + 1))
-                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            var inherited = Json.mapper().readTree(mockMvc.perform(put("/api/chat/personas/" + personaId + "/model")
+                    .param("revision", Long.toString(saved.path("revision").asLong() + 1))
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString());
+            assertTrue(inherited.has("modelConfigurationId") && inherited.path("modelConfigurationId").isNull());
         }
     }
 
@@ -1154,8 +1341,10 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.reachable").value(false)).andReturn();
         assertFalse(failed.getResponse().getContentAsString().contains("secret-provider-payload"));
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("OK", "stop", 2), new ChatResponse(List.of())));
-        mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.reachable").value(true));
+        var healthy = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reachable").value(true))
+                .andReturn().getResponse().getContentAsString());
+        assertTrue(healthy.has("failureCode") && healthy.path("failureCode").isNull());
     }
 
     @Test
@@ -1256,6 +1445,39 @@ class ChatSessionApiIntegrationTest {
         } finally { server.stop(0); }
     }
 
+    @Test
+    void reportedModelsListsWhatTheProviderEndpointServes() throws Exception {
+        grantModelManagement();
+        var authorization = new AtomicReference<String>();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] bytes = """
+                    {"object":"list","data":[
+                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"},
+                      {"id":"gpt-5","object":"model","created":1,"owned_by":"openai"},
+                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"}]}
+                    """.getBytes(UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.start();
+        try {
+            doCallRealMethod().when(providerAdapter).reportedModels(any(), any());
+            String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+            var provider = createProvider(endpoint, true).path("id").asText();
+            var reported = Json.mapper().readTree(mockMvc.perform(
+                            get("/api/chat/providers/" + provider + "/reported-models").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(List.of("gpt-4.1-mini", "gpt-5"),
+                    reported.path("models").valueStream().map(JsonNode::asText).toList());
+            assertEquals("Bearer fixture-byok", authorization.get());
+            mockMvc.perform(get("/api/chat/providers/" + provider + "/reported-models")
+                    .with(authentication(other))).andExpect(status().isForbidden());
+        } finally { server.stop(0); }
+    }
+
     private String readyImage(byte[] bytes) throws Exception {
         var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
@@ -1291,6 +1513,9 @@ class ChatSessionApiIntegrationTest {
             return new ChatProviderAdapter() {
                 @Override public String type() { return "fixture-local"; }
                 @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.NONE; }
+                @Override public List<TokenizerProfile> tokenizerProfiles() {
+                    return List.of(new TokenizerProfile("openai-o200k-v1", "OpenAI O200K"));
+                }
                 @Override public void validate(String url, String name, ModelSettings settings) {
                     ModelCatalogService.validateEndpoint(url);
                 }
@@ -1299,7 +1524,7 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p), () -> {});
+                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
                 }
             };
         }
@@ -1463,7 +1688,8 @@ class ChatSessionApiIntegrationTest {
 
     private ObjectNode modelBody(String name, double temperature) {
         var body = Json.mapper().createObjectNode().put("modelName", name).put("displayName", name).put("visible", true);
-        var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512);
+        var settings = body.putObject("settings").put("contextWindow", 8192).put("maxOutputTokens", 512)
+                .put("tokenizerProfile", "openai-o200k-v1");
         settings.putObject("capabilities").put("streaming", true).put("toolCalling", true).put("vision", false).put("reasoning", false);
         settings.putObject("options").put("maxCompletionTokens", false).put("temperature", temperature);
         return body;
@@ -1666,7 +1892,7 @@ class ChatSessionApiIntegrationTest {
                         long ms = (System.nanoTime() - started) / 1_000_000;
                         var data = Json.mapper().readTree(line.substring(5));
                         if ("text-delta".equals(event) && firstText == null) firstText = ms;
-                        if ("search".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
+                        if ("tool".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
                                 "toolCallId", data.path("toolCallId").asText(), "queryCount", data.path("search").path("queries").size()));
                     }
                 }

@@ -51,10 +51,11 @@ public class WebConnectionService {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         if (input == null || input.endpoint() == null || input.engineId() == null || input.engineId().length() > 200)
             throw ChatException.invalid("Invalid Web connection.");
-        if (provider == WebProvider.SEARXNG && input.endpoint().isEmpty()) throw ChatException.invalid("A SearXNG endpoint is required.");
+        if (provider.requiresEndpoint() && input.endpoint().isEmpty())
+            throw ChatException.invalid("This provider requires its own endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
-        if (provider == WebProvider.GOOGLE_PSE && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
-        if (provider != WebProvider.GOOGLE_PSE && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
+        if (provider.requiresEngine() && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
+        if (!provider.requiresEngine() && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new WebConnectionEntity(tenant, provider));
         if (entity.revision() != input.revision()) throw ChatException.conflict();
         String credential = credentials.update(tenant, entity.id(), entity.credential(), input.credential());

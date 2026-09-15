@@ -149,6 +149,10 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             if (web) declared.add(mapper.convertValue(Map.of("type", "web_search"), Tool.class));
             builder.tools(declared);
             if (required) builder.toolChoice(mapper.convertValue(Map.of("type", "web_search"), ResponseCreateParams.ToolChoice.class));
+            // A forced function tool (for example required external Web search) keeps its Chat Completions meaning.
+            else if (options.getToolChoice() instanceof Map<?, ?> choice && choice.get("function") instanceof Map<?, ?> function
+                    && function.get("name") instanceof String name)
+                builder.toolChoice(mapper.convertValue(Map.of("type", "function", "name", name), ResponseCreateParams.ToolChoice.class));
         }
         return builder.build();
     }

@@ -10,6 +10,8 @@ Use `gradlew.bat :core:test --tests '*IdentityValueObjectsTest' --no-daemon` (or
 
 The JVM modules run with a ten-minute deadline per Test task. Keep JUnit method parallelism disabled while fixtures have class-owned servers, shared schemas or lifecycle transitions. API tests share a PostgreSQL container but allocate a fresh database for each context through `ApiPostgresDatabase`; do not replace that isolation with a shared schema to improve timing.
 
+On Windows, `clean` cannot remove JARs held by an API/worker running from the same checkout. Use isolated Gradle build directories for the same sources when the application must stay running, or preserve development data before an authorized stop. A failed clean before test execution is not test evidence; do not force-stop a data-bearing Dev Service merely to release a build lock.
+
 Frontend commands run from the repository root:
 
 ```text

@@ -144,6 +144,20 @@ class OpenAiResponsesChatModelTest {
     }
 
     @Test
+    void summariesTurnKeepsAForcedFunctionToolChoice() {
+        bodies.add(sse(completed(List.of(message("Searched.")))));
+        var model = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, meters)
+                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, false, () -> {}));
+        var forced = options(true).mutate().toolChoice(Map.of("type", "function", "function", Map.of("name", "web_search"))).build();
+
+        model.stream(new Prompt(List.of(new UserMessage("Latest?")), forced)).collectList().block();
+
+        var choice = requests.getFirst().path("tool_choice");
+        assertEquals("function", choice.path("type").asString());
+        assertEquals("web_search", choice.path("name").asString());
+    }
+
+    @Test
     void functionCallContinuationEchoesReasoningAndSendsToolOutput() {
         var reasoning = Map.<String, Object>of("type", "reasoning", "id", "rs_1", "summary", List.of(), "encrypted_content", "opaque-state");
         var call = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "searchKnowledge", "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");

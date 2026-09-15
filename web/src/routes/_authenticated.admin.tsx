@@ -2,19 +2,14 @@ import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
-import {
-  useCapabilityAuthority,
-  useGlobalCapability,
-} from "@/features/identity/application-session-context";
+import { useAdminAccess } from "@/features/identity/application-session-context";
 import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
     const ui = useAppTranslation();
-    const canManageUsers = useGlobalCapability("USERS_MANAGE");
-    const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
-    const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
-    const canManageProviders = useGlobalCapability("SYSTEM_ADMIN");
+    const { canManageUsers, canReadGroups, canReadSources, canManageModels, canManageProviders } =
+      useAdminAccess();
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
       to: "/admin/sources/new/google-drive",
@@ -28,13 +23,19 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
     const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
+    const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
+    const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
         ? "groups"
         : providersSelected
           ? "providers"
-          : "sources";
+          : modelsSelected
+            ? "models"
+            : webSearchSelected
+              ? "web"
+              : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -42,7 +43,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "providers"
             ? canManageProviders
-            : canReadSources;
+            : page === "models" || page === "web"
+              ? canManageModels
+              : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -59,7 +62,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
               ? "Groups"
               : page === "providers"
                 ? "Sign-in providers"
-                : "Sources",
+                : page === "models"
+                  ? "Models"
+                  : page === "web"
+                    ? "Tìm kiếm Web"
+                    : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

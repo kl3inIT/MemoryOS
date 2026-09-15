@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 /** Per-turn tools, using the existing cancellation/task scope and citation namespace. */
 public final class WebTools {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(WebTools.class);
     private final WebProviderClient client;
     private final WebConnectionService.Access access;
     private final ChatEvidence evidence;
@@ -85,6 +86,10 @@ public final class WebTools {
                 try { return new Item(call.call(input), false); }
                 catch (IOException | IllegalArgumentException failed) {
                     active.run();
+                    // Diagnose the connection without the credential, the endpoint or the query text.
+                    LOG.warn("Web {} failed via {} ({})", kind,
+                            access.search() == null ? "BUILT_IN" : access.search().provider().name(),
+                            failed.getClass().getSimpleName());
                     return new Item(List.of(), true); // Keep other successful pages; never expose raw provider errors.
                 }
             }).toList();

@@ -12,6 +12,13 @@ import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen
 import { newChatSession, type ChatUiMessage } from "./chat-api";
 import { fileIdFromReference } from "./chat-files";
 import { readWebPreference, writeWebPreference, type WebSearchMode } from "./chat-web-preference";
+import {
+  parseGeneratedImages,
+  readImagePreference,
+  writeImagePreference,
+  type GeneratedImage,
+  type ImageMode,
+} from "./chat-image";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import {
@@ -31,6 +38,12 @@ const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
   hasArtifacts: z.boolean().default(false),
 });
+const imageSchema = eventSchema.extend({
+  stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
+  id: z.string().uuid().nullish(),
+  mediaType: z.string().max(128).nullish(),
+  revisedPrompt: z.string().max(4000).nullish(),
+});
 export type ConnectionState = "ready" | "sending" | "streaming" | "recovering" | "uncertain";
 type Callbacks = {
   state: (state: ConnectionState) => void;
@@ -45,6 +58,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectWeb(mode: WebSearchMode) {
     this.webSearch = mode;
     writeWebPreference(this.preferenceOwner, this.session?.id, mode);
+  }
+  image: ImageMode = "off";
+  selectImage(mode: ImageMode) {
+    this.image = mode;
+    writeImagePreference(this.preferenceOwner, this.session?.id, mode);
   }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
@@ -92,6 +110,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.preferenceOwner = preferenceOwner;
     this.session = session;
     this.webSearch = readWebPreference(preferenceOwner, session?.id);
+    this.image = readImagePreference(preferenceOwner, session?.id);
     this.runId = runningMessage?.id;
     this.runParentId = runningMessage?.parentMessageId ?? undefined;
     this.runCreatedAt = runningMessage?.createdAt;
@@ -120,9 +139,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
     const webSearch = this.webSearch;
+    const image = this.image;
     const creating = !this.session;
     try {
-      return await this.submit(options, modelConfigurationId, webSearch);
+      return await this.submit(options, modelConfigurationId, webSearch, image);
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
       throw error;
@@ -133,6 +153,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0],
     modelConfigurationId: string | undefined,
     webSearch: WebSearchMode,
+    image: ImageMode,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -162,16 +183,19 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         this.onSessionCreated?.(this.session);
       }
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);
+      writeImagePreference(this.preferenceOwner, this.session.id, this.image);
+      const body = {
+        parentMessageId: options.messages.at(-2)?.id ?? this.session.rootMessageId,
+        clientRequestId: message.id,
+        text,
+        modelConfigurationId,
+        webSearch,
+        fileIds: fileIds as string[],
+      };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
-        body: {
-          parentMessageId: options.messages.at(-2)?.id ?? this.session.rootMessageId,
-          clientRequestId: message.id,
-          text,
-          modelConfigurationId,
-          webSearch,
-          fileIds: fileIds as string[],
-        },
+        // `image` joins the generated body type once openapi regenerates for MEM-97; sent now per the wire contract.
+        body: { ...body, image } as typeof body,
         headers: sameOriginMutationHeaders,
         signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
         throwOnError: true,
@@ -261,6 +285,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let hasArtifacts = false;
     const activity = new ActivityChunks(runId);
     let committedActivity: ChatActivity | undefined;
+    let images: GeneratedImage[] = [];
+    let imageGenerating = false;
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
@@ -344,6 +370,20 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               yield* chunks;
             } else if (envelope.event === "reasoning") {
               yield* activity.reasoning(reasoningEventSchema.parse(data).text);
+            } else if (envelope.event === "image") {
+              const image = imageSchema.parse(data);
+              if (image.stage === "COMPLETED" && image.id) {
+                images = [
+                  ...images.filter((existing) => existing.id !== image.id),
+                  {
+                    id: image.id,
+                    mediaType: image.mediaType ?? "image/png",
+                    revisedPrompt: image.revisedPrompt ?? null,
+                  },
+                ];
+                imageGenerating = false;
+              } else imageGenerating = image.stage === "GENERATING";
+              yield { type: "message-metadata", messageMetadata: { images, imageGenerating } };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -380,6 +420,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
+            images = parseGeneratedImages((message as { images?: unknown }).images);
+            imageGenerating = false;
           } else await pause(2000, signal);
         }
         if (!outcome)
@@ -402,7 +444,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       yield {
         type: "message-metadata",
-        messageMetadata: { serverStatus: outcome, sources, artifacts },
+        messageMetadata: {
+          serverStatus: outcome,
+          sources,
+          artifacts,
+          images,
+          imageGenerating: false,
+        },
       };
       yield* activity.finish(committedActivity);
       this.runId = undefined;

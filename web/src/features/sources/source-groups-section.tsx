@@ -1,5 +1,5 @@
 import { Users } from "lucide-react";
-import type { AppCopy } from "@/i18n/app-text";
+import { appText, type AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,9 +9,10 @@ import { useCapabilityAuthority } from "@/features/identity/application-session-
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listSourceGroupsOptions,
+  listSourceGroupOptionsOptions,
   updateSourceGroupsMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import { sourceMutationError } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
 
@@ -134,8 +135,12 @@ export function SourceGroupsSection({
         </div>
       ) : editable ? (
         <div className="mt-4">
-          <SourceGroupPicker
-            className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=source-group-options]]:rounded-none [&_[data-slot=source-group-options]]:border-x-0 [&_[data-slot=source-group-options]]:bg-transparent"
+          <GroupAccessPicker
+            load={(query) => listSourceGroupOptionsOptions({ query })}
+            description={appText(
+              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+            )}
+            className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=group-options]]:rounded-none [&_[data-slot=group-options]]:border-x-0 [&_[data-slot=group-options]]:bg-transparent"
             selected={selectedIds}
             knownGroups={groups.data?.items}
             required={!globalManage}

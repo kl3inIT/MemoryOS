@@ -289,6 +289,7 @@ paths:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
       requestBody:
         content:
@@ -1833,6 +1834,136 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/images/selection:
+    put:
+      tags:
+      - Chat Image
+      summary: Select the image provider; null disables image generation
+      operationId: selectChatImageProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Image selection saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/connections/{provider}:
+    put:
+      tags:
+      - Chat Image
+      summary: Configure one image connection without automatically enabling it
+      operationId: saveChatImageConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved image connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users/{actorId}/groups:
     post:
       tags:
@@ -3252,6 +3383,7 @@ paths:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
       requestBody:
         content:
@@ -4405,6 +4537,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatModelValidationResult"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/connections/{provider}/test:
+    post:
+      tags:
+      - Chat Image
+      summary: Explicitly generate a test image; provider charges may apply
+      operationId: testChatImageConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Provider request succeeded
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5759,9 +5952,9 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, reasoning, tool, outcome, reset. Content event\
-        \ id is assistantMessageId:sequence. Only outcome confirms a committed terminal\
-        \ state. Heartbeats are comments. A reset has no event id."
+      description: "Events: text-delta, reasoning, tool, image, outcome, reset. Content\
+        \ event id is assistantMessageId:sequence. Only outcome confirms a committed\
+        \ terminal state. Heartbeats are comments. A reset has no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -5824,6 +6017,7 @@ paths:
                 - $ref: "#/components/schemas/ResetEvent"
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
+                - $ref: "#/components/schemas/ImageEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5991,6 +6185,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSessionSearchPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/providers/{providerId}/reported-models:
+    get:
+      tags:
+      - Chat models
+      summary: List the model names the provider endpoint reports; requires model
+        management
+      operationId: listReportedProviderModels
+      parameters:
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatReportedModels"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6211,6 +6462,306 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AvailableModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/model-personas:
+    get:
+      tags:
+      - Chat models
+      summary: List builtin and actor-owned Personas for model selection; requires
+        MODELS_MANAGE
+      operationId: listChatModelPersonas
+      parameters:
+      - name: cursor
+        in: query
+        description: "Canonical last-returned UUID; must identify an accessible, nondeleted\
+          \ Persona"
+        required: false
+        schema:
+          type: string
+          format: uuid
+          maxLength: 36
+          minLength: 36
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Tenant Persona page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPersonaPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images:
+    get:
+      tags:
+      - Chat Image
+      summary: Read configured image-generation availability without credentials
+      operationId: getChatImageAvailability
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Configured image availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/connections:
+    get:
+      tags:
+      - Chat Image
+      summary: List image connections for model managers
+      operationId: listChatImageConnections
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Image connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/image-artifacts/{artifactId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Read an owner-private generated image
+      operationId: getChatImageArtifact
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid image request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Generated image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/group-options:
+    get:
+      tags:
+      - Chat models
+      summary: List Groups available for provider access; requires model management
+      operationId: listChatGroupOptions
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGroupPage"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7107,6 +7658,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
     WebConnectionRequest:
       type: object
@@ -7149,6 +7701,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         endpoint:
           type: string
@@ -7294,7 +7847,11 @@ components:
           - REPLACE
           - REMOVE
         value:
-          type: string
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - action
     ProviderInput:
       type: object
       properties:
@@ -7322,6 +7879,15 @@ components:
           uniqueItems: true
         credential:
           $ref: "#/components/schemas/Change"
+      required:
+      - adapterType
+      - baseUrl
+      - credential
+      - enabled
+      - groupIds
+      - isPublic
+      - name
+      - personaIds
     ProviderView:
       type: object
       properties:
@@ -7355,6 +7921,17 @@ components:
         revision:
           type: integer
           format: int64
+      required:
+      - adapterType
+      - baseUrl
+      - credentialConfigured
+      - enabled
+      - groupIds
+      - id
+      - isPublic
+      - name
+      - personaIds
+      - revision
     ProjectInput:
       type: object
       properties:
@@ -7496,11 +8073,91 @@ components:
           type: string
           format: uuid
         modelConfigurationId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
         revision:
           type: integer
           format: int64
+      required:
+      - modelConfigurationId
+      - personaId
+      - revision
+    CapabilitiesInput:
+      type: object
+      properties:
+        streaming:
+          type: boolean
+        toolCalling:
+          type: boolean
+        vision:
+          type: boolean
+        reasoning:
+          type: boolean
+      required:
+      - reasoning
+      - streaming
+      - toolCalling
+      - vision
+    ModelInput:
+      type: object
+      properties:
+        modelName:
+          type: string
+        displayName:
+          type: string
+        visible:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/ModelSettingsInput"
+      required:
+      - displayName
+      - modelName
+      - settings
+      - visible
+    ModelSettingsInput:
+      type: object
+      properties:
+        contextWindow:
+          type: integer
+          format: int32
+          maximum: 10000000
+          minimum: 256
+        maxOutputTokens:
+          type: integer
+          format: int32
+          minimum: 1
+        capabilities:
+          $ref: "#/components/schemas/CapabilitiesInput"
+        options:
+          type: object
+          additionalProperties: {}
+        pricing:
+          oneOf:
+          - $ref: "#/components/schemas/PricingInput"
+          - type: "null"
+        tokenizerProfile:
+          type: string
+          minLength: 1
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - options
+      - tokenizerProfile
+    PricingInput:
+      type: object
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
     Capabilities:
       type: object
       properties:
@@ -7512,42 +8169,11 @@ components:
           type: boolean
         reasoning:
           type: boolean
-    ModelInput:
-      type: object
-      properties:
-        modelName:
-          type: string
-        displayName:
-          type: string
-        visible:
-          type: boolean
-        settings:
-          $ref: "#/components/schemas/ModelSettings"
-    ModelSettings:
-      type: object
-      properties:
-        contextWindow:
-          type: integer
-          format: int32
-        maxOutputTokens:
-          type: integer
-          format: int32
-        capabilities:
-          $ref: "#/components/schemas/Capabilities"
-        options:
-          type: object
-          additionalProperties: {}
-        pricing:
-          $ref: "#/components/schemas/Pricing"
-    Pricing:
-      type: object
-      properties:
-        inputPerMillion:
-          type: number
-          format: double
-        outputPerMillion:
-          type: number
-          format: double
+      required:
+      - reasoning
+      - streaming
+      - toolCalling
+      - vision
     Model:
       type: object
       properties:
@@ -7571,15 +8197,128 @@ components:
         revision:
           type: integer
           format: int64
+      required:
+      - displayName
+      - id
+      - modelName
+      - providerId
+      - revision
+      - settings
+      - tenantId
+      - visible
+    ModelSettings:
+      type: object
+      properties:
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        options:
+          type: object
+          additionalProperties: {}
+        pricing:
+          oneOf:
+          - $ref: "#/components/schemas/Pricing"
+          - type: "null"
+        tokenizerProfile:
+          type: string
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - options
+      - pricing
+      - tokenizerProfile
+    Pricing:
+      type: object
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
     Default:
       type: object
       properties:
         modelConfigurationId:
-          type: string
-          format: uuid
+          oneOf:
+          - type: string
+            format: uuid
+          - type: "null"
         revision:
           type: integer
           format: int64
+      required:
+      - modelConfigurationId
+      - revision
+    ImageSelectionRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+    ImageConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+      - model
+    ImageConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        endpoint:
+          type: string
+        model:
+          type: string
+        credentialConfigured:
+          type: boolean
+        active:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - endpoint
+      - model
+      - provider
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -7952,6 +8691,13 @@ components:
         pageSize:
           type: integer
           format: int32
+        sourceTypes:
+          type: array
+          items:
+            type: string
+            enum:
+            - FILE
+            - GOOGLE_DRIVE
     ChunkProvenance:
       type: object
       properties:
@@ -8031,11 +8777,16 @@ components:
         candidateLimit:
           type: integer
           format: int32
+        sourceFacets:
+          $ref: "#/components/schemas/SourceFacets"
+          description: "Readable candidates before the connector filter, in total\
+            \ and per connector"
       required:
       - candidateLimit
       - hasMore
       - page
       - results
+      - sourceFacets
       - totalResults
     Section:
       type: object
@@ -8065,6 +8816,36 @@ components:
       - provenance
       - score
       - startOrdinal
+    SourceFacets:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int32
+          description: Candidates before the connector filter
+        types:
+          type: array
+          description: Connectors with at least one readable candidate; a Document
+            mapped to two connectors counts in both
+          items:
+            $ref: "#/components/schemas/SourceTypeFacet"
+      required:
+      - total
+      - types
+    SourceTypeFacet:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - FILE
+          - GOOGLE_DRIVE
+        count:
+          type: integer
+          format: int32
+      required:
+      - count
+      - type
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -8436,6 +9217,12 @@ components:
           - "off"
           - auto
           - required
+        image:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
       - parentMessageId
@@ -8472,6 +9259,12 @@ components:
           - "off"
           - auto
           - required
+        image:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
       required:
       - clientRequestId
     Edit:
@@ -8495,6 +9288,12 @@ components:
           maxItems: 20
           minItems: 0
         webSearch:
+          type: string
+          enum:
+          - "off"
+          - auto
+          - required
+        image:
           type: string
           enum:
           - "off"
@@ -8534,7 +9333,12 @@ components:
         reachable:
           type: boolean
         failureCode:
-          type: string
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - failureCode
+      - reachable
     ChatFileResponse:
       type: object
       properties:
@@ -9771,6 +10575,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         contentProvider:
           type: string
@@ -9781,6 +10586,7 @@ components:
           - SERPER
           - GOOGLE_PSE
           - SEARXNG
+          - NINEROUTER
           - FIRECRAWL
         automaticModelIds:
           type: array
@@ -9940,6 +10746,10 @@ components:
             $ref: "#/components/schemas/ChatArtifact"
         activity:
           $ref: "#/components/schemas/ChatActivity"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageRef"
       required:
       - activity
       - artifacts
@@ -9948,6 +10758,7 @@ components:
       - files
       - finishedAt
       - id
+      - images
       - latestChildMessageId
       - parentMessageId
       - role
@@ -10018,6 +10829,22 @@ components:
         ordinal:
           type: integer
           format: int32
+    ImageRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaType:
+          type: string
+        revisedPrompt:
+          type:
+          - string
+          - "null"
+      required:
+      - id
+      - mediaType
+      - revisedPrompt
     Interval:
       type: object
       properties:
@@ -10223,6 +11050,44 @@ components:
       - assistantMessageId
       - sequence
       - text
+    ImageEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - GENERATING
+          - COMPLETED
+          - FAILED
+        id:
+          type:
+          - string
+          - "null"
+          format: uuid
+        mediaType:
+          type:
+          - string
+          - "null"
+        revisedPrompt:
+          type:
+          - string
+          - "null"
+      required:
+      - assistantMessageId
+      - id
+      - mediaType
+      - revisedPrompt
+      - sequence
+      - stage
+      - toolCallId
     ChatBranch:
       type: object
       properties:
@@ -10265,6 +11130,16 @@ components:
       required:
       - hasMore
       - items
+    ChatReportedModels:
+      type: object
+      additionalProperties: false
+      properties:
+        models:
+          type: array
+          items:
+            type: string
+      required:
+      - models
     Descriptor:
       type: object
       properties:
@@ -10276,8 +11151,53 @@ components:
           - REQUIRED
           - OPTIONAL
           - NONE
+        tokenizerProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenizerProfile"
         nativeWebSearch:
           type: boolean
+        knownModels:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnownModel"
+      required:
+      - credentialRequirement
+      - knownModels
+      - nativeWebSearch
+      - tokenizerProfiles
+      - type
+    KnownModel:
+      type: object
+      properties:
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type: integer
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/Capabilities"
+        pricing:
+          $ref: "#/components/schemas/Pricing"
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - modelName
+      - pricing
+    TokenizerProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+      required:
+      - displayName
+      - id
     AvailableModel:
       type: object
       properties:
@@ -10302,9 +11222,22 @@ components:
           type: integer
           format: int32
         pricing:
-          $ref: "#/components/schemas/Pricing"
+          oneOf:
+          - $ref: "#/components/schemas/Pricing"
+          - type: "null"
         isDefault:
           type: boolean
+      required:
+      - capabilities
+      - contextWindow
+      - displayName
+      - id
+      - isDefault
+      - maxOutputTokens
+      - modelName
+      - pricing
+      - providerId
+      - providerName
     SourceOption:
       type: object
       properties:
@@ -10318,6 +11251,93 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+    ChatPersona:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    ChatPersonaPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatPersona"
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: "null"
+      required:
+      - items
+      - nextCursor
+    ImageAvailabilityResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        model:
+          type: string
+      required:
+      - available
+    ChatGroupOption:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          type:
+          - string
+          - "null"
+      required:
+      - id
+      - name
+      - systemKey
+    ChatGroupPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatGroupOption"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     ChatFileTextResponse:
       type: object
       properties:

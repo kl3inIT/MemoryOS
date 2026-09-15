@@ -34,6 +34,7 @@ const message = (id: string, role: ChatMessage["role"], status: ChatMessage["sta
     artifacts: [],
     files: [],
     activity: { steps: [], reasoning: [] },
+    images: [],
   }) satisfies ChatMessage;
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
