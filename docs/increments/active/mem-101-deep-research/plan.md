@@ -20,7 +20,7 @@
 - [x] Events: `parentToolCallId`/`tabIndex`, `research_plan`, `research_agent_start`, `intermediate_report`, `top_level_branching`; SSE, OpenAPI contract and generated client (2026-09-15: `ChatResearchEvent`, kebab-case wire names; web rendering stays in the UI step).
 - [x] Persist the tool call tree, plan and clarification flag in the terminal finish; history returns them; Stop keeps partial output (2026-09-16: V66, V67, `ChatResearchRecorder`).
 - [ ] `think_tool` reasoning: Responses routing with argument deltas and `tool_choice`, or keep the paragraph baseline; record the decision.
-- [ ] UI: Deep research composer button with Onyx visibility and reset rules, plan block, agent tabs with nested steps and intermediate report on the MEM-100 timeline, inline final report; vi/en.
+- [ ] UI: Deep research composer button with Onyx visibility and reset rules, plan block, agent tabs with nested steps and intermediate report on the MEM-100 timeline, inline final report; vi/en. (2026-09-16: implemented: `ChatResearchView` data part live and from history, composer toggle outside Projects while the setting is on, transport and history tests; visual review on a running stack still open; the internal/Web search availability condition is not yet applied; plan and reports render as plain text, not Markdown.)
 - [ ] Observability spans and bounded metrics without content.
 - [ ] Tests: orchestrator loop and limits with SSE fixtures, cancellation, citation merge, persistence and replay conflict, disabled setting rejection; web button, plan/timeline/tabs; IDE inspection of changed files.
 - [ ] Consolidate durable facts into `docs/specs/chat.md` and `docs/tests/chat.md`; run `clean check`.

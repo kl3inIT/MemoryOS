@@ -43,9 +43,15 @@ export const toolEventSchema = z.object({
     .default(null),
   documents: z.array(readingDocumentSchema).max(10).default([]),
   durationMs: z.number().int().nonnegative().nullable().default(null),
+  /** A deep research agent's own step names its agent call; the agent call carries its tab. */
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+  tabIndex: z.number().int().min(0).max(2).nullable().default(null),
 });
 // Reasoning shares the answer chunking, so one event can exceed a single provider delta.
-export const reasoningEventSchema = z.object({ text: z.string().min(1).max(1_000_000) });
+export const reasoningEventSchema = z.object({
+  text: z.string().min(1).max(1_000_000),
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+});
 
 export const activitySchema = z
   .object({
