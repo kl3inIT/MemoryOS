@@ -1151,6 +1151,12 @@ export type ChatMessage = {
     artifacts: Array<ChatArtifact>;
     activity: ChatActivity;
     images: Array<ImageRef>;
+    research: ChatMessageResearch;
+};
+
+export type ChatMessageResearch = {
+    clarification: boolean;
+    plan: string | null;
 };
 
 export type ChatSource = {

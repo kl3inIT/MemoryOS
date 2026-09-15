@@ -343,7 +343,7 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity());
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity(), outcome.research());
                     if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
                     run.persisted = true;
                 }
@@ -377,7 +377,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     private enum StopReason { USER, INTERRUPTED }
     private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources, List<ChatArtifact> artifacts,
-                           ChatActivity activity) {}
+                           ChatActivity activity, ChatResearch research) {}
 
     private static final class Active {
         final ChatTurnSetup setup;
@@ -385,6 +385,8 @@ public final class ChatTurnService implements AutoCloseable {
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
         final ChatActivityRecorder recorder = new ChatActivityRecorder();
+        final StringBuilder plan = new StringBuilder();
+        volatile boolean clarification;
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
         final Sinks.One<Boolean> cancellation = Sinks.one();
         final CompletableFuture<Void> finished = new CompletableFuture<>();
@@ -416,16 +418,20 @@ public final class ChatTurnService implements AutoCloseable {
                     throw new IllegalStateException("Invalid Chat evidence sequence");
                 sources.add(tool.source());
             }
+            // The plan is stored with the outcome; beyond its column bound the rest is dropped, never failing the turn.
+            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA && plan.length() < ChatResearch.MAX_PLAN)
+                plan.append(research.text(), 0, Math.min(research.text().length(), ChatResearch.MAX_PLAN - plan.length()));
             recorder.accept(event, content.length());
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
                 var artifacts = setup.artifacts().seal();
                 var activity = recorder.seal();
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity);
+                var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString());
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity);
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts, activity);
+                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity, research);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts, activity, research);
             }
         }
         void check() {

@@ -361,6 +361,14 @@ public class JdbcChatRepository {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
                           io.memoryos.chat.ChatActivity activity) {
+        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, artifacts, activity,
+                io.memoryos.chat.ChatResearch.EMPTY);
+    }
+
+    public boolean finish(UUID session, UUID assistant, Status status, String content,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return false;
@@ -370,14 +378,16 @@ public class JdbcChatRepository {
                         UPDATE chat_message SET status = :status, failure_code = :failure,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb),
-                            activity = CAST(:activity AS jsonb), finished_at = clock_timestamp()
+                            activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
+                            finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         """).param("session", session).param("id", assistant).param("status", status.name())
                 .param("content", content).param("failure", failure, Types.VARCHAR)
                 .param("model", model, Types.VARCHAR).param("input", input, Types.BIGINT)
                 .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
                 .param("sources", JSON.writeValueAsString(sources)).param("artifacts", JSON.writeValueAsString(artifacts))
-                .param("activity", JSON.writeValueAsString(activity)).update();
+                .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
+                .param("plan", research.plan(), Types.VARCHAR).update();
         if (changed == 1) touch(session);
         return changed == 1;
     }
@@ -421,6 +431,7 @@ public class JdbcChatRepository {
                 List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)),
                 List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)),
                 List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)),
-                JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class));
+                JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class),
+                new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan")));
     }
 }

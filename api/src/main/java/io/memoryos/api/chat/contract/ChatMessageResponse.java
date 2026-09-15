@@ -22,7 +22,13 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatFileDescriptor> files,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research) {
+
+    /** Deep research state: a clarification question makes the next research turn skip clarification. */
+    @Schema(name = "ChatMessageResearch")
+    public record Research(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean clarification,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String plan) {}
 
     /** A generated image attached to an assistant reply; bytes are served at /api/chat/image-artifacts/{id}/content. */
     public record ImageRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -35,6 +41,7 @@ public record ChatMessageResponse(
     public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
                 message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
-                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images);
+                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images,
+                new Research(message.research().clarification(), message.research().plan()));
     }
 }

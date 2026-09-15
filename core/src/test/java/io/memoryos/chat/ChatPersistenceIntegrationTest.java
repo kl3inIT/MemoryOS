@@ -421,6 +421,21 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded() {
+        var session = sessions.create(owner, "Research state");
+        var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Which fiscal year?", null, null, null, null, null, List.of(), List.of(), ChatActivity.EMPTY, new ChatResearch(true, "1. Revenue")));
+        var history = sessions.history(owner, session.id(), null, 20);
+        assertEquals(new ChatResearch(true, "1. Revenue"), history.getLast().research());
+        assertEquals(ChatResearch.EMPTY, history.getFirst().research(), "Ordinary messages carry no research state");
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET research_plan = repeat('x', 100001) WHERE id = :id")
+                .param("id", pair.assistantMessageId()).update(), "The stored plan stays bounded");
+        assertThrows(IllegalArgumentException.class, () -> new ChatResearch(false, "x".repeat(ChatResearch.MAX_PLAN + 1)));
+    }
+
+    @Test
     void deepResearchModeIsPartOfCommandIdentity() {
         var session = sessions.create(owner, "Research identity");
         var request = UUID.randomUUID();

@@ -10880,6 +10880,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
+        research:
+          $ref: "#/components/schemas/ChatMessageResearch"
       required:
       - activity
       - artifacts
@@ -10891,10 +10893,23 @@ components:
       - images
       - latestChildMessageId
       - parentMessageId
+      - research
       - role
       - sessionId
       - sources
       - status
+    ChatMessageResearch:
+      type: object
+      properties:
+        clarification:
+          type: boolean
+        plan:
+          type:
+          - string
+          - "null"
+      required:
+      - clarification
+      - plan
     ChatSource:
       type: object
       properties:
