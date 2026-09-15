@@ -261,7 +261,10 @@ export class ChatThreadController {
 
   /** A committed FAILED outcome carries the server's code; only named codes replace the generic notice. */
   markFailed(code: string | null) {
-    const named = code && code in failureProblems ? failureProblems[code as keyof typeof failureProblems] : undefined;
+    const named =
+      code && code in failureProblems
+        ? failureProblems[code as keyof typeof failureProblems]
+        : undefined;
     this.set({ error: named ?? "unfinished" });
   }
 
