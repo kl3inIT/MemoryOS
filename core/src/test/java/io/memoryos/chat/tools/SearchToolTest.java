@@ -16,7 +16,7 @@ import java.time.Duration;
 import java.util.Map;
 import com.embabel.chat.UserMessage;
 import com.embabel.chat.AssistantMessage;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchResults;
@@ -37,7 +37,7 @@ import reactor.core.publisher.Mono;
 class SearchToolTest {
     private final DocumentSearchService search = mock(DocumentSearchService.class);
     private final PromptRunner runner = mock(PromptRunner.class);
-    private final List<ChatSearchEvent> events = new ArrayList<>();
+    private final List<ChatToolEvent> events = new ArrayList<>();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final UUID document = UUID.randomUUID();
     private final UUID generation = UUID.randomUUID();
@@ -70,7 +70,7 @@ class SearchToolTest {
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
                 }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
-        tool.beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
+        tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
         return tool;
     }
 
@@ -273,7 +273,7 @@ class SearchToolTest {
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
                         new UserMessage("How do I set it up?")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
-            tool.beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "searchKnowledge", "{}")));
+            tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "searchKnowledge", "{}")));
             tool.searchKnowledge(List.of("setup instructions"), null);
             tool.searchKnowledge(List.of("setup instructions"), null);
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));
@@ -429,7 +429,7 @@ class SearchToolTest {
             assertTrue(tool.searchKnowledge(List.of("policy"), null).contains(title));
             var reading = events.stream().flatMap(e -> e.documents().stream()).findFirst().orElseThrow();
             assertEquals("T".repeat(254), reading.title());
-            var source = events.stream().map(ChatSearchEvent::source).filter(java.util.Objects::nonNull).findFirst().orElseThrow();
+            var source = events.stream().map(ChatToolEvent::source).filter(java.util.Objects::nonNull).findFirst().orElseThrow();
             assertEquals(title, source.title());
         }
     }
@@ -491,7 +491,7 @@ class SearchToolTest {
         when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(new SearchTool.TimeChoice(null, null, null));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             for (int i = 0; i < 3; i++) tool.searchKnowledge(List.of("new query"), null);
-            var plans = events.stream().map(ChatSearchEvent::search).filter(java.util.Objects::nonNull).toList();
+            var plans = events.stream().map(ChatToolEvent::search).filter(java.util.Objects::nonNull).toList();
             assertEquals(List.of("policy", "new query"), plans.get(0).queries());
             assertEquals(List.of("policy", "new query"), plans.get(1).queries());
             assertEquals(List.of("new query", "policy"), plans.get(2).queries());
@@ -509,7 +509,7 @@ class SearchToolTest {
                 new SearchTool.TimeChoice("updated", null, "2026-08-01"));
         try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
             tool.searchKnowledge(List.of("policy"), explicit);
-            assertEquals(explicit, events.stream().map(ChatSearchEvent::search).filter(java.util.Objects::nonNull).findFirst().orElseThrow().filters());
+            assertEquals(explicit, events.stream().map(ChatToolEvent::search).filter(java.util.Objects::nonNull).findFirst().orElseThrow().filters());
             verify(runner, never()).createObject(anyString(), eq(SearchTool.SourceChoice.class));
         }
     }
@@ -524,7 +524,7 @@ class SearchToolTest {
         var entered = new java.util.concurrent.CountDownLatch(2);
         var earlierFinished = new java.util.concurrent.CountDownLatch(1);
         when(runner.createObject(anyString(), eq(SearchTool.ContextSelection.class))).thenAnswer(call -> {
-            var reading = events.stream().filter(e -> e.stage() == ChatSearchEvent.Stage.EXPANDING).findFirst().orElseThrow();
+            var reading = events.stream().filter(e -> e.stage() == ChatToolEvent.Stage.EXPANDING).findFirst().orElseThrow();
             assertEquals(2, reading.documents().size());
             entered.countDown(); assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
             if (call.<String>getArgument(0).contains("Section 8")) assertTrue(earlierFinished.await(3, java.util.concurrent.TimeUnit.SECONDS));

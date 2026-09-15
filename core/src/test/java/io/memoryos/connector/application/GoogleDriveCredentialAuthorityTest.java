@@ -220,7 +220,7 @@ class GoogleDriveCredentialAuthorityTest {
         jdbc.sql("UPDATE google_drive_selection_operations SET access_type=NULL WHERE id=:id")
                 .param("id", legacy.operation().id().value()).update();
         assertEquals(SourceOperationStatus.SUCCEEDED, process(legacy).status());
-        assertEquals("PRIVATE", access(legacy.sourceId()), "An intent submitted before V61 keeps Private access");
+        assertEquals("PRIVATE", access(legacy.sourceId()), "An intent submitted before V63 keeps Private access");
     }
 
     private String access(SourceId source) {

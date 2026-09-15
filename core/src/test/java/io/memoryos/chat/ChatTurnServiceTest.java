@@ -67,7 +67,7 @@ class ChatTurnServiceTest {
                 com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
@@ -91,7 +91,7 @@ class ChatTurnServiceTest {
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
         }
     }
 
@@ -103,7 +103,7 @@ class ChatTurnServiceTest {
         }, streams, models)) {
             assertThrows(TaskRejectedException.class, () -> service.send(actor, session, parent, request, "Question", null));
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any());
+                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any());
             // A second rejected dispatch reaches the executor; it is not falsely rejected as capacity exhausted.
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
@@ -138,7 +138,7 @@ class ChatTurnServiceTest {
             verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence, never()).control(any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
         }
     }
 
@@ -156,7 +156,7 @@ class ChatTurnServiceTest {
                 service.send(actor, session, parent, request, "Question", null);
                 service.maintain();
                 verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any());
+                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
                 verify(lease, never()).close();
                 assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class,
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
@@ -173,7 +173,7 @@ class ChatTurnServiceTest {
         prepare();
         doAnswer(call -> { call.<Consumer<String>>getArgument(3).accept("Partial"); return null; })
                 .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any());
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("database unavailable"))
                 .thenReturn(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.FAILED, "CHAT_INTERRUPTED"));
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
@@ -209,7 +209,7 @@ class ChatTurnServiceTest {
                 assertTrue(started.await(5, TimeUnit.SECONDS));
             }
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq("Partial"),
-                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any());
+                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
         }
     }
 
@@ -220,7 +220,7 @@ class ChatTurnServiceTest {
         var release = new CountDownLatch(1);
         var queued = new AtomicReference<Runnable>();
         when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(_ -> {
                     writing.countDown();
                     assertTrue(release.await(5, TimeUnit.SECONDS));
@@ -238,7 +238,7 @@ class ChatTurnServiceTest {
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
             } finally { release.countDown(); }
             execution.get(5, TimeUnit.SECONDS);
-            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 }

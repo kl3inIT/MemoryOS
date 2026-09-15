@@ -17,7 +17,7 @@ The skipped tests are the existing opt-in measurement and live-provider tests.
 
 ## Tests that carry the contract
 
-- `SourceAccessModesMigrationTest`: V61 renames RESTRICTED to PRIVATE, accepts only PUBLIC/PRIVATE/SYNC, and makes `access_type` on Drive selection operations nullable.
+- `SourceAccessModesMigrationTest`: V63 renames RESTRICTED to PRIVATE, accepts only PUBLIC/PRIVATE/SYNC, and makes `access_type` on Drive selection operations nullable.
 - `SourceSyncAccessTest`: the retained successful snapshot drives both reads and index tokens. It covers:
   - user, discoverable domain, non-discoverable domain, `anyone`, group, deleted and expired grants;
   - no snapshot, a failed-only snapshot, and a retained snapshot after a failed attempt;
@@ -32,7 +32,7 @@ The skipped tests are the existing opt-in measurement and live-provider tests.
 
 ## Live local runtime (2026-09-15)
 
-A local API, worker and browser bundle ran against a fresh Arconia PostgreSQL migrated through V61. The owner signed in through the remote Keycloak and authorized Google Drive; no staging permission was changed and no email address is recorded here.
+A local API, worker and browser bundle ran against a fresh Arconia PostgreSQL migrated through V63. The owner signed in through the remote Keycloak and authorized Google Drive; no staging permission was changed and no email address is recorded here.
 
 | Step | Observed |
 |---|---|

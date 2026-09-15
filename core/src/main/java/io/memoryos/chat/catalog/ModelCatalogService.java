@@ -360,7 +360,7 @@ public class ModelCatalogService {
     private void initialize(UUID tenant) {
         if (!catalog.initialize(tenant)) return;
         UUID providerId = UUID.randomUUID();
-        var provider = new Provider(providerId, tenant, "Deployment OpenAI", "openai", deployment.baseUrl(), true, true,
+        var provider = new Provider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
                 ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of());
         validateEndpoint(provider.baseUrl());
         validateModel(provider, deployment.modelName(), deployment.settings());

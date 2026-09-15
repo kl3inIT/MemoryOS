@@ -1,4 +1,3 @@
-import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   createContext,
@@ -16,15 +15,12 @@ import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { DocumentMeta } from "@/features/search/provider-link";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { Sources } from "@/components/assistant-ui/elements/sources";
-import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
-import { WebSearch } from "@/components/assistant-ui/elements/web-search";
 import { ChatSourcePanel } from "./chat-source-panel";
 import { SourceExcerpt } from "./chat-source-excerpt";
 import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
-import type { ChatSource, SearchProgress } from "./chat-evidence";
+import type { ChatSource } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
@@ -258,127 +254,4 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
       </span>
     </a>
   );
-}
-
-export function ChatSearchStatus() {
-  const ui = useAppTranslation();
-
-  const running = useAuiState((state) => state.message.status?.type === "running");
-  const progress = useAuiState(
-    (state) => state.message.metadata.custom.searchProgress as SearchProgress | undefined,
-  );
-  const hasText = useAuiState((state) =>
-    state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
-  );
-  const sources = useAuiState(
-    (state) => state.message.metadata.custom.sources as ChatSource[] | undefined,
-  );
-  const webEntries = Object.entries(progress ?? {}).filter(([id]) => id.startsWith("web-"));
-  const webActive = webEntries.find(([, value]) => !["COMPLETED", "FAILED"].includes(value.stage));
-  const webLatest = webActive ?? webEntries.at(-1);
-  if (webLatest && (webActive || !running || !hasText)) {
-    const [id, event] = webLatest;
-    const results = (sources ?? []).flatMap((source) =>
-      source.web
-        ? [{ title: source.title, url: source.web.url, domain: new URL(source.web.url).hostname }]
-        : [],
-    );
-    return (
-      <WebSearch
-        className="mb-3"
-        query={event.search?.queries.join(" · ") ?? ""}
-        results={results}
-        searching={running && !!webActive}
-        label={
-          event.stage === "FAILED"
-            ? ui("Không truy cập được nguồn Web.")
-            : running && webActive
-              ? id.startsWith("web-read-")
-                ? ui("Đang đọc trang Web…")
-                : ui("Đang tìm trên Web…")
-              : ui("Nguồn Web: {{count}}", { count: results.length })
-        }
-      />
-    );
-  }
-  if (!running) return null;
-  const active = Object.values(progress ?? {}).find(
-    (value) => !["COMPLETED", "FAILED"].includes(value.stage),
-  );
-  const stage = active?.stage;
-  const label =
-    stage === "SELECTING"
-      ? "Đang chọn đoạn liên quan…"
-      : stage === "EXPANDING" || stage === "SOURCE"
-        ? "Đang đọc ngữ cảnh tài liệu…"
-        : stage === "STARTED" || stage === "SEARCHING"
-          ? "Đang tìm trong tài liệu…"
-          : !hasText
-            ? "Đang suy nghĩ…"
-            : undefined;
-  if (!label) return null;
-  const filters = active?.search?.filters;
-  return (
-    <div className="mb-3 space-y-2 text-sm">
-      <ThinkingIndicator role="status" label={ui(label)} />
-      {active?.search && (
-        <Collapsible className="text-muted-foreground">
-          <CollapsibleTrigger className="cursor-pointer">
-            {ui("Chi tiết tìm kiếm")}
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <ul className="mt-2 space-y-1 pl-4 list-disc">
-              {active.search.queries.map((query) => (
-                <li key={query} className="break-words">
-                  {query}
-                </li>
-              ))}
-            </ul>
-            {!!filters?.sources.length && (
-              <p>
-                {ui("Nguồn:")}{" "}
-                {filters.sources
-                  .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
-                  .join(", ")}
-              </p>
-            )}
-            {filters?.created && (
-              <p>
-                {ui("Ngày tạo:")}{" "}
-                {filters.created.from ? displayDate(filters.created.from) : ui("Không giới hạn")} –{" "}
-                {filters.created.to ? displayDate(filters.created.to) : ui("Không giới hạn")}
-              </p>
-            )}
-            {filters?.updated && (
-              <p>
-                {ui("Ngày cập nhật:")}{" "}
-                {filters.updated.from ? displayDate(filters.updated.from) : ui("Không giới hạn")} –{" "}
-                {filters.updated.to ? displayDate(filters.updated.to) : ui("Không giới hạn")}
-              </p>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-      {!!active?.documents.length && (
-        <div className="text-muted-foreground">
-          <p>{ui("Đang đọc tài liệu")}</p>
-          <ul className="mt-1 space-y-1 pl-4 list-disc">
-            {active.documents.map((document) => (
-              <li key={`${document.documentId}:${document.startOrdinal}`}>{document.title}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function displayDate(value: string | null) {
-  return value
-    ? new Intl.DateTimeFormat(uiLocale(), {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "UTC",
-      }).format(new Date(value)) + " UTC"
-    : "Không giới hạn";
 }
