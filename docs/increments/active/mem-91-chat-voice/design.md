@@ -3,8 +3,8 @@
 Tracking: [MEM-91](https://linear.app/memory-os/issue/MEM-91). Tham chiếu hành vi Onyx: [onyx-voice-reference.md](onyx-voice-reference.md). Kế hoạch: [plan.md](plan.md). Liên quan: [MEM-77 catalog](../mem-77-provider-backend/design.md), [MEM-97 image connection](../../completed/mem-97-chat-image-generation/design.md), [Chat Web search](../chat-web-search/design.md).
 
 Trạng thái: **đang triển khai** (15/09/2026).
-- **Đã có code và test:** giai đoạn 1–3 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; đọc thành tiếng và tốc độ đọc.
-- **Chưa làm:** Auto-Playback/auto-listen, ElevenLabs/Azure, OpenAI Realtime.
+- **Đã có code và test:** giai đoạn 1–4 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; đọc thành tiếng và tốc độ đọc; Auto-Playback và auto-listen.
+- **Chưa làm:** chữ chạy theo tiếng, ElevenLabs/Azure, OpenAI Realtime.
 - **Tiến độ chi tiết:** xem [plan.md](plan.md). Tham chiếu giao diện Mobbin: [ui-references.md](ui-references.md).
 
 **Baseline: Onyx Voice (`06aa2b0`).** Người thực hiện chọn hướng này ngày 15/09/2026: làm một tính năng giống Voice của Onyx. Bản này thay bản đề xuất trước cùng ngày. Các ý sau đã bị bỏ để theo Onyx:
@@ -125,7 +125,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 | `GET /admin/voice/voices?provider_type=` | (trong `/providers`) | Danh sách tĩnh |
 | `GET /admin/voice/providers/{id}/voices` | — | Bỏ: không có caller (ADR 0002) |
 | `POST /voice/transcribe` | — | Bỏ: Onyx không có caller ở frontend (ADR 0002) |
-| `POST /voice/ws-token` | `POST /api/chat/voice/tickets` | `CHAT_WRITE` hoặc `SEARCH_READ`; header CSRF; vé cho WebSocket nhập bằng giọng nói. Đọc thành tiếng sẽ thêm mục đích vé khi có WebSocket TTS |
+| `POST /voice/ws-token` | `POST /api/chat/voice/tickets` | Body tùy chọn `{purpose: TRANSCRIBE\|SYNTHESIZE}` (mặc định TRANSCRIBE); nghe cần `CHAT_WRITE` hoặc `SEARCH_READ`, đọc cần `CHAT_READ`; header CSRF; vé chỉ mở đúng WebSocket của mục đích [MEM-91] |
 | WS `/voice/transcribe/stream` | WS `/api/chat/voice/transcribe/stream` | Kiểm lại quyền khi handshake |
 | `PATCH /voice/settings` | `GET` + `PATCH /api/chat/voice/settings` | Membership đang active; cần `GET` vì MemoryOS không có endpoint preferences chung [MemoryOS] |
 | `POST /voice/synthesize` | `POST /api/chat/voice/synthesize` | Giai đoạn 3; `CHAT_READ`; có giới hạn độ dài [Sửa lỗi] |
@@ -293,6 +293,20 @@ Sửa lỗi kèm theo:
 - **Trong lúc đọc** (như Onyx): ẩn action bar, placeholder "MemoryOS đang nói...", pill waveform có nút tắt tiếng, nút Send thành Stop (dừng tay).
 - **Auto-listen** (như Onyx): TTS đã thực sự phát và nay rảnh, `auto_playback` bật, người dùng đã bấm mic tay trong phiên, lần dừng trước không phải dừng tay → sau 400 ms bắt đầu ghi. Có guard phiên 5 phút.
 
+**Đã triển khai:**
+- **Server:** `StreamingSynthesizer` và `SynthesizeWebSocketHandler`.
+  - Mỗi phần là một request speech tuần tự; audio ghi ra socket ngay khi có.
+  - Tối đa 4096 ký tự mỗi phần, 32 000 ký tự mỗi phiên; không nhận text sau 5 phút rảnh, phiên tối đa 10 phút.
+  - Vé đọc (`SYNTHESIZE`) khác vé nghe.
+- **Client:**
+  - `ChatAutoPlayback` theo dõi lượt chạy của thread, không theo component tin nhắn, nên đổi id tin nhắn giữa stream không làm đọc lại.
+  - Chỉ đọc lượt bắt đầu sau khi mở hội thoại. Stream được resume khi mở lại hội thoại thì không đọc.
+  - `speech-text.ts` chạy lại trên toàn bộ markdown mỗi lần cập nhật; chunker chỉ xét phần sau đoạn đã gửi.
+  - Phát qua `playAudioStream` (MediaSource; không có MSE thì phát sau khi tải xong, thay vì không phát như Onyx). Tắt tiếng dùng `audio.muted`.
+  - Auto-listen chỉ chạy khi lượt đọc kết thúc `finished` (audio phát hết). Dừng tay, hủy câu trả lời, đọc tay hay lượt mới đều là `stopped`.
+  - Thanh "Đọc tự động" dùng nhịp CSS, không đo mức âm lượng của audio đang phát.
+- **Chưa làm:** chữ chạy theo tiếng. Câu trả lời hiện theo stream chữ như khi không đọc.
+
 ### 4.7 Cài đặt
 
 Mục "Giọng nói" trong `/settings/general`:
@@ -304,6 +318,7 @@ Lưu optimistic, toast đã dịch. Mỗi điều khiển chỉ xuất hiện kh
 
 Hiện có (`voice-settings-section.tsx`):
 - Switch "Tự động gửi khi dừng ghi âm", chỉ hiện khi Tenant có STT.
+- Switch "Tự động đọc câu trả lời", chỉ hiện khi Tenant có TTS.
 - Slider "Tốc độ đọc" 0.5–2.0 bước 0.1 kèm giá trị `1.0×`, chỉ hiện khi Tenant có TTS; chỉ lưu khi thả tay hoặc sau mỗi phím.
 - Mỗi thay đổi chỉ gửi đúng một trường. Trạng thái lưu và lỗi hiện ngay trong mục, không dùng toast.
 
@@ -357,6 +372,7 @@ Kiểm credential đòi phản hồi 2xx có mảng `data`, không theo redirect
 | 19 | Chờ final 3 s rồi giữ interim | Chờ final 15 s | MemoryOS |
 | 20 | Card, hành động hiện khi hover; hai card TTS theo model | Danh sách dòng, hành động luôn hiện; model và giọng chọn trong hộp thoại ([ui-references.md](ui-references.md)) | MemoryOS |
 | 21 | Search không có trong Onyx | Mic trong Search dùng cùng WebSocket, bỏ `SpeechRecognition` | MEM-91 |
+| 22 | Một ws-token cho mọi socket; không có MSE thì Auto-Playback không phát | Vé theo mục đích; không có MSE thì phát sau khi tải xong; chưa có chữ chạy theo tiếng | MemoryOS, Sửa lỗi |
 
 ## 6. Quyết định
 
@@ -394,4 +410,5 @@ Người thực hiện yêu cầu triển khai ngay theo các giả định tron
 - **AudioWorklet không có output** được giả định vẫn xử lý khi chỉ nối nguồn vào; cần kiểm trên Chrome, Firefox và Safari (S0.6).
 - **Chưa xác minh với provider thật:** OpenAI Realtime GA với server VAD; Spring AI audio với server OpenAI-compatible (mới kiểm bằng fixture loopback); giới hạn 4096 ký tự của OpenAI speech; server OpenAI-compatible có chấp nhận `stream_format: "audio"` mà Spring AI gửi khi stream TTS hay không.
 - **Chi phí provider:** Auto-Playback đọc mọi câu trả lời mới và chưa có quota.
-- **Playwright:** cần mic giả và WebSocket mock.
+- **Playwright:** dùng mic giả của Chromium, `routeWebSocket` và MP3 im lặng; mic thật, loa thật và Safari chưa được kiểm.
+- **Chính sách tự phát âm thanh:** Auto-Playback bắt đầu vài giây sau thao tác gửi. Trình duyệt chặn phát thì composer báo không phát được âm thanh.

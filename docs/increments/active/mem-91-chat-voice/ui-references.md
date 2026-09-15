@@ -46,6 +46,7 @@ Design: [design.md](design.md). Nghiên cứu qua Mobbin MCP ngày 15/09/2026, n
 - **TTS theo provider, không theo model.** Onyx có hai card TTS-1 và TTS-1 HD. MemoryOS chọn model và giọng trong hộp thoại, giống Vapi; một dòng cho mỗi provider khớp với một dòng `chat_voice_connection`.
 - **Composer:** dải ghi âm dưới văn bản nháp gồm chấm đỏ, đồng hồ, 40 thanh mức âm lượng thật, nút tắt mic và nút dừng (✓). Placeholder đổi thành "Đang nghe…". Mic nằm cạnh Send như ChatGPT.
 - **Search:** mic chỉ hiện khi Tenant có STT; trạng thái bằng chữ dưới ô tìm kiếm như trước.
+- **Đọc tự động:** thanh "Đọc tự động" trên composer, cùng vị trí và kiểu với thông báo lỗi giọng nói, gồm nhịp đang đọc, trạng thái, tắt tiếng và dừng. Ô nhập hiện "MemoryOS đang đọc…" như Onyx; nút gửi vẫn giữ nguyên để gửi câu mới.
 
 ## 6. Control shadcn
 

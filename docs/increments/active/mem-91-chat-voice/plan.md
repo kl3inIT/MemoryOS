@@ -152,12 +152,38 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ## Giai đoạn 4 — Hội thoại rảnh tay (PR C)
 
-- [ ] `core:chat/voice/OpenAiStreamingSynthesizer.java`; `api:chat/SynthesizeWebSocketHandler.java` (`config` → `synthesize` → `end`; mp3, `audio_done`, `error`); mục đích vé cho TTS; location nginx.
-- [ ] **Web:**
-  - `tts-chunker.ts` (thuật toán Onyx), `synthesize-socket.ts`, `voice-playback-provider.tsx`;
-  - `text-reveal.ts`, `use-auto-listen.ts`, `speaking-indicator.tsx`;
-  - thay đổi composer và thread; switch Auto-Playback.
-- [ ] **Test:** integration WebSocket TTS; Vitest cho chunker, chữ chạy theo tiếng, auto-listen, playback; Playwright `voice-conversation.spec.ts`.
+- [x] **Backend:**
+  - `core:chat/voice/StreamingSynthesizer.java`:
+    - các phần văn bản được đọc tuần tự trên một worker; tối đa 4096 ký tự mỗi phần, 32 000 ký tự mỗi phiên;
+    - lỗi provider thành `CHAT_PROVIDER_UNAVAILABLE`; đóng thì hủy request đang chạy.
+  - `VoiceSynthesisService.openStreaming` dùng chung 8 slot với REST.
+  - `api:chat/SynthesizeWebSocketHandler.java` `/api/chat/voice/synthesize/stream`:
+    - `config` (tùy chọn, trước mọi text) → `synthesize` → `end`;
+    - server trả MP3 binary, `audio_done` và `error` có mã (`VOICE_INVALID_MESSAGE`, `VOICE_TEXT_TOO_LONG`, `VOICE_PROVIDER_FAILED`, `VOICE_BUSY`, `VOICE_UNAVAILABLE`, `VOICE_IDLE` sau 5 phút, `VOICE_SESSION_TOO_LONG` sau 10 phút).
+  - Vé có mục đích (`VoiceTicketPurpose`, `VoiceTicketRequest`): handshake kiểm đúng mục đích và quyền (nghe: `CHAT_WRITE` hoặc `SEARCH_READ`; đọc: `CHAT_READ`). Helper chung `VoiceSockets`.
+  - `web/nginx.conf`: một location regex cho cả hai WebSocket voice.
+- [x] **Web:**
+  - `tts-chunker.ts` (thuật toán Onyx), `synthesize-socket.ts`, `auto-playback.ts` (một lượt mỗi tab; `finished` chỉ khi audio phát hết), `use-chat-auto-playback.ts`.
+  - `chat-auto-playback.tsx`:
+    - `ChatAutoPlayback`: chỉ đọc câu trả lời bắt đầu stream sau khi mở hội thoại; dừng khi hủy câu trả lời, đổi hội thoại hoặc tắt cài đặt;
+    - `ChatSpeakingIndicator`: trạng thái, tắt tiếng, dừng;
+    - `ChatAutoListen`: bật mic sau 400 ms khi đọc hết, chỉ khi thành viên đã bấm mic tay trong 5 phút.
+  - Composer: placeholder "MemoryOS đang đọc…", mic bị khóa khi đang đọc; câu trả lời đang tự đọc không có nút đọc thành tiếng; đọc tay hoặc lượt mới dừng lượt tự đọc.
+  - Cài đặt: switch "Tự động đọc câu trả lời".
+- [ ] Chữ chạy theo tiếng: chưa làm; câu trả lời vẫn hiện theo stream chữ.
+- [x] **Test:**
+  - `StreamingSynthesizerTest` (4 ca); `VoiceSynthesisServiceTest` thêm stream qua provider loopback; `VoiceTicketStoreTest` thêm vé theo mục đích.
+  - `ChatSessionApiIntegrationTest.voiceSynthesisStreamReadsAnswerPartsOverATicketedWebSocket`: vé nghe không mở được socket đọc; tốc độ, hai phần, audio đúng thứ tự, `audio_done`, đóng NORMAL.
+  - Vitest `tts-chunker` (4), `synthesize-socket` (4), `auto-playback` (4).
+  - Playwright `voice-conversation.spec.ts`: nói → tự gửi → tự đọc trong lúc stream (bỏ code) → mic tự bật lại; dừng đọc bằng tay thì mic không bật lại.
+
+**Bằng chứng giai đoạn 4 (16/09/2026):**
+- Gradle `:core:test --tests io.memoryos.chat.voice.*`: đạt.
+- Gradle `:api:test` với `VoiceTicketStoreTest`, `OpenApiContractTest` (`MEMORYOS_OPENAPI_WRITE=true`) và `ChatSessionApiIntegrationTest.voice*`: BUILD SUCCESSFUL. `openapi.yml` và client hey-api được tạo lại.
+- Web: `tsc -b`, `oxlint`, `oxfmt`, `check:i18n` sạch.
+- Vitest voice, chat, search, identity, i18n, components: 41 file, 210 ca. Lần đầu có 1 ca `synthesize-socket` lỗi vì `ArrayBuffer` của test khác realm; đã sửa cách nhận frame nhị phân, chạy lại thư mục voice 12 file 40 ca đạt.
+- Playwright bốn spec voice: lần đầu 8/9. Ca hands-free kiểm số socket trước khi socket kịp mở; đã đổi sang poll, chạy lại `voice-conversation.spec.ts` 2/2 đạt.
+- `gradlew clean check` toàn repo vẫn chưa chạy lại vì thiếu RAM.
 
 ## Giai đoạn 5 — ElevenLabs và Azure (PR D)
 
