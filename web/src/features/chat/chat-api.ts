@@ -15,6 +15,8 @@ export type ChatUiMessage = UIMessage<{
   custom?: { quote?: { text: string; messageId: string } };
   sources?: ChatSource[];
   artifacts?: ChatArtifact[];
+  /** Live citations per tool call, including late hosted-search citations. */
+  toolCitations?: Record<string, number[]>;
 }>;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;

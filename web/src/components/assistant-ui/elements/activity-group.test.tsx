@@ -15,9 +15,9 @@ function Group({ open, active }: { open?: boolean; active: boolean }) {
   return (
     <ActivityGroupRoot open={open}>
       <ActivityGroupTrigger
-        label={active ? "Searching documents…" : "Searches: 1"}
+        label={active ? "Searching documents…" : "Thought for 2 seconds"}
         active={active}
-        elapsed={active ? undefined : "2s"}
+        steps={active ? undefined : "2 steps"}
       />
       <ActivityGroupContent>
         <ActivityStep icon={<Search />} status="done" title="Searched documents" meta="2s">
@@ -29,7 +29,7 @@ function Group({ open, active }: { open?: boolean; active: boolean }) {
   );
 }
 
-it("names the running step, then collapses to a summary that the user can reopen", async () => {
+it("names the running step, then collapses to a duration and step count the user can reopen", async () => {
   const { rerender } = render(<Group open active />);
   expect(screen.getByRole("button", { name: /Searching documents…/ })).toHaveAttribute(
     "aria-expanded",
@@ -38,9 +38,9 @@ it("names the running step, then collapses to a summary that the user can reopen
   expect(screen.getByText("annual leave policy")).toBeVisible();
 
   rerender(<Group active={false} />);
-  const summary = screen.getByRole("button", { name: /Searches: 1/ });
+  const summary = screen.getByRole("button", { name: /Thought for 2 seconds/ });
   expect(summary).toHaveAttribute("aria-expanded", "false");
-  expect(summary).toHaveTextContent("2s");
+  expect(summary).toHaveTextContent("2 steps");
   expect(screen.queryByText("annual leave policy")).toBeNull();
 
   await userEvent.click(summary);

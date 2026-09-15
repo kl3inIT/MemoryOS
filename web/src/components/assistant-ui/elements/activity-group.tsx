@@ -2,7 +2,8 @@
 
 // assistant-ui elements-tool-group and elements-reasoning (MIT). Adaptations: one disclosure for
 // reasoning and tool steps, radix-ui Collapsible and ShimmerLabel from this kit, a caller-provided
-// localized summary instead of "N tool calls", and a step row with running/done/failed state.
+// localized header in the Onyx timeline shape ("Thought for 14s" · "3 steps"), and a step row
+// with running/done/failed state.
 import { useCallback, useRef, type ComponentProps, type ReactNode } from "react";
 import { ChevronDown, CircleAlert, LoaderCircle } from "lucide-react";
 import { Collapsible } from "radix-ui";
@@ -37,46 +38,51 @@ export function ActivityGroupRoot({
   );
 }
 
+/** The whole header row toggles; the step count sits at the end like a tertiary button. */
 export function ActivityGroupTrigger({
   label,
   active,
-  elapsed,
+  steps,
   className,
   ...props
 }: Omit<ComponentProps<typeof Collapsible.Trigger>, "children"> & {
   label: string;
   active: boolean;
-  elapsed?: string;
+  steps?: string;
 }) {
   return (
     <Collapsible.Trigger
       data-slot="activity-group-trigger"
       className={cn(
-        "group/trigger flex max-w-full items-center gap-2 rounded-md py-1 text-left text-sm text-content-muted transition-colors hover:text-content-primary focus-visible:outline-2 focus-visible:outline-ring",
+        "group/trigger flex w-full min-w-0 items-center justify-between gap-3 rounded-md py-1 text-left text-sm text-content-muted transition-colors hover:text-content-primary focus-visible:outline-2 focus-visible:outline-ring",
         className,
       )}
       {...props}
     >
-      {active && (
-        <LoaderCircle
-          aria-hidden="true"
-          className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
-        />
-      )}
-      <span aria-live="polite" className="min-w-0 truncate">
-        {active ? (
-          <ShimmerLabel key={label} className="relative inline-block leading-5">
-            {label}
-          </ShimmerLabel>
-        ) : (
-          label
+      <span className="flex min-w-0 items-center gap-2">
+        {active && (
+          <LoaderCircle
+            aria-hidden="true"
+            className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+          />
         )}
+        <span aria-live="polite" className="min-w-0 truncate">
+          {active ? (
+            <ShimmerLabel key={label} className="relative inline-block leading-5">
+              {label}
+            </ShimmerLabel>
+          ) : (
+            label
+          )}
+        </span>
       </span>
-      {elapsed && <span className={cn(mono, "shrink-0 tabular-nums")}>{elapsed}</span>}
-      <ChevronDown
-        aria-hidden="true"
-        className="size-3.5 shrink-0 -rotate-90 transition-transform group-data-[state=open]/trigger:rotate-0 motion-reduce:transition-none"
-      />
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/trigger:bg-surface-sunken">
+        {steps}
+        <ChevronDown
+          aria-hidden="true"
+          className="size-3.5 shrink-0 transition-transform group-data-[state=open]/trigger:rotate-180 motion-reduce:transition-none"
+        />
+      </span>
     </Collapsible.Trigger>
   );
 }

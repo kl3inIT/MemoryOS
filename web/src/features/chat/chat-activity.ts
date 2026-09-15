@@ -44,7 +44,8 @@ export const toolEventSchema = z.object({
   documents: z.array(readingDocumentSchema).max(10).default([]),
   durationMs: z.number().int().nonnegative().nullable().default(null),
 });
-export const reasoningEventSchema = z.object({ text: z.string().min(1).max(16_000) });
+// Reasoning shares the answer chunking, so one event can exceed a single provider delta.
+export const reasoningEventSchema = z.object({ text: z.string().min(1).max(1_000_000) });
 
 export const activitySchema = z
   .object({
@@ -119,6 +120,7 @@ export class ActivityChunks {
   private textId?: string;
   private reasoningId?: string;
   private segments = 0;
+  private citations: Record<string, number[]> = {};
   private readonly tools = new Map<
     string,
     { name: string; progress: ToolProgress; done: boolean }
@@ -152,12 +154,17 @@ export class ActivityChunks {
   tool(event: ToolEvent): UIMessageChunk[] {
     let tool = this.tools.get(event.toolCallId);
     if (event.stage === "SOURCE") {
-      if (!tool || tool.done || !event.source) return [];
-      if (!tool.progress.citations.includes(event.source.citationId))
-        tool.progress = {
-          ...tool.progress,
-          citations: [...tool.progress.citations, event.source.citationId].slice(0, 24),
+      if (!tool || !event.source) return [];
+      const cited = this.citations[event.toolCallId] ?? [];
+      if (!cited.includes(event.source.citationId))
+        this.citations = {
+          ...this.citations,
+          [event.toolCallId]: [...cited, event.source.citationId].slice(0, 24),
         };
+      // Hosted search cites after its step completes; a finished part keeps its output and the
+      // citations travel in message metadata instead.
+      if (tool.done) return [];
+      tool.progress = { ...tool.progress, citations: this.citations[event.toolCallId]! };
       return [this.input(event.toolCallId, tool)];
     }
     const chunks: UIMessageChunk[] = [];
@@ -185,6 +192,11 @@ export class ActivityChunks {
     if (event.stage === "COMPLETED" || event.stage === "FAILED")
       chunks.push(this.output(event.toolCallId, tool, event.stage === "FAILED"));
     return chunks;
+  }
+
+  /** Citations per tool call, including those that arrived after the step finished. */
+  toolCitations(): Record<string, number[]> {
+    return this.citations;
   }
 
   /** Closes open parts; tools the stream never finished take their committed status, or fail. */

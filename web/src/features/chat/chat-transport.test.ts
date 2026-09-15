@@ -371,6 +371,24 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
   });
 
+  it("keeps hosted-search citations that arrive after the step finished in message metadata", async () => {
+    const call = { toolCallId: "ws_1", toolName: "web_search", search: null, documents: [] };
+    fixture(() =>
+      sse(
+        packet(1, "tool", { ...call, stage: "STARTED", source: null, durationMs: null }) +
+          packet(2, "tool", { ...call, stage: "COMPLETED", source: null, durationMs: 900 }) +
+          packet(3, "tool", { ...call, stage: "SOURCE", source: fixtureSource, durationMs: null }) +
+          packet(4, "outcome", { status: "COMPLETED", failureCode: null }),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "tool-output-available")).toHaveLength(1);
+    expect(chunks.filter((chunk) => chunk.type === "tool-input-available")).toHaveLength(2);
+    expect(chunks.find((chunk) => chunk.type === "message-metadata")).toMatchObject({
+      messageMetadata: { sources: [fixtureSource], toolCitations: { ws_1: [1] } },
+    });
+  });
+
   it("rebuilds saved reasoning, tool steps and text in streamed order", () => {
     const [message] = toUiMessages([
       {

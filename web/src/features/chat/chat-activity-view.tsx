@@ -22,7 +22,6 @@ type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
 type ToolState = "running" | "done" | "failed";
 type Translate = ReturnType<typeof useAppTranslation>;
 const emptySources: ChatSource[] = [];
-const searchTools = new Set(["searchKnowledge", "web_search", "search_files"]);
 
 function toolProgress(args: unknown): ToolProgress {
   const parsed = toolProgressSchema.safeParse(args);
@@ -95,30 +94,16 @@ function toolIcon(name: string) {
   }
 }
 
-function summary(
-  ui: Translate,
-  tools: {
-    toolName: string;
-    args: unknown;
-    isError?: boolean;
-    result?: unknown;
-    status: { type: string };
-  }[],
-  reasoned: boolean,
-) {
-  const searches = tools.filter((tool) => searchTools.has(tool.toolName)).length;
-  const sources = new Set(tools.flatMap((tool) => toolProgress(tool.args).citations)).size;
-  const cards = tools.filter((tool) => tool.toolName === "render_gui").length;
-  const phrases: string[] = [];
-  if (searches) phrases.push(ui("Tìm kiếm: {{count}}", { count: searches }));
-  if (sources) phrases.push(ui("Nguồn đã đọc: {{count}}", { count: sources }));
-  if (cards) phrases.push(ui("Thẻ trình bày: {{count}}", { count: cards }));
-  const failed = tools.filter((tool) => toolState(tool) === "failed").length;
-  if (!phrases.length && tools.length)
-    phrases.push(ui("Công cụ: {{count}}", { count: tools.length }));
-  if (!phrases.length && reasoned) phrases.push(ui("Đã suy luận"));
-  if (failed) phrases.push(ui("Không hoàn tất: {{count}}", { count: failed }));
-  return phrases.join(" · ");
+/** Spoken duration for the collapsed header, e.g. "14 giây" / "14 seconds". */
+function spokenDuration(ms: number) {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  const format = (value: number, unit: "second" | "minute") =>
+    new Intl.NumberFormat(uiLocale(), { style: "unit", unit, unitDisplay: "long" }).format(value);
+  if (seconds < 60) return format(seconds, "second");
+  const rest = seconds % 60;
+  return [format(Math.floor(seconds / 60), "minute"), rest ? format(rest, "second") : ""]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** One disclosure for adjacent reasoning and tool steps; open while working, collapsed once the answer starts. */
@@ -146,30 +131,34 @@ export function ChatActivityGroup({
   );
   const tools = group.flatMap((part) => (part.type === "tool-call" ? [part] : []));
   const open = manual ?? (running && !answerStarted);
+  const stopped = useAuiState(
+    (state) =>
+      state.message.status?.type === "incomplete" ||
+      state.message.metadata.custom.serverStatus === "CANCELED" ||
+      state.message.metadata.custom.serverStatus === "FAILED",
+  );
+  const duration = tools.reduce(
+    (total, tool) => total + (toolProgress(tool.args).durationMs ?? 0),
+    0,
+  );
   let label: string;
   if (running) {
     const current = tools.findLast((tool) => toolState(tool) === "running");
     label = current
       ? toolTitle(ui, current.toolName, toolProgress(current.args).stage, "running")
       : ui("Đang suy luận…");
+  } else if (stopped) {
+    label = ui("Đã dừng suy nghĩ");
   } else {
-    label = summary(
-      ui,
-      tools,
-      group.some((part) => part.type === "reasoning"),
-    );
+    label =
+      duration > 0
+        ? ui("Đã suy nghĩ trong {{duration}}", { duration: spokenDuration(duration) })
+        : ui("Đã suy nghĩ");
   }
-  const duration = tools.reduce(
-    (total, tool) => total + (toolProgress(tool.args).durationMs ?? 0),
-    0,
-  );
+  const steps = indices.length === 1 ? ui("1 bước") : ui("{{n}} bước", { n: indices.length });
   return (
     <ActivityGroupRoot open={open} onOpenChange={setManual}>
-      <ActivityGroupTrigger
-        label={label}
-        active={running}
-        elapsed={!running && duration > 0 ? formatDuration(duration) : undefined}
-      />
+      <ActivityGroupTrigger label={label} active={running} steps={running ? undefined : steps} />
       <ActivityGroupContent>{children}</ActivityGroupContent>
     </ActivityGroupRoot>
   );
@@ -196,8 +185,15 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
     (state) => (state.message.metadata.custom.sources as ChatSource[] | undefined) ?? emptySources,
   );
   const progress = toolProgress(part.args);
+  const lateCitations = useAuiState(
+    (state) =>
+      (state.message.metadata.custom.toolCitations as Record<string, number[]> | undefined)?.[
+        part.toolCallId
+      ],
+  );
+  const citationIds = [...new Set([...progress.citations, ...(lateCitations ?? [])])];
   const state = toolState(part);
-  const cited = progress.citations.flatMap((id) => {
+  const cited = citationIds.flatMap((id) => {
     const source = sources.find((candidate) => candidate.citationId === id);
     return source ? [source] : [];
   });

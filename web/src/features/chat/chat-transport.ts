@@ -329,9 +329,19 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                   ...sources.filter((source) => source.citationId !== tool.source!.citationId),
                   tool.source,
                 ]);
-                yield { type: "message-metadata", messageMetadata: { sources } };
               }
-              yield* activity.tool(tool);
+              const chunks = activity.tool(tool);
+              if (tool.stage === "SOURCE") {
+                const toolCitations = activity.toolCitations();
+                yield {
+                  type: "message-metadata",
+                  messageMetadata: {
+                    sources,
+                    ...(Object.keys(toolCitations).length > 0 && { toolCitations }),
+                  },
+                };
+              }
+              yield* chunks;
             } else if (envelope.event === "reasoning") {
               yield* activity.reasoning(reasoningEventSchema.parse(data).text);
             }

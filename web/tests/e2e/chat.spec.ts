@@ -201,7 +201,7 @@ test("shows effective search queries, open time bounds and selected documents be
   await page.screenshot({ path: "../.tmp/chat-search-progress.png", fullPage: true });
   await page.getByRole("button", { name: "Dừng trả lời" }).click();
   await expect(page.getByText("Đang đọc tài liệu", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Tìm kiếm: 1/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Đã dừng suy nghĩ.*2 bước/ })).toBeVisible();
 });
 
 test("keeps the new conversation mounted through server ID promotion and resets only when switching", async ({
@@ -470,7 +470,7 @@ for (const mode of [
     await page.reload();
     await expect(citation).toBeVisible();
     // The committed activity timeline is restored collapsed from history.
-    await expect(page.getByRole("button", { name: /Tìm kiếm: 1/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /1 bước/ })).toBeVisible();
     expect(
       (await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json()).sends,
     ).toBe(1);
