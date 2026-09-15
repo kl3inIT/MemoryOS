@@ -88,6 +88,7 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 | MEM-77 provider/model administration | Backend foundation is merged; catalog administration UI and local OpenAI-compatible provider integration remain active | [Design](increments/active/mem-77-provider-backend/design.md) |
 | [MEM-79 standalone OCR](https://linear.app/memory-os/issue/MEM-79) | Vietnamese/English OCR is deployed in the Jmix team namespace; server access, Worker integration and full indexing acceptance remain open | [Deployment runbook](../infrastructure/deployment/ocr/README.md) · [Design](increments/active/mem-79-rancher-ocr/design.md) · [Plan](increments/active/mem-79-rancher-ocr/plan.md) |
 | Sign-out without the Keycloak logout page | Application sign-out ends the Keycloak session named by the ID token `sid` through the realm admin API, so the browser returns to MemoryOS sign-in without the provider confirmation page; the provider logout page remains the fallback; managed identity providers enable back-channel logout so a brokered (Tasco) session also ends upstream; implemented locally, not merged | [Design](increments/active/logout-without-keycloak-page/design.md) · [Plan](increments/active/logout-without-keycloak-page/plan.md) |
+| [MEM-126 SharePoint connector](https://linear.app/memory-os/issue/MEM-126) | SharePoint Online Source ported from the Onyx connector (`5715699`): Entra app credentials with client secret or certificate, site/library/folder scope with URL-path library matching, timestamp refresh and scheduled pruning as in Onyx, site pages and shadcn Sources screens; Public/Private access only. Planned, not implemented; a live-tenant spike comes first, synchronization waits on MEM-105 and the UI on MEM-106 | [Design](increments/active/sharepoint-connector/design.md) · [Plan](increments/active/sharepoint-connector/plan.md) · [Onyx reference](increments/active/sharepoint-connector/onyx-sharepoint-reference.md) · [UI references](increments/active/sharepoint-connector/ui-references.md) |
 
 ## Timeline
 
@@ -103,7 +104,7 @@ Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/ME
 | Mô hình AI và chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123 |
 | Bảo mật, quản trị và vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
 | Agent và Skill tùy chỉnh | Planned | 2026-10 → 2026-11 | MEM-119, MEM-120 |
-| Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490) |
+| Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490); MEM-126 SharePoint |
 | Giọng nói và cuộc họp | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
 | Giao diện và trải nghiệm | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
 | Tích hợp hệ thống ngoài (MCP, API) | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
