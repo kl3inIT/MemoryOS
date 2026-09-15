@@ -50,6 +50,7 @@ import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
+import { FileTypeIcon } from "./file-type-icon";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { GoogleDrivePanel } from "./google-drive-panel";
@@ -770,10 +771,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 <TableRow key={item.id}>
                   <TableCell className="px-4 py-4 [overflow-wrap:anywhere]">
                     <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
-                      <FileText
-                        className="mt-0.5 size-4 shrink-0 text-content-muted"
-                        aria-hidden="true"
-                      />
+                      <FileTypeIcon name={item.filename} />
                       <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
@@ -935,7 +933,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 <span className="flex flex-wrap items-center gap-2">
                   <SourceStatusBadge status={detail.status} />
                   <SourceAccessBadge access={detail.access} />
-                  {provider ? <span>{ui(provider.name)}</span> : null}
+                  {/* The header icon shows the provider but is hidden from assistive technology. */}
+                  {provider ? <span className="sr-only">{ui(provider.name)}</span> : null}
                 </span>
               }
               actions={
@@ -1143,10 +1142,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 >
                   <SourceItemHistory key={selectedId} sourceId={selectedId} />
                 </TabsContent>
-                <TabsContent
-                  value="settings"
-                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised px-4 sm:px-5"
-                >
+                <TabsContent value="settings" className="mt-5 outline-none">
                   <SourceGroupsSection
                     sourceId={selectedId}
                     editable={canManageGroups}
