@@ -17,6 +17,8 @@ The Sources area grew screen by screen. It now carries four hand-written tables,
 - `ui/select` wraps the native `<select>`; `ui/button` exposes its own `tone × prominence` API instead of shadcn variants.
 - The Sources feature is about 10,600 lines across `web/src/features/sources`.
 
+Main refresh (2026-09-15): main's registry migration (`bcf9c6e2`) already moved the Sources disclosures, tables and checkboxes to the token-bound shadcn `Collapsible`, `Table` and `Checkbox`, and its `checkbox`, `label`, `table` and `tooltip` replaced the copies this branch had generated. What remains in `web/src/features/sources`: one native `<select>` (the selection panel's content-type filter), the native `<textarea>` in `google-drive-links`, bare Radix `Dialog`/`Tabs` in `create-google-drive-source-page`, `google-drive-panel` and `source-detail-page`, and `title=` attributes in place of tooltips across ten files. Main's new Models screens use the native select and were pointed at `ui/native-select`, as the boundary requires.
+
 ## Decisions
 
 1. **Add the missing primitives through the shadcn CLI** and bind them to the existing tokens in `tokens.css`/`theme.css` rather than to shadcn's default palette. The design language of Chat and Search does not change.

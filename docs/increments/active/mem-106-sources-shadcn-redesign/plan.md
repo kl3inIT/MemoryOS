@@ -15,6 +15,7 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 - [x] Keep the `tone × prominence` button and adapt the three generated components that assume shadcn's button API.
 - [x] `ui/select` becomes the Radix select for Sources; the native control moves to `ui/native-select` for the untouched screens.
 - [x] Teach the test setup about Radix popups, and run `pnpm check`.
+- [x] Merge main (2026-09-15): keep main's token-bound `checkbox`, `label`, `table` and `tooltip`, keep both jsdom stubs (ResizeObserver from main, pointer capture from here), and point the Models screens at `ui/native-select`.
 
 ### Task 2: Sources list and type picker
 
