@@ -18,37 +18,42 @@ type SourceStatusPresentation = {
   icon: LucideIcon;
 };
 
+/** Tones follow Onyx's connector status badges: indexing blue, active green, failed red. */
 export const defaultStatusPresentation: SourceStatusPresentation = {
   label: "Scheduled",
-  tone: "info",
+  tone: "neutral",
   icon: Clock3,
 };
 
 export const sourceStatusPresentation: Record<string, SourceStatusPresentation> = {
   NOT_STARTED: defaultStatusPresentation,
-  INDEXING: { label: "Indexing", tone: "warning", icon: LoaderCircle },
+  INDEXING: { label: "Indexing", tone: "info", icon: LoaderCircle },
   ACTIVE: { label: "Active", tone: "success", icon: Check },
   FAILED: { label: "Failed", tone: "danger", icon: TriangleAlert },
   DELETING: { label: "Deleting", tone: "neutral", icon: Trash2 },
 };
 
+/** Onyx colours access too: workspace-wide green, group-restricted amber, Drive-synced blue. */
 export const sourceAccessPresentation: Record<
   SourceSummary["access"],
-  { label: string; title: string; icon: LucideIcon }
+  SourceStatusPresentation & { title: string }
 > = {
   PUBLIC: {
     label: "Workspace members",
     title: "Available to workspace members, not the public Internet.",
+    tone: "success",
     icon: Users,
   },
   PRIVATE: {
     label: "Private",
     title: "Only members of the associated groups can read this Source.",
+    tone: "warning",
     icon: Lock,
   },
   SYNC: {
     label: "Auto Sync",
     title: "Readers need access to each file in Google Drive.",
+    tone: "info",
     icon: RefreshCw,
   },
 };
