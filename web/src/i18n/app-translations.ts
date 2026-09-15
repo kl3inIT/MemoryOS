@@ -959,8 +959,6 @@ Object.assign(englishUi, {
   "Selection limits could not be loaded. Creation is disabled.":
     "Không tải được giới hạn lựa chọn. Chưa thể tạo nguồn.",
   "Retry selection policy": "Thử tải quy tắc lựa chọn lại",
-  "Configure connector": "Cấu hình kết nối",
-  "Credential:": "Thông tin kết nối:",
   "Not selected": "Chưa chọn",
   "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.":
     "Chọn thông tin kết nối đã xác thực trước khi tạo nguồn. Quay lại danh sách để làm mới hoặc kết nối lại.",
@@ -1065,6 +1063,8 @@ Object.assign(englishUi, {
   "Edit interval": "Sửa chu kỳ",
   Edit: "Chỉnh sửa",
   "Sync every": "Đồng bộ mỗi",
+  Connection: "Kết nối",
+  "Connection path": "Đường kết nối",
   "Enter a whole number from 1 to {{v1}}.": "Nhập số nguyên từ 1 đến {{v1}}.",
   "Interval unit": "Đơn vị chu kỳ",
   "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.":
