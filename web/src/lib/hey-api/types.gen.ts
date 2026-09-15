@@ -615,7 +615,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
     permissions: GroupPermissions;
 };
 
@@ -630,7 +630,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -982,11 +982,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -1043,11 +1043,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
 };
 
 export type GoogleDriveCredentialResponse = {

@@ -9057,6 +9057,7 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -9120,6 +9121,7 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -10288,6 +10290,7 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -10309,6 +10312,7 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
         authorizationVersion:
           type: integer
           format: int64
@@ -10483,6 +10487,7 @@ components:
           - SOURCES_MANAGE
           - SOURCES_DELETE
           - MODELS_MANAGE
+          - MCP_MANAGE
         label:
           type: string
         description:
@@ -10508,6 +10513,7 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
       required:
       - description
       - editable

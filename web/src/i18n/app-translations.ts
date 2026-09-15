@@ -1880,6 +1880,9 @@ Object.assign(englishUi, {
   "Manage models": "Quản lý mô hình",
   "Configure Chat providers, credentials, models and access within the Tenant.":
     "Cấu hình nhà cung cấp Chat, thông tin xác thực, mô hình và quyền truy cập trong tổ chức.",
+  "Manage MCP servers": "Quản lý máy chủ MCP",
+  "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
+    "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
   "Full identity, user, group, and Source administration.":
     "Toàn quyền quản trị danh tính, người dùng, nhóm và nguồn dữ liệu.",

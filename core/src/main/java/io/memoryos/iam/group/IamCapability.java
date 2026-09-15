@@ -20,7 +20,8 @@ public enum IamCapability {
     SOURCES_READ,
     SOURCES_MANAGE,
     SOURCES_DELETE,
-    MODELS_MANAGE;
+    MODELS_MANAGE,
+    MCP_MANAGE;
     private static final IamCapability[] VALUES = values();
     private static final Set<IamCapability> ALL_CAPABILITIES =
             Collections.unmodifiableSet(EnumSet.allOf(IamCapability.class));
@@ -36,7 +37,7 @@ public enum IamCapability {
 
     public boolean isOrdinaryGrant() {
         return switch (this) {
-            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE -> true;
+            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE -> true;
             default -> false;
         };
     }
