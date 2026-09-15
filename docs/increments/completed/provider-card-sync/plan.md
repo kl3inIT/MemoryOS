@@ -17,4 +17,4 @@
 - [x] `pnpm check` in `web/` (51 test files, 279 tests, build).
 - [x] Playwright `chat-ui-polish` Web settings and `models-administration` scenarios.
 - [x] Browser review of both pages at 1280, 1024 and 390 px, light and dark. It found and fixed an OpenAI mark on OpenRouter/Claude connections, taller connection rows, and names squeezed by actions at narrow widths.
-- [ ] Consolidate durable facts, move the increment to `completed/` after merge.
+- [x] Merged in PR #190 (reviewed head `3fdb59c`, merge `62e9585`); increment moved to `completed/` and the roadmap reconciled on 2026-09-15.
