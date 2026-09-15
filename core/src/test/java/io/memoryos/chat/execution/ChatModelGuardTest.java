@@ -205,15 +205,17 @@ class ChatModelGuardTest {
                 ChatResponseMetadata.builder().usage(new DefaultUsage(tokens, tokens)).build());
     }
 
-    @Test void requiredWebUsesNamedToolChoiceWithoutChangingSharedOptionsAndRejectsIgnoredChoice() {
+    @Test void requiredWebForcesAToolChoiceTheOpenAiAdapterSendsWithoutChangingSharedOptions() {
         var scoped = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
         scoped.requireWebSearch();
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
             var options = java.util.Objects.requireNonNull(assertInstanceOf(OpenAiChatOptions.class, call.<Prompt>getArgument(0).getOptions()));
-            assertEquals(java.util.Map.of("type", "function", "function", java.util.Map.of("name", "web_search")), options.getToolChoice());
+            // The adapter forwards its typed option and silently drops anything else, so assert the sent form.
+            var choice = assertInstanceOf(com.openai.models.chat.completions.ChatCompletionToolChoiceOption.class, options.getToolChoice());
+            assertEquals("web_search", choice.namedToolChoice().orElseThrow().function().name());
             return Flux.just(response("Unsupported provider ignored choice", "stop", 12));
         });
-        assertEquals("CHAT_INCOMPLETE_RESPONSE", assertThrows(IllegalStateException.class, () -> scoped.stream(prompt).blockLast()).getMessage());
+        assertEquals("CHAT_WEB_SEARCH_SKIPPED", assertThrows(IllegalStateException.class, () -> scoped.stream(prompt).blockLast()).getMessage());
         assertEquals("auto", assertInstanceOf(OpenAiChatOptions.class, prompt.getOptions()).getToolChoice());
     }
 }

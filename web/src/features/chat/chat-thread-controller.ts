@@ -12,6 +12,12 @@ const sendProblems = {
   CHAT_PROVIDER_UNAVAILABLE: { key: "chatProviderUnavailable" },
   CHAT_CAPACITY_EXCEEDED: { key: "chatBusy" },
   CHAT_INVALID_REQUEST: { key: "chatRejected" },
+  CHAT_WEB_UNAVAILABLE: { key: "chatWebUnavailable" },
+} as const satisfies Record<string, ErrorMessage>;
+
+/** Committed run failures the actor can act on; every other code keeps the generic unfinished notice. */
+const failureProblems = {
+  CHAT_WEB_SEARCH_SKIPPED: { key: "chatWebSearchSkipped" },
 } as const satisfies Record<string, ErrorMessage>;
 
 export type ChatThreadState = {
@@ -139,6 +145,7 @@ export class ChatThreadController {
   listen() {
     const unlisten = this.transport.listen({
       state: (state) => this.onState(state),
+      failed: (code) => this.markFailed(code),
       error: (cause) => this.handleError(cause),
       canceled: () => this.cancelRun?.(),
       accepted: (session, userId, localId) => {
@@ -250,6 +257,15 @@ export class ChatThreadController {
     const presented =
       cause === undefined ? undefined : presentProblem(cause, "mutation", sendProblems);
     this.set({ error: presented?.code ? presented.message : "unfinished" });
+  }
+
+  /** A committed FAILED outcome carries the server's code; only named codes replace the generic notice. */
+  markFailed(code: string | null) {
+    const named =
+      code && code in failureProblems
+        ? failureProblems[code as keyof typeof failureProblems]
+        : undefined;
+    this.set({ error: named ?? "unfinished" });
   }
 
   markUnavailable() {
