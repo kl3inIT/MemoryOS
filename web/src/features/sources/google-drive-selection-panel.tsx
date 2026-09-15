@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input, inputVariants } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -41,6 +48,9 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
+
+/** Radix Select reserves the empty value, so the unfiltered choice has its own. */
+const allKinds = "ALL";
 
 type Draft = {
   saved: GoogleDriveSelectionDraftResponse;
@@ -532,25 +542,28 @@ export function GoogleDriveSelectionPanel({
               </IconButton>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-56">
-              <label className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 <span className="font-secondary-action text-content-primary">
                   {ui("Content type")}
                 </span>
-                <select
-                  aria-label={ui("Content type")}
-                  className={inputVariants()}
-                  value={kind}
-                  onChange={(event) => {
-                    setKind(event.target.value as typeof kind);
+                <Select
+                  value={kind || allKinds}
+                  onValueChange={(next) => {
+                    setKind(next === allKinds ? "" : (next as typeof kind));
                     setPaging({ authority, previous: [] });
                   }}
                 >
-                  <option value="">{ui("All types")}</option>
-                  <option value="FOLDER">{ui("Folders")}</option>
-                  <option value="FILE">{ui("Files")}</option>
-                  <option value="LINKED">{ui("Linked documents")}</option>
-                </select>
-              </label>
+                  <SelectTrigger aria-label={ui("Content type")} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={allKinds}>{ui("All types")}</SelectItem>
+                    <SelectItem value="FOLDER">{ui("Folders")}</SelectItem>
+                    <SelectItem value="FILE">{ui("Files")}</SelectItem>
+                    <SelectItem value="LINKED">{ui("Linked documents")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button prominence="tertiary" disabled={!filtered} onClick={clearFilters}>
                 {ui("Clear filters")}
               </Button>

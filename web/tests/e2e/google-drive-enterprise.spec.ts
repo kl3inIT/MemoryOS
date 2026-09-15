@@ -595,7 +595,8 @@ test("selection preserves hidden approvals across search and paging and restores
   await selection.getByRole("checkbox", { name: "Sync Project budget" }).check();
   // The filter popover renders in a portal, outside the selection region.
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await expect(selection.getByRole("list", { name: "Selection results" })).toBeVisible();
   await selection.getByRole("button", { name: "Next selection page" }).click();
@@ -649,7 +650,8 @@ test("selection preserves hidden approvals across search and paging and restores
   await edit.click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   await expect(
@@ -806,7 +808,8 @@ test("unavailable approved documents can be deselected but not approved again", 
   await page.goto(`/admin/sources/${source.id}`);
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   const deselect = selection.getByRole("button", {

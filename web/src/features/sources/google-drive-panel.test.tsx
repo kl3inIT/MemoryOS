@@ -449,10 +449,8 @@ describe("Google Drive enterprise selection", () => {
     const user = userEvent.setup();
     const server = setup();
     await user.click(await screen.findByRole("button", { name: "Filter selected content" }));
-    await user.selectOptions(
-      await screen.findByRole("combobox", { name: "Content type" }),
-      "LINKED",
-    );
+    await user.click(await screen.findByRole("combobox", { name: "Content type" }));
+    await user.click(await screen.findByRole("option", { name: "Linked documents" }));
     await user.keyboard("{Escape}");
     const input = await edit(user);
     expect(input).toHaveFocus();

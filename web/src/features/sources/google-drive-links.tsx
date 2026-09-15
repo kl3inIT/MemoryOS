@@ -2,6 +2,7 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, type ReactNode, type Ref } from "react";
 import { inputVariants } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type {
@@ -217,7 +218,7 @@ export function GoogleDriveLinks({
               {ui("File or folder links")}
             </label>
           )}
-          <textarea
+          <Textarea
             id={id}
             ref={inputRef}
             rows={readOnly ? Math.min(Math.max(links.length, 2), 6) : 5}
@@ -231,7 +232,7 @@ export function GoogleDriveLinks({
             aria-describedby={`${id}-count${error ? ` ${id}-error` : ""}`}
             aria-invalid={Boolean(error)}
             className={cn(
-              "h-auto py-2",
+              "h-auto py-2 field-sizing-fixed",
               readOnly
                 ? "w-full min-w-0 resize-none rounded-lg border border-transparent bg-transparent px-0 text-sm text-content-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                 : cn(inputVariants(), "mt-2 min-h-28 resize-y"),
