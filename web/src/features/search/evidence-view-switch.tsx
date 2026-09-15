@@ -27,23 +27,28 @@ const panel = "flex min-h-0 flex-1 flex-col outline-none";
 
 /**
  * When the original is a PDF with recorded page provenance, a segmented tab list switches between the passages
- * and the cited pages with their regions highlighted. Passages open first, except for table rows: the passage
- * text flattens the table's columns, which the page keeps (owner decision 2026-09-15). A parent that shows the
- * same evidence in two places controls `view` so both stay on the same tab.
+ * and the cited pages with their regions highlighted. Callers may choose the first view; otherwise passages open
+ * first, except for table rows: the passage text flattens the table's columns, which the page keeps (owner
+ * decision 2026-09-15). A parent that shows the same evidence in two places controls `view` so both stay on the
+ * same tab.
  */
 export function EvidenceViewSwitch({
   pdf,
+  defaultView,
   view,
   onViewChange,
   children,
 }: {
   pdf?: PdfEvidence;
+  defaultView?: EvidenceView;
   view?: EvidenceView;
   onViewChange?: (view: EvidenceView) => void;
   children: ReactNode;
 }) {
   const ui = useAppTranslation();
-  const [ownView, setOwnView] = useState<EvidenceView>(pdf?.table ? "pdf" : "passages");
+  const [ownView, setOwnView] = useState<EvidenceView>(
+    defaultView ?? (pdf?.table ? "pdf" : "passages"),
+  );
   if (!pdf) return <>{children}</>;
   return (
     <Tabs.Root

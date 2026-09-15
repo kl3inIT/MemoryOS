@@ -22,7 +22,7 @@ The panel header shows `Source n / total` with previous/next buttons when a sour
 
 ### Table rows open on their page
 
-`readSourceLocation` reports `table` when any provenance record carries `tableRow`, which `StructuredDocumentChunker.tableLocation` writes for every table-cell chunk. `EvidenceViewSwitch` opens on "PDF pages" for such PDF evidence and on "Passages" otherwise, in both Chat and the Search preview. Rows emitted without `tableLocation` (a table block without cell data) keep the passages default. The panel remembers the chosen tab per source and passes it to the expanded dialog.
+`readSourceLocation` reports `table` when any provenance record carries `tableRow`, which `StructuredDocumentChunker.tableLocation` writes for every table-cell chunk. In Chat `EvidenceViewSwitch` opens on "PDF pages" for such PDF evidence and on "Passages" otherwise. The Search preview already opens every PDF match on its pages ([Search connector rail](../search-connector-rail/design.md), PR #164) and keeps that default. Rows emitted without `tableLocation` (a table block without cell data) keep the passages default. The panel remembers the chosen tab per source and passes it to the expanded dialog.
 
 ### Expanded view
 

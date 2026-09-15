@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate:api": "pnpm dlx --package @hey-api/openapi-ts@0.99.0 --package typescript@6.0.3 openapi-ts",
+    "generate:api": "pnpm --package=@hey-api/openapi-ts@0.99.0 --package=typescript@6.0.3 dlx openapi-ts",
     "check:api": "node scripts/assert-generated-stable.mjs src/lib/hey-api -- pnpm generate:api",
     "check:ci": "node scripts/assert-playwright-image.ts",
     "check:i18n": "node scripts/i18n-audit.mjs --check",
@@ -41,6 +41,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
+    "cn": "^0.3.0",
     "i18next": "26.4.2",
     "lucide-react": "1.34.0",
     "pdfjs-dist": "6.3.289",

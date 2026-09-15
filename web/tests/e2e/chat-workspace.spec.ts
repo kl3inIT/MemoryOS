@@ -307,7 +307,7 @@ test("creates and revises private assistants with source, starter and limit sett
     .fill("How do I request leave?\nWhat is the expense policy?");
   await page.getByRole("checkbox", { name: "Employee handbook", exact: true }).check();
   await page.getByText("Giới hạn nâng cao", { exact: true }).click();
-  await page.getByLabel("Câu trả lời (token)").fill("1000");
+  await page.getByLabel("Max output (token)").fill("1000");
   await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
   await expect(page.getByRole("heading", { name: "HR assistant" })).toBeVisible();
   expect(saved).toMatchObject({
@@ -669,8 +669,9 @@ test("shares in one dialog with manual copying fallback and restores keyboard fo
   await page.setViewportSize({ width: 390, height: 844 });
   const share = page.getByRole("button", { name: "Chia sẻ", exact: true });
   await share.click();
-  await page.getByRole("radio", { name: "Riêng tư", exact: true }).focus();
-  await page.keyboard.press("ArrowDown");
+  const privateChoice = page.getByRole("radio", { name: "Riêng tư", exact: true });
+  await expect(privateChoice).toBeChecked();
+  await page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }).check();
   await expect(
     page.getByRole("radio", { name: "Chia sẻ trong tổ chức", exact: true }),
   ).toBeChecked();

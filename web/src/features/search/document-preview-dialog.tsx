@@ -124,7 +124,13 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          <EvidenceViewSwitch pdf={pdf} view={view} onViewChange={onViewChange}>
+          {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
+          <EvidenceViewSwitch
+            pdf={pdf}
+            defaultView={variant === "search" ? "pdf" : undefined}
+            view={view}
+            onViewChange={onViewChange}
+          >
             <DocumentPreviewContent selection={selection} variant={variant} fileId={fileId} />
           </EvidenceViewSwitch>
         </Dialog.Content>

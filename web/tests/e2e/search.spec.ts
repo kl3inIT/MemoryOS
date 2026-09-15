@@ -297,7 +297,7 @@ test("keeps the document preview usable inside a mobile viewport", async ({ page
 test("shows source type, provider and authors, links to Google Drive and outlines the matched PDF region", async ({
   page,
 }) => {
-  // A table row: the preview opens on its PDF page.
+  // Search opens PDF matches on their pages; this match is also a table row.
   const box =
     '{"source":[{"page_no":7,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}],"tableRow":2}';
   const located = [{ ...sections[0], provenance: [{ ordinal: 2, provenanceJson: box }] }];

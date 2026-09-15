@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
   listChatFiles,
@@ -309,16 +310,16 @@ export function ChatFilePickerContent({
         {(compact ? files.data?.entries.slice(0, 3) : files.data?.entries)?.map((file) => (
           <div key={file.id} className="flex flex-wrap items-center gap-2 text-sm">
             <label className="flex min-w-0 flex-1 items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.includes(file.id)}
                 disabled={
                   !selected.includes(file.id) && (file.status !== "READY" || selected.length >= 20)
                 }
-                onChange={(event) => {
-                  const ids = event.target.checked
-                    ? [...selected, file.id]
-                    : selected.filter((id) => id !== file.id);
+                onCheckedChange={(event) => {
+                  const ids =
+                    event === true
+                      ? [...selected, file.id]
+                      : selected.filter((id) => id !== file.id);
                   select(ids);
                 }}
               />
