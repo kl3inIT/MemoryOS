@@ -24,7 +24,7 @@ See [design.md](design.md). Branch `phamnhatanh811/mem-109-chat-image-editing`, 
 - ✅ `docs/specs/chat.md` and `docs/tests/chat.md`.
 - ✅ CI green on PR #193 (`clean check`, frontend-check, four e2e shards, backend-images); merged to main.
 - ✅ Increment moved to `completed/`; roadmap updated.
-- ⏳ Staging verification: edit a generated image, a masked edit through the UI, an uploaded image.
+- ✅ Staging verification after deploy: an instruction edit of a generated image, a masked edit (12,642 sampled pixels outside the mask identical to the source, the mask interior recolored) and an edit of an uploaded image all ran through `edit_image`. The dialog is unit-tested; on staging the mask was uploaded through the same chat file API.
 
 ## Risks
 
