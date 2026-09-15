@@ -1107,19 +1107,29 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   const sourceTable = page.getByRole("table", { name: "Connected sources" });
   await expect(page.getByRole("heading", { name: "Existing sources" })).toBeVisible();
   await expect(sourceTable.getByText("Scheduled", { exact: true })).toBeVisible();
+  const fileGroup = sourceTable.getByRole("button", {
+    name: /File group, 1 sources, 0 documents/,
+  });
   const supportSource = sourceTable.getByRole("link", { name: otherSource.name, exact: true });
-  await expect(supportSource).toBeVisible();
+  await expect(fileGroup).toHaveAttribute("aria-expanded", "true");
   const sourceSearch = page.getByRole("searchbox", { name: "Search sources" });
   await sourceSearch.fill("missing source");
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
-  await page.getByRole("button", { name: "Clear search and filters" }).click();
-  await expect(sourceSearch).toHaveValue("");
-  await expect(supportSource).toBeVisible();
-  await page.getByRole("button", { name: /^Status/ }).click();
-  await page.getByRole("menuitemradio", { name: "Active", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Status\s*Active/ })).toBeVisible();
+  await sourceSearch.fill("");
+  await page.getByRole("button", { name: "Filter sources" }).click();
+  await page.getByLabel("Status").click();
+  await page.getByRole("option", { name: "Active", exact: true }).click();
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(supportSource).toBeVisible();
+  await page.getByRole("button", { name: "Filter sources" }).click();
+  await page.getByRole("button", { name: "Collapse all" }).click();
+  await expect(supportSource).toBeHidden();
+  await page.getByRole("button", { name: "Expand all" }).click();
+  await expect(supportSource).toBeVisible();
+  await fileGroup.click();
+  await expect(supportSource).toBeHidden();
+  await fileGroup.click();
   await expect(supportSource).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   const manageSource = sourceTable.getByRole("link", {

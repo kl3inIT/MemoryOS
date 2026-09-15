@@ -1384,12 +1384,6 @@ Object.assign(englishUi, {
   "Connected sources table": "Bảng nguồn đã kết nối",
   "Connected sources": "Nguồn đã kết nối",
   "No sources match your search and filters.": "Không có nguồn phù hợp với tìm kiếm và bộ lọc.",
-  "Clear search and filters": "Xóa tìm kiếm và bộ lọc",
-  "Failed sources": "Nguồn thất bại",
-  "The Source list could not be loaded. Try again in a moment.":
-    "Không tải được danh sách nguồn. Hãy thử lại sau giây lát.",
-  "Connect files or Google Drive to make their content searchable in MemoryOS.":
-    "Kết nối tệp hoặc Google Drive để tìm kiếm nội dung của chúng trong MemoryOS.",
   "{{v1}} group, {{v2}} sources, {{v3}} documents": "Nhóm {{v1}}, {{v2}} nguồn, {{v3}} tài liệu",
   "Total sources": "Tổng số nguồn",
   "Active sources": "Nguồn đang hoạt động",
