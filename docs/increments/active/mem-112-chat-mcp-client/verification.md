@@ -16,4 +16,12 @@ Branch `mem-112/chat-mcp-client`, based on main `82ef9050` (MEM-110 merged). JDK
 | Web client and types | `pnpm generate:api`, `pnpm exec tsc -b --noEmit` | Generated types updated; typecheck passed |
 | Web capability copy | `vitest run src/i18n/app-translation.test.tsx src/features/groups`, `pnpm check:i18n`, `oxlint --deny-warnings`, `oxfmt --check` on changed files | 9 tests passed; Vietnamese translations added for the new label and description; audit, lint and format clean |
 
-Repository gate not yet green: `gradlew clean check --no-daemon --max-workers=2` failed only because the host ran out of native memory (14 GB RAM, ~3 GB free). The `:api:test` executor and the `:connector:test` Tika extraction subprocess both died with `hs_err` "insufficient memory … malloc failed", so `TikaSourceContentExtractorTest` reported `ExtractionException`. The `--max-workers=1 --continue` rerun was killed for low memory during `:api:test`. Rerun on a host with free memory or in CI before merge. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.
+Repository gate on commit `e46c6c8d`, on a host with 14 GB RAM and 1.5–3 GB free:
+- **First runs:** `--max-workers=2` died of native-memory exhaustion (`hs_err` in the `:api:test` executor and the `:connector:test` Tika subprocess). A `--max-workers=1` rerun was killed by the OS for low memory.
+- **`gradlew clean check --no-daemon --max-workers=1 --continue`:**
+  - `:api:check`, `:connector:check` and `:worker:check` passed.
+  - `:core:test` lost one test JVM to `OutOfMemoryError: Java heap space` (1 GiB fork heap). The error pointed at the 100 MiB allocation in `ObjectWriteLifecycleIntegrationTest.binaryWritesRejectOneByteBeyondOneHundredMiB`, although that suite's report records 8/8 passed.
+  - 81 of 94 core suites reported, with no failures. The 13 that never ran were the remaining `objectstorage` and `retrieval` suites.
+- **Rerun:** `gradlew :core:test --max-workers=1 --tests 'io.memoryos.mcp.*' --tests 'io.memoryos.objectstorage.*' --tests 'io.memoryos.retrieval.*'` passed 18 suites and 95 tests, with 0 failures and 1 opt-in measurement skipped. The heap error did not reproduce.
+
+Every Gradle test suite has therefore passed, but across two runs rather than one uninterrupted `clean check`. CI remains the single-run gate. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.
