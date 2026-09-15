@@ -105,5 +105,16 @@ Design: [design.md](design.md).
 - ShellCheck on `deploy-staging.sh` and actionlint 1.7.12 on `ci.yml` and `deploy-staging.yml`: pass.
 - `docker compose config --quiet` with `compose.base.yaml`, `compose.staging.yaml` and `compose.search.staging.yaml` and a placeholder environment: pass. The rendered service has no ports, only `memoryos-internal`, and the socket bind.
 - The service image built with `VCS_REF` carries the revision and source labels.
+- PR #195 review fixes to upstream defects (listed in `interpreter/NOTICE.md`), each covered by `test_request_hardening.py`:
+  - rejects file IDs that are not issued UUIDs, which closes the absolute-path read;
+  - reads uploads in chunks;
+  - adds an RFC 6266 `filename*` for Vietnamese names;
+  - `/health` returns 503 when unhealthy;
+  - runs user code in its own wrapper namespace;
+  - keeps hidden file names;
+  - container sleep is in seconds;
+  - Docker start and staging calls have timeouts.
+
+  Integration suite in a Linux container: 181 passed.
 - On GitHub's Hyper-V runners, `import markitdown` loads onnxruntime, which writes a device-discovery warning to stderr. No setting silences it ([microsoft/onnxruntime#27092](https://github.com/microsoft/onnxruntime/issues/27092)). The office-stack test ignores only that line. Staging runs on a Hyper-V host will show the same line in stderr.
 - Rehearsal of the staging settings: `--network none`, read-only root, `/tmp` tmpfs of 512 MB, all capabilities dropped, `no-new-privileges`, root with the socket, watchdog off. The container became healthy, `/health` returned `ok` 0.1.0, and a pandas plus fpdf2 Vietnamese PDF run exited 0 with empty stderr and returned `r.pdf`.

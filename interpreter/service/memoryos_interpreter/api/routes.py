@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
@@ -39,6 +40,8 @@ from memoryos_interpreter.services.file_storage import FileStorageService
 
 router = APIRouter()
 
+UPLOAD_CHUNK_BYTES = 1024 * 1024
+
 # Initialize file storage service
 _file_storage: FileStorageService | None = None
 
@@ -50,6 +53,15 @@ def get_file_storage() -> FileStorageService:
         settings = get_settings()
         _file_storage = FileStorageService(Path(settings.file_storage_dir))
     return _file_storage
+
+
+def _content_disposition(filename: str) -> str:
+    """Build an attachment header that keeps non-Latin-1 names through RFC 6266 ``filename*``."""
+    fallback = "".join(
+        char if char.isascii() and char.isprintable() and char not in '"\\' else "_"
+        for char in filename
+    )
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
 def _validate_timeout(req: ExecuteRequest) -> None:
@@ -199,16 +211,17 @@ async def upload_file(file: UploadFile = File(...)) -> UploadFileResponse:  # no
     settings = get_settings()
     storage = get_file_storage()
 
-    # Read file content
-    content = await file.read()
-
-    # Validate file size
+    # Read in chunks so an oversized upload is rejected without holding all of it in memory
     max_size_bytes = settings.max_file_size_mb * 1024 * 1024
-    if len(content) > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=f"File size exceeds maximum of {settings.max_file_size_mb} MB",
-        )
+    buffer = bytearray()
+    while chunk := await file.read(UPLOAD_CHUNK_BYTES):
+        buffer.extend(chunk)
+        if len(buffer) > max_size_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"File size exceeds maximum of {settings.max_file_size_mb} MB",
+            )
+    content = bytes(buffer)
 
     # Save file and get ID
     filename = file.filename or "unnamed"
@@ -237,9 +250,7 @@ async def download_file(file_id: str) -> Response:
     return Response(
         content=content,
         media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f'attachment; filename="{metadata.filename}"',
-        },
+        headers={"Content-Disposition": _content_disposition(metadata.filename)},
     )
 
 

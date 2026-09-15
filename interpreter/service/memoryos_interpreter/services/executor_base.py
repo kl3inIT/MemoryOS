@@ -25,7 +25,6 @@ def wrap_last_line_interactive(code: str) -> str:
     code_escaped = code.replace("\\", "\\\\").replace("'", "\\'")
 
     wrapper = f"""import ast
-import sys
 
 # User code
 code = '''{code_escaped}'''
@@ -33,11 +32,14 @@ code = '''{code_escaped}'''
 # Parse the code
 tree = ast.parse(code)
 
+# User code runs in its own namespace so it cannot shadow the names this wrapper uses
+namespace = {{"__name__": "__main__", "__file__": __file__, "__builtins__": __builtins__}}
+
 # Execute all statements except the last one normally
 if len(tree.body) > 0:
     for node in tree.body[:-1]:
         code_obj = compile(ast.Module(body=[node], type_ignores=[]), '<stdin>', 'exec')
-        exec(code_obj)
+        exec(code_obj, namespace)
 
     # For the last statement, check if it's an expression
     last_node = tree.body[-1]
@@ -46,11 +48,11 @@ if len(tree.body) > 0:
         interactive = ast.Interactive(body=[last_node])
         ast.fix_missing_locations(interactive)
         code_obj = compile(interactive, '<stdin>', 'single')
-        exec(code_obj)
+        exec(code_obj, namespace)
     else:
         # Not an expression, execute normally
         code_obj = compile(ast.Module(body=[last_node], type_ignores=[]), '<stdin>', 'exec')
-        exec(code_obj)
+        exec(code_obj, namespace)
 """
     return wrapper
 

@@ -23,12 +23,23 @@ class FileStorageService:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_file_path(self, file_id: str) -> Path:
-        """Get the filesystem path for a file ID."""
-        return self.storage_dir / file_id
+        """Get the filesystem path for a file ID.
+
+        Only the canonical UUIDs issued by ``save_file`` are accepted. Any other ID, such as an
+        absolute path or one containing ``..``, is reported as missing so it cannot escape
+        ``storage_dir``.
+        """
+        try:
+            canonical = str(uuid.UUID(file_id))
+        except ValueError:
+            canonical = None
+        if canonical != file_id:
+            raise FileNotFoundError(f"File with ID '{file_id}' not found")
+        return self.storage_dir / canonical
 
     def _get_metadata_path(self, file_id: str) -> Path:
         """Get the filesystem path for file metadata."""
-        return self.storage_dir / f"{file_id}.meta.json"
+        return self._get_file_path(file_id).with_suffix(".meta.json")
 
     def save_file(self, content: bytes, filename: str) -> str:
         """Save file content and return a unique file ID.
@@ -68,7 +79,7 @@ class FileStorageService:
             Tuple of (file_content, metadata)
 
         Raises:
-            FileNotFoundError: If file_id doesn't exist
+            FileNotFoundError: If file_id doesn't exist or is not a valid file ID
         """
         file_path = self._get_file_path(file_id)
         metadata_path = self._get_metadata_path(file_id)
@@ -100,9 +111,12 @@ class FileStorageService:
             file_id: UUID of the file to delete
 
         Returns:
-            True if file was deleted, False if it didn't exist
+            True if file was deleted, False if it didn't exist or the ID is invalid
         """
-        file_path = self._get_file_path(file_id)
+        try:
+            file_path = self._get_file_path(file_id)
+        except FileNotFoundError:
+            return False
         metadata_path = self._get_metadata_path(file_id)
 
         existed = file_path.exists()

@@ -9,7 +9,7 @@ from importlib.metadata import version as _package_version
 from shutil import which
 from typing import Final
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 
 from memoryos_interpreter.api.routes import router as api_router
 from memoryos_interpreter.app_configs import (
@@ -208,9 +208,11 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/health")
-    def health() -> HealthResponse:
+    def health(response: Response) -> HealthResponse:
         """Health check that verifies the executor backend is operational."""
         result = get_executor().check_health()
+        if result.status != "ok":
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(
             status=result.status,
             message=result.message,

@@ -42,6 +42,15 @@ from memoryos_interpreter.services.executor_base import (
 
 logger = logging.getLogger(__name__)
 
+# Bound for docker CLI calls that start containers or stage files, so a hung daemon cannot hold
+# a request thread indefinitely.
+DOCKER_COMMAND_TIMEOUT_SEC = 60
+
+
+def container_sleep_seconds(timeout_ms: int) -> int:
+    """Idle lifetime of an execution container: the timeout rounded up to seconds, plus 10 s."""
+    return -(-timeout_ms // 1000) + 10
+
 
 def _looks_like_missing_container(stderr: bytes) -> bool:
     """Heuristic: ``docker exec`` writes these to stderr when the target is gone."""
@@ -126,7 +135,20 @@ class DockerExecutor(BaseExecutor):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                timeout=DOCKER_COMMAND_TIMEOUT_SEC,
             )
+
+    def _start_container(self, container_name: str, cmd: list[str], kind: str) -> None:
+        """Run a detached ``docker run``; a start that times out may still create the container."""
+        try:
+            start_proc = subprocess.run(  # nosec B603
+                cmd, capture_output=True, text=True, timeout=DOCKER_COMMAND_TIMEOUT_SEC
+            )
+        except subprocess.TimeoutExpired as exc:
+            self._kill_container(container_name)
+            raise RuntimeError(f"Timed out starting {kind} {container_name}") from exc
+        if start_proc.returncode != 0:
+            raise RuntimeError(f"Failed to start {kind}: {start_proc.stderr}")
 
     def _validate_relative_path(self, path_str: str) -> Path:
         path = Path(path_str)
@@ -226,7 +248,7 @@ class DockerExecutor(BaseExecutor):
                         continue
 
                     # Clean up the path (remove leading ./)
-                    clean_path = member.name.lstrip("./")
+                    clean_path = member.name.removeprefix("./")
 
                     if member.isdir():
                         entries.append(
@@ -244,7 +266,10 @@ class DockerExecutor(BaseExecutor):
                             )
 
             return tuple(entries)
-        except (subprocess.TimeoutExpired, Exception):
+        except Exception:
+            logger.warning(
+                "Failed to extract workspace snapshot from %s", container_name, exc_info=True
+            )
             return tuple()
 
     def _build_run_command(
@@ -331,7 +356,12 @@ class DockerExecutor(BaseExecutor):
             "-C",
             "/workspace",
         ]
-        tar_proc = subprocess.run(tar_cmd, input=tar_archive, capture_output=True)  # nosec B603
+        try:
+            tar_proc = subprocess.run(  # nosec B603
+                tar_cmd, input=tar_archive, capture_output=True, timeout=DOCKER_COMMAND_TIMEOUT_SEC
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"Timed out extracting files into {container_name}") from exc
         if tar_proc.returncode != 0:
             raise RuntimeError(
                 f"Failed to extract files: {tar_proc.stderr.decode('utf-8', errors='replace')}"
@@ -371,11 +401,9 @@ class DockerExecutor(BaseExecutor):
             container_name=container_name,
             cpu_time_limit_sec=cpu_time_limit_sec,
             memory_limit_mb=memory_limit_mb,
-            sleep_seconds=(timeout_ms * 1000) + 10,
+            sleep_seconds=container_sleep_seconds(timeout_ms),
         )
-        start_proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603
-        if start_proc.returncode != 0:
-            raise RuntimeError(f"Failed to start container: {start_proc.stderr}")
+        self._start_container(container_name, cmd, "container")
 
         try:
             self._stage_files_in_container(container_name, code, files, last_line_interactive)
@@ -430,9 +458,7 @@ class DockerExecutor(BaseExecutor):
                 SESSION_EXPIRES_AT_KEY: str(expires_at),
             },
         )
-        start_proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603
-        if start_proc.returncode != 0:
-            raise RuntimeError(f"Failed to start session container: {start_proc.stderr}")
+        self._start_container(container_name, cmd, "session container")
 
         try:
             if files:

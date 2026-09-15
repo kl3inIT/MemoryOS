@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from memoryos_interpreter.app_configs import get_settings
 from memoryos_interpreter.main import create_app
 from memoryos_interpreter.services.executor_base import ExecutionResult, SessionNotFoundError
 from memoryos_interpreter.services.executor_factory import get_executor
@@ -189,4 +190,4 @@ def test_bash_max_output_bytes_passed_from_settings() -> None:
 
     # The route should forward the configured cap, not let callers override it.
     kwargs = mock_executor.execute_bash_in_session.call_args.kwargs
-    assert kwargs["max_output_bytes"] > 0
+    assert kwargs["max_output_bytes"] == get_settings().max_output_bytes

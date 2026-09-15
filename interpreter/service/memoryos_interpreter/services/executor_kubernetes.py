@@ -634,7 +634,7 @@ class KubernetesExecutor(BaseExecutor):
                     if member.name == ".":
                         continue
 
-                    clean_path = member.name.lstrip("./")
+                    clean_path = member.name.removeprefix("./")
 
                     if member.isdir():
                         entries.append(
