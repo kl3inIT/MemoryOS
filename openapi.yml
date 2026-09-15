@@ -7521,7 +7521,7 @@ components:
         credentialRevision:
           type: integer
           format: int64
-          minimum: 0
+          exclusiveMinimum: 0
         scopeMode:
           type: string
           description: GENERAL includes the connected account's My Drive tree; SPECIFIC
@@ -9132,7 +9132,7 @@ components:
         expectedCredentialRevision:
           type: integer
           format: int64
-          minimum: 0
+          exclusiveMinimum: 0
       required:
       - expectedCredentialRevision
     StartGoogleDriveAuthorizationRequest:
@@ -9149,7 +9149,7 @@ components:
         expectedCredentialRevision:
           type: integer
           format: int64
-          minimum: 0
+          exclusiveMinimum: 0
         oauthClientJson:
           type: string
           maxLength: 16384
@@ -9385,7 +9385,7 @@ components:
         sizeBytes:
           type: integer
           format: int64
-          minimum: 0
+          exclusiveMinimum: 0
         sha256:
           type: string
           pattern: "[0-9a-f]{64}"
