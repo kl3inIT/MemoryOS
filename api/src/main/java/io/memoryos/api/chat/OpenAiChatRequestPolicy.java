@@ -45,6 +45,14 @@ final class OpenAiChatRequestPolicy {
                 .toolChoice(null).parallelToolCalls(null).strict(null).build());
     }
 
+    /** Onyx sets {@code tool_choice=REQUIRED} on research cycles; a request without tools is left unchanged. */
+    static Prompt requireTools(Prompt prompt) {
+        if (!(prompt.getOptions() instanceof OpenAiChatOptions options))
+            throw new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS");
+        if (options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty()) return prompt;
+        return new Prompt(prompt.getInstructions(), options.mutate().toolChoice("required").build());
+    }
+
     private static void checkMessage(Message message, boolean tools, boolean vision) {
         if (!tools && (message instanceof ToolResponseMessage
                 || message instanceof AssistantMessage assistant && !assistant.getToolCalls().isEmpty()))

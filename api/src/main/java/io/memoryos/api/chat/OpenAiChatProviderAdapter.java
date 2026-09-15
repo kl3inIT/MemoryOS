@@ -166,7 +166,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 price == null ? null : PricingModel.usdPer1MTokens(price.inputPerMillion(), price.outputPerMillion()), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
                 OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
-                settings.capabilities().toolCalling(), settings.capabilities().vision());
+                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools);
     }
 
     static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration readTimeout) {

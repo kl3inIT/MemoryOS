@@ -49,6 +49,11 @@ Paths: `backend/onyx/deep_research/dr_loop.py`, `deep_research/dr_mock_tools.py`
 - Prompts are ported verbatim from `orchestration_layer.py` and `research_agent.py` with the Onyx MIT notice (`ResearchPrompts`: the 21 evaluated Onyx strings, including `dr_tool_prompts.py` and `INTERNAL_SEARCH_GUIDANCE`, compared byte for byte on 2026-09-15), plus the tool definition descriptions of `dr_mock_tools.py`, `THINK_TOOL_RESPONSE_MESSAGE`, the agent timeout and failure messages and `TOOL_CALL_FAILURE_PROMPT` (13 more strings, compared the same way). Filling a template renames the Onyx tools MemoryOS names differently: `internal_search` becomes `searchKnowledge` and `open_urls` becomes `open_url`; inserted plans and tasks are never re-read as templates. Reasoning variants and the 8/4 cycle cap follow `ModelSettings.Capabilities.reasoning`. The spike showed that a truncated prompt with a static cycle counter made `gpt-5-mini` call `research_agent` to "synthesize a report" instead of `generate_report`; the per-cycle counter, first-cycle reminder and `generate_report` conditions are load-bearing.
 - `tool_choice=required` is set on orchestrator and agent inference requests (verified on Chat Completions, live).
 - `ChatModelGuard` final-cycle policy strips tools and adds the Chat last-cycle reminder. Research guards use `cycles = maxCycles + 1` and an identity final request so MemoryOS, not the guard, forces `generate_report`, as Onyx does.
+- Implemented guard support (2026-09-15), replacing the `cycles + 1` workaround: `researchPrompts()` sends research prompts unchanged (no `ChatPrompts.forInference` tool guidance, citation or last-cycle reminder, no final request rewrite, no `CHAT_LAST_CYCLE_TOOL_CALL`); `cycles` remains a hard `CHAT_CYCLE_LIMIT` bound. `toolChoice(...)` sets the request transform per phase: `ChatModelBinding.requiredTools` (OpenAI Chat Completions: `tool_choice=required` when the request has tools) on orchestrator and agent cycles, identity on clarification (`AUTO`) and tool-free plan/report inferences. Adapters without it leave requests unchanged.
+- One `ChatAdmissionLedger` per turn is shared by every research guard, so parallel agents reserve against one token/cost allowance; Embabel stays the usage and cost ledger.
+- Output limits: each phase sets the guard output reservation and the streamer `max_tokens` to the Onyx value capped by the model's configured maximum output (the OpenAI request policy already clamps). A model with a lower maximum output writes a shorter final report instead of being rejected; this cap is recorded as a departure.
+- `finish_reason=length` with tool calls stays `CHAT_INCOMPLETE_RESPONSE` (reachable at the 1,024-token orchestrator limit). Onyx fails the same way when truncated tool arguments do not parse.
+- Gap: the OpenAI Responses route (hosted Web search or reasoning summaries) sends no `tool_choice`; required tool choice there belongs to the `think_tool` streaming decision.
 - Clarification is skipped when the previous assistant message has `is_clarification`. Research mode is rejected for Project chats and for models whose context window is below 50,000 tokens.
 
 ### Research agents
@@ -168,7 +173,8 @@ Survival across restart, tools other than internal search, Web/URL reading and a
 | Attached file text inlined into history; agents have no file tools | Agents get `search_files`/`read_file` when the turn has attachments | MemoryOS attachments reach the model only through these tools |
 | First tool type per agent batch | Mixed batches, sequential | Onyx workaround for `Placement`; MemoryOS has tool call IDs |
 | Setting only hides the button | Server also rejects research commands while disabled | A disabled mode must not run through the API |
-| No budget | Token/cost budget per guard | Existing Chat limits |
+| No budget | One token/cost admission ledger shared by all research guards of a turn | Existing Chat limits; parallel agents must not each spend the whole budget |
+| Final report `max_tokens` 20,000 regardless of model | Phase limits capped by the model's configured maximum output | The request policy already clamps to the configured maximum; rejecting such models would hide research entirely |
 
 ## Spike evidence (2026-09-15)
 
