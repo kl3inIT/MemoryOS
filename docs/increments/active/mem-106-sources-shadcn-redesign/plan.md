@@ -43,8 +43,8 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 6: Sync history and settings
 
-- [ ] Run history Table with status filter.
-- [ ] Run detail Sheet: identifiers, start, end, duration, counters, errors.
+- [x] Run history Table with status filter. The filter is the Sources list filter menu, shared as `SourceFilterMenu`, and passes `status` to `GET /api/sources/{sourceId}/runs`.
+- [x] Run detail Sheet: identifiers, start, end, duration, counters, errors. The inline list-detail pane is gone; the Sheet returns focus to the row that opened it.
 - [ ] Settings tab: access, groups, schedule, pause switch, AlertDialog confirmations.
 - [ ] Credentials card: reconnect and replace-OAuth-app flows.
 
