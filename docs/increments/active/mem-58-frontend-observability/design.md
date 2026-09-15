@@ -17,17 +17,8 @@ must not affect React rendering or API behaviour.
 
 ## Local configuration
 
-Vite exposes only variables prefixed with `VITE_` to browser code:
-
-| Variable | Meaning | Secret |
-| --- | --- | --- |
-| `VITE_MEMORYOS_SENTRY_DSN` | Browser event-ingestion address | No; it is shipped to the browser |
-| `VITE_MEMORYOS_SENTRY_ENVIRONMENT` | `local`, `staging`, or `production` | No |
-| `VITE_MEMORYOS_RELEASE` | Release identity, eventually the Git SHA | No |
-
-`web/.env.local` is ignored and is for local Vite only. A staging image is a
-static Vite bundle, so it cannot consume `VITE_*` values after it has been
-built. The web Nginx entrypoint writes a non-cacheable `/runtime-config.js`
+Browser Sentry settings are runtime-only; the bundle reads no `VITE_*` values,
+so one immutable image serves every environment. The web Nginx entrypoint writes a non-cacheable `/runtime-config.js`
 under its existing `/tmp` mount from `MEMORYOS_SENTRY_DSN`,
 `MEMORYOS_SENTRY_ENVIRONMENT`, and the existing `MEMORYOS_RELEASE`. The static
 image accepts `MEMORYOS_SENTRY_REPLAY_ENABLED`. It is enabled for local,

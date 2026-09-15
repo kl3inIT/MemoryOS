@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class OpenAiChatProviderConfigurationTest {
     private final OpenAiChatProviderConfiguration configuration = new OpenAiChatProviderConfiguration();
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofSeconds(30),
-            6, 1024, 32000, 10000, Integer.MAX_VALUE, Double.MAX_VALUE);
+            6, 1024, 32000, 10000, null, null);
 
     @ParameterizedTest
     @ValueSource(strings = {"ftp://api.example.test/v1", "/v1",

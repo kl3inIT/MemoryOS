@@ -82,7 +82,7 @@ Acceptance concerns complete administration, defaults, native text streaming, to
 
 Keep the existing hosted deployment bootstrap and Tenant default unchanged. Create SmolLM2 as a separate manager-only provider/model through normal catalog writes and encrypted BYOK, then select it as the builtin Persona default for manager acceptance. The current deployment importer adds input and output limits and initializes a public provider/Tenant default; redirecting it to the 1,024/128 local model would misstate its limit and bypass the approved Access boundary. The literal `deployment` credential reference is not a general-purpose secret-reference registry.
 
-Unknown local pricing remains `null`. Use the existing unlimited-USD sentinel, `MEMORYOS_CHAT_COST_BUDGET_USD=1.7976931348623157E308`, while retaining finite token/output/deadline/concurrency limits. Zero or infinity is invalid execution configuration; zero model prices would falsely assert known free usage. A finite USD budget requires genuine prices and otherwise rejects both send and Validate. This is an existing configuration policy, not a new local-only runtime mode.
+Unknown local pricing remains `null`. Leave the Chat cost budget unset, which means no monetary cap, while retaining finite token/output/deadline/concurrency limits. A configured cost budget must be finite and positive; zero model prices would falsely assert known free usage. A finite USD budget requires genuine prices and otherwise rejects both send and Validate. This is an existing configuration policy, not a new local-only runtime mode.
 
 ### Phase 1 candidate record
 
