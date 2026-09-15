@@ -26,6 +26,8 @@
   - Execution containers sleep for the timeout in seconds, not milliseconds.
   - Docker CLI calls that start containers or stage files have a timeout; a failed snapshot is logged.
 - MemoryOS addition: `MAX_CONCURRENT_EXECUTIONS` (default 4, 0 disables it) limits concurrent `/v1/execute` and `/v1/execute/stream` runs and answers further requests with HTTP 429 and `Retry-After`. Upstream has no limit.
+- MemoryOS addition: every `/v1` route requires `X-Api-Key` when `API_KEY_FILE` or `API_KEY` is set; `/health` stays open.
+- MemoryOS addition: a loop removes uploaded and generated files older than `FILE_TTL_SEC`; upstream defines the expiry but never runs it.
 - Upstream repository files that do not apply here were not copied: `.github/`, `.pre-commit-config.yaml`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md` and the README screenshot.
 
 ## Porting upstream fixes

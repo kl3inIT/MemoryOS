@@ -49,11 +49,41 @@ Design: [design.md](design.md).
 
 ## Phase 3 — Java integration
 
-- [ ] HTTP client with explicit timeouts, following existing JDK `HttpClient`/`RestClient` usage.
-- [ ] `run_python` tool registered in `ChatModelExecutor` like `GenerateImageTool`: deadline, cancellation, per-turn call limit and output token budget.
-- [ ] Stage authorized chat files with the Onyx limits and staging notice.
-- [ ] Store generated files per Tenant/message in object storage and serve them through an authorized API.
-- [ ] Admin enable/disable and health; the tool is offered only when configured, enabled and healthy.
+Decisions are in [design.md](design.md#integration-with-memoryos).
+
+- [ ] **Service.**
+  - `X-Api-Key` on every `/v1` route, read from `API_KEY_FILE` or `API_KEY`. With neither set, routes stay open and startup logs a warning.
+  - A loop removes expired uploaded files (`FILE_TTL_SEC`, 900 on staging).
+- [ ] **Runtime.**
+  - One host key file, mounted as the Compose secret `interpreter_api_key`, for the interpreter and the API.
+  - The API launcher reads `MEMORYOS_INTERPRETER_API_KEY_FILE`.
+  - `deploy-staging.sh` refuses to reserve when a Compose secret file is missing.
+  - Runbook step to create the key.
+- [ ] **Client.** Apache HttpClient like `ImageHttp`:
+  - health, cached for 30 seconds;
+  - streamed multipart upload;
+  - batch execute;
+  - capped download;
+  - delete.
+- [ ] **Administration.**
+  - `chat_interpreter_setting`; no row means disabled.
+  - `/api/chat/interpreter` `GET`, `PUT` and `/health`, with `MODELS_MANAGE`.
+  - An administration page.
+- [ ] **Tool.** `run_python` is registered when tool calling, configured, enabled and healthy. It uses:
+  - the Onyx staging order, caps, notice and name sanitizing;
+  - an upload cache keyed by name and stored SHA-256;
+  - batch execution capped by the turn deadline;
+  - the Onyx result JSON with a relative `file_link`, followed by `FILE_REMINDER` when files were generated.
+- [ ] **Generated files.**
+  - `chat_file_artifact` (V63), staged then adopted, at most 25 MiB each.
+  - Served at `/api/chat/file-artifacts/{id}/content`.
+  - Deleted from the service after download.
+- [ ] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
+- [ ] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
+- [ ] **Staging acceptance.**
+  - The key file exists before merge.
+  - An administrator enables the interpreter.
+  - A Vietnamese prompt produces a downloadable xlsx and a chart.
 
 ## Phase 4 — browser and authorization
 

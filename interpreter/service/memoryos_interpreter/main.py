@@ -9,23 +9,27 @@ from importlib.metadata import version as _package_version
 from shutil import which
 from typing import Final
 
-from fastapi import FastAPI, Response, status
+from fastapi import Depends, FastAPI, Response, status
 
+from memoryos_interpreter.api.routes import get_file_storage
 from memoryos_interpreter.api.routes import router as api_router
 from memoryos_interpreter.app_configs import (
     EXECUTOR_BACKEND,
+    FILE_TTL_SEC,
     HOST,
     PORT,
     PYTHON_EXECUTOR_DOCKER_BIN,
     PYTHON_EXECUTOR_DOCKER_IMAGE,
     PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC,
 )
+from memoryos_interpreter.auth import configured_api_key, require_api_key
 from memoryos_interpreter.image_ref import normalize_image_ref
 from memoryos_interpreter.logging_config import setup_logging
 from memoryos_interpreter.models.schemas import HealthResponse
 from memoryos_interpreter.services.executor_factory import get_executor
 
 SESSION_REAPER_INTERVAL_SEC = 30
+FILE_CLEANUP_INTERVAL_SEC = 60
 
 # Configure logging
 setup_logging()
@@ -114,6 +118,27 @@ async def _session_reaper_loop() -> None:
         await _reap_expired_sessions_once()
 
 
+def _cleanup_expired_files_once(max_age_sec: int = FILE_TTL_SEC) -> None:
+    """MemoryOS addition: remove uploaded and generated files older than ``FILE_TTL_SEC``.
+
+    Upstream defines the expiry but never runs it, so files would fill the storage directory.
+    """
+    try:
+        count = get_file_storage().cleanup_expired_files(max_age_sec)
+    except Exception:
+        logger.warning("File cleanup pass failed", exc_info=True)
+        return
+    if count > 0:
+        logger.info("Removed %d expired file(s)", count)
+
+
+async def _file_cleanup_loop() -> None:
+    """Periodically remove expired files."""
+    while True:
+        await asyncio.sleep(FILE_CLEANUP_INTERVAL_SEC)
+        await asyncio.to_thread(_cleanup_expired_files_once)
+
+
 def _restore_docker_image_if_missing() -> None:
     """Re-pull the executor image if the host has removed it since startup.
 
@@ -164,6 +189,12 @@ async def _image_watchdog_loop(interval_sec: int) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events."""
+    # Reads the key file now, so a missing or empty key file fails startup.
+    if configured_api_key() is None:
+        logger.warning(
+            "No API_KEY_FILE or API_KEY is set; /v1 routes accept unauthenticated requests"
+        )
+
     # Startup: Ensure Docker executor image is available before accepting requests
     if EXECUTOR_BACKEND == "docker":
         logger.info("Ensuring Docker executor image is available...")
@@ -172,7 +203,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Reap any sessions whose TTL elapsed while the service was down.
     await _reap_expired_sessions_once()
-    background_tasks: list[asyncio.Task[None]] = [asyncio.create_task(_session_reaper_loop())]
+    background_tasks: list[asyncio.Task[None]] = [
+        asyncio.create_task(_session_reaper_loop()),
+        asyncio.create_task(_file_cleanup_loop()),
+    ]
 
     # Keep the executor image present for the lifetime of the service; see
     # _image_watchdog_loop. Interval 0 disables it (e.g. air-gapped hosts).
@@ -219,7 +253,7 @@ def create_app() -> FastAPI:
             version=SERVICE_VERSION,
         )
 
-    app.include_router(api_router, prefix="/v1")
+    app.include_router(api_router, prefix="/v1", dependencies=[Depends(require_api_key)])
     return app
 
 
