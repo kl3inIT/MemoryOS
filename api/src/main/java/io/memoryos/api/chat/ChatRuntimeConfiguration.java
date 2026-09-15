@@ -24,7 +24,8 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class})
+@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class,
+        io.memoryos.chat.research.ResearchProperties.class})
 @EnableScheduling
 class ChatRuntimeConfiguration {
     @Bean

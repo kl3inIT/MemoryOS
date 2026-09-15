@@ -12,8 +12,8 @@
 - [x] Migrations, first part (V65, 2026-09-15): `deep_research` command identity with replay conflict and the tenant `chat_settings` row.
 - [ ] Migrations with their writers: `chat_message.is_clarification` and plan text (orchestrator step), `chat_tool_call` tree with bounds (research persistence step).
 - [ ] Administrator switch (enabled when unset) in Chat administration under model-management authority, member availability read, server rejection of research commands while disabled. Backend done (2026-09-15: `GET/PUT /api/chat/settings`, `CHAT_RESEARCH_UNAVAILABLE`); administration UI and error message remain.
-- [ ] `memoryos.chat.research.*` properties for the Onyx phase limits (force-report times, agent timeout, token limits, cycles, agents, minimum context).
-- [ ] Port prompts verbatim with the MIT notice; reasoning variants by `Capabilities.reasoning`.
+- [x] `memoryos.chat.research.*` properties for the Onyx phase limits (force-report times, agent timeout, token limits, cycles, agents, minimum context) (2026-09-15: `ResearchProperties`).
+- [x] Port prompts verbatim with the MIT notice; reasoning variants by `Capabilities.reasoning` (2026-09-15: `ResearchPrompts`; all 21 constants byte-identical to the evaluated Onyx strings by a scripted comparison).
 - [ ] Orchestrator phases: clarification (skip after clarification), streamed plan, cycles with required tools and per-cycle prompt, forced report at 30 min or last cycle, synthetic failure responses, final report ≤20k.
 - [ ] Research agents: task-only history, `search_files`/`read_file` plus attached file names and IDs when the turn has attachments (file names also in the orchestrator prompt), cycles and reminders, force report at 12 min, 30 min timeout, intermediate report ≤10k; fan-out ≤3 through `SearchTasks` with Stop and cancellation.
 - [ ] Citations: per-agent evidence, merge by source key and marker renumbering, cited-only sources for the final report, no count cap (Chat-wide citation step).
