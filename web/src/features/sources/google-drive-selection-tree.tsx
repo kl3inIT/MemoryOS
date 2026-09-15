@@ -1,5 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { statusLabel } from "@/i18n/status-copy";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -261,7 +260,9 @@ export function GoogleDriveSelectionRow({
   );
   const statusChip =
     item.status !== "AVAILABLE" ? (
-      <StatusBadge tone="warning">{ui(statusLabel(item.status))}</StatusBadge>
+      <StatusBadge tone="warning">
+        {item.status === "UNSUPPORTED" ? ui("Unsupported") : ui("Unavailable")}
+      </StatusBadge>
     ) : item.coveredByRoots ? (
       showScopeBadge ? (
         <StatusBadge tone="neutral">{ui("In scope")}</StatusBadge>

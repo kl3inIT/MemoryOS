@@ -1063,6 +1063,7 @@ Object.assign(englishUi, {
   "Edit interval": "Sửa chu kỳ",
   Edit: "Chỉnh sửa",
   "Sync every": "Đồng bộ mỗi",
+  Unsupported: "Không hỗ trợ",
   Connection: "Kết nối",
   "Connection path": "Đường kết nối",
   "Enter a whole number from 1 to {{v1}}.": "Nhập số nguyên từ 1 đến {{v1}}.",
