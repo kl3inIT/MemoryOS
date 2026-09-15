@@ -3,7 +3,7 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { DatabaseZap, FileText, LoaderCircle, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { DatabaseZap, FileText, LoaderCircle, Upload, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import {
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { Progress } from "@/components/ui/progress";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
@@ -59,6 +60,7 @@ import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
 import { SourceActionsMenu } from "./source-actions-menu";
+import { SourceFileActions } from "./source-file-actions";
 import { type SourceMetadataField, SourceMetadataDialog } from "./source-metadata-dialog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 import { type SourceSection, SourceSectionTabs } from "./source-section-tabs";
@@ -736,13 +738,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           role="region"
           aria-label={ui("Source files table")}
         >
-          <Table className="w-full min-w-[48rem] table-fixed text-left text-sm">
+          <Table className="w-full min-w-[42rem] table-fixed text-left text-sm">
             <colgroup>
               <col />
               <col className="w-24" />
               <col className="w-36" />
               <col className="w-36" />
-              <col className="w-44" />
+              <col className="w-24" />
             </colgroup>
             <TableHeader className="border-b border-border-subtle bg-surface-sunken text-content-muted">
               <TableRow>
@@ -789,56 +791,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
                   </TableCell>
-                  <TableCell className="px-4 py-4">
-                    <div className="flex justify-end gap-1">
-                      {canReindex ? (
-                        <Button
-                          prominence="tertiary"
-                          size="sm"
-                          pending={reindexingItems.includes(item.id)}
-                          disabled={
-                            itemBusy ||
-                            removingItems.includes(item.id) ||
-                            item.status === "DELETING" ||
-                            detail.status === "DELETING"
-                          }
-                          onClick={() => void reindex(item)}
-                        >
-                          <RefreshCw /> {ui("Reindex")}
-                        </Button>
-                      ) : null}
-                      {canRemoveItems ? (
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              tone="danger"
-                              prominence="tertiary"
-                              size="sm"
-                              pending={removingItems.includes(item.id)}
-                              disabled={
-                                itemBusy ||
-                                reindexingItems.includes(item.id) ||
-                                item.status === "DELETING" ||
-                                detail.status === "DELETING"
-                              }
-                            >
-                              <Trash2 /> {ui("Remove")}
-                            </Button>
-                          }
-                          title={ui("Remove {{v1}}?", {
-                            v1: item.filename ?? ui("uploaded file"),
-                          })}
-                          description={ui(
-                            "Removing “{{v1}}” makes its indexed document unavailable. Cleanup continues asynchronously.",
-                            { v1: item.filename ?? ui("this file") },
-                          )}
-                          confirmLabel={ui("Remove file")}
-                          pendingLabel={ui("Removing file")}
-                          onConfirm={() => removeSelectedItem(item)}
-                          errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
-                        />
-                      ) : null}
-                    </div>
+                  <TableCell className="px-4 py-4 text-right">
+                    <SourceFileActions
+                      filename={item.filename}
+                      pending={reindexingItems.includes(item.id) || removingItems.includes(item.id)}
+                      disabled={
+                        itemBusy || item.status === "DELETING" || detail.status === "DELETING"
+                      }
+                      onReindex={canReindex ? () => void reindex(item) : undefined}
+                      onRemove={canRemoveItems ? () => removeSelectedItem(item) : undefined}
+                      removeError={(cause) => sourceMutationError(cause, "remove-item")}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -1170,19 +1133,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                             {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
                           </div>
                           {uploadPhase === "uploading" ? (
-                            <div
-                              role="progressbar"
+                            <Progress
+                              value={uploadProgress}
                               aria-label={ui("Direct upload progress")}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-valuenow={uploadProgress}
-                              className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
-                            >
-                              <div
-                                className="h-full rounded-full bg-content-primary transition-[width] duration-150"
-                                style={{ width: `${uploadProgress}%` }}
-                              />
-                            </div>
+                              className="mt-2"
+                            />
                           ) : null}
                         </div>
                       ) : null}

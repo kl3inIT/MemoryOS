@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 import type { SourceIndexAttempt, SourceOperation } from "../../src/lib/hey-api/types.gen";
 
 async function sourcePage(
@@ -267,7 +267,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
   const release = server.holdNextOperation();
-  await row("File-1.txt").getByRole("button", { name: "Reindex" }).click();
+  await chooseFileAction(page, row("File-1.txt"), "Reindex");
   await expect.poll(() => server.operations.length).toBe(1);
   await files.getByRole("button", { name: "Next files" }).focus();
   await page.keyboard.press("Enter");
@@ -276,16 +276,16 @@ test("Files paging preserves concurrent item operations and uploads return to th
   await expect(row("File-1.txt")).toHaveCount(0);
   await expect(files.getByRole("row")).toHaveCount(26);
   const laterCursor = server.itemPageReads.at(-1);
-  await row("File-26.txt").getByRole("button", { name: "Reindex" }).click();
+  await chooseFileAction(page, row("File-26.txt"), "Reindex");
   await expect.poll(() => server.operations.length).toBe(2);
   release();
   await expect(page.getByRole("listitem", { name: "Reindex requested", exact: true })).toHaveCount(
     2,
   );
   await files.getByRole("button", { name: "Previous files" }).click();
-  await expect(row("File-1.txt").getByRole("button", { name: "Reindex" })).toBeDisabled();
+  await expect(fileActions(row("File-1.txt"))).toBeDisabled();
   await files.getByRole("button", { name: "Next files" }).click();
-  await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeDisabled();
+  await expect(fileActions(row("File-26.txt"))).toBeDisabled();
   server.itemPageReads.length = 0;
   server.operations[0]!.status = "SUCCEEDED";
   await expect(page.getByRole("listitem", { name: "Reindex complete", exact: true })).toContainText(
@@ -379,7 +379,7 @@ test("Files paging preserves concurrent item operations and uploads return to th
     "File-26.txt",
   );
   await files.getByRole("button", { name: "Next files" }).click();
-  await expect(row("File-26.txt").getByRole("button", { name: "Reindex" })).toBeEnabled();
+  await expect(fileActions(row("File-26.txt"))).toBeEnabled();
   await expect(row(uploaded.filename)).toHaveCount(0);
   await files.getByRole("combobox", { name: "Files per page" }).click();
   await page.getByRole("option", { name: "10", exact: true }).click();
@@ -474,22 +474,17 @@ test("reindex reports each requested operation rather than aggregate source stat
   page,
 }, testInfo) => {
   const server = await sourcePage(page);
-  const first = page
-    .getByRole("row")
-    .filter({ hasText: "First.txt" })
-    .getByRole("button", { name: "Reindex" });
-  const second = page
-    .getByRole("row")
-    .filter({ hasText: "Second.txt" })
-    .getByRole("button", { name: "Reindex" });
-  await first.click();
+  const firstRow = page.getByRole("row").filter({ hasText: "First.txt" });
+  const secondRow = page.getByRole("row").filter({ hasText: "Second.txt" });
+  const first = fileActions(firstRow);
+  await chooseFileAction(page, firstRow, "Reindex");
   const requested = page.getByRole("listitem", { name: "Reindex requested", exact: true });
   await expect(requested).toContainText("First.txt");
   await expect(first).toBeDisabled();
   await expect(page.getByRole("listitem", { name: "Reindex complete", exact: true })).toHaveCount(
     0,
   );
-  await second.click();
+  await chooseFileAction(page, secondRow, "Reindex");
   await expect(requested).toHaveCount(2);
   server.operations[0]!.status = "FAILED";
   server.operations[0]!.errorCode = "SOURCE_INDEX_FAILED";
@@ -507,7 +502,7 @@ test("reindex reports each requested operation rather than aggregate source stat
     0,
   );
   await expect(first).toBeEnabled();
-  await first.click();
+  await chooseFileAction(page, firstRow, "Reindex");
   await expect.poll(() => server.operations.length).toBe(3);
   server.operations[2]!.status = "SUCCEEDED";
   const completed = page.getByRole("listitem", { name: "Reindex complete", exact: true });
@@ -528,12 +523,9 @@ test("reindex distinguishes rejected requests from unavailable processing status
   page,
 }) => {
   const server = await sourcePage(page);
-  const reindex = page
-    .getByRole("row")
-    .filter({ hasText: "First.txt" })
-    .getByRole("button", { name: "Reindex" });
+  const reindexRow = page.getByRole("row").filter({ hasText: "First.txt" });
   server.rejectRequest = true;
-  await reindex.click();
+  await chooseFileAction(page, reindexRow, "Reindex");
   await expect(
     page.getByRole("listitem", { name: "Reindex could not start", exact: true }),
   ).toBeVisible();
@@ -542,7 +534,7 @@ test("reindex distinguishes rejected requests from unavailable processing status
   );
   server.rejectRequest = false;
   server.unavailableStatus = true;
-  await reindex.click();
+  await chooseFileAction(page, reindexRow, "Reindex");
   await expect(
     page.getByRole("listitem", { name: "Reindex status unavailable", exact: true }),
   ).toBeVisible();
@@ -550,7 +542,7 @@ test("reindex distinguishes rejected requests from unavailable processing status
   await expect(page.getByRole("listitem", { name: "Reindex complete", exact: true })).toHaveCount(
     0,
   );
-  await expect(reindex).toBeEnabled();
+  await expect(fileActions(reindexRow)).toBeEnabled();
 });
 
 test("synchronization completion does not claim that indexing has finished", async ({
@@ -594,7 +586,7 @@ test("removal keeps concurrent item outcomes separate and prevents duplicate sub
   const firstRow = page.getByRole("row").filter({ hasText: "First.txt" });
   const secondRow = page.getByRole("row").filter({ hasText: "Second.txt" });
   const release = server.holdNextOperation();
-  await firstRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await chooseFileAction(page, firstRow, "Remove");
   const confirmation = page.getByRole("alertdialog");
   await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
   await confirmation.getByRole("button", { name: "Remove file", exact: true }).dblclick();
@@ -604,9 +596,8 @@ test("removal keeps concurrent item outcomes separate and prevents duplicate sub
   await expect(confirmation).toHaveCount(0);
   const requested = page.getByRole("listitem", { name: "Removal requested", exact: true });
   await expect(requested).toContainText("First.txt");
-  await expect(firstRow.getByRole("button", { name: "Remove", exact: true })).toBeDisabled();
-  await expect(firstRow.getByRole("button", { name: "Reindex" })).toBeDisabled();
-  await secondRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(fileActions(firstRow)).toBeDisabled();
+  await chooseFileAction(page, secondRow, "Remove");
   await confirmation.getByRole("button", { name: "Remove file", exact: true }).click();
   await expect(confirmation).toHaveCount(0);
   await expect(requested).toHaveCount(2);
@@ -620,8 +611,8 @@ test("removal keeps concurrent item outcomes separate and prevents duplicate sub
   await expect(
     page.getByRole("listitem", { name: "Removal superseded", exact: true }),
   ).toContainText("Second.txt");
-  await expect(firstRow.getByRole("button", { name: "Remove", exact: true })).toBeEnabled();
-  await firstRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(fileActions(firstRow)).toBeEnabled();
+  await chooseFileAction(page, firstRow, "Remove");
   await confirmation.getByRole("button", { name: "Remove file", exact: true }).click();
   await expect.poll(() => server.operations.length).toBe(3);
   server.operations[2]!.status = "SUCCEEDED";
@@ -638,7 +629,7 @@ test("removal distinguishes rejection from unobservable cleanup without false co
   const server = await sourcePage(page);
   const row = page.getByRole("row").filter({ hasText: "First.txt" });
   server.rejectRequest = true;
-  await row.getByRole("button", { name: "Remove", exact: true }).click();
+  await chooseFileAction(page, row, "Remove");
   const dialog = page.getByRole("alertdialog");
   await dialog.getByRole("button", { name: "Remove file", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
@@ -654,7 +645,7 @@ test("removal distinguishes rejection from unobservable cleanup without false co
   ).toContainText("First.txt");
   await expect(page.getByRole("listitem", { name: "Removal failed", exact: true })).toHaveCount(0);
   await expect(page.getByRole("listitem", { name: "File removed", exact: true })).toHaveCount(0);
-  await expect(row.getByRole("button", { name: "Remove", exact: true })).toBeEnabled();
+  await expect(fileActions(row)).toBeEnabled();
 });
 
 test("only successful deletion navigates and its terminal notice expires on the destination", async ({
@@ -670,9 +661,7 @@ test("only successful deletion navigates and its terminal notice expires on the 
     page.getByRole("listitem", { name: "Source deletion requested", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Source actions" })).toBeDisabled();
-  await expect(
-    page.getByRole("row").filter({ hasText: "First.txt" }).getByRole("button", { name: "Reindex" }),
-  ).toBeDisabled();
+  await expect(fileActions(page.getByRole("row").filter({ hasText: "First.txt" }))).toBeDisabled();
   await expect(page).toHaveURL(/\/admin\/sources\//);
   server.operations[0]!.status = "FAILED";
   server.operations[0]!.errorCode = "SOURCE_CLEANUP_INTERNAL";
@@ -758,20 +747,12 @@ test("leaving a Source cancels all item observers and clears notices before anot
 }) => {
   const server = await sourcePage(page);
   await page.clock.install();
-  await page
-    .getByRole("row")
-    .filter({ hasText: "First.txt" })
-    .getByRole("button", { name: "Remove", exact: true })
-    .click();
+  await chooseFileAction(page, page.getByRole("row").filter({ hasText: "First.txt" }), "Remove");
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Remove file", exact: true })
     .click();
-  await page
-    .getByRole("row")
-    .filter({ hasText: "Second.txt" })
-    .getByRole("button", { name: "Reindex" })
-    .click();
+  await chooseFileAction(page, page.getByRole("row").filter({ hasText: "Second.txt" }), "Reindex");
   await expect(
     page.getByRole("listitem", { name: "Removal requested", exact: true }),
   ).toBeVisible();
@@ -970,5 +951,14 @@ test("cancelling an in-flight finalization retry keeps recovery and ignores the 
 
 async function openSourceAction(page: Page, action: string) {
   await page.getByRole("button", { name: "Source actions" }).click();
+  await page.getByRole("menuitem", { name: action, exact: true }).click();
+}
+
+function fileActions(row: Locator) {
+  return row.getByRole("button", { name: /^Actions for / });
+}
+
+async function chooseFileAction(page: Page, row: Locator, action: "Reindex" | "Remove") {
+  await fileActions(row).click();
   await page.getByRole("menuitem", { name: action, exact: true }).click();
 }
