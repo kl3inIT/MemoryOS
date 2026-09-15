@@ -3,8 +3,8 @@
 Tracking: [MEM-91](https://linear.app/memory-os/issue/MEM-91). Tham chiếu hành vi Onyx: [onyx-voice-reference.md](onyx-voice-reference.md). Kế hoạch: [plan.md](plan.md). Liên quan: [MEM-77 catalog](../mem-77-provider-backend/design.md), [MEM-97 image connection](../../completed/mem-97-chat-image-generation/design.md), [Chat Web search](../chat-web-search/design.md).
 
 Trạng thái: **đang triển khai** (15/09/2026).
-- **Đã có code và test:** giai đoạn 1–4 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; đọc thành tiếng và tốc độ đọc; Auto-Playback và auto-listen.
-- **Chưa làm:** chữ chạy theo tiếng, ElevenLabs/Azure, OpenAI Realtime.
+- **Đã có code và test:** giai đoạn 1–4 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; đọc thành tiếng và tốc độ đọc; Auto-Playback và auto-listen; ElevenLabs và Azure AI Speech qua REST.
+- **Chưa làm:** chữ chạy theo tiếng, ElevenLabs realtime (Scribe realtime, `stream-input`), OpenAI Realtime.
 - **Tiến độ chi tiết:** xem [plan.md](plan.md). Tham chiếu giao diện Mobbin: [ui-references.md](ui-references.md).
 
 **Baseline: Onyx Voice (`06aa2b0`).** Người thực hiện chọn hướng này ngày 15/09/2026: làm một tính năng giống Voice của Onyx. Bản này thay bản đề xuất trước cùng ngày. Các ý sau đã bị bỏ để theo Onyx:
@@ -104,7 +104,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 | `stt_active`, `tts_active` | `is_default_stt/tts` | Partial unique index theo Tenant; CHECK active phải có model (TTS có cả giọng) |
 | `revision` | — | JPA `@Version`, chống ghi đè [MEM-91] |
 
-- Cấu hình riêng của Azure (`speech_region`, `stt_languages`) được thêm bằng migration khi adapter Azure hoàn thành; hiện chưa khai báo trước.
+- Azure dùng endpoint của tài nguyên Speech (Target URI) nên không cần cột region. Nhận dạng theo ngôn ngữ giao diện nên không lưu Spoken Languages. Model hiển thị `default` (STT) và `neural` (TTS) như Onyx.
 
 **`chat_voice_settings`** — V64, JDBC `JdbcVoiceSettingsRepository`:
 - **Cột:** `tenant_id`, `actor_id` (khóa ngoại tới `tenant_memberships`), `auto_send` (false), `auto_playback` (false), `playback_speed` (1.0, CHECK 0.5–2.0).
@@ -328,8 +328,8 @@ Hiện có (`voice-settings-section.tsx`):
 | --- | --- | --- | --- | --- |
 | OpenAI | Spring AI transcription (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) — **đã có** | Realtime GA, server VAD — chờ spike | Spring AI speech (tts-1, tts-1-hd; alloy…) | `GET {base}/models` — **đã có** |
 | OpenAI-compatible [MEM-91] | Spring AI với `baseUrl` — **đã có** | Không, dùng chunked | Spring AI speech | `GET {base}/models` — **đã có** |
-| ElevenLabs | REST Scribe (WAV) | Scribe realtime; ngôn ngữ theo UI; final cộng dồn [Sửa lỗi] | REST stream + `stream-input` | `/v1/models` |
-| Azure | REST short-audio | Theo Q1 | REST SSML | `voices/list` |
+| ElevenLabs | REST Scribe (WAV, `language_code` theo UI) — **đã có** | Scribe realtime — chưa làm | REST stream, `voice_settings.speed` 0,7–1,2 — **đã có**; `stream-input` chưa làm | `GET /v1/models` với `xi-api-key` — **đã có** |
+| Azure | REST short-audio (16 kHz, phần ≤ 55 s, `vi-VN`/`en-US`) — **đã có** | Không (Q1) | REST SSML có escape, MP3 24 kHz — **đã có** | `GET /tts/cognitiveservices/voices/list` — **đã có** |
 
 Kiểm credential đòi phản hồi 2xx có mảng `data`, không theo redirect và không đọc body lỗi.
 

@@ -187,10 +187,31 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ## Giai đoạn 5 — ElevenLabs và Azure (PR D)
 
-- [ ] Migration nới CHECK provider cho từng adapter hoàn thành.
-- [ ] **ElevenLabs:** kiểm credential, Scribe REST, Scribe realtime (final cộng dồn, ngôn ngữ theo UI), TTS REST và `stream-input`.
-- [ ] **Azure (REST):** Target URI và region, Spoken Languages, `voices/list`, STT short-audio, TTS SSML có escape; cột cấu hình riêng.
-- [ ] **Test:** fixture loopback cho từng adapter; UI admin theo provider.
+- [x] CHECK provider trong `V63__chat_voice_connections.sql` nhận `ELEVENLABS` và `AZURE`. Migration chưa lên `main` nên sửa tại chỗ, không thêm migration mới.
+- [x] **ElevenLabs** (`core:chat/voice/ElevenLabsVoice.java`):
+  - kiểm credential `GET {base}/models` với `xi-api-key`; phản hồi phải là mảng JSON;
+  - Scribe REST `POST /speech-to-text` multipart (`model_id`, `language_code` vi/en, `file` WAV);
+  - TTS `POST /text-to-speech/{voice_id}/stream?output_format=mp3_44100_128`, tốc độ kẹp trong 0,7–1,2.
+- [ ] ElevenLabs Scribe realtime và `stream-input`: chưa làm. ElevenLabs dùng đường chunked và đọc từng đoạn qua REST như OpenAI.
+- [x] **Azure AI Speech REST** (`core:chat/voice/AzureSpeech.java`):
+  - endpoint là địa chỉ tài nguyên Speech (Target URI), nên không cần cột region riêng;
+  - kiểm credential `GET /tts/cognitiveservices/voices/list` với `Ocp-Apim-Subscription-Key`, chỉ đọc phần đầu danh sách;
+  - STT short-audio: resample 24 → 16 kHz, gửi theo phần tối đa 55 giây, ngôn ngữ `vi-VN`/`en-US` theo giao diện; `NoMatch` và im lặng trả văn bản rỗng;
+  - TTS: SSML đã escape, locale lấy từ tên giọng, `prosody rate` theo tốc độ, MP3 `audio-24khz-48kbitrate-mono-mp3`.
+- [ ] Spoken Languages nhiều ngôn ngữ của Azure: không làm; MemoryOS nhận dạng theo ngôn ngữ giao diện (vi/en).
+- [x] `core:chat/voice/HttpAudioStream.java` dùng chung cho TTS REST: một request mỗi đoạn, không đọc body lỗi, đóng stream thì đóng response.
+- [x] **Web:** thẻ và hộp thoại theo provider (tên, biểu tượng trung tính, mô tả; nhãn địa chỉ tài nguyên cho Azure; gợi ý Voice ID cho ElevenLabs).
+- [x] **Test:**
+  - `ElevenLabsVoiceTest` (3), `AzureSpeechTest` (3), `HttpAudioStreamTest` (2);
+  - `Pcm16Test` thêm resample; `VoiceProviderClientTest` thêm ElevenLabs và Azure;
+  - `VoiceTranscriptionServiceTest` thêm Azure qua service; `VoiceSynthesisServiceTest` thêm ElevenLabs qua service;
+  - `ChatSessionApiIntegrationTest` kiểm danh sách bốn provider.
+
+**Bằng chứng giai đoạn 5 (16/09/2026, sau khi merge `main` và đánh số lại migration V63/V64):**
+- Gradle `:core:test --tests io.memoryos.chat.voice.*`: 9 lớp, 37 ca đạt (`AzureSpeechTest` 3, `ElevenLabsVoiceTest` 3, `HttpAudioStreamTest` 2, `Pcm16Test` 5, `VoiceProviderClientTest` 7, `VoiceSynthesisServiceTest` 6, `VoiceTranscriptionServiceTest` 3, `ChunkedTranscriberTest` 4, `StreamingSynthesizerTest` 4).
+- Gradle `:api:test`: `ChatSessionApiIntegrationTest.voice*` 5 ca, `OpenApiContractTest` 1, `VoiceTicketStoreTest` 4, đều đạt. `openapi.yml` được tạo lại với hai giá trị provider mới; client hey-api được tạo lại.
+- Web: `tsc -b`, `oxlint`, `oxfmt`, `check:i18n` sạch; Vitest thư mục voice 12 file, 40 ca đạt.
+- Chưa kiểm với tài khoản ElevenLabs hay tài nguyên Azure thật; `gradlew clean check` toàn repo vẫn chưa chạy lại.
 
 ## Giai đoạn 6 — Nghiệm thu và đóng increment
 

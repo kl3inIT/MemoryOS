@@ -43,6 +43,7 @@ Design: [design.md](design.md). Nghiên cứu qua Mobbin MCP ngày 15/09/2026, n
 - **Dòng thay cho card hover.** Onyx chỉ hiện Edit/Disconnect khi hover. Các sản phẩm enterprise ở §1 để hành động luôn hiện, dùng được bằng bàn phím và màn hình cảm ứng. MemoryOS dùng một danh sách có viền cho mỗi chức năng; hành động là `Button` (Kết nối, Cấu hình, Đặt làm mặc định) và `IconButton` xóa mở `ConfirmDialog`.
 - **Trạng thái:** `StatusBadge` "Mặc định" (success), "Đã kết nối" (neutral), "Cần cấu hình thêm" (warning) khi dòng đã có khóa nhưng chưa có model hoặc giọng cho chức năng này.
 - **Kiểm tra kết nối** nằm trong hộp thoại, cạnh nút lưu (Braintrust), vì lưu đã kiểm key nháp với provider.
+- **Biểu tượng provider:** chỉ OpenAI có logo trong `public/provider-logos`. ElevenLabs (`AudioWaveform`), Azure AI Speech (`Cloud`) và OpenAI-compatible (`Server`) dùng icon Lucide trung tính, tránh nhúng logo thương hiệu chưa được kiểm tra nguồn.
 - **TTS theo provider, không theo model.** Onyx có hai card TTS-1 và TTS-1 HD. MemoryOS chọn model và giọng trong hộp thoại, giống Vapi; một dòng cho mỗi provider khớp với một dòng `chat_voice_connection`.
 - **Composer:** dải ghi âm dưới văn bản nháp gồm chấm đỏ, đồng hồ, 40 thanh mức âm lượng thật, nút tắt mic và nút dừng (✓). Placeholder đổi thành "Đang nghe…". Mic nằm cạnh Send như ChatGPT.
 - **Search:** mic chỉ hiện khi Tenant có STT; trạng thái bằng chữ dưới ô tìm kiếm như trước.
