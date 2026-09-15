@@ -3,7 +3,7 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { statusLabel } from "@/i18n/status-copy";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderTree, Pencil, Search, SearchX, SlidersHorizontal } from "lucide-react";
+import { FolderTree, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -17,7 +17,6 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
 import {
   getGoogleDriveConfigurationQueryKey,
-  getGoogleDriveSelectionDraftQueryKey,
   getGoogleDriveSelectionQueryKey,
   getGoogleDriveSelectionPolicyOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -76,7 +75,8 @@ export function GoogleDriveSelectionPanel({
     staleTime: 60_000,
   });
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [action, setAction] = useState<"load" | "save" | "discover" | null>(null);
+  const [savedLinks, setSavedLinks] = useState<GoogleDriveSelectionDraftResponse | null>(null);
+  const [action, setAction] = useState<"load" | "save" | "discover" | "links" | null>(null);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
@@ -114,22 +114,6 @@ export function GoogleDriveSelectionPanel({
     },
     retry: false,
     enabled: filtered,
-  });
-  const savedLinks = useQuery({
-    queryKey: [
-      ...getGoogleDriveSelectionDraftQueryKey({ path: { sourceId } }),
-      configuration.revision,
-    ],
-    queryFn: async ({ signal }) => {
-      const { data } = await getGoogleDriveSelectionDraft({
-        path: { sourceId },
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    retry: false,
-    enabled: configuration.scopeMode === "SPECIFIC" && !draft,
   });
   const tracking = useGoogleDriveSelectionOperation(
     sourceId,
@@ -231,6 +215,7 @@ export function GoogleDriveSelectionPanel({
     setProcessed(operation.id);
     if (operation.status === "SUCCEEDED") {
       setDraft(null);
+      setSavedLinks(null);
       setError(null);
       setRevisionConflict(false);
     } else {
@@ -647,90 +632,95 @@ export function GoogleDriveSelectionPanel({
           {ui("Retry selection policy")}
         </Button>
       ) : null}
+      {draft && !draft.editingRoots ? draftActions : null}
       {configuration.scopeMode === "SPECIFIC" ? (
-        <section
-          aria-label={ui("File and folder links")}
-          className="space-y-3 rounded-lg border border-border-subtle p-4"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-content-primary">
-              {ui("File and folder links")}
-            </h3>
-            {!draft?.editingRoots ? (
-              <IconButton
-                ref={editButton}
-                size="sm"
-                aria-label={pending ? ui("Edit replacement proposal") : ui("Edit selection")}
-                title={pending ? ui("Edit replacement proposal") : ui("Edit selection")}
-                disabled={disabled || busy || tracking.recovering || tracking.uncertain}
-                pending={action === "load"}
-                onClick={() => {
-                  if (draft) {
-                    selectionControl.current = null;
-                    setDraft({ ...draft, editingRoots: true });
-                  } else loadDraft();
-                }}
-              >
-                <Pencil />
-              </IconButton>
-            ) : null}
-          </div>
-          {draft ? (
-            <div
-              className="space-y-3 rounded-lg border border-border-default p-4"
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
-                  event.preventDefault();
-                  setDraft(null);
-                  setError(null);
-                }
-              }}
-            >
-              <GoogleDriveLinks
-                policy={policy.data}
-                scopeMode={configuration.scopeMode}
-                value={draft.links}
-                inputRef={input}
-                disabled={controlsDisabled || conflicted}
-                errorMessage=""
-                showLabel={false}
-                actions={draftActions}
-                onChange={(value) => {
-                  if (tracking.terminal) tracking.forget();
-                  setDraft({ ...draft, links: value });
-                  setError(null);
-                }}
-              />
+        <Collapsible className="text-sm">
+          <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
+            {ui("File and folder links")}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="flex flex-wrap items-start gap-2">
+              {!draft?.editingRoots ? (
+                <Button
+                  ref={editButton}
+                  prominence="secondary"
+                  disabled={disabled || busy || tracking.recovering || tracking.uncertain}
+                  pending={action === "load"}
+                  onClick={() => {
+                    if (draft) {
+                      selectionControl.current = null;
+                      setDraft({ ...draft, editingRoots: true });
+                    } else loadDraft();
+                  }}
+                >
+                  {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
+                </Button>
+              ) : null}
+              {draft?.editingRoots ? (
+                <div
+                  className="w-full space-y-3 rounded-lg border border-border-default p-4"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
+                      event.preventDefault();
+                      setDraft(null);
+                      setError(null);
+                    }
+                  }}
+                >
+                  <GoogleDriveLinks
+                    policy={policy.data}
+                    scopeMode={configuration.scopeMode}
+                    value={draft.links}
+                    inputRef={input}
+                    disabled={controlsDisabled || conflicted}
+                    errorMessage=""
+                    onChange={(value) => {
+                      if (tracking.terminal) tracking.forget();
+                      setDraft({ ...draft, links: value });
+                      setError(null);
+                    }}
+                  />
+                  {draftActions}
+                </div>
+              ) : null}
+              {!draft?.editingRoots ? (
+                <>
+                  {savedLinks && savedLinks.revision === configuration.revision ? (
+                    <div className="w-full">
+                      <GoogleDriveLinks
+                        policy={policy.data}
+                        scopeMode="SPECIFIC"
+                        value={savedLinks.links.join("\n")}
+                        disabled={false}
+                        readOnly
+                        onChange={() => {}}
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      prominence="secondary"
+                      pending={action === "links"}
+                      disabled={busy}
+                      onClick={() =>
+                        void perform("links", async (signal) => {
+                          const { data } = await getGoogleDriveSelectionDraft({
+                            path: { sourceId },
+                            signal,
+                            throwOnError: true,
+                          });
+                          signal.throwIfAborted();
+                          setSavedLinks(data);
+                        })
+                      }
+                    >
+                      {ui("Load saved links")}
+                    </Button>
+                  )}
+                </>
+              ) : null}
             </div>
-          ) : savedLinks.isPending ? (
-            <p role="status" className="text-sm text-content-muted">
-              {ui("Loading saved links…")}
-            </p>
-          ) : savedLinks.isError ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui(sourceMutationError(savedLinks.error, "google-drive"))}
-              </p>
-              <Button
-                prominence="secondary"
-                size="sm"
-                pending={savedLinks.isFetching}
-                onClick={() => void savedLinks.refetch()}
-              >
-                {ui("Retry")}
-              </Button>
-            </div>
-          ) : savedLinks.data ? (
-            <GoogleDriveLinks
-              policy={policy.data}
-              scopeMode="SPECIFIC"
-              value={savedLinks.data.links.join("\n")}
-              disabled={false}
-              readOnly
-              onChange={() => {}}
-            />
-          ) : null}
-        </section>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
       {configuration.scopeMode === "SPECIFIC" && configuration.discoveryErrors.length ? (
         <Collapsible className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">

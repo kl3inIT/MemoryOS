@@ -1172,7 +1172,7 @@ Object.assign(englishUi, {
   "File and folder links": "Liên kết tệp và thư mục",
   "Edit replacement proposal": "Sửa đề xuất thay thế",
   "Edit selection": "Sửa lựa chọn",
-  "Loading saved links…": "Đang tải liên kết đã lưu…",
+  "Load saved links": "Tải liên kết đã lưu",
   "Search scope": "Phạm vi tìm kiếm",
   "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.":
     "Tìm kiếm bao gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp bên trong thư mục đã chọn. Nội dung thư mục có thể tìm được sau khi nguồn đồng bộ.",
