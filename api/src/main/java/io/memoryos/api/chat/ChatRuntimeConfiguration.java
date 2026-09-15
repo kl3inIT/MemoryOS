@@ -54,8 +54,10 @@ class ChatRuntimeConfiguration {
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
                                         io.memoryos.chat.image.ImageArtifactService imageArtifacts,
-                                        io.memoryos.chat.research.ResearchProperties research) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, research);
+                                        io.memoryos.chat.research.ResearchProperties research,
+                                        io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts,
+                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations));
     }
 
     @Bean(destroyMethod = "dispose")

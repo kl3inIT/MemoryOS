@@ -160,6 +160,16 @@ Implementation decisions (2026-09-15):
 
 Spans per phase (`clarification_step`, `research_plan_step`, `research_execution_step`, `research_agent`, `generate_intermediate_report`, `generate_report`) and bounded metrics for cycles, agents, timeouts and forced reports. No question, task, plan or document content in telemetry.
 
+Implemented in `ResearchTelemetry`:
+
+| Signal | Kind | Labels (bounded vocabulary) | Semantics |
+| --- | --- | --- | --- |
+| `memoryos.chat.research.phase` | Observation span | `phase` (the six names above), `outcome` (`completed`, `failed`, `canceled`) | One span per phase run; agent spans are parented on the execution step explicitly because agents run on other threads. Errors carry the exception type only. |
+| `memoryos.chat.research.phase.duration` | Timer | `phase`, `outcome` | Monotonic time from phase start to return or throw; phases are never retried. |
+| `memoryos.chat.research.cycles` | Distribution summary | none | Orchestrator inferences run in one turn, recorded when the execution step ends, including on failure. |
+| `memoryos.chat.research.agents` | Counter | `outcome` (`completed`, `failed`, `timeout`) | Once per agent; a Stop counts nothing. |
+| `memoryos.chat.research.forced.reports` | Counter | `scope` (`orchestrator`, `agent`), `reason` (`time`, `cycles`) | A report forced by the elapsed-time bound or the last cycle. |
+
 ## Out of scope
 
 Survival across restart, tools other than internal search, Web/URL reading and attached-file reading (`run_python`, coding agent), user-provided prompts, plan approval or editing, report export, Project chats, multi-model research.

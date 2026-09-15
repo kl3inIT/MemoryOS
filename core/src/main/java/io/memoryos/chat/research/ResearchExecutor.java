@@ -2,6 +2,11 @@ package io.memoryos.chat.research;
 
 import static io.memoryos.chat.research.ResearchPrompts.*;
 
+import io.memoryos.chat.research.ResearchTelemetry.AgentOutcome;
+import io.memoryos.chat.research.ResearchTelemetry.Phase;
+import io.memoryos.chat.research.ResearchTelemetry.Reason;
+import io.memoryos.chat.research.ResearchTelemetry.Scope;
+
 import com.embabel.agent.api.tool.Tool;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
@@ -69,14 +74,20 @@ public final class ResearchExecutor {
     private static final String REMINDER_CLOSE = "</system-reminder>";
 
     private final ResearchProperties limits;
+    private final ResearchTelemetry telemetry;
     private final Supplier<ZonedDateTime> clock;
 
     public ResearchExecutor(ResearchProperties limits) {
-        this(limits, ZonedDateTime::now);
+        this(limits, ResearchTelemetry.NOOP);
     }
 
-    ResearchExecutor(ResearchProperties limits, Supplier<ZonedDateTime> clock) {
+    public ResearchExecutor(ResearchProperties limits, ResearchTelemetry telemetry) {
+        this(limits, telemetry, ZonedDateTime::now);
+    }
+
+    ResearchExecutor(ResearchProperties limits, ResearchTelemetry telemetry, Supplier<ZonedDateTime> clock) {
         this.limits = limits;
+        this.telemetry = telemetry;
         this.clock = clock;
     }
 
@@ -132,8 +143,15 @@ public final class ResearchExecutor {
             long started = System.nanoTime();
             var guard = guard(turn.setup().evidence(), turn.events(), limits.orchestratorCycles(reasoning) + 2, turn.checkActive());
             var history = new ArrayList<Message>(turn.conversation().stream().filter(message -> !(message instanceof SystemMessage)).toList());
-            if (!turn.setup().research().skipClarification() && clarify(guard, history)) return;
-            String plan = plan(guard, history);
+            if (!turn.setup().research().skipClarification()
+                    && telemetry.phase(Phase.CLARIFICATION_STEP, null, () -> clarify(guard, history))) return;
+            String plan = telemetry.phase(Phase.RESEARCH_PLAN_STEP, null, () -> plan(guard, history));
+            telemetry.phase(Phase.RESEARCH_EXECUTION_STEP, () -> execute(guard, history, plan, started));
+            telemetry.phase(Phase.GENERATE_REPORT, () -> finalReport(guard, history, plan));
+        }
+
+        /** The orchestrator cycles, until a report is called, forced, or no agent is requested. */
+        void execute(ChatModelGuard guard, List<Message> history, String plan, long started) {
             String template = reasoning ? ORCHESTRATOR_PROMPT_REASONING : ORCHESTRATOR_PROMPT;
             int maxCycles = limits.orchestratorCycles(reasoning);
             var tools = new ArrayList<Tool>(List.of(
@@ -142,47 +160,55 @@ public final class ResearchExecutor {
                     control(GENERATE_REPORT_TOOL_NAME, GENERATE_REPORT_TOOL_DESCRIPTION, Tool.InputSchema.empty())));
             if (!reasoning) tools.add(control(THINK_TOOL_NAME, THINK_TOOL_DESCRIPTION,
                     Tool.InputSchema.of(Tool.Parameter.string("reasoning", THINK_TOOL_REASONING_DESCRIPTION))));
-            for (int cycle = 0; cycle < maxCycles; cycle++) {
-                boolean timedOut = System.nanoTime() - started > limits.forceReportAfter().toNanos();
-                if (timedOut || cycle == maxCycles - 1) break;
-                var request = new ArrayList<Message>();
-                request.add(new SystemMessage(fill(template, Map.of("current_datetime", now(), "current_cycle_count", String.valueOf(cycle),
-                        "max_cycles", String.valueOf(maxCycles), "research_plan", plan,
-                        "internal_search_research_task_guidance", INTERNAL_SEARCH_RESEARCH_TASK_GUIDANCE)) + orchestratorFiles));
-                request.addAll(lastUsers(history));
-                // Onyx adds the reminder on its second orchestrator inference (cycle index 1), whatever its comment says.
-                if (cycle == 1) request.add(reminder(text(FIRST_CYCLE_REMINDER)));
-                var calls = toolCalls(infer(guard, limits.orchestratorMaxTokens(), true, turn.setup().binding().requiredTools(),
-                        request, tools, ignored -> {}, turn.checkActive()));
-                if (calls.isEmpty()) {
-                    if (cycle == 0) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
-                    break;
+            int inferences = 0;
+            try {
+                for (int cycle = 0; cycle < maxCycles; cycle++) {
+                    boolean timedOut = System.nanoTime() - started > limits.forceReportAfter().toNanos();
+                    if (timedOut || cycle == maxCycles - 1) {
+                        telemetry.forcedReport(Scope.ORCHESTRATOR, timedOut ? Reason.TIME : Reason.CYCLES);
+                        break;
+                    }
+                    var request = new ArrayList<Message>();
+                    request.add(new SystemMessage(fill(template, Map.of("current_datetime", now(), "current_cycle_count", String.valueOf(cycle),
+                            "max_cycles", String.valueOf(maxCycles), "research_plan", plan,
+                            "internal_search_research_task_guidance", INTERNAL_SEARCH_RESEARCH_TASK_GUIDANCE)) + orchestratorFiles));
+                    request.addAll(lastUsers(history));
+                    // Onyx adds the reminder on its second orchestrator inference (cycle index 1), whatever its comment says.
+                    if (cycle == 1) request.add(reminder(text(FIRST_CYCLE_REMINDER)));
+                    inferences++;
+                    var calls = toolCalls(infer(guard, limits.orchestratorMaxTokens(), true, turn.setup().binding().requiredTools(),
+                            request, tools, ignored -> {}, turn.checkActive()));
+                    if (calls.isEmpty()) {
+                        if (cycle == 0) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+                        break;
+                    }
+                    ToolCall report = null;
+                    ToolCall think = null;
+                    for (var call : calls) {
+                        if (THINK_TOOL_NAME.equals(call.getName())) think = call;
+                        else if (GENERATE_REPORT_TOOL_NAME.equals(call.getName())) report = call;
+                    }
+                    if (report != null) break;
+                    if (think != null) {
+                        reasoning(think, null);
+                        history.add(new AssistantMessageWithToolCalls("", List.of(think)));
+                        history.add(new ToolResultMessage(think.getId(), think.getName(), THINK_TOOL_RESPONSE_MESSAGE));
+                        continue;
+                    }
+                    // Onyx asks for at most three parallel agents; calls beyond the bound are not run or answered.
+                    var agents = calls.stream().filter(call -> RESEARCH_AGENT_TOOL_NAME.equals(call.getName())).limit(limits.parallelAgents()).toList();
+                    if (agents.isEmpty()) break;
+                    if (agents.size() > 1) turn.events().accept(ChatResearchEvent.branching(agents.size()));
+                    var reports = agents(agents);
+                    history.add(new AssistantMessageWithToolCalls("", agents));
+                    for (int tab = 0; tab < agents.size(); tab++) {
+                        var agent = agents.get(tab);
+                        history.add(new ToolResultMessage(agent.getId(), agent.getName(), reports.get(tab).orElse(RESEARCH_AGENT_FAILURE_MESSAGE)));
+                    }
                 }
-                ToolCall report = null;
-                ToolCall think = null;
-                for (var call : calls) {
-                    if (THINK_TOOL_NAME.equals(call.getName())) think = call;
-                    else if (GENERATE_REPORT_TOOL_NAME.equals(call.getName())) report = call;
-                }
-                if (report != null) break;
-                if (think != null) {
-                    reasoning(think, null);
-                    history.add(new AssistantMessageWithToolCalls("", List.of(think)));
-                    history.add(new ToolResultMessage(think.getId(), think.getName(), THINK_TOOL_RESPONSE_MESSAGE));
-                    continue;
-                }
-                // Onyx asks for at most three parallel agents; calls beyond the bound are not run or answered.
-                var agents = calls.stream().filter(call -> RESEARCH_AGENT_TOOL_NAME.equals(call.getName())).limit(limits.parallelAgents()).toList();
-                if (agents.isEmpty()) break;
-                if (agents.size() > 1) turn.events().accept(ChatResearchEvent.branching(agents.size()));
-                var reports = agents(agents);
-                history.add(new AssistantMessageWithToolCalls("", agents));
-                for (int tab = 0; tab < agents.size(); tab++) {
-                    var agent = agents.get(tab);
-                    history.add(new ToolResultMessage(agent.getId(), agent.getName(), reports.get(tab).orElse(RESEARCH_AGENT_FAILURE_MESSAGE)));
-                }
+            } finally {
+                telemetry.cycles(inferences);
             }
-            finalReport(guard, history, plan);
         }
 
         /** Returns whether the answer is a clarification question, which ends the turn. */
@@ -238,15 +264,20 @@ public final class ResearchExecutor {
                 turn.events().accept(new ChatToolEvent(step, ChatToolEvent.Stage.STARTED).tab(tab));
             }
             var tasks = new ArrayList<Callable<Optional<AgentResult>>>();
+            // Agents run on other threads; their spans are parented on the execution step explicitly.
+            var span = telemetry.current();
             for (int index = 0; index < calls.size(); index++) {
                 int tab = index;
                 tasks.add(() -> {
                     long started = System.nanoTime();
                     AgentResult result;
                     try {
-                        result = SearchTasks.timed(() -> agent(calls.get(tab), steps.get(tab), tab), limits.agentTimeout(), turn.checkActive());
+                        result = SearchTasks.timed(() -> telemetry.phase(Phase.RESEARCH_AGENT, span, () -> agent(calls.get(tab), steps.get(tab), tab)),
+                                limits.agentTimeout(), turn.checkActive());
+                        telemetry.agent(AgentOutcome.COMPLETED);
                     } catch (SearchTasks.HelperTimeoutException timeout) {
                         LOG.warn("Research agent timed out after {}", limits.agentTimeout());
+                        telemetry.agent(AgentOutcome.TIMEOUT);
                         result = new AgentResult(RESEARCH_AGENT_TIMEOUT_MESSAGE, null);
                     } catch (CancellationException stopped) {
                         throw stopped;
@@ -254,6 +285,7 @@ public final class ResearchExecutor {
                         turn.checkActive().run();
                         // Provider and tool failures can carry private content; log the type only.
                         LOG.warn("Research agent failed ({})", failure.getClass().getSimpleName());
+                        telemetry.agent(AgentOutcome.FAILED);
                         result = null;
                     }
                     turn.events().accept(ChatToolEvent.finished(steps.get(tab), result == null, (System.nanoTime() - started) / 1_000_000).tab(tab));
@@ -313,7 +345,11 @@ public final class ResearchExecutor {
                 boolean justSearchedWeb = false;
                 int count = 0;
                 while (count <= limits.agentCycles()) {
-                    if (System.nanoTime() - started > limits.agentForceReportAfter().toNanos() || count == limits.agentCycles()) break;
+                    boolean late = System.nanoTime() - started > limits.agentForceReportAfter().toNanos();
+                    if (late || count == limits.agentCycles()) {
+                        telemetry.forcedReport(Scope.AGENT, late ? Reason.TIME : Reason.CYCLES);
+                        break;
+                    }
                     String system = fill(reasoning ? RESEARCH_AGENT_PROMPT_REASONING : RESEARCH_AGENT_PROMPT, Map.of(
                             "available_tools", toolList(names), "current_datetime", now(), "current_cycle_count", String.valueOf(count),
                             "optional_internal_search_tool_description", names.contains("searchKnowledge") ? INTERNAL_SEARCH_GUIDANCE : "",
@@ -380,20 +416,25 @@ public final class ResearchExecutor {
                     }
                     count++;
                 }
-                var request = new ArrayList<Message>();
-                request.add(new SystemMessage(withLanguage(text(RESEARCH_REPORT_PROMPT), language)));
-                request.addAll(history);
-                request.add(new UserMessage(fill(USER_REPORT_QUERY, Map.of("research_topic", task))));
-                var report = new StringBuilder();
-                infer(guard, limits.intermediateReportTokens(), false, UnaryOperator.identity(), request, List.of(), part -> {
-                    report.append(part);
-                    chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.report(parent, chunk)));
-                }, turn.checkActive());
-                if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
-                return new AgentResult(report.toString(), evidence);
+                String report = telemetry.phase(Phase.GENERATE_INTERMEDIATE_REPORT, null, () -> intermediateReport(guard, history, task, parent));
+                return new AgentResult(report, evidence);
             } finally {
                 toolset.close().run();
             }
+        }
+
+        String intermediateReport(ChatModelGuard guard, List<Message> history, String task, String parent) {
+            var request = new ArrayList<Message>();
+            request.add(new SystemMessage(withLanguage(text(RESEARCH_REPORT_PROMPT), language)));
+            request.addAll(history);
+            request.add(new UserMessage(fill(USER_REPORT_QUERY, Map.of("research_topic", task))));
+            var report = new StringBuilder();
+            infer(guard, limits.intermediateReportTokens(), false, UnaryOperator.identity(), request, List.of(), part -> {
+                report.append(part);
+                chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.report(parent, chunk)));
+            }, turn.checkActive());
+            if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            return report.toString();
         }
 
         ChatModelGuard guard(ChatEvidence evidence, Consumer<ChatActivityEvent> events, int cycles, Runnable checkActive) {
