@@ -56,6 +56,11 @@ MAX_OUTPUT_BYTES = int(os.environ.get("MAX_OUTPUT_BYTES") or 1_000_000)
 # MemoryOS defaults (upstream: 5 s / 256 MB) fit pandas on real office workbooks; see MEM-110.
 CPU_TIME_LIMIT_SEC = int(os.environ.get("CPU_TIME_LIMIT_SEC") or 30)
 MEMORY_LIMIT_MB = int(os.environ.get("MEMORY_LIMIT_MB") or 1024)
+# MemoryOS addition: executions running at once; further requests get HTTP 429. Each executor may
+# use MEMORY_LIMIT_MB, so the limit bounds executor memory on the host. 0 disables the limit.
+MAX_CONCURRENT_EXECUTIONS = int(os.environ.get("MAX_CONCURRENT_EXECUTIONS") or 4)
+if MAX_CONCURRENT_EXECUTIONS < 0:
+    raise ValueError("MAX_CONCURRENT_EXECUTIONS must be 0 (unlimited) or positive")
 
 # API server configuration
 HOST = os.environ.get("HOST") or "0.0.0.0"  # noqa: S104
@@ -83,6 +88,7 @@ class Settings:
     max_output_bytes: int
     cpu_time_limit_sec: int
     memory_limit_mb: int
+    max_concurrent_executions: int
     file_storage_dir: str
     max_file_size_mb: int
     file_ttl_sec: int
@@ -94,6 +100,7 @@ class Settings:
             max_output_bytes=MAX_OUTPUT_BYTES,
             cpu_time_limit_sec=CPU_TIME_LIMIT_SEC,
             memory_limit_mb=MEMORY_LIMIT_MB,
+            max_concurrent_executions=MAX_CONCURRENT_EXECUTIONS,
             file_storage_dir=FILE_STORAGE_DIR,
             max_file_size_mb=MAX_FILE_SIZE_MB,
             file_ttl_sec=FILE_TTL_SEC,

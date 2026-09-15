@@ -8,9 +8,9 @@ Design: [design.md](design.md).
 - [x] Rename package, distribution, script, image defaults, labels and chart; restart versions at `0.1.0`.
 - [x] Regenerate `service/uv.lock` and `executor/uv.lock`. Only the root package name and version change.
 - [x] `uv sync --frozen`, `ruff check`, `ruff format --check` and `mypy` pass for `service/`.
-- [ ] Build the executor image and run the service integration tests against it.
-- [ ] Build the service image, run it with the Docker socket, execute a matplotlib/python-pptx snippet and download the generated file.
-- [ ] CI: an `interpreter` change area and a job running the same checks and tests, required by the CI gate.
+- [x] Build the executor image and run the service integration tests against it.
+- [x] Build the service image, run it with the Docker socket, execute a matplotlib/python-pptx snippet and download the generated file.
+- [x] CI: an `interpreter` change area and a job running the same checks and tests, required by the CI gate.
 
 ## Phase 0b — executor image and limits (wave 1, owner-approved 2026-09-15)
 
@@ -31,14 +31,21 @@ Design: [design.md](design.md).
 - [x] Publish `memoryos-interpreter` and `memoryos-interpreter-executor` images with the verified release (OCI labels, `candidate-interpreter`, publish loop).
 - [x] Extend `images.env` (six lines), `deploy-staging.sh` and its tests for the new images; pre-pull the executor image on the host; handle a runtime accepted before the interpreter.
 - [x] Compose service on `memoryos-internal` only, no host port, `PYTHON_EXECUTOR_DOCKER_NETWORK=none`, socket mount documented in the [CI/CD runbook](../../../runbooks/ci-cd.md#interpreter-runtime).
-- [ ] Health verified on staging: the `Deploy staging` run after merge passes `verify_runtime` with `memoryos-interpreter` healthy.
+- [x] Health verified on staging: [Deploy staging 34990009684](https://github.com/kl3inIT/MemoryOS/actions/runs/34990009684) for `82ef9050` passed `verify_runtime` with `memoryos-interpreter` healthy.
 
 ## Phase 2 — service hardening
 
-- [ ] API key authentication for every route except `/health`.
-- [ ] Structured JSON logs and metrics aligned with the [observability conventions](../../../guidelines/observability.md).
-- [ ] BuildKit layer cache for the `interpreter` CI job, so releases stop adding about 3 GB of unshared layers to the staging host.
-- [ ] A concurrency limit on executor runs sized to the staging host memory.
+- [x] Structured JSON logs on staging (`LOG_FORMAT=json`).
+- [x] A limit on concurrent executions: `MAX_CONCURRENT_EXECUTIONS`, 4 on staging. Further requests get HTTP 429 with `Retry-After`.
+- **Moved to phase 3:** API key authentication for every route except `/health`. The key, its Compose secret and the Java client then land in one deployment, with one operator step.
+- **Deferred:** OTLP logs and metrics from the service. Phase 3 instruments the Chat `run_python` call in Java, which is the operation with a business outcome ([observability conventions](../../../guidelines/observability.md)).
+- **Deferred:** a BuildKit layer cache for the `interpreter` CI job. On 2026-09-15 the repository's Actions caches already held 10.7 GB, above GitHub's 10 GB limit, so a 2.8 GB executor cache would evict the backend and web caches.
+- **Not planned:** a Docker socket proxy. Endpoint-filtering proxies still have to allow `POST /containers/create`, which accepts privileged mode and host bind mounts, so a proxy does not remove host-level Docker control.
+- **Before any Kubernetes executor deployment**, fix the defects CodeRabbit found on #195:
+  - the CPU-time limit is used as a CPU core limit, which the 30 s default makes worse;
+  - the Role and RoleBinding lack a namespace;
+  - a new `ApiClient` is created per exec and never closed;
+  - WebSocket read loops have no deadline.
 
 ## Phase 3 — Java integration
 
@@ -68,6 +75,14 @@ Design: [design.md](design.md).
 - [ ] Small warm pool of executor containers.
 
 ## Evidence
+
+### Phase 1 — staging, 2026-09-15
+
+- Main CI [34989143030](https://github.com/kl3inIT/MemoryOS/actions/runs/34989143030) published `images.env` with six lines, including `memoryos-interpreter` and `memoryos-interpreter-executor`.
+- [Deploy staging 34990009684](https://github.com/kl3inIT/MemoryOS/actions/runs/34990009684):
+  - pulled both images;
+  - created `memoryos-interpreter`, which became healthy;
+  - logged `Accepted candidate runtime for workflow 82ef90501b527171e5775ef6b108a010cde0f599-34990009684-1`.
 
 ### Phase 0 — local, 2026-09-15
 

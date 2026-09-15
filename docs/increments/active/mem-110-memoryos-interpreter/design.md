@@ -113,8 +113,8 @@ In scope, by phase:
 
 0. Vendor, rename, lockfiles, CI verification and local run.
 1. Staging runtime: Compose service, executor image publication and pull, release/deploy contract, and a runbook.
-2. Service hardening: API key authentication, structured logs and metrics suitable for MemoryOS observability.
-3. Java integration: client, `run_python` tool in the existing Chat tool loop, file staging with Onyx limits, generated files stored like image artifacts, admin enable/health.
+2. Service hardening: JSON logs and a concurrent-execution limit on staging.
+3. Java integration: client with service API key authentication, `run_python` tool in the existing Chat tool loop, file staging with Onyx limits, generated files stored like image artifacts, admin enable/health.
 4. Browser: tool step in the activity timeline, generated file download, and a capability decision (`CODE_EXECUTE` or Basic grant).
 5. Office output quality and self-checks: LibreOffice rendering of docx/pptx/pdf to images the model inspects, xlsx formula recalculation, templates and on-demand instructions (Anthropic Agent Skills pattern).
 6. Structured outputs and state: captured charts and DataFrames (E2B pattern), session-scoped stateful execution per Chat, a small warm pool.
