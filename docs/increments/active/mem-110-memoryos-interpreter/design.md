@@ -98,6 +98,8 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
    - uploads them with `POST /v1/files`, streaming from object storage, and reuses uploads within the turn by file name and the stored SHA-256, so no attachment is buffered in the API heap;
    - calls **`POST /v1/execute`** with `timeout_ms` = min(60 000, the remaining turn deadline minus 5 seconds) and an HTTP timeout 10 seconds longer.
 
+   As in Onyx, there is no per-turn call cap: the six tool cycles and the two-minute turn deadline bound it to about two full 60-second runs.
+
    Departure: Onyx calls `/v1/execute/stream`. MemoryOS has no Java SSE consumer, and stream deltas only feed the phase 4 timeline, so phase 3 uses the batch route. A Stop therefore leaves the run holding one of the four execution slots for at most 60 seconds; the executor's own timeout kills the container.
 4. **Progress.** Phase 3 reports `STARTED`, `COMPLETED` and `FAILED` through the existing `ChatToolActivity`. Streaming code and output into the timeline is phase 4.
 5. **Generated files.** Each workspace file up to 25 MiB is downloaded with `GET /v1/files/{id}`, staged and adopted into object storage as a `chat_file_artifact` (V63) row on the assistant message, and deleted from the interpreter. Larger files are reported as skipped. Uploaded inputs stay on the service until its file TTL (`FILE_TTL_SEC`, 900 seconds on staging), as in Onyx; phase 3 adds the missing expiry loop to the service. Files are served owner-authorized at `GET /api/chat/file-artifacts/{id}/content`: `inline` for PNG, JPEG and WebP, `attachment` otherwise, with `nosniff` and `no-store`.

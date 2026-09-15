@@ -51,35 +51,35 @@ Design: [design.md](design.md).
 
 Decisions are in [design.md](design.md#integration-with-memoryos).
 
-- [ ] **Service.**
+- [x] **Service.**
   - `X-Api-Key` on every `/v1` route, read from `API_KEY_FILE` or `API_KEY`. With neither set, routes stay open and startup logs a warning.
   - A loop removes expired uploaded files (`FILE_TTL_SEC`, 900 on staging).
-- [ ] **Runtime.**
+- [x] **Runtime.**
   - One host key file, mounted as the Compose secret `interpreter_api_key`, for the interpreter and the API.
   - The API launcher reads `MEMORYOS_INTERPRETER_API_KEY_FILE`.
   - `deploy-staging.sh` refuses to reserve when a Compose secret file is missing.
   - Runbook step to create the key.
-- [ ] **Client.** Apache HttpClient like `ImageHttp`:
+- [x] **Client.** Apache HttpClient like `ImageHttp`:
   - health, cached for 30 seconds;
   - streamed multipart upload;
   - batch execute;
   - capped download;
   - delete.
-- [ ] **Administration.**
+- [x] **Administration.**
   - `chat_interpreter_setting`; no row means disabled.
   - `/api/chat/interpreter` `GET`, `PUT` and `/health`, with `MODELS_MANAGE`.
   - An administration page.
-- [ ] **Tool.** `run_python` is registered when tool calling, configured, enabled and healthy. It uses:
+- [x] **Tool.** `run_python` is registered when tool calling, configured, enabled and healthy. It uses:
   - the Onyx staging order, caps, notice and name sanitizing;
   - an upload cache keyed by name and stored SHA-256;
   - batch execution capped by the turn deadline;
   - the Onyx result JSON with a relative `file_link`, followed by `FILE_REMINDER` when files were generated.
-- [ ] **Generated files.**
+- [x] **Generated files.**
   - `chat_file_artifact` (V63), staged then adopted, at most 25 MiB each.
   - Served at `/api/chat/file-artifacts/{id}/content`.
   - Deleted from the service after download.
-- [ ] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
-- [ ] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
+- [x] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
+- [x] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
 - [ ] **Staging acceptance** (after merge; the other phase 3 items are implemented on `mem-110/run-python-tool`).
   - The key file exists before merge.
   - An administrator enables the interpreter.
@@ -105,6 +105,19 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
 - [ ] Small warm pool of executor containers.
 
 ## Evidence
+
+### Phase 3 — local, 2026-09-16
+
+- Java: `RunPythonToolTest` 10, `InterpreterClientTest` 5, `ChatWebPromptsTest` 8, `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` 1 and `OpenApiContractTest` (regenerated) pass.
+- `InterpreterServiceLiveTest` against the service image with the branch source mounted and `API_KEY` set: the chunked multipart upload of `báo cáo.csv`, execution printing `42`, download of `tổng.txt` and both deletes pass.
+- Interpreter: `test_api_key.py` 6 (401 without or with a wrong key, `/health` open, `API_KEY_FILE` precedence, file expiry) and the deploy workflow tests 10 pass.
+- Container rehearsal: `/v1/files` returned 401 with no key, 401 with a wrong key and 200 with the key; logs were JSON.
+- Web: `tsc -b`, `oxlint`, `vite build` and the Chat, activity and `markdown-text.test.tsx` vitest suites pass.
+- Not run: the JetBrains static-analysis gate (the IDE MCP server was unreachable) and a local `clean check` (host memory); CI runs `clean check`.
+
+### Phase 2 — staging, 2026-09-15
+
+- [Deploy staging 34997872610](https://github.com/kl3inIT/MemoryOS/actions/runs/34997872610) for `27ca1f78`, which contains the phase 2 commits through `f18986a7`, succeeded and accepted the candidate runtime.
 
 ### Phase 1 — staging, 2026-09-15
 
