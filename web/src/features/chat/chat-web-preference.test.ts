@@ -11,9 +11,9 @@ afterEach(() => {
 it("restores each chat's Web intent without leaking between actors or tenants", () => {
   const session = { id: "chat-1" } as ChatSession;
   const first = new MemoryOsChatTransport(session, undefined, undefined, "tenant:alice");
-  first.selectWeb("required");
+  first.selectWeb("auto");
   expect(new MemoryOsChatTransport(session, undefined, undefined, "tenant:alice").webSearch).toBe(
-    "required",
+    "auto",
   );
   expect(new MemoryOsChatTransport(session, undefined, undefined, "tenant:bob").webSearch).toBe(
     "off",
@@ -29,7 +29,7 @@ it("does not inherit Web from another conversation into a new chat", () => {
   expect(new MemoryOsChatTransport(undefined, undefined, undefined, "tenant:alice").webSearch).toBe(
     "off",
   );
-  writeWebPreference("tenant:alice", undefined, "required");
+  writeWebPreference("tenant:alice", undefined, "auto");
   expect(localStorage.length).toBe(1);
 });
 

@@ -664,7 +664,7 @@ export type Send = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
-    webSearch?: 'off' | 'auto' | 'required';
+    webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
 };
 
@@ -678,7 +678,7 @@ export type Accepted = {
 export type Regenerate = {
     clientRequestId: string;
     modelConfigurationId?: string;
-    webSearch?: 'off' | 'auto' | 'required';
+    webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
 };
 
@@ -687,7 +687,7 @@ export type Edit = {
     text: string;
     modelConfigurationId?: string;
     fileIds?: Array<string>;
-    webSearch?: 'off' | 'auto' | 'required';
+    webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
 };
 
@@ -1069,7 +1069,6 @@ export type WebAvailabilityResponse = {
     searchProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     contentProvider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     automaticModelIds?: Array<string>;
-    requiredModelIds?: Array<string>;
     inheritedModelId?: string;
     nativeModelIds?: Array<string>;
 };

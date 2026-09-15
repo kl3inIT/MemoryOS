@@ -132,9 +132,6 @@ public final class ChatTurnService implements AutoCloseable {
                                 resolved.modelConfigurationId());
                         throw ChatException.webUnavailable();
                     }
-                    // Required mode forces an OpenAI function tool choice; provider models may be decorated or Responses-backed.
-                    if (command.webSearch() == WebSearchMode.required && !"OpenAI".equals(binding.service().getProvider()))
-                        throw ChatException.invalid("This model adapter does not support required Web search.");
                 }
             }
             var imageAccess = new io.memoryos.chat.image.ImageConnectionService.Access(null);

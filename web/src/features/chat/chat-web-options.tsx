@@ -36,10 +36,7 @@ function useWebSupport(sessionId?: string, modelId?: string) {
     !!(
       available.data?.searchAvailable &&
       selectedModel &&
-      (mode === "required"
-        ? available.data.requiredModelIds
-        : available.data.automaticModelIds
-      )?.includes(selectedModel)
+      available.data.automaticModelIds?.includes(selectedModel)
     );
   return {
     available,
@@ -85,21 +82,15 @@ export function ChatWebToggle({
         <button
           type="button"
           aria-pressed={value !== "off"}
-          aria-label={value === "required" ? ui("Tìm kiếm Web (bắt buộc)") : ui("Tìm kiếm Web")}
-          disabled={value === "off" && !support.supported("auto") && !support.supported("required")}
+          disabled={value === "off" && !support.supported("auto")}
           className={cn(composerMenuRow, "flex-1")}
           onClick={() => {
-            onChange(value === "off" ? (support.supported("auto") ? "auto" : "required") : "off");
+            onChange(value === "off" ? "auto" : "off");
             onDone();
           }}
         >
           <Globe aria-hidden="true" />
           <span className="flex-1">{ui("Tìm kiếm Web")}</span>
-          {value === "required" && (
-            <span aria-hidden="true" className="text-xs text-content-muted">
-              {ui("Bắt buộc")}
-            </span>
-          )}
           {value !== "off" && <Check aria-hidden="true" />}
         </button>
         <IconButton
@@ -131,7 +122,6 @@ export function ChatWebModes({
   const labels = {
     off: ui("Tắt Web"),
     auto: ui("Tự động dùng Web"),
-    required: ui("Bắt buộc tìm trên Web"),
   };
   const heading = ui("Tìm kiếm và đọc trang Web");
   return (
@@ -147,7 +137,7 @@ export function ChatWebModes({
         {heading}
       </Button>
       <div role="radiogroup" aria-label={heading} className="flex flex-col">
-        {(["off", "auto", "required"] as const).map((mode) => (
+        {(["off", "auto"] as const).map((mode) => (
           <button
             key={mode}
             type="button"

@@ -204,20 +204,4 @@ class ChatModelGuardTest {
                 ChatGenerationMetadata.builder().finishReason(reason).build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(tokens, tokens)).build());
     }
-
-    @Test void requiredWebForcesAToolChoiceTheOpenAiAdapterSendsAndKeepsAnIgnoredTurnsAnswer() {
-        var scoped = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
-        scoped.requireWebSearch();
-        when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
-            var options = java.util.Objects.requireNonNull(assertInstanceOf(OpenAiChatOptions.class, call.<Prompt>getArgument(0).getOptions()));
-            // The adapter forwards its typed option and silently drops anything else, so assert the sent form.
-            var choice = assertInstanceOf(com.openai.models.chat.completions.ChatCompletionToolChoiceOption.class, options.getToolChoice());
-            assertEquals("web_search", choice.namedToolChoice().orElseThrow().function().name());
-            return Flux.just(response("Provider ignored the forced choice", "stop", 12));
-        });
-        // A provider that answers anyway still answered; forcing failed, the turn did not.
-        assertEquals("Provider ignored the forced choice",
-                java.util.Objects.requireNonNull(scoped.stream(prompt).blockLast()).getResult().getOutput().getText());
-        assertEquals("auto", assertInstanceOf(OpenAiChatOptions.class, prompt.getOptions()).getToolChoice());
-    }
 }

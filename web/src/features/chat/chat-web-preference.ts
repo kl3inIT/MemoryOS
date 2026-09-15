@@ -1,4 +1,4 @@
-export type WebSearchMode = "off" | "auto" | "required";
+export type WebSearchMode = "off" | "auto";
 
 /** Browser preference only; the API independently authorizes every command. No messages or keys. */
 export function readWebPreference(
@@ -8,7 +8,7 @@ export function readWebPreference(
   if (!owner || !sessionId) return "off";
   try {
     const value = localStorage.getItem(`memoryos:web:${owner}:${sessionId}`);
-    return value === "auto" || value === "required" ? value : "off";
+    return value === "auto" ? value : "off";
   } catch {
     return "off";
   }

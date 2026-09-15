@@ -357,9 +357,6 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tạo ảnh…": "Generating image…",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
-  "Bắt buộc": "Required",
-  "Tìm kiếm Web (bắt buộc)": "Web search (required)",
-  "Web bắt buộc": "Web required",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",

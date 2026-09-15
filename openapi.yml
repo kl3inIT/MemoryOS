@@ -9216,7 +9216,6 @@ components:
           enum:
           - "off"
           - auto
-          - required
         image:
           type: string
           enum:
@@ -9258,7 +9257,6 @@ components:
           enum:
           - "off"
           - auto
-          - required
         image:
           type: string
           enum:
@@ -9292,7 +9290,6 @@ components:
           enum:
           - "off"
           - auto
-          - required
         image:
           type: string
           enum:
@@ -10589,11 +10586,6 @@ components:
           - NINEROUTER
           - FIRECRAWL
         automaticModelIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-        requiredModelIds:
           type: array
           items:
             type: string
