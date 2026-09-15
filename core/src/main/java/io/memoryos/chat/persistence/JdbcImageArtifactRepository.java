@@ -25,13 +25,14 @@ public class JdbcImageArtifactRepository {
     public record Content(ObjectKey key, String mediaType) {}
 
     public void insert(TenantId tenant, UUID messageId, UUID id, UUID storedObjectId, ObjectKey key,
-                       String mediaType, @Nullable String revisedPrompt) {
+                       String mediaType, @Nullable String revisedPrompt, @Nullable UUID sourceArtifactId, @Nullable UUID sourceFileId) {
         jdbc.sql("""
-                INSERT INTO chat_image_artifact(id,tenant_id,message_id,stored_object_id,object_key,media_type,revised_prompt)
-                VALUES(:id,:tenant,:message,:object,:key,:type,:revised)
+                INSERT INTO chat_image_artifact(id,tenant_id,message_id,stored_object_id,object_key,media_type,revised_prompt,
+                                                source_artifact_id,source_file_id)
+                VALUES(:id,:tenant,:message,:object,:key,:type,:revised,:sourceArtifact,:sourceFile)
                 """).param("id", id).param("tenant", tenant.value()).param("message", messageId)
                 .param("object", storedObjectId).param("key", key.value()).param("type", mediaType)
-                .param("revised", revisedPrompt).update();
+                .param("revised", revisedPrompt).param("sourceArtifact", sourceArtifactId).param("sourceFile", sourceFileId).update();
     }
 
     public Map<UUID, List<Artifact>> byMessages(TenantId tenant, Collection<UUID> messageIds) {
@@ -66,6 +67,19 @@ public class JdbcImageArtifactRepository {
                 JOIN chat_session s ON s.id = m.session_id AND s.tenant_id = a.tenant_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .query((row, ignored) -> new Content(new ObjectKey(row.getString("object_key")), row.getString("media_type")))
+                .optional();
+    }
+
+    /** Edit-source lookup: an image generated in this owner's session, never one from another conversation. */
+    public Optional<Content> inSession(TenantId tenant, ActorId actor, UUID session, UUID id) {
+        return jdbc.sql("""
+                SELECT a.object_key, a.media_type FROM chat_image_artifact a
+                JOIN chat_message m ON m.id = a.message_id
+                JOIN chat_session s ON s.id = m.session_id AND s.tenant_id = a.tenant_id
+                WHERE a.tenant_id = :tenant AND a.id = :id AND s.id = :session
+                  AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("session", session).param("id", id)
                 .query((row, ignored) -> new Content(new ObjectKey(row.getString("object_key")), row.getString("media_type")))
                 .optional();
     }

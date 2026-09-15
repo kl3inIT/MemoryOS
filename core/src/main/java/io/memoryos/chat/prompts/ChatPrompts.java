@@ -90,10 +90,22 @@ public final class ChatPrompts {
             ## generate_image
             NEVER use generate_image unless the user asks for a picture: to create, draw, paint, render
             or illustrate one. Never illustrate an answer on your own initiative. Write a detailed prompt,
-            in English, describing the subject, style, composition and lighting. Do not use it to edit an
-            existing image or to produce charts or diagrams. The generated image is shown to the user
-            automatically; after calling the tool, reply with a short confirmation and never output image
-            data, base64, or a URL yourself.
+            in English, describing the subject, style, composition and lighting. Do not use it to change an
+            existing image (use edit_image) or to produce charts or diagrams. The generated image is shown to
+            the user automatically; after calling the tool, reply with a short confirmation and never output
+            image data, base64, or a URL yourself.
+            """;
+    private static final String EDIT_IMAGE_GUIDANCE = """
+            ## edit_image
+            Use edit_image when the user asks to change an image that is already in this conversation: an
+            attached image, or one shown in an earlier answer. Set imageId to the file id of the attached
+            image, or to the image_id listed for the earlier answer's image. Never invent an id and never
+            imitate an edit with generate_image. Write the prompt in English: state the requested change
+            and that everything else stays exactly the same (people, faces, pose, background, lighting).
+            An attached file named mask-for-<image_id>.png marks the area the user selected: white may
+            change, black must stay. Set maskId to its file id and imageId to that image_id; the mask is a
+            selection, not image content. After the tool returns, reply with a short confirmation and never
+            output image data, base64, or a URL yourself.
             """;
     private static final String FILES_GUIDANCE = """
             ## search_files and read_file
@@ -142,6 +154,7 @@ public final class ChatPrompts {
         if (tools.contains("open_url")) { heading(text); text.append(OPEN_URL_GUIDANCE); }
         if (tools.contains("search_files") || tools.contains("read_file")) { heading(text); text.append(FILES_GUIDANCE); }
         if (tools.contains("generate_image")) { heading(text); text.append(IMAGE_GUIDANCE); }
+        if (tools.contains("edit_image")) { heading(text); text.append(EDIT_IMAGE_GUIDANCE); }
         if (tools.contains("render_gui")) { heading(text); text.append(ARTIFACT_GUIDANCE); }
         return text.toString();
     }

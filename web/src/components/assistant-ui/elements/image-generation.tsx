@@ -6,7 +6,7 @@
 // Clicking the image opens a fullscreen viewer. Prop-driven (labels passed in) so the
 // element stays i18n-free and unit-testable.
 import { type ComponentProps, useEffect, useRef, useState } from "react";
-import { DownloadIcon, XIcon } from "lucide-react";
+import { DownloadIcon, PencilIcon, XIcon } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { ShimmerLabel } from "./surfaces";
@@ -20,6 +20,8 @@ export function ImageGeneration({
   downloadLabel,
   viewLabel,
   closeLabel,
+  editLabel,
+  onEdit,
   failed = false,
   className,
   ...props
@@ -32,6 +34,9 @@ export function ImageGeneration({
   downloadLabel?: string;
   viewLabel?: string;
   closeLabel?: string;
+  /** Shown only with `onEdit`, where the conversation can edit this image. */
+  editLabel?: string;
+  onEdit?: () => void;
   failed?: boolean;
 }) {
   const showImage = !!src && !generating && !failed;
@@ -166,6 +171,16 @@ export function ImageGeneration({
             prompt || label
           )}
         </p>
+        {showImage && onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={editLabel}
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-foreground/45 outline-none transition-colors hover:bg-foreground/[0.06] hover:text-foreground/90 focus-visible:ring-1 focus-visible:ring-foreground/20 dark:hover:bg-foreground/[0.09]"
+          >
+            <PencilIcon className="size-3" aria-hidden="true" />
+          </button>
+        )}
         {showImage && (
           <a
             href={src}
