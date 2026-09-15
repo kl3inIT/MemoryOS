@@ -1,17 +1,23 @@
+import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import type { ReactNode } from "react";
+import { listSourceGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+import { sourceAccessPresentation } from "./source-status-presentation";
 
-/** Who reads a Google Drive Source depends on its mode; a Public badge needs no explanation. */
+/** Who reads a Google Drive Source depends on its mode; Public reads like any other Source. */
 const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
   PRIVATE:
     "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
   SYNC: "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
 };
 
+/**
+ * Facts about a Source that its header badges do not carry. Groups come from the query the
+ * groups section also uses, so both read the same cache entry.
+ */
 export function SourceSummaryCard({
   source,
   children,
@@ -20,29 +26,40 @@ export function SourceSummaryCard({
   children?: ReactNode;
 }) {
   const ui = useAppTranslation();
-  const accessHelp =
-    source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined;
+  const groups = useQuery({
+    ...listSourceGroupsOptions({ path: { sourceId: source.id } }),
+    retry: false,
+  });
+  const groupNames = (groups.data?.items ?? [])
+    .filter((group) => group.systemKey === null)
+    .map((group) => group.name);
+  const readers =
+    (source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined) ??
+    sourceAccessPresentation[source.access].title;
 
   return (
     <dl
       aria-label={ui("Source summary")}
       className={cn(
         "my-6 grid grid-cols-2 gap-x-8 gap-y-5 rounded-lg border border-border-subtle px-4 py-5 text-sm lg:gap-x-12",
-        children ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4",
+        children ? "lg:grid-cols-3" : "lg:grid-cols-4",
       )}
     >
-      <div>
-        <dt className="text-content-muted">{ui("Source status")}</dt>
-        <dd className="mt-2">
-          <SourceStatusBadge status={source.status} />
-        </dd>
+      <div className="col-span-2 lg:col-span-1">
+        <dt className="text-content-muted">{ui("Who can read")}</dt>
+        <dd className="mt-2 text-content-primary">{ui(readers)}</dd>
       </div>
-      <div>
-        <dt className="text-content-muted">{ui("Access")}</dt>
-        <dd className="mt-2">
-          <SourceAccessBadge access={source.access} />
+      <div className="col-span-2 min-w-0 lg:col-span-1">
+        <dt className="text-content-muted">{ui("Groups")}</dt>
+        <dd className="mt-2 break-words text-content-primary">
+          {groups.isPending
+            ? ui("Loading…")
+            : groups.isError
+              ? ui("Unavailable")
+              : groupNames.length
+                ? groupNames.join(", ")
+                : ui("None")}
         </dd>
-        {accessHelp ? <dd className="mt-2 text-xs text-content-muted">{ui(accessHelp)}</dd> : null}
       </div>
       <div>
         <dt className="text-content-muted">{ui("Documents indexed")}</dt>

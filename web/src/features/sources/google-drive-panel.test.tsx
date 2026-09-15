@@ -303,6 +303,7 @@ function setup(
           completedAt: "2026-09-08T10:00:01Z",
           errorCode: null,
         });
+      if (url.pathname.endsWith("/groups")) return Response.json({ items: [] });
       throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
     }),
   );
