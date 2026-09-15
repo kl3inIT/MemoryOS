@@ -28,4 +28,10 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_PROVIDER_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
                 "Chat provider is not configured or available.");
     }
+
+    /** Web search was requested but this Tenant has no usable Web connection or a tool-capable model. */
+    public static ChatException webUnavailable() {
+        return new ChatException("CHAT_WEB_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Web search is not configured or available.");
+    }
 }

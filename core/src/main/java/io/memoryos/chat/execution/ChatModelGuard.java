@@ -45,6 +45,11 @@ public final class ChatModelGuard implements ChatModel {
     private long admittedTokens;
     private double admittedCost;
     private boolean requiredWebSearch;
+    private static final com.openai.models.chat.completions.ChatCompletionToolChoiceOption NAMED_WEB_SEARCH =
+            com.openai.models.chat.completions.ChatCompletionToolChoiceOption.ofNamedToolChoice(
+                    com.openai.models.chat.completions.ChatCompletionNamedToolChoice.builder()
+                            .function(com.openai.models.chat.completions.ChatCompletionNamedToolChoice.Function.builder()
+                                    .name("web_search").build()).build());
     private boolean webSiteFilter = true;
     public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
     public void requireWebSearch() { requiredWebSearch = true; }
@@ -147,8 +152,13 @@ public final class ChatModelGuard implements ChatModel {
                                 throw new IllegalStateException("CHAT_LAST_CYCLE_TOOL_CALL");
                         }
                     })
-                    .concatWith(Flux.defer(() -> finished.get() && (!requiredWebSearch || cycle != 1 || requiredToolSeen.get()) ? Flux.empty()
-                            : Flux.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"))))
+                    .concatWith(Flux.defer(() -> {
+                        if (!finished.get()) return Flux.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"));
+                        // A provider that answers despite the forced tool choice did not search; that is not an answer.
+                        if (requiredWebSearch && cycle == 1 && !requiredToolSeen.get())
+                            return Flux.error(new IllegalStateException("CHAT_WEB_SEARCH_SKIPPED"));
+                        return Flux.<ChatResponse>empty();
+                    }))
                     .doOnComplete(record).doOnError(ignored -> record.run()).doOnCancel(record);
         });
     }
@@ -188,7 +198,9 @@ public final class ChatModelGuard implements ChatModel {
         if (requiredWebSearch && cycle == 1) {
             if (cycles < 2 || !(request.getOptions() instanceof org.springframework.ai.openai.OpenAiChatOptions originalOptions))
                 throw new IllegalStateException("CHAT_UNSUPPORTED_OPTIONS");
-            var options = originalOptions.mutate().toolChoice(java.util.Map.of("type", "function", "function", java.util.Map.of("name", "web_search"))).build();
+            // Spring AI maps only its typed option or a JSON string; a Map is dropped without error,
+            // which would leave required mode indistinguishable from auto.
+            var options = originalOptions.mutate().toolChoice(NAMED_WEB_SEARCH).build();
             request = new Prompt(request.getInstructions(), options);
         }
         int input = policy.inputTokens(request, inputLimit);
