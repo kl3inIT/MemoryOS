@@ -12,6 +12,7 @@ import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
+import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
 
 const identityKey = getCurrentIdentityQueryKey();
 
@@ -132,6 +133,7 @@ export function GeneralSettingsPage() {
           </Button>
         ) : null}
       </div>
+      <VoiceSettingsSection />
     </SettingsLayout>
   );
 }

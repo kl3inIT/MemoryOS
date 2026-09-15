@@ -22,6 +22,7 @@ import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
@@ -101,6 +102,11 @@ const AuthenticatedAdminModelsRoute =
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminVoiceRoute = AuthenticatedAdminVoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const AuthenticatedAdminWebSearchRoute =
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/admin/identity-providers'
     | '/admin/models'
     | '/admin/users'
+    | '/admin/voice'
     | '/admin/web-search'
     | '/settings/general'
     | '/shared/$sessionId'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/admin/identity-providers'
     | '/admin/models'
     | '/admin/users'
+    | '/admin/voice'
     | '/admin/web-search'
     | '/settings/general'
     | '/shared/$sessionId'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
+    | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
     | '/_authenticated/settings/general'
     | '/_authenticated/shared/$sessionId'
@@ -449,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/voice': {
+      id: '/_authenticated/admin/voice'
+      path: '/voice'
+      fullPath: '/admin/voice'
+      preLoaderRoute: typeof AuthenticatedAdminVoiceRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/web-search': {
@@ -612,6 +631,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -624,6 +644,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminIdentityProvidersRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminSourcesSourceIdRoute:

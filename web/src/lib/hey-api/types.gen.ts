@@ -131,6 +131,35 @@ export type WebConnectionResponse = {
     revision?: number;
 };
 
+export type VoiceSelectionRequest = {
+    function: 'STT' | 'TTS';
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    model?: string;
+};
+
+export type VoiceConnectionRequest = {
+    endpoint: string;
+    sttModel: string;
+    ttsModel: string;
+    ttsVoice: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    activate?: 'STT' | 'TTS';
+    revision?: number;
+};
+
+export type VoiceConnectionResponse = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    endpoint: string;
+    sttModel: string;
+    ttsModel: string;
+    ttsVoice: string;
+    credentialConfigured?: boolean;
+    sttActive?: boolean;
+    ttsActive?: boolean;
+    revision?: number;
+};
+
 export type Title = {
     title: string;
 };
@@ -652,6 +681,16 @@ export type WebTestRequest = {
     search?: boolean;
 };
 
+export type VoiceTicketResponse = {
+    ticket: string;
+    expiresAt: string;
+};
+
+export type VoiceSynthesisRequest = {
+    text: string;
+    speed: number;
+};
+
 export type CreateChatSession = {
     title: string;
     personaId?: string | null;
@@ -737,6 +776,18 @@ export type UploadAuthorization = {
         [key: string]: string;
     };
     expiresAt?: string;
+};
+
+export type VoiceSettingsRequest = {
+    autoSend?: boolean;
+    autoPlayback?: boolean;
+    playbackSpeed?: number;
+};
+
+export type VoiceSettingsResponse = {
+    autoSend: boolean;
+    autoPlayback: boolean;
+    playbackSpeed: number;
 };
 
 export type AccountType = 'STANDARD';
@@ -1072,6 +1123,21 @@ export type WebAvailabilityResponse = {
     requiredModelIds?: Array<string>;
     inheritedModelId?: string;
     nativeModelIds?: Array<string>;
+};
+
+export type VoiceAvailabilityResponse = {
+    sttAvailable: boolean;
+    ttsAvailable: boolean;
+};
+
+export type VoiceProviderResponse = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    requiresKey: boolean;
+    requiresEndpoint: boolean;
+    defaultEndpoint: string;
+    sttModels: Array<string>;
+    ttsModels: Array<string>;
+    voices: Array<string>;
 };
 
 export type SharedSession = {
@@ -1600,6 +1666,165 @@ export type SaveChatWebConnectionResponses = {
 };
 
 export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
+
+export type SelectChatVoiceProviderData = {
+    body: VoiceSelectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/selection';
+};
+
+export type SelectChatVoiceProviderErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SelectChatVoiceProviderError = SelectChatVoiceProviderErrors[keyof SelectChatVoiceProviderErrors];
+
+export type SelectChatVoiceProviderResponses = {
+    /**
+     * Voice selection saved
+     */
+    204: void;
+};
+
+export type SelectChatVoiceProviderResponse = SelectChatVoiceProviderResponses[keyof SelectChatVoiceProviderResponses];
+
+export type DeleteChatVoiceConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/voice/connections/{provider}';
+};
+
+export type DeleteChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatVoiceConnectionError = DeleteChatVoiceConnectionErrors[keyof DeleteChatVoiceConnectionErrors];
+
+export type DeleteChatVoiceConnectionResponses = {
+    /**
+     * Voice connection removed from both functions
+     */
+    204: void;
+};
+
+export type DeleteChatVoiceConnectionResponse = DeleteChatVoiceConnectionResponses[keyof DeleteChatVoiceConnectionResponses];
+
+export type SaveChatVoiceConnectionData = {
+    body: VoiceConnectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    };
+    query?: never;
+    url: '/api/chat/voice/connections/{provider}';
+};
+
+export type SaveChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SaveChatVoiceConnectionError = SaveChatVoiceConnectionErrors[keyof SaveChatVoiceConnectionErrors];
+
+export type SaveChatVoiceConnectionResponses = {
+    /**
+     * Verified and saved voice connection
+     */
+    200: VoiceConnectionResponse;
+};
+
+export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -4004,6 +4229,153 @@ export type TestChatWebConnectionResponses = {
 
 export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
 
+export type CreateChatVoiceTicketData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/tickets';
+};
+
+export type CreateChatVoiceTicketErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type CreateChatVoiceTicketError = CreateChatVoiceTicketErrors[keyof CreateChatVoiceTicketErrors];
+
+export type CreateChatVoiceTicketResponses = {
+    /**
+     * Single-use voice WebSocket ticket
+     */
+    200: VoiceTicketResponse;
+};
+
+export type CreateChatVoiceTicketResponse = CreateChatVoiceTicketResponses[keyof CreateChatVoiceTicketResponses];
+
+export type SynthesizeChatVoiceData = {
+    body: VoiceSynthesisRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/synthesize';
+};
+
+export type SynthesizeChatVoiceErrors = {
+    /**
+     * Invalid text or playback speed
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat read authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * No text-to-speech provider, provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SynthesizeChatVoiceError = SynthesizeChatVoiceErrors[keyof SynthesizeChatVoiceErrors];
+
+export type SynthesizeChatVoiceResponses = {
+    /**
+     * MP3 audio, streamed as the provider produces it
+     */
+    200: Blob | File;
+};
+
+export type SynthesizeChatVoiceResponse = SynthesizeChatVoiceResponses[keyof SynthesizeChatVoiceResponses];
+
+export type TestChatVoiceConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE';
+    };
+    query?: never;
+    url: '/api/chat/voice/connections/{provider}/test';
+};
+
+export type TestChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type TestChatVoiceConnectionError = TestChatVoiceConnectionErrors[keyof TestChatVoiceConnectionErrors];
+
+export type TestChatVoiceConnectionResponses = {
+    /**
+     * Provider accepted the stored endpoint and credential
+     */
+    204: void;
+};
+
+export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
+
 export type ListChatSessionsData = {
     body?: never;
     path?: never;
@@ -5080,6 +5452,94 @@ export type InitiateChatFileUploadResponses = {
 
 export type InitiateChatFileUploadResponse = InitiateChatFileUploadResponses[keyof InitiateChatFileUploadResponses];
 
+export type GetChatVoiceSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/settings';
+};
+
+export type GetChatVoiceSettingsErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type GetChatVoiceSettingsError = GetChatVoiceSettingsErrors[keyof GetChatVoiceSettingsErrors];
+
+export type GetChatVoiceSettingsResponses = {
+    /**
+     * The current member's voice settings
+     */
+    200: VoiceSettingsResponse;
+};
+
+export type GetChatVoiceSettingsResponse = GetChatVoiceSettingsResponses[keyof GetChatVoiceSettingsResponses];
+
+export type UpdateChatVoiceSettingsData = {
+    body: VoiceSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/settings';
+};
+
+export type UpdateChatVoiceSettingsErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatVoiceSettingsError = UpdateChatVoiceSettingsErrors[keyof UpdateChatVoiceSettingsErrors];
+
+export type UpdateChatVoiceSettingsResponses = {
+    /**
+     * Updated voice settings
+     */
+    200: VoiceSettingsResponse;
+};
+
+export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[keyof UpdateChatVoiceSettingsResponses];
+
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -5703,6 +6163,141 @@ export type ListChatWebConnectionsResponses = {
 };
 
 export type ListChatWebConnectionsResponse = ListChatWebConnectionsResponses[keyof ListChatWebConnectionsResponses];
+
+export type GetChatVoiceAvailabilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice';
+};
+
+export type GetChatVoiceAvailabilityErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type GetChatVoiceAvailabilityError = GetChatVoiceAvailabilityErrors[keyof GetChatVoiceAvailabilityErrors];
+
+export type GetChatVoiceAvailabilityResponses = {
+    /**
+     * Configured voice availability
+     */
+    200: VoiceAvailabilityResponse;
+};
+
+export type GetChatVoiceAvailabilityResponse = GetChatVoiceAvailabilityResponses[keyof GetChatVoiceAvailabilityResponses];
+
+export type ListChatVoiceProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/providers';
+};
+
+export type ListChatVoiceProvidersErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type ListChatVoiceProvidersError = ListChatVoiceProvidersErrors[keyof ListChatVoiceProvidersErrors];
+
+export type ListChatVoiceProvidersResponses = {
+    /**
+     * Implemented voice providers
+     */
+    200: Array<VoiceProviderResponse>;
+};
+
+export type ListChatVoiceProvidersResponse = ListChatVoiceProvidersResponses[keyof ListChatVoiceProvidersResponses];
+
+export type ListChatVoiceConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/connections';
+};
+
+export type ListChatVoiceConnectionsErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type ListChatVoiceConnectionsError = ListChatVoiceConnectionsErrors[keyof ListChatVoiceConnectionsErrors];
+
+export type ListChatVoiceConnectionsResponses = {
+    /**
+     * Voice connections
+     */
+    200: Array<VoiceConnectionResponse>;
+};
+
+export type ListChatVoiceConnectionsResponse = ListChatVoiceConnectionsResponses[keyof ListChatVoiceConnectionsResponses];
 
 export type GetSharedChatSessionData = {
     body?: never;

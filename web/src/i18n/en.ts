@@ -166,6 +166,8 @@ export const en = {
       "This item has changed. Reload its latest version before trying again. Your draft is preserved.",
     notFound: "This item is no longer available.",
     unavailable: "The service is temporarily unavailable. Try again later.",
+    voiceProviderUnavailable:
+      "The voice provider could not be reached or rejected the key. Check the address, key and model, then try again.",
     webProviderUnavailable:
       "The Web provider could not be reached or rejected the request. Check the address and key, then test again.",
     network: "Couldn’t connect. Check your connection and try again.",

@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  AudioLines,
   Globe,
   KeyRound,
   Menu,
@@ -27,7 +28,7 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "voice" | "providers" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -212,6 +213,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/voice"
+                  icon={<AudioLines className="size-4" />}
+                  selected={adminPage === "voice"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Giọng nói")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

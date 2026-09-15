@@ -165,6 +165,8 @@ export const vi = {
       "Mục này đã thay đổi. Hãy tải lại phiên bản mới nhất trước khi thử lại. Bản nháp được giữ nguyên.",
     notFound: "Mục này không còn khả dụng.",
     unavailable: "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
+    voiceProviderUnavailable:
+      "Không kết nối được nhà cung cấp giọng nói hoặc khóa bị từ chối. Kiểm tra địa chỉ, khóa và mô hình rồi thử lại.",
     webProviderUnavailable:
       "Không kết nối được nhà cung cấp Web hoặc yêu cầu bị từ chối. Kiểm tra địa chỉ và khóa rồi kiểm tra lại.",
     network: "Không thể kết nối. Hãy kiểm tra kết nối mạng rồi thử lại.",
