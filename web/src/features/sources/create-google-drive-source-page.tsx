@@ -20,6 +20,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -698,210 +699,229 @@ function GoogleDriveSourceSetup() {
             </h2>
             <p className="mb-4 text-sm text-content-secondary">{ui("Choose an account.")}</p>
             <div>
-              <RadioGroup
-                value={credentialId ?? ""}
-                onValueChange={(selected) => {
-                  setError(null);
-                  void navigate({ search: { credentialId: selected } });
-                }}
-              >
-                <Table className="w-full table-fixed text-sm">
-                  <TableCaption className="sr-only">{ui("Google Drive credentials")}</TableCaption>
-                  <TableHeader className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
-                    <TableRow>
-                      <TableHead scope="col" className="w-12 py-3">
-                        <span className="sr-only">{ui("Select")}</span>
-                      </TableHead>
-                      <TableHead scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
-                        {ui("ID")}
-                      </TableHead>
-                      <TableHead scope="col" className="px-2 py-3 text-left font-medium">
-                        {ui("Name")}
-                      </TableHead>
-                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                        {ui("Created")}
-                      </TableHead>
-                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                        {ui("Last Updated")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  {credentials.data?.map((credential) => {
-                    const ready =
-                      credential.status === "ACTIVE" && credential.oauthClientConfigured;
-                    return (
-                      <TableBody
-                        key={credential.id}
-                        className="block border-b border-border-subtle sm:table-row-group"
-                      >
-                        <TableRow
-                          className={`grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 py-3 sm:table-row ${
-                            credential.id === credentialId && ready ? "bg-surface-subtle" : ""
-                          }`}
+              <TooltipProvider>
+                <RadioGroup
+                  value={credentialId ?? ""}
+                  onValueChange={(selected) => {
+                    setError(null);
+                    void navigate({ search: { credentialId: selected } });
+                  }}
+                >
+                  <Table className="w-full table-fixed text-sm">
+                    <TableCaption className="sr-only">
+                      {ui("Google Drive credentials")}
+                    </TableCaption>
+                    <TableHeader className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
+                      <TableRow>
+                        <TableHead scope="col" className="w-12 py-3">
+                          <span className="sr-only">{ui("Select")}</span>
+                        </TableHead>
+                        <TableHead scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
+                          {ui("ID")}
+                        </TableHead>
+                        <TableHead scope="col" className="px-2 py-3 text-left font-medium">
+                          {ui("Name")}
+                        </TableHead>
+                        <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                          {ui("Created")}
+                        </TableHead>
+                        <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                          {ui("Last Updated")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    {credentials.data?.map((credential) => {
+                      const ready =
+                        credential.status === "ACTIVE" && credential.oauthClientConfigured;
+                      return (
+                        <TableBody
+                          key={credential.id}
+                          className="block border-b border-border-subtle sm:table-row-group"
                         >
-                          <TableCell className="order-first py-2 align-middle">
-                            <label className="flex size-11 cursor-pointer items-center justify-center has-disabled:cursor-default">
-                              <RadioGroupItem
-                                value={credential.id}
-                                aria-label={ui("Select {{v1}}", { v1: credential.name })}
-                                disabled={!ready || unavailable || busy || frozenProposal}
-                              />
-                            </label>
-                          </TableCell>
-                          <TableCell className="col-span-3 px-2 py-2 align-middle">
-                            <span className="mr-2 text-xs text-content-secondary sm:hidden">
-                              {ui("ID")}
-                            </span>
-                            <span title={credential.id} className="font-mono text-xs">
-                              {credential.id.slice(0, 8)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="order-first col-span-2 px-2 py-2 align-middle">
-                            <div className="flex items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                <span className="min-w-0 flex-1 text-sm">
-                                  <span className="block wrap-anywhere font-medium text-content-primary">
-                                    {credential.name}
-                                  </span>
-                                  {credential.accountEmail !== credential.name ? (
-                                    <span className="block wrap-anywhere text-content-secondary">
-                                      {credential.accountEmail}
-                                    </span>
-                                  ) : null}
-                                  {!ready ? (
-                                    <span className="mt-1 block">
-                                      <StatusBadge tone="warning">
-                                        {credential.status === "REVOKED"
-                                          ? ui("Revoked")
-                                          : ui("Needs reconnect")}
-                                      </StatusBadge>
-                                    </span>
-                                  ) : null}
-                                </span>
-                              </div>
-                              {credential.actions.length > 0 ? (
-                                <IconButton
-                                  aria-label={ui("Manage {{v1}}", { v1: credential.name })}
-                                  aria-expanded={managedCredentialId === credential.id}
-                                  aria-controls={`credential-actions-${credential.id}`}
-                                  title={ui("Manage credential")}
-                                  className="size-11"
-                                  onClick={() =>
-                                    setManagedCredentialId(
-                                      managedCredentialId === credential.id ? null : credential.id,
-                                    )
-                                  }
-                                >
-                                  <Ellipsis />
-                                </IconButton>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
-                            <span className="mb-1 block sm:hidden">{ui("Created")}</span>
-                            <time dateTime={credential.createdAt}>
-                              {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
-                            </time>
-                          </TableCell>
-                          <TableCell className="px-2 py-2 align-middle text-xs text-content-secondary">
-                            <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
-                            <time dateTime={credential.updatedAt}>
-                              {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
-                            </time>
-                          </TableCell>
-                        </TableRow>
-                        {managedCredentialId === credential.id && credential.actions.length > 0 ? (
                           <TableRow
-                            id={`credential-actions-${credential.id}`}
-                            className="block sm:table-row"
+                            className={`grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 py-3 sm:table-row ${
+                              credential.id === credentialId && ready ? "bg-surface-subtle" : ""
+                            }`}
                           >
-                            <TableCell colSpan={5} className="block px-2 py-3 sm:table-cell">
-                              <p className="mb-2 text-sm text-content-secondary">
-                                {ui("Used by")} {credential.sourceCount}{" "}
-                                {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {credential.actions.includes("reauthorize") ? (
-                                  <Button
-                                    prominence="tertiary"
-                                    disabled={unavailable || busy || frozenProposal}
-                                    onClick={(event) => {
-                                      modalTrigger.current = event.currentTarget;
-                                      editCredential(credential);
-                                    }}
-                                  >
-                                    {ui("Reconnect")}
-                                  </Button>
-                                ) : null}
-                                {credential.actions.includes("revoke") &&
-                                credential.status !== "REVOKED" ? (
-                                  <ConfirmDialog
-                                    trigger={
-                                      <Button
-                                        tone="danger"
-                                        prominence="tertiary"
-                                        disabled={unavailable || busy || frozenProposal}
-                                      >
-                                        {ui("Revoke")}
-                                      </Button>
-                                    }
-                                    title={ui("Revoke {{v1}}?", { v1: credential.name })}
-                                    description={ui(
-                                      "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
-                                      { v1: credential.sourceCount },
-                                    )}
-                                    confirmLabel={ui("Revoke")}
-                                    pendingLabel={ui("Revoking")}
-                                    onConfirm={() => changeCredential(credential, "revoke")}
-                                    errorMessage={(cause) =>
-                                      sourceMutationError(cause, "google-drive")
-                                    }
-                                  />
-                                ) : null}
-                                {credential.actions.includes("delete") ? (
-                                  <ConfirmDialog
-                                    trigger={
-                                      <Button
-                                        tone="danger"
-                                        prominence="tertiary"
-                                        disabled={
-                                          unavailable ||
-                                          busy ||
-                                          frozenProposal ||
-                                          credential.sourceCount !== 0
+                            <TableCell className="order-first py-2 align-middle">
+                              <label className="flex size-11 cursor-pointer items-center justify-center has-disabled:cursor-default">
+                                <RadioGroupItem
+                                  value={credential.id}
+                                  aria-label={ui("Select {{v1}}", { v1: credential.name })}
+                                  disabled={!ready || unavailable || busy || frozenProposal}
+                                />
+                              </label>
+                            </TableCell>
+                            <TableCell className="col-span-3 px-2 py-2 align-middle">
+                              <span className="mr-2 text-xs text-content-secondary sm:hidden">
+                                {ui("ID")}
+                              </span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span tabIndex={0} className="font-mono text-xs">
+                                    {credential.id.slice(0, 8)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="font-mono">
+                                  {credential.id}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell className="order-first col-span-2 px-2 py-2 align-middle">
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <span className="min-w-0 flex-1 text-sm">
+                                    <span className="block wrap-anywhere font-medium text-content-primary">
+                                      {credential.name}
+                                    </span>
+                                    {credential.accountEmail !== credential.name ? (
+                                      <span className="block wrap-anywhere text-content-secondary">
+                                        {credential.accountEmail}
+                                      </span>
+                                    ) : null}
+                                    {!ready ? (
+                                      <span className="mt-1 block">
+                                        <StatusBadge tone="warning">
+                                          {credential.status === "REVOKED"
+                                            ? ui("Revoked")
+                                            : ui("Needs reconnect")}
+                                        </StatusBadge>
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </div>
+                                {credential.actions.length > 0 ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <IconButton
+                                        aria-label={ui("Manage {{v1}}", { v1: credential.name })}
+                                        aria-expanded={managedCredentialId === credential.id}
+                                        aria-controls={`credential-actions-${credential.id}`}
+                                        className="size-11"
+                                        onClick={() =>
+                                          setManagedCredentialId(
+                                            managedCredentialId === credential.id
+                                              ? null
+                                              : credential.id,
+                                          )
                                         }
-                                        title={
-                                          credential.sourceCount
-                                            ? ui(
-                                                "Delete all attached Sources before deleting this credential",
-                                              )
-                                            : undefined
-                                        }
                                       >
-                                        {ui("Delete")}
-                                      </Button>
-                                    }
-                                    title={ui("Delete {{v1}}?", { v1: credential.name })}
-                                    description={ui(
-                                      "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
-                                    )}
-                                    confirmLabel={ui("Delete credential")}
-                                    pendingLabel={ui("Deleting")}
-                                    onConfirm={() => changeCredential(credential, "delete")}
-                                    errorMessage={(cause) =>
-                                      sourceMutationError(cause, "google-drive")
-                                    }
-                                  />
+                                        <Ellipsis />
+                                      </IconButton>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{ui("Manage credential")}</TooltipContent>
+                                  </Tooltip>
                                 ) : null}
                               </div>
                             </TableCell>
+                            <TableCell className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
+                              <span className="mb-1 block sm:hidden">{ui("Created")}</span>
+                              <time dateTime={credential.createdAt}>
+                                {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
+                              </time>
+                            </TableCell>
+                            <TableCell className="px-2 py-2 align-middle text-xs text-content-secondary">
+                              <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
+                              <time dateTime={credential.updatedAt}>
+                                {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
+                              </time>
+                            </TableCell>
                           </TableRow>
-                        ) : null}
-                      </TableBody>
-                    );
-                  })}
-                </Table>
-              </RadioGroup>
+                          {managedCredentialId === credential.id &&
+                          credential.actions.length > 0 ? (
+                            <TableRow
+                              id={`credential-actions-${credential.id}`}
+                              className="block sm:table-row"
+                            >
+                              <TableCell colSpan={5} className="block px-2 py-3 sm:table-cell">
+                                <p className="mb-2 text-sm text-content-secondary">
+                                  {ui("Used by")} {credential.sourceCount}{" "}
+                                  {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {credential.actions.includes("reauthorize") ? (
+                                    <Button
+                                      prominence="tertiary"
+                                      disabled={unavailable || busy || frozenProposal}
+                                      onClick={(event) => {
+                                        modalTrigger.current = event.currentTarget;
+                                        editCredential(credential);
+                                      }}
+                                    >
+                                      {ui("Reconnect")}
+                                    </Button>
+                                  ) : null}
+                                  {credential.actions.includes("revoke") &&
+                                  credential.status !== "REVOKED" ? (
+                                    <ConfirmDialog
+                                      trigger={
+                                        <Button
+                                          tone="danger"
+                                          prominence="tertiary"
+                                          disabled={unavailable || busy || frozenProposal}
+                                        >
+                                          {ui("Revoke")}
+                                        </Button>
+                                      }
+                                      title={ui("Revoke {{v1}}?", { v1: credential.name })}
+                                      description={ui(
+                                        "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
+                                        { v1: credential.sourceCount },
+                                      )}
+                                      confirmLabel={ui("Revoke")}
+                                      pendingLabel={ui("Revoking")}
+                                      onConfirm={() => changeCredential(credential, "revoke")}
+                                      errorMessage={(cause) =>
+                                        sourceMutationError(cause, "google-drive")
+                                      }
+                                    />
+                                  ) : null}
+                                  {credential.actions.includes("delete") ? (
+                                    <ConfirmDialog
+                                      trigger={
+                                        <Button
+                                          tone="danger"
+                                          prominence="tertiary"
+                                          disabled={
+                                            unavailable ||
+                                            busy ||
+                                            frozenProposal ||
+                                            credential.sourceCount !== 0
+                                          }
+                                        >
+                                          {ui("Delete")}
+                                        </Button>
+                                      }
+                                      title={ui("Delete {{v1}}?", { v1: credential.name })}
+                                      description={ui(
+                                        "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
+                                      )}
+                                      confirmLabel={ui("Delete credential")}
+                                      pendingLabel={ui("Deleting")}
+                                      onConfirm={() => changeCredential(credential, "delete")}
+                                      errorMessage={(cause) =>
+                                        sourceMutationError(cause, "google-drive")
+                                      }
+                                    />
+                                  ) : null}
+                                  {credential.actions.includes("delete") &&
+                                  credential.sourceCount ? (
+                                    <p className="w-full text-xs text-content-muted">
+                                      {ui(
+                                        "Delete all attached Sources before deleting this credential",
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ) : null}
+                        </TableBody>
+                      );
+                    })}
+                  </Table>
+                </RadioGroup>
+              </TooltipProvider>
               {canManage && credentials.isPending ? (
                 <p role="status" className="mt-4 text-sm text-content-secondary">
                   {ui("Loading credentials…")}
