@@ -96,17 +96,17 @@ Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/ME
 | Project | Status | Provisional window | Issues |
 | --- | --- | --- | --- |
 | Giai đoạn 1: Nền tảng MemoryOS | Completed | → 2026-09-15 | Delivered foundation listed above |
-| [SEP490](https://linear.app/memory-os/project/sep490-f571b6150b5f) | In progress, at risk | 2026-08-24 → 2026-12-21 | MEM-85, MEM-86, MEM-115 |
-| Google Drive & ACL | In progress | → 2026-10 | MEM-60, MEM-9, MEM-10, MEM-63, MEM-88, MEM-89, MEM-90, MEM-104, MEM-105 |
-| OCR tài liệu scan | In progress | → 2026-10 | MEM-79 |
-| Chat nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116; candidates MEM-117, MEM-122 |
-| Provider & chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123 |
-| IAM, quản trị & vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
-| Agent & Skill | Planned | 2026-10 → 2026-11 | MEM-119, MEM-120 |
-| Mở rộng nguồn dữ liệu | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490) |
-| Voice & Meeting | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
-| Giao diện | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
-| Tích hợp ngoài: MCP & Actions | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
+| [SEP490: Hồ sơ và bảo vệ đồ án](https://linear.app/memory-os/project/sep490-f571b6150b5f) | In progress, at risk | 2026-08-24 → 2026-12-21 | MEM-85, MEM-86, MEM-115 |
+| Nguồn Google Drive và phân quyền | In progress | → 2026-10 | MEM-60, MEM-9, MEM-10, MEM-63, MEM-88, MEM-89, MEM-90, MEM-104, MEM-105 |
+| Đọc tài liệu scan (OCR) | In progress | → 2026-10 | MEM-79 |
+| Trợ lý AI nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116; candidates MEM-117, MEM-122 |
+| Mô hình AI và chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123 |
+| Bảo mật, quản trị và vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
+| Agent và Skill tùy chỉnh | Planned | 2026-10 → 2026-11 | MEM-119, MEM-120 |
+| Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490) |
+| Giọng nói và cuộc họp | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
+| Giao diện và trải nghiệm | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
+| Tích hợp hệ thống ngoài (MCP, API) | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
 
 SEP490 milestones follow the stage order of the [R2 template](academic/sep490/README.md#giai-đoạn-tham-khảo-từ-mẫu-r2): R1/R2 v1.0/R3 v0.9 (2026-09-27, behind the template's week 3), R4 SDS v1.0 with test plan and R3 v1.0 (2026-10-11), three iteration packages (2026-10-25, 2026-11-08, 2026-11-22), verification and validation with R6 (2026-12-06), and R7 with the defense (2026-12-21).
 
@@ -124,15 +124,15 @@ gantt
     Verification and R6           :s6, after s5, 2026-12-06
     R7 and defense                :milestone, s7, 2026-12-21, 0d
     section In progress
-    Google Drive & ACL            :2026-08-24, 2026-10-31
-    OCR tài liệu scan             :2026-09-01, 2026-10-31
-    Chat nâng cao                 :2026-09-01, 2026-11-30
-    Provider & chi phí            :2026-09-01, 2026-11-30
-    IAM, quản trị & vận hành      :2026-08-24, 2026-12-06
+    Nguồn Google Drive và phân quyền :2026-08-24, 2026-10-31
+    Đọc tài liệu scan (OCR)       :2026-09-01, 2026-10-31
+    Trợ lý AI nâng cao            :2026-09-01, 2026-11-30
+    Mô hình AI và chi phí         :2026-09-01, 2026-11-30
+    Bảo mật quản trị và vận hành  :2026-08-24, 2026-12-06
     section Planned
-    Agent & Skill                 :2026-10-01, 2026-11-30
-    Mở rộng nguồn dữ liệu         :2026-10-01, 2026-11-30
-    Giao diện                     :2026-10-01, 2026-11-30
+    Agent và Skill tùy chỉnh      :2026-10-01, 2026-11-30
+    Kết nối nguồn dữ liệu mới     :2026-10-01, 2026-11-30
+    Giao diện và trải nghiệm      :2026-10-01, 2026-11-30
     Voice STT batch               :v1, 2026-10-01, 2026-10-31
     Meeting recording source      :v2, after v1, 2026-11-22
     Meeting task extraction       :v3, after v2, 2026-12-06
