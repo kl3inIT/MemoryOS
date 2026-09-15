@@ -414,6 +414,7 @@ public final class ChatTurnService implements AutoCloseable {
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
         final ChatActivityRecorder recorder = new ChatActivityRecorder();
+        final ChatResearchRecorder agents = new ChatResearchRecorder();
         final StringBuilder plan = new StringBuilder();
         volatile boolean clarification;
         final AtomicReference<StopReason> stopReason = new AtomicReference<>();
@@ -452,12 +453,13 @@ public final class ChatTurnService implements AutoCloseable {
             if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA && plan.length() < ChatResearch.MAX_PLAN)
                 plan.append(research.text(), 0, Math.min(research.text().length(), ChatResearch.MAX_PLAN - plan.length()));
             recorder.accept(event, content.length());
+            agents.accept(event);
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
                 var artifacts = setup.artifacts().seal();
                 var activity = recorder.seal();
-                var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString());
+                var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
                 if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
                         content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity, research);

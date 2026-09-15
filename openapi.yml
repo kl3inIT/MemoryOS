@@ -10907,9 +10907,72 @@ components:
           type:
           - string
           - "null"
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageResearchAgent"
       required:
+      - agents
       - clarification
       - plan
+    ChatMessageResearchAgent:
+      type: object
+      properties:
+        toolCallId:
+          type: string
+        cycle:
+          type: integer
+          format: int32
+        tabIndex:
+          type: integer
+          format: int32
+        task:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - FAILED
+        durationMs:
+          type:
+          - integer
+          - "null"
+          format: int64
+        report:
+          type:
+          - string
+          - "null"
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageResearchCitation"
+        activity:
+          $ref: "#/components/schemas/ChatActivity"
+      required:
+      - activity
+      - citations
+      - cycle
+      - durationMs
+      - report
+      - status
+      - tabIndex
+      - task
+      - toolCallId
+    ChatMessageResearchCitation:
+      type: object
+      properties:
+        marker:
+          type: integer
+          format: int32
+        citationId:
+          type: integer
+          format: int32
+      required:
+      - citationId
+      - marker
     ChatSource:
       type: object
       properties:

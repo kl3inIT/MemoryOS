@@ -379,6 +379,7 @@ public class JdbcChatRepository {
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb),
                             activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
+                            research_agents = CAST(:agents AS jsonb),
                             finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         """).param("session", session).param("id", assistant).param("status", status.name())
@@ -387,7 +388,7 @@ public class JdbcChatRepository {
                 .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
                 .param("sources", JSON.writeValueAsString(sources)).param("artifacts", JSON.writeValueAsString(artifacts))
                 .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
-                .param("plan", research.plan(), Types.VARCHAR).update();
+                .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents())).update();
         if (changed == 1) touch(session);
         return changed == 1;
     }
@@ -432,6 +433,7 @@ public class JdbcChatRepository {
                 List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)),
                 List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)),
                 JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class),
-                new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan")));
+                new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
+                        List.of(JSON.readValue(row.getString("research_agents"), io.memoryos.chat.ChatResearch.Agent[].class))));
     }
 }

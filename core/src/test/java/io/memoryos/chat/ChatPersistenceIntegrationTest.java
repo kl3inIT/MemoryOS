@@ -424,10 +424,18 @@ class ChatPersistenceIntegrationTest {
     void researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded() {
         var session = sessions.create(owner, "Research state");
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var agent = new ChatResearch.Agent("call_revenue", 0, 1, "Revenue in 2025", ChatActivity.StepStatus.COMPLETED, 900L,
+                "Revenue grew [1].", List.of(new ChatResearchEvent.Citation(1, 4)), new ChatActivity(List.of(new ChatActivity.ActivityStep(0,
+                "call_search", "searchKnowledge", ChatActivity.StepStatus.COMPLETED, java.time.Instant.parse("2026-09-15T10:00:00Z"), 12L, 0,
+                List.of("revenue"), null, List.of(), List.of())), List.of()));
+        var state = new ChatResearch(true, "1. Revenue", List.of(agent));
         assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
-                "Which fiscal year?", null, null, null, null, null, List.of(), List.of(), ChatActivity.EMPTY, new ChatResearch(true, "1. Revenue")));
+                "Which fiscal year?", null, null, null, null, null, List.of(), List.of(), ChatActivity.EMPTY, state));
         var history = sessions.history(owner, session.id(), null, 20);
-        assertEquals(new ChatResearch(true, "1. Revenue"), history.getLast().research());
+        assertEquals(state, history.getLast().research());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET research_agents = '[{}]'::jsonb WHERE id = :id").param("id", history.getFirst().id()).update(),
+                "Only assistant messages carry research agents");
         assertEquals(ChatResearch.EMPTY, history.getFirst().research(), "Ordinary messages carry no research state");
         assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
                 "UPDATE chat_message SET research_plan = repeat('x', 100001) WHERE id = :id")

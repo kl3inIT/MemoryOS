@@ -1157,6 +1157,24 @@ export type ChatMessage = {
 export type ChatMessageResearch = {
     clarification: boolean;
     plan: string | null;
+    agents: Array<ChatMessageResearchAgent>;
+};
+
+export type ChatMessageResearchAgent = {
+    toolCallId: string;
+    cycle: number;
+    tabIndex: number;
+    task: string | null;
+    status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+    durationMs: number | null;
+    report: string | null;
+    citations: Array<ChatMessageResearchCitation>;
+    activity: ChatActivity;
+};
+
+export type ChatMessageResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatSource = {
