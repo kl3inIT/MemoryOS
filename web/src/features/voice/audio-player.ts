@@ -7,7 +7,10 @@ export type AudioPlayback = {
   readonly started: Promise<void>;
   /** Resolves at the end of the audio or on stop; rejects on a stream or decoding error. */
   readonly finished: Promise<void>;
+  /** Whether the audio played to its end, as opposed to being stopped or failing. */
+  readonly reachedEnd: boolean;
   stop: () => void;
+  setMuted: (muted: boolean) => void;
 };
 
 export type AudioPlayerEnvironment = {
@@ -40,6 +43,7 @@ export function playAudioStream(
   const reader = stream.getReader();
   let url: string | undefined;
   let settled = false;
+  let reachedEnd = false;
   let resolveStarted!: () => void;
   let resolveFinished!: () => void;
   let rejectFinished!: (error: unknown) => void;
@@ -75,7 +79,10 @@ export function playAudioStream(
   }
 
   audio.onplaying = () => resolveStarted();
-  audio.onended = () => settle();
+  audio.onended = () => {
+    reachedEnd = true;
+    settle();
+  };
   audio.onerror = () => settle(new Error("Audio playback failed"));
 
   async function feed(source: MediaSource) {
@@ -118,7 +125,17 @@ export function playAudioStream(
     }
   }
 
-  const playback: AudioPlayback = { started, finished, stop: () => settle() };
+  const playback: AudioPlayback = {
+    started,
+    finished,
+    get reachedEnd() {
+      return reachedEnd;
+    },
+    stop: () => settle(),
+    setMuted: (muted) => {
+      audio.muted = muted;
+    },
+  };
   active = playback;
   if (environment.createMediaSource) {
     const source = environment.createMediaSource();

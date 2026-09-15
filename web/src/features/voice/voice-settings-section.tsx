@@ -42,6 +42,7 @@ export function VoiceSettingsSection() {
   const saved = settings.data;
   const pending = mutation.isPending ? mutation.variables : undefined;
   const autoSend = pending?.autoSend ?? saved?.autoSend ?? false;
+  const autoPlayback = pending?.autoPlayback ?? saved?.autoPlayback ?? false;
   const speed = speedDraft ?? pending?.playbackSpeed ?? saved?.playbackSpeed ?? 1;
   const disabled = !settings.isSuccess || mutation.isPending;
   return (
@@ -65,6 +66,27 @@ export function VoiceSettingsSection() {
             checked={autoSend}
             disabled={disabled}
             onCheckedChange={(checked) => mutation.mutate({ autoSend: checked })}
+          />
+        </div>
+      )}
+      {readAloud && (
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <label htmlFor="voice-auto-playback" className="font-main-ui-body text-content-primary">
+              {ui("Tự động đọc câu trả lời")}
+            </label>
+            <p id="voice-auto-playback-description" className="mt-1 text-content-muted">
+              {ui(
+                "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.",
+              )}
+            </p>
+          </div>
+          <Switch
+            id="voice-auto-playback"
+            aria-describedby="voice-auto-playback-description"
+            checked={autoPlayback}
+            disabled={disabled}
+            onCheckedChange={(checked) => mutation.mutate({ autoPlayback: checked })}
           />
         </div>
       )}

@@ -1143,7 +1143,7 @@ export const testChatWebConnection = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Issue a 60-second single-use ticket for the voice transcription WebSocket
+ * Issue a 60-second single-use ticket for the transcription or read-aloud voice WebSocket
  */
 export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(options: Options<CreateChatVoiceTicketData, ThrowOnError>): RequestResult<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -1152,7 +1152,11 @@ export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(opti
             type: 'apiKey'
         }],
     url: '/api/chat/voice/tickets',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

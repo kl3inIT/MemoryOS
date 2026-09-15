@@ -1429,7 +1429,7 @@ export const testChatWebConnectionMutation = (options?: Partial<Options<TestChat
 };
 
 /**
- * Issue a 60-second single-use ticket for the voice transcription WebSocket
+ * Issue a 60-second single-use ticket for the transcription or read-aloud voice WebSocket
  */
 export const createChatVoiceTicketMutation = (options?: Partial<Options<CreateChatVoiceTicketData>>): UseMutationOptions<CreateChatVoiceTicketResponse, CreateChatVoiceTicketError, Options<CreateChatVoiceTicketData>> => {
     const mutationOptions: UseMutationOptions<CreateChatVoiceTicketResponse, CreateChatVoiceTicketError, Options<CreateChatVoiceTicketData>> = {

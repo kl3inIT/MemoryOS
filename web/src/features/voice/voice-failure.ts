@@ -48,10 +48,22 @@ export function voiceFailureCopy(error: unknown): AppCopy {
   }
 }
 
-/** A single-use WebSocket ticket; the capacity limit is reported as busy rather than as a connection failure. */
-export async function requestVoiceTicket() {
+/** A read-aloud stream failure as read-aloud copy. */
+export function readAloudFailure(error: unknown) {
+  if (error instanceof ReadAloudError) return error;
+  if (error instanceof VoiceStreamError)
+    return new ReadAloudError(error.code === "VOICE_BUSY" ? "busy" : "unavailable");
+  return new ReadAloudError("playback");
+}
+
+/**
+ * A single-use ticket for one voice WebSocket; the capacity limit is reported as busy rather than as a connection
+ * failure.
+ */
+export async function requestVoiceTicket(purpose: "TRANSCRIBE" | "SYNTHESIZE" = "TRANSCRIBE") {
   try {
     const { data } = await createChatVoiceTicket({
+      body: { purpose },
       headers: sameOriginMutationHeaders,
       throwOnError: true,
     });

@@ -19,7 +19,9 @@ function fakePlayback() {
   const playback: AudioPlayback = {
     started: started.promise,
     finished: finished.promise,
+    reachedEnd: false,
     stop: vi.fn(),
+    setMuted: vi.fn(),
   };
   return { playback, started, finished };
 }

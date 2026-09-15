@@ -681,6 +681,10 @@ export type WebTestRequest = {
     search?: boolean;
 };
 
+export type VoiceTicketRequest = {
+    purpose?: 'TRANSCRIBE' | 'SYNTHESIZE';
+};
+
 export type VoiceTicketResponse = {
     ticket: string;
     expiresAt: string;
@@ -4230,7 +4234,7 @@ export type TestChatWebConnectionResponses = {
 export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
 
 export type CreateChatVoiceTicketData = {
-    body?: never;
+    body?: VoiceTicketRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.

@@ -1767,6 +1767,15 @@ Object.assign(vietnameseUi, {
     "The browser could not play the answer's audio.",
   "Không đọc được câu trả lời vì nhà cung cấp giọng nói không phản hồi.":
     "The answer could not be read aloud because the voice provider did not respond.",
+  "Tự động đọc câu trả lời": "Auto-play answers",
+  "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.":
+    "New answers are read aloud while they are written. If you just asked with the microphone, it turns on again when reading ends.",
+  "Đọc tự động": "Auto-playback",
+  "MemoryOS đang đọc câu trả lời": "MemoryOS is reading the answer",
+  "Đang chuẩn bị giọng đọc…": "Preparing the voice…",
+  "MemoryOS đang đọc…": "MemoryOS is reading…",
+  "Bật tiếng": "Unmute",
+  "Tắt tiếng": "Mute",
 });
 Object.assign(vietnameseUi, {
   "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.":

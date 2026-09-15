@@ -7,6 +7,7 @@ import { useFilesBlocked } from "@/features/chat/use-files-blocked";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
+import { chatAutoPlayback, useAutoPlayback } from "./use-chat-auto-playback";
 import { useVoiceAvailability } from "./use-voice-availability";
 import { useVoiceSettings } from "./use-voice-settings";
 import { voiceFailureCopy } from "./voice-failure";
@@ -21,6 +22,8 @@ export function ChatDictationButton({ disabled = false }: { disabled?: boolean }
   const dictating = useAuiState((state) => state.composer.dictation != null);
   // As in Onyx, a new recording waits for the running answer.
   const running = useAuiState((state) => state.thread.isRunning);
+  // The microphone would record the answer being read aloud.
+  const reading = useAutoPlayback().phase !== "idle";
   const manager = useApplicationSession().capabilities.includes("MODELS_MANAGE");
   const availability = useVoiceAvailability();
   if (dictating) return null;
@@ -30,7 +33,8 @@ export function ChatDictationButton({ disabled = false }: { disabled?: boolean }
         <IconButton
           aria-label={ui("Nhập bằng giọng nói")}
           title={ui("Nhập bằng giọng nói")}
-          disabled={disabled || running}
+          disabled={disabled || running || reading}
+          onClick={chatAutoPlayback.markManualDictation}
         >
           <Mic />
         </IconButton>

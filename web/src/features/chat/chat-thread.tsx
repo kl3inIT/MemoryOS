@@ -35,6 +35,12 @@ import {
   ChatVoiceFailure,
 } from "@/features/voice/chat-dictation-controls";
 import { ChatReadAloudButton } from "@/features/voice/chat-read-aloud";
+import {
+  ChatAutoListen,
+  ChatAutoPlayback,
+  ChatSpeakingIndicator,
+} from "@/features/voice/chat-auto-playback";
+import { useAutoPlayback } from "@/features/voice/use-chat-auto-playback";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatImages } from "./chat-images";
@@ -82,6 +88,7 @@ export function ChatThread({
   const { t } = useTranslation("chatStatus");
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
   const dictating = useAuiState((state) => state.composer.dictation != null);
+  const reading = useAutoPlayback().phase !== "idle";
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
@@ -151,15 +158,24 @@ export function ChatThread({
                 />
               ) : null}
               <ChatVoiceFailure />
+              <ChatSpeakingIndicator />
+              <ChatAutoPlayback />
               <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                 <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
                   <ChatComposerDraft />
                   <ChatDictationAutoSend />
+                  <ChatAutoListen />
                   <ChatComposerQuote />
                   <ComposerAttachments />
                   <ComposerPrimitive.Input
                     aria-label={ui("Câu hỏi")}
-                    placeholder={dictating ? ui("Đang nghe…") : ui("Nhập câu hỏi…")}
+                    placeholder={
+                      dictating
+                        ? ui("Đang nghe…")
+                        : reading
+                          ? ui("MemoryOS đang đọc…")
+                          : ui("Nhập câu hỏi…")
+                    }
                     rows={1}
                     maxLength={32000}
                     className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
