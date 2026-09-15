@@ -478,8 +478,9 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Discover linked docs" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Pause automatic sync" }).click();
-  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toBeVisible();
+  const automaticSync = page.getByRole("switch", { name: "Automatic synchronization" });
+  await automaticSync.click();
+  await expect(automaticSync).not.toBeChecked();
   await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
   await page.getByRole("button", { name: "Edit interval" }).click();
   entry.source.permissions = {
@@ -491,7 +492,7 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   };
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("spinbutton", { name: "Interval in minutes" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toHaveCount(0);
+  await expect(automaticSync).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Google Drive configuration" })).toBeVisible();
 });
 

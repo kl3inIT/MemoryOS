@@ -441,7 +441,9 @@ describe("Google Drive enterprise selection", () => {
       screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pause automatic sync" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("switch", { name: "Automatic synchronization" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Source summary")).toBeVisible();
   });
 

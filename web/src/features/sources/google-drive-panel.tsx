@@ -13,6 +13,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   useApplicationSession,
@@ -817,7 +818,15 @@ export function GoogleDrivePanel({
           </div>
           <div>
             <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
-            <dd className="mt-2 text-content-primary">
+            <dd className="mt-2 flex min-h-8 items-center gap-2 text-content-primary">
+              {canPause ? (
+                <Switch
+                  checked={!configuration.syncPaused}
+                  disabled={controlsDisabled}
+                  aria-label={ui("Automatic synchronization")}
+                  onCheckedChange={() => run("pause", togglePause)}
+                />
+              ) : null}
               {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
             </dd>
           </div>
@@ -843,18 +852,6 @@ export function GoogleDrivePanel({
             >
               <RefreshCw /> {ui("Refresh status")}
             </Button>
-            {canPause ? (
-              <Button
-                prominence="secondary"
-                disabled={controlsDisabled}
-                pending={activeAction === "pause"}
-                onClick={() => run("pause", togglePause)}
-              >
-                {configuration.syncPaused
-                  ? ui("Resume automatic sync")
-                  : ui("Pause automatic sync")}
-              </Button>
-            ) : null}
             {connected && canSynchronize ? (
               <Button
                 disabled={
@@ -922,12 +919,12 @@ export function GoogleDrivePanel({
                 {configuration.accountEmail}
               </span>
               <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-                <span className="group-open:hidden">
+                <span className="group-data-[state=open]:hidden">
                   {canReauthorize || canRevoke ? ui("Manage connection") : ui("Connection details")}
                 </span>
-                <span className="hidden group-open:inline">{ui("Close")}</span>
+                <span className="hidden group-data-[state=open]:inline">{ui("Close")}</span>
                 <ChevronDown
-                  className="size-4 group-open:rotate-180 motion-safe:transition-transform"
+                  className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
                   aria-hidden="true"
                 />
               </span>

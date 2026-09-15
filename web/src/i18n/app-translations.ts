@@ -513,8 +513,6 @@ export const englishUi: Record<string, string> = {
   "Automatic synchronization": "Đồng bộ tự động",
   Paused: "Đã tạm dừng",
   Enabled: "Đã bật",
-  "Resume automatic sync": "Tiếp tục đồng bộ tự động",
-  "Pause automatic sync": "Tạm dừng đồng bộ tự động",
   "Automatic synchronization paused": "Đã tạm dừng đồng bộ tự động",
   "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
   "Current work and manual synchronization are unchanged.":
