@@ -2,6 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceItemStatus;
 import io.memoryos.connector.SourceRun;
 import io.memoryos.connector.SourceRunCounts;
 import io.memoryos.connector.SourceRunError;
@@ -114,17 +115,48 @@ public class JdbcSourceRunHistoryRepository {
         String scope = scope(tenant, source, "ERROR:" + runId, null, null, null, null);
         Cursor cursor = decode(token, scope);
         var statement = jdbc.sql("""
-                SELECT e.* FROM source_run_errors e
-                JOIN source_sync_attempts r ON r.tenant_id = e.tenant_id AND r.id = e.run_id
-                WHERE e.tenant_id = :tenant AND r.source_id = :source AND e.run_id = :run
+                WITH error_page AS (
+                    SELECT e.*, p.connector_id FROM source_run_errors e
+                    JOIN source_sync_attempts r ON r.tenant_id = e.tenant_id AND r.id = e.run_id
+                    JOIN connector_credential_pairs p ON p.tenant_id = r.tenant_id AND p.id = r.source_id
+                    WHERE e.tenant_id = :tenant AND r.source_id = :source AND e.run_id = :run
                 """ + (cursor == null ? "" : " AND (e.occurred_at, e.id) < (:cursorTime, :cursorId)")
-                + " ORDER BY e.occurred_at DESC, e.id DESC LIMIT :limit")
+                + """
+                    ORDER BY e.occurred_at DESC, e.id DESC LIMIT :limit
+                )
+                SELECT e.*, item.status AS current_item_status,
+                    attempt.error_code AS current_item_error_code,
+                    success.completed_at AS current_item_last_indexed_at
+                FROM error_page e
+                LEFT JOIN connector_items item ON item.tenant_id = e.tenant_id
+                    AND item.connector_id = e.connector_id AND item.id = e.item_id
+                LEFT JOIN LATERAL (
+                    SELECT latest.error_code FROM index_attempts latest
+                    WHERE latest.tenant_id = item.tenant_id
+                        AND latest.connector_credential_pair_id = :source AND latest.connector_item_id = item.id
+                    ORDER BY latest.pair_sequence DESC LIMIT 1
+                ) attempt ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT completed_at FROM index_attempts successful
+                    WHERE successful.tenant_id = item.tenant_id
+                        AND successful.connector_credential_pair_id = :source AND successful.connector_item_id = item.id
+                        AND successful.connector_item_version_id = item.current_version_id AND successful.status = 'SUCCEEDED'
+                    ORDER BY successful.pair_sequence DESC LIMIT 1
+                ) success ON TRUE
+                ORDER BY e.occurred_at DESC, e.id DESC
+                """)
                 .param("tenant", tenant.value()).param("source", source.value()).param("run", runId).param("limit", size + 1);
         if (cursor != null) statement.param("cursorTime", WorkLeases.sqlTime(cursor.time())).param("cursorId", cursor.id());
-        var found = statement.query((r, _) -> new SourceRunError(r.getObject("id", UUID.class), runId,
-                r.getObject("operation_id", UUID.class), r.getObject("item_id", UUID.class),
-                r.getString("file_id"), r.getString("file_name"), SourceRunErrorStage.valueOf(r.getString("stage")),
-                r.getString("code"), r.getTimestamp("occurred_at").toInstant())).list();
+        var found = statement.query((r, _) -> {
+            String currentStatus = r.getString("current_item_status");
+            return new SourceRunError(r.getObject("id", UUID.class), runId,
+                    r.getObject("operation_id", UUID.class), r.getObject("item_id", UUID.class),
+                    r.getString("file_id"), r.getString("file_name"), SourceRunErrorStage.valueOf(r.getString("stage")),
+                    r.getString("code"), r.getTimestamp("occurred_at").toInstant(),
+                    r.getString("error_message"), r.getString("error_detail"),
+                    currentStatus == null ? null : SourceItemStatus.valueOf(currentStatus),
+                    r.getString("current_item_error_code"), JdbcSourceRepository.instant(r, "current_item_last_indexed_at"));
+        }).list();
         boolean more = found.size() > size;
         var items = more ? List.copyOf(found.subList(0, size)) : found;
         var last = items.isEmpty() ? null : items.getLast();

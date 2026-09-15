@@ -70,7 +70,7 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
             return Result.CONTINUED;
         } catch (GoogleDriveProviderException exception) {
             String code="SOURCE_GOOGLE_"+exception.failure().name();
-            if (exception.failure()==GoogleDriveProviderException.Failure.AUTHENTICATION && intent.credentialId()!=null)
+            if (exception.requiresReconnect() && intent.credentialId()!=null)
                 connections.authenticationFailedCredential(work.tenantId(),new CredentialId(intent.credentialId()),intent.credentialRevision());
             if (exception.failure()==GoogleDriveProviderException.Failure.QUOTA
                     || exception.failure()==GoogleDriveProviderException.Failure.UNAVAILABLE

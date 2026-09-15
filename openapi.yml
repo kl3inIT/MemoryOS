@@ -9840,8 +9840,39 @@ components:
         occurredAt:
           type: string
           format: date-time
+        errorMessage:
+          type:
+          - string
+          - "null"
+        errorDetail:
+          type:
+          - string
+          - "null"
+        currentItemStatus:
+          type:
+          - string
+          - "null"
+          enum:
+          - PENDING
+          - INDEXED
+          - FAILED
+          - DELETING
+        currentItemErrorCode:
+          type:
+          - string
+          - "null"
+        currentItemLastIndexedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
       required:
       - code
+      - currentItemErrorCode
+      - currentItemLastIndexedAt
+      - currentItemStatus
+      - errorDetail
+      - errorMessage
       - fileId
       - fileName
       - id

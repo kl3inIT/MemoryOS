@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Tabs } from "radix-ui";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -68,7 +69,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
+function setup(
+  initial: Partial<GetGoogleDriveConfigurationResponse> = {},
+  activeSection = "content",
+) {
   let configuration: GetGoogleDriveConfigurationResponse = {
     sourceId: source.id,
     credentialId: "81c51573-31a9-4e67-91c5-f276960c94af",
@@ -309,11 +313,16 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
       <QueryClientProvider client={queryClient}>
         <ApplicationSessionProvider session={session}>
           <ActionNotifications>
-            <GoogleDrivePanel
-              source={currentSource}
-              sourceStale={sourceStale}
-              onBusyChange={() => {}}
-            />
+            <Tabs.Root value={activeSection}>
+              <GoogleDrivePanel
+                source={currentSource}
+                sourceStale={sourceStale}
+                onBusyChange={() => {}}
+                activeSection={activeSection}
+                content={null}
+                settings={null}
+              />
+            </Tabs.Root>
           </ActionNotifications>
         </ApplicationSessionProvider>
       </QueryClientProvider>
@@ -438,15 +447,18 @@ describe("Google Drive enterprise selection", () => {
   it("loads the full draft separately and preserves hidden approvals through cursor pages and search", async () => {
     const user = userEvent.setup();
     const server = setup();
+    await user.click(await screen.findByRole("button", { name: "Filter selected content" }));
     await user.selectOptions(
       await screen.findByRole("combobox", { name: "Content type" }),
       "LINKED",
     );
+    await user.keyboard("{Escape}");
     const input = await edit(user);
     expect(input).toHaveFocus();
     await user.click(await screen.findByRole("checkbox", { name: "Sync Budget" }));
     await user.click(screen.getByRole("button", { name: "Next selection page" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Research" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Show search" }));
     await user.type(screen.getByRole("textbox", { name: "Search selected content" }), "Budget");
     await user.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Budget" })).toBeChecked();
@@ -608,7 +620,7 @@ describe("Google Drive enterprise selection", () => {
 
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {
     const user = userEvent.setup();
-    const server = setup();
+    const server = setup({}, "settings");
     await user.click(await screen.findByText("Manage connection"));
     await user.click(screen.getByRole("checkbox", { name: "Replace OAuth app on reconnect" }));
     const input = screen.getByRole("textbox", { name: "Upload or paste OAuth app JSON" });

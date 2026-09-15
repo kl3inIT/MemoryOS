@@ -593,12 +593,16 @@ test("selection preserves hidden approvals across search and paging and restores
   await expect(links).toBeFocused();
   await expect(selection.getByRole("heading")).toHaveCount(1);
   await selection.getByRole("checkbox", { name: "Sync Project budget" }).check();
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  // The filter popover renders in a portal, outside the selection region.
+  await selection.getByRole("button", { name: "Filter selected content" }).click();
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.keyboard.press("Escape");
   await expect(selection.getByRole("list", { name: "Selection results" })).toBeVisible();
   await selection.getByRole("button", { name: "Next selection page" }).click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
+  await selection.getByRole("button", { name: "Show search" }).click();
   await selection.getByRole("textbox", { name: "Search selected content" }).fill("budget");
   await selection.getByRole("button", { name: "Search", exact: true }).click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
@@ -644,12 +648,15 @@ test("selection preserves hidden approvals across search and paging and restores
   await linkDisclosure.click();
   await edit.click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await selection.getByRole("button", { name: "Filter selected content" }).click();
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
-  await selection.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await selection.getByRole("button", { name: "Filter selected content" }).click();
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(items.getByText("Project archive", { exact: true })).toBeVisible();
   await expect(selection.getByRole("list", { name: "Selection results" })).toHaveCount(0);
 });
@@ -696,7 +703,7 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(
     selection.getByRole("button", { name: "Save selection", exact: true }),
   ).toBeVisible();
-  await selection.getByRole("button", { name: "Reload saved selection" }).click();
+  await checkboxes.first().uncheck();
   await expect(checkboxes.first()).not.toBeChecked();
   await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await expect(rootLinks).toHaveCount(0);
@@ -798,7 +805,9 @@ test("unavailable approved documents can be deselected but not approved again", 
   const server = await enterprisePage(page, true);
   await page.goto(`/admin/sources/${source.id}`);
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await selection.getByRole("button", { name: "Filter selected content" }).click();
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   const deselect = selection.getByRole("button", {
     name: "Deselect Retained project notes for sync",

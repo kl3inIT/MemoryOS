@@ -231,8 +231,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     }
 
     private void authenticationFailed(TenantId tenant, SourceId source, long revision, GoogleDriveProviderException exception) {
-        if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION)
-            connections.authenticationFailed(tenant, source, revision);
+        if (exception.requiresReconnect()) connections.authenticationFailed(tenant, source, revision);
     }
 
     private Set<String> linkedIds(ScopeMode scopeMode, List<String> ids) {

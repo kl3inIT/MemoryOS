@@ -96,6 +96,8 @@ final class WorkLeases {
             UUID operationId,
             UUID claimToken,
             String errorCode,
+            @org.jspecify.annotations.Nullable String errorMessage,
+            @org.jspecify.annotations.Nullable String errorDetail,
             int maxAttempts,
             Duration backoff
     ) {
@@ -125,6 +127,8 @@ final class WorkLeases {
             return RetryOutcome.STALE;
         }
         String safeCode = safeErrorCode(errorCode);
+        String safeMessage = safeErrorMessage(errorMessage);
+        String safeDetail = safeErrorDetail(errorDetail);
         if (attempts >= maxAttempts) {
             jdbcClient.sql("UPDATE " + table + """
 
@@ -132,12 +136,16 @@ final class WorkLeases {
                                 claim_token = NULL,
                                 lease_expires_at = NULL,
                                 completed_at = CURRENT_TIMESTAMP,
-                                error_code = :errorCode
+                                error_code = :errorCode,
+                                error_message = :errorMessage,
+                                error_detail = :errorDetail
                             WHERE tenant_id = :tenantId
                               AND id = :operationId
                               AND claim_token = :claimToken
                             """)
                     .param("errorCode", safeCode)
+                    .param("errorMessage", safeMessage)
+                    .param("errorDetail", safeDetail)
                     .param("tenantId", tenantId)
                     .param("operationId", operationId)
                     .param("claimToken", claimToken)
@@ -155,13 +163,17 @@ final class WorkLeases {
                             dispatch_token = NULL,
                             dispatch_lease_expires_at = NULL,
                             next_dispatch_at = :nextDispatchAt,
-                            error_code = :errorCode
+                            error_code = :errorCode,
+                            error_message = :errorMessage,
+                            error_detail = :errorDetail
                         WHERE tenant_id = :tenantId
                           AND id = :operationId
                           AND claim_token = :claimToken
                         """)
                 .param("nextDispatchAt", sqlTime(Instant.now().plus(backoff)))
                 .param("errorCode", safeCode)
+                .param("errorMessage", safeMessage)
+                .param("errorDetail", safeDetail)
                 .param("tenantId", tenantId)
                 .param("operationId", operationId)
                 .param("claimToken", claimToken)
@@ -175,6 +187,16 @@ final class WorkLeases {
             throw new IllegalArgumentException("errorCode must be a stable uppercase token");
         }
         return value;
+    }
+
+    static @org.jspecify.annotations.Nullable String safeErrorMessage(
+            @org.jspecify.annotations.Nullable String value) {
+        return io.memoryos.FailureEvidence.safeErrorMessage(value);
+    }
+
+    static @org.jspecify.annotations.Nullable String safeErrorDetail(
+            @org.jspecify.annotations.Nullable String value) {
+        return io.memoryos.FailureEvidence.safeErrorDetail(value);
     }
 
     static OffsetDateTime sqlTime(Instant instant) {

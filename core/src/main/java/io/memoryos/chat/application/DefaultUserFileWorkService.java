@@ -12,6 +12,7 @@ import io.memoryos.objectstorage.ObjectUploadService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,5 +60,5 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
     }
 
     @Override @Transactional
-    public void failed(UserFileWork claim, String code) { work.failed(claim, code); }
+    public void failed(UserFileWork claim, String code, @Nullable String errorMessage, @Nullable String errorDetail) { work.failed(claim, code, errorMessage, errorDetail); }
 }

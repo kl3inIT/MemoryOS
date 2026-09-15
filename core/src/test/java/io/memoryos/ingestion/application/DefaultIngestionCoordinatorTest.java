@@ -75,12 +75,13 @@ class DefaultIngestionCoordinatorTest {
                 .isEqualTo(IngestionCoordinator.Outcome.FAILED);
         assertOutcome("CLEANUP", "FAILED");
         assertWait("CLEANUP", 1);
-        verify(cleanup).retry(work, "SOURCE_CLEANUP_INTERNAL", 3, Duration.ofSeconds(5));
+        verify(cleanup).retry(eq(work), eq("SOURCE_CLEANUP_INTERNAL"), any(), any(), eq(3), eq(Duration.ofSeconds(5)));
         verify(renewal).cancel(false);
     }
 
-    @Test
-    void typedExtractionFailureReportsFailedAndPersistsFailure() throws Exception {
+    @ParameterizedTest
+    @EnumSource(value = ExtractionFailure.class, names = {"MALFORMED", "CONNECTION_FAILED"})
+    void typedExtractionFailureReportsFailedAndPersistsFailure(ExtractionFailure failure) throws Exception {
         var indexing = mock(ConnectorIndexingPort.class);
         var scheduler = mock(ScheduledExecutorService.class);
         ScheduledFuture<?> renewal = mock(ScheduledFuture.class);
@@ -102,7 +103,7 @@ class DefaultIngestionCoordinatorTest {
         var extractor = mock(SourceContentExtractor.class);
         when(extractor.extract(content.inputStream(), metadata.sizeBytes(), reference.filename(), work.input()))
                 .thenThrow(new ExtractionException(
-                        ExtractionFailure.MALFORMED, "test failure"));
+                        failure, "test failure"));
         var coordinator = new DefaultIngestionCoordinator(indexing, mock(ConnectorCleanupPort.class),
                 mock(DocumentCommandPort.class), extractor, storage, mock(StoredObjectRegistry.class),
                 mock(TransactionTemplate.class), scheduler,
@@ -113,7 +114,8 @@ class DefaultIngestionCoordinatorTest {
                 .isEqualTo(IngestionCoordinator.Outcome.FAILED);
         assertOutcome("INGESTION", "FAILED");
         assertWait("INGESTION", 1);
-        verify(indexing).fail(work, "SOURCE_EXTRACTION_MALFORMED");
+        verify(indexing).fail(eq(work), eq("SOURCE_EXTRACTION_" + failure.name()), eq("test failure"), any());
+        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any());
         verify(content).close();
         verify(renewal).cancel(false);
     }

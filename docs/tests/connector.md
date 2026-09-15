@@ -64,6 +64,8 @@ Evidence below separates retained regressions, measured capacity and isolated ru
 | Failed storage acquisition records a safe storage stage without pruning prior Documents | `PostgresSourceRunHistoryTest.failedStorageAcquisitionRecordsSafeStageWithoutPruningEarlierDocuments` |
 | Bounded stable history pages remain tenant/Source/filter scoped and legacy facts stay Unknown | `PostgresSourceRunHistoryTest.stableBoundedPagesRemainTenantSourceAndFilterScopedAndLegacyFactsStayUnknown` |
 | Retention compacts terminal details but protects current inputs and unresolved errors | `PostgresSourceRunHistoryTest.retentionCompactsTerminalDetailsButRetainsCurrentInputsAndUnresolvedErrors` |
+| Historical failures remain unchanged after current-version indexing recovers or an item starts deletion | `PostgresSourceRunHistoryTest.historicalTimeoutRemainsUnchangedWhenCurrentItemRecoversAndIsRemoved` |
+| Live item diagnostics cannot join another Source/Tenant's item; provider-only errors stay unknown | `PostgresSourceRunHistoryTest.currentErrorItemsNeverLeakAcrossTenantOrSourceAndProviderOnlyErrorsStayUnknown` |
 
 ### Folder tree and truthful history — 2026-09-09
 
@@ -304,6 +306,33 @@ Backend `clean check :api:bootJar :worker:bootJar` passed in 14m50s: 512 cases, 
 
 The new authorized Google Source acquired all four Tasco 2025 originals in 20.13 seconds with zero acquisition failures. The 21,343,544-byte English consolidated PDF exceeds the former 20 MiB ceiling. All four stored originals passed exact byte-count and SHA-256 checks; their independent PDF inventory totals 240 pages. This acquisition result does not establish completed OCR or financial accuracy. The remote ingress still returned Nginx HTTP 413 for separate 25 MiB and 100 MiB parser probes; see the [active verification ledger](../increments/active/tasco-scanned-pdf-ocr/plan.md#100-mib-admission-and-tasco-2025--2026-09-11).
 
+## MEM-88 ACL collection and synchronization
+
+| Contract | Retained check |
+| --- | --- |
+| Bounded complete permission pages; user/group/domain/anyone and inheritance/restriction fields | `RestGoogleDriveProviderTest.permissionsTraverseEveryPageAndPreserveSharingPrincipalsWithoutExpandingGroups` and permission limit/malformed/cyclic/later-page cases |
+| OAuth grant reuse and fresh permission observations without content requests | `RestGoogleDriveProviderTest.permissionOnlyChangesReuseTheOpenGrantWithoutAcquiringContentOrCachingAcl` |
+| Atomic replacement, rollback, failed-attempt retention, unknown versus empty, lifecycle and Tenant/Source/Document isolation | `PostgresGoogleDriveAclRepositoryTest` |
+| ACL-only refresh preserves Document mapping without acquisition/indexing | `PostgresGoogleDriveSyncTest.permissionOnlyChangesRefreshTheSnapshotWithoutAcquiringOrIndexingContent` |
+| Provider failure retains complete ACL evidence independently of unchanged content | `PostgresGoogleDriveSyncTest.failedAclRefreshRetainsTheCompleteSnapshotWithoutBlockingUnchangedContent` |
+| Changed provider version with identical binary bytes refreshes the ACL, reuses extraction and refreshes the version's provider version | `PostgresGoogleDriveSyncTest.metadataVersionBumpWithIdenticalBinaryBytesRefreshesTheAclAndReusesExtraction` |
+| Credential revision race cannot publish new ACL | `PostgresGoogleDriveSyncTest.credentialRevisionChangeDuringAclRetrievalCannotPublishTheNewSnapshot` |
+| 403 missing scope, unreadable sharing, unavailable file and quota stay distinct | `RestGoogleDriveProviderTest.forbiddenReasonsSeparateMissingScopeFromUnreadableSharingAndUnavailableFiles` and the later-page 403 case |
+| Missing scope ends the run and requires reconnect without marking files unavailable | `PostgresGoogleDriveSyncTest.missingOAuthScopeStopsTheRunAndRequiresReconnectInsteadOfMarkingFilesUnavailable` |
+| Unreadable sharing records `ACCESS_DENIED` while content still indexes | `PostgresGoogleDriveSyncTest.unreadableSharingRecordsAccessDeniedWithoutBlockingContent` |
+| Role change and added permission publish; identical re-observation advances the revision only | `PostgresGoogleDriveSyncTest.roleChangesAndAddedPermissionsPublishWhileIdenticalObservationsOnlyAdvanceTheRevision` |
+| Consumer `readByDocument` returns the mapped file's snapshot and nothing for a foreign Tenant or unknown Document | `PostgresGoogleDriveSyncTest.readByDocumentReturnsTheMappedFileSnapshotOnlyWithinItsTenant` |
+| Generation-zero active runs continue across additive migration | `PostgresSourceRunHistoryTest.predeploymentActiveRunResumesWithoutInventingHistoricalCounters` |
+
+Focused owning suites passed. A separate Java runtime smoke exercised the real HTTP OAuth/Drive adapter, encrypted credential, Flyway V1–V51, PostgreSQL repositories and fenced SOURCE_SYNC with a memory-only object-storage fixture. It observed ACL revisions 1 → 2 → 2, permission counts 2 → 1 → 1 and statuses SUCCEEDED → SUCCEEDED → FAILED when a later page failed. Only the initial content and changed metadata version downloaded bytes; one content version and one indexing attempt remained. This is controlled-provider evidence, not a live Google sharing mutation or real OCR invocation. See [MEM-88 verification](../increments/active/mem-88-google-drive-acl-sync/verification.md) for the final gate and limitations.
+
+### Approved Source inspector and history interface
+
+The ACL inspector tab and its HTTP endpoints were removed on 2026-09-14 ([MEM-88](../increments/active/mem-88-google-drive-acl-sync/design.md#acl-inspector-removal--approved-2026-09-14)); the evidence below is historical for the inspector and still applies to run history.
+
+The final backend `clean check` passed: 713 scenarios, 705 passed and 8 explicitly skipped. `pnpm check` passed all generated-contract, i18n, lint, formatting, type, 176 unit-test and route/build checks. The existing Source action-feedback, Google Drive setup and FILE setup Playwright suites passed all 21 scenarios.
+
+A separate real Chromium session against the local Vite surface used controlled API responses to exercise four Source tabs, retained stale ACL after failure, no observation, failed-only and successful-empty detail, 27-entry permission pagination, six run errors over two cursor pages, Escape/focus restoration and 390px layouts. Desktop and mobile screenshots were visually inspected; mobile ACL actions stay within the page. No fake provider state was persisted. Real API/worker readiness and the normal local Keycloak login path were checked separately; this is not a claim that the UI fixture ran a real Google synchronization. See the [increment evidence](../increments/active/mem-88-google-drive-acl-sync/verification.md#approved-interface-verification).
 ## Source deep-configuration authority — 2026-09-12
 
 - Existing Google roots/approval/discovery and FILE visibility backend guards remain global-only. The credential gap was closed: an existing OAuth app cannot be supplied/replaced with scoped authority, and callback/client lookup plus completion reject a changed app after loss of global authority. Same saved-app reconnect preserves scoped ownership and all-attached-Source checks. The public preparation/response shapes are unchanged; credential actions add global-only `replace_oauth_client`.
