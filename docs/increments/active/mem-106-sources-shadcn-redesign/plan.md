@@ -19,7 +19,7 @@ Each task ends with `pnpm check` and a commit scoped to that concern.
 
 ### Task 2: Sources list and type picker
 
-- [x] `sources-page`: one table with a search field, Provider, Status and Access filter menus, an overview of counts, status and access badges, and `ui/empty` states. TanStack Table is not used, since nothing sorts or pages yet.
+- [x] `sources-page`: kept as the grouped list from before MEM-106, at the owner's request. Each provider is a collapsible group with its Source count, active and public counts and indexed documents above a table of name, last indexed, status, access and documents, with search, Collapse all and a Status/Access filter panel on the Radix `Select`. A single flat table with an overview and filter menus was tried and removed: the owner found it less clear than the grouped list.
 - [x] `source-catalog-page`: kept as it was before MEM-106. Per-card descriptions, icon tiles and a Set up link were tried and removed at the owner's request: the page carried too many subtitles.
 - [x] Update the list unit tests and the Playwright spec that walks the catalog. The 45 Sources Playwright tests pass after the MEM-105 merge.
 
