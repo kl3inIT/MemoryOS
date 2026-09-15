@@ -34,12 +34,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
-- [Staging deployment simplification](docs/increments/active/staging-deploy-simplification/design.md) owns the health-verified deployment boundary and explicit owner acceptance handoff.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
-- [CI speedup](docs/increments/active/ci-speedup/design.md) owns PR change-based job selection, parallel core tests with template-cloned PostgreSQL fixtures and BuildKit image caches.
-- [Chat source reader](docs/increments/active/chat-source-reader/design.md) owns stepping between Chat sources, table rows opening on their PDF page, the expanded source dialog and the PDF range-load fallback with pdf.js image decoders.
-- [Brand splash, loader and direct sign-in](docs/increments/active/brand-loading-direct-sign-in/design.md) owns the boot splash (full intro once per tab, short sheen form otherwise), the brand loader and the signed-out redirect to Keycloak.
-- [Keycloak login theme](docs/increments/active/keycloak-login-theme/design.md) owns the `memoryos` login theme (centered brand card over `keycloak.v2`), its read-only mount and realm selection.
 - [Sign-out without the Keycloak logout page](docs/increments/active/logout-without-keycloak-page/design.md) owns ending the Keycloak session by its `sid` through the admin API during application sign-out, with the provider logout page as fallback, and upstream (Tasco) logout through Keycloak back-channel logout on managed identity providers.
 - [MEM-108 — Provider card sync](docs/increments/active/provider-card-sync/design.md) owns the shared `ProviderCard` on the Models and Web search pages and the OpenRouter/Ollama brand marks; backend and connection dialogs are excluded.
 

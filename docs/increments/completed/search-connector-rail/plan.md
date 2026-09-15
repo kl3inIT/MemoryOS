@@ -25,4 +25,4 @@
 - [x] `docs/specs/search.md` and `docs/tests/search.md` updated.
 - [ ] `clean check`.
 - [ ] Local runtime: search, filter by connector, open a PDF result.
-- [ ] Reconcile the roadmap when the pull request merges.
+- [x] Reconcile the roadmap when the pull request merges (PR #164; roadmap reconciled 2026-09-15).
