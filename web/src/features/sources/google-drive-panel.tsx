@@ -1,5 +1,6 @@
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
+import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, KeyRound, Pencil, RefreshCw, Unplug } from "lucide-react";
@@ -11,6 +12,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -56,11 +64,29 @@ import {
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
 import { SourceSummaryCard } from "./source-summary-card";
+import {
+  formatSyncInterval,
+  maxSyncIntervalValue,
+  splitSyncInterval,
+  syncIntervalMinutes,
+  syncIntervalUnitName,
+  syncIntervalUnits,
+  type SyncIntervalUnit,
+} from "./sync-interval";
 import { can } from "@/lib/resource-permissions";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
-  minutes: string;
+  value: string;
+  unit: SyncIntervalUnit;
 };
+
+function intervalDraftOf({
+  syncIntervalMinutes: minutes,
+  scheduleRevision,
+}: GetGoogleDriveConfigurationResponse): IntervalDraft {
+  const { value, unit } = splitSyncInterval(minutes);
+  return { value: String(value), unit, scheduleRevision };
+}
 type DriveAction =
   | "sync"
   | "authorize"
@@ -68,7 +94,6 @@ type DriveAction =
   | "save-interval"
   | "reload-interval"
   | "pause";
-const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
   source,
@@ -172,14 +197,14 @@ export function GoogleDrivePanel({
   const hasSelectionChanges = editingSelection;
 
   const editingInterval = intervalDraft !== null;
-  const intervalMinutes = Number(intervalDraft?.minutes);
+  const intervalMinutes = intervalDraft
+    ? syncIntervalMinutes(intervalDraft.value, intervalDraft.unit)
+    : null;
   const intervalValidation =
-    intervalDraft &&
-    (!/^\d+$/.test(intervalDraft.minutes) ||
-      !Number.isInteger(intervalMinutes) ||
-      intervalMinutes < 1 ||
-      intervalMinutes > MAX_SYNC_INTERVAL_MINUTES)
-      ? "Enter a whole number of minutes from 1 to 2147483647."
+    intervalDraft && intervalMinutes === null
+      ? appText("Enter a whole number from 1 to {{v1}}.", {
+          v1: maxSyncIntervalValue(intervalDraft.unit).toLocaleString(uiLocale()),
+        })
       : null;
   const intervalConflicted =
     intervalRevisionConflict ||
@@ -438,7 +463,7 @@ export function GoogleDrivePanel({
   }
 
   async function saveInterval(signal: AbortSignal) {
-    if (!intervalDraft || intervalValidation || intervalConflicted || stale) return;
+    if (!intervalDraft || intervalMinutes === null || intervalConflicted || stale) return;
     const saved = await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
       headers: { ...sameOriginMutationHeaders, "If-Match": `"${intervalDraft.scheduleRevision}"` },
@@ -453,9 +478,8 @@ export function GoogleDrivePanel({
     notify({
       tone: "success",
       title: "Automatic interval saved",
-      description: appText("Synchronizes every {{v1}} {{v2}}. Current work is unchanged.", {
-        v1: saved.syncIntervalMinutes,
-        v2: appText(saved.syncIntervalMinutes === 1 ? "minute" : "minutes"),
+      description: appText("Synchronizes every {{v1}}. Current work is unchanged.", {
+        v1: formatSyncInterval(saved.syncIntervalMinutes),
       }),
     });
     await refresh();
@@ -485,10 +509,7 @@ export function GoogleDrivePanel({
     const { data: saved } = await configurationQuery.refetch({ throwOnError: true });
     signal.throwIfAborted();
     if (!saved) return;
-    setIntervalDraft({
-      minutes: String(saved.syncIntervalMinutes),
-      scheduleRevision: saved.scheduleRevision,
-    });
+    setIntervalDraft(intervalDraftOf(saved));
     setIntervalRevisionConflict(false);
     notify({
       tone: "info",
@@ -706,10 +727,7 @@ export function GoogleDrivePanel({
             <dt className="text-content-muted">{ui("Automatic interval")}</dt>
             <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
               <div className="flex flex-wrap items-center gap-2">
-                <span>
-                  {configuration.syncIntervalMinutes}{" "}
-                  {configuration.syncIntervalMinutes === 1 ? ui("minute") : ui("minutes")}
-                </span>
+                <span>{formatSyncInterval(configuration.syncIntervalMinutes)}</span>
                 {canSchedule && !editingInterval ? (
                   <IconButton
                     ref={intervalEditButton}
@@ -718,10 +736,7 @@ export function GoogleDrivePanel({
                     prominence="tertiary"
                     disabled={controlsDisabled}
                     onClick={() => {
-                      setIntervalDraft({
-                        minutes: String(configuration.syncIntervalMinutes),
-                        scheduleRevision: configuration.scheduleRevision,
-                      });
+                      setIntervalDraft(intervalDraftOf(configuration));
                       setIntervalError(null);
                     }}
                   >
@@ -745,28 +760,61 @@ export function GoogleDrivePanel({
                     }
                   }}
                 >
-                  <label className="block space-y-1">
-                    <span>{ui("Interval in minutes")}</span>
-                    <Input
-                      ref={intervalInput}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={MAX_SYNC_INTERVAL_MINUTES}
-                      step={1}
-                      required
-                      value={intervalDraft.minutes}
-                      disabled={controlsDisabled}
-                      aria-invalid={Boolean(intervalValidation)}
-                      aria-describedby={
-                        intervalValidation ? `sync-interval-error-${source.id}` : undefined
-                      }
-                      onChange={(event) => {
-                        setIntervalDraft({ ...intervalDraft, minutes: event.target.value });
-                        setIntervalError(null);
-                      }}
-                    />
-                  </label>
+                  <div className="space-y-2">
+                    <span
+                      id={`sync-interval-label-${source.id}`}
+                      className="block text-sm font-medium text-content-primary"
+                    >
+                      {ui("Sync every")}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        ref={intervalInput}
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={maxSyncIntervalValue(intervalDraft.unit)}
+                        step={1}
+                        required
+                        value={intervalDraft.value}
+                        disabled={controlsDisabled}
+                        aria-labelledby={`sync-interval-label-${source.id}`}
+                        aria-invalid={Boolean(intervalValidation)}
+                        aria-describedby={
+                          intervalValidation ? `sync-interval-error-${source.id}` : undefined
+                        }
+                        className="w-24"
+                        onChange={(event) => {
+                          setIntervalDraft({ ...intervalDraft, value: event.target.value });
+                          setIntervalError(null);
+                        }}
+                      />
+                      <Select
+                        value={intervalDraft.unit}
+                        disabled={controlsDisabled}
+                        onValueChange={(next) => {
+                          const unit = syncIntervalUnits.find((entry) => entry === next);
+                          if (!unit) return;
+                          setIntervalDraft({ ...intervalDraft, unit });
+                          setIntervalError(null);
+                        }}
+                      >
+                        <SelectTrigger
+                          aria-label={ui("Interval unit")}
+                          className="h-(--control-height-md) min-w-28"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                          {syncIntervalUnits.map((unit) => (
+                            <SelectItem key={unit} value={unit}>
+                              {syncIntervalUnitName(unit, Number(intervalDraft.value) || 0)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   {intervalValidation ? (
                     <p
                       id={`sync-interval-error-${source.id}`}

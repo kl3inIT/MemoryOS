@@ -491,7 +491,7 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
     removeItems: false,
   };
   await page.getByRole("button", { name: "Refresh status" }).click();
-  await expect(page.getByRole("spinbutton", { name: "Interval in minutes" })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Sync every" })).toHaveCount(0);
   await expect(automaticSync).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Google Drive configuration" })).toBeVisible();
 });
@@ -535,9 +535,12 @@ test("one credential creates independent Specific and General sources with separ
   server.finish();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Edit interval" }).click();
-  await page.getByRole("spinbutton", { name: "Interval in minutes" }).fill("15");
+  await expect(page.getByRole("spinbutton", { name: "Sync every" })).toHaveValue("5");
+  await page.getByRole("spinbutton", { name: "Sync every" }).fill("2");
+  await page.getByRole("combobox", { name: "Interval unit" }).click();
+  await page.getByRole("option", { name: "hours", exact: true }).click();
   await page.getByRole("button", { name: "Save interval" }).click();
-  await expect(page.getByText("15 minutes", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 hours", { exact: true })).toBeVisible();
   await page.goto(`/admin/sources/new/google-drive?credentialId=${credential.id}&step=connector`);
   await page.getByLabel("Source name").fill("Whole account");
   await page.getByRole("radio", { name: "Entire My Drive", exact: true }).check();
@@ -547,7 +550,7 @@ test("one credential creates independent Specific and General sources with separ
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${secondSourceId}$`));
   await expect(page.getByRole("button", { name: "Edit selection", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
-  expect(server.saved.get(source.id)!.configuration.syncIntervalMinutes).toBe(15);
+  expect(server.saved.get(source.id)!.configuration.syncIntervalMinutes).toBe(120);
   expect(server.saved.get(secondSourceId)!.configuration.syncIntervalMinutes).toBe(5);
   expect(server.saved.get(source.id)!.draft.links).toEqual([fileLink]);
   expect(server.saved.get(secondSourceId)!.draft.links).toEqual([]);

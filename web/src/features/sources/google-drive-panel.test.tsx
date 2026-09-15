@@ -437,9 +437,7 @@ describe("Google Drive enterprise selection", () => {
       manageConfiguration: false,
       removeItems: false,
     });
-    expect(
-      screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: "Sync every" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("switch", { name: "Automatic synchronization" }),
@@ -563,7 +561,7 @@ describe("Google Drive enterprise selection", () => {
     const user = userEvent.setup();
     const server = setup();
     await user.click(await screen.findByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "1.5");
     expect(screen.getByRole("button", { name: "Save interval" })).toBeDisabled();
@@ -586,7 +584,7 @@ describe("Google Drive enterprise selection", () => {
     await user.clear(input);
     await user.paste(secondLink);
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "15");
     server.setConfiguration({ scheduleRevision: 4, syncIntervalMinutes: 30 });
@@ -616,7 +614,7 @@ describe("Google Drive enterprise selection", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    expect(screen.getByRole("spinbutton", { name: "Interval in minutes" })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: "Sync every" })).toBeEnabled();
   });
 
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {

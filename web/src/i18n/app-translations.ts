@@ -1062,11 +1062,11 @@ Object.assign(englishUi, {
   "Loading Google Drive connection…": "Đang tải kết nối Google Drive…",
   "Retry connection status": "Thử tải trạng thái kết nối lại",
   "Google Drive configuration": "Cấu hình Google Drive",
-  minute: "phút",
-  minutes: "phút",
   "Edit interval": "Sửa chu kỳ",
   Edit: "Chỉnh sửa",
-  "Interval in minutes": "Chu kỳ tính bằng phút",
+  "Sync every": "Đồng bộ mỗi",
+  "Enter a whole number from 1 to {{v1}}.": "Nhập số nguyên từ 1 đến {{v1}}.",
+  "Interval unit": "Đơn vị chu kỳ",
   "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.":
     "Chu kỳ tự động đã thay đổi trong lúc bạn chỉnh sửa. Bản nháp chưa được lưu. Tải lại chu kỳ đã lưu trước khi tiếp tục.",
   "Save interval": "Lưu chu kỳ",
@@ -1787,8 +1787,8 @@ Object.assign(englishUi, {
     "{{v1}} đã kết nối và sẵn sàng dùng với nguồn.",
   "{{v1}}: displayed values may be out of date. Try refreshing again.":
     "{{v1}}: giá trị hiển thị có thể đã cũ. Hãy thử làm mới lại.",
-  "Synchronizes every {{v1}} {{v2}}. Current work is unchanged.":
-    "Đồng bộ mỗi {{v1}} {{v2}}. Công việc hiện tại không thay đổi.",
+  "Synchronizes every {{v1}}. Current work is unchanged.":
+    "Đồng bộ mỗi {{v1}}. Công việc hiện tại không thay đổi.",
   "{{v1}}: selected content is synchronized. Indexing may still be running.":
     "{{v1}}: nội dung đã chọn đã đồng bộ. Lập chỉ mục có thể vẫn đang chạy.",
   "{{v1}}: this request was replaced by newer work.":
