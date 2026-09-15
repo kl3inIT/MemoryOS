@@ -24,7 +24,7 @@ import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** OpenAI Chat Completions adapter. Hosted web/image tools are separate integrations. */
 public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
-    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch");
+    private static final Set<String> OPTIONS = Set.of("maxCompletionTokens", "temperature", "topP", "frequencyPenalty", "presencePenalty", "reasoningEffort", "helperReasoningEffort", "webSearch", "reasoningSummary");
     private final ObservationRegistry observations;
     private final MeterRegistry meters;
     public OpenAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
@@ -63,6 +63,9 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 || !(helperReasoning instanceof String)
                 || !Set.of("none", "minimal", "low").contains(helperReasoning)))
             throw ChatException.invalid("Unsupported helper reasoning effort for this model.");
+        Object summary = options.get("reasoningSummary");
+        if (summary != null && (!"auto".equals(summary) || !settings.capabilities().reasoning()))
+            throw ChatException.invalid("Reasoning summaries require the value auto and a reasoning model.");
         Object webSearch = options.get("webSearch");
         if (webSearch != null && (!"native".equals(webSearch) || !settings.capabilities().toolCalling()))
             throw ChatException.invalid("Native Web search requires the value native and a tool-capable model.");
@@ -118,13 +121,15 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         try {
             var async = asyncClient(connection.baseUrl(), connection.credential(), timeout);
             try {
-                boolean nativeSearch = supportsNativeWebSearch(settings);
-                var model = nativeSearch
+                // Hosted Web search and displayable reasoning summaries are Responses API features.
+                boolean hostedSearch = supportsNativeWebSearch(settings);
+                boolean summaries = "auto".equals(settings.options().get("reasoningSummary"));
+                var model = hostedSearch || summaries
                         ? async.decorateNative(view -> new OpenAiResponsesChatModel(
                                 OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
-                                view, settings.capabilities().reasoning(), meters))
+                                view, settings.capabilities().reasoning(), hostedSearch, summaries, meters))
                         : async.decorate(view -> OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                 .observationRegistry(observations).meterRegistry(meters).build());

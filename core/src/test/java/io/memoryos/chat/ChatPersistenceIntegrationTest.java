@@ -295,8 +295,11 @@ class ChatPersistenceIntegrationTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
         var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
+        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "searchKnowledge", ChatActivity.StepStatus.COMPLETED,
+                java.time.Instant.parse("2026-09-14T00:00:00Z"), 120L, 0, List.of("leave policy"), null, List.of(), List.of(1))),
+                List.of(new ChatActivity.ReasoningSegment(0, 0, "Checking the HR policy.")));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
-                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact));
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact), activity);
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Late answer", null, "model", 20L, 5L, null, List.of());
         var saved = sessions.history(owner, session.id(), null, 100).getLast();
@@ -304,6 +307,13 @@ class ChatPersistenceIntegrationTest {
         assertEquals("Twelve days [1]", saved.content());
         assertEquals(List.of(source), saved.sources());
         assertEquals(List.of(artifact), saved.artifacts());
+        assertEquals(activity, saved.activity());
+        var question = sessions.history(owner, session.id(), null, 100).getFirst();
+        assertEquals(ChatActivity.EMPTY, question.activity());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET activity = CAST(:activity AS jsonb) WHERE id = :id")
+                .param("activity", "{\"steps\": [], \"reasoning\": [{\"position\": 0, \"textOffset\": 0, \"text\": \"x\"}]}")
+                .param("id", question.id()).update(), "Only assistant replies carry activity");
         // Source IDs intentionally need no live document FK: reindex/delete does not rewrite old answers.
         assertThrows(ChatException.class, () -> sessions.history(other, session.id(), null, 100));
     }

@@ -52,7 +52,7 @@ Reasoning is provider-neutral in everything above the adapter: the event, persis
 
 ### Persistence
 
-Its migration adds `chat_message.activity jsonb NOT NULL DEFAULT '{}'` under the next free version (V54 and V55 are taken), ASSISTANT-only, with CHECK constraints in the style of V34/V42:
+V59 adds `chat_message.activity jsonb NOT NULL` (default `{"steps": [], "reasoning": []}`) with a `NOT VALID` CHECK validated by V60, ASSISTANT-only, requiring both keys, in the style of V34/V42:
 
 - `steps`: at most 32 entries of `{toolCallId, toolName, status, startedAt, durationMs, textOffset, summary}`.
 - `reasoning`: at most 16,000 characters plus a truncation marker, with `textOffset`.
@@ -102,3 +102,4 @@ Deep research (MEM-101), parallel tool execution, human approval, re-running or 
 - Reasoning summaries may be unavailable for the configured organization or model; the feature degrades to tools only.
 - Interleaving by `textOffset` depends on text between tool calls; most turns produce activity before text.
 - The rename touches native Web search, SearchTool, WebTools, ChatEvidence, the controller contract and several integration tests at once.
+- Updating a tool input after it first parses as complete JSON makes the assistant-ui `ToolInvocationTracker` log development-only warnings (EDGE_CASES A.2/A.4). They are guarded by `NODE_ENV !== "production"`, stream calls are not re-fired, and the rendered part still reflects the latest input; server-executed tools register no client `streamCall`.

@@ -4,7 +4,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.ChatImageEvent;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.api.chat.contract.ChatSourceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.jspecify.annotations.Nullable;
@@ -25,6 +25,10 @@ final class ChatEventStream {
                           @Schema(requiredMode = REQUIRED) long sequence,
                           @Schema(requiredMode = REQUIRED) String text) {}
 
+    record ReasoningEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                          @Schema(requiredMode = REQUIRED) long sequence,
+                          @Schema(requiredMode = REQUIRED) String text) {}
+
     record OutcomeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                         @Schema(requiredMode = REQUIRED) long sequence,
                         @Schema(requiredMode = REQUIRED, allowableValues = {"COMPLETED", "CANCELED", "FAILED"}) String status,
@@ -34,13 +38,15 @@ final class ChatEventStream {
     record ResetEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED, allowableValues = {"BUFFER_MISSING", "BUFFER_GAP", "BUFFER_EXPIRED"}) String reason) {}
 
-    record SearchEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                       @Schema(requiredMode = REQUIRED) long sequence,
-                       @Schema(requiredMode = REQUIRED) String toolCallId,
-                       @Schema(requiredMode = REQUIRED) ChatSearchEvent.Stage stage,
-                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
-                       @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatSearchEvent.@Nullable QueryPlan search,
-                       @Schema(requiredMode = REQUIRED) List<ChatSearchEvent.ReadingDocument> documents) {}
+    record ToolEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                     @Schema(requiredMode = REQUIRED) long sequence,
+                     @Schema(requiredMode = REQUIRED) String toolCallId,
+                     @Schema(requiredMode = REQUIRED) String toolName,
+                     @Schema(requiredMode = REQUIRED) ChatToolEvent.Stage stage,
+                     @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
+                     @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatToolEvent.@Nullable QueryPlan search,
+                     @Schema(requiredMode = REQUIRED) List<ChatToolEvent.ReadingDocument> documents,
+                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs) {}
 
     record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED) long sequence,
@@ -79,12 +85,13 @@ final class ChatEventStream {
     private static Object payload(StreamBufferWriter.Event event) {
         return switch (event.type()) {
             case "text-delta" -> new TextDeltaEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
+            case "reasoning" -> new ReasoningEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
             case "outcome" -> new OutcomeEvent(event.assistantMessageId(), event.sequence(),
                     Objects.requireNonNull(event.status()).name(), event.failureCode(), event.hasArtifacts());
-            case "search" -> {
-                var search = Objects.requireNonNull(event.search());
-                yield new SearchEvent(event.assistantMessageId(), event.sequence(), search.toolCallId(), search.stage(),
-                        search.source() == null ? null : ChatSourceResponse.from(search.source()), search.search(), search.documents());
+            case "tool" -> {
+                var tool = Objects.requireNonNull(event.tool());
+                yield new ToolEvent(event.assistantMessageId(), event.sequence(), tool.toolCallId(), tool.toolName(), tool.stage(),
+                        tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs());
             }
             case "image" -> {
                 var image = Objects.requireNonNull(event.image());

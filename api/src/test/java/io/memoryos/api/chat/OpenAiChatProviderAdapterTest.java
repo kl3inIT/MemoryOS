@@ -110,12 +110,29 @@ class OpenAiChatProviderAdapterTest {
             assertThrows(ChatException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", noTools));
             var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
             try (var client = adapter.create(connection, "gpt-5.6", declared, java.time.Duration.ofSeconds(1))) {
-                assertInstanceOf(io.memoryos.chat.execution.NativeWebSearch.class, client.binding().service().getChatModel());
+                assertInstanceOf(io.memoryos.chat.execution.ChatModelTurns.class, client.binding().service().getChatModel());
             }
             try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of(), false), java.time.Duration.ofSeconds(1))) {
-                assertFalse(client.binding().service().getChatModel() instanceof io.memoryos.chat.execution.NativeWebSearch);
+                assertFalse(client.binding().service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns);
             }
         } finally { meters.close(); }
+    }
+
+    @Test
+    void reasoningSummariesAreAnExplicitReasoningModelDeclarationThatSelectsTheResponsesModel() {
+        var meters = new SimpleMeterRegistry();
+        try {
+            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+            assertThrows(ChatException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), false)));
+            assertThrows(ChatException.class, () -> adapter.validate("http://model.internal/v1", "gpt-5.6", settings(Map.of("reasoningSummary", "detailed"), true)));
+            var connection = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("http://127.0.0.1:9/v1", "fixture-only");
+            try (var client = adapter.create(connection, "gpt-5.6", settings(Map.of("reasoningSummary", "auto"), true), java.time.Duration.ofSeconds(1))) {
+                var model = assertInstanceOf(io.memoryos.chat.execution.ChatModelTurns.class, client.binding().service().getChatModel());
+                assertFalse(model.nativeWebSearch());
+            }
+        } finally {
+            meters.close();
+        }
     }
 
     private static ModelSettings settings(Map<String, Object> options, boolean reasoning) {
