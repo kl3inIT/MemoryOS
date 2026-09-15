@@ -27,9 +27,9 @@
   },
   "devDependencies": {
     "ajv": "^8.17.1",
-    "parse5": "7.3.0",
+    "parse5": "8.0.1",
     "saxes": "6.0.0",
-    "simple-icons": "16.28.0"
+    "simple-icons": "16.30.0"
   },
   "overrides": {
     "fast-uri": "3.1.7"
