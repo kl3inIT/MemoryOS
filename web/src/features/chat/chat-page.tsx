@@ -21,6 +21,7 @@ import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
 import { ChatComposerMenu } from "./chat-composer-menu";
 import type { WebSearchMode } from "./chat-web-preference";
+import type { ImageMode } from "./chat-image";
 import { ChatEditingContext } from "./chat-editing-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
 import { ChatConversationSearch } from "./chat-conversation-search";
@@ -130,6 +131,7 @@ function ChatConversation({
   useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
   const model = useChatModelChoice(transport);
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
+  const [image, setImage] = useState<ImageMode>(transport.image);
   const busy = state.connection !== "ready" || state.checking;
   const branches = useQuery({
     queryKey: ["chat-branches", session?.id],
@@ -307,6 +309,13 @@ function ChatConversation({
                   onChange: (mode) => {
                     transport.selectWeb(mode);
                     setWebSearch(mode);
+                  },
+                }}
+                image={{
+                  value: image,
+                  onChange: (mode) => {
+                    transport.selectImage(mode);
+                    setImage(mode);
                   },
                 }}
               />

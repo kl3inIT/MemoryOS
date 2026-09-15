@@ -85,7 +85,7 @@ public class ChatTurnPersistence {
     }
 
     public record ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason,
-                                 ChatModelBinding binding, @Nullable String contextRevision) {}
+                                 ChatModelBinding binding, @Nullable String contextRevision, String promptContribution) {}
 
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
@@ -130,8 +130,14 @@ public class ChatTurnPersistence {
             throw ChatException.conflict();
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
                 : Math.min(contextTokenLimit, settings.options().contextTokenLimit());
-        if (selection == null) ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext);
-        else ChatTurnSetup.validateQuestion(settings.instructions(), text, effectiveContext, selection.binding().forOptions(settings.options()));
+        String instructions = settings.instructions();
+        if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, effectiveContext);
+        else {
+            var binding = selection.binding().forOptions(settings.options());
+            instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
+                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor));
+            ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
+        }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
         var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()
                 : files.admit(tenant, actor, command.fileIds());
@@ -143,7 +149,7 @@ public class ChatTurnPersistence {
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
         chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
                 selection == null ? null : selection.fallbackReason());
-        var context = context(actor, tenant, sessionId, user, assistant, settings);
+        var context = context(actor, tenant, sessionId, user, assistant, settings, instructions);
         return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }
 
@@ -199,10 +205,10 @@ public class ChatTurnPersistence {
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
         if (reservation.context() != null) return reservation.context();
         var persona = chats.persona(sessionId, false);
-        return context(actor, tenant, sessionId, reservation.userMessageId(), reservation.assistantMessageId(), persona);
+        return context(actor, tenant, sessionId, reservation.userMessageId(), reservation.assistantMessageId(), persona, persona.instructions());
     }
 
-    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, UUID assistant, JdbcChatRepository.Persona settings) {
+    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, UUID assistant, JdbcChatRepository.Persona settings, String instructions) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = files.admit(tenant, actor, settings.fileIds());
         var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
@@ -212,7 +218,7 @@ public class ChatTurnPersistence {
                     try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
                     catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
                 });
-        return new TurnContext(actor, tenant, settings.model(), settings.instructions(), history,
+        return new TurnContext(actor, tenant, settings.model(), instructions, history,
                 chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor));
     }
 

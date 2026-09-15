@@ -3,6 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, type ReactNode, type Ref } from "react";
 import { inputVariants } from "@/components/ui/input";
 import { HelpPopover } from "@/components/ui/help-popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type {
   GetGoogleDriveConfigurationResponse,
   GoogleDriveSelectionPolicyResponse,
@@ -172,24 +173,21 @@ export function GoogleDriveLinks({
           </div>
           <fieldset disabled={disabled} className="space-y-2">
             <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
-            <div className="flex flex-wrap gap-3">
+            <RadioGroup
+              className="flex flex-wrap gap-3"
+              value={scopeMode}
+              onValueChange={(mode) => onScopeModeChange(mode as "SPECIFIC" | "GENERAL")}
+            >
               {(["SPECIFIC", "GENERAL"] as const).map((mode) => (
                 <label
                   key={mode}
                   className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border-default px-3 has-checked:bg-surface-subtle has-disabled:cursor-default"
                 >
-                  <input
-                    type="radio"
-                    name={`${id}-scope`}
-                    checked={scopeMode === mode}
-                    onChange={() => onScopeModeChange(mode)}
-                    aria-describedby={`${id}-scope-description`}
-                    className="size-4 shrink-0 accent-primary focus-visible:ring-3 focus-visible:ring-focus-ring"
-                  />
+                  <RadioGroupItem value={mode} aria-describedby={`${id}-scope-description`} />
                   {mode === "GENERAL" ? ui("General") : ui("Specific")}
                 </label>
               ))}
-            </div>
+            </RadioGroup>
             <p id={`${id}-scope-description`} className="text-sm text-content-secondary">
               {scopeMode === "GENERAL"
                 ? ui(

@@ -15,6 +15,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { deleteChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
@@ -165,24 +166,21 @@ export function ChatSessionMenu({
               </Button>
             </p>
           )}
-          <div
-            role="radiogroup"
+          <RadioGroup
             aria-label={ui("Dự án đích")}
             className="max-h-64 space-y-1 overflow-y-auto"
+            value={target === undefined ? "" : (target ?? "none")}
+            onValueChange={(next) => setTarget(next === "none" ? null : next)}
           >
             {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => (
               <label
                 key={project.id ?? "none"}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-surface-sunken has-checked:bg-surface-sunken has-disabled:opacity-40 has-focus-visible:ring-2 has-focus-visible:ring-ring"
               >
-                <input
-                  type="radio"
-                  name="target-project"
-                  className="size-4 shrink-0 accent-content-primary"
+                <RadioGroupItem
+                  value={project.id ?? "none"}
                   aria-label={project.name}
-                  checked={target === project.id}
                   disabled={project.id === (session.projectId ?? null)}
-                  onChange={() => setTarget(project.id)}
                 />
                 {project.id ? (
                   <FolderInput className="size-4" />
@@ -192,7 +190,7 @@ export function ChatSessionMenu({
                 {project.name}
               </label>
             ))}
-          </div>
+          </RadioGroup>
         </ChatDialog>
       )}
       <ConfirmDialog

@@ -569,7 +569,9 @@ test("selection preserves hidden approvals across search and paging and restores
   await expect(items.getByText("Project budget", { exact: true })).toHaveCount(0);
   expect(server.requestedUrls.some((url) => url.includes("selection-draft"))).toBe(false);
   await expect(selection.getByRole("button", { name: "Edit selection", exact: true })).toBeHidden();
-  const linkDisclosure = selection.getByText("File and folder links", { exact: true });
+  const linkDisclosure = selection
+    .locator('[data-slot="collapsible-trigger"]')
+    .filter({ hasText: "File and folder links" });
   await linkDisclosure.focus();
   await linkDisclosure.press("Enter");
   await expect(
@@ -603,7 +605,9 @@ test("selection preserves hidden approvals across search and paging and restores
   await selection.getByRole("textbox", { name: "Search selected content" }).fill("budget");
   await selection.getByRole("button", { name: "Search", exact: true }).click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
-  await selection.locator('details[aria-label="References for Project budget"] > summary').click();
+  await selection
+    .locator('[aria-label="References for Project budget"] [data-slot="collapsible-trigger"]')
+    .click();
   const locations = selection.getByRole("list", { name: "Reference locations" });
   await expect(locations.getByText("Overview!B2", { exact: true })).toHaveCount(1);
   await expect(locations.getByText("Projects!D4", { exact: true })).toBeVisible();
@@ -689,16 +693,18 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(checkboxes.first()).toBeFocused();
   await expect(checkboxes.first()).toBeChecked();
   await expect(checkboxes.last()).toBeChecked();
-  const linkDisclosure = selection.getByText("File and folder links", { exact: true });
+  const linkDisclosure = selection
+    .locator('[data-slot="collapsible-trigger"]')
+    .filter({ hasText: "File and folder links" });
   const rootLinks = selection.getByRole("textbox", { name: "File or folder links" });
-  await expect(linkDisclosure.locator("..")).not.toHaveAttribute("open");
+  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await expect(rootLinks).toHaveCount(0);
   await expect(
     selection.getByRole("button", { name: "Save selection", exact: true }),
   ).toBeVisible();
   await checkboxes.first().uncheck();
   await expect(checkboxes.first()).not.toBeChecked();
-  await expect(linkDisclosure.locator("..")).not.toHaveAttribute("open");
+  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await expect(rootLinks).toHaveCount(0);
   await checkboxes.first().check();
   await checkboxes.first().uncheck();
@@ -753,7 +759,7 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(selection.getByRole("button", { name: "Save selection", exact: true })).toHaveCount(
     0,
   );
-  await expect(linkDisclosure.locator("..")).not.toHaveAttribute("open");
+  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await expect(rootLinks).toHaveCount(0);
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
   await selection.getByRole("button", { name: "Expand Project budget", exact: true }).click();
@@ -773,7 +779,7 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await deselect.click();
   await expect(checkboxes).not.toBeChecked();
   await expect(checkboxes).toBeFocused();
-  await expect(linkDisclosure.locator("..")).not.toHaveAttribute("open");
+  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(deselect).toBeFocused();
   expect(server.requestBodies).toHaveLength(1);

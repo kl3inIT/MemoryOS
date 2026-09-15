@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatSearchEvent;
 import io.memoryos.api.chat.contract.ChatSourceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,6 +42,14 @@ final class ChatEventStream {
                        @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatSearchEvent.@Nullable QueryPlan search,
                        @Schema(requiredMode = REQUIRED) List<ChatSearchEvent.ReadingDocument> documents) {}
 
+    record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                      @Schema(requiredMode = REQUIRED) long sequence,
+                      @Schema(requiredMode = REQUIRED) String toolCallId,
+                      @Schema(requiredMode = REQUIRED) ChatImageEvent.Stage stage,
+                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable UUID id,
+                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String mediaType,
+                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
+
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
         return Flux.using(reader::get, resource -> Flux.<StreamBufferWriter.Batch>generate(sink -> {
@@ -76,6 +85,11 @@ final class ChatEventStream {
                 var search = Objects.requireNonNull(event.search());
                 yield new SearchEvent(event.assistantMessageId(), event.sequence(), search.toolCallId(), search.stage(),
                         search.source() == null ? null : ChatSourceResponse.from(search.source()), search.search(), search.documents());
+            }
+            case "image" -> {
+                var image = Objects.requireNonNull(event.image());
+                yield new ImageEvent(event.assistantMessageId(), event.sequence(), image.toolCallId(), image.stage(),
+                        image.artifactId(), image.mediaType(), image.revisedPrompt());
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };

@@ -3,11 +3,17 @@ import { focusManager, QueryClient, QueryClientProvider, useQuery } from "@tanst
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useApplicationSession } from "@/features/identity/application-session-context";
+import { redirectToSignIn } from "@/features/identity/sign-in-redirect";
 import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { ApplicationSessionBoundary } from "./application-session-boundary";
+
+vi.mock("@/features/identity/sign-in-redirect", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/identity/sign-in-redirect")>()),
+  redirectToSignIn: vi.fn(),
+}));
 
 const OWNER_SESSION: CurrentIdentity = {
   actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
@@ -54,6 +60,8 @@ const MEMBER_SESSION: CurrentIdentity = {
 afterEach(() => {
   focusManager.setFocused(undefined);
   vi.unstubAllGlobals();
+  window.sessionStorage.clear();
+  vi.mocked(redirectToSignIn).mockClear();
 });
 
 describe("ApplicationSessionBoundary", () => {
@@ -235,6 +243,19 @@ describe("ApplicationSessionBoundary", () => {
     expect(await screen.findByText("MEMBER")).toBeInTheDocument();
   });
 
+  it("clears the sign-in redirect guard once a session is confirmed", async () => {
+    window.sessionStorage.setItem("memoryos.signInRedirectAt", String(Date.now()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(OWNER_SESSION)),
+    );
+
+    renderBoundary(createMemoryOsQueryClient());
+
+    expect(await screen.findByText("OWNER")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("memoryos.signInRedirectAt")).toBeNull();
+  });
+
   it("purges private client state when the identity query becomes unauthenticated", async () => {
     let authenticated = true;
     vi.stubGlobal(
@@ -253,9 +274,7 @@ describe("ApplicationSessionBoundary", () => {
       await queryClient.invalidateQueries({ queryKey: getCurrentIdentityQueryKey() });
     });
 
-    expect(
-      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
     expectPrivateClientStatePurged(queryClient);
   });
 
@@ -284,9 +303,7 @@ describe("ApplicationSessionBoundary", () => {
       ).rejects.toMatchObject({ status: 401 });
     });
 
-    expect(
-      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
     expectPrivateClientStatePurged(queryClient);
   });
 
@@ -313,9 +330,7 @@ describe("ApplicationSessionBoundary", () => {
       await expect(mutation.execute(undefined)).rejects.toMatchObject({ status: 401 });
     });
 
-    expect(
-      await screen.findByRole("heading", { name: /sign in to memoryos/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(redirectToSignIn).toHaveBeenCalledTimes(1));
     expectPrivateClientStatePurged(queryClient);
   });
 

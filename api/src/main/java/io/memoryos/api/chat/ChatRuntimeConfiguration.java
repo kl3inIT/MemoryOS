@@ -51,8 +51,9 @@ class ChatRuntimeConfiguration {
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
-                                        io.memoryos.chat.web.WebProviderClient web) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web);
+                                        io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
+                                        io.memoryos.chat.image.ImageArtifactService imageArtifacts) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts);
     }
 
     @Bean(destroyMethod = "dispose")
@@ -64,8 +65,9 @@ class ChatRuntimeConfiguration {
     @Bean(destroyMethod = "close")
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
-                                    ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web);
+                                    ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
+                                    io.memoryos.chat.image.ImageConnectionService images) {
+        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
     }
 
     @Bean

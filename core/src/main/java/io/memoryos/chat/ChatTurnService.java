@@ -39,6 +39,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
     private final io.memoryos.chat.web.@Nullable WebConnectionService web;
+    private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -49,16 +50,18 @@ public final class ChatTurnService implements AutoCloseable {
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
-        this(persistence, model, limits, executor, streams, models, null);
+        this(persistence, model, limits, executor, streams, models, null, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web) {
+            io.memoryos.chat.web.@Nullable WebConnectionService web,
+            io.memoryos.chat.image.@Nullable ImageConnectionService images) {
         this.persistence = persistence;
         this.model = model;
         this.models = models;
         this.web = web;
+        this.images = images;
         this.limits = limits;
         this.executor = executor;
         this.streams = streams;
@@ -91,6 +94,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
         persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
+        if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.group.IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
         lock.lock();
         try { return sendLocked(actor, session, command); }
@@ -107,6 +111,10 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
             var binding = resolved.binding();
+            String contribution = java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
+                    binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
+                    .filter(value -> !value.isBlank()).collect(java.util.stream.Collectors.joining("\n----\n"));
             var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
@@ -119,12 +127,20 @@ public final class ChatTurnService implements AutoCloseable {
                         throw ChatException.invalid("This model adapter does not support required Web search.");
                 }
             }
+            var imageAccess = new io.memoryos.chat.image.ImageConnectionService.Access(null);
+            if (command.image() != ImageMode.off) {
+                if (!binding.toolCalling() || images == null) throw ChatException.providerUnavailable();
+                imageAccess = images.resolve(actor);
+                if (imageAccess.generate() == null) throw ChatException.providerUnavailable();
+            }
             int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.deadline(), contextLimit,
-                    new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(), resolved.fallbackReason(), binding, resolved.contextRevision()));
+                    new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
+                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
             if (!reserved.created()) return accepted(reserved);
             var context = persistence.loadContext(actor, session, reserved);
-            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding).withWeb(command.webSearch(), webAccess);
+            var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
+                    .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
@@ -212,7 +228,8 @@ public final class ChatTurnService implements AutoCloseable {
                     }, accounting -> run.accounting = accounting, event -> {
                         run.searchEvent(event);
                         streams.search(run.setup.assistantMessageId(), event);
-                    }, draining -> run.draining = draining);
+                    }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
+                    draining -> run.draining = draining);
             run.check();
             if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
             run.finish(ChatMessage.Status.COMPLETED, null);

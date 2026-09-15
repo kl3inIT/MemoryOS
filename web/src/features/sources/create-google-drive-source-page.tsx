@@ -15,6 +15,17 @@ import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
@@ -26,6 +37,7 @@ import {
   getGoogleDriveSelectionPolicyOptions,
   listGoogleDriveCredentialsOptions,
   listSourcesQueryKey,
+  listSourceGroupOptionsOptions,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
@@ -45,7 +57,7 @@ import { sourceMutationError } from "./source-errors";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
-import { SourceGroupPicker } from "./source-group-picker";
+import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 
 export function CreateGoogleDriveSourcePage() {
   const session = useApplicationSession();
@@ -558,7 +570,11 @@ function GoogleDriveSourceSetup() {
               className="mt-2"
             />
           </div>
-          <SourceGroupPicker
+          <GroupAccessPicker
+            load={(query) => listSourceGroupOptionsOptions({ query })}
+            description={appText(
+              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
+            )}
             selected={groupIds}
             required={!globalManage}
             disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
@@ -642,208 +658,210 @@ function GoogleDriveSourceSetup() {
             </h2>
             <p className="mb-4 text-sm text-content-secondary">{ui("Choose an account.")}</p>
             <div>
-              <table className="w-full table-fixed text-sm">
-                <caption className="sr-only">{ui("Google Drive credentials")}</caption>
-                <thead className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
-                  <tr>
-                    <th scope="col" className="w-12 py-3">
-                      <span className="sr-only">{ui("Select")}</span>
-                    </th>
-                    <th scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
-                      {ui("ID")}
-                    </th>
-                    <th scope="col" className="px-2 py-3 text-left font-medium">
-                      {ui("Name")}
-                    </th>
-                    <th scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                      {ui("Created")}
-                    </th>
-                    <th scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
-                      {ui("Last Updated")}
-                    </th>
-                  </tr>
-                </thead>
-                {credentials.data?.map((credential) => {
-                  const ready = credential.status === "ACTIVE" && credential.oauthClientConfigured;
-                  return (
-                    <tbody
-                      key={credential.id}
-                      className="block border-b border-border-subtle sm:table-row-group"
-                    >
-                      <tr
-                        className={`grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 py-3 sm:table-row ${
-                          credential.id === credentialId && ready ? "bg-surface-subtle" : ""
-                        }`}
+              <RadioGroup
+                value={credentialId ?? ""}
+                onValueChange={(selected) => {
+                  setError(null);
+                  void navigate({ search: { credentialId: selected } });
+                }}
+              >
+                <Table className="w-full table-fixed text-sm">
+                  <TableCaption className="sr-only">{ui("Google Drive credentials")}</TableCaption>
+                  <TableHeader className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
+                    <TableRow>
+                      <TableHead scope="col" className="w-12 py-3">
+                        <span className="sr-only">{ui("Select")}</span>
+                      </TableHead>
+                      <TableHead scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
+                        {ui("ID")}
+                      </TableHead>
+                      <TableHead scope="col" className="px-2 py-3 text-left font-medium">
+                        {ui("Name")}
+                      </TableHead>
+                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                        {ui("Created")}
+                      </TableHead>
+                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                        {ui("Last Updated")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  {credentials.data?.map((credential) => {
+                    const ready =
+                      credential.status === "ACTIVE" && credential.oauthClientConfigured;
+                    return (
+                      <TableBody
+                        key={credential.id}
+                        className="block border-b border-border-subtle sm:table-row-group"
                       >
-                        <td className="order-first py-2 align-middle">
-                          <label className="flex size-11 cursor-pointer items-center justify-center has-disabled:cursor-default">
-                            <input
-                              type="radio"
-                              name="google-credential"
-                              aria-label={ui("Select {{v1}}", { v1: credential.name })}
-                              checked={credential.id === credentialId && ready}
-                              disabled={!ready || unavailable || busy || frozenProposal}
-                              onChange={() => {
-                                setError(null);
-                                void navigate({ search: { credentialId: credential.id } });
-                              }}
-                              className="size-4 shrink-0 accent-primary"
-                            />
-                          </label>
-                        </td>
-                        <td className="col-span-3 px-2 py-2 align-middle">
-                          <span className="mr-2 text-xs text-content-secondary sm:hidden">
-                            {ui("ID")}
-                          </span>
-                          <span title={credential.id} className="font-mono text-xs">
-                            {credential.id.slice(0, 8)}
-                          </span>
-                        </td>
-                        <td className="order-first col-span-2 px-2 py-2 align-middle">
-                          <div className="flex items-center gap-2">
-                            <div className="min-w-0 flex-1">
-                              <span className="min-w-0 flex-1 text-sm">
-                                <span className="block wrap-anywhere font-medium text-content-primary">
-                                  {credential.name}
-                                </span>
-                                {credential.accountEmail !== credential.name ? (
-                                  <span className="block wrap-anywhere text-content-secondary">
-                                    {credential.accountEmail}
-                                  </span>
-                                ) : null}
-                                {!ready ? (
-                                  <span className="mt-1 block">
-                                    <StatusBadge tone="warning">
-                                      {credential.status === "REVOKED"
-                                        ? ui("Revoked")
-                                        : ui("Needs reconnect")}
-                                    </StatusBadge>
-                                  </span>
-                                ) : null}
-                              </span>
-                            </div>
-                            {credential.actions.length > 0 ? (
-                              <IconButton
-                                aria-label={ui("Manage {{v1}}", { v1: credential.name })}
-                                aria-expanded={managedCredentialId === credential.id}
-                                aria-controls={`credential-actions-${credential.id}`}
-                                title={ui("Manage credential")}
-                                className="size-11"
-                                onClick={() =>
-                                  setManagedCredentialId(
-                                    managedCredentialId === credential.id ? null : credential.id,
-                                  )
-                                }
-                              >
-                                <Ellipsis />
-                              </IconButton>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
-                          <span className="mb-1 block sm:hidden">{ui("Created")}</span>
-                          <time dateTime={credential.createdAt}>
-                            {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
-                          </time>
-                        </td>
-                        <td className="px-2 py-2 align-middle text-xs text-content-secondary">
-                          <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
-                          <time dateTime={credential.updatedAt}>
-                            {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
-                          </time>
-                        </td>
-                      </tr>
-                      {managedCredentialId === credential.id && credential.actions.length > 0 ? (
-                        <tr
-                          id={`credential-actions-${credential.id}`}
-                          className="block sm:table-row"
+                        <TableRow
+                          className={`grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 py-3 sm:table-row ${
+                            credential.id === credentialId && ready ? "bg-surface-subtle" : ""
+                          }`}
                         >
-                          <td colSpan={5} className="block px-2 py-3 sm:table-cell">
-                            <p className="mb-2 text-sm text-content-secondary">
-                              {ui("Used by")} {credential.sourceCount}{" "}
-                              {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {credential.actions.includes("reauthorize") ? (
-                                <Button
-                                  prominence="tertiary"
-                                  disabled={unavailable || busy || frozenProposal}
-                                  onClick={(event) => {
-                                    modalTrigger.current = event.currentTarget;
-                                    editCredential(credential);
-                                  }}
+                          <TableCell className="order-first py-2 align-middle">
+                            <label className="flex size-11 cursor-pointer items-center justify-center has-disabled:cursor-default">
+                              <RadioGroupItem
+                                value={credential.id}
+                                aria-label={ui("Select {{v1}}", { v1: credential.name })}
+                                disabled={!ready || unavailable || busy || frozenProposal}
+                              />
+                            </label>
+                          </TableCell>
+                          <TableCell className="col-span-3 px-2 py-2 align-middle">
+                            <span className="mr-2 text-xs text-content-secondary sm:hidden">
+                              {ui("ID")}
+                            </span>
+                            <span title={credential.id} className="font-mono text-xs">
+                              {credential.id.slice(0, 8)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="order-first col-span-2 px-2 py-2 align-middle">
+                            <div className="flex items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                <span className="min-w-0 flex-1 text-sm">
+                                  <span className="block wrap-anywhere font-medium text-content-primary">
+                                    {credential.name}
+                                  </span>
+                                  {credential.accountEmail !== credential.name ? (
+                                    <span className="block wrap-anywhere text-content-secondary">
+                                      {credential.accountEmail}
+                                    </span>
+                                  ) : null}
+                                  {!ready ? (
+                                    <span className="mt-1 block">
+                                      <StatusBadge tone="warning">
+                                        {credential.status === "REVOKED"
+                                          ? ui("Revoked")
+                                          : ui("Needs reconnect")}
+                                      </StatusBadge>
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </div>
+                              {credential.actions.length > 0 ? (
+                                <IconButton
+                                  aria-label={ui("Manage {{v1}}", { v1: credential.name })}
+                                  aria-expanded={managedCredentialId === credential.id}
+                                  aria-controls={`credential-actions-${credential.id}`}
+                                  title={ui("Manage credential")}
+                                  className="size-11"
+                                  onClick={() =>
+                                    setManagedCredentialId(
+                                      managedCredentialId === credential.id ? null : credential.id,
+                                    )
+                                  }
                                 >
-                                  {ui("Reconnect")}
-                                </Button>
-                              ) : null}
-                              {credential.actions.includes("revoke") &&
-                              credential.status !== "REVOKED" ? (
-                                <ConfirmDialog
-                                  trigger={
-                                    <Button
-                                      tone="danger"
-                                      prominence="tertiary"
-                                      disabled={unavailable || busy || frozenProposal}
-                                    >
-                                      {ui("Revoke")}
-                                    </Button>
-                                  }
-                                  title={ui("Revoke {{v1}}?", { v1: credential.name })}
-                                  description={ui(
-                                    "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
-                                    { v1: credential.sourceCount },
-                                  )}
-                                  confirmLabel={ui("Revoke")}
-                                  pendingLabel={ui("Revoking")}
-                                  onConfirm={() => changeCredential(credential, "revoke")}
-                                  errorMessage={(cause) =>
-                                    sourceMutationError(cause, "google-drive")
-                                  }
-                                />
-                              ) : null}
-                              {credential.actions.includes("delete") ? (
-                                <ConfirmDialog
-                                  trigger={
-                                    <Button
-                                      tone="danger"
-                                      prominence="tertiary"
-                                      disabled={
-                                        unavailable ||
-                                        busy ||
-                                        frozenProposal ||
-                                        credential.sourceCount !== 0
-                                      }
-                                      title={
-                                        credential.sourceCount
-                                          ? ui(
-                                              "Delete all attached Sources before deleting this credential",
-                                            )
-                                          : undefined
-                                      }
-                                    >
-                                      {ui("Delete")}
-                                    </Button>
-                                  }
-                                  title={ui("Delete {{v1}}?", { v1: credential.name })}
-                                  description={ui(
-                                    "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
-                                  )}
-                                  confirmLabel={ui("Delete credential")}
-                                  pendingLabel={ui("Deleting")}
-                                  onConfirm={() => changeCredential(credential, "delete")}
-                                  errorMessage={(cause) =>
-                                    sourceMutationError(cause, "google-drive")
-                                  }
-                                />
+                                  <Ellipsis />
+                                </IconButton>
                               ) : null}
                             </div>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  );
-                })}
-              </table>
+                          </TableCell>
+                          <TableCell className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
+                            <span className="mb-1 block sm:hidden">{ui("Created")}</span>
+                            <time dateTime={credential.createdAt}>
+                              {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
+                            </time>
+                          </TableCell>
+                          <TableCell className="px-2 py-2 align-middle text-xs text-content-secondary">
+                            <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
+                            <time dateTime={credential.updatedAt}>
+                              {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
+                            </time>
+                          </TableCell>
+                        </TableRow>
+                        {managedCredentialId === credential.id && credential.actions.length > 0 ? (
+                          <TableRow
+                            id={`credential-actions-${credential.id}`}
+                            className="block sm:table-row"
+                          >
+                            <TableCell colSpan={5} className="block px-2 py-3 sm:table-cell">
+                              <p className="mb-2 text-sm text-content-secondary">
+                                {ui("Used by")} {credential.sourceCount}{" "}
+                                {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {credential.actions.includes("reauthorize") ? (
+                                  <Button
+                                    prominence="tertiary"
+                                    disabled={unavailable || busy || frozenProposal}
+                                    onClick={(event) => {
+                                      modalTrigger.current = event.currentTarget;
+                                      editCredential(credential);
+                                    }}
+                                  >
+                                    {ui("Reconnect")}
+                                  </Button>
+                                ) : null}
+                                {credential.actions.includes("revoke") &&
+                                credential.status !== "REVOKED" ? (
+                                  <ConfirmDialog
+                                    trigger={
+                                      <Button
+                                        tone="danger"
+                                        prominence="tertiary"
+                                        disabled={unavailable || busy || frozenProposal}
+                                      >
+                                        {ui("Revoke")}
+                                      </Button>
+                                    }
+                                    title={ui("Revoke {{v1}}?", { v1: credential.name })}
+                                    description={ui(
+                                      "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
+                                      { v1: credential.sourceCount },
+                                    )}
+                                    confirmLabel={ui("Revoke")}
+                                    pendingLabel={ui("Revoking")}
+                                    onConfirm={() => changeCredential(credential, "revoke")}
+                                    errorMessage={(cause) =>
+                                      sourceMutationError(cause, "google-drive")
+                                    }
+                                  />
+                                ) : null}
+                                {credential.actions.includes("delete") ? (
+                                  <ConfirmDialog
+                                    trigger={
+                                      <Button
+                                        tone="danger"
+                                        prominence="tertiary"
+                                        disabled={
+                                          unavailable ||
+                                          busy ||
+                                          frozenProposal ||
+                                          credential.sourceCount !== 0
+                                        }
+                                        title={
+                                          credential.sourceCount
+                                            ? ui(
+                                                "Delete all attached Sources before deleting this credential",
+                                              )
+                                            : undefined
+                                        }
+                                      >
+                                        {ui("Delete")}
+                                      </Button>
+                                    }
+                                    title={ui("Delete {{v1}}?", { v1: credential.name })}
+                                    description={ui(
+                                      "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
+                                    )}
+                                    confirmLabel={ui("Delete credential")}
+                                    pendingLabel={ui("Deleting")}
+                                    onConfirm={() => changeCredential(credential, "delete")}
+                                    errorMessage={(cause) =>
+                                      sourceMutationError(cause, "google-drive")
+                                    }
+                                  />
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </TableBody>
+                    );
+                  })}
+                </Table>
+              </RadioGroup>
               {canManage && credentials.isPending ? (
                 <p role="status" className="mt-4 text-sm text-content-secondary">
                   {ui("Loading credentials…")}
@@ -975,14 +993,13 @@ function GoogleDriveSourceSetup() {
               ) : null}
               {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
                 <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={replaceClient}
                     disabled={busy}
-                    onChange={(event) => {
+                    onCheckedChange={(event) => {
                       clientInput.current?.clear();
                       setClientReady(false);
-                      setReplaceClient(event.target.checked);
+                      setReplaceClient(event === true);
                     }}
                   />
                   {ui("Replace OAuth app on reconnect")}

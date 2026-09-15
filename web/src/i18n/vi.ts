@@ -26,6 +26,11 @@ export const vi = {
     sources: "Nguồn",
     sourcesCount: "Nguồn · {{total}}",
     back: "Về danh sách nguồn",
+    previousSource: "Nguồn trước",
+    nextSource: "Nguồn tiếp",
+    sourcePosition: "Nguồn {{index}} / {{total}}",
+    expand: "Mở rộng",
+    expandedView: "Nguồn này đang mở ở chế độ mở rộng.",
     closeFile: "Đóng tệp",
     closeSources: "Đóng nguồn",
     documentSource: "Tài liệu · Nguồn {{number}}",
@@ -119,6 +124,7 @@ export const vi = {
     sessionFailedDescription:
       "Dữ liệu của bạn không thay đổi. Hãy kiểm tra dịch vụ MemoryOS và thử lại.",
     opening: "Đang mở MemoryOS",
+    redirecting: "Đang chuyển đến trang đăng nhập",
     backgroundFailed:
       "Không thể làm mới phiên đăng nhập. Không gian làm việc hiện tại vẫn được giữ nguyên.",
   },

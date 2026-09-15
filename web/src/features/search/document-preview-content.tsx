@@ -49,6 +49,8 @@ export function DocumentPreviewContent({
       "document-preview",
       actorId,
       authorizationVersion,
+      // Each reader has its own authority, so they never share cache entries or in-flight requests.
+      fileId ? "chat-file" : variant,
       fileId ?? selection.documentId,
       selection.generation,
       from,

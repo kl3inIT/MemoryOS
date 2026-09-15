@@ -18,10 +18,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.tokenizer.TokenCountEstimator;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 
@@ -35,12 +31,12 @@ public final class ChatModelGuard implements ChatModel {
     private final int cycles;
     private final Runnable checkActive;
     private final UnaryOperator<Prompt> finalRequest;
+    private final ChatRequestPolicy policy;
     private final AtomicInteger calls = new AtomicInteger();
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
     private final AtomicInteger synchronousAccounted = new AtomicInteger();
-    private @Nullable TokenCountEstimator tokens;
-    private int inputLimit = Integer.MAX_VALUE;
+    private final int inputLimit;
     private volatile int lastStreamInput;
     private @Nullable Scheduler scheduler;
     private BooleanSupplier hasEvidence = () -> false;
@@ -54,7 +50,7 @@ public final class ChatModelGuard implements ChatModel {
     public void requireWebSearch() { requiredWebSearch = true; }
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
-            int cycles, Runnable checkActive, UnaryOperator<Prompt> finalRequest) {
+            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
         this.delegate = delegate;
         this.process = process;
         this.model = model;
@@ -63,6 +59,8 @@ public final class ChatModelGuard implements ChatModel {
         this.synchronousLimit = cycles;
         this.checkActive = checkActive;
         this.finalRequest = finalRequest;
+        this.policy = policy;
+        this.inputLimit = inputLimit;
     }
 
     public void checkActive() {
@@ -75,10 +73,6 @@ public final class ChatModelGuard implements ChatModel {
         return calls.get() > 0 && accounted.get() == calls.get() && synchronousAccounted.get() == synchronousCalls.get();
     }
 
-    public void contextLimit(TokenCountEstimator estimator, int limit) {
-        this.tokens = estimator;
-        this.inputLimit = limit;
-    }
 
     public int availableContextTokens() { return Math.max(0, inputLimit - lastStreamInput - 1024); }
 
@@ -98,10 +92,12 @@ public final class ChatModelGuard implements ChatModel {
         // Native typed output records its own usage. Track completeness without recording it twice.
         io.memoryos.retrieval.SearchTasks.checkNativeActive();
         checkActive();
-        int input = validateContext(prompt);
+        var request = policy.options().apply(prompt);
+        int input = policy.inputTokens(request, inputLimit);
         var reservation = admitHelper(input);
-        var response = delegate.call(prompt);
+        var response = delegate.call(request);
         settle(reservation, response);
+        policy.response().accept(response);
         if (response.getMetadata().getUsage().getTotalTokens() > 0) synchronousAccounted.incrementAndGet();
         // Return to the native caller first so usage is recorded even if cancellation arrived during IO.
         return response;
@@ -139,6 +135,7 @@ public final class ChatModelGuard implements ChatModel {
                     .doOnNext(response -> {
                         var usage = response.getMetadata().getUsage();
                         if (usage.getTotalTokens() > 0) usageResponse.set(response);
+                        policy.response().accept(response);
                         if (response.getResult() != null) {
                             if (response.getResult().getOutput().getToolCalls().stream().anyMatch(tool -> "web_search".equals(tool.name()))) requiredToolSeen.set(true);
                             String reason = response.getResult().getMetadata().getFinishReason();
@@ -156,30 +153,6 @@ public final class ChatModelGuard implements ChatModel {
         });
     }
 
-    private int validateContext(Prompt prompt) {
-        var estimator = tokens;
-        if (estimator == null) return 0;
-        int count = 64;
-        for (var message : prompt.getInstructions()) {
-            count += 32 + estimator.estimate(message.getText() == null ? "" : message.getText());
-            if (message instanceof org.springframework.ai.chat.messages.UserMessage user)
-                count += user.getMedia().size() * ChatTurnSetup.IMAGE_INPUT_TOKENS;
-            if (message instanceof ToolResponseMessage tool) {
-                for (var response : tool.getResponses()) count += estimator.estimate(response.responseData()) + 32;
-            }
-            if (message instanceof AssistantMessage assistant) {
-                for (var tool : assistant.getToolCalls()) count += estimator.estimate(tool.arguments()) + 32;
-            }
-        }
-        if (prompt.getOptions() instanceof ToolCallingChatOptions options && options.getToolCallbacks() != null) {
-            for (var callback : options.getToolCallbacks()) {
-                var definition = callback.getToolDefinition();
-                count += estimator.estimate(definition.description() + definition.inputSchema()) + 32;
-            }
-        }
-        if (count > inputLimit) throw new IllegalStateException("CHAT_CONTEXT_LIMIT");
-        return count;
-    }
 
     /** Reserve before IO so concurrent helpers cannot all spend the same remaining budget.
      * These are admission bounds only. Embabel remains the sole invocation/usage/cost ledger. */
@@ -211,14 +184,14 @@ public final class ChatModelGuard implements ChatModel {
         int cycle = calls.get() + 1;
         if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
         var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles, webSiteFilter);
-        var request = cycle == cycles ? finalRequest.apply(guided) : guided;
+        var request = policy.options().apply(cycle == cycles ? finalRequest.apply(guided) : guided);
         if (requiredWebSearch && cycle == 1) {
             if (cycles < 2 || !(request.getOptions() instanceof org.springframework.ai.openai.OpenAiChatOptions originalOptions))
                 throw new IllegalStateException("CHAT_UNSUPPORTED_OPTIONS");
             var options = originalOptions.mutate().toolChoice(java.util.Map.of("type", "function", "function", java.util.Map.of("name", "web_search"))).build();
             request = new Prompt(request.getInstructions(), options);
         }
-        int input = validateContext(request);
+        int input = policy.inputTokens(request, inputLimit);
         var reservation = reserve(input);
         lastStreamInput = input;
         calls.incrementAndGet();

@@ -9,6 +9,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectRangeContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
@@ -335,6 +336,11 @@ class ObjectUploadLifecycleIntegrationTest {
 
         @Override
         public ObjectContent open(ObjectKey key) {
+            throw new UnsupportedOperationException("not needed by upload lifecycle tests");
+        }
+
+        @Override
+        public ObjectRangeContent openRange(ObjectKey key, long first, long last) {
             throw new UnsupportedOperationException("not needed by upload lifecycle tests");
         }
 
