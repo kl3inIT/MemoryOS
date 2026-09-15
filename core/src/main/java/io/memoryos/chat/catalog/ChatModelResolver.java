@@ -53,7 +53,7 @@ public final class ChatModelResolver {
     private Resolved acquire(ModelCatalogService.Selection selection) {
         var model = selection.model();
         var provider = selection.provider();
-        if (model.settings().pricing() == null && limits.costBudgetUsd() < Double.MAX_VALUE)
+        if (model.settings().pricing() == null && limits.costCapped())
             throw ChatException.invalid("A cost budget requires configured model pricing.");
         var lease = clients.acquire(model.id(), provider.revision() + ":" + model.revision(), () -> {
             var adapter = adapters.require(provider.adapterType());
@@ -69,7 +69,7 @@ public final class ChatModelResolver {
             }
         });
         if (!lease.binding().service().getName().equals(model.modelName())
-                || (limits.costBudgetUsd() < Double.MAX_VALUE && lease.binding().service().getPricingModel() == null)) {
+                || (limits.costCapped() && lease.binding().service().getPricingModel() == null)) {
             lease.close();
             throw ChatException.providerUnavailable();
         }
