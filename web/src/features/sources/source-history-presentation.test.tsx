@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { historyDuration, runHasNoChanges } from "./source-history";
+import { historyDuration, historyRelativeTime, runHasNoChanges } from "./source-history";
 import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
 import { SourceRunHistory } from "./source-run-history";
 
@@ -155,15 +155,35 @@ describe("Source execution and current-file history", () => {
           new URL((request as Request).url).searchParams.get("status"),
         );
 
-    await user.click(screen.getByRole("button", { name: /^Status/ }));
+    await user.click(screen.getByRole("button", { name: /^Status$/ }));
     await user.click(screen.getByRole("menuitemradio", { name: "Failed" }));
 
-    expect(screen.getByRole("button", { name: /^Status\s*Failed/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Status:\s*Failed/ })).toBeInTheDocument();
     await waitFor(() => expect(statusOf()).toContain("FAILED"));
 
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByRole("button", { name: /^Status$/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear status filter" }));
+    expect(screen.getByRole("button", { name: /^Status$/ })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Clear status filter" })).not.toBeInTheDocument();
+    await waitFor(() => expect(statusOf().at(-1)).toBeNull());
+  });
+
+  it("opens a run from its row with its trigger, stages and file counts", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    await user.click(screen.getByText("Manual"));
+    const detail = within(await screen.findByRole("dialog", { name: "Run details" }));
+    expect(detail.getByText("Trigger").nextElementSibling).toHaveTextContent("Manual");
+    expect(detail.getByText("Read content").parentElement).toHaveTextContent(/30 sec\s*Completed/);
+    expect(detail.getByText("Index content").parentElement).toHaveTextContent("Not required");
+    expect(detail.queryByText("Removed")).not.toBeInTheDocument();
+  });
+
+  it("words recent times relatively and leaves older or future ones absolute", () => {
+    const now = Date.parse("2026-09-09T09:06:30Z");
+    expect(historyRelativeTime("2026-09-09T09:00:00Z", now)).toBe("6 minutes ago");
+    expect(historyRelativeTime("2026-09-09T09:06:40Z", now)).toBe("now");
+    expect(historyRelativeTime("2026-09-01T09:00:00Z", now)).toBeNull();
+    expect(historyRelativeTime("2026-09-09T09:30:00Z", now)).toBeNull();
   });
 
   it("preserves failures and refuses no-change claims when prior work or unknown outcomes remain", () => {

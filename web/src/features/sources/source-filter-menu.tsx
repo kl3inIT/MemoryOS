@@ -1,4 +1,5 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CirclePlus, X } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,55 +10,101 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
+import { IconButton } from "@/components/ui/icon-button";
+import type { StatusTone } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 
-export type SourceFilterOption = { value: string; label: string };
+export type SourceFilterOption = { value: string; label: string; tone: StatusTone };
 
-/** A single-choice filter whose trigger shows the chosen value, as in the Sources list. */
+const toneDots: Record<StatusTone, string> = {
+  success: "bg-status-success-content",
+  warning: "bg-status-warning-content",
+  danger: "bg-status-danger-content",
+  info: "bg-status-info-content",
+  neutral: "bg-content-muted",
+};
+
+function ToneDot({ tone }: { tone: StatusTone }) {
+  return <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", toneDots[tone])} />;
+}
+
+/**
+ * A single-choice filter chip in Stripe's list style: a dashed "+ Status" while unset, then
+ * "Status | value" with its own clear button.
+ */
 export function SourceFilterMenu({
   label,
-  allLabel,
+  clearLabel,
   options,
   value,
   onValueChange,
 }: {
   label: string;
-  allLabel: string;
+  clearLabel: string;
   options: readonly SourceFilterOption[];
   value: string;
   onValueChange: (value: string) => void;
 }) {
   const ui = useAppTranslation();
-
+  const trigger = useRef<HTMLButtonElement>(null);
   const selected = options.find((option) => option.value === value);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" prominence="secondary">
-          {ui(label)}
-          {selected ? (
-            <>
-              <Separator orientation="vertical" className="h-4" />
-              <span className="text-content-primary">{ui(selected.label)}</span>
-            </>
-          ) : null}
-          <ChevronDown aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-auto min-w-56">
-        <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
-          <DropdownMenuRadioItem value="">{ui(allLabel)}</DropdownMenuRadioItem>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {ui(option.label)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div
+      className={cn(
+        "inline-flex items-center rounded-lg border border-border-default",
+        selected ? "bg-surface-raised" : "border-dashed",
+      )}
+    >
+      {selected ? (
+        <IconButton
+          size="sm"
+          aria-label={ui(clearLabel)}
+          className="rounded-r-none"
+          onClick={() => {
+            onValueChange("");
+            // The clear button unmounts with the value, so focus stays on the chip.
+            trigger.current?.focus();
+          }}
+        >
+          <X aria-hidden="true" />
+        </IconButton>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={trigger}
+            size="sm"
+            prominence="tertiary"
+            className={selected ? "rounded-l-none pl-1" : undefined}
+          >
+            {selected ? null : <CirclePlus aria-hidden="true" />}
+            {ui(label)}
+            {selected ? (
+              <>
+                <span className="sr-only">: </span>
+                <span aria-hidden="true" className="h-4 w-px bg-border-default" />
+                <ToneDot tone={selected.tone} />
+                <span className="text-content-primary">{ui(selected.label)}</span>
+                <ChevronDown aria-hidden="true" />
+              </>
+            ) : null}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-auto min-w-56">
+          <DropdownMenuLabel>{ui(label)}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
+            {options.map((option) => (
+              <DropdownMenuRadioItem key={option.value} value={option.value}>
+                <ToneDot tone={option.tone} />
+                {ui(option.label)}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
