@@ -386,6 +386,8 @@ function setup(
 }
 
 async function edit(user: UserEvent) {
+  const disclosure = await screen.findByRole("button", { name: "File and folder links" });
+  if (disclosure.getAttribute("aria-expanded") !== "true") await user.click(disclosure);
   await user.click(await screen.findByRole("button", { name: "Edit selection" }));
   return screen.findByRole("textbox", { name: "File or folder links" });
 }
@@ -476,10 +478,7 @@ describe("Google Drive enterprise selection", () => {
     });
     await server.finish();
     expect(await screen.findByRole("button", { name: "Edit selection" })).toBeEnabled();
-    // Activation closes the draft editor; the activated links stay visible read-only.
-    expect(await screen.findByRole("textbox", { name: "File or folder links" })).toHaveAttribute(
-      "readonly",
-    );
+    expect(screen.queryByRole("textbox", { name: "File or folder links" })).not.toBeInTheDocument();
   });
 
   it("retains the idempotency key after a lost response and does not replace active roots before activation", async () => {

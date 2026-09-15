@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class SourceAccessModesMigrationTest {
     @Test
     void renamesRestrictedToPrivateAndAcceptsOnlyTheThreeModes() throws Exception {
-        try (var database = TestDatabase.freshPostgres("55")) {
+        try (var database = TestDatabase.freshPostgres("62")) {
             var jdbc = JdbcClient.create(database);
             UUID tenant = UUID.randomUUID(), credential = UUID.randomUUID(), restricted = UUID.randomUUID(), open = UUID.randomUUID();
             jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'modes','Modes','ACTIVE','TEST')")
@@ -25,7 +25,7 @@ class SourceAccessModesMigrationTest {
             pair(jdbc, tenant, credential, restricted, "RESTRICTED");
             pair(jdbc, tenant, credential, open, "PUBLIC");
 
-            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("56").load();
+            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("63").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
 
             assertEquals("PRIVATE", access(jdbc, restricted));

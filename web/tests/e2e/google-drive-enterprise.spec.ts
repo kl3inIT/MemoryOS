@@ -593,8 +593,9 @@ test("selection preserves hidden approvals across search and paging and restores
   await expect(links).toBeFocused();
   await expect(selection.getByRole("heading")).toHaveCount(1);
   await selection.getByRole("checkbox", { name: "Sync Project budget" }).check();
+  // The filter popover renders in a portal, outside the selection region.
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
   await page.keyboard.press("Escape");
   await expect(selection.getByRole("list", { name: "Selection results" })).toBeVisible();
   await selection.getByRole("button", { name: "Next selection page" }).click();
@@ -648,14 +649,14 @@ test("selection preserves hidden approvals across search and paging and restores
   await edit.click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await selection.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(items.getByText("Project archive", { exact: true })).toBeVisible();
   await expect(selection.getByRole("list", { name: "Selection results" })).toHaveCount(0);
 });
@@ -805,7 +806,7 @@ test("unavailable approved documents can be deselected but not approved again", 
   await page.goto(`/admin/sources/${source.id}`);
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await selection.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   const deselect = selection.getByRole("button", {
