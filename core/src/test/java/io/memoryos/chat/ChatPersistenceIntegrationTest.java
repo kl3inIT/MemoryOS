@@ -186,6 +186,26 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner() {
+        var interpreter = new io.memoryos.chat.interpreter.JdbcInterpreterRepository(jdbc);
+        var scope = new TenantId(tenant);
+        assertTrue(interpreter.setting(scope).isEmpty());
+        assertEquals(new io.memoryos.chat.interpreter.JdbcInterpreterRepository.Setting(true, 1), interpreter.save(scope, true));
+        assertEquals(new io.memoryos.chat.interpreter.JdbcInterpreterRepository.Setting(false, 2), interpreter.save(scope, false));
+
+        var session = sessions.create(owner, "Code");
+        var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a chart");
+        var file = UUID.randomUUID();
+        interpreter.insertArtifact(scope, reply.assistantMessageId(), file, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/chart.png"), "chart.png", "image/png", 3);
+        var owned = interpreter.ownedArtifact(scope, owner, file).orElseThrow();
+        assertEquals("chart.png", owned.filename());
+        assertEquals("image/png", owned.mediaType());
+        assertTrue(interpreter.ownedArtifact(scope, other, file).isEmpty());
+        assertTrue(interpreter.ownedArtifact(new TenantId(UUID.randomUUID()), owner, file).isEmpty());
+    }
+
+    @Test
     void automaticTitlesAreOnceOnlyAuthorizedAndManualRenameWinsEvenWithTheSameText() {
         var session = sessions.create(owner, "Short initial title");
         assertTrue(turns.claimTitle(owner, session.id()).isEmpty());

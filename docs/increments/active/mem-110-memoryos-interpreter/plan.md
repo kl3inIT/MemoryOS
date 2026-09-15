@@ -80,7 +80,7 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
   - Deleted from the service after download.
 - [ ] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
 - [ ] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
-- [ ] **Staging acceptance.**
+- [ ] **Staging acceptance** (after merge; the other phase 3 items are implemented on `mem-110/run-python-tool`).
   - The key file exists before merge.
   - An administrator enables the interpreter.
   - A Vietnamese prompt produces a downloadable xlsx and a chart.

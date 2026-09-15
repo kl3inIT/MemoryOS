@@ -337,6 +337,20 @@ export type Default = {
     revision: number;
 };
 
+export type InterpreterSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type InterpreterSettingsResponse = {
+    /**
+     * Whether this deployment has a Code Interpreter service
+     */
+    configured: boolean;
+    enabled: boolean;
+    revision: number;
+};
+
 export type ImageSelectionRequest = {
     provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
 };
@@ -1316,6 +1330,12 @@ export type ChatPersona = {
 export type ChatPersonaPage = {
     items: Array<ChatPersona>;
     nextCursor: string | null;
+};
+
+export type InterpreterHealthResponse = {
+    connected: boolean;
+    error: string;
+    version: string;
 };
 
 export type ImageAvailabilityResponse = {
@@ -2831,6 +2851,102 @@ export type SetChatModelDefaultResponses = {
 };
 
 export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
+
+export type GetChatInterpreterSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type GetChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterSettingsError = GetChatInterpreterSettingsErrors[keyof GetChatInterpreterSettingsErrors];
+
+export type GetChatInterpreterSettingsResponses = {
+    /**
+     * Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsResponses[keyof GetChatInterpreterSettingsResponses];
+
+export type UpdateChatInterpreterSettingsData = {
+    body: InterpreterSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type UpdateChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatInterpreterSettingsError = UpdateChatInterpreterSettingsErrors[keyof UpdateChatInterpreterSettingsErrors];
+
+export type UpdateChatInterpreterSettingsResponses = {
+    /**
+     * Saved Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSettingsResponses[keyof UpdateChatInterpreterSettingsResponses];
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
@@ -6369,6 +6485,51 @@ export type ListChatModelPersonasResponses = {
 
 export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
 
+export type GetChatInterpreterHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter/health';
+};
+
+export type GetChatInterpreterHealthErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterHealthError = GetChatInterpreterHealthErrors[keyof GetChatInterpreterHealthErrors];
+
+export type GetChatInterpreterHealthResponses = {
+    /**
+     * Live Code Interpreter service health
+     */
+    200: InterpreterHealthResponse;
+};
+
+export type GetChatInterpreterHealthResponse = GetChatInterpreterHealthResponses[keyof GetChatInterpreterHealthResponses];
+
 export type GetChatImageAvailabilityData = {
     body?: never;
     path?: never;
@@ -6890,6 +7051,49 @@ export type GetChatFilePolicyResponses = {
 };
 
 export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
+
+export type GetChatFileArtifactData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/content';
+};
+
+export type GetChatFileArtifactErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactError = GetChatFileArtifactErrors[keyof GetChatFileArtifactErrors];
+
+export type GetChatFileArtifactResponses = {
+    /**
+     * Generated file bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileArtifactResponse = GetChatFileArtifactResponses[keyof GetChatFileArtifactResponses];
 
 export type ReadChatDocumentPassagesData = {
     body?: never;
