@@ -4,6 +4,7 @@ import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CircleCheck, CircleHelp, CircleX, Clock3, LoaderCircle, Trash2 } from "lucide-react";
 import { runHasNoChanges, runIsActive } from "./source-history";
+import { SourceHint } from "./source-hint";
 
 export function HistoryTime({ value }: { value: string | null }) {
   const ui = useAppTranslation();
@@ -12,9 +13,11 @@ export function HistoryTime({ value }: { value: string | null }) {
   const date = new Date(value);
   const full = date.toLocaleString(uiLocale(), { dateStyle: "full", timeStyle: "long" });
   return (
-    <time dateTime={value} title={full} aria-label={full}>
-      {date.toLocaleString(uiLocale())}
-    </time>
+    <SourceHint hint={full}>
+      <time dateTime={value} aria-label={full}>
+        {date.toLocaleString(uiLocale())}
+      </time>
+    </SourceHint>
   );
 }
 

@@ -755,9 +755,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                         className="mt-0.5 size-4 shrink-0 text-content-muted"
                         aria-hidden="true"
                       />
-                      <span className="min-w-0" title={item.filename ?? ui("Uploaded file")}>
-                        {item.filename ?? ui("Uploaded file")}
-                      </span>
+                      <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
                       <p className="mt-1 text-xs text-status-danger-content">

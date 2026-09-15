@@ -10,6 +10,7 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { parseGoogleDriveLinks } from "./google-drive-selection";
+import { SourceHint } from "./source-hint";
 
 const defaultRootType = { label: "File", color: "#8A9099", mark: "file" };
 const rootTypes = new Map<string, typeof defaultRootType>([
@@ -101,10 +102,12 @@ export function GoogleDriveMimeIcon({ mimeType }: { mimeType: string }) {
   const ui = useAppTranslation();
   const type = rootTypes.get(mimeType) ?? defaultRootType;
   return (
-    <span title={ui(type.label)} className="mt-0.5 shrink-0">
-      <RootTypeIcon color={type.color} mark={type.mark} />
-      <span className="sr-only">{ui(type.label)}: </span>
-    </span>
+    <SourceHint hint={ui(type.label)}>
+      <span className="mt-0.5 shrink-0">
+        <RootTypeIcon color={type.color} mark={type.mark} />
+        <span className="sr-only">{ui(type.label)}: </span>
+      </span>
+    </SourceHint>
   );
 }
 
