@@ -1,0 +1,1044 @@
+from __future__ import annotations
+
+import base64
+import io
+import logging
+import tarfile
+import time
+import uuid
+from collections.abc import Generator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from kubernetes import client, config, stream  # type: ignore
+from kubernetes.client import (  # type: ignore[import-untyped]
+    V1Container,
+    V1ObjectMeta,
+    V1OwnerReference,
+    V1Pod,
+    V1PodSpec,
+)
+from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
+from kubernetes.stream import ws_client  # type: ignore[import-untyped]
+
+from memoryos_interpreter.app_configs import (
+    KUBERNETES_EXECUTOR_IMAGE,
+    KUBERNETES_EXECUTOR_NAMESPACE,
+    KUBERNETES_EXECUTOR_NET_ADMIN_LOCKDOWN,
+    KUBERNETES_EXECUTOR_SERVICE_ACCOUNT,
+    KUBERNETES_OWN_NAMESPACE,
+    KUBERNETES_OWNER_DEPLOYMENT_NAME,
+)
+from memoryos_interpreter.services.executor_base import (
+    SESSION_APP_LABEL,
+    SESSION_COMPONENT_LABEL,
+    SESSION_EXPIRES_AT_KEY,
+    SESSION_NAME_PREFIX,
+    BaseExecutor,
+    EntryKind,
+    ExecutionResult,
+    HealthCheck,
+    SessionInfo,
+    SessionNotFoundError,
+    StreamChunk,
+    StreamEvent,
+    StreamResult,
+    WorkspaceEntry,
+    wrap_last_line_interactive,
+)
+
+logger = logging.getLogger(__name__)
+
+POD_DELETE_RETRIES = 3
+POD_DELETE_RETRY_DELAY_SECONDS = 0.2
+POD_DELETE_CONFIRM_TIMEOUT_SECONDS = 2.0
+
+SESSION_LABEL_SELECTOR = f"app={SESSION_APP_LABEL},component={SESSION_COMPONENT_LABEL}"
+
+
+def _parse_exit_code(error: str) -> int | None:
+    """Parse the exit code from a Kubernetes exec error channel message."""
+    try:
+        error_dict = eval(error)  # noqa: S307
+        if isinstance(error_dict, dict) and "status" in error_dict:
+            if error_dict["status"] == "Success":
+                return 0
+            details = error_dict.get("details", {})
+            if isinstance(details, dict) and "exitCode" in details:
+                return int(details["exitCode"])
+            return 1
+    except Exception as e:
+        logger.warning(f"Error occurred when parsing exit code: {e}")
+        return None
+    return None
+
+
+@dataclass
+class _KubeExecContext:
+    """Holds the live pod and exec stream for the duration of an execution."""
+
+    pod_name: str
+    exec_resp: ws_client.WSClient
+    start: float
+
+
+class KubernetesExecutor(BaseExecutor):
+    def __init__(self) -> None:
+        try:
+            config.load_incluster_config()
+        except config.ConfigException:
+            config.load_kube_config()
+
+        # Keep REST calls on a dedicated ApiClient. kubernetes.stream.stream mutates
+        # the ApiClient request path for websocket exec calls, so mixing CRUD and
+        # exec traffic on one client can leave later REST calls in a broken state.
+        self._rest_api_client = client.ApiClient()
+        self.v1 = client.CoreV1Api(api_client=self._rest_api_client)
+        self.namespace = KUBERNETES_EXECUTOR_NAMESPACE
+        self.image = KUBERNETES_EXECUTOR_IMAGE
+        self.service_account = KUBERNETES_EXECUTOR_SERVICE_ACCOUNT
+        self.net_admin_lockdown = KUBERNETES_EXECUTOR_NET_ADMIN_LOCKDOWN
+        self.owner_reference = self._resolve_owner_reference()
+
+    def _resolve_owner_reference(self) -> V1OwnerReference | None:
+        """Look up the Deployment that owns this service, to own executor pods.
+
+        Returns None when ownership cannot apply, in which case pods are created
+        without an ownerReference exactly as before. Kubernetes only honours
+        ownerReferences within one namespace: a reference to an owner outside the
+        executor namespace looks like a deleted owner, and garbage collection
+        would delete the executor pod straight away.
+        """
+        if not KUBERNETES_OWNER_DEPLOYMENT_NAME or not KUBERNETES_OWN_NAMESPACE:
+            return None
+
+        if self.namespace != KUBERNETES_OWN_NAMESPACE:
+            logger.info(
+                "Executor pods run in namespace %s but this service runs in %s; "
+                "skipping ownerReferences, which cannot cross namespaces",
+                self.namespace,
+                KUBERNETES_OWN_NAMESPACE,
+            )
+            return None
+
+        try:
+            deployment = client.AppsV1Api(
+                api_client=self._rest_api_client
+            ).read_namespaced_deployment(
+                name=KUBERNETES_OWNER_DEPLOYMENT_NAME,
+                namespace=KUBERNETES_OWN_NAMESPACE,
+            )
+        except Exception as e:
+            # Catch every error, not only ApiException. This runs in __init__,
+            # and __init__ must not raise: /health calls the constructor through
+            # get_executor(), so an unreachable API server here would turn a
+            # graceful health error into a 500 and let the liveness probe
+            # restart the pod. Losing the ownerReference is the lesser cost.
+            logger.warning(
+                "Cannot read Deployment %s in namespace %s (%s); "
+                "executor pods get no ownerReferences",
+                KUBERNETES_OWNER_DEPLOYMENT_NAME,
+                KUBERNETES_OWN_NAMESPACE,
+                e,
+            )
+            return None
+
+        # blockOwnerDeletion stays false: setting it needs "update" on the
+        # owner's finalizers subresource, which this service does not have.
+        return V1OwnerReference(
+            api_version="apps/v1",
+            kind="Deployment",
+            name=deployment.metadata.name,
+            uid=deployment.metadata.uid,
+            controller=True,
+            block_owner_deletion=False,
+        )
+
+    def check_health(self) -> HealthCheck:
+        """Verify Kubernetes API is reachable and we can create pods in the namespace."""
+        try:
+            auth_api = client.AuthorizationV1Api()
+            review = auth_api.create_self_subject_access_review(
+                body=client.V1SelfSubjectAccessReview(
+                    spec=client.V1SelfSubjectAccessReviewSpec(
+                        resource_attributes=client.V1ResourceAttributes(
+                            namespace=self.namespace,
+                            verb="create",
+                            resource="pods",
+                        )
+                    )
+                )
+            )
+            if not review.status.allowed:
+                reason = review.status.reason or "no reason provided"
+                logger.warning(
+                    f"Health check failed: cannot create pods in namespace={self.namespace} "
+                    f"(reason={reason})"
+                )
+                return HealthCheck(
+                    status="error",
+                    message=(
+                        "Service account lacks permission to create "
+                        f"pods in namespace={self.namespace}"
+                    ),
+                )
+        except ApiException as e:
+            return HealthCheck(
+                status="error",
+                message=f"Kubernetes API error (namespace={self.namespace}): {e.reason}",
+            )
+        except Exception as e:
+            return HealthCheck(
+                status="error",
+                message=f"Kubernetes API not reachable: {e}",
+            )
+        return HealthCheck(status="ok")
+
+    def _create_pod_manifest(
+        self,
+        pod_name: str,
+        *,
+        command: Sequence[str],
+        labels: Mapping[str, str],
+        annotations: Mapping[str, str] | None = None,
+        active_deadline_seconds: int | None = None,
+        memory_limit_mb: int | None = None,
+        cpu_time_limit_sec: int | None = None,
+    ) -> V1Pod:
+        """Build a Kubernetes pod manifest for an isolated executor container.
+
+        ``command`` is the executor container's command (e.g. ``["sleep", "3600"]``).
+        ``active_deadline_seconds``, when set, instructs kubelet to stop the pod
+        at that age — used by sessions to enforce TTL even if the API is down.
+        """
+        resources: dict[str, dict[str, Any]] = {"limits": {}, "requests": {}}
+
+        if memory_limit_mb is not None:
+            memory_limit = max(memory_limit_mb, 16)
+            resources["limits"]["memory"] = f"{memory_limit}Mi"
+            resources["requests"]["memory"] = f"{min(memory_limit, 64)}Mi"
+
+        if cpu_time_limit_sec is not None:
+            cpu_limit = max(cpu_time_limit_sec, 1)
+            resources["limits"]["cpu"] = str(cpu_limit)
+            resources["requests"]["cpu"] = "100m"
+
+        container = V1Container(
+            name="executor",
+            image=self.image,
+            command=list(command),
+            working_dir="/workspace",
+            resources=resources if resources["limits"] else None,
+            security_context={
+                "runAsUser": 65532,
+                "runAsGroup": 65532,
+                "allowPrivilegeEscalation": False,
+                "readOnlyRootFilesystem": False,
+                "capabilities": {"drop": ["ALL"]},
+            },
+            env=[
+                {"name": "PYTHONUNBUFFERED", "value": "1"},
+                {"name": "PYTHONDONTWRITEBYTECODE", "value": "1"},
+                {"name": "PYTHONIOENCODING", "value": "utf-8"},
+                {"name": "MPLCONFIGDIR", "value": "/tmp/matplotlib"},  # noqa: S108
+            ],
+            volume_mounts=[
+                {"name": "workspace", "mountPath": "/workspace"},
+                {"name": "tmp", "mountPath": "/tmp"},  # noqa: S108
+            ],
+        )
+
+        # Use iptables in an init container to drop all outbound traffic
+        # before the main executor container starts. Since all containers
+        # in a pod share a network namespace, rules set here apply to the
+        # executor container as well. This eliminates the race condition
+        # where the pod can send network requests before the Kubernetes
+        # NetworkPolicy is enforced by the CNI.
+        #
+        # This requires the NET_ADMIN capability. Environments whose CNI
+        # enforces NetworkPolicies without that race (or that disallow
+        # NET_ADMIN) can disable this and rely on a NetworkPolicy instead.
+        init_containers: list[V1Container] = []
+        if self.net_admin_lockdown:
+            iptables_script = "set -e && iptables -A OUTPUT -j DROP && ip6tables -A OUTPUT -j DROP"
+            init_containers.append(
+                V1Container(
+                    name="network-lockdown",
+                    image=self.image,
+                    command=["sh", "-c", iptables_script],
+                    security_context={
+                        "runAsUser": 0,
+                        "runAsNonRoot": False,
+                        "allowPrivilegeEscalation": False,
+                        "readOnlyRootFilesystem": True,
+                        "capabilities": {"drop": ["ALL"], "add": ["NET_ADMIN"]},
+                    },
+                    resources={
+                        "limits": {"cpu": "100m", "memory": "32Mi"},
+                        "requests": {"cpu": "10m", "memory": "16Mi"},
+                    },
+                )
+            )
+
+        spec = V1PodSpec(
+            init_containers=init_containers or None,
+            containers=[container],
+            restart_policy="Never",
+            active_deadline_seconds=active_deadline_seconds,
+            service_account_name=self.service_account if self.service_account else None,
+            volumes=[
+                {"name": "workspace", "emptyDir": {"sizeLimit": "100Mi"}},
+                {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+            ],
+            security_context={
+                "runAsNonRoot": True,
+                "fsGroup": 65532,
+            },
+        )
+
+        metadata = V1ObjectMeta(
+            name=pod_name,
+            namespace=self.namespace,
+            labels=dict(labels),
+            annotations=dict(annotations) if annotations else None,
+            owner_references=[self.owner_reference] if self.owner_reference else None,
+        )
+
+        return V1Pod(api_version="v1", kind="Pod", metadata=metadata, spec=spec)
+
+    def _create_tar_archive(
+        self,
+        code: str | None = None,
+        files: Sequence[tuple[str, bytes]] | None = None,
+        last_line_interactive: bool = True,
+    ) -> bytes:
+        """Create a tar archive optionally containing an entrypoint and files.
+
+        Args:
+            code: If provided, written as ``__main__.py`` at the archive root.
+            last_line_interactive: If True and code is provided, wrap the code so
+                the last line prints its value if it's a bare expression.
+        """
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            if code is not None:
+                code_to_execute = (
+                    wrap_last_line_interactive(code) if last_line_interactive else code
+                )
+                code_bytes = code_to_execute.encode("utf-8")
+                code_info = tarfile.TarInfo(name="__main__.py")
+                code_info.size = len(code_bytes)
+                code_info.mode = 0o644
+                code_info.uid = 65532
+                code_info.gid = 65532
+                tar.addfile(code_info, io.BytesIO(code_bytes))
+
+            created_dirs: set[str] = set()
+            for file_path, content in files or ():
+                validated_path = self._validate_relative_path(file_path)
+                if code is not None and validated_path == Path("__main__.py"):
+                    raise ValueError(
+                        "File path '__main__.py' is reserved for the execution entrypoint."
+                    )
+
+                parent_parts = validated_path.parts[:-1]
+                for i in range(len(parent_parts)):
+                    dir_path = "/".join(parent_parts[: i + 1])
+                    if dir_path not in created_dirs:
+                        dir_info = tarfile.TarInfo(name=dir_path + "/")
+                        dir_info.type = tarfile.DIRTYPE
+                        dir_info.mode = 0o755
+                        dir_info.uid = 65532
+                        dir_info.gid = 65532
+                        tar.addfile(dir_info)
+                        created_dirs.add(dir_path)
+
+                file_info = tarfile.TarInfo(name=validated_path.as_posix())
+                file_info.size = len(content)
+                file_info.mode = 0o644
+                file_info.uid = 65532
+                file_info.gid = 65532
+                tar.addfile(file_info, io.BytesIO(content))
+
+        return tar_buffer.getvalue()
+
+    def _wait_for_pod_ready(self, pod_name: str, timeout_sec: int = 30) -> None:
+        """Wait for a pod to reach Running state."""
+        logger.info(f"Waiting for pod {pod_name} to be ready")
+        for _ in range(timeout_sec * 10):
+            pod = self.v1.read_namespaced_pod(pod_name, self.namespace)
+            if pod.status.phase == "Running":
+                logger.info(f"Pod {pod_name} is running")
+                return
+            time.sleep(0.1)
+        raise RuntimeError(f"Pod {pod_name} did not become ready in {timeout_sec} seconds")
+
+    def _stream_pod_exec(
+        self,
+        pod_name: str,
+        command: list[str],
+        *,
+        stderr: bool,
+        stdin: bool,
+        stdout: bool,
+        tty: bool,
+        preload_content: bool = False,
+    ) -> ws_client.WSClient:
+        """Run a websocket exec call using an isolated ApiClient instance."""
+        stream_api = client.CoreV1Api(api_client=client.ApiClient())
+        return stream.stream(
+            stream_api.connect_get_namespaced_pod_exec,
+            pod_name,
+            self.namespace,
+            command=command,
+            stderr=stderr,
+            stdin=stdin,
+            stdout=stdout,
+            tty=tty,
+            _preload_content=preload_content,
+        )
+
+    def _upload_tar_to_pod(self, pod_name: str, tar_archive: bytes) -> None:
+        """Upload and extract a tar archive into the pod's workspace."""
+        logger.info(f"Uploading tar archive ({len(tar_archive)} bytes) to pod {pod_name}")
+        exec_command = ["tar", "-x", "-C", "/workspace"]
+        resp = self._stream_pod_exec(
+            pod_name,
+            command=exec_command,
+            stderr=True,
+            stdin=True,
+            stdout=True,
+            tty=False,
+        )
+
+        resp.write_stdin(tar_archive)
+        resp.write_stdin(b"")
+
+        tar_stderr = b""
+        tar_exit_code: int | None = None
+
+        while resp.is_open():
+            resp.update(timeout=1)
+            if resp.peek_stdout():
+                stdout_chunk: str = resp.read_stdout()
+                logger.debug(f"Tar stdout: {stdout_chunk}")
+            if resp.peek_stderr():
+                stderr_chunk: str = resp.read_stderr()
+                tar_stderr += stderr_chunk.encode("utf-8")
+                logger.warning(f"Tar stderr: {stderr_chunk}")
+
+            error: str = resp.read_channel(ws_client.ERROR_CHANNEL)
+            if error:
+                logger.debug(f"Tar command error channel: {error}")
+                tar_exit_code = _parse_exit_code(error)
+                break
+
+        resp.close()
+        logger.info(f"Tar extraction completed with exit code: {tar_exit_code}")
+
+        if tar_exit_code is None:
+            raise RuntimeError("Tar extraction command did not complete")
+        if tar_exit_code != 0:
+            raise RuntimeError(
+                f"Tar extraction failed with exit code {tar_exit_code}. "
+                f"stderr: {tar_stderr.decode('utf-8', errors='replace')}"
+            )
+
+    def _kill_processes_in_pod(self, pod_name: str, process_name: str) -> None:
+        """Best-effort SIGKILL of all processes named ``process_name`` in the pod."""
+        try:
+            self._stream_pod_exec(
+                pod_name,
+                command=["pkill", "-9", process_name],
+                stderr=False,
+                stdin=False,
+                stdout=False,
+                tty=False,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to kill %s process in pod %s", process_name, pod_name, exc_info=True
+            )
+
+    def _kill_python_process(self, pod_name: str) -> None:
+        """Kill the Python process running in the pod."""
+        self._kill_processes_in_pod(pod_name, "python")
+
+    def _drain_exec_stream(
+        self,
+        exec_resp: ws_client.WSClient,
+        timeout_ms: int,
+    ) -> tuple[bytes, bytes, int | None, bool]:
+        """Read stdout/stderr from an exec stream until completion or timeout.
+
+        Returns ``(stdout_bytes, stderr_bytes, exit_code, timed_out)``.
+        """
+        stdout_data = b""
+        stderr_data = b""
+        exit_code: int | None = None
+        timed_out = False
+
+        end_time = time.time() + timeout_ms / 1000.0
+
+        while exec_resp.is_open():
+            remaining = end_time - time.time()
+            if remaining <= 0:
+                timed_out = True
+                break
+
+            exec_resp.update(timeout=min(remaining, 1))
+
+            if exec_resp.peek_stdout():
+                stdout_data += exec_resp.read_stdout().encode("utf-8")
+
+            if exec_resp.peek_stderr():
+                stderr_data += exec_resp.read_stderr().encode("utf-8")
+
+            error = exec_resp.read_channel(ws_client.ERROR_CHANNEL)
+            if error:
+                exit_code = _parse_exit_code(error)
+                break
+
+        exec_resp.close()
+        return stdout_data, stderr_data, exit_code, timed_out
+
+    @contextmanager
+    def _run_in_pod(
+        self,
+        *,
+        code: str,
+        cpu_time_limit_sec: int | None,
+        memory_limit_mb: int | None,
+        files: Sequence[tuple[str, bytes]] | None,
+        last_line_interactive: bool,
+    ) -> Generator[_KubeExecContext, None, None]:
+        """Create a pod, stage files, open Python exec stream, and clean up.
+
+        Yields a _KubeExecContext whose exec_resp is ready for stdin/stdout I/O.
+        The pod is deleted in the finally block regardless of how the caller exits.
+        """
+        pod_name = f"code-exec-{uuid.uuid4().hex}"
+        logger.info(f"Starting execution in pod {pod_name}")
+        logger.debug(
+            f"Code to execute: {code[:100]}..." if len(code) > 100 else f"Code to execute: {code}"
+        )
+
+        pod_manifest = self._create_pod_manifest(
+            pod_name=pod_name,
+            command=["sleep", "3600"],
+            labels={"app": "memoryos-interpreter", "component": "executor"},
+            memory_limit_mb=memory_limit_mb,
+            cpu_time_limit_sec=cpu_time_limit_sec,
+        )
+
+        try:
+            logger.info(f"Creating pod {pod_name} in namespace {self.namespace}")
+            self.v1.create_namespaced_pod(
+                namespace=self.namespace,
+                body=pod_manifest,
+            )
+
+            self._wait_for_pod_ready(pod_name)
+
+            tar_archive = self._create_tar_archive(code, files, last_line_interactive)
+            self._upload_tar_to_pod(pod_name, tar_archive)
+
+            logger.info(f"Executing Python code in pod {pod_name}")
+            start = time.perf_counter()
+            exec_command = ["python", "/workspace/__main__.py"]
+
+            exec_resp = self._stream_pod_exec(
+                pod_name,
+                command=exec_command,
+                stderr=True,
+                stdin=True,
+                stdout=True,
+                tty=False,
+            )
+
+            yield _KubeExecContext(
+                pod_name=pod_name,
+                exec_resp=exec_resp,
+                start=start,
+            )
+        except Exception as e:
+            logger.error(f"Error during execution in pod {pod_name}: {e}", exc_info=True)
+            raise
+        finally:
+            logger.info(f"Cleaning up pod {pod_name}")
+            self._cleanup_pod(pod_name)
+
+    def _extract_workspace_snapshot(self, pod_name: str) -> tuple[WorkspaceEntry, ...]:
+        """Extract files from the pod workspace after execution using tar.
+
+        Uses base64 encoding to safely transmit binary tar data through the
+        text-based Kubernetes WebSocket stream.
+        """
+        try:
+            # Use base64 to encode the tar output so it can safely pass through
+            # the text-based WebSocket stream without corruption
+            exec_command = [
+                "sh",
+                "-c",
+                "tar -c --exclude=__main__.py -C /workspace . | base64",
+            ]
+
+            logger.info(f"Starting tar extraction from pod {pod_name}")
+            resp = self._stream_pod_exec(
+                pod_name,
+                command=exec_command,
+                stderr=True,
+                stdin=False,
+                stdout=True,
+                tty=False,
+            )
+
+            base64_data = ""
+            stderr_data = ""
+
+            while resp.is_open():
+                resp.update(timeout=1)
+
+                if resp.peek_stdout():
+                    base64_data += resp.read_stdout()
+
+                if resp.peek_stderr():
+                    stderr_data += resp.read_stderr()
+
+            resp.close()
+
+            logger.info(f"Tar extraction complete. Received {len(base64_data)} base64 chars")
+            if stderr_data:
+                logger.warning(f"Tar extraction stderr: {stderr_data}")
+
+            if not base64_data:
+                logger.warning("No tar data received from workspace snapshot")
+                return tuple()
+
+            # Decode base64 to get the original tar binary data
+            tar_data = base64.b64decode(base64_data)
+            logger.info(f"Decoded to {len(tar_data)} bytes of tar data")
+
+            entries = []
+            logger.info("Parsing tar archive")
+            with tarfile.open(fileobj=io.BytesIO(tar_data), mode="r") as tar:
+                members = tar.getmembers()
+                logger.info(f"Tar archive contains {len(members)} members")
+                for member in members:
+                    logger.debug(
+                        f"Processing tar member: {member.name!r} (type={member.type!r}, "
+                        f"size={member.size})"
+                    )
+                    if member.name == ".":
+                        continue
+
+                    clean_path = member.name.lstrip("./")
+
+                    if member.isdir():
+                        entries.append(
+                            WorkspaceEntry(path=clean_path, kind=EntryKind.DIRECTORY, content=None)
+                        )
+                    elif member.isfile():
+                        file_obj = tar.extractfile(member)
+                        if file_obj:
+                            content = file_obj.read()
+                            logger.debug(f"Extracted file {clean_path}: {len(content)} bytes")
+                            entries.append(
+                                WorkspaceEntry(
+                                    path=clean_path, kind=EntryKind.FILE, content=content
+                                )
+                            )
+                        else:
+                            logger.warning(f"Failed to extract file content for {clean_path}")
+
+            logger.info(f"Extracted {len(entries)} workspace entries")
+            return tuple(entries)
+        except Exception as e:
+            logger.error(f"Failed to extract workspace snapshot: {e}", exc_info=True)
+            return tuple()
+
+    def _wait_for_pod_deleted(self, pod_name: str, timeout_sec: float) -> bool:
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            try:
+                self.v1.read_namespaced_pod(pod_name, self.namespace)
+            except ApiException as e:
+                if e.status == 404:
+                    return True
+                logger.warning(
+                    "Error while checking pod deletion for %s in namespace %s: %s",
+                    pod_name,
+                    self.namespace,
+                    e,
+                )
+                return False
+            time.sleep(0.1)
+        return False
+
+    def _cleanup_pod(self, pod_name: str) -> None:
+        """Delete a pod and log any cleanup failures."""
+        for attempt in range(1, POD_DELETE_RETRIES + 1):
+            try:
+                self.v1.delete_namespaced_pod(
+                    name=pod_name,
+                    namespace=self.namespace,
+                    body=client.V1DeleteOptions(grace_period_seconds=0),
+                )
+            except ApiException as e:
+                if e.status == 404:
+                    return
+                logger.warning(
+                    "Failed to delete pod %s in namespace %s on attempt %s/%s: %s",
+                    pod_name,
+                    self.namespace,
+                    attempt,
+                    POD_DELETE_RETRIES,
+                    e,
+                )
+            else:
+                if self._wait_for_pod_deleted(pod_name, POD_DELETE_CONFIRM_TIMEOUT_SECONDS):
+                    return
+                logger.warning(
+                    "Pod %s still exists after delete request on attempt %s/%s",
+                    pod_name,
+                    attempt,
+                    POD_DELETE_RETRIES,
+                )
+
+            if attempt < POD_DELETE_RETRIES:
+                time.sleep(POD_DELETE_RETRY_DELAY_SECONDS * attempt)
+
+        logger.error(
+            "Failed to confirm deletion of pod %s in namespace %s after %s attempts",
+            pod_name,
+            self.namespace,
+            POD_DELETE_RETRIES,
+        )
+
+    def create_session(
+        self,
+        *,
+        ttl_seconds: int,
+        files: Sequence[tuple[str, bytes]] | None = None,
+        cpu_time_limit_sec: int | None = None,
+        memory_limit_mb: int | None = None,
+    ) -> SessionInfo:
+        pod_name = f"{SESSION_NAME_PREFIX}{uuid.uuid4().hex}"
+        expires_at = time.time() + ttl_seconds
+
+        manifest = self._create_pod_manifest(
+            pod_name=pod_name,
+            command=["sleep", str(ttl_seconds)],
+            labels={"app": SESSION_APP_LABEL, "component": SESSION_COMPONENT_LABEL},
+            annotations={SESSION_EXPIRES_AT_KEY: str(expires_at)},
+            active_deadline_seconds=ttl_seconds,
+            memory_limit_mb=memory_limit_mb,
+            cpu_time_limit_sec=cpu_time_limit_sec,
+        )
+
+        logger.info(
+            "Creating session pod %s in namespace %s (ttl=%ss)",
+            pod_name,
+            self.namespace,
+            ttl_seconds,
+        )
+        self.v1.create_namespaced_pod(namespace=self.namespace, body=manifest)
+
+        try:
+            self._wait_for_pod_ready(pod_name)
+            if files:
+                tar_archive = self._create_tar_archive(files=files)
+                self._upload_tar_to_pod(pod_name, tar_archive)
+        except Exception:
+            self._cleanup_pod(pod_name)
+            raise
+
+        return SessionInfo(session_id=pod_name, expires_at=expires_at)
+
+    def delete_session(self, session_id: str) -> bool:
+        if not session_id.startswith(SESSION_NAME_PREFIX):
+            return False
+        try:
+            self.v1.delete_namespaced_pod(
+                name=session_id,
+                namespace=self.namespace,
+                body=client.V1DeleteOptions(grace_period_seconds=0),
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return False
+            raise
+        return True
+
+    def reap_expired_sessions(self) -> int:
+        try:
+            pods = self.v1.list_namespaced_pod(
+                namespace=self.namespace,
+                label_selector=SESSION_LABEL_SELECTOR,
+            )
+        except ApiException as e:
+            logger.warning("Failed to list session pods for reap: %s", e)
+            return 0
+
+        now = time.time()
+        reaped = 0
+        for pod in pods.items:
+            metadata = pod.metadata
+            annotations = metadata.annotations or {}
+            expires_str = annotations.get(SESSION_EXPIRES_AT_KEY)
+            if expires_str is None:
+                continue
+            try:
+                expires_at = float(expires_str)
+            except ValueError:
+                logger.warning(
+                    "Session pod %s has invalid expires-at annotation %r",
+                    metadata.name,
+                    expires_str,
+                )
+                continue
+            if expires_at >= now:
+                continue
+            try:
+                self.v1.delete_namespaced_pod(
+                    name=metadata.name,
+                    namespace=self.namespace,
+                    body=client.V1DeleteOptions(grace_period_seconds=0),
+                )
+            except ApiException as e:
+                if e.status == 404:
+                    continue
+                logger.warning("Failed to reap session pod %s: %s", metadata.name, e)
+                continue
+            reaped += 1
+            logger.info("Reaped expired session pod %s", metadata.name)
+        return reaped
+
+    def execute_bash_in_session(
+        self,
+        session_id: str,
+        *,
+        cmd: str,
+        timeout_ms: int,
+        max_output_bytes: int,
+    ) -> ExecutionResult:
+        """Run a bash command inside an existing session pod.
+
+        Network restrictions established at pod creation (the iptables init
+        container) remain in force — exec inherits the pod's network namespace.
+        """
+        if not session_id.startswith(SESSION_NAME_PREFIX):
+            raise SessionNotFoundError(session_id)
+
+        try:
+            self.v1.read_namespaced_pod(session_id, self.namespace)
+        except ApiException as e:
+            if e.status == 404:
+                raise SessionNotFoundError(session_id) from e
+            raise
+
+        start = time.perf_counter()
+        exec_resp = self._stream_pod_exec(
+            session_id,
+            command=["bash", "-c", cmd],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+
+        stdout_data, stderr_data, exit_code, timed_out = self._drain_exec_stream(
+            exec_resp, timeout_ms
+        )
+
+        if timed_out:
+            self._kill_processes_in_pod(session_id, "bash")
+
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        return ExecutionResult(
+            stdout=self.truncate_output(stdout_data, max_output_bytes),
+            stderr=self.truncate_output(stderr_data, max_output_bytes),
+            exit_code=None if timed_out else exit_code,
+            timed_out=timed_out,
+            duration_ms=duration_ms,
+            files=tuple(),
+        )
+
+    def execute_python(
+        self,
+        *,
+        code: str,
+        stdin: str | None,
+        timeout_ms: int,
+        max_output_bytes: int,
+        cpu_time_limit_sec: int | None = None,
+        memory_limit_mb: int | None = None,
+        files: Sequence[tuple[str, bytes]] | None = None,
+        last_line_interactive: bool = True,
+    ) -> ExecutionResult:
+        """Execute Python code inside a Kubernetes pod.
+
+        Args:
+            last_line_interactive: If True, the last line will print its value to stdout
+                                   if it's a bare expression (only the last line is affected).
+        """
+        with self._run_in_pod(
+            code=code,
+            cpu_time_limit_sec=cpu_time_limit_sec,
+            memory_limit_mb=memory_limit_mb,
+            files=files,
+            last_line_interactive=last_line_interactive,
+        ) as ctx:
+            if stdin:
+                logger.debug("Writing stdin to Python process")
+                ctx.exec_resp.write_stdin(stdin)
+
+            stdout_data, stderr_data, exit_code, timed_out = self._drain_exec_stream(
+                ctx.exec_resp, timeout_ms
+            )
+
+            if timed_out:
+                self._kill_python_process(ctx.pod_name)
+
+            logger.info(
+                f"Python execution completed. Exit code: {exit_code}, Timed out: {timed_out}"
+            )
+            logger.debug(f"stdout length: {len(stdout_data)}, stderr length: {len(stderr_data)}")
+
+            logger.info(f"Extracting workspace snapshot from pod {ctx.pod_name}")
+            workspace_snapshot = self._extract_workspace_snapshot(ctx.pod_name)
+            logger.debug(f"Workspace snapshot has {len(workspace_snapshot)} entries")
+
+        duration_ms = int((time.perf_counter() - ctx.start) * 1000)
+
+        stdout = self.truncate_output(stdout_data, max_output_bytes)
+        stderr = self.truncate_output(stderr_data, max_output_bytes)
+
+        logger.info(f"Execution completed in {duration_ms}ms")
+        return ExecutionResult(
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code if not timed_out else None,
+            timed_out=timed_out,
+            duration_ms=duration_ms,
+            files=workspace_snapshot,
+        )
+
+    def execute_python_streaming(
+        self,
+        *,
+        code: str,
+        stdin: str | None,
+        timeout_ms: int,
+        max_output_bytes: int,
+        cpu_time_limit_sec: int | None = None,
+        memory_limit_mb: int | None = None,
+        files: Sequence[tuple[str, bytes]] | None = None,
+        last_line_interactive: bool = True,
+    ) -> Generator[StreamEvent, None, None]:
+        """Execute Python code and yield output chunks as they arrive.
+
+        Yields StreamChunk events during execution, then a single StreamResult
+        at the end containing exit_code, timing, and workspace files.
+        """
+        with self._run_in_pod(
+            code=code,
+            cpu_time_limit_sec=cpu_time_limit_sec,
+            memory_limit_mb=memory_limit_mb,
+            files=files,
+            last_line_interactive=last_line_interactive,
+        ) as ctx:
+            if stdin:
+                logger.debug("Writing stdin to Python process")
+                ctx.exec_resp.write_stdin(stdin)
+
+            deadline = time.time() + (timeout_ms / 1000.0)
+            exit_code, timed_out = yield from _stream_kube_output(
+                ctx.exec_resp, deadline, max_output_bytes
+            )
+
+            if timed_out:
+                self._kill_python_process(ctx.pod_name)
+
+            workspace_snapshot = self._extract_workspace_snapshot(ctx.pod_name)
+
+        duration_ms = int((time.perf_counter() - ctx.start) * 1000)
+        yield StreamResult(
+            exit_code=exit_code if not timed_out else None,
+            timed_out=timed_out,
+            duration_ms=duration_ms,
+            files=workspace_snapshot,
+        )
+
+    def _validate_relative_path(self, path_str: str) -> Path:
+        path = Path(path_str)
+        if path.is_absolute():
+            raise ValueError("File paths must be relative.")
+
+        sanitized_parts = []
+        for part in path.parts:
+            if part in ("", "."):
+                continue
+            if part == "..":
+                raise ValueError("File paths must not contain '..'.")
+            sanitized_parts.append(part)
+
+        if not sanitized_parts:
+            raise ValueError("File path must not be empty.")
+
+        return Path(*sanitized_parts)
+
+
+def _stream_kube_output(
+    exec_resp: ws_client.WSClient,
+    deadline: float,
+    max_output_bytes: int,
+) -> Generator[StreamChunk, None, tuple[int | None, bool]]:
+    """Read stdout/stderr from a Kubernetes exec stream and yield StreamChunk events.
+
+    Returns a (exit_code, timed_out) tuple.
+    """
+    stdout_bytes = 0
+    stderr_bytes = 0
+    exit_code: int | None = None
+    timed_out = False
+
+    while exec_resp.is_open():
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            timed_out = True
+            break
+
+        exec_resp.update(timeout=min(remaining, 1))
+
+        if exec_resp.peek_stdout():
+            text: str = exec_resp.read_stdout()
+            raw = text.encode("utf-8")
+            if stdout_bytes < max_output_bytes:
+                allowed = max_output_bytes - stdout_bytes
+                if len(raw) > allowed:
+                    text = raw[:allowed].decode("utf-8", errors="ignore")
+                if text:
+                    yield StreamChunk(stream="stdout", data=text)
+            stdout_bytes += len(raw)
+
+        if exec_resp.peek_stderr():
+            text = exec_resp.read_stderr()
+            raw = text.encode("utf-8")
+            if stderr_bytes < max_output_bytes:
+                allowed = max_output_bytes - stderr_bytes
+                if len(raw) > allowed:
+                    text = raw[:allowed].decode("utf-8", errors="ignore")
+                if text:
+                    yield StreamChunk(stream="stderr", data=text)
+            stderr_bytes += len(raw)
+
+        error: str = exec_resp.read_channel(ws_client.ERROR_CHANNEL)
+        if error:
+            exit_code = _parse_exit_code(error)
+            break
+
+    exec_resp.close()
+    return exit_code, timed_out
