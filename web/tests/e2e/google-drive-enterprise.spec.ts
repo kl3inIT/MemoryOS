@@ -540,7 +540,7 @@ test("one credential creates independent Specific and General sources with separ
   await page.getByRole("combobox", { name: "Interval unit" }).click();
   await page.getByRole("option", { name: "hours", exact: true }).click();
   await page.getByRole("button", { name: "Save interval" }).click();
-  await expect(page.getByText("2 hours", { exact: true })).toBeVisible();
+  await expect(page.getByText("Every 2 hours", { exact: true })).toBeVisible();
   await page.goto(`/admin/sources/new/google-drive?credentialId=${credential.id}&step=connector`);
   await page.getByLabel("Source name").fill("Whole account");
   await page.getByRole("radio", { name: "Entire My Drive", exact: true }).check();

@@ -602,7 +602,7 @@ describe("Google Drive enterprise selection", () => {
     expect(input).toHaveValue(secondLink);
     server.failSchedule();
     await user.click(screen.getByRole("button", { name: "Save interval" }));
-    expect(await screen.findByText("1 minute")).toBeVisible();
+    expect(await screen.findByText("Every 1 minute")).toBeVisible();
     expect(input).toHaveValue(secondLink);
   });
 

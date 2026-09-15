@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { HelpPopover } from "@/components/ui/help-popover";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -14,15 +15,29 @@ const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = 
   SYNC: "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
 };
 
+/** The short answer to who can read; the help beside it states the rule. */
+const readersLabel: Record<SourceSummary["access"], string> = {
+  PUBLIC: "Workspace members",
+  PRIVATE: "Members of its groups",
+  SYNC: "People with access in Google Drive",
+};
+
 /**
- * Facts about a Source that its header badges do not carry. Groups come from the query the
- * groups section also uses, so both read the same cache entry.
+ * Facts about a Source that its header badges do not carry: counts and schedule first, then who
+ * reads it, as in Customer.io's integration details. Groups come from the query the groups
+ * section also uses, so both read the same cache entry.
  */
 export function SourceSummaryCard({
   source,
+  header,
+  className,
   children,
 }: {
   source: SourceSummary;
+  /** A title and actions above the facts. */
+  header?: ReactNode;
+  className?: string;
+  /** Further facts, each a `div` holding a `dt` and a `dd`. */
   children?: ReactNode;
 }) {
   const ui = useAppTranslation();
@@ -38,48 +53,61 @@ export function SourceSummaryCard({
     sourceAccessPresentation[source.access].title;
 
   return (
-    <dl
-      aria-label={ui("Source summary")}
-      className={cn(
-        "my-6 grid grid-cols-2 gap-x-8 gap-y-5 rounded-lg border border-border-subtle px-4 py-5 text-sm lg:gap-x-12",
-        children ? "lg:grid-cols-3" : "lg:grid-cols-4",
-      )}
+    <div
+      className={cn("rounded-xl border border-border-subtle bg-surface-raised text-sm", className)}
     >
-      <div className="col-span-2 lg:col-span-1">
-        <dt className="text-content-muted">{ui("Who can read")}</dt>
-        <dd className="mt-2 text-content-primary">{ui(readers)}</dd>
-      </div>
-      <div className="col-span-2 min-w-0 lg:col-span-1">
-        <dt className="text-content-muted">{ui("Groups")}</dt>
-        <dd className="mt-2 break-words text-content-primary">
-          {groups.isPending
-            ? ui("Loading…")
-            : groups.isError
-              ? ui("Unavailable")
-              : groupNames.length
-                ? groupNames.join(", ")
-                : ui("None")}
-        </dd>
-      </div>
-      <div>
-        <dt className="text-content-muted">{ui("Documents indexed")}</dt>
-        <dd className="mt-2 text-lg font-semibold tabular-nums text-content-primary">
-          {source.documentCount}
-        </dd>
-      </div>
-      <div>
-        <dt className="text-content-muted">{ui("Last indexed successfully")}</dt>
-        <dd className="mt-2 text-content-primary">
-          {source.lastSucceededAt ? (
-            <time dateTime={source.lastSucceededAt}>
-              {new Date(source.lastSucceededAt).toLocaleString(uiLocale())}
-            </time>
-          ) : (
-            ui("Not yet")
+      {header ? <div className="border-b border-border-subtle px-5 py-3">{header}</div> : null}
+      <dl aria-label={ui("Source summary")}>
+        <div
+          className={cn(
+            "grid gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-2",
+            children ? "lg:grid-cols-3" : null,
           )}
-        </dd>
-      </div>
-      {children}
-    </dl>
+        >
+          <div>
+            <dt className="text-content-muted">{ui("Documents indexed")}</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums text-content-primary">
+              {source.documentCount.toLocaleString(uiLocale())}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-content-muted">{ui("Last indexed successfully")}</dt>
+            <dd className="mt-1 flex min-h-8 items-center text-content-primary">
+              {source.lastSucceededAt ? (
+                <time dateTime={source.lastSucceededAt}>
+                  {new Date(source.lastSucceededAt).toLocaleString(uiLocale())}
+                </time>
+              ) : (
+                ui("Not yet")
+              )}
+            </dd>
+          </div>
+          {children}
+        </div>
+        <div className="flex flex-wrap gap-x-10 gap-y-2 border-t border-border-subtle px-5 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <dt className="text-content-muted">{ui("Who can read")}</dt>
+            <dd className="flex min-w-0 items-center gap-0.5 text-content-primary">
+              {ui(readersLabel[source.access])}
+              <HelpPopover label={ui("Who can read")}>
+                <p>{ui(readers)}</p>
+              </HelpPopover>
+            </dd>
+          </div>
+          <div className="flex min-h-8 min-w-0 items-center gap-2">
+            <dt className="text-content-muted">{ui("Groups")}</dt>
+            <dd className="min-w-0 break-words text-content-primary">
+              {groups.isPending
+                ? ui("Loading…")
+                : groups.isError
+                  ? ui("Unavailable")
+                  : groupNames.length
+                    ? groupNames.join(", ")
+                    : ui("None")}
+            </dd>
+          </div>
+        </div>
+      </dl>
+    </div>
   );
 }

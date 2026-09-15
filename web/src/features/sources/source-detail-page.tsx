@@ -976,7 +976,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 onSaved={refreshAuthorityViews}
               />
             ) : null}
-            {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
+            {detail.type !== "GOOGLE_DRIVE" ? (
+              <SourceSummaryCard source={detail} className="my-6" />
+            ) : null}
             {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApplicationSessionContext,
@@ -63,30 +64,41 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+async function openReadersHelp() {
+  await userEvent.click(screen.getByRole("button", { name: "Who can read help" }));
+}
+
 describe("SourceSummaryCard", () => {
-  it("explains that Auto Sync readers need Google Drive file access", () => {
+  it("names Auto Sync readers briefly and explains the Google Drive rule in its help", async () => {
     renderCard(drive);
 
-    expect(screen.getByText(perFile)).toBeTruthy();
+    expect(screen.getByText("People with access in Google Drive")).toBeTruthy();
+    await openReadersHelp();
+    expect(await screen.findByText(perFile)).toBeTruthy();
     expect(screen.queryByText(groupsOnly)).toBeNull();
   });
 
-  it("explains that a Private Drive Source follows its groups", () => {
+  it("explains that a Private Drive Source follows its groups", async () => {
     renderCard({ ...drive, access: "PRIVATE" });
 
-    expect(screen.getByText(groupsOnly)).toBeTruthy();
+    expect(screen.getByText("Members of its groups")).toBeTruthy();
+    await openReadersHelp();
+    expect(await screen.findByText(groupsOnly)).toBeTruthy();
     expect(screen.queryByText(perFile)).toBeNull();
   });
 
-  it("describes a Public Drive Source and a FILE Source like their access badges", () => {
+  it("describes a Public Drive Source and a FILE Source like their access badges", async () => {
     renderCard({ ...drive, access: "PUBLIC" });
-    renderCard({ ...drive, id: "file", type: "FILE", access: "PRIVATE" });
-
+    await openReadersHelp();
     expect(
-      screen.getByText("Available to workspace members, not the public Internet."),
+      await screen.findByText("Available to workspace members, not the public Internet."),
     ).toBeTruthy();
+    cleanup();
+
+    renderCard({ ...drive, id: "file", type: "FILE", access: "PRIVATE" });
+    await openReadersHelp();
     expect(
-      screen.getByText("Only members of the associated groups can read this Source."),
+      await screen.findByText("Only members of the associated groups can read this Source."),
     ).toBeTruthy();
     expect(screen.queryByText(groupsOnly)).toBeNull();
     expect(screen.queryByText(perFile)).toBeNull();

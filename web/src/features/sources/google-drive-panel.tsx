@@ -63,6 +63,7 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
+import { SourceHint } from "./source-hint";
 import { SourceSummaryCard } from "./source-summary-card";
 import {
   formatSyncInterval,
@@ -684,10 +685,10 @@ export function GoogleDrivePanel({
   if (!configuration) {
     return (
       <>
-        <SourceSummaryCard source={source}>
+        <SourceSummaryCard source={source} className="mt-6">
           <div>
-            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-            <dd className="mt-2 text-content-muted">
+            <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+            <dd className="mt-1 flex min-h-8 items-center text-content-muted">
               {configurationQuery.isPending ? ui("Loading…") : ui("Unavailable")}
             </dd>
           </div>
@@ -721,152 +722,60 @@ export function GoogleDrivePanel({
 
   return (
     <section aria-label={ui("Google Drive configuration")} className="mt-6 space-y-5">
-      <div className="rounded-xl border border-border-subtle bg-surface-raised px-4 pb-4 sm:px-5 [&>dl]:my-0 [&>dl]:rounded-none [&>dl]:border-0 [&>dl]:px-0">
-        <SourceSummaryCard source={source}>
-          <div className="min-w-0" aria-live="polite">
-            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-            <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
-              <div className="flex flex-wrap items-center gap-2">
-                <span>{formatSyncInterval(configuration.syncIntervalMinutes)}</span>
-                {canSchedule && !editingInterval ? (
+      <SourceSummaryCard
+        source={source}
+        header={
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
+                <HelpPopover label={ui("Synchronization")}>
+                  <p>
+                    {ui(
+                      "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
+                    )}
+                  </p>
+                </HelpPopover>
+              </div>
+              <div className="flex items-center gap-2">
+                <SourceHint hint={ui("Refresh status")}>
                   <IconButton
-                    ref={intervalEditButton}
-                    size="sm"
-                    aria-label={ui("Edit interval")}
-                    prominence="tertiary"
-                    disabled={controlsDisabled}
-                    onClick={() => {
-                      setIntervalDraft(intervalDraftOf(configuration));
-                      setIntervalError(null);
-                    }}
+                    aria-label={ui("Refresh status")}
+                    disabled={disabled || busy}
+                    pending={configurationQuery.isFetching}
+                    onClick={() => void refreshStatus()}
                   >
-                    <Pencil aria-hidden="true" />
+                    <RefreshCw aria-hidden="true" />
                   </IconButton>
+                </SourceHint>
+                {connected && canSynchronize ? (
+                  <Button
+                    disabled={
+                      controlsDisabled ||
+                      hasSelectionChanges ||
+                      configuration.pendingWork ||
+                      source.pendingWork
+                    }
+                    pending={activeAction === "sync" || observingSynchronization}
+                    onClick={() => run("sync", sync)}
+                  >
+                    <RefreshCw /> {ui("Synchronize now")}
+                  </Button>
                 ) : null}
               </div>
-              {canSchedule && intervalDraft ? (
-                <form
-                  className="space-y-3"
-                  noValidate
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!controlsDisabled && !intervalConflicted && !intervalValidation)
-                      runInterval("save-interval", saveInterval);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && !busy) {
-                      event.preventDefault();
-                      cancelInterval();
-                    }
-                  }}
-                >
-                  <div className="space-y-2">
-                    <span
-                      id={`sync-interval-label-${source.id}`}
-                      className="block text-sm font-medium text-content-primary"
-                    >
-                      {ui("Sync every")}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        ref={intervalInput}
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={maxSyncIntervalValue(intervalDraft.unit)}
-                        step={1}
-                        required
-                        value={intervalDraft.value}
-                        disabled={controlsDisabled}
-                        aria-labelledby={`sync-interval-label-${source.id}`}
-                        aria-invalid={Boolean(intervalValidation)}
-                        aria-describedby={
-                          intervalValidation ? `sync-interval-error-${source.id}` : undefined
-                        }
-                        className="w-24"
-                        onChange={(event) => {
-                          setIntervalDraft({ ...intervalDraft, value: event.target.value });
-                          setIntervalError(null);
-                        }}
-                      />
-                      <Select
-                        value={intervalDraft.unit}
-                        disabled={controlsDisabled}
-                        onValueChange={(next) => {
-                          const unit = syncIntervalUnits.find((entry) => entry === next);
-                          if (!unit) return;
-                          setIntervalDraft({ ...intervalDraft, unit });
-                          setIntervalError(null);
-                        }}
-                      >
-                        <SelectTrigger
-                          aria-label={ui("Interval unit")}
-                          className="h-(--control-height-md) min-w-28"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent position="popper">
-                          {syncIntervalUnits.map((unit) => (
-                            <SelectItem key={unit} value={unit}>
-                              {syncIntervalUnitName(unit, Number(intervalDraft.value) || 0)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {intervalValidation ? (
-                    <p
-                      id={`sync-interval-error-${source.id}`}
-                      role="alert"
-                      className="text-status-danger-content"
-                    >
-                      {ui(intervalValidation)}
-                    </p>
-                  ) : null}
-                  {intervalConflicted ? (
-                    <p role="alert" className="text-status-warning-content">
-                      {ui(
-                        "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.",
-                      )}
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="submit"
-                      disabled={
-                        controlsDisabled || intervalConflicted || Boolean(intervalValidation)
-                      }
-                      pending={activeAction === "save-interval"}
-                    >
-                      {ui("Save interval")}
-                    </Button>
-                    <Button prominence="tertiary" disabled={busy} onClick={cancelInterval}>
-                      {ui("Cancel")}
-                    </Button>
-                    {intervalConflicted ? (
-                      <Button
-                        prominence="secondary"
-                        disabled={disabled || busy || !canSchedule}
-                        pending={activeAction === "reload-interval"}
-                        onClick={() => runInterval("reload-interval", reloadInterval)}
-                      >
-                        {ui("Reload saved interval")}
-                      </Button>
-                    ) : null}
-                  </div>
-                </form>
-              ) : null}
-              {intervalError ? (
-                <p role="alert" className="text-status-danger-content">
-                  {ui(intervalError)}
-                </p>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
-            <dd className="mt-2 flex min-h-8 items-center gap-2 text-content-primary">
+            </div>
+            {configuration.errorCode ? (
+              <p className="mt-2 text-sm text-status-danger-content">
+                {ui(sourceStatusMessage(configuration.errorCode))}
+              </p>
+            ) : null}
+          </>
+        }
+      >
+        <div className="min-w-0" aria-live="polite">
+          <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+          <dd className="mt-1 min-w-0 space-y-3 text-content-primary">
+            <div className="flex min-h-8 flex-wrap items-center gap-2">
               {canPause ? (
                 <Switch
                   checked={!configuration.syncPaused}
@@ -875,53 +784,151 @@ export function GoogleDrivePanel({
                   onCheckedChange={() => run("pause", togglePause)}
                 />
               ) : null}
-              {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
-            </dd>
-          </div>
-        </SourceSummaryCard>
-        <div className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <SourceSectionIcon icon={RefreshCw} />
-            <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
-            <HelpPopover label={ui("Synchronization")}>
-              <p>
-                {ui(
-                  "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
-                )}
-              </p>
-            </HelpPopover>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              prominence="tertiary"
-              disabled={disabled || busy}
-              pending={configurationQuery.isFetching}
-              onClick={() => void refreshStatus()}
-            >
-              <RefreshCw /> {ui("Refresh status")}
-            </Button>
-            {connected && canSynchronize ? (
-              <Button
-                disabled={
-                  controlsDisabled ||
-                  hasSelectionChanges ||
-                  configuration.pendingWork ||
-                  source.pendingWork
-                }
-                pending={activeAction === "sync" || observingSynchronization}
-                onClick={() => run("sync", sync)}
+              <span>
+                {ui("Every {{v1}}", {
+                  v1: formatSyncInterval(configuration.syncIntervalMinutes),
+                })}
+              </span>
+              {configuration.syncPaused ? (
+                <StatusBadge tone="neutral" size="sm">
+                  {ui("Paused")}
+                </StatusBadge>
+              ) : null}
+              {canSchedule && !editingInterval ? (
+                <IconButton
+                  ref={intervalEditButton}
+                  size="sm"
+                  aria-label={ui("Edit interval")}
+                  prominence="tertiary"
+                  disabled={controlsDisabled}
+                  onClick={() => {
+                    setIntervalDraft(intervalDraftOf(configuration));
+                    setIntervalError(null);
+                  }}
+                >
+                  <Pencil aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </div>
+            {canSchedule && intervalDraft ? (
+              <form
+                className="space-y-3"
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!controlsDisabled && !intervalConflicted && !intervalValidation)
+                    runInterval("save-interval", saveInterval);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && !busy) {
+                    event.preventDefault();
+                    cancelInterval();
+                  }
+                }}
               >
-                <RefreshCw /> {ui("Synchronize now")}
-              </Button>
+                <div className="space-y-2">
+                  <span
+                    id={`sync-interval-label-${source.id}`}
+                    className="block text-sm font-medium text-content-primary"
+                  >
+                    {ui("Sync every")}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={intervalInput}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={maxSyncIntervalValue(intervalDraft.unit)}
+                      step={1}
+                      required
+                      value={intervalDraft.value}
+                      disabled={controlsDisabled}
+                      aria-labelledby={`sync-interval-label-${source.id}`}
+                      aria-invalid={Boolean(intervalValidation)}
+                      aria-describedby={
+                        intervalValidation ? `sync-interval-error-${source.id}` : undefined
+                      }
+                      className="w-24"
+                      onChange={(event) => {
+                        setIntervalDraft({ ...intervalDraft, value: event.target.value });
+                        setIntervalError(null);
+                      }}
+                    />
+                    <Select
+                      value={intervalDraft.unit}
+                      disabled={controlsDisabled}
+                      onValueChange={(next) => {
+                        const unit = syncIntervalUnits.find((entry) => entry === next);
+                        if (!unit) return;
+                        setIntervalDraft({ ...intervalDraft, unit });
+                        setIntervalError(null);
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label={ui("Interval unit")}
+                        className="h-(--control-height-md) min-w-28"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {syncIntervalUnits.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {syncIntervalUnitName(unit, Number(intervalDraft.value) || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {intervalValidation ? (
+                  <p
+                    id={`sync-interval-error-${source.id}`}
+                    role="alert"
+                    className="text-status-danger-content"
+                  >
+                    {ui(intervalValidation)}
+                  </p>
+                ) : null}
+                {intervalConflicted ? (
+                  <p role="alert" className="text-status-warning-content">
+                    {ui(
+                      "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.",
+                    )}
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="submit"
+                    disabled={controlsDisabled || intervalConflicted || Boolean(intervalValidation)}
+                    pending={activeAction === "save-interval"}
+                  >
+                    {ui("Save interval")}
+                  </Button>
+                  <Button prominence="tertiary" disabled={busy} onClick={cancelInterval}>
+                    {ui("Cancel")}
+                  </Button>
+                  {intervalConflicted ? (
+                    <Button
+                      prominence="secondary"
+                      disabled={disabled || busy || !canSchedule}
+                      pending={activeAction === "reload-interval"}
+                      onClick={() => runInterval("reload-interval", reloadInterval)}
+                    >
+                      {ui("Reload saved interval")}
+                    </Button>
+                  ) : null}
+                </div>
+              </form>
             ) : null}
-          </div>
+            {intervalError ? (
+              <p role="alert" className="text-status-danger-content">
+                {ui(intervalError)}
+              </p>
+            ) : null}
+          </dd>
         </div>
-        {configuration.errorCode ? (
-          <p className="mt-3 text-sm text-status-danger-content">
-            {ui(sourceStatusMessage(configuration.errorCode))}
-          </p>
-        ) : null}
-      </div>
+      </SourceSummaryCard>
       {stale ? (
         <p role="alert" className="text-sm text-status-danger-content">
           {ui(

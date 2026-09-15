@@ -1054,7 +1054,9 @@ Object.assign(englishUi, {
   "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.":
     "Tối đa 16 KiB. Chứa khóa bí mật ứng dụng; chỉ gửi tới MemoryOS cho kết nối này, không lưu trong bộ nhớ trình duyệt và được xóa khi tiếp tục hoặc rời thiết lập.",
   "Reading client JSON…": "Đang đọc JSON ứng dụng…",
-  "Automatic interval": "Chu kỳ tự động",
+  "Every {{v1}}": "Mỗi {{v1}}",
+  "Members of its groups": "Thành viên các nhóm của nguồn",
+  "People with access in Google Drive": "Người có quyền trên Google Drive",
   "Loading…": "Đang tải…",
   Unavailable: "Không khả dụng",
   "Loading Google Drive connection…": "Đang tải kết nối Google Drive…",
