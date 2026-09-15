@@ -87,6 +87,36 @@ class VoiceProviderClientTest {
         assertEquals(0, redirected.get());
     }
 
+    @Test
+    void elevenLabsKeyIsVerifiedWithItsOwnHeaderAgainstTheModelList() {
+        var header = new AtomicReference<String>();
+        server.createContext("/v1/models", exchange -> {
+            header.set(exchange.getRequestHeaders().getFirst("xi-api-key"));
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 200, "[{\"model_id\":\"eleven_multilingual_v2\"}]");
+        });
+        client.verify(new VoiceConnectionService.Probe(VoiceProvider.ELEVENLABS,
+                "http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "eleven-secret"));
+        assertEquals("eleven-secret", header.get());
+        assertNull(authorization.get());
+    }
+
+    @Test
+    void azureKeyIsVerifiedAgainstTheVoiceListAndAnythingElseIsRejected() {
+        var header = new AtomicReference<String>();
+        var listing = new AtomicReference<>("﻿ [{\"ShortName\":\"vi-VN-HoaiMyNeural\"}]");
+        server.createContext(AzureSpeech.VOICES_PATH, exchange -> {
+            header.set(exchange.getRequestHeaders().getFirst("Ocp-Apim-Subscription-Key"));
+            respond(exchange, 200, listing.get());
+        });
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        client.verify(new VoiceConnectionService.Probe(VoiceProvider.AZURE, endpoint, "azure-secret"));
+        assertEquals("azure-secret", header.get());
+        listing.set("{\"error\":\"not a voice list\"}");
+        assertThrows(ChatException.class,
+                () -> client.verify(new VoiceConnectionService.Probe(VoiceProvider.AZURE, endpoint, "azure-secret")));
+    }
+
     private String serve(int status, String body) {
         server.createContext("/v1/models", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));

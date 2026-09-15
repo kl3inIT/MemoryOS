@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -27,15 +28,19 @@ public class VoiceProviderClient {
     }
 
     /**
-     * Onyx validate_credentials parity: an authorized OpenAI-protocol model listing proves the endpoint and credential.
-     * It does not certify that the configured models or voices exist.
+     * Onyx validate_credentials parity: an authorized listing proves the endpoint and credential (OpenAI-protocol and
+     * ElevenLabs models, Azure voices). It does not certify that the configured models or voices exist.
      */
     public void verify(VoiceConnectionService.Probe probe) {
         if (!checks.tryAcquire()) throw ChatException.busy();
         long start = System.nanoTime();
         String outcome = "failed";
         try {
-            listModels(probe);
+            switch (probe.provider()) {
+                case OPENAI, OPENAI_COMPATIBLE -> listModels(probe);
+                case ELEVENLABS -> requireArray(probe.baseUrl() + "/models", "xi-api-key", probe.key());
+                case AZURE -> requireArray(probe.baseUrl() + AzureSpeech.VOICES_PATH, "Ocp-Apim-Subscription-Key", probe.key());
+            }
             outcome = "succeeded";
         } finally {
             checks.release();
@@ -59,6 +64,27 @@ public class VoiceProviderClient {
             }
             if (body.length > MAX_MODEL_LIST_BYTES || !JSON.readTree(body).path("data").isArray())
                 throw ChatException.providerUnavailable();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw ChatException.providerUnavailable();
+        } catch (ChatException expected) {
+            throw expected;
+        } catch (IOException | RuntimeException failure) {
+            throw ChatException.providerUnavailable();
+        }
+    }
+
+    /** A JSON array listing; only its start is read, because the Azure voice list is large. */
+    private static void requireArray(String url, String header, String key) {
+        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CHECK_TIMEOUT).build()) {
+            var request = HttpRequest.newBuilder(URI.create(url)).timeout(CHECK_TIMEOUT)
+                    .header("Accept", "application/json").header(header, key).GET().build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            try (var stream = response.body()) {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
+                String start = new String(stream.readNBytes(256), StandardCharsets.UTF_8).replace("﻿", "").stripLeading();
+                if (!start.startsWith("[")) throw ChatException.providerUnavailable();
+            }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw ChatException.providerUnavailable();

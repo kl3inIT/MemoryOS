@@ -37,6 +37,20 @@ class Pcm16Test {
     }
 
     @Test
+    void resamplingTo16kHzInterpolatesTwoSamplesForEveryThree() {
+        var input = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN);
+        for (short value : new short[] {0, 300, 600, 900, 1200, 1500}) input.putShort(value);
+        var output = ByteBuffer.wrap(Pcm16.resampleTo16k(input.array(), 0, 12)).order(ByteOrder.LITTLE_ENDIAN);
+        assertEquals(8, output.capacity());
+        assertEquals(0, output.getShort(0));
+        assertEquals(450, output.getShort(2));
+        assertEquals(900, output.getShort(4));
+        assertEquals(1350, output.getShort(6));
+        assertEquals(Pcm16.BYTES_PER_SECOND_16K, Pcm16.resampleTo16k(tone(1, 3000), 0, Pcm16.BYTES_PER_SECOND).length);
+        assertEquals(16_000, ByteBuffer.wrap(Pcm16.wav(new byte[2], 0, 2, Pcm16.SAMPLE_RATE_16K)).order(ByteOrder.LITTLE_ENDIAN).getInt(24));
+    }
+
+    @Test
     void silenceIsNotSpeechButAnAudibleToneIs() {
         assertFalse(Pcm16.hasSpeech(new byte[Pcm16.BYTES_PER_SECOND], 0, Pcm16.BYTES_PER_SECOND));
         byte[] voiced = concat(new byte[Pcm16.BYTES_PER_SECOND], tone(0.2, 3000));

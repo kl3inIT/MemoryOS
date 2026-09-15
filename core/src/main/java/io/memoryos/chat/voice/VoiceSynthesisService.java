@@ -9,6 +9,8 @@ import io.memoryos.iam.identity.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -17,6 +19,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
@@ -35,6 +38,7 @@ public class VoiceSynthesisService {
     /** OpenAI speech accepts at most 4096 characters per request. */
     static final int MAX_SEGMENT_LENGTH = 4_096;
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     /** Shared by request streams and streaming speeches. */
     private static final int MAX_STREAMS = 8;
     private final VoiceConnectionService connections;
@@ -84,7 +88,7 @@ public class VoiceSynthesisService {
 
     SpeechStream stream(VoiceConnectionService.Connection connection, String key, List<String> segments, double speed,
             Runnable release) {
-        var stream = new SpeechStream(connection, new ProviderSpeech(connection, key, speed), segments, release);
+        var stream = new SpeechStream(connection, provider(connection, key, speed), segments, release);
         try {
             stream.start();
             return stream;
@@ -96,7 +100,7 @@ public class VoiceSynthesisService {
 
     StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
             Consumer<byte[]> audio, Runnable release) {
-        var provider = new ProviderSpeech(connection, key, speed);
+        var provider = provider(connection, key, speed);
         long started = System.nanoTime();
         return new StreamingSynthesizer(text -> provider.chunks(List.of(text)), audio, outcome -> {
             try {
@@ -144,12 +148,52 @@ public class VoiceSynthesisService {
         return value == '.' || value == '!' || value == '?' || value == '…' || value == '。';
     }
 
-    /** One provider client and model for a speech; MP3 in the member's speed. */
-    private static final class ProviderSpeech implements AutoCloseable {
+    /** MP3 for text segments from one provider at the member's speed; closing it releases the provider client. */
+    private interface ProviderSpeech extends AutoCloseable {
+        /** Lazy audio of consecutive provider requests; closing the stream cancels the request in progress. */
+        Stream<byte[]> chunks(List<String> segments);
+
+        @Override
+        void close();
+    }
+
+    private static ProviderSpeech provider(VoiceConnectionService.Connection connection, String key, double speed) {
+        String base = connection.provider().baseUrl(connection.endpoint());
+        return switch (connection.provider()) {
+            case OPENAI, OPENAI_COMPATIBLE -> new OpenAiSpeech(connection, key, speed);
+            case ELEVENLABS -> new HttpSpeech(text -> ElevenLabsVoice.speech(base, key, connection.ttsModel(), connection.ttsVoice(),
+                    speed, text, PROVIDER_TIMEOUT));
+            case AZURE -> new HttpSpeech(text -> AzureSpeech.speech(base, key, connection.ttsVoice(), speed, text, PROVIDER_TIMEOUT));
+        };
+    }
+
+    /** REST providers use the JDK client without redirects, so a credential never follows a redirect elsewhere. */
+    private static final class HttpSpeech implements ProviderSpeech {
+        private final HttpClient client =
+                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CONNECT_TIMEOUT).build();
+        private final Function<String, HttpRequest> request;
+
+        private HttpSpeech(Function<String, HttpRequest> request) {
+            this.request = request;
+        }
+
+        @Override
+        public Stream<byte[]> chunks(List<String> segments) {
+            return HttpAudioStream.of(client, segments, request);
+        }
+
+        @Override
+        public void close() {
+            client.shutdownNow();
+        }
+    }
+
+    /** Spring AI speech for OpenAI-protocol providers. */
+    private static final class OpenAiSpeech implements ProviderSpeech {
         private final OpenAIClient client;
         private final OpenAiAudioSpeechModel model;
 
-        private ProviderSpeech(VoiceConnectionService.Connection connection, String key, double speed) {
+        private OpenAiSpeech(VoiceConnectionService.Connection connection, String key, double speed) {
             client = OpenAIOkHttpClient.builder().baseUrl(connection.provider().baseUrl(connection.endpoint()))
                     .apiKey(key.isEmpty() ? VoiceTranscriptionService.NO_CREDENTIAL : key)
                     .maxRetries(0).timeout(PROVIDER_TIMEOUT).build();
@@ -158,8 +202,8 @@ public class VoiceSynthesisService {
             model = OpenAiAudioSpeechModel.builder().openAiClient(client).options(options).build();
         }
 
-        /** Lazy audio of consecutive provider requests; closing the stream cancels the request in progress. */
-        private Stream<byte[]> chunks(List<String> segments) {
+        @Override
+        public Stream<byte[]> chunks(List<String> segments) {
             return Flux.fromIterable(segments)
                     .concatMap(segment -> model.stream(new TextToSpeechPrompt(segment)))
                     .map(response -> response.getResult().getOutput())

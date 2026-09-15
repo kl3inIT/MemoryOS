@@ -1599,7 +1599,9 @@ class ChatSessionApiIntegrationTest {
         try {
             mockMvc.perform(get("/api/chat/voice/providers").with(authentication(actor))).andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].provider").value("OPENAI")).andExpect(jsonPath("$[0].ttsModels[1]").value("tts-1-hd"))
-                    .andExpect(jsonPath("$[1].requiresEndpoint").value(true));
+                    .andExpect(jsonPath("$[1].requiresEndpoint").value(true))
+                    .andExpect(jsonPath("$[2].provider").value("ELEVENLABS")).andExpect(jsonPath("$[2].sttModels[0]").value("scribe_v2"))
+                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true));
             var draft = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
                     .put("sttModel", "whisper-1").put("ttsModel", "kokoro").put("ttsVoice", "af_heart")
                     .put("credentialAction", "REPLACE").put("credentialValue", "wrong-secret").put("activate", "STT").put("revision", 0);

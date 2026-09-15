@@ -423,6 +423,8 @@ paths:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
       requestBody:
         content:
           application/json:
@@ -493,6 +495,8 @@ paths:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
       - name: revision
         in: query
         required: true
@@ -3766,6 +3770,8 @@ paths:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
       responses:
         "400":
           description: Invalid voice configuration
@@ -8354,6 +8360,8 @@ components:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
         model:
           type: string
           maxLength: 200
@@ -8412,6 +8420,8 @@ components:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
         endpoint:
           type: string
         sttModel:
@@ -11391,6 +11401,8 @@ components:
           enum:
           - OPENAI
           - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
         requiresKey:
           type: boolean
         requiresEndpoint:

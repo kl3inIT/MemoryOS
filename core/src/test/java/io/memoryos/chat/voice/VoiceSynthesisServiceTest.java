@@ -121,6 +121,27 @@ class VoiceSynthesisServiceTest {
     }
 
     @Test
+    void elevenLabsSpeechStreamsThroughItsRestEndpoint() throws IOException {
+        var path = new AtomicReference<String>();
+        server.createContext("/v1/text-to-speech/", exchange -> {
+            path.set(exchange.getRequestURI().getRawPath());
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), UTF_8));
+            exchange.sendResponseHeaders(200, 0);
+            try (var output = exchange.getResponseBody()) { output.write("eleven;".getBytes(UTF_8)); }
+        });
+        var connection = new VoiceConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), VoiceProvider.ELEVENLABS,
+                "http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "", "eleven_multilingual_v2", "voice-1", null, 1);
+        var output = new ByteArrayOutputStream();
+        try (var speech = service.stream(connection, "eleven-secret", List.of("Xin chào."), 1.0, released::incrementAndGet)) {
+            speech.writeTo(output);
+        }
+        assertEquals("eleven;", output.toString(UTF_8));
+        assertEquals("/v1/text-to-speech/voice-1/stream", path.get());
+        assertTrue(bodies.get(0).contains("\"model_id\":\"eleven_multilingual_v2\""));
+        assertEquals(1, released.get());
+    }
+
+    @Test
     void closingBeforeTheAudioIsWrittenCancelsAndReleasesOnce() {
         var speech = service.stream(connection(), "voice-secret", List.of("Một.", "Hai."), 1.0, released::incrementAndGet);
         speech.close();

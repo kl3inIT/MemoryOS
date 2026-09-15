@@ -10,6 +10,10 @@ import java.util.Arrays;
 final class Pcm16 {
     static final int SAMPLE_RATE = 24_000;
     static final int BYTES_PER_SECOND = SAMPLE_RATE * 2;
+    /** The only PCM rate the Azure short-audio API accepts. */
+    static final int SAMPLE_RATE_16K = 16_000;
+    static final int BYTES_PER_SECOND_16K = SAMPLE_RATE_16K * 2;
+    static final int WAV_HEADER_BYTES = 44;
     /** Onyx silence gate: speech reaches this RMS amplitude in at least one 100 ms frame. */
     static final double SPEECH_RMS = 150;
     private static final int FRAME_BYTES = BYTES_PER_SECOND / 10;
@@ -73,13 +77,40 @@ final class Pcm16 {
         return Arrays.copyOfRange(pcm, from, to);
     }
 
-    /** Wraps PCM16 mono samples in a RIFF/WAVE header for OpenAI-protocol transcription uploads. */
+    /** Wraps 24 kHz PCM16 mono samples in a RIFF/WAVE header for transcription uploads. */
     static byte[] wav(byte[] pcm, int offset, int length) {
+        return wav(pcm, offset, length, SAMPLE_RATE);
+    }
+
+    static byte[] wav(byte[] pcm, int offset, int length, int sampleRate) {
         var buffer = ByteBuffer.allocate(44 + length).order(ByteOrder.LITTLE_ENDIAN);
         buffer.put("RIFF".getBytes(US_ASCII)).putInt(36 + length).put("WAVE".getBytes(US_ASCII))
                 .put("fmt ".getBytes(US_ASCII)).putInt(16).putShort((short) 1).putShort((short) 1)
-                .putInt(SAMPLE_RATE).putInt(BYTES_PER_SECOND).putShort((short) 2).putShort((short) 16)
+                .putInt(sampleRate).putInt(sampleRate * 2).putShort((short) 2).putShort((short) 16)
                 .put("data".getBytes(US_ASCII)).putInt(length).put(pcm, offset, length);
         return buffer.array();
+    }
+
+    /** Resamples 24 kHz PCM16 to 16 kHz by linear interpolation, which is enough for speech recognition. */
+    static byte[] resampleTo16k(byte[] pcm, int offset, int length) {
+        int input = length / 2;
+        int output = (int) ((long) input * SAMPLE_RATE_16K / SAMPLE_RATE);
+        byte[] result = new byte[output * 2];
+        double step = (double) SAMPLE_RATE / SAMPLE_RATE_16K;
+        for (int i = 0; i < output; i++) {
+            double position = i * step;
+            int index = (int) position;
+            int from = sample(pcm, offset, index);
+            int to = index + 1 < input ? sample(pcm, offset, index + 1) : from;
+            int value = (int) Math.round(from + (to - from) * (position - index));
+            result[2 * i] = (byte) value;
+            result[2 * i + 1] = (byte) (value >> 8);
+        }
+        return result;
+    }
+
+    private static int sample(byte[] pcm, int offset, int index) {
+        int at = offset + 2 * index;
+        return (short) ((pcm[at] & 0xff) | (pcm[at + 1] << 8));
     }
 }

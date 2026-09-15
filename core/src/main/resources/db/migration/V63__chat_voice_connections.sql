@@ -13,7 +13,7 @@ CREATE TABLE chat_voice_connection (
     tts_active BOOLEAN NOT NULL DEFAULT FALSE,
     revision BIGINT NOT NULL DEFAULT 0,
     UNIQUE (tenant_id, provider),
-    CONSTRAINT ck_chat_voice_connection_provider CHECK (provider IN ('OPENAI', 'OPENAI_COMPATIBLE')),
+    CONSTRAINT ck_chat_voice_connection_provider CHECK (provider IN ('OPENAI', 'OPENAI_COMPATIBLE', 'ELEVENLABS', 'AZURE')),
     CONSTRAINT ck_chat_voice_connection_stt_model CHECK (NOT stt_active OR stt_model <> ''),
     CONSTRAINT ck_chat_voice_connection_tts_model CHECK (NOT tts_active OR (tts_model <> '' AND tts_voice <> ''))
 );

@@ -66,6 +66,22 @@ class VoiceTranscriptionServiceTest {
     }
 
     @Test
+    void azureRecognitionReceives16kHzAudioWithoutTheUploadWavHeader() {
+        var upload = new AtomicReference<byte[]>();
+        server.createContext(AzureSpeech.STT_PATH, exchange -> {
+            upload.set(exchange.getRequestBody().readAllBytes());
+            byte[] response = "{\"RecognitionStatus\":\"Success\",\"DisplayText\":\"Xin chào.\"}".getBytes(UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) { output.write(response); }
+        });
+        byte[] pcm = Pcm16Test.tone(0.3, 3000);
+        var azure = new VoiceConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), VoiceProvider.AZURE,
+                "http://127.0.0.1:" + server.getAddress().getPort(), "default", "", "", null, 1);
+        assertEquals("Xin chào.", service.transcribe(azure, "azure-secret", "vi", Pcm16.wav(pcm, 0, pcm.length)));
+        assertEquals(Pcm16.WAV_HEADER_BYTES + pcm.length * 2 / 3, upload.get().length);
+    }
+
+    @Test
     void providerFailureIsReportedWithoutItsPayload() {
         status = 500;
         byte[] pcm = Pcm16Test.tone(0.5, 3000);
