@@ -461,29 +461,18 @@ export const englishUi: Record<string, string> = {
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
   "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
   "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
-  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
-  "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
-  Required: "Bắt buộc",
   None: "Không có",
-  "Select at least one managed group. New Sources are private.":
-    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
-  "Leave the selection empty for no group associations. Global Source management does not require an association.":
-    "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
   "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.":
     "Với Nguồn riêng tư, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn.",
   "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ Nguồn riêng tư. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn; quyền từng tệp trên Google Drive quyết định ai được đọc. Quyền quản lý Nguồn toàn Tenant không cấp quyền đọc tài liệu riêng tư nếu không là thành viên nhóm.",
-  "Group associations are optional for global Source managers.":
-    "Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
   "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
+  "Select groups": "Chọn nhóm",
+  "Type to find more groups.": "Nhập tên để tìm thêm nhóm.",
   "Auto Sync · people who can open each file in Google Drive":
     "Tự động đồng bộ · những người mở được từng tệp trên Google Drive",
   "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.":
     "Người đọc cần có quyền với từng tệp trên Google Drive và email đăng nhập đã xác minh trùng khớp. Nhóm chỉ quyết định ai quản lý Nguồn này.",
-  "Members of the selected MemoryOS groups can search and read imported Drive documents.":
-    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập.",
-  "Everyone in this Tenant can search and read imported Drive documents.":
-    "Mọi người trong Tenant này được tìm kiếm và đọc tài liệu Drive đã nhập.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -924,7 +913,6 @@ Object.assign(englishUi, {
   "Access groups": "Nhóm truy cập",
   "Optional · defaults to the protected Admin group":
     "Không bắt buộc · mặc định là nhóm quản trị được bảo vệ",
-  "{{v1}} selected": "Đã chọn {{v1}}",
   Default: "Mặc định",
   "Leave the selection empty to associate the new Source with the protected Admin group.":
     "Để trống để liên kết nguồn mới với nhóm quản trị được bảo vệ.",
@@ -937,8 +925,6 @@ Object.assign(englishUi, {
   "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB":
     "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB",
   "Remove selected file": "Bỏ tệp đã chọn",
-  "Source management visibility follows the selected group associations.":
-    "Quyền xem và quản lý nguồn tuân theo các nhóm được liên kết.",
   "The file reached object storage; retry finalization without uploading it again.":
     "Tệp đã được lưu; hãy thử xác nhận hoàn tất mà không tải lên lại.",
   "Finish your pending upload first.": "Hãy hoàn tất lần tải lên đang chờ trước.",
@@ -976,8 +962,6 @@ Object.assign(englishUi, {
   "Configure connector": "Cấu hình kết nối",
   "Credential:": "Thông tin kết nối:",
   "Not selected": "Chưa chọn",
-  ". This creates a separate Source; other Sources using this credential are unchanged.":
-    ". Thao tác này tạo một nguồn riêng; các nguồn khác dùng thông tin kết nối này không thay đổi.",
   "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.":
     "Chọn thông tin kết nối đã xác thực trước khi tạo nguồn. Quay lại danh sách để làm mới hoặc kết nối lại.",
   "e.g. Team documentation": "Ví dụ: Tài liệu nhóm",

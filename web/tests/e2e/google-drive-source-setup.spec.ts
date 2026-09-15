@@ -55,7 +55,10 @@ test("scoped setup uses credential actions and requires managed groups before pr
     .getByRole("textbox", { name: "File or folder links" })
     .fill("https://drive.google.com/file/d/file-a/view");
   await expect(page.getByRole("button", { name: "Create Source", exact: true })).toBeDisabled();
-  await page.getByRole("checkbox", { name: /Managed team/ }).check();
+  await page.getByRole("button", { name: "Access groups" }).click();
+  await page.getByRole("option", { name: "Managed team" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Remove Managed team" })).toBeVisible();
   const submitted = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&

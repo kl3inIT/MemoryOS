@@ -206,20 +206,19 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
     await expect(submit).toBeEnabled();
     if (failure === "none") {
-      await page
-        .locator('[data-slot="collapsible-trigger"]')
-        .filter({ hasText: "Access groups" })
-        .click();
-      const groupSearch = page.getByRole("search");
-      await groupSearch.getByRole("searchbox").fill("Knowledge team");
-      await groupSearch.getByRole("searchbox").press("Enter");
-      await groupSearch.getByRole("button", { name: "Search", exact: true }).click();
-      await expect(page.getByRole("checkbox", { name: "Knowledge team" })).toBeVisible();
+      const visibility = page.getByRole("combobox", { name: "Visibility" });
+      const groups = page.getByRole("button", { name: "Access groups" });
+      await expect(groups).toHaveCount(0);
+      await visibility.click();
+      await page.getByRole("option", { name: /^Private/ }).click();
+      await groups.click();
+      await page.getByPlaceholder("Search groups…").fill("Knowledge team");
+      await expect(page.getByRole("option", { name: "Knowledge team" })).toBeVisible();
       expect(creates).toBe(0);
-      await page
-        .locator('[data-slot="collapsible-trigger"]')
-        .filter({ hasText: "Access groups" })
-        .click();
+      await page.keyboard.press("Escape");
+      await visibility.click();
+      await page.getByRole("option", { name: /^Workspace members/ }).click();
+      await expect(groups).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath("file-setup-desktop.png"),
         fullPage: true,
@@ -404,7 +403,9 @@ test("scoped File creation requires managed groups and never publishes files", a
   await expect(page.getByRole("combobox", { name: "Visibility" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Upload and create" })).toBeDisabled();
   expect(created).toBe(false);
-  await page.getByRole("checkbox", { name: /Managed team/ }).check();
+  await page.getByRole("button", { name: "Access groups" }).click();
+  await page.getByRole("option", { name: "Managed team" }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Upload and create" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();

@@ -1,4 +1,3 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -22,14 +21,13 @@ import {
   createFileSourceMutation,
   finalizeSourceUploadMutation,
   initiateSourceUploadMutation,
-  listSourceGroupOptionsOptions,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { sourceMutationError } from "./source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceAccessChoice } from "./source-access-choice";
-import { GroupAccessPicker } from "@/features/groups/group-access-picker";
+import { SourceGroupPicker } from "./source-group-picker";
 
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();
@@ -47,7 +45,8 @@ export function CreateFileSourcePage() {
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const [sourceName, setSourceName] = useState("");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
-  const [groupPickerOpen, setGroupPickerOpen] = useState(scoped);
+  // Scoped managers can only create Private Sources, which need groups they manage.
+  const showGroups = scoped || access === "PRIVATE";
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -69,7 +68,6 @@ export function CreateFileSourcePage() {
     setPreviousAuthorityKey(authorityKey);
     setGroupIds(new Set());
     setAccess(scoped ? "PRIVATE" : "PUBLIC");
-    setGroupPickerOpen(scoped);
   }
 
   useEffect(() => {
@@ -131,7 +129,7 @@ export function CreateFileSourcePage() {
           const created = await createSource.mutateAsync({
             body: {
               name: sourceName.trim(),
-              groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+              groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
               access: scoped ? "PRIVATE" : access,
             },
             headers: sameOriginMutationHeaders,
@@ -267,56 +265,15 @@ export function CreateFileSourcePage() {
             />
           )}
         </div>
-        <Collapsible
-          defaultOpen={Boolean(groupPickerOpen)}
-          onOpenChange={setGroupPickerOpen}
-          className="rounded-xl border border-border-subtle bg-surface-raised"
-        >
-          <CollapsibleTrigger className="cursor-pointer list-none rounded-xl px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30 sm:px-5">
-            <span className="flex items-center justify-between gap-3">
-              <span>
-                <span className="block font-secondary-action text-content-primary">
-                  {ui("Access groups")}
-                </span>
-                <span className="mt-0.5 block font-secondary-body text-content-muted">
-                  {scoped
-                    ? ui("Required · select groups you manage")
-                    : ui("Optional · associate ordinary groups")}
-                </span>
-              </span>
-              <span className="font-secondary-body tabular-nums text-content-muted">
-                {groupIds.size > 0
-                  ? ui("{{v1}} selected", { v1: groupIds.size })
-                  : scoped
-                    ? ui("Required")
-                    : ui("None")}
-              </span>
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            {groupPickerOpen ? (
-              <div className="border-t border-border-subtle p-4 sm:p-5">
-                <GroupAccessPicker
-                  load={(query) => listSourceGroupOptionsOptions({ query })}
-                  description={appText(
-                    "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
-                  )}
-                  selected={groupIds}
-                  required={scoped}
-                  disabled={busy || Boolean(sourceId)}
-                  onChange={setGroupIds}
-                />
-                <p className="mt-3 font-secondary-body text-content-muted">
-                  {scoped
-                    ? ui("Select at least one managed group. New Sources are private.")
-                    : ui(
-                        "Leave the selection empty for no group associations. Global Source management does not require an association.",
-                      )}
-                </p>
-              </div>
-            ) : null}
-          </CollapsibleContent>
-        </Collapsible>
+        {showGroups ? (
+          <SourceGroupPicker
+            label={ui("Access groups")}
+            placeholder={scoped ? ui("Select at least one group you manage.") : ui("Select groups")}
+            selected={groupIds}
+            disabled={busy || Boolean(sourceId)}
+            onChange={setGroupIds}
+          />
+        ) : null}
         <div>
           <span className="font-secondary-action text-content-primary">{ui("File")}</span>
           <div
@@ -389,9 +346,6 @@ export function CreateFileSourcePage() {
             </div>
           ) : null}
         </div>
-        <p className="font-secondary-body text-content-muted">
-          {ui("Source management visibility follows the selected group associations.")}
-        </p>
         {error ? (
           <Alert variant="destructive">
             <TriangleAlert aria-hidden="true" />

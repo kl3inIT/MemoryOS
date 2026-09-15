@@ -45,7 +45,6 @@ import {
   getGoogleDriveSelectionPolicyOptions,
   listGoogleDriveCredentialsOptions,
   listSourcesQueryKey,
-  listSourceGroupOptionsOptions,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
@@ -67,7 +66,7 @@ import { sourceMutationError } from "./source-errors";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
-import { GroupAccessPicker } from "@/features/groups/group-access-picker";
+import { SourceGroupPicker } from "./source-group-picker";
 
 export function CreateGoogleDriveSourcePage() {
   const session = useApplicationSession();
@@ -131,13 +130,16 @@ function GoogleDriveSourceSetup() {
   const authorizationController = useRef<AbortController | null>(null);
   const busy =
     authorizing || leaving || createSource.isPending || revoke.isPending || remove.isPending;
+  const [linksTouched, setLinksTouched] = useState(false);
   const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
+  // Readers of a Private Source are its groups; scoped managers also need groups for Auto Sync.
+  const showGroups = access === "PRIVATE" || (access === "SYNC" && !globalManage);
   const proposal = {
     name: sourceName.trim(),
     credentialId: selected?.id ?? "",
     scopeMode,
     links,
-    groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+    groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
     access,
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
@@ -548,14 +550,13 @@ function GoogleDriveSourceSetup() {
             void create();
           }}
         >
-          <h2 className="font-heading-h3">{ui("Configure connector")}</h2>
-          <p className="break-words text-sm text-content-secondary">
-            {ui("Credential:")} {selected?.name ?? ui("Not selected")}
-            {selected ? ui(" ({{v1}})", { v1: selected.accountEmail }) : ""}
-            {ui(
-              ". This creates a separate Source; other Sources using this credential are unchanged.",
-            )}
-          </p>
+          <div className="space-y-1">
+            <h2 className="font-heading-h3">{ui("Configure connector")}</h2>
+            <p className="break-words text-sm text-content-muted">
+              {ui("Credential:")} {selected?.name ?? ui("Not selected")}
+              {selected ? ui(" ({{v1}})", { v1: selected.accountEmail }) : ""}
+            </p>
+          </div>
           {unavailable || !connected ? (
             <p role="alert" className="text-sm text-status-warning-content">
               {ui(
@@ -602,37 +603,22 @@ function GoogleDriveSourceSetup() {
                 setError(null);
               }}
             />
-            <p className="text-sm text-content-muted">
-              {access === "SYNC"
-                ? ui(
-                    "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
-                  )
-                : access === "PRIVATE"
-                  ? ui(
-                      "Members of the selected MemoryOS groups can search and read imported Drive documents.",
-                    )
-                  : ui("Everyone in this Tenant can search and read imported Drive documents.")}
-            </p>
           </div>
-          <GroupAccessPicker
-            load={(query) => listSourceGroupOptionsOptions({ query })}
-            description={appText(
-              "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
-            )}
-            selected={groupIds}
-            required={!globalManage}
-            disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
-            onChange={(ids) => {
-              if (tracking.terminal) tracking.forget();
-              setGroupIds(ids);
-              setError(null);
-            }}
-          />
-          <p className="text-sm text-content-muted">
-            {globalManage
-              ? ui("Group associations are optional for global Source managers.")
-              : ui("Select at least one group you manage.")}
-          </p>
+          {showGroups ? (
+            <SourceGroupPicker
+              label={ui("Access groups")}
+              placeholder={
+                globalManage ? ui("Select groups") : ui("Select at least one group you manage.")
+              }
+              selected={groupIds}
+              disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+              onChange={(ids) => {
+                if (tracking.terminal) tracking.forget();
+                setGroupIds(ids);
+                setError(null);
+              }}
+            />
+          ) : null}
           <GoogleDriveLinks
             scopeMode={scopeMode}
             policy={policy.data}
@@ -644,7 +630,7 @@ function GoogleDriveSourceSetup() {
             errorMessage={
               error || tracking.recoveryError || tracking.statusUnavailable || policy.isError
                 ? ""
-                : selectionError
+                : selectionError && linksTouched
                   ? ui(selectionError)
                   : null
             }
@@ -654,6 +640,7 @@ function GoogleDriveSourceSetup() {
             }
             onChange={(value) => {
               if (tracking.terminal) tracking.forget();
+              setLinksTouched(true);
               setLinksText(value);
               setError(null);
             }}
