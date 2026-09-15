@@ -697,7 +697,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
                 .andExpect(jsonPath("$.syncIntervalMinutes").value(17)).andExpect(jsonPath("$.scheduleRevision").value(2));
         mockMvc.perform(get("/api/sources/{id}/google-drive", other).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(5))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(30))
                 .andExpect(jsonPath("$.scheduleRevision").value(1));
         googleAuthorizations.disconnect(owner.getPrincipal().actorId(), credential, 1);
         org.mockito.Mockito.clearInvocations(googleProvider);
@@ -756,7 +756,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":15}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(5))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(30))
                 .andExpect(jsonPath("$.scheduleRevision").value(1));
     }
 
