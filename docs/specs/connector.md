@@ -227,7 +227,7 @@ SOURCE_SYNC collects after selected membership is checked and before content reu
 
 ### Handoff identity and state
 
-V54 stores one `google_drive_acl_snapshots` row per `(tenant_id, source_id, file_id)` with source-qualified cascading deletion. Internal `JdbcGoogleDriveAclRepository.read(TenantId, SourceId, fileId)` returns `Optional<GoogleDriveAclSnapshot>` in one database statement, including current SourceItem/Document mapping. The consumer read `readByDocument` shares this lifecycle projection. Neither read performs actor authorization, and no HTTP endpoint exposes either.
+V59 stores one `google_drive_acl_snapshots` row per `(tenant_id, source_id, file_id)` with source-qualified cascading deletion. Internal `JdbcGoogleDriveAclRepository.read(TenantId, SourceId, fileId)` returns `Optional<GoogleDriveAclSnapshot>` in one database statement, including current SourceItem/Document mapping. The consumer read `readByDocument` shares this lifecycle projection. Neither read performs actor authorization, and no HTTP endpoint exposes either.
 
 | Data | Meaning |
 | --- | --- |
