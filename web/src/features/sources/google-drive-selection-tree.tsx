@@ -15,7 +15,7 @@ import type {
   GoogleDriveSelectionTreeItemResponse,
 } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { GoogleDriveMimeIcon } from "./google-drive-links";
+import { FileTypeIcon } from "./file-type-icon";
 import { SelectionPager } from "./google-drive-selection-pager";
 import {
   firstSelectionPage,
@@ -324,7 +324,7 @@ export function GoogleDriveSelectionRow({
     ) : null;
   return (
     <div className="flex min-w-0 items-center gap-2 py-1.5">
-      <GoogleDriveMimeIcon mimeType={item.mimeType} />
+      <FileTypeIcon name={item.name} mimeType={item.mimeType} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <div className="flex min-w-0 flex-1 basis-36 items-center gap-2">

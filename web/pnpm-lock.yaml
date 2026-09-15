@@ -65,6 +65,9 @@ importers:
       lucide-react:
         specifier: 1.34.0
         version: 1.34.0(react@19.2.8)
+      material-icon-theme:
+        specifier: 5.38.1
+        version: 5.38.1
       pdfjs-dist:
         specifier: 6.3.289
         version: 6.3.289
@@ -2436,6 +2439,9 @@ packages:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
 
+  chroma-js@3.2.0:
+    resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
+
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
 
@@ -3316,6 +3322,10 @@ packages:
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
+
+  material-icon-theme@5.38.1:
+    resolution: {integrity: sha512-14cFM4NJGdbuo68rIZTq9TSX0f5BtA6VF+eNX3zq23Z5NoEeVtM4Zn4PpZ0ERl++50jCBrywKFWXmOjbxf0xTA==}
+    engines: {vscode: ^1.55.0}
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -6744,6 +6754,8 @@ snapshots:
     dependencies:
       readdirp: 5.1.1
 
+  chroma-js@3.2.0: {}
+
   class-variance-authority@0.7.1:
     dependencies:
       clsx: 2.1.1
@@ -7525,6 +7537,10 @@ snapshots:
   make-event-props@2.0.0: {}
 
   markdown-table@3.0.4: {}
+
+  material-icon-theme@5.38.1:
+    dependencies:
+      chroma-js: 3.2.0
 
   math-intrinsics@1.1.0: {}
 

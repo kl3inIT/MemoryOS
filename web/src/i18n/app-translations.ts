@@ -1366,6 +1366,13 @@ Object.assign(englishUi, {
   "Documents indexed": "Tài liệu đã lập chỉ mục",
   "Last indexed successfully": "Lập chỉ mục thành công gần nhất",
   "Not yet": "Chưa có",
+  Folder: "Thư mục",
+  Spreadsheet: "Bảng tính",
+  Presentation: "Bản trình chiếu",
+  Archive: "Tệp nén",
+  Database: "Cơ sở dữ liệu",
+  Font: "Phông chữ",
+  Log: "Nhật ký",
   "Existing sources": "Nguồn hiện có",
   "Manage connected content and monitor indexing.":
     "Quản lý nội dung đã kết nối và theo dõi lập chỉ mục.",
