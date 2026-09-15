@@ -9,4 +9,5 @@ public interface JpaMcpServerRepository extends JpaRepository<McpServerEntity, U
     Optional<McpServerEntity> findByTenantIdAndId(UUID tenantId, UUID id);
     List<McpServerEntity> findByTenantIdOrderByNameAsc(UUID tenantId);
     boolean existsByTenantIdAndSlug(UUID tenantId, String slug);
+    long countByTenantId(UUID tenantId);
 }

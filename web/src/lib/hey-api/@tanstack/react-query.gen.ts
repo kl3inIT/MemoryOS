@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatProject, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createProjectChatSession, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatProject, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteSource, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatModelDefault, getChatPersona, getChatProject, getChatSession, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSource, getSourceOperation, getSourceRun, initiateChatFileUpload, initiateSourceUpload, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaModels, listChatPersonas, listChatPersonaSources, listChatProjects, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listProjectChatSessions, listReportedProviderModels, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, regenerateChatMessage, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeSourceItem, renameChatSession, renameGroup, renameSource, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatWebConnection, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setChatFeedback, setChatModelDefault, setChatSharing, setCurrentIdentityLanguage, setPersonaModel, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, testChatImageConnection, testChatWebConnection, updateChatModel, updateChatPersona, updateChatProject, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSourceData, RenameSourceResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatProject, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createMcpServer, createProjectChatSession, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatProject, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteMcpServer, deleteSource, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatModelDefault, getChatPersona, getChatProject, getChatSession, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getMcpServer, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSource, getSourceOperation, getSourceRun, initiateChatFileUpload, initiateSourceUpload, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaModels, listChatPersonas, listChatPersonaSources, listChatProjects, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listMcpGroupOptions, listMcpServers, listMcpServerTools, listProjectChatSessions, listReportedProviderModels, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, refreshMcpServerTools, regenerateChatMessage, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeSourceItem, renameChatSession, renameGroup, renameSource, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatWebConnection, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setAllMcpServerToolsEnabled, setChatFeedback, setChatModelDefault, setChatSharing, setCurrentIdentityLanguage, setMcpServerToolEnabled, setPersonaModel, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, testChatImageConnection, testChatWebConnection, updateChatModel, updateChatPersona, updateChatProject, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateMcpServer, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateMcpServerData, CreateMcpServerError, CreateMcpServerResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteMcpServerData, DeleteMcpServerError, DeleteMcpServerResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetMcpServerData, GetMcpServerError, GetMcpServerResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListMcpGroupOptionsData, ListMcpGroupOptionsError, ListMcpGroupOptionsResponse, ListMcpServersData, ListMcpServersError, ListMcpServersResponse, ListMcpServerToolsData, ListMcpServerToolsError, ListMcpServerToolsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RefreshMcpServerToolsData, RefreshMcpServerToolsError, RefreshMcpServerToolsResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSourceData, RenameSourceResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledError, SetAllMcpServerToolsEnabledResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetMcpServerToolEnabledData, SetMcpServerToolEnabledError, SetMcpServerToolEnabledResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateMcpServerData, UpdateMcpServerError, UpdateMcpServerResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
 
 /**
  * Update the automatic Google Drive sync interval
@@ -30,6 +30,125 @@ export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<Replac
     const mutationOptions: UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await replaceGoogleDriveRoots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an MCP server with its tools and credentials at the expected revision
+ */
+export const deleteMcpServerMutation = (options?: Partial<Options<DeleteMcpServerData>>): UseMutationOptions<DeleteMcpServerResponse, DeleteMcpServerError, Options<DeleteMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<DeleteMcpServerResponse, DeleteMcpServerError, Options<DeleteMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
+};
+
+export const getMcpServerQueryKey = (options: Options<GetMcpServerData>) => createQueryKey('getMcpServer', options);
+
+/**
+ * Read one MCP server with secrets redacted; requires MCP_MANAGE
+ */
+export const getMcpServerOptions = (options: Options<GetMcpServerData>) => queryOptions<GetMcpServerResponse, GetMcpServerError, GetMcpServerResponse, ReturnType<typeof getMcpServerQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMcpServer({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMcpServerQueryKey(options)
+});
+
+/**
+ * Replace server settings at the expected revision; changing URL, authentication type or performer removes stored credentials
+ */
+export const updateMcpServerMutation = (options?: Partial<Options<UpdateMcpServerData>>): UseMutationOptions<UpdateMcpServerResponse, UpdateMcpServerError, Options<UpdateMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<UpdateMcpServerResponse, UpdateMcpServerError, Options<UpdateMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Enable or disable one tool at the expected revision
+ */
+export const setMcpServerToolEnabledMutation = (options?: Partial<Options<SetMcpServerToolEnabledData>>): UseMutationOptions<SetMcpServerToolEnabledResponse, SetMcpServerToolEnabledError, Options<SetMcpServerToolEnabledData>> => {
+    const mutationOptions: UseMutationOptions<SetMcpServerToolEnabledResponse, SetMcpServerToolEnabledError, Options<SetMcpServerToolEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMcpServerToolEnabled({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Enable every exposable tool or disable every tool
+ */
+export const setAllMcpServerToolsEnabledMutation = (options?: Partial<Options<SetAllMcpServerToolsEnabledData>>): UseMutationOptions<SetAllMcpServerToolsEnabledResponse, SetAllMcpServerToolsEnabledError, Options<SetAllMcpServerToolsEnabledData>> => {
+    const mutationOptions: UseMutationOptions<SetAllMcpServerToolsEnabledResponse, SetAllMcpServerToolsEnabledError, Options<SetAllMcpServerToolsEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setAllMcpServerToolsEnabled({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -159,39 +278,6 @@ export const renameChatSessionMutation = (options?: Partial<Options<RenameChatSe
         }
     };
     return mutationOptions;
-};
-
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
 };
 
 export const getChatSharingQueryKey = (options: Options<GetChatSharingData>) => createQueryKey('getChatSharing', options);
@@ -904,6 +990,58 @@ export const searchDocumentsMutation = (options?: Partial<Options<SearchDocument
     const mutationOptions: UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await searchDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMcpServersQueryKey = (options?: Options<ListMcpServersData>) => createQueryKey('listMcpServers', options);
+
+/**
+ * List Tenant MCP servers with secrets redacted; requires MCP_MANAGE
+ */
+export const listMcpServersOptions = (options?: Options<ListMcpServersData>) => queryOptions<ListMcpServersResponse, ListMcpServersError, ListMcpServersResponse, ReturnType<typeof listMcpServersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpServers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpServersQueryKey(options)
+});
+
+/**
+ * Register a remote Streamable HTTP MCP server; requires MCP_MANAGE
+ */
+export const createMcpServerMutation = (options?: Partial<Options<CreateMcpServerData>>): UseMutationOptions<CreateMcpServerResponse, CreateMcpServerError, Options<CreateMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<CreateMcpServerResponse, CreateMcpServerError, Options<CreateMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Explicitly list tools from the server with the administrator credential and replace the snapshot
+ */
+export const refreshMcpServerToolsMutation = (options?: Partial<Options<RefreshMcpServerToolsData>>): UseMutationOptions<RefreshMcpServerToolsResponse, RefreshMcpServerToolsError, Options<RefreshMcpServerToolsData>> => {
+    const mutationOptions: UseMutationOptions<RefreshMcpServerToolsResponse, RefreshMcpServerToolsError, Options<RefreshMcpServerToolsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await refreshMcpServerTools({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -2471,6 +2609,72 @@ export const readSearchDocumentOriginalOptions = (options: Options<ReadSearchDoc
     },
     queryKey: readSearchDocumentOriginalQueryKey(options)
 });
+
+export const listMcpServerToolsQueryKey = (options: Options<ListMcpServerToolsData>) => createQueryKey('listMcpServerTools', options);
+
+/**
+ * List the stored tool snapshot; requires MCP_MANAGE
+ */
+export const listMcpServerToolsOptions = (options: Options<ListMcpServerToolsData>) => queryOptions<ListMcpServerToolsResponse, ListMcpServerToolsError, ListMcpServerToolsResponse, ReturnType<typeof listMcpServerToolsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpServerTools({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpServerToolsQueryKey(options)
+});
+
+export const listMcpGroupOptionsQueryKey = (options?: Options<ListMcpGroupOptionsData>) => createQueryKey('listMcpGroupOptions', options);
+
+/**
+ * List Groups available for MCP server access; requires MCP_MANAGE
+ */
+export const listMcpGroupOptionsOptions = (options?: Options<ListMcpGroupOptionsData>) => queryOptions<ListMcpGroupOptionsResponse, ListMcpGroupOptionsError, ListMcpGroupOptionsResponse, ReturnType<typeof listMcpGroupOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpGroupOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpGroupOptionsQueryKey(options)
+});
+
+export const listMcpGroupOptionsInfiniteQueryKey = (options?: Options<ListMcpGroupOptionsData>): QueryKey<Options<ListMcpGroupOptionsData>> => createQueryKey('listMcpGroupOptions', options, true);
+
+/**
+ * List Groups available for MCP server access; requires MCP_MANAGE
+ */
+export const listMcpGroupOptionsInfiniteOptions = (options?: Options<ListMcpGroupOptionsData>) => {
+    const opts = infiniteQueryOptions<ListMcpGroupOptionsResponse, ListMcpGroupOptionsError, InfiniteData<ListMcpGroupOptionsResponse>, QueryKey<Options<ListMcpGroupOptionsData>>, number | Pick<QueryKey<Options<ListMcpGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListMcpGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listMcpGroupOptions({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listMcpGroupOptionsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
 
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);
 

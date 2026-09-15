@@ -26,12 +26,23 @@ Evidence: [verification.md](verification.md).
 ## Phase 2 — administration
 
 - [ ] Create `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` in the Infisical dev and staging environments before the first admin secret write; without it writes fail with `MCP_NOT_CONFIGURED`.
-- [ ] Server CRUD: auth type (`NONE`, `API_TOKEN`, `OAUTH`), performer, header template, tenant-wide flag, Groups.
-- [ ] OAuth setup: `KNOWN_PROVIDER`; discovery (RFC 9728/8414) with admin review and persisted endpoints; CIMD document route; DCR for authorization servers without CIMD.
-- [ ] Admin credentials: shared API token, admin OAuth connect.
-- [ ] Tool refresh (status, `last_refreshed_at`), enablement, name and collision rules.
-- [ ] `/api/mcp/...` controllers, OpenAPI (`MEMORYOS_OPENAPI_WRITE=true`), `pnpm generate:api`.
-- [ ] Integration tests: in-process MCP server, stub authorization server (discovery, CIMD, DCR, `iss`).
+
+### 2a — servers, API-key credentials, tools
+
+- [x] Server CRUD: auth type (`NONE`, `API_TOKEN`, `OAUTH`), performer, sealed header template (`{api_key}` only), organization-wide or Groups, immutable slug, revision fencing. Changing URL, auth type or performer removes stored credentials; a URL change also removes the tool snapshot.
+- [x] Shared API key for `API_TOKEN` + `ADMIN`, sealed per credential row; responses expose header names and `sharedCredentialConfigured` only.
+- [x] Tool refresh with the administrator credential outside transactions (status, `last_refreshed_at`), typed snapshot bounds, enablement per tool and for all. Model name `mcp_<slug>_<tool>` must fit `[A-Za-z0-9_.-]{1,64}`; slugs have no `_`, so composed names cannot collide.
+- [x] `/api/mcp/...` controller, OpenAPI (`MEMORYOS_OPENAPI_WRITE=true`), `pnpm generate:api`.
+- [x] Tests: `McpServerRulesTest`; API integration in the shared `ChatSessionApiIntegrationTest` context against an in-process MCP server.
+- Refresh for `OAUTH` servers needs 2b; refresh for `PER_USER` servers needs the administrator's own credential from Phase 3.
+
+Evidence: [verification.md](verification.md#phase-2a--2026-09-16).
+
+### 2b — OAuth setup
+
+- [ ] `KNOWN_PROVIDER` endpoints; discovery (RFC 9728/8414) with admin review and persisted endpoints; CIMD document route; DCR for authorization servers without CIMD.
+- [ ] Admin OAuth connect, `iss` validation; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
+- [ ] Integration tests: stub authorization server (discovery, CIMD, DCR, `iss`).
 
 ## Phase 3 — User credentials
 

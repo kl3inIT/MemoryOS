@@ -75,6 +75,96 @@ export type GoogleDriveSelectionReceiptResponse = {
     operation: SourceOperation;
 };
 
+/**
+ * Header values may contain secrets and are never returned; API-key servers place {api_key}
+ */
+export type McpHeaderTemplateChange = {
+    action: 'KEEP' | 'REPLACE' | 'REMOVE';
+    values?: {
+        [key: string]: string;
+    } | null;
+};
+
+export type McpSecretChange = {
+    action: 'KEEP' | 'REPLACE' | 'REMOVE';
+    value?: string | null;
+};
+
+export type McpServerInput = {
+    /**
+     * Immutable; model-facing tool names are mcp_<slug>_<tool>
+     */
+    slug: string;
+    name: string;
+    description?: string | null;
+    /**
+     * Streamable HTTP endpoint
+     */
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    oauthProviderMode?: 'AUTO_DISCOVERY' | 'KNOWN_PROVIDER';
+    oauthScopes: Array<string>;
+    oauthAdditionalParameters: {
+        [key: string]: string;
+    };
+    headers: McpHeaderTemplateChange;
+    sharedApiKey: McpSecretChange;
+    tenantWide: boolean;
+    groupIds: Array<string>;
+};
+
+/**
+ * Header values and credentials are never returned
+ */
+export type McpServerView = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    oauthProviderMode: 'AUTO_DISCOVERY' | 'KNOWN_PROVIDER';
+    oauthScopes: Array<string>;
+    oauthAdditionalParameters: {
+        [key: string]: string;
+    };
+    headerNames: Array<string>;
+    sharedCredentialConfigured: boolean;
+    tenantWide: boolean;
+    groupIds: Array<string>;
+    status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
+    lastRefreshedAt: string | null;
+    toolCount: number;
+    enabledToolCount: number;
+    revision: number;
+};
+
+export type McpToolEnablement = {
+    enabled: boolean;
+};
+
+/**
+ * Annotation hints come from the server and are not enforced guarantees
+ */
+export type McpToolView = {
+    id: string;
+    name: string;
+    /**
+     * Empty when the tool is not exposable
+     */
+    modelName: string;
+    title: string | null;
+    description: string;
+    readOnlyHint: boolean | null;
+    destructiveHint: boolean | null;
+    enabled: boolean;
+    exposable: boolean;
+    snapshotAt: string;
+    revision: number;
+};
+
 export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
@@ -548,6 +638,11 @@ export type SourceTypeFacet = {
     count: number;
 };
 
+export type McpToolRefresh = {
+    server: McpServerView;
+    tools: Array<McpToolView>;
+};
+
 export type CreateInvitationRequest = {
     email: string;
 };
@@ -956,6 +1051,20 @@ export type SearchDocument = {
     hasMore: boolean;
 };
 
+export type ChatGroupOption = {
+    id: string;
+    name: string;
+    systemKey: string | null;
+};
+
+export type ChatGroupPage = {
+    items: Array<ChatGroupOption>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
 export type InvitationPage = {
     items: Array<Invitation>;
     page: number;
@@ -1324,20 +1433,6 @@ export type ImageAvailabilityResponse = {
     model?: string;
 };
 
-export type ChatGroupOption = {
-    id: string;
-    name: string;
-    systemKey: string | null;
-};
-
-export type ChatGroupPage = {
-    items: Array<ChatGroupOption>;
-    page: number;
-    size: number;
-    totalItems: number;
-    totalPages: number;
-};
-
 export type ChatFileTextResponse = {
     text?: string;
     offset?: number;
@@ -1441,6 +1536,272 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type DeleteMcpServerData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type DeleteMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteMcpServerError = DeleteMcpServerErrors[keyof DeleteMcpServerErrors];
+
+export type DeleteMcpServerResponses = {
+    /**
+     * MCP server deleted with its tools and credentials
+     */
+    204: void;
+};
+
+export type DeleteMcpServerResponse = DeleteMcpServerResponses[keyof DeleteMcpServerResponses];
+
+export type GetMcpServerData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type GetMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpServerError = GetMcpServerErrors[keyof GetMcpServerErrors];
+
+export type GetMcpServerResponses = {
+    /**
+     * MCP server
+     */
+    200: McpServerView;
+};
+
+export type GetMcpServerResponse = GetMcpServerResponses[keyof GetMcpServerResponses];
+
+export type UpdateMcpServerData = {
+    body: McpServerInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type UpdateMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpServerError = UpdateMcpServerErrors[keyof UpdateMcpServerErrors];
+
+export type UpdateMcpServerResponses = {
+    /**
+     * Saved MCP server
+     */
+    200: McpServerView;
+};
+
+export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
+
+export type SetMcpServerToolEnabledData = {
+    body: McpToolEnablement;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        toolId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/enabled';
+};
+
+export type SetMcpServerToolEnabledErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolEnabledError = SetMcpServerToolEnabledErrors[keyof SetMcpServerToolEnabledErrors];
+
+export type SetMcpServerToolEnabledResponses = {
+    /**
+     * Saved tool
+     */
+    200: McpToolView;
+};
+
+export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
+
+export type SetAllMcpServerToolsEnabledData = {
+    body: McpToolEnablement;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/enabled';
+};
+
+export type SetAllMcpServerToolsEnabledErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetAllMcpServerToolsEnabledError = SetAllMcpServerToolsEnabledErrors[keyof SetAllMcpServerToolsEnabledErrors];
+
+export type SetAllMcpServerToolsEnabledResponses = {
+    /**
+     * Saved tools
+     */
+    200: Array<McpToolView>;
+};
+
+export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
@@ -3410,6 +3771,155 @@ export type SearchDocumentsResponses = {
 };
 
 export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
+
+export type ListMcpServersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/servers';
+};
+
+export type ListMcpServersErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServersError = ListMcpServersErrors[keyof ListMcpServersErrors];
+
+export type ListMcpServersResponses = {
+    /**
+     * Tenant MCP servers
+     */
+    200: Array<McpServerView>;
+};
+
+export type ListMcpServersResponse = ListMcpServersResponses[keyof ListMcpServersResponses];
+
+export type CreateMcpServerData = {
+    body: McpServerInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/mcp/servers';
+};
+
+export type CreateMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateMcpServerError = CreateMcpServerErrors[keyof CreateMcpServerErrors];
+
+export type CreateMcpServerResponses = {
+    /**
+     * Created
+     */
+    201: McpServerView;
+};
+
+export type CreateMcpServerResponse = CreateMcpServerResponses[keyof CreateMcpServerResponses];
+
+export type RefreshMcpServerToolsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/refresh';
+};
+
+export type RefreshMcpServerToolsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RefreshMcpServerToolsError = RefreshMcpServerToolsErrors[keyof RefreshMcpServerToolsErrors];
+
+export type RefreshMcpServerToolsResponses = {
+    /**
+     * Refreshed tool snapshot
+     */
+    200: McpToolRefresh;
+};
+
+export type RefreshMcpServerToolsResponse = RefreshMcpServerToolsResponses[keyof RefreshMcpServerToolsResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -5506,6 +6016,102 @@ export type ReadSearchDocumentOriginalResponses = {
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
+export type ListMcpServerToolsData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools';
+};
+
+export type ListMcpServerToolsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServerToolsError = ListMcpServerToolsErrors[keyof ListMcpServerToolsErrors];
+
+export type ListMcpServerToolsResponses = {
+    /**
+     * Tool snapshot
+     */
+    200: Array<McpToolView>;
+};
+
+export type ListMcpServerToolsResponse = ListMcpServerToolsResponses[keyof ListMcpServerToolsResponses];
+
+export type ListMcpGroupOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/mcp/group-options';
+};
+
+export type ListMcpGroupOptionsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpGroupOptionsError = ListMcpGroupOptionsErrors[keyof ListMcpGroupOptionsErrors];
+
+export type ListMcpGroupOptionsResponses = {
+    /**
+     * Groups available for MCP server access
+     */
+    200: ChatGroupPage;
+};
+
+export type ListMcpGroupOptionsResponse = ListMcpGroupOptionsResponses[keyof ListMcpGroupOptionsResponses];
 
 export type GetCurrentInvitationData = {
     body?: never;

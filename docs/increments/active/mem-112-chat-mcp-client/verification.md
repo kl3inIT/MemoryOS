@@ -24,4 +24,19 @@ Repository gate on commit `e46c6c8d`, on a host with 14 GB RAM and 1.5–3 GB fr
   - 81 of 94 core suites reported, with no failures. The 13 that never ran were the remaining `objectstorage` and `retrieval` suites.
 - **Rerun:** `gradlew :core:test --max-workers=1 --tests 'io.memoryos.mcp.*' --tests 'io.memoryos.objectstorage.*' --tests 'io.memoryos.retrieval.*'` passed 18 suites and 95 tests, with 0 failures and 1 opt-in measurement skipped. The heap error did not reproduce.
 
-Every Gradle test suite has therefore passed, but across two runs rather than one uninterrupted `clean check`. CI remains the single-run gate. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.
+Every Gradle test suite has therefore passed, but across two runs rather than one uninterrupted `clean check`. CI remains the single-run gate.
+
+## Phase 2a — 2026-09-16
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Server rules | `gradlew :core:test --tests io.memoryos.mcp.McpServerRulesTest` | 7 tests passed: slug, header template (`{api_key}` only on API-key servers, reserved and duplicate headers), default bearer header and key substitution, OAuth scope/parameter rules, model tool-name limits, snapshot bounds and hints, fail-closed stored JSON |
+| Module boundaries | `ModulithArchitectureTest`, `CoreDependencyRulesTest` | 3 tests passed |
+| IAM effective authorization | `gradlew :core:test --tests 'io.memoryos.iam.group.*'` | 41 tests passed |
+| Administration API | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` (shared context, in-process Streamable HTTP server requiring the resolved headers) | Passed: `MCP_MANAGE` required; key and static header value sealed (`v1:`) and absent from responses and request `toString`; duplicate slug 409; refresh lists tools with the sealed key and template, status `CONNECTED`; over-long composed tool name refused at enablement; stale revision 409 `MCP_CONFLICT`; URL change removes credentials and tools (`AWAITING_AUTH`); userinfo URL 400; delete then 404. The catalog test in the same class still passes |
+| OpenAPI contract | `MEMORYOS_OPENAPI_WRITE=true gradlew :api:test --tests io.memoryos.api.OpenApiContractTest` | Passed with seven `/api/mcp` paths; the other diff is operation reordering only (no operation removed) |
+| Web client | `pnpm generate:api`, `tsc -b --noEmit`, `oxlint --deny-warnings` and `oxfmt --check` on changed files, `vitest run src/features/groups src/i18n/app-translation.test.tsx` | Generated; typecheck, lint and format clean; 9 tests passed |
+
+Phase 1 defect found by the API test: the effective-capability SQL in `IamAuthorizationRepository` and `GroupProjectionRepository` listed ordinary grants explicitly without `MCP_MANAGE`, so a granted Group did not authorize. Both lists now include it; the API test is the regression.
+
+Not run for 2a: `gradlew clean check` and the full web `pnpm check`. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.

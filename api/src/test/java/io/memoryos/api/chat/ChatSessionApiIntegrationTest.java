@@ -132,6 +132,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
         "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "memoryos.mcp.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.chat.stream.heartbeat=100ms",
         "springdoc.api-docs.enabled=true",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
@@ -1560,13 +1561,118 @@ class ChatSessionApiIntegrationTest {
     }
 
     private void grantModelManagement() {
+        grantCapability("MODELS_MANAGE");
+    }
+
+    private UUID grantCapability(String capability) {
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
                 .param("tenant", TENANT).param("id", group).param("name", group.toString()).update();
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
                 .param("tenant", TENANT).param("group", group).param("actor", actor.getPrincipal().actorId().value()).update();
-        jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:group,'MODELS_MANAGE')")
-                .param("tenant", TENANT).param("group", group).update();
+        jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:group,:capability)")
+                .param("tenant", TENANT).param("group", group).param("capability", capability).update();
+        return group;
+    }
+
+    @Test
+    void mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions() throws Exception {
+        mockMvc.perform(get("/api/mcp/servers").with(authentication(actor))).andExpect(status().isForbidden());
+        UUID group = grantCapability("MCP_MANAGE");
+        var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
+        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+            var body = mcpServerBody("fixture" + (System.nanoTime() % 100000), fixture.url());
+            assertFalse(Json.mapper().readValue(body.toString(), io.memoryos.api.mcp.contract.McpServerRequest.class)
+                    .toString().contains("fixture-mcp-key"));
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String id = created.path("id").asText();
+            String server = "/api/mcp/servers/" + id;
+            assertTrue(created.path("sharedCredentialConfigured").asBoolean());
+            assertEquals("CREATED", created.path("status").asText());
+            assertEquals("[\"Authorization\",\"X-Fixture\"]", created.path("headerNames").toString());
+            assertFalse(created.toString().contains("fixture-mcp-key"));
+            assertFalse(created.toString().contains("static-header-secret"));
+            String payload = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id IS NULL")
+                    .param("id", UUID.fromString(id)).query(String.class).single();
+            String template = jdbc.sql("SELECT header_template FROM mcp_server WHERE id=:id")
+                    .param("id", UUID.fromString(id)).query(String.class).single();
+            assertTrue(payload.startsWith("v1:") && !payload.contains("fixture-mcp-key"));
+            assertTrue(template.startsWith("v1:") && !template.contains("static-header-secret"));
+
+            mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isConflict());
+            mockMvc.perform(get("/api/mcp/servers").with(authentication(other))).andExpect(status().isForbidden());
+
+            var refreshed = Json.mapper().readTree(mockMvc.perform(post(server + "/tools/refresh").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("CONNECTED", refreshed.path("server").path("status").asText());
+            assertEquals(2, refreshed.path("server").path("toolCount").asLong());
+            JsonNode search = null;
+            JsonNode tooLong = null;
+            for (var tool : refreshed.path("tools")) {
+                if ("search_files".equals(tool.path("name").asText())) search = tool;
+                if (io.memoryos.api.mcp.McpFixtureServer.LONG_TOOL_NAME.equals(tool.path("name").asText())) tooLong = tool;
+            }
+            assertTrue(search != null && tooLong != null, refreshed.toString());
+            assertTrue(search.path("exposable").asBoolean());
+            assertTrue(search.path("readOnlyHint").asBoolean());
+            assertFalse(search.path("enabled").asBoolean());
+            assertFalse(tooLong.path("exposable").asBoolean());
+            mockMvc.perform(put(server + "/tools/" + tooLong.path("id").asText() + "/enabled").param("revision", tooLong.path("revision").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"enabled\":true}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MCP_TOOL_NAME_UNSUPPORTED"));
+            mockMvc.perform(put(server + "/tools/" + search.path("id").asText() + "/enabled").param("revision", search.path("revision").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"enabled\":true}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.enabled").value(true)).andExpect(jsonPath("$.modelName").value("mcp_" + created.path("slug").asText() + "_search_files"));
+
+            long revision = refreshed.path("server").path("revision").asLong();
+            var keep = mcpServerBody(created.path("slug").asText(), fixture.url());
+            keep.putObject("headers").put("action", "KEEP");
+            keep.putObject("sharedApiKey").put("action", "KEEP");
+            keep.put("tenantWide", false).putArray("groupIds").add(group.toString());
+            var updated = Json.mapper().readTree(mockMvc.perform(put(server).param("revision", Long.toString(revision)).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(keep.toString()))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertTrue(updated.path("sharedCredentialConfigured").asBoolean());
+            assertEquals("CONNECTED", updated.path("status").asText());
+            assertEquals(1, updated.path("enabledToolCount").asLong());
+            mockMvc.perform(put(server).param("revision", Long.toString(revision)).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(keep.toString()))
+                    .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MCP_CONFLICT"));
+
+            keep.put("url", "http://mcp.internal:8080/mcp");
+            var moved = Json.mapper().readTree(mockMvc.perform(put(server).param("revision", updated.path("revision").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(keep.toString())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertFalse(moved.path("sharedCredentialConfigured").asBoolean());
+            assertEquals("AWAITING_AUTH", moved.path("status").asText());
+            assertEquals(0, moved.path("toolCount").asLong());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", UUID.fromString(id)).query(Long.class).single());
+
+            var invalid = mcpServerBody("bad", "https://user:secret@host/mcp");
+            var failed = mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(invalid.toString())).andExpect(status().isBadRequest()).andReturn();
+            assertFalse(failed.getResponse().getContentAsString().contains("fixture-mcp-key"));
+
+            mockMvc.perform(delete(server).param("revision", moved.path("revision").asText()).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            mockMvc.perform(get(server).with(authentication(actor))).andExpect(status().isNotFound());
+        }
+    }
+
+    private ObjectNode mcpServerBody(String slug, String url) {
+        var body = Json.mapper().createObjectNode().put("slug", slug).put("name", "Fixture " + slug).put("url", url)
+                .put("authType", "API_TOKEN").put("authPerformer", "ADMIN").put("tenantWide", true);
+        body.putArray("oauthScopes");
+        body.putObject("oauthAdditionalParameters");
+        body.putArray("groupIds");
+        body.putObject("headers").put("action", "REPLACE").putObject("values")
+                .put("Authorization", "Bearer {api_key}").put("X-Fixture", "static-header-secret");
+        body.putObject("sharedApiKey").put("action", "REPLACE").put("value", "fixture-mcp-key");
+        return body;
     }
 
     @Test

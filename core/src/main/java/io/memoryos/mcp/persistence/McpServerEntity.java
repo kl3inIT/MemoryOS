@@ -77,6 +77,11 @@ public class McpServerEntity implements Persistable<UUID> {
         updatedAt = now;
     }
 
+    /** A changed endpoint invalidates the previous tool snapshot and its refresh time. */
+    public void reconnect(McpServerStatus status, Instant now) {
+        this.status = status; lastRefreshedAt = null; updatedAt = now;
+    }
+
     @Override public UUID getId() { return id; }
     @Override public boolean isNew() { return fresh; }
     @PostLoad @PostPersist void persisted() { fresh = false; }

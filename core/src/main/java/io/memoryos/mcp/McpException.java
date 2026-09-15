@@ -13,6 +13,38 @@ public final class McpException extends BusinessException {
         super(code, category, message, message, cause);
     }
 
+    public static McpException invalid(String message) {
+        return new McpException("MCP_INVALID", FailureCategory.VALIDATION, message);
+    }
+
+    public static McpException notFound() {
+        return new McpException("MCP_NOT_FOUND", FailureCategory.NOT_FOUND, "The MCP server or tool is not accessible.");
+    }
+
+    public static McpException conflict() {
+        return new McpException("MCP_CONFLICT", FailureCategory.CONFLICT,
+                "The MCP server changed. Reload it and try again.");
+    }
+
+    public static McpException slugTaken() {
+        return new McpException("MCP_SLUG_TAKEN", FailureCategory.CONFLICT,
+                "Another MCP server in this organization already uses this slug.");
+    }
+
+    public static McpException credentialRequired() {
+        return new McpException("MCP_CREDENTIAL_REQUIRED", FailureCategory.CONFLICT,
+                "Configure an administrator credential for this server before refreshing its tools.");
+    }
+
+    public static McpException toolSnapshotInvalid(String message) {
+        return new McpException("MCP_TOOL_SNAPSHOT_INVALID", FailureCategory.VALIDATION, message);
+    }
+
+    public static McpException toolNameUnsupported() {
+        return new McpException("MCP_TOOL_NAME_UNSUPPORTED", FailureCategory.VALIDATION,
+                "This tool's name cannot be exposed to the model.");
+    }
+
     public static McpException notConfigured() {
         return new McpException("MCP_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
                 "MCP credentials are not configured. Contact the deployment owner.");
