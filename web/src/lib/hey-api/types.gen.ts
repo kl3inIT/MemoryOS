@@ -4,6 +4,79 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type ReplaceSharePointScopeRequest = {
+    requestId: string;
+    /**
+     * Credential revision the scope was reviewed against
+     */
+    expectedCredentialRevision: number;
+    scope: SharePointScopeRequest;
+};
+
+export type SharePointScopeRequest = {
+    scopeMode: 'ALL_SITES' | 'SPECIFIC';
+    /**
+     * Site, library or folder addresses; sharing links are accepted
+     */
+    siteUrls?: Array<string>;
+    excludedSites?: Array<string>;
+    excludedPaths?: Array<string>;
+    includeDocuments: boolean;
+    includePages: boolean;
+    syncIntervalMinutes: number;
+    /**
+     * Hours between prune runs; 0 disables pruning
+     */
+    pruneIntervalHours?: number;
+};
+
+export type SharePointSelectionReceiptResponse = {
+    sourceId: string;
+    operation: SourceOperation;
+};
+
+export type SourceOperation = {
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
+export type UpdateSharePointScheduleRequest = {
+    syncIntervalMinutes: number;
+    /**
+     * 0 disables pruning
+     */
+    pruneIntervalHours: number;
+};
+
+export type SharePointConfigurationResponse = {
+    sourceId: string;
+    credentialId: string;
+    credentialName: string;
+    credentialStatus: string;
+    credentialRevision: number;
+    scopeRevision: number;
+    scopeMode: 'ALL_SITES' | 'SPECIFIC';
+    rootCount: number;
+    excludedSites: Array<string>;
+    excludedPaths: Array<string>;
+    includeDocuments: boolean;
+    includePages: boolean;
+    syncIntervalMinutes: number;
+    pruneIntervalHours: number;
+    scheduleRevision: number;
+    syncPaused: boolean;
+    tenantHost?: string;
+    lastSyncedAt?: string;
+    lastPrunedAt?: string;
+    pendingWork: boolean;
+    errorCode?: string;
+    pendingSelectionOperation?: SourceOperation;
+};
+
 export type UpdateGoogleDriveScheduleRequest = {
     syncIntervalMinutes: number;
 };
@@ -41,15 +114,6 @@ export type GoogleDriveSelectionCountsResponse = {
     files: number;
     linkedDocuments: number;
     approvedLinkedDocuments: number;
-};
-
-export type SourceOperation = {
-    id: string;
-    type: string;
-    status: string;
-    createdAt: string;
-    completedAt: string | null;
-    errorCode: string | null;
 };
 
 export type ReplaceGoogleDriveRootsRequest = {
@@ -461,6 +525,11 @@ export type SourceUploadReceipt = {
     operation: SourceOperation;
 };
 
+export type UpdateSharePointPauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
 export type RenameSourceRequest = {
     name: string;
 };
@@ -517,6 +586,18 @@ export type UpdateSourceAccessRequest = {
     access: 'PUBLIC' | 'RESTRICTED';
 };
 
+export type CreateSharePointSourceRequest = {
+    /**
+     * Identifies the request so a retry recovers its receipt
+     */
+    requestId: string;
+    name: string;
+    credentialId: string;
+    scope: SharePointScopeRequest;
+    access: 'PUBLIC' | 'RESTRICTED';
+    groupIds?: Array<string>;
+};
+
 export type CreateGoogleDriveSourceRequest = {
     requestId: string;
     name: string;
@@ -550,7 +631,7 @@ export type SearchRequest = {
     updatedSince?: string;
     page?: number;
     pageSize?: number;
-    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
 };
 
 export type ChunkProvenance = {
@@ -566,7 +647,7 @@ export type Result = {
     updatedAt: string;
     score: number;
     sections: Array<Section>;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
     authors: Array<string>;
     providerUrl: string | null;
 };
@@ -607,7 +688,7 @@ export type SourceFacets = {
 };
 
 export type SourceTypeFacet = {
-    type: 'FILE' | 'GOOGLE_DRIVE';
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
     count: number;
 };
 
@@ -855,6 +936,20 @@ export type UserPage = {
     counts: UserCounts;
 };
 
+export type SharePointRoot = {
+    url: string;
+    kind: 'SITE' | 'LIBRARY' | 'FOLDER';
+    displayName?: string;
+    verified: boolean;
+};
+
+export type SharePointRootPageResponse = {
+    scopeRevision: number;
+    roots: Array<SharePointRoot>;
+    nextCursor?: string;
+    total: number;
+};
+
 export type SourceRun = {
     id: string;
     sourceId: string;
@@ -992,6 +1087,12 @@ export type GoogleDriveSelectionDraftResponse = {
     credentialRevision: number;
     links: Array<string>;
     linkedDocumentIds: Array<string>;
+};
+
+export type SharePointSelectionPolicyResponse = {
+    maxRootsPerSource: number;
+    maxExclusionsPerKind: number;
+    maxRequestBytes: number;
 };
 
 export type SourceGroupPage = {
@@ -1212,7 +1313,7 @@ export type ChatSource = {
     fileLocation?: FileLocation;
     web?: WebLocation;
     mediaType?: string;
-    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    sourceTypes: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
     providerUrl?: string;
 };
 
@@ -1254,7 +1355,7 @@ export type ReasoningSegment = {
 };
 
 export type SearchFilters = {
-    sources?: Array<'FILE' | 'GOOGLE_DRIVE'>;
+    sources?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
     created?: Interval;
     updated?: Interval;
 };
@@ -1377,7 +1478,7 @@ export type AvailableModel = {
 export type SourceOption = {
     id?: string;
     name?: string;
-    type?: 'FILE' | 'GOOGLE_DRIVE';
+    type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
 };
 
 export type ChatPersona = {
@@ -1463,6 +1564,106 @@ export type ApiProblem = {
         };
     }>;
 };
+
+export type ReplaceSharePointScopeData = {
+    body: ReplaceSharePointScopeRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/scope';
+};
+
+export type ReplaceSharePointScopeErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceSharePointScopeError = ReplaceSharePointScopeErrors[keyof ReplaceSharePointScopeErrors];
+
+export type ReplaceSharePointScopeResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: SharePointSelectionReceiptResponse;
+};
+
+export type ReplaceSharePointScopeResponse = ReplaceSharePointScopeResponses[keyof ReplaceSharePointScopeResponses];
+
+export type UpdateSharePointScheduleData = {
+    body: UpdateSharePointScheduleRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/schedule';
+};
+
+export type UpdateSharePointScheduleErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateSharePointScheduleError = UpdateSharePointScheduleErrors[keyof UpdateSharePointScheduleErrors];
+
+export type UpdateSharePointScheduleResponses = {
+    /**
+     * Updated SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type UpdateSharePointScheduleResponse = UpdateSharePointScheduleResponses[keyof UpdateSharePointScheduleResponses];
 
 export type UpdateGoogleDriveScheduleData = {
     body: UpdateGoogleDriveScheduleRequest;
@@ -3342,6 +3543,104 @@ export type FinalizeSourceUploadResponses = {
 
 export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
+export type SynchronizeSharePointSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/sync';
+};
+
+export type SynchronizeSharePointSourceErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type SynchronizeSharePointSourceError = SynchronizeSharePointSourceErrors[keyof SynchronizeSharePointSourceErrors];
+
+export type SynchronizeSharePointSourceResponses = {
+    /**
+     * Run scheduled
+     */
+    202: SourceOperation;
+};
+
+export type SynchronizeSharePointSourceResponse = SynchronizeSharePointSourceResponses[keyof SynchronizeSharePointSourceResponses];
+
+export type UpdateSharePointPauseData = {
+    body: UpdateSharePointPauseRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/pause';
+};
+
+export type UpdateSharePointPauseErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateSharePointPauseError = UpdateSharePointPauseErrors[keyof UpdateSharePointPauseErrors];
+
+export type UpdateSharePointPauseResponses = {
+    /**
+     * Updated SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type UpdateSharePointPauseResponse = UpdateSharePointPauseResponses[keyof UpdateSharePointPauseResponses];
+
 export type RenameSourceData = {
     body: RenameSourceRequest;
     headers: {
@@ -3602,6 +3901,53 @@ export type UpdateSourceAccessResponses = {
 };
 
 export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof UpdateSourceAccessResponses];
+
+export type CreateSharePointSourceData = {
+    body: CreateSharePointSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/sources/sharepoint';
+};
+
+export type CreateSharePointSourceErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateSharePointSourceError = CreateSharePointSourceErrors[keyof CreateSharePointSourceErrors];
+
+export type CreateSharePointSourceResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: SharePointSelectionReceiptResponse;
+};
+
+export type CreateSharePointSourceResponse = CreateSharePointSourceResponses[keyof CreateSharePointSourceResponses];
 
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
@@ -5620,6 +5966,95 @@ export type GetSourceResponses = {
 
 export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
 
+export type GetSharePointConfigurationData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint';
+};
+
+export type GetSharePointConfigurationErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointConfigurationError = GetSharePointConfigurationErrors[keyof GetSharePointConfigurationErrors];
+
+export type GetSharePointConfigurationResponses = {
+    /**
+     * SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type GetSharePointConfigurationResponse = GetSharePointConfigurationResponses[keyof GetSharePointConfigurationResponses];
+
+export type GetSharePointRootsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/sharepoint/roots';
+};
+
+export type GetSharePointRootsErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointRootsError = GetSharePointRootsErrors[keyof GetSharePointRootsErrors];
+
+export type GetSharePointRootsResponses = {
+    /**
+     * SharePoint roots
+     */
+    200: SharePointRootPageResponse;
+};
+
+export type GetSharePointRootsResponse = GetSharePointRootsResponses[keyof GetSharePointRootsResponses];
+
 export type ListSourceRunsData = {
     body?: never;
     path: {
@@ -5808,6 +6243,90 @@ export type GetGoogleDriveSelectionDraftResponses = {
 };
 
 export type GetGoogleDriveSelectionDraftResponse = GetGoogleDriveSelectionDraftResponses[keyof GetGoogleDriveSelectionDraftResponses];
+
+export type GetSharePointSelectionRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/sources/sharepoint/selection-requests/{requestId}';
+};
+
+export type GetSharePointSelectionRequestErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointSelectionRequestError = GetSharePointSelectionRequestErrors[keyof GetSharePointSelectionRequestErrors];
+
+export type GetSharePointSelectionRequestResponses = {
+    /**
+     * SharePoint scope receipt
+     */
+    200: SharePointSelectionReceiptResponse;
+};
+
+export type GetSharePointSelectionRequestResponse = GetSharePointSelectionRequestResponses[keyof GetSharePointSelectionRequestResponses];
+
+export type GetSharePointSelectionPolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sources/sharepoint/selection-policy';
+};
+
+export type GetSharePointSelectionPolicyErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointSelectionPolicyError = GetSharePointSelectionPolicyErrors[keyof GetSharePointSelectionPolicyErrors];
+
+export type GetSharePointSelectionPolicyResponses = {
+    /**
+     * SharePoint selection policy
+     */
+    200: SharePointSelectionPolicyResponse;
+};
+
+export type GetSharePointSelectionPolicyResponse = GetSharePointSelectionPolicyResponses[keyof GetSharePointSelectionPolicyResponses];
 
 export type ListSourceGroupOptionsData = {
     body?: never;

@@ -3,8 +3,42 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, assignSourceManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatProject, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createProjectChatSession, createSharePointCredential, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatProject, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteSharePointCredential, deleteSource, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatModelDefault, getChatPersona, getChatProject, getChatSession, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSource, getSourceOperation, getSourceRun, initiateChatFileUpload, initiateSourceUpload, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaModels, listChatPersonas, listChatPersonaSources, listChatProjects, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listProjectChatSessions, listReportedProviderModels, listSharePointCredentials, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, regenerateChatMessage, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeGroupSource, removeSourceItem, renameChatSession, renameGroup, renameSharePointCredential, renameSource, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceSharePointCredentialAuthentication, replaceUserGroups, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatWebConnection, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setChatFeedback, setChatModelDefault, setChatSharing, setCurrentIdentityLanguage, setPersonaModel, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, testChatImageConnection, testChatWebConnection, testSharePointCredential, updateChatModel, updateChatPersona, updateChatProject, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, AssignSourceManagerData, AssignSourceManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, CreateSharePointCredentialData, CreateSharePointCredentialError, CreateSharePointCredentialResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteSharePointCredentialData, DeleteSharePointCredentialError, DeleteSharePointCredentialResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSharePointCredentialsData, ListSharePointCredentialsError, ListSharePointCredentialsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveGroupSourceData, RemoveGroupSourceResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSharePointCredentialData, RenameSharePointCredentialError, RenameSharePointCredentialResponse, RenameSourceData, RenameSourceResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationError, ReplaceSharePointCredentialAuthenticationResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, TestSharePointCredentialData, TestSharePointCredentialError, TestSharePointCredentialResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, assignSourceManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatProject, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createProjectChatSession, createSharePointCredential, createSharePointSource, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatProject, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteSharePointCredential, deleteSource, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatModelDefault, getChatPersona, getChatProject, getChatSession, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSharePointConfiguration, getSharePointRoots, getSharePointSelectionPolicy, getSharePointSelectionRequest, getSource, getSourceOperation, getSourceRun, initiateChatFileUpload, initiateSourceUpload, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaModels, listChatPersonas, listChatPersonaSources, listChatProjects, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listProjectChatSessions, listReportedProviderModels, listSharePointCredentials, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, regenerateChatMessage, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeGroupSource, removeSourceItem, renameChatSession, renameGroup, renameSharePointCredential, renameSource, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceSharePointCredentialAuthentication, replaceSharePointScope, replaceUserGroups, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatWebConnection, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setChatFeedback, setChatModelDefault, setChatSharing, setCurrentIdentityLanguage, setPersonaModel, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, synchronizeSharePointSource, testChatImageConnection, testChatWebConnection, testSharePointCredential, updateChatModel, updateChatPersona, updateChatProject, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateSharePointPause, updateSharePointSchedule, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, AssignSourceManagerData, AssignSourceManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, CreateSharePointCredentialData, CreateSharePointCredentialError, CreateSharePointCredentialResponse, CreateSharePointSourceData, CreateSharePointSourceError, CreateSharePointSourceResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteSharePointCredentialData, DeleteSharePointCredentialError, DeleteSharePointCredentialResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSharePointConfigurationData, GetSharePointConfigurationError, GetSharePointConfigurationResponse, GetSharePointRootsData, GetSharePointRootsError, GetSharePointRootsResponse, GetSharePointSelectionPolicyData, GetSharePointSelectionPolicyError, GetSharePointSelectionPolicyResponse, GetSharePointSelectionRequestData, GetSharePointSelectionRequestError, GetSharePointSelectionRequestResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSharePointCredentialsData, ListSharePointCredentialsError, ListSharePointCredentialsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveGroupSourceData, RemoveGroupSourceResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSharePointCredentialData, RenameSharePointCredentialError, RenameSharePointCredentialResponse, RenameSourceData, RenameSourceResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceSharePointCredentialAuthenticationData, ReplaceSharePointCredentialAuthenticationError, ReplaceSharePointCredentialAuthenticationResponse, ReplaceSharePointScopeData, ReplaceSharePointScopeError, ReplaceSharePointScopeResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, SynchronizeSharePointSourceData, SynchronizeSharePointSourceError, SynchronizeSharePointSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, TestSharePointCredentialData, TestSharePointCredentialError, TestSharePointCredentialResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateSharePointPauseData, UpdateSharePointPauseError, UpdateSharePointPauseResponse, UpdateSharePointScheduleData, UpdateSharePointScheduleError, UpdateSharePointScheduleResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
+
+/**
+ * Replace what a SharePoint source synchronizes; the new scope is verified before it applies
+ */
+export const replaceSharePointScopeMutation = (options?: Partial<Options<ReplaceSharePointScopeData>>): UseMutationOptions<ReplaceSharePointScopeResponse, ReplaceSharePointScopeError, Options<ReplaceSharePointScopeData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceSharePointScopeResponse, ReplaceSharePointScopeError, Options<ReplaceSharePointScopeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceSharePointScope({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update the automatic synchronization and prune intervals
+ */
+export const updateSharePointScheduleMutation = (options?: Partial<Options<UpdateSharePointScheduleData>>): UseMutationOptions<UpdateSharePointScheduleResponse, UpdateSharePointScheduleError, Options<UpdateSharePointScheduleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSharePointScheduleResponse, UpdateSharePointScheduleError, Options<UpdateSharePointScheduleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSharePointSchedule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Update the automatic Google Drive sync interval
@@ -744,6 +778,40 @@ export const finalizeSourceUploadMutation = (options?: Partial<Options<FinalizeS
 };
 
 /**
+ * Schedule a synchronization run now
+ */
+export const synchronizeSharePointSourceMutation = (options?: Partial<Options<SynchronizeSharePointSourceData>>): UseMutationOptions<SynchronizeSharePointSourceResponse, SynchronizeSharePointSourceError, Options<SynchronizeSharePointSourceData>> => {
+    const mutationOptions: UseMutationOptions<SynchronizeSharePointSourceResponse, SynchronizeSharePointSourceError, Options<SynchronizeSharePointSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await synchronizeSharePointSource({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Pause or resume future automatic synchronization
+ */
+export const updateSharePointPauseMutation = (options?: Partial<Options<UpdateSharePointPauseData>>): UseMutationOptions<UpdateSharePointPauseResponse, UpdateSharePointPauseError, Options<UpdateSharePointPauseData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSharePointPauseResponse, UpdateSharePointPauseError, Options<UpdateSharePointPauseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSharePointPause({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Rename one source
  */
 export const renameSourceMutation = (options?: Partial<Options<RenameSourceData>>): UseMutationOptions<RenameSourceResponse, DefaultError, Options<RenameSourceData>> => {
@@ -923,6 +991,23 @@ export const updateSourceAccessMutation = (options?: Partial<Options<UpdateSourc
     const mutationOptions: UseMutationOptions<UpdateSourceAccessResponse, DefaultError, Options<UpdateSourceAccessData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateSourceAccess({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create a SharePoint source; its scope is verified with Microsoft before it takes effect
+ */
+export const createSharePointSourceMutation = (options?: Partial<Options<CreateSharePointSourceData>>): UseMutationOptions<CreateSharePointSourceResponse, CreateSharePointSourceError, Options<CreateSharePointSourceData>> => {
+    const mutationOptions: UseMutationOptions<CreateSharePointSourceResponse, CreateSharePointSourceError, Options<CreateSharePointSourceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSharePointSource({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -2133,6 +2218,72 @@ export const getSourceOptions = (options: Options<GetSourceData>) => queryOption
     queryKey: getSourceQueryKey(options)
 });
 
+export const getSharePointConfigurationQueryKey = (options: Options<GetSharePointConfigurationData>) => createQueryKey('getSharePointConfiguration', options);
+
+/**
+ * Get SharePoint source configuration
+ */
+export const getSharePointConfigurationOptions = (options: Options<GetSharePointConfigurationData>) => queryOptions<GetSharePointConfigurationResponse, GetSharePointConfigurationError, GetSharePointConfigurationResponse, ReturnType<typeof getSharePointConfigurationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharePointConfiguration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharePointConfigurationQueryKey(options)
+});
+
+export const getSharePointRootsQueryKey = (options: Options<GetSharePointRootsData>) => createQueryKey('getSharePointRoots', options);
+
+/**
+ * Page the site, library and folder addresses in scope
+ */
+export const getSharePointRootsOptions = (options: Options<GetSharePointRootsData>) => queryOptions<GetSharePointRootsResponse, GetSharePointRootsError, GetSharePointRootsResponse, ReturnType<typeof getSharePointRootsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharePointRoots({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharePointRootsQueryKey(options)
+});
+
+export const getSharePointRootsInfiniteQueryKey = (options: Options<GetSharePointRootsData>): QueryKey<Options<GetSharePointRootsData>> => createQueryKey('getSharePointRoots', options, true);
+
+/**
+ * Page the site, library and folder addresses in scope
+ */
+export const getSharePointRootsInfiniteOptions = (options: Options<GetSharePointRootsData>) => {
+    const opts = infiniteQueryOptions<GetSharePointRootsResponse, GetSharePointRootsError, InfiniteData<GetSharePointRootsResponse>, QueryKey<Options<GetSharePointRootsData>>, string | Pick<QueryKey<Options<GetSharePointRootsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<GetSharePointRootsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await getSharePointRoots({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: getSharePointRootsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 export const listSourceRunsQueryKey = (options: Options<ListSourceRunsData>) => createQueryKey('listSourceRuns', options);
 
 /**
@@ -2473,6 +2624,42 @@ export const getGoogleDriveSelectionDraftOptions = (options: Options<GetGoogleDr
         return data;
     },
     queryKey: getGoogleDriveSelectionDraftQueryKey(options)
+});
+
+export const getSharePointSelectionRequestQueryKey = (options: Options<GetSharePointSelectionRequestData>) => createQueryKey('getSharePointSelectionRequest', options);
+
+/**
+ * Recover the receipt of an accepted scope request
+ */
+export const getSharePointSelectionRequestOptions = (options: Options<GetSharePointSelectionRequestData>) => queryOptions<GetSharePointSelectionRequestResponse, GetSharePointSelectionRequestError, GetSharePointSelectionRequestResponse, ReturnType<typeof getSharePointSelectionRequestQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharePointSelectionRequest({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharePointSelectionRequestQueryKey(options)
+});
+
+export const getSharePointSelectionPolicyQueryKey = (options?: Options<GetSharePointSelectionPolicyData>) => createQueryKey('getSharePointSelectionPolicy', options);
+
+/**
+ * Get the configured scope admission limits
+ */
+export const getSharePointSelectionPolicyOptions = (options?: Options<GetSharePointSelectionPolicyData>) => queryOptions<GetSharePointSelectionPolicyResponse, GetSharePointSelectionPolicyError, GetSharePointSelectionPolicyResponse, ReturnType<typeof getSharePointSelectionPolicyQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharePointSelectionPolicy({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharePointSelectionPolicyQueryKey(options)
 });
 
 export const listSourceGroupOptionsQueryKey = (options?: Options<ListSourceGroupOptionsData>) => createQueryKey('listSourceGroupOptions', options);

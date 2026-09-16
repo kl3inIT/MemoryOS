@@ -7,6 +7,143 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/sharepoint/scope:
+    put:
+      tags:
+      - Sources
+      summary: Replace what a SharePoint source synchronizes; the new scope is verified
+        before it applies
+      operationId: replaceSharePointScope
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceSharePointScopeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/schedule:
+    put:
+      tags:
+      - Sources
+      summary: Update the automatic synchronization and prune intervals
+      operationId: updateSharePointSchedule
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSharePointScheduleRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/google-drive/schedule:
     put:
       tags:
@@ -2379,6 +2516,126 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/sharepoint/sync:
+    post:
+      tags:
+      - Sources
+      summary: Schedule a synchronization run now
+      operationId: synchronizeSharePointSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Run scheduled
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic synchronization
+      operationId: updateSharePointPause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSharePointPauseRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/rename:
     post:
       tags:
@@ -2753,6 +3010,64 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint:
+    post:
+      tags:
+      - Sources
+      summary: Create a SharePoint source; its scope is verified with Microsoft before
+        it takes effect
+      operationId: createSharePointSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSharePointSourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5385,6 +5700,116 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/sharepoint:
+    get:
+      tags:
+      - Sources
+      summary: Get SharePoint source configuration
+      operationId: getSharePointConfiguration
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/roots:
+    get:
+      tags:
+      - Sources
+      summary: "Page the site, library and folder addresses in scope"
+      operationId: getSharePointRoots
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint roots
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointRootPageResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/runs:
     get:
       tags:
@@ -5740,6 +6165,97 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/GoogleDriveSelectionDraftResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint/selection-requests/{requestId}:
+    get:
+      tags:
+      - Sources
+      summary: Recover the receipt of an accepted scope request
+      operationId: getSharePointSelectionRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint scope receipt
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint/selection-policy:
+    get:
+      tags:
+      - Sources
+      summary: Get the configured scope admission limits
+      operationId: getSharePointSelectionPolicy
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint selection policy
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionPolicyResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7803,6 +8319,219 @@ paths:
       - browserSession: []
 components:
   schemas:
+    ReplaceSharePointScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+          description: Credential revision the scope was reviewed against
+          exclusiveMinimum: 0
+        scope:
+          $ref: "#/components/schemas/SharePointScopeRequest"
+      required:
+      - expectedCredentialRevision
+      - requestId
+      - scope
+    SharePointScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeMode:
+          type: string
+          enum:
+          - ALL_SITES
+          - SPECIFIC
+        siteUrls:
+          type: array
+          description: "Site, library or folder addresses; sharing links are accepted"
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+          maxItems: 1000
+          minItems: 0
+        excludedSites:
+          type: array
+          items:
+            type: string
+            maxLength: 512
+            minLength: 0
+          maxItems: 100
+          minItems: 0
+        excludedPaths:
+          type: array
+          items:
+            type: string
+            maxLength: 512
+            minLength: 0
+          maxItems: 100
+          minItems: 0
+        includeDocuments:
+          type: boolean
+        includePages:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+        pruneIntervalHours:
+          type: integer
+          format: int32
+          description: Hours between prune runs; 0 disables pruning
+          maximum: 8760
+          minimum: 0
+      required:
+      - includeDocuments
+      - includePages
+      - scopeMode
+      - syncIntervalMinutes
+    SharePointSelectionReceiptResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - operation
+      - sourceId
+    SourceOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
+    UpdateSharePointScheduleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+        pruneIntervalHours:
+          type: integer
+          format: int32
+          description: 0 disables pruning
+          maximum: 8760
+          minimum: 0
+      required:
+      - pruneIntervalHours
+      - syncIntervalMinutes
+    SharePointConfigurationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        credentialName:
+          type: string
+        credentialStatus:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        scopeRevision:
+          type: integer
+          format: int64
+        scopeMode:
+          type: string
+          enum:
+          - ALL_SITES
+          - SPECIFIC
+        rootCount:
+          type: integer
+          format: int64
+        excludedSites:
+          type: array
+          items:
+            type: string
+        excludedPaths:
+          type: array
+          items:
+            type: string
+        includeDocuments:
+          type: boolean
+        includePages:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+        pruneIntervalHours:
+          type: integer
+          format: int32
+        scheduleRevision:
+          type: integer
+          format: int64
+        syncPaused:
+          type: boolean
+        tenantHost:
+          type: string
+        lastSyncedAt:
+          type: string
+          format: date-time
+        lastPrunedAt:
+          type: string
+          format: date-time
+        pendingWork:
+          type: boolean
+        errorCode:
+          type: string
+        pendingSelectionOperation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - credentialId
+      - credentialName
+      - credentialRevision
+      - credentialStatus
+      - excludedPaths
+      - excludedSites
+      - includeDocuments
+      - includePages
+      - pendingWork
+      - pruneIntervalHours
+      - rootCount
+      - scheduleRevision
+      - scopeMode
+      - scopeRevision
+      - sourceId
+      - syncIntervalMinutes
+      - syncPaused
     UpdateGoogleDriveScheduleRequest:
       type: object
       additionalProperties: false
@@ -7937,36 +8666,6 @@ components:
       - files
       - folders
       - linkedDocuments
-    SourceOperation:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        status:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        errorCode:
-          type:
-          - string
-          - "null"
-      required:
-      - completedAt
-      - createdAt
-      - errorCode
-      - id
-      - status
-      - type
     ReplaceGoogleDriveRootsRequest:
       type: object
       additionalProperties: false
@@ -9062,6 +9761,19 @@ components:
       required:
       - item
       - operation
+    UpdateSharePointPauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
     RenameSourceRequest:
       type: object
       additionalProperties: false
@@ -9200,6 +9912,41 @@ components:
           - RESTRICTED
       required:
       - access
+    CreateSharePointSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Identifies the request so a retry recovers its receipt
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scope:
+          $ref: "#/components/schemas/SharePointScopeRequest"
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - RESTRICTED
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - access
+      - credentialId
+      - name
+      - requestId
+      - scope
     CreateGoogleDriveSourceRequest:
       type: object
       additionalProperties: false
@@ -9299,6 +10046,7 @@ components:
             enum:
             - FILE
             - GOOGLE_DRIVE
+            - SHAREPOINT
     ChunkProvenance:
       type: object
       properties:
@@ -9340,6 +10088,7 @@ components:
             enum:
             - FILE
             - GOOGLE_DRIVE
+            - SHAREPOINT
         authors:
           type: array
           items:
@@ -9441,6 +10190,7 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+          - SHAREPOINT
         count:
           type: integer
           format: int32
@@ -10178,6 +10928,46 @@ components:
       - size
       - totalItems
       - totalPages
+    SharePointRoot:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+        kind:
+          type: string
+          enum:
+          - SITE
+          - LIBRARY
+          - FOLDER
+        displayName:
+          type: string
+        verified:
+          type: boolean
+      required:
+      - kind
+      - url
+      - verified
+    SharePointRootPageResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeRevision:
+          type: integer
+          format: int64
+        roots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharePointRoot"
+        nextCursor:
+          type: string
+        total:
+          type: integer
+          format: int64
+      required:
+      - roots
+      - scopeRevision
+      - total
     SourceRun:
       type: object
       additionalProperties: false
@@ -10725,6 +11515,23 @@ components:
       - linkedDocumentIds
       - links
       - revision
+    SharePointSelectionPolicyResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        maxRootsPerSource:
+          type: integer
+          format: int32
+        maxExclusionsPerKind:
+          type: integer
+          format: int32
+        maxRequestBytes:
+          type: integer
+          format: int32
+      required:
+      - maxExclusionsPerKind
+      - maxRequestBytes
+      - maxRootsPerSource
     SourceGroupPage:
       type: object
       additionalProperties: false
@@ -11415,6 +12222,7 @@ components:
             enum:
             - FILE
             - GOOGLE_DRIVE
+            - SHAREPOINT
         providerUrl:
           type: string
       required:
@@ -11513,6 +12321,7 @@ components:
             enum:
             - FILE
             - GOOGLE_DRIVE
+            - SHAREPOINT
           uniqueItems: true
         created:
           $ref: "#/components/schemas/Interval"
@@ -11861,6 +12670,7 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+          - SHAREPOINT
     ChatPersona:
       type: object
       properties:
