@@ -101,6 +101,15 @@ export const vietnameseUi: Record<string, string> = {
   "Tự động dùng Web": "Use Web automatically",
   "Bắt buộc tìm trên Web": "Require Web search",
   "Tìm kiếm Web": "Web search",
+  "Công cụ MCP": "MCP tools",
+  "Chưa có máy chủ MCP nào dành cho bạn.": "No MCP servers are available to you yet.",
+  "{{count}} công cụ": "{{count}} tools",
+  "Chờ quản trị viên": "Waiting on an administrator",
+  "Kết nối {{name}}": "Connect {{name}}",
+  "Khoá được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.":
+    "The key is tried against the server before it is stored, and only you can use it.",
+  "Máy chủ từ chối khoá này. Khoá chưa được lưu.":
+    "The server rejected this key. Nothing was stored.",
   Tên: "Name",
   Xoá: "Delete",
   "Ví dụ: Google Drive": "Example: Google Drive",

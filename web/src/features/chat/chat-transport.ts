@@ -59,6 +59,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.webSearch = mode;
     writeWebPreference(this.preferenceOwner, this.session?.id, mode);
   }
+  /** MCP servers chosen for the next turn; per-turn, like Web and image, and never persisted. */
+  mcpServerIds: string[] = [];
+  selectMcpServers(ids: string[]) {
+    this.mcpServerIds = ids;
+  }
   image: ImageMode = "off";
   selectImage(mode: ImageMode) {
     this.image = mode;
@@ -145,9 +150,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const modelConfigurationId = this.modelConfigurationId;
     const webSearch = this.webSearch;
     const image = this.image;
+    const mcpServerIds = [...this.mcpServerIds];
     const creating = !this.session;
     try {
-      return await this.submit(options, modelConfigurationId, webSearch, image);
+      return await this.submit(options, modelConfigurationId, webSearch, image, mcpServerIds);
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
       throw error;
@@ -159,6 +165,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     modelConfigurationId: string | undefined,
     webSearch: WebSearchMode,
     image: ImageMode,
+    mcpServerIds: string[],
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -196,6 +203,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         modelConfigurationId,
         webSearch,
         fileIds: fileIds as string[],
+        mcpServerIds,
       };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },

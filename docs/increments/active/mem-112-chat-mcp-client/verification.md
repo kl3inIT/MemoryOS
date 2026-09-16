@@ -88,3 +88,15 @@ Not run for Phase 3: `gradlew clean check`, the full web `pnpm check`, and a liv
 | Full core suite | `gradlew :core:test` | 555 tests passed across 85 suites; the run ended with an `OutOfMemoryError` in `ObjectWriteLifecycleIntegrationTest` (object storage, unrelated to MCP), the known host memory limit rather than a regression |
 
 Not run for Phase 4: `gradlew clean check` and the composer UI (Phase 5). The per-turn defaults (10 calls, 60s per call) are configuration and not yet measured against real Google Drive schemas.
+
+## Phase 5 — 2026-09-16
+
+Mobbin (2026-09-16, web) for this phase: [Replit](https://mobbin.com/screens/718e8393-29d9-474c-8a40-c798cc577ea9) ships an "MCP Servers" table with name, description, connection status and Disconnect next to "+ Add MCP server"; [Relevance AI](https://mobbin.com/screens/428513ea-93de-4ed8-8d4e-ef1189f0cdc6) locks the authentication type after creation and defers OAuth to a Connect step; [Perplexity](https://mobbin.com/screens/5777f7b3-1fbb-4d4d-81fe-00e7c9d2b7e8) requires a risk acknowledgement before adding a custom connector and shows registration failures inline; [Cursor](https://mobbin.com/screens/4b0de194-b789-4520-945d-acfed0e8ea10) edits name, URL, headers and client credentials in one dialog; [Mistral](https://mobbin.com/screens/0e571bd8-628d-46c6-98ea-22e4967be84b) and [Claude](https://mobbin.com/screens/16cc5d91-2f00-4a92-9777-6dd57a63a6a4) both put connectors in a composer submenu. MemoryOS follows the acknowledgement, the submenu and the status-per-row table; it keeps the authentication type editable because changing it deletes the stored credentials rather than stranding them.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Composer MCP submenu | `pnpm exec vitest run src/features/chat/chat-mcp-options.test.tsx` | 5 tests passed:<br>• a connected server is selectable for the turn<br>• an unconnected server offers Connect and no switch<br>• several accounts are listed only when the server has more than one, and nothing is started before the choice<br>• a server with no enabled tools cannot be selected<br>• an OAuth server with no client reads as waiting on an administrator |
+| Web checks | `pnpm test:unit`; `pnpm lint`; `pnpm check:i18n`; `pnpm exec tsc -b --noEmit`; `pnpm format:check` | 54 files, 291 tests passed; lint, i18n audit, typecheck and formatting clean |
+| Route tree | `pnpm build` | `/admin/mcp` generated into `routeTree.gen.ts`; the OAuth callback target now exists |
+
+Not run for Phase 5: the Chromium scenario with fixture servers, `gradlew clean check`, and a screenshot self-review of the new pages. The admin OAuth-client screens (discovery review, DCR, per-organization clients) are not built yet: `/admin/mcp` covers servers, tools and access, so a `KNOWN_PROVIDER` client must still be created through the API.

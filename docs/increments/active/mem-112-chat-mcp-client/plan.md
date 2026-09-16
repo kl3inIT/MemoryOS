@@ -81,10 +81,13 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 
 ## Phase 5 — web
 
-- [ ] Admin `web/src/features/mcp/`: servers, auth, discovery review, clients, tools, Groups.
-- [ ] Composer: server list, status, OAuth connect with client choice, API-key entry.
-- [ ] Generic MCP activity renderer; Vietnamese and English copy.
-- [ ] Unit tests and Chromium scenario with fixture servers.
+- [x] Admin `web/src/features/mcp/`: servers, authentication, tools and Groups at `/admin/mcp`, with the trust acknowledgement on creation.
+- [ ] Admin OAuth clients: discovery review, DCR and per-organization clients still have no screen.
+- [x] Composer: server list with status, OAuth connect with account choice, API-key entry.
+- [x] Vietnamese and English copy for every new string.
+- [ ] Generic MCP activity renderer in the timeline.
+- [x] Unit tests for the composer submenu.
+- [ ] Chromium scenario with fixture servers.
 
 ## Phase 6 — documentation and acceptance
 
