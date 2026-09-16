@@ -15,6 +15,7 @@ import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSelectionRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
+import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
@@ -52,6 +53,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
     private final JdbcSourceGroupRepository sourceGroups;
     private final JdbcSourceRepository sources;
     private final JdbcSourceSyncRepository sync;
+    private final JdbcSharePointSyncRepository runs;
     private final JdbcIndexAttemptRepository indexing;
     private final JdbcSourceDocumentRepository documents;
     private final SharePointSelectionPolicy policy;
@@ -61,7 +63,8 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             SharePointConnectionService connections,
             JdbcSharePointSourceRepository sharePoint, JdbcSharePointSelectionRepository selections,
             JdbcSharePointCredentialRepository credentials, JdbcSourceGroupRepository sourceGroups,
-            JdbcSourceRepository sources, JdbcSourceSyncRepository sync, JdbcIndexAttemptRepository indexing,
+            JdbcSourceRepository sources, JdbcSourceSyncRepository sync, JdbcSharePointSyncRepository runs,
+            JdbcIndexAttemptRepository indexing,
             JdbcSourceDocumentRepository documents, SharePointSelectionPolicy policy,
             PlatformTransactionManager transactionManager) {
         this.sourceAccess = sourceAccess;
@@ -73,6 +76,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         this.sourceGroups = sourceGroups;
         this.sources = sources;
         this.sync = sync;
+        this.runs = runs;
         this.indexing = indexing;
         this.documents = documents;
         this.policy = policy;
@@ -211,7 +215,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             var state = connections.state(tenant, source);
             sharePoint.requestSynchronization(tenant, source);
-            return sync.enqueue(tenant, source, state.credentialRevision(), SourceRunTrigger.MANUAL, actor);
+            return runs.enqueue(tenant, source, state.credentialRevision(), SourceRunTrigger.MANUAL, actor);
         }));
     }
 
@@ -245,7 +249,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId(), intent.name(),
                     new CredentialId(Objects.requireNonNull(intent.credentialId())), access, scope, roots, tenantHost);
             sourceGroups.replace(tenant, source, creation.groupIds());
-            sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
+            runs.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             sync.cancel(tenant, source);
             sharePoint.replaceScope(tenant, source, intent.scopeRevision(), scope, roots, tenantHost);
