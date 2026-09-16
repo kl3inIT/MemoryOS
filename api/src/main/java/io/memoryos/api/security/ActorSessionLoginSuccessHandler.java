@@ -141,6 +141,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(actorId)));
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
+        ProviderSessionState.remember(request, idToken.getClaimAsString("sid"));
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
     }
 

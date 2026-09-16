@@ -516,8 +516,8 @@ class ChatSessionApiIntegrationTest {
         verify(chunks, never()).read(any(), any(), any());
         try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
             var events = reader.read().events();
-            assertTrue(events.stream().anyMatch(e -> e.search() != null && e.search().source() != null
-                    && e.search().toolCallId().equals("search-1") && e.search().source().citationId() == 1));
+            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
+                    && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
             assertEquals("outcome", events.getLast().type());
         }
     }
@@ -1892,7 +1892,7 @@ class ChatSessionApiIntegrationTest {
                         long ms = (System.nanoTime() - started) / 1_000_000;
                         var data = Json.mapper().readTree(line.substring(5));
                         if ("text-delta".equals(event) && firstText == null) firstText = ms;
-                        if ("search".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
+                        if ("tool".equals(event)) events.add(Map.of("ms", ms, "stage", data.path("stage").asText(),
                                 "toolCallId", data.path("toolCallId").asText(), "queryCount", data.path("search").path("queries").size()));
                     }
                 }

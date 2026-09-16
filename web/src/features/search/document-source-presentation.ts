@@ -1,7 +1,7 @@
 import { findSourceProvider } from "@/features/sources/source-provider-catalog";
 import { friendlyMediaType } from "./search-presentation";
 
-export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE";
+export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT";
 
 export type DocumentKind =
   | "pdf"

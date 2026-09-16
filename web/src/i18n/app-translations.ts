@@ -1,5 +1,44 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  "Suy nghĩ": "Thinking",
+  "Đang tìm trong {{scope}}…": "Searching {{scope}}…",
+  "Đã tìm trong {{scope}}": "Searched {{scope}}",
+  "{{scope}} ({{window}})": "{{scope}} ({{window}})",
+  "từ {{date}}": "since {{date}}",
+  "trước {{date}}": "before {{date}}",
+  "từ {{start}} đến {{end}}": "from {{start}} to {{end}}",
+  "tài liệu": "documents",
+  "Đang đọc": "Reading",
+  "Đã đọc": "Read",
+  "Không tìm thấy kết quả": "No results found",
+  "Đã đọc {{file}}": "Read {{file}}",
+  "Đang đọc trang…": "Reading pages…",
+  "Đã đọc trang": "Read pages",
+  "+{{n}}": "+{{n}}",
+  "Đã tạo ảnh": "Generated an image",
+  "Đã sửa ảnh": "Edited an image",
+  "Đã suy nghĩ trong {{duration}}": "Thought for {{duration}}",
+  "Đã suy nghĩ": "Thought",
+  "Đã dừng suy nghĩ": "Stopped thinking",
+  "1 bước": "1 step",
+  "{{n}} bước": "{{n}} steps",
+  "Đang suy luận…": "Reasoning…",
+  "Suy luận": "Reasoning",
+  "Đã tìm trong tài liệu": "Searched documents",
+  "Đã tìm trên Web": "Searched the Web",
+  "Đã đọc trang Web": "Read Web pages",
+  "Đang đọc tệp…": "Reading files…",
+  "Đã đọc tệp": "Read files",
+  "Đang tìm trong tệp…": "Searching files…",
+  "Đã tìm trong tệp": "Searched files",
+  "Đang tạo thẻ trình bày…": "Creating a visual card…",
+  "Đã tạo thẻ trình bày": "Created a visual card",
+  "Đang dùng công cụ…": "Using a tool…",
+  "Đã dùng công cụ": "Used a tool",
+  "{{step}} · không hoàn tất": "{{step}} · not completed",
+  "Truy vấn tìm kiếm": "Search queries",
+  "Tài liệu đã đọc": "Documents read",
+  "Nguồn được trích dẫn": "Cited sources",
   "Nguồn {{number}}": "Source {{number}}",
   "Trang {{pages}}": "Page {{pages}}",
   "Trang tính {{name}}": "Sheet {{name}}",
@@ -317,6 +356,18 @@ export const vietnameseUi: Record<string, string> = {
   "Tải ảnh": "Download image",
   "Xem ảnh phóng to": "View image full size",
   "Đang tạo ảnh…": "Generating image…",
+  "Đang sửa ảnh…": "Editing image…",
+  "Sửa ảnh": "Edit image",
+  "Tô lên vùng muốn thay đổi. Không tô thì sửa toàn bộ ảnh.":
+    "Paint over the area to change. Leave it unpainted to edit the whole image.",
+  "Tô vùng cần sửa": "Paint the area to change",
+  "Cỡ cọ": "Brush size",
+  "Xoá vùng tô": "Clear painting",
+  "Mô tả thay đổi": "Describe the change",
+  "Ví dụ: đổi áo sang màu đỏ, giữ nguyên mọi thứ khác":
+    "For example: make the shirt red and keep everything else",
+  "Đưa vào khung chat": "Add to message",
+  "Không tạo được vùng tô. Hãy thử lại.": "Could not prepare the painted area. Try again.",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
@@ -339,22 +390,15 @@ export const englishUi: Record<string, string> = {
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
   "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
   "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
-  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
   "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
   Required: "Bắt buộc",
   None: "Không có",
-  "Select at least one managed group. New Sources are private.":
-    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
   "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.":
     "Với nguồn Tệp và Google Drive giới hạn, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Quyền từng tệp trên Google Drive không được đồng bộ.",
   "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ nguồn Tệp và Google Drive giới hạn. Quyền từng tệp trên Google Drive không được đồng bộ. Quyền quản lý nguồn toàn tổ chức không cấp quyền đọc tài liệu giới hạn nếu không có tư cách thành viên nhóm.",
-  "Private Source. Group associations are optional for global Source managers.":
-    "Nguồn riêng tư. Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
-  "Private Source. Select at least one group you manage.":
-    "Nguồn riêng tư. Chọn ít nhất một nhóm bạn quản lý.",
   "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.":
     "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập. Quyền từng tệp trên Google không được đồng bộ.",
   "Connection details": "Chi tiết kết nối",
@@ -390,8 +434,10 @@ export const englishUi: Record<string, string> = {
   "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
   "Current work and manual synchronization are unchanged.":
     "Công việc hiện tại và đồng bộ thủ công không thay đổi.",
-  "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.":
-    "Chỉ chọn các nhóm thông thường mà bạn có thể quản lý. Người quản lý Nguồn theo phạm vi phải duy trì ít nhất một liên kết nhóm.",
+  "Select only ordinary groups you manage. Groups managed by someone else stay as they are.":
+    "Chỉ chọn các nhóm thông thường mà bạn quản lý. Nhóm do người khác quản lý được giữ nguyên.",
+  "This Source belongs to no group yet, so nobody can search or read its documents. Associate it with a group to make it usable.":
+    "Nguồn này chưa thuộc nhóm nào nên chưa ai tìm hay đọc được tài liệu của nó. Hãy liên kết nguồn với một nhóm để dùng được.",
   "Built-in admin group with full access to manage all permissions.":
     "Nhóm quản trị tích hợp có toàn quyền quản lý mọi quyền truy cập.",
   "Default group for all users with basic permissions.":
@@ -418,8 +464,27 @@ export const englishUi: Record<string, string> = {
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
   "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.":
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
-  "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
-    "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
+  "This Source is being deleted.": "Nguồn này đang được xóa.",
+  "Responsible group manager": "Người quản lý nhóm phụ trách",
+  "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.":
+    "Người phụ trách liên kết nguồn này với các nhóm họ quản lý và giữ quyền cấu hình nội dung. Nếu không có ai phụ trách, chỉ quản trị viên làm được việc đó.",
+  "No responsible manager. Administrators only.":
+    "Chưa có người phụ trách. Chỉ quản trị viên thao tác được.",
+  "Responsible manager: {{v1}}": "Người phụ trách: {{v1}}",
+  "No members match your search.": "Không có thành viên nào khớp với tìm kiếm.",
+  Responsible: "Đang phụ trách",
+  "Make responsible": "Giao phụ trách",
+  "Remove responsible manager": "Bỏ người phụ trách",
+  "Appoint a responsible manager": "Chỉ định người phụ trách",
+  "Change responsible manager": "Đổi người phụ trách",
+  "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.":
+    "Chọn các nhóm bạn quản lý, hoặc để trống. Nguồn mới ở chế độ riêng tư và chưa đến được với ai cho tới khi thuộc một nhóm.",
+  "Private Source. Group associations are optional and can be added later.":
+    "Nguồn riêng tư. Liên kết nhóm là tùy chọn và có thể thêm sau.",
+  "You can no longer change one of these Sources for this group. Refresh and try again.":
+    "Bạn không còn quyền thay đổi một trong các nguồn này cho nhóm. Làm mới rồi thử lại.",
+  "Sources with a lock are being deleted and can't be removed from this group.":
+    "Các nguồn có biểu tượng khóa đang được xóa nên không gỡ khỏi nhóm này được.",
   "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",
@@ -1865,6 +1930,12 @@ Object.assign(englishUi, {
   "Add Provider": "Thêm nhà cung cấp",
   "MemoryOS supports both popular providers and self-hosted models.":
     "MemoryOS hỗ trợ cả nhà cung cấp phổ biến lẫn mô hình tự triển khai.",
+  "Gateways & Routers": "Gateway & Router",
+  "One key routed to several vendors.": "Một khóa định tuyến tới nhiều nhà cung cấp.",
+  "Hosted marketplace of models from many vendors.":
+    "Chợ mô hình trên cloud, gom nhiều nhà cung cấp.",
+  "Self-hosted proxy in front of your own provider keys.":
+    "Proxy tự triển khai đứng trước khóa của chính bạn.",
   "Self-hosted & Custom": "Tự triển khai & Tùy chỉnh",
   "GPT models from OpenAI.": "Mô hình GPT của OpenAI.",
   "Claude models from Anthropic.": "Mô hình Claude của Anthropic.",
@@ -1945,9 +2016,10 @@ Object.assign(englishUi, {
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
     "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
   "Provider name": "Tên nhà cung cấp",
-  Adapter: "Adapter",
+  Protocol: "Giao thức",
+  "OpenAI-compatible": "Chuẩn OpenAI",
   "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",
-  "Choose installed adapter": "Chọn adapter đã cài",
+  "Choose installed adapter": "Chọn giao thức đã cài",
   "Endpoint URL": "URL endpoint",
   "Internal HTTP is supported on trusted networks. Use HTTPS across untrusted networks; URL credentials, queries and fragments are not accepted.":
     "HTTP nội bộ được hỗ trợ trên mạng tin cậy. Dùng HTTPS trên mạng không tin cậy; không chấp nhận thông tin xác thực, query hay fragment trong URL.",
@@ -1957,10 +2029,10 @@ Object.assign(englishUi, {
   Configured: "Đã cấu hình",
   "Not configured": "Chưa cấu hình",
   "Adapter unavailable": "Adapter không khả dụng",
-  "Credential action": "Hành động khóa",
-  "Keep existing key": "Giữ khóa hiện tại",
-  "Replace key": "Thay khóa",
-  "Remove key": "Xóa khóa",
+  "Credential action": "Khóa API của nhà cung cấp",
+  "Keep existing key": "Giữ khóa đang lưu",
+  "Replace key": "Nhập khóa mới",
+  "Remove key": "Xoá khóa đang lưu",
   "API key": "Khóa API",
   "For a required key, explicitly disable the provider before removal. Choose a different Tenant default first if this provider serves it.":
     "Với khóa bắt buộc, hãy tắt nhà cung cấp trước khi xóa. Chọn mặc định Tenant khác trước nếu nhà cung cấp này đang phục vụ nó.",

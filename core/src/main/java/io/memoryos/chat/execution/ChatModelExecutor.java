@@ -10,11 +10,12 @@ import java.util.List;
 import java.util.Set;
 import com.embabel.agent.core.Budget;
 import com.embabel.agent.api.tool.Tool;
+import io.memoryos.chat.ChatActivityEvent;
 import io.memoryos.chat.ChatImageEvent;
-import io.memoryos.chat.ChatSearchEvent;
 import io.memoryos.chat.ImageMode;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageProviderClient;
+import io.memoryos.chat.tools.EditImageTool;
 import io.memoryos.chat.tools.GenerateImageTool;
 import io.memoryos.chat.tools.SearchTool;
 import io.memoryos.chat.tools.ChatSearchProperties;
@@ -76,7 +77,7 @@ public final class ChatModelExecutor {
         try {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
-                    new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, Math.min(4096, limits.tokenBudget())), 1,
+                    new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
                     () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
                     selected.policy(), Math.min(3000, selected.contextWindow() - Math.min(128, selected.maxOutputTokens())), selected.finalRequest());
             guard.outputLimit(Math.min(128, selected.maxOutputTokens()));
@@ -102,7 +103,7 @@ public final class ChatModelExecutor {
     }
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
-            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatSearchEvent> events,
+            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
             Consumer<ChatImageEvent> imageEvents, Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
@@ -111,14 +112,14 @@ public final class ChatModelExecutor {
         var process = context.getProcessContext().getAgentProcess();
         int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
-                && metadata.getChatModel() instanceof NativeWebSearch;
+                && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
-        if (nativeWeb) delegate = ((NativeWebSearch) delegate).forTurn(new NativeWebSearch.Turn(setup.evidence(), events,
-                setup.webSearch() == io.memoryos.chat.WebSearchMode.required, checkActive));
+        if (delegate instanceof ChatModelTurns turns)
+            delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
         int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
-                new Budget(limits.costBudgetUsd(), Integer.MAX_VALUE, limits.tokenBudget()), limits.maxCycles(), checkActive,
+                new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
@@ -127,7 +128,9 @@ public final class ChatModelExecutor {
         var fileWork = new io.memoryos.retrieval.SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
         Runnable fileActive = () -> { fileWork.checkActive(); guard.checkActive(); };
+        var activity = new io.memoryos.chat.ChatToolActivity(events);
         try {
+            setup.evidence().trackCalls(activity::current);
             setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
             guard.evidenceAvailable(setup.evidence()::hasEvidence);
             var nativeService = selected.withModel(guard);
@@ -149,10 +152,9 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
-                        fileWork, setup.deadline(), events, guard::availableContextTokens, selected.policy().tokens());
+                        fileWork, setup.deadline(), events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
                 guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
-                if (setup.webSearch() == io.memoryos.chat.WebSearchMode.required) guard.requireWebSearch();
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
@@ -163,14 +165,22 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence());
-                runner = runner.withTools(Tool.fromInstance(searchTool)).withToolCallInspectors(searchTool);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
-                runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, setup.imageAccess().generate(), imageArtifacts,
+                var connection = setup.imageAccess().generate();
+                runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
                         setup.tenant(), setup.assistantMessageId(), fileActive, setup.deadline(), imageEvents, 4)));
+                // Mask names are known for image attachments admitted to this vision request.
+                var names = new java.util.HashMap<java.util.UUID, String>();
+                setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
+                runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
+                        setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
+                        fileActive, setup.deadline(), imageEvents, 4)));
             }
+            if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
             if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()

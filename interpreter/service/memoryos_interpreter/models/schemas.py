@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+from typing import ClassVar, Literal
+
+from pydantic import BaseModel, Field, StrictInt, StrictStr
+
+from memoryos_interpreter.services.executor_base import EntryKind
+
+
+class ExecuteFile(BaseModel):
+    path: StrictStr = Field(..., description="Relative file path within the execution workspace.")
+    file_id: StrictStr = Field(
+        ..., description="UUID of a previously uploaded file to use for execution."
+    )
+
+
+class WorkspaceFile(BaseModel):
+    path: StrictStr
+    kind: EntryKind
+    file_id: StrictStr | None = Field(
+        None, description="ID of the file in storage (only for files, not directories)."
+    )
+
+
+class ExecuteRequest(BaseModel):
+    code: StrictStr = Field(..., description="Python source to execute.")
+    stdin: StrictStr | None = Field(None, description="Optional stdin passed to the program.")
+    timeout_ms: StrictInt = Field(2000, ge=1, description="Execution timeout in milliseconds.")
+    last_line_interactive: bool = Field(
+        True,
+        description=(
+            "If True, the last line of code will print its value to stdout if it's a bare "
+            "expression (like Jupyter notebooks or Python REPL). Only the last line is affected; "
+            "earlier expressions are not printed. Default is True."
+        ),
+    )
+    files: list[ExecuteFile] = Field(
+        default_factory=list,
+        description="Optional collection of files to stage in the execution workspace.",
+    )
+
+
+class ExecuteResponse(BaseModel):
+    stdout: StrictStr
+    stderr: StrictStr
+    exit_code: int | None
+    timed_out: bool
+    duration_ms: StrictInt
+    files: list[WorkspaceFile] = Field(
+        default_factory=list,
+        description="Snapshot of the execution workspace after completion.",
+    )
+
+
+class SSEModel(BaseModel):
+    """Base for Server-Sent Event payloads.
+
+    Subclasses declare ``sse_event`` as a ClassVar to set the SSE event type.
+    Call ``to_sse()`` to get a fully-formatted SSE frame.
+    """
+
+    sse_event: ClassVar[str]
+
+    def to_sse(self) -> str:
+        data = self.model_dump_json()
+        return f"event: {self.sse_event}\ndata: {data}\n\n"
+
+
+class StreamOutputEvent(SSEModel):
+    """Payload for 'output' SSE events."""
+
+    sse_event: ClassVar[str] = "output"
+
+    stream: Literal["stdout", "stderr"]
+    data: StrictStr
+
+
+class StreamResultEvent(SSEModel):
+    """Payload for the final 'result' SSE event."""
+
+    sse_event: ClassVar[str] = "result"
+
+    exit_code: int | None
+    timed_out: bool
+    duration_ms: StrictInt
+    files: list[WorkspaceFile] = Field(
+        default_factory=list,
+        description="Snapshot of the execution workspace after completion.",
+    )
+
+
+class StreamErrorEvent(SSEModel):
+    """Payload for 'error' SSE events."""
+
+    sse_event: ClassVar[str] = "error"
+
+    message: StrictStr
+
+
+class UploadFileResponse(BaseModel):
+    file_id: StrictStr = Field(..., description="Unique identifier for the uploaded file.")
+    filename: StrictStr = Field(..., description="Original filename as provided during upload.")
+    size_bytes: StrictInt = Field(..., description="Size of the uploaded file in bytes.")
+
+
+class FileMetadataResponse(BaseModel):
+    file_id: StrictStr
+    filename: StrictStr
+    size_bytes: StrictInt
+    upload_time: float = Field(..., description="Unix timestamp of when the file was uploaded.")
+
+
+class ListFilesResponse(BaseModel):
+    files: list[FileMetadataResponse] = Field(
+        default_factory=list,
+        description="List of all stored files with their metadata.",
+    )
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: StrictStr | None = None
+    version: StrictStr = Field(
+        ...,
+        description=(
+            "Semver of the running service. Clients can compare against a "
+            "required minimum to detect whether new functionality is available."
+        ),
+    )
+
+
+DEFAULT_SESSION_TTL_SEC = 15 * 60
+MAX_SESSION_TTL_SEC = 24 * 60 * 60
+
+
+class CreateSessionRequest(BaseModel):
+    files: list[ExecuteFile] = Field(
+        default_factory=list,
+        description="Files to stage in the session workspace at create time.",
+    )
+    ttl_seconds: StrictInt = Field(
+        DEFAULT_SESSION_TTL_SEC,
+        ge=1,
+        le=MAX_SESSION_TTL_SEC,
+        description=(
+            "Session lifetime in seconds. The session pod is automatically "
+            "destroyed after this duration even if the API service crashes."
+        ),
+    )
+
+
+class CreateSessionResponse(BaseModel):
+    session_id: StrictStr = Field(..., description="Identifier for the session pod/container.")
+    expires_at: float = Field(
+        ..., description="Unix timestamp when the session is scheduled to expire."
+    )
+
+
+DEFAULT_BASH_TIMEOUT_MS = 30_000
+
+
+class BashExecRequest(BaseModel):
+    cmd: StrictStr = Field(..., description="Bash command to execute in the session.")
+    timeout_ms: StrictInt = Field(
+        DEFAULT_BASH_TIMEOUT_MS,
+        ge=1,
+        description="Per-command execution timeout in milliseconds.",
+    )
+
+
+class BashExecResponse(BaseModel):
+    stdout: StrictStr
+    stderr: StrictStr
+    exit_code: int | None
+    timed_out: bool
+    duration_ms: StrictInt

@@ -93,7 +93,8 @@ class ChatPersistenceIntegrationTest {
                 mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
-                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants)));
+                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
+                new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -155,6 +156,33 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
         personas.select(owner, session.id(), session.personaId());
         assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
+    }
+
+    @Test
+    void generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession() {
+        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var session = sessions.create(owner, "Images");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Draw a man");
+        var image = UUID.randomUUID();
+        images.insert(scope, first.assistantMessageId(), image, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/image.png"), "image/png", null, null, null);
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Here he is.");
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Make the shirt red");
+        assertEquals(List.of(image), turns.loadContext(owner, session.id(), second).generatedImages().get(first.assistantMessageId()));
+
+        var edited = UUID.randomUUID();
+        images.insert(scope, second.assistantMessageId(), edited, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/edited.png"), "image/png", null, image, null);
+        assertEquals(image, jdbc.sql("SELECT source_artifact_id FROM chat_image_artifact WHERE id = :id")
+                .param("id", edited).query(UUID.class).single());
+        assertTrue(images.inSession(scope, owner, session.id(), image).isPresent());
+        assertTrue(images.inSession(scope, other, session.id(), image).isEmpty());
+        var elsewhere = sessions.create(owner, "Elsewhere");
+        assertTrue(images.inSession(scope, owner, elsewhere.id(), image).isEmpty());
+        assertThrows(DataIntegrityViolationException.class, () -> images.insert(scope, second.assistantMessageId(), UUID.randomUUID(),
+                UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/both.png"), "image/png", null,
+                image, UUID.randomUUID()));
     }
 
     @Test
@@ -295,8 +323,11 @@ class ChatPersistenceIntegrationTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
         var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
+        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "searchKnowledge", ChatActivity.StepStatus.COMPLETED,
+                java.time.Instant.parse("2026-09-14T00:00:00Z"), 120L, 0, List.of("leave policy"), null, List.of(), List.of(1))),
+                List.of(new ChatActivity.ReasoningSegment(0, 0, "Checking the HR policy.")));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
-                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact));
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact), activity);
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Late answer", null, "model", 20L, 5L, null, List.of());
         var saved = sessions.history(owner, session.id(), null, 100).getLast();
@@ -304,6 +335,13 @@ class ChatPersistenceIntegrationTest {
         assertEquals("Twelve days [1]", saved.content());
         assertEquals(List.of(source), saved.sources());
         assertEquals(List.of(artifact), saved.artifacts());
+        assertEquals(activity, saved.activity());
+        var question = sessions.history(owner, session.id(), null, 100).getFirst();
+        assertEquals(ChatActivity.EMPTY, question.activity());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET activity = CAST(:activity AS jsonb) WHERE id = :id")
+                .param("activity", "{\"steps\": [], \"reasoning\": [{\"position\": 0, \"textOffset\": 0, \"text\": \"x\"}]}")
+                .param("id", question.id()).update(), "Only assistant replies carry activity");
         // Source IDs intentionally need no live document FK: reindex/delete does not rewrite old answers.
         assertThrows(ChatException.class, () -> sessions.history(other, session.id(), null, 100));
     }

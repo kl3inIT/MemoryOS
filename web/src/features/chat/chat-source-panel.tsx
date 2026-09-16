@@ -1,6 +1,6 @@
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Dialog } from "radix-ui";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
@@ -9,7 +9,15 @@ import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { EvidenceViewSwitch, type PdfEvidence } from "@/features/search/evidence-view-switch";
+import {
+  EvidenceViewSwitch,
+  type EvidenceView,
+  type PdfEvidence,
+} from "@/features/search/evidence-view-switch";
+import {
+  DocumentPreviewDialog,
+  type DocumentSelection,
+} from "@/features/search/document-preview-dialog";
 import { client } from "@/lib/hey-api/client.gen";
 import { citedPdfLocation } from "./chat-source-meta";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
@@ -27,11 +35,30 @@ function citationPdf(source: ChatSource): PdfEvidence | undefined {
     }),
     pages: location.pages,
     boxes: location.boxes,
+    table: location.table,
   };
 }
 
-function CitationEvidence({ source, children }: { source: ChatSource; children: ReactNode }) {
-  return <EvidenceViewSwitch pdf={citationPdf(source)}>{children}</EvidenceViewSwitch>;
+/** The cited passages of an indexed document or file citation, read with Chat authority. */
+function citationSelection(source: ChatSource): DocumentSelection {
+  const ordinal = source.fileLocation?.ordinal;
+  return {
+    documentId: source.documentId ?? source.fileId!,
+    generation: source.generation ?? source.fileLocation!.generation!,
+    title: source.title,
+    mediaType: source.mediaType,
+    sourceTypes: source.sourceTypes,
+    providerUrl: source.providerUrl,
+    provenance: source.provenance.map((item) => item.provenanceJson),
+    matches: [
+      {
+        from: Math.max(0, (ordinal ?? source.startOrdinal) - 2),
+        matchingOrdinal: ordinal ?? source.startOrdinal,
+        matchingEndOrdinal: ordinal ?? source.endOrdinal,
+      },
+    ],
+    activeMatchIndex: 0,
+  };
 }
 
 const wideQuery = "(min-width: 1024px)";
@@ -69,19 +96,49 @@ export function ChatSourcePanel({
     () => false,
   );
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
+  // Stepping between sources keeps focus on the pressed arrow instead of moving it to the title.
+  const stepping = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+  // The evidence tab chosen for each source, shared by the panel and its expanded dialog.
+  const [views, setViews] = useState<Record<number, EvidenceView>>({});
   const selected = sources.find((source) => source.citationId === citationId);
+  const index = selected ? sources.indexOf(selected) : -1;
+  const format = (value: number) => new Intl.NumberFormat(i18n.resolvedLanguage).format(value);
+
   useEffect(() => {
+    if (stepping.current) {
+      stepping.current = false;
+      if (document.activeElement instanceof HTMLButtonElement && !document.activeElement.disabled)
+        return;
+    }
     titleRef.current?.focus({ preventScroll: true });
   }, [citationId, file?.id, artifact?.id, wide]);
 
   useEffect(() => {
-    if (!wide) return undefined;
+    if (!wide || expanded) return undefined;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented) onClose();
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [wide, onClose]);
+  }, [wide, expanded, onClose]);
+
+  const step = (offset: number) => {
+    const next = sources[index + offset];
+    if (!next) return;
+    stepping.current = true;
+    onSelect(next.citationId);
+  };
+  const documentCitation =
+    selected && !selected.web && !(selected.fileId != null && !selected.fileLocation?.generation);
+  const pdf = documentCitation ? citationPdf(selected) : undefined;
+  const view = selected
+    ? (views[selected.citationId] ?? (pdf?.table ? "pdf" : "passages"))
+    : undefined;
+  const changeView = (next: EvidenceView) => {
+    if (selected) setViews((current) => ({ ...current, [selected.citationId]: next }));
+  };
 
   const content = (
     <>
@@ -110,11 +167,45 @@ export function ChatSourcePanel({
           ) : selected ? (
             t("content")
           ) : (
-            t("sourcesCount", {
-              total: new Intl.NumberFormat(i18n.resolvedLanguage).format(sources.length),
-            })
+            t("sourcesCount", { total: format(sources.length) })
           )}
         </h2>
+        {selected && !artifact && !file && sources.length > 1 ? (
+          <div className="flex shrink-0 items-center gap-0.5">
+            <span className="px-1 font-secondary-body whitespace-nowrap tabular-nums text-content-muted">
+              {t("sourcePosition", { index: format(index + 1), total: format(sources.length) })}
+            </span>
+            <IconButton
+              prominence="internal"
+              size="sm"
+              aria-label={t("previousSource")}
+              disabled={index <= 0}
+              onClick={() => step(-1)}
+            >
+              <ChevronLeft />
+            </IconButton>
+            <IconButton
+              prominence="internal"
+              size="sm"
+              aria-label={t("nextSource")}
+              disabled={index >= sources.length - 1}
+              onClick={() => step(1)}
+            >
+              <ChevronRight />
+            </IconButton>
+          </div>
+        ) : null}
+        {wide && documentCitation && !artifact && !file ? (
+          <IconButton
+            ref={expandRef}
+            prominence="internal"
+            size="sm"
+            aria-label={t("expand")}
+            onClick={() => setExpanded(true)}
+          >
+            <Maximize2 />
+          </IconButton>
+        ) : null}
         <IconButton
           prominence="internal"
           size="sm"
@@ -147,49 +238,51 @@ export function ChatSourcePanel({
         <>
           <ChatSourceHeader source={selected}>
             {/* The PDF tabs name their own view; the passage hint would be false on the page tab. */}
-            {citedPdfLocation(selected) ? null : (
+            {pdf ? null : (
               <p className="mt-3 text-xs leading-5 text-content-muted">
                 {selected.fileId ? t("fileCitation") : t("highlighted")}
               </p>
             )}
           </ChatSourceHeader>
-          {selected.fileId != null && !selected.fileLocation?.generation ? (
+          {!documentCitation ? (
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <ChatFileReader
                 key={`${selected.fileId}:${selected.citationId}`}
-                fileId={selected.fileId}
+                fileId={selected.fileId!}
                 initialOffset={selected.fileLocation?.offset ?? 0}
                 citationCount={selected.fileLocation?.count ?? undefined}
               />
             </div>
+          ) : expanded ? (
+            // One reader at a time: the dialog owns the passages and pdf.js document while it is open.
+            <p className="px-5 py-4 text-sm leading-6 text-content-muted">{t("expandedView")}</p>
           ) : (
-            <CitationEvidence
+            <EvidenceViewSwitch
               key={`view:${selected.documentId}:${selected.citationId}`}
-              source={selected}
+              pdf={pdf}
+              view={view}
+              onViewChange={changeView}
             >
               <DocumentPreviewContent
                 key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
                 variant="chat"
                 fileId={selected.fileId ?? undefined}
-                selection={{
-                  documentId: selected.documentId ?? selected.fileId!,
-                  generation: selected.generation ?? selected.fileLocation!.generation!,
-                  title: selected.title,
-                  matches: [
-                    {
-                      from: Math.max(
-                        0,
-                        (selected.fileLocation?.ordinal ?? selected.startOrdinal) - 2,
-                      ),
-                      matchingOrdinal: selected.fileLocation?.ordinal ?? selected.startOrdinal,
-                      matchingEndOrdinal: selected.fileLocation?.ordinal ?? selected.endOrdinal,
-                    },
-                  ],
-                  activeMatchIndex: 0,
-                }}
+                selection={citationSelection(selected)}
               />
-            </CitationEvidence>
+            </EvidenceViewSwitch>
           )}
+          {expanded ? (
+            <DocumentPreviewDialog
+              variant="chat"
+              fileId={selected.fileId ?? undefined}
+              selection={citationSelection(selected)}
+              view={view}
+              onViewChange={changeView}
+              returnFocusRef={expandRef}
+              fallbackFocusRef={titleRef}
+              onClose={() => setExpanded(false)}
+            />
+          ) : null}
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">

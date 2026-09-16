@@ -45,7 +45,7 @@ class ChatModelCatalogConfiguration {
         if (!Double.isFinite(input) || !Double.isFinite(output) || input < -1 || output < -1 || ((input < 0) != (output < 0)))
             throw new IllegalArgumentException("Invalid Chat pricing configuration");
         var pricing = input < 0 ? null : new ModelSettings.Pricing(input, output);
-        if (pricing == null && limits.costBudgetUsd() < Double.MAX_VALUE)
+        if (pricing == null && limits.costCapped())
             throw new IllegalArgumentException("A Chat cost budget requires configured deployment model pricing");
         // Compatibility import for the existing deployment. Catalog adapters never infer all model options from a name.
         boolean gpt5 = persona.getModel().startsWith("gpt-5");

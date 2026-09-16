@@ -39,6 +39,30 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void reasoningChunksSeparatelyFromTextAndKeepsPublicationOrder() throws Exception {
+        var writer = new StreamBufferWriter(limits);
+        var id = UUID.randomUUID();
+        writer.open(id);
+        writer.reasoning(id, "Think");
+        writer.reasoning(id, "ing");
+        writer.append(id, "Answer");
+        writer.tool(id, new io.memoryos.chat.ChatToolEvent(new io.memoryos.chat.ChatToolEvent.Call("call_1", "read_file"),
+                io.memoryos.chat.ChatToolEvent.Stage.STARTED));
+        writer.finish(id, Status.COMPLETED, null);
+        var events = new java.util.ArrayList<StreamBufferWriter.Event>();
+        try (var reader = writer.subscribe(id, 0)) {
+            for (var batch = reader.read(); ; batch = reader.read()) {
+                events.addAll(batch.events());
+                if (batch.done()) break;
+            }
+        }
+        // The first chunk flushes immediately, as for answer text; a type change flushes the pending chunk.
+        assertEquals(java.util.List.of("reasoning", "reasoning", "text-delta", "tool", "outcome"), events.stream().map(StreamBufferWriter.Event::type).toList());
+        assertEquals("Thinking", events.stream().filter(event -> event.type().equals("reasoning")).map(StreamBufferWriter.Event::text).reduce("", String::concat));
+        assertEquals("Answer", events.get(2).text());
+    }
+
+    @Test
     void slowReaderAndEvictionDoNotStopWriterAndAdmissionIsReleased() throws Exception {
         var writer = new StreamBufferWriter(limits);
         var id = UUID.randomUUID();

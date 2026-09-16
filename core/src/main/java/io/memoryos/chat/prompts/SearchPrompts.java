@@ -142,7 +142,7 @@ public final class SearchPrompts {
             ## Output format
 
             Output the list of sources in the requested structure. FILE means uploaded files; GOOGLE_DRIVE \
-            means Google Drive.
+            means Google Drive; SHAREPOINT means SharePoint Online.
 
             Do not include any formatting, explanations, or other text aside from the list. Provide an \
             empty list [] if no source should be scoped this cycle.

@@ -15,7 +15,7 @@ import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
-import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.SourceRunTrigger;
 import java.util.UUID;
 import java.security.MessageDigest;
@@ -23,6 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
@@ -498,9 +499,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var tenant = work.tenantId();
         var source = work.sourceId();
         if (intent.name() != null) {
-            drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots);
-            var groups = sourceAccess.creation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds()).groupIds();
-            sourceGroups.replace(tenant, source, groups);
+            var creation = sourceAccess.creation(intent.actorId(), SourceAccess.RESTRICTED, intent.groupIds());
+            drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())), intent.scopeMode(), roots,
+                    creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId());
+            sourceGroups.replace(tenant, source, creation.groupIds());
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
             boolean changed = !Set.copyOf(drive.roots(tenant, source).stream().map(Root::id).toList())

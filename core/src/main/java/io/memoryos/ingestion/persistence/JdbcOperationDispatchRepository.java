@@ -89,6 +89,18 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             FOR UPDATE OF attempt SKIP LOCKED
             """;
 
+    private static final String SHAREPOINT_SELECTION_CANDIDATES = """
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
+            FROM sharepoint_selection_operations attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            WHERE tenant.status = 'ACTIVE'
+              AND attempt.next_dispatch_at <= :now
+              AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
+              AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
+            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
+            """;
+
     private static final String SELECTION_CANDIDATES = """
             SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
             FROM google_drive_selection_operations attempt
@@ -321,6 +333,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> "connector_cleanup_attempts";
             case SOURCE_SYNC -> "source_sync_attempts";
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> "google_drive_selection_operations";
+            case SHAREPOINT_SELECTION_VALIDATION -> "sharepoint_selection_operations";
             case SEARCH -> "search_index_operations";
             case USER_FILE -> "chat_file_work";
         };
@@ -332,6 +345,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> CLEANUP_CANDIDATES;
             case SOURCE_SYNC -> SYNC_CANDIDATES;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> SELECTION_CANDIDATES;
+            case SHAREPOINT_SELECTION_VALIDATION -> SHAREPOINT_SELECTION_CANDIDATES;
             case SEARCH -> SEARCH_CANDIDATES;
             case USER_FILE -> FILE_CANDIDATES;
         };

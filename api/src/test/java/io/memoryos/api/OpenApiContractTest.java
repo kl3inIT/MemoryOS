@@ -134,6 +134,7 @@ class OpenApiContractTest {
             "/api/groups/{groupId}/members/{actorId}/remove-manager",
             "/api/groups/{groupId}/capabilities",
             "/api/groups/{groupId}/sources",
+            "/api/groups/{groupId}/sources/{sourceId}/remove",
             "/api/invitations",
             "/api/invitations/current",
             "/api/invitations/{invitationId}/revoke",
@@ -144,6 +145,19 @@ class OpenApiContractTest {
             "/api/sources/google-drive",
             "/api/sources/google-drive/selection-policy",
             "/api/sources/google-drive/selection-requests/{requestId}",
+            "/api/sources/sharepoint",
+            "/api/sources/sharepoint/selection-policy",
+            "/api/sources/sharepoint/selection-requests/{requestId}",
+            "/api/sources/{sourceId}/sharepoint",
+            "/api/sources/{sourceId}/sharepoint/roots",
+            "/api/sources/{sourceId}/sharepoint/scope",
+            "/api/sources/{sourceId}/sharepoint/schedule",
+            "/api/sources/{sourceId}/sharepoint/pause",
+            "/api/sources/{sourceId}/sharepoint/sync",
+            "/api/credentials/sharepoint",
+            "/api/credentials/sharepoint/{credentialId}",
+            "/api/credentials/sharepoint/{credentialId}/authentication",
+            "/api/credentials/sharepoint/{credentialId}/test",
             "/api/credentials/google-drive",
             "/api/credentials/google-drive/authorization",
             "/api/credentials/google-drive/{credentialId}",
@@ -162,6 +176,7 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}",
             "/api/sources/{sourceId}/rename",
             "/api/sources/{sourceId}/access",
+            "/api/sources/{sourceId}/manager",
             "/api/sources/{sourceId}/delete",
             "/api/sources/{sourceId}/index-attempts",
             "/api/sources/{sourceId}/runs",
@@ -227,7 +242,7 @@ class OpenApiContractTest {
         assertTrue(validationFields.has("reachable"));
         assertTrue(validationFields.has("failureCode"));
         assertEquals(2, validationFields.size());
-        var searchSource = actual.path("components").path("schemas").path("SearchEvent")
+        var searchSource = actual.path("components").path("schemas").path("ToolEvent")
                 .path("properties").path("source");
         assertFalse(searchSource.has("$ref"), "A sibling object reference would reject null progress sources");
         assertEquals(2, searchSource.path("oneOf").size());

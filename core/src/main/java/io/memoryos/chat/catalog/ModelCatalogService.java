@@ -268,7 +268,7 @@ public class ModelCatalogService {
         return availableModels(actor, tenant.value(), personaId);
     }
 
-    public record WebModels(List<UUID> automatic, List<UUID> required, @Nullable UUID inherited, List<UUID> nativeSearch) {}
+    public record WebModels(List<UUID> automatic, @Nullable UUID inherited, List<UUID> nativeSearch) {}
 
     @Transactional
     public WebModels availableWebModels(ActorId actor, @Nullable UUID sessionId) {
@@ -276,14 +276,11 @@ public class ModelCatalogService {
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId().value();
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         var automatic = models.stream().filter(m -> m.capabilities().toolCalling()).map(AvailableModel::id).toList();
-        var required = models.stream().filter(m -> m.capabilities().toolCalling())
-                .filter(m -> adapters.require(providers.get(m.providerId()).adapterType()).supportsRequiredToolChoice())
-                .map(AvailableModel::id).toList();
         var settings = catalog.models(tenant).stream().collect(Collectors.toMap(Model::id, Model::settings));
         var nativeSearch = models.stream().filter(m -> m.capabilities().toolCalling())
                 .filter(m -> adapters.require(providers.get(m.providerId()).adapterType()).supportsNativeWebSearch(settings.get(m.id())))
                 .map(AvailableModel::id).toList();
-        return new WebModels(automatic, required, models.stream().filter(AvailableModel::isDefault).map(AvailableModel::id).findFirst().orElse(null), nativeSearch);
+        return new WebModels(automatic, models.stream().filter(AvailableModel::isDefault).map(AvailableModel::id).findFirst().orElse(null), nativeSearch);
     }
 
     private List<AvailableModel> availableModels(ActorId actor, UUID tenant, UUID personaId) {
@@ -360,7 +357,7 @@ public class ModelCatalogService {
     private void initialize(UUID tenant) {
         if (!catalog.initialize(tenant)) return;
         UUID providerId = UUID.randomUUID();
-        var provider = new Provider(providerId, tenant, "Deployment OpenAI", "openai", deployment.baseUrl(), true, true,
+        var provider = new Provider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
                 ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of());
         validateEndpoint(provider.baseUrl());
         validateModel(provider, deployment.modelName(), deployment.settings());

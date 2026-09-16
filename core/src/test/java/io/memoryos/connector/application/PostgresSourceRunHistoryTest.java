@@ -102,7 +102,7 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
         sources = new JdbcSourceRepository(jdbc, event -> { });
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.RESTRICTED)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.RESTRICTED, owner)));
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE id=:id").param("id", source.value()).update();
@@ -152,7 +152,7 @@ class PostgresSourceRunHistoryTest {
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc), items, attempts,
-                mappings, connections, writes, manager);
+                mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
         history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));
@@ -274,7 +274,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(history.list(owner, source, query(null, 2)).lastSuccessful().id()).isEqualTo(later.id());
         assertThatThrownBy(() -> history.list(owner, source, new SourceRunHistoryService.Query(page.nextCursor(), 2,
                 SourceRunStatus.FAILED, null, null, null))).isInstanceOf(SourceException.class);
-        var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PUBLIC))).sourceId();
+        var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PUBLIC, null))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
         assertThat(history.list(owner, foreign, query(null, 2)).totalItems()).isZero();
         assertThat(queries.list(new TenantId(UUID.randomUUID()), source, query(null, 2)).totalItems()).isZero();

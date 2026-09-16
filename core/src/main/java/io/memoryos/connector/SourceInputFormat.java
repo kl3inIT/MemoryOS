@@ -3,5 +3,6 @@ package io.memoryos.connector;
 public enum SourceInputFormat {
     BINARY,
     GOOGLE_SHEETS,
-    GOOGLE_DOCS
+    GOOGLE_DOCS,
+    SHAREPOINT_PAGE
 }

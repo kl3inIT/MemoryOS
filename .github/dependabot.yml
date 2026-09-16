@@ -11,6 +11,12 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    # One review per risk class: patch and minor upgrades land together, majors stay separate.
+    groups:
+      gradle-minor-and-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /web
@@ -22,6 +28,28 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # The archify skill lockfile is committed, so security alerts land on it; without this
+  # ecosystem Dependabot reports them without ever opening a fixing pull request.
+  - package-ecosystem: npm
+    directory: /.skills/archify
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      skills-npm:
+        patterns:
+          - "*"
 
   - package-ecosystem: docker
     directory: /

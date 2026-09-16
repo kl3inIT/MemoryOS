@@ -8,6 +8,8 @@ dependencies {
     implementation(libs.spring.boot.starter)
     implementation(libs.docling.client)
     implementation(libs.jackson.databind)
+    implementation(libs.micrometer.core)
+    implementation(libs.msal4j)
     implementation(libs.tika.core)
     implementation(libs.imageio.webp)
     implementation(libs.tika.parser.pdf)

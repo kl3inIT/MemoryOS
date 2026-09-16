@@ -96,6 +96,12 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> sharePointSelectionValidationRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
+        return Tasks.recurring("memoryos-redis-sharepoint-selection-relay-v1", FixedDelay.of(properties.relayInterval()))
+                .execute((_, _) -> relay.relay(OperationWorkload.SHAREPOINT_SELECTION_VALIDATION));
+    }
+
+    @Bean
     RecurringTask<Void> dueSourceSyncTask(io.memoryos.connector.ConnectorSyncPort sync) {
         return Tasks.recurring("memoryos-due-source-sync-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sync.enqueueDue(16));

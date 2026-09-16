@@ -27,6 +27,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcGoogleDriveCredentialRepository {
+    private static final String REFRESH_TOKEN = "refresh-token";
     private static final String SELECT = """
             SELECT google.*, credential.owner_actor_id, credential.status AS credential_status, tenant.status AS tenant_status
             FROM credentials credential
@@ -57,8 +58,8 @@ public class JdbcGoogleDriveCredentialRepository {
         if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
         UUID credentialId = UUID.randomUUID();
         byte[] token = grant.refreshToken();
-        GoogleDriveCredentialCipher.EncryptedCredential encrypted;
-        try { encrypted = encryption.cipher().encrypt(tenantId, credentialId, token); }
+        CredentialCipher.EncryptedCredential encrypted;
+        try { encrypted = encryption.cipher().encrypt(tenantId, credentialId, REFRESH_TOKEN, token); }
         finally { Arrays.fill(token, (byte) 0); }
         var encryptedClient = encryptClient(tenantId, credentialId, oauthClient);
         jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status, owner_actor_id) VALUES (:id, :tenant, :name, 'GOOGLE_OAUTH', 'ACTIVE', :owner)")
@@ -168,8 +169,8 @@ public class JdbcGoogleDriveCredentialRepository {
     public byte[] decrypt(TenantId tenantId, Stored row) {
         if (row.ciphertext() == null || row.nonce() == null || row.keyVersion() == null) throw GoogleDriveException.needsReauthorization();
         try {
-            return encryption.cipher().decrypt(tenantId, row.credentialId(),
-                    new GoogleDriveCredentialCipher.EncryptedCredential(row.ciphertext(), row.nonce(), row.keyVersion()));
+            return encryption.cipher().decrypt(tenantId, row.credentialId(), REFRESH_TOKEN,
+                    new CredentialCipher.EncryptedCredential(row.ciphertext(), row.nonce(), row.keyVersion()));
         } catch (IllegalStateException exception) { throw GoogleDriveException.notConfigured(); }
     }
 
@@ -178,8 +179,8 @@ public class JdbcGoogleDriveCredentialRepository {
         requireRevision(row, expectedRevision);
         if (!row.subject().equals(grant.accountSubject())) throw SourceException.conflict("Google ingestion account changed");
         byte[] token = grant.refreshToken();
-        GoogleDriveCredentialCipher.EncryptedCredential encrypted;
-        try { encrypted = encryption.cipher().encrypt(tenantId, row.credentialId(), token); }
+        CredentialCipher.EncryptedCredential encrypted;
+        try { encrypted = encryption.cipher().encrypt(tenantId, row.credentialId(), REFRESH_TOKEN, token); }
         finally { Arrays.fill(token, (byte) 0); }
         var encryptedClient = encryptClient(tenantId, row.credentialId(), oauthClient);
         jdbc.sql("""
@@ -211,7 +212,7 @@ public class JdbcGoogleDriveCredentialRepository {
     }
 
     private void replaceToken(TenantId tenantId, Stored row, byte[] token) {
-        var encrypted = encryption.cipher().encrypt(tenantId, row.credentialId(), token);
+        var encrypted = encryption.cipher().encrypt(tenantId, row.credentialId(), REFRESH_TOKEN, token);
         int changed = jdbc.sql("""
                 UPDATE google_drive_credentials SET refresh_token_ciphertext = :ciphertext,
                     refresh_token_nonce = :nonce, key_version = :version, payload_revision = payload_revision + 1,
@@ -334,13 +335,13 @@ public class JdbcGoogleDriveCredentialRepository {
         byte[] payload;
         try {
             payload = encryption.cipher().decrypt(tenantId, row.credentialId(), "oauth-client",
-                    new GoogleDriveCredentialCipher.EncryptedCredential(row.clientCiphertext(), row.clientNonce(), row.clientKeyVersion()));
+                    new CredentialCipher.EncryptedCredential(row.clientCiphertext(), row.clientNonce(), row.clientKeyVersion()));
         } catch (IllegalStateException exception) { throw GoogleDriveException.notConfigured(); }
         try { return GoogleDriveOAuthClient.decode(payload); }
         finally { Arrays.fill(payload, (byte) 0); }
     }
 
-    private GoogleDriveCredentialCipher.EncryptedCredential encryptClient(TenantId tenantId, UUID credentialId, GoogleDriveOAuthClient client) {
+    private CredentialCipher.EncryptedCredential encryptClient(TenantId tenantId, UUID credentialId, GoogleDriveOAuthClient client) {
         byte[] payload = client.encode();
         try { return encryption.cipher().encrypt(tenantId, credentialId, "oauth-client", payload); }
         finally { Arrays.fill(payload, (byte) 0); }
@@ -364,7 +365,7 @@ public class JdbcGoogleDriveCredentialRepository {
             String[] parts = preparation.oauthClientSnapshot().split("\\.", -1);
             if (parts.length != 3) throw GoogleDriveException.invalidOAuthClient();
             var decoder = Base64.getUrlDecoder();
-            var encrypted = new GoogleDriveCredentialCipher.EncryptedCredential(decoder.decode(parts[2]),
+            var encrypted = new CredentialCipher.EncryptedCredential(decoder.decode(parts[2]),
                     decoder.decode(parts[1]), new String(decoder.decode(parts[0]), StandardCharsets.UTF_8));
             payload = encryption.cipher().decrypt(preparation.tenantId(), preparation.consentId(),
                     consentPurpose(actorId, preparation), encrypted);

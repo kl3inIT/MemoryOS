@@ -8,7 +8,7 @@ import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewContent } from "./document-preview-content";
 import { client } from "@/lib/hey-api/client.gen";
-import { EvidenceViewSwitch, type PdfEvidence } from "./evidence-view-switch";
+import { EvidenceViewSwitch, type EvidenceView, type PdfEvidence } from "./evidence-view-switch";
 import { readSourceLocation } from "./source-provenance";
 
 export type DocumentSelection = {
@@ -29,6 +29,12 @@ type DocumentPreviewDialogProps = {
   returnFocusRef: RefObject<HTMLElement | null>;
   fallbackFocusRef: RefObject<HTMLElement | null>;
   onClose: () => void;
+  /** Chat citations read passages and originals with Chat authority; the Search page keeps Search authority. */
+  variant?: "search" | "chat";
+  /** Owner-private Chat file whose indexed passages are cited; it has no original page view. */
+  fileId?: string;
+  view?: EvidenceView;
+  onViewChange?: (view: EvidenceView) => void;
 };
 
 export function DocumentPreviewDialog({
@@ -36,20 +42,32 @@ export function DocumentPreviewDialog({
   returnFocusRef,
   fallbackFocusRef,
   onClose,
+  variant = "search",
+  fileId,
+  view,
+  onViewChange,
 }: DocumentPreviewDialogProps) {
   const ui = useAppTranslation();
   const location = readSourceLocation(selection.provenance ?? []);
   const { documentId, generation } = selection;
   const pdf: PdfEvidence | undefined =
-    selection.mediaType === "application/pdf" && location.pages.length
+    !fileId && selection.mediaType === "application/pdf" && location.pages.length
       ? {
-          url: client.buildUrl({
-            url: "/api/search/documents/{documentId}/original",
-            path: { documentId },
-            query: { generation },
-          }),
+          url:
+            variant === "chat"
+              ? client.buildUrl({
+                  url: "/api/chat/documents/{documentId}/original",
+                  path: { documentId },
+                  query: { generation },
+                })
+              : client.buildUrl({
+                  url: "/api/search/documents/{documentId}/original",
+                  path: { documentId },
+                  query: { generation },
+                }),
           pages: location.pages,
           boxes: location.boxes,
+          table: location.table,
         }
       : undefined;
 
@@ -107,8 +125,13 @@ export function DocumentPreviewDialog({
           </header>
 
           {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
-          <EvidenceViewSwitch pdf={pdf} defaultView="pdf">
-            <DocumentPreviewContent selection={selection} />
+          <EvidenceViewSwitch
+            pdf={pdf}
+            defaultView={variant === "search" ? "pdf" : undefined}
+            view={view}
+            onViewChange={onViewChange}
+          >
+            <DocumentPreviewContent selection={selection} variant={variant} fileId={fileId} />
           </EvidenceViewSwitch>
         </Dialog.Content>
       </Dialog.Portal>

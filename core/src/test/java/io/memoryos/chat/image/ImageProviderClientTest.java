@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -18,9 +19,11 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class ImageProviderClientTest {
     private final ImageHttp http = mock(ImageHttp.class);
@@ -107,5 +110,53 @@ class ImageProviderClientTest {
     @Test void cloudflareMissingImageFails() throws Exception {
         when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"result\":{},\"success\":true}"));
         assertThrows(IOException.class, () -> client.generate(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, "@cf/black-forest-labs/flux-1-schnell"), "a cat", null));
+    }
+
+    private static ImageEditImages.Working working() {
+        return new ImageEditImages.Working(new byte[]{7, 7}, 384, 512,
+                new java.awt.image.BufferedImage(384, 512, java.awt.image.BufferedImage.TYPE_INT_RGB));
+    }
+
+    @Test @SuppressWarnings("unchecked") void cloudflareEditPostsKleinMultipartAndStoresTheReturnedType() throws Exception {
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 1};
+        when(http.postMultipart(any(), anyMap(), anyMap(), anyList()))
+                .thenReturn(ok("{\"result\":{\"image\":\"" + Base64.getEncoder().encodeToString(jpeg) + "\"},\"success\":true}"));
+        var result = client.edit(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, "@cf/black-forest-labs/flux-1-schnell"),
+                "make the shirt red", working());
+        assertArrayEquals(jpeg, result.bytes());
+        assertEquals("image/jpeg", result.mediaType());
+        ArgumentCaptor<Map<String, String>> fields = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<List<ImageHttp.FilePart>> files = ArgumentCaptor.forClass(List.class);
+        verify(http).postMultipart(argThat(uri -> uri.toString().equals(CF_BASE + "/ai/run/@cf/black-forest-labs/flux-2-klein-9b")),
+                eq(Map.of("Authorization", "Bearer test-secret")), fields.capture(), files.capture());
+        assertEquals(Map.of("prompt", "make the shirt red", "width", "384", "height", "512"), fields.getValue());
+        assertEquals("input_image_0", files.getValue().getFirst().name());
+        assertArrayEquals(new byte[]{7, 7}, files.getValue().getFirst().bytes());
+        assertEquals(1, meters.get("memoryos.chat.image.request").tag("operation", "edit").tag("outcome", "succeeded").timer().count());
+    }
+
+    @Test @SuppressWarnings("unchecked") void openAiEditPostsImagesEditsWithHighInputFidelity() throws Exception {
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3, 4};
+        when(http.postMultipart(any(), anyMap(), anyMap(), anyList()))
+                .thenReturn(ok("{\"data\":[{\"b64_json\":\"" + Base64.getEncoder().encodeToString(png) + "\"}]}"));
+        var result = client.edit(connection("", "gpt-image-1"), "make the shirt red", working());
+        assertEquals("image/png", result.mediaType());
+        ArgumentCaptor<Map<String, String>> fields = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<List<ImageHttp.FilePart>> files = ArgumentCaptor.forClass(List.class);
+        verify(http).postMultipart(argThat(uri -> uri.toString().equals("https://api.openai.com/v1/images/edits")),
+                anyMap(), fields.capture(), files.capture());
+        assertEquals("gpt-image-1", fields.getValue().get("model"));
+        assertEquals("high", fields.getValue().get("input_fidelity"));
+        assertEquals("image", files.getValue().getFirst().name());
+    }
+
+    @Test void editFailureAndUnknownBytesDoNotDiscloseTheProviderResponse() throws Exception {
+        when(http.postMultipart(any(), anyMap(), anyMap(), anyList()))
+                .thenReturn(new ImageHttp.Response(400, "secret-provider-diagnostic".getBytes(StandardCharsets.UTF_8)));
+        var error = assertThrows(IOException.class, () -> client.edit(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, ""), "x", working()));
+        assertFalse(error.getMessage().contains("secret"));
+        assertEquals(1, meters.get("memoryos.chat.image.request").tag("operation", "edit").tag("outcome", "failed").timer().count());
+        when(http.postMultipart(any(), anyMap(), anyMap(), anyList())).thenReturn(ok("{\"result\":{\"image\":\"AQID\"}}"));
+        assertThrows(IOException.class, () -> client.edit(connection(ImageProvider.CLOUDFLARE_WORKERS_AI, CF_BASE, ""), "x", working()));
     }
 }

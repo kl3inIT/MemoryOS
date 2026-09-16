@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.chat.ChatMessage.Status;
-import io.memoryos.chat.ChatSearchEvent;
+import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import java.util.List;
 import io.memoryos.chat.streaming.ChatStreamProperties;
@@ -37,19 +37,43 @@ class ChatEventStreamTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[]")));
         streams.open(assistant);
-        streams.search(assistant, new ChatSearchEvent("tool-1", ChatSearchEvent.Stage.SOURCE, source));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("tool-1", "searchKnowledge"), source));
         streams.append(assistant, "Twelve days [1]");
         streams.finish(assistant, Status.CANCELED, null);
         var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
                 .collectList().block(Duration.ofSeconds(2));
         assertNotNull(events);
-        assertEquals(List.of("search", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
-        var payload = assertInstanceOf(ChatEventStream.SearchEvent.class, events.getFirst().data());
+        assertEquals(List.of("tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
+        var payload = assertInstanceOf(ChatEventStream.ToolEvent.class, events.getFirst().data());
         assertEquals("tool-1", payload.toolCallId());
+        assertEquals("searchKnowledge", payload.toolName());
         assertNotNull(payload.source());
         assertEquals(source.documentId(), payload.source().documentId());
         assertEquals(assistant + ":1", events.getFirst().id());
         assertEquals(0, streams.readerCount());
+    }
+
+    @Test
+    void reasoningAndToolStagesReplayInSequenceBeforeTextAndTerminal() {
+        var call = new ChatToolEvent.Call("call_1", "web_search");
+        streams.open(assistant);
+        streams.reasoning(assistant, "Checking ");
+        streams.reasoning(assistant, "sources");
+        streams.tool(assistant, new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
+        streams.tool(assistant, ChatToolEvent.finished(call, false, 42L));
+        streams.append(assistant, "Answer");
+        streams.finish(assistant, Status.COMPLETED, null);
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+                .collectList().block(Duration.ofSeconds(2));
+        assertNotNull(events);
+        assertEquals(List.of("reasoning", "reasoning", "tool", "tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
+        assertEquals("Checking sources", events.subList(0, 2).stream()
+                .map(event -> assertInstanceOf(ChatEventStream.ReasoningEvent.class, event.data()).text()).reduce("", String::concat));
+        var done = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(3).data());
+        assertEquals(ChatToolEvent.Stage.COMPLETED, done.stage());
+        assertEquals("web_search", done.toolName());
+        assertEquals(42L, done.durationMs());
+        assertEquals(assistant + ":4", events.get(3).id());
     }
 
     @Test

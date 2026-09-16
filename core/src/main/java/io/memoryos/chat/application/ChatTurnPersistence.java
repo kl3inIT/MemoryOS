@@ -7,6 +7,7 @@ import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.identity.ActorId;
@@ -40,15 +41,18 @@ public class ChatTurnPersistence {
     private final PersonaProperties persona;
     private final ChatFileService files;
     private final ActorLanguageService languages;
+    private final JdbcImageArtifactRepository imageArtifacts;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages) {
+                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
+                               JdbcImageArtifactRepository imageArtifacts) {
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
         this.persona = persona;
         this.files = files;
         this.languages = languages;
+        this.imageArtifacts = imageArtifacts;
     }
 
     /** Capability gate checked once per command or stream entry, before ownership and the session lock. */
@@ -218,15 +222,24 @@ public class ChatTurnPersistence {
                     try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
                     catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
                 });
+        // History keeps assistant replies as text; name their images so a later turn can edit one.
+        var generated = new LinkedHashMap<UUID, List<UUID>>();
+        imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
+                .map(ChatMessage::id).toList()).forEach((message, images) ->
+                generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
-                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor));
+                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor), generated);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
                               List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
                               Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles,
-                              @Nullable String uiLanguage) {
-        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); }
+                              @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
+        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                           Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
+        }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
                            Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
             this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, null);
@@ -277,10 +290,18 @@ public class ChatTurnPersistence {
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, io.memoryos.chat.ChatActivity.EMPTY);
+    }
+
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
             throw ChatException.invalid("Invalid terminal outcome.");
         if (artifacts.size() > 3) throw ChatException.invalid("Invalid artifact count.");
-        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts);
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
     }

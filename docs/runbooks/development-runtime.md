@@ -129,6 +129,8 @@ Reconciliation first reads Keycloak `serverinfo` and requires exactly one login 
 
 Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating shared Keycloak, and rerunning the prior reconciliation script; do not edit the OrgMemory realm or change the public issuer.
 
+The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `shared-keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait shared-keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
+
 Required operator environment:
 
 ```text
@@ -298,7 +300,7 @@ Open pgweb at `http://127.0.0.1:18026` and Redis Insight at `http://127.0.0.1:18
 
 ## Run the hardened staging stack
 
-MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns stable identifiers, exact public origins, secret-file paths, and non-secret tuning; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, preserving per-service boundaries; the [Infisical MinIO inventory](#infisical-minio-layout) does not replace those mounts. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
+MemoryOS staging composes `compose.base.yaml` plus `compose.staging.yaml`. The base owns PostgreSQL, private MinIO and its one-shot bootstrap, shared Keycloak, API, worker, and web; the staging overlay adds Mailpit, TLS Redis, read-only inspector bootstrap jobs, pgweb, Redis Insight, their OAuth2 Proxies, and native MinIO Console OIDC. Copy [`staging.env.example`](../../infrastructure/deployment/staging.env.example) to a mode-`0600` file outside Git and load every required managed value. That file owns release images, stable identifiers, exact public origins and secret-file paths; Compose owns every other default, so add a tuning value there only to override it; Infisical continues to own database, identity, and browser secrets. File-backed MinIO and Redis credentials are mounted into the exact service that consumes them, preserving per-service boundaries; the [Infisical MinIO inventory](#infisical-minio-layout) does not replace those mounts. API runs Flyway and verifies the object sentinel before becoming healthy; worker starts after API, MinIO bootstrap, and Redis health.
 
 ### Provision staging object storage
 
