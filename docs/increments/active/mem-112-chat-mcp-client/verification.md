@@ -69,6 +69,7 @@ Not run for 2b: `gradlew clean check`, the full web `pnpm check` and a live auth
 | Callback ownership and return | `gradlew :api:test --tests io.memoryos.api.mcp.McpOAuthCallbackTest` | 5 tests passed, including a connecting User returned to `/chat/{session}` with the outcome code; a callback without pending state lands on `/`, which every User may open |
 | Return addresses | `McpReturnPathTest` | 2 tests passed: only `/`, `/chat/{id}`, `/projects/{id}` and `/admin/mcp` are accepted; absolute URLs, `//host`, backslashes, queries and fragments are refused |
 | Core MCP suites and module boundaries | `gradlew :core:test --tests 'io.memoryos.mcp.*' --tests io.memoryos.ModulithArchitectureTest --tests io.memoryos.CoreDependencyRulesTest` | 35 tests passed; the new `mcp` JDBC access repository keeps the module boundary |
+| Full API suite | `gradlew :api:test --no-daemon --max-workers=1` (after `fc202859`) | Passed: 23 suites, 175 tests, 0 failures |
 | OpenAPI and web client | `MEMORYOS_OPENAPI_WRITE=true` `OpenApiContractTest`; `pnpm generate:api`; `tsc -b --noEmit` | Passed with four new `/api/mcp/connections...` paths; the diff is 360 added lines and removes no operation; typecheck clean |
 
-Not run for Phase 3: `gradlew clean check`, the full `:api:test`, the full web `pnpm check`, and a live authorization server.
+Not run for Phase 3: `gradlew clean check`, the full web `pnpm check`, and a live authorization server.
