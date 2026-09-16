@@ -1,14 +1,50 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { uiLocale } from "@/i18n/format";
+import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
-import { History, RefreshCw, X } from "lucide-react";
+import { type ReactNode, useRef, useState } from "react";
+import {
+  CalendarCheck,
+  CalendarClock,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  CircleMinus,
+  CircleSlash,
+  CircleX,
+  Clock3,
+  Hand,
+  Hash,
+  History,
+  LoaderCircle,
+  RefreshCw,
+  RotateCw,
+  Sparkles,
+  Timer,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { HelpPopover } from "@/components/ui/help-popover";
-import { Select } from "@/components/ui/select";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
 import {
   getSourceRunOptions,
@@ -16,10 +52,13 @@ import {
   listSourceRunsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceRun, SourceRunCounts, SourceRunError } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration, runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
-import { ExpandableRow, ListDetailLayout } from "./list-detail-layout";
+import { statusPill } from "./source-status-presentation";
+import { ExpandableRow } from "./expandable-row";
+import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "./source-section-icon";
 
 const primaryCounts: Array<[keyof SourceRunCounts, string]> = [
@@ -38,13 +77,7 @@ const additionalCounts: Array<[keyof SourceRunCounts, string]> = [
   ["indexingSuperseded", "Superseded"],
   ["indexingCancelled", "Cancelled"],
 ];
-const summaryCounts: Array<[keyof SourceRunCounts, string]> = [
-  ["scanned", "Checked"],
-  ["published", "Indexed"],
-  ["unchanged", "Unchanged"],
-  ["acquisitionFailed", "Acquisition failed"],
-  ["indexingFailed", "Indexing failed"],
-];
+const failureCounts = new Set<keyof SourceRunCounts>(["acquisitionFailed", "indexingFailed"]);
 
 const outcomeLegend: Array<
   [label: string, tone: "success" | "danger" | "info" | "neutral", description: string]
@@ -68,16 +101,74 @@ const outcomeLegend: Array<
   ["Unknown", "neutral", "The outcome was not recorded."],
 ];
 
+/** Run statuses a reader filters by, labelled and coloured like the outcome legend. */
+const runStatusFilter: {
+  label: string;
+  clearLabel: string;
+  options: readonly SourceFilterOption[];
+} = {
+  label: "Status",
+  clearLabel: "Clear status filter",
+  options: [
+    { value: "SUCCEEDED", label: "Completed", tone: "success" },
+    { value: "COMPLETED_WITH_ERRORS", label: "Completed with errors", tone: "danger" },
+    { value: "FAILED", label: "Failed", tone: "danger" },
+    { value: "QUEUED", label: "Queued", tone: "info" },
+    { value: "ACQUIRING", label: "Acquiring", tone: "info" },
+    { value: "INDEXING", label: "Indexing", tone: "info" },
+    { value: "RETRY_SCHEDULED", label: "Retry scheduled", tone: "info" },
+    { value: "RECOVERY_PENDING", label: "Recovery pending", tone: "info" },
+    { value: "SUPERSEDED", label: "Superseded", tone: "neutral" },
+    { value: "CANCELLED", label: "Cancelled", tone: "neutral" },
+  ],
+};
+
+const runTriggers: Record<NonNullable<SourceRun["trigger"]>, [label: string, icon: LucideIcon]> = {
+  SCHEDULED: ["Automatic schedule", CalendarClock],
+  MANUAL: ["Manual", Hand],
+  INITIAL: ["Initial synchronization", Sparkles],
+};
+
+type StageState = [label: string, tone: StatusTone, icon: LucideIcon];
+const unknownStage: StageState = ["Unknown", "neutral", CircleHelp];
+/** Acquisition and indexing phases share these states; indexing adds Not required. */
+const stageStates: Record<string, StageState> = {
+  QUEUED: ["Queued", "neutral", Clock3],
+  PENDING: ["Pending", "neutral", Clock3],
+  ACQUIRING: ["In progress", "info", LoaderCircle],
+  INDEXING: ["In progress", "info", LoaderCircle],
+  RETRY_SCHEDULED: ["Retry scheduled", "info", RotateCw],
+  RECOVERY_PENDING: ["Recovery pending", "info", RotateCw],
+  SUCCEEDED: ["Completed", "success", CircleCheck],
+  COMPLETED_WITH_ERRORS: ["Completed with errors", "danger", CircleAlert],
+  FAILED: ["Failed", "danger", CircleX],
+  SUPERSEDED: ["Superseded", "neutral", CircleSlash],
+  CANCELLED: ["Cancelled", "neutral", CircleSlash],
+  NOT_REQUIRED: ["Not required", "neutral", CircleMinus],
+  UNKNOWN: unknownStage,
+};
+const toneText: Record<StatusTone, string> = {
+  success: "text-status-success-content",
+  warning: "text-status-warning-content",
+  danger: "text-status-danger-content",
+  info: "text-status-info-content",
+  neutral: "text-content-muted",
+};
+
 export function SourceRunHistory({ sourceId }: { sourceId: string }) {
   const ui = useAppTranslation();
   const [size, setSize] = useState(5);
+  const [statuses, setStatuses] = useState<SourceRun["status"][]>([]);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
-  const [selectedRun, setSelectedRun] = useState<SourceRun | null>(null);
-  const detailsTrigger = useRef<HTMLElement | null>(null);
-  const closeButton = useRef<HTMLButtonElement | null>(null);
+  const [detailRun, setDetailRun] = useState<SourceRun | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detailOpener = useRef<HTMLElement | null>(null);
   const history = useQuery({
-    ...listSourceRunsOptions({ path: { sourceId }, query: { size, cursor } }),
+    ...listSourceRunsOptions({
+      path: { sourceId },
+      query: { size, cursor, status: statuses.length ? statuses : undefined },
+    }),
     retry: false,
     staleTime: 0,
     placeholderData: keepPreviousData,
@@ -88,17 +179,19 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
     setCursor(undefined);
     setPrevious([]);
   }
-  const viewDetails = (run: SourceRun, trigger: HTMLElement) => {
-    detailsTrigger.current = trigger;
-    setSelectedRun(run);
+  const firstPage = () => {
+    setCursor(undefined);
+    setPrevious([]);
   };
-  const selectedRunId = selectedRun?.id;
-  useLayoutEffect(() => {
-    if (selectedRunId) closeButton.current?.focus();
-  }, [selectedRunId]);
-  const summaryRuns = (
+  const viewDetails = (run: SourceRun, opener: HTMLElement) => {
+    detailOpener.current = opener;
+    setDetailRun(run);
+    setDetailOpen(true);
+  };
+  const latestRun = history.data?.current ?? history.data?.lastCompleted;
+  const overview = (
     [
-      ["Current run", history.data?.current],
+      [history.data?.current ? "Current run" : "Latest run", latestRun],
       ["Last successful run", history.data?.lastSuccessful],
     ] as const
   ).flatMap(([label, run]) => (run ? [[label, run] as const] : []));
@@ -115,7 +208,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                 {outcomeLegend.map(([label, tone, description]) => (
                   <div key={label} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <dt>
-                      <StatusBadge tone={tone} size="sm">
+                      <StatusBadge tone={tone} className={statusPill(tone)}>
                         {ui(label)}
                       </StatusBadge>
                     </dt>
@@ -153,19 +246,22 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
       ) : null}
       {history.data ? (
         <>
-          {summaryRuns.length ? (
-            <dl className={summaryRuns.length > 1 ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
-              {summaryRuns.map(([label, run]) => (
+          {overview.length ? (
+            <dl className="grid overflow-hidden rounded-xl border border-border-subtle bg-surface-raised sm:auto-cols-fr sm:grid-flow-col">
+              {overview.map(([label, run], index) => (
                 <div
                   key={label}
-                  className="min-w-0 rounded-xl border border-border-subtle bg-surface-raised p-4"
+                  className={cn(
+                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-3",
+                    index > 0 && "border-t border-border-subtle sm:border-t-0 sm:border-l",
+                  )}
                 >
                   <dt className="text-xs text-content-muted">{ui(label)}</dt>
-                  <dd className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-content-primary">
-                      <HistoryTime value={run.startedAt} />
-                      <RunOutcome run={run} />
-                    </div>
+                  <dd className="col-start-1 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-content-primary">
+                    <HistoryTime value={run.startedAt} relative />
+                    <RunOutcome run={run} />
+                  </dd>
+                  <dd className="col-start-2 row-span-2 row-start-1">
                     <Button
                       size="sm"
                       prominence="tertiary"
@@ -179,134 +275,156 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
               ))}
             </dl>
           ) : null}
-          <ListDetailLayout
-            detailLabel={ui("Run details")}
-            list={
-              <div className="overflow-hidden rounded-xl border border-border-subtle">
-                <ul
-                  aria-label={ui("Source indexing attempts, newest first")}
-                  className="divide-y divide-border-subtle"
-                >
+          <div className="overflow-hidden rounded-xl border border-border-subtle">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-raised px-3 py-2">
+              <SourceFilterMenu
+                {...runStatusFilter}
+                value={statuses}
+                onValueChange={(next) => {
+                  setStatuses(next as SourceRun["status"][]);
+                  firstPage();
+                }}
+              />
+            </div>
+            <div
+              role="region"
+              aria-label={ui("Sync history")}
+              tabIndex={0}
+              className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+            >
+              <Table
+                aria-label={ui("Source indexing attempts, newest first")}
+                className="min-w-[48rem] text-left text-sm"
+              >
+                <TableHeader className="bg-surface-sunken text-content-muted">
+                  <TableRow>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Started")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Status")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Trigger")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Duration")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Activity")}
+                    </TableHead>
+                    <TableHead scope="col" className="w-12 px-2">
+                      <span className="sr-only">{ui("Run details")}</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {history.data.items.map((run) => (
-                    <li key={run.id} className="min-w-0">
-                      <button
-                        type="button"
-                        aria-current={selectedRun?.id === run.id || undefined}
-                        aria-label={ui("View details for run started {{v1}}", {
-                          v1: run.startedAt
-                            ? new Date(run.startedAt).toLocaleString(uiLocale())
-                            : ui("at an unknown time"),
-                        })}
-                        className={`block min-h-11 w-full min-w-0 px-4 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-focus-ring ${
-                          selectedRun?.id === run.id
-                            ? "bg-surface-subtle"
-                            : "hover:bg-surface-subtle/40"
-                        }`}
-                        onClick={(event) => viewDetails(run, event.currentTarget)}
-                      >
-                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-content-primary">
-                          <HistoryTime value={run.startedAt} />
-                          <RunOutcome run={run} />
-                          <span className="text-xs text-content-muted">
-                            <RunDuration run={run} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <RunActivity run={run} />
-                          </span>
+                    <TableRow
+                      key={run.id}
+                      data-state={detailOpen && detailRun?.id === run.id ? "selected" : undefined}
+                      className="cursor-pointer"
+                      // The row is a larger pointer target for its details button, which stays
+                      // the keyboard and assistive-technology control.
+                      onClick={(event) => {
+                        if ((event.target as Element).closest("button, a")) return;
+                        event.currentTarget
+                          .querySelector<HTMLButtonElement>("[data-run-details]")
+                          ?.click();
+                      }}
+                    >
+                      <TableCell className="whitespace-nowrap px-4 py-3">
+                        <span className="block font-medium text-content-primary">
+                          <HistoryTime value={run.startedAt} relative />
                         </span>
-                      </button>
-                    </li>
+                        {run.startedAt ? (
+                          <span className="block text-xs text-content-muted">
+                            {formatUiDate(run.startedAt)}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <RunOutcome run={run} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-secondary">
+                        <RunTrigger run={run} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-muted">
+                        <RunDuration run={run} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 whitespace-normal">
+                        <RunActivity run={run} />
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <IconButton
+                          size="sm"
+                          data-run-details
+                          aria-label={ui("View details for run started {{v1}}", {
+                            v1: run.startedAt
+                              ? new Date(run.startedAt).toLocaleString(uiLocale())
+                              : ui("at an unknown time"),
+                          })}
+                          onClick={(event) => viewDetails(run, event.currentTarget)}
+                        >
+                          <ChevronRight aria-hidden="true" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </ul>
-                {!history.data.items.length ? (
-                  <p className="px-4 py-8 text-center text-sm text-content-muted">
-                    {ui("No Source executions on this page.")}
-                  </p>
-                ) : null}
-                <TablePagination
-                  label={ui("Source attempt pages")}
-                  page={previous.length}
-                  totalPages={totalPages}
-                  previousLabel={ui("Previous source attempts")}
-                  nextLabel={ui("Next source attempts")}
-                  previousDisabled={!previous.length || history.isFetching}
-                  nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
-                  onPrevious={() => {
-                    setCursor(previous.at(-1));
-                    setPrevious((pages) => pages.slice(0, -1));
-                  }}
-                  onNext={() => {
-                    setPrevious((pages) => [...pages, cursor]);
-                    setCursor(history.data?.nextCursor ?? undefined);
-                  }}
-                >
-                  <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                    {ui("Rows")}
-                    <Select
-                      aria-label={ui("Source attempts per page")}
-                      size="sm"
-                      className="w-auto px-2"
-                      value={size}
-                      disabled={history.isFetching}
-                      onChange={(event) => {
-                        setSize(Number(event.target.value));
-                        setCursor(undefined);
-                        setPrevious([]);
-                      }}
-                    >
-                      {[5, 10, 25, 50].map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                </TablePagination>
-              </div>
-            }
-            detail={
-              selectedRun ? (
-                <div className="min-w-0">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <h3 className="font-heading-h3 text-content-primary">{ui("Run details")}</h3>
-                    <IconButton
-                      ref={closeButton}
-                      prominence="tertiary"
-                      aria-label={ui("Close run details")}
-                      onClick={() => {
-                        setSelectedRun(null);
-                        detailsTrigger.current?.focus();
-                      }}
-                    >
-                      <X />
-                    </IconButton>
-                  </div>
-                  <RunDetails key={selectedRun.id} initialRun={selectedRun} />
-                </div>
-              ) : null
-            }
-          />
-          <Collapsible className="rounded-lg border border-border-subtle px-4 py-3 text-sm">
-            <CollapsibleTrigger className="min-h-11 cursor-pointer py-2 text-content-secondary focus-visible:outline-2 focus-visible:outline-focus-ring">
-              {ui("What do the different statuses mean?")}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <dl className="mt-2 space-y-2 pb-1">
-                {outcomeLegend.map(([label, tone, description]) => (
-                  <div key={label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <dt>
-                      <StatusBadge tone={tone} size="sm">
-                        {ui(label)}
-                      </StatusBadge>
-                    </dt>
-                    <dd className="min-w-0 flex-1 text-content-muted">{ui(description)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </CollapsibleContent>
-          </Collapsible>
+                  {!history.data.items.length ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="px-4 py-8 text-center text-content-muted">
+                        {ui("No Source executions on this page.")}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+            <TablePagination
+              label={ui("Source attempt pages")}
+              page={previous.length}
+              totalPages={totalPages}
+              previousLabel={ui("Previous source attempts")}
+              nextLabel={ui("Next source attempts")}
+              previousDisabled={!previous.length || history.isFetching}
+              nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+              onPrevious={() => {
+                setCursor(previous.at(-1));
+                setPrevious((pages) => pages.slice(0, -1));
+              }}
+              onNext={() => {
+                setPrevious((pages) => [...pages, cursor]);
+                setCursor(history.data?.nextCursor ?? undefined);
+              }}
+            >
+              <PageSizeSelect
+                label={ui("Source attempts per page")}
+                rowsLabel={ui("Rows")}
+                value={size}
+                sizes={[5, 10, 25, 50]}
+                disabled={history.isFetching}
+                onSizeChange={(next) => {
+                  setSize(next);
+                  firstPage();
+                }}
+              />
+            </TablePagination>
+          </div>
         </>
       ) : null}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent
+          className="w-full gap-0 overflow-y-auto sm:max-w-xl"
+          onCloseAutoFocus={(event) => {
+            // Opened without a SheetTrigger, so Radix has no trigger to refocus.
+            event.preventDefault();
+            detailOpener.current?.focus();
+          }}
+        >
+          {detailRun ? <RunDetails key={detailRun.id} initialRun={detailRun} /> : null}
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }
@@ -318,12 +436,57 @@ function RunDuration({ run }: { run: SourceRun }) {
   return <>{runIsActive(run) ? ui("In progress") : ui("Not recorded")}</>;
 }
 
+function RunTrigger({ run }: { run: SourceRun }) {
+  const ui = useAppTranslation();
+  const trigger = run.trigger ? runTriggers[run.trigger] : undefined;
+  if (!trigger) return <span className="text-content-muted">{ui("Not recorded")}</span>;
+  const [label, Icon] = trigger;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-content-muted" />
+      {ui(label)}
+    </span>
+  );
+}
+
+/** What a run changed at a glance: files checked, then only the changes and failures it made. */
 function RunActivity({ run }: { run: SourceRun }) {
   const ui = useAppTranslation();
-  const counts = summaryCounts
-    .map(([field, label]) => ({ field, label, value: run.counts[field] }))
-    .filter(({ value }) => value !== null && value !== 0);
-  if (!counts.length) {
+  const number = (value: number) => value.toLocaleString(uiLocale());
+  const { scanned, published, removed, indexingPending } = run.counts;
+  const failed = (run.counts.acquisitionFailed ?? 0) + (run.counts.indexingFailed ?? 0);
+  const parts: Array<{ key: string; text: string; tone: string }> = [];
+  if (scanned !== null)
+    parts.push({
+      key: "scanned",
+      text: ui("{{v1}} checked", { v1: number(scanned) }),
+      tone: "text-content-secondary",
+    });
+  if (published)
+    parts.push({
+      key: "published",
+      text: ui("+{{v1}} indexed", { v1: number(published) }),
+      tone: "text-status-success-content",
+    });
+  if (removed)
+    parts.push({
+      key: "removed",
+      text: ui("−{{v1}} removed", { v1: number(removed) }),
+      tone: "text-content-secondary",
+    });
+  if (indexingPending)
+    parts.push({
+      key: "pending",
+      text: ui("{{v1}} pending", { v1: number(indexingPending) }),
+      tone: "text-status-info-content",
+    });
+  if (failed > 0)
+    parts.push({
+      key: "failed",
+      text: ui("{{v1}} failed", { v1: number(failed) }),
+      tone: "text-status-danger-content",
+    });
+  if (!parts.length) {
     return (
       <span className="text-xs text-content-muted">
         {runIsActive(run)
@@ -333,20 +496,85 @@ function RunActivity({ run }: { run: SourceRun }) {
     );
   }
   return (
-    <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-content-muted">
-      {counts.map(({ field, label, value }) => (
-        <span
-          key={field}
-          className={
-            (field === "acquisitionFailed" || field === "indexingFailed") && (value ?? 0) > 0
-              ? "text-status-danger-content"
-              : undefined
-          }
-        >
-          <span className="tabular-nums">{value?.toLocaleString(uiLocale())}</span> {ui(label)}
+    <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums">
+      {parts.map((part) => (
+        <span key={part.key} className={part.tone}>
+          {part.text}
         </span>
       ))}
     </span>
+  );
+}
+
+function RunSection({
+  title,
+  help,
+  children,
+}: {
+  title: string;
+  help?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="px-5 py-4">
+      <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-content-primary">
+        {title}
+        {help}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function DetailRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5">
+      <dt className="flex shrink-0 items-center gap-2 text-content-muted">
+        <Icon aria-hidden="true" className="size-4" />
+        {label}
+      </dt>
+      <dd className="min-w-0 text-right text-content-primary">{children}</dd>
+    </div>
+  );
+}
+
+function RunStage({
+  name,
+  state,
+  duration,
+}: {
+  name: string;
+  state: string;
+  duration: string | null;
+}) {
+  const ui = useAppTranslation();
+  const [label, tone, Icon] = stageStates[state] ?? unknownStage;
+  return (
+    <li className="flex items-center gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-4 shrink-0",
+          toneText[tone],
+          Icon === LoaderCircle && "motion-safe:animate-spin",
+        )}
+      />
+      <span className="min-w-0 flex-1 font-medium text-content-primary">{name}</span>
+      {duration ? (
+        <span className="text-xs tabular-nums text-content-muted">{duration}</span>
+      ) : null}
+      <StatusBadge tone={tone} className={statusPill(tone)}>
+        {ui(label)}
+      </StatusBadge>
+    </li>
   );
 }
 
@@ -367,156 +595,161 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
     run.indexingStatus === "COMPLETED_WITH_ERRORS" ||
     (run.counts.acquisitionFailed ?? 0) > 0 ||
     (run.counts.indexingFailed ?? 0) > 0;
+  const counts = [
+    ...primaryCounts,
+    ...additionalCounts.filter(([field]) => run.counts[field] !== 0),
+  ];
   return (
     <>
-      {detail.isError ? (
-        <div role="alert" className="text-sm text-status-danger-content">
-          {ui("This run could not be refreshed. Displayed details may be out of date.")}
-          <Button size="sm" prominence="tertiary" onClick={() => void detail.refetch()}>
-            {ui("Retry")}
-          </Button>
-        </div>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-sunken px-4 py-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <SheetHeader className="gap-1.5 border-b border-border-subtle px-5 py-4 pr-12">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <SheetTitle className="font-heading-h3 text-content-primary">
+            {ui("Run details")}
+          </SheetTitle>
           <RunOutcome run={run} />
-          <span className="text-sm text-content-secondary">
-            <HistoryTime value={run.startedAt} />
-            {" → "}
-            {run.completedAt ? (
-              <HistoryTime value={run.completedAt} />
-            ) : runIsActive(run) ? (
-              ui("In progress")
-            ) : (
-              ui("Not recorded")
-            )}
-          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {run.nextRetryAt ? (
-            <span className="text-sm text-status-warning-content">
-              {ui("Next retry")}: <HistoryTime value={run.nextRetryAt} />
-            </span>
-          ) : null}
-          <span className="text-sm font-medium tabular-nums text-content-primary">
-            <RunDuration run={run} />
-          </span>
-        </div>
-      </div>
-      {run.errorCode ? (
-        <section className="rounded-xl bg-status-danger-surface p-4">
-          <h3 className="text-sm font-medium text-status-danger-content">
-            {ui("Historical run error")}
-          </h3>
-          <p className="mt-2 text-sm break-words text-content-primary">
-            {run.errorCode === "SOURCE_EXTRACTION_TIMEOUT"
-              ? ui(
-                  "Extraction timed out during this run. The retained error does not identify the underlying cause.",
-                )
-              : ui(sourceStatusMessage(run.errorCode))}
-          </p>
-          <Collapsible className="mt-2 text-xs text-content-secondary">
-            <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
-              {ui("Technical details")}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <dl className="space-y-2">
-                <div>
-                  <dt>{ui("Error code")}</dt>
-                  <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-                    <code>{run.errorCode}</code>
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ui("Run ID")}</dt>
-                  <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-                    <code>{run.id}</code>
-                  </dd>
-                </div>
-              </dl>
-            </CollapsibleContent>
-          </Collapsible>
-        </section>
-      ) : null}
-      <section className="space-y-3">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {(
-            [
-              ...primaryCounts,
-              ["indexingFailed" as keyof SourceRunCounts, "Indexing failed"] as [
-                keyof SourceRunCounts,
-                string,
-              ],
-            ] as Array<[keyof SourceRunCounts, string]>
-          ).map(([field, label]) => {
-            const value = run.counts[field];
-            const failed = field === "indexingFailed" && (value ?? 0) > 0;
-            return (
-              <div
-                key={field}
-                className={
-                  failed
-                    ? "rounded-lg bg-status-danger-surface p-3"
-                    : "rounded-lg bg-surface-base p-3"
-                }
-              >
-                <dt className="text-xs text-content-muted">{ui(label)}</dt>
-                <dd
-                  className={
-                    failed
-                      ? "mt-1 text-lg font-medium tabular-nums text-status-danger-content"
-                      : "mt-1 text-lg font-medium tabular-nums text-content-primary"
-                  }
-                >
-                  {value?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-        <Collapsible className="text-xs text-content-muted">
-          <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
-            {ui("More counts and definitions")}
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <dl className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {additionalCounts
-                .filter(([field]) => run.counts[field] !== 0)
-                .map(([field, label]) => (
-                  <div key={field}>
-                    <dt>{ui(label)}</dt>
-                    <dd className="mt-1 tabular-nums text-content-primary">
-                      {run.counts[field]?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-                    </dd>
-                  </div>
-                ))}
-            </dl>
-            <p className="leading-relaxed">
-              {ui(
-                "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
+        <SheetDescription className="text-content-muted">
+          {run.startedAt ? <HistoryTime value={run.startedAt} /> : ui("at an unknown time")}
+        </SheetDescription>
+      </SheetHeader>
+      <div className="min-w-0 divide-y divide-border-subtle">
+        {detail.isError ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center gap-2 px-5 py-3 text-sm text-status-danger-content"
+          >
+            {ui("This run could not be refreshed. Displayed details may be out of date.")}
+            <Button size="sm" prominence="tertiary" onClick={() => void detail.refetch()}>
+              {ui("Retry")}
+            </Button>
+          </div>
+        ) : null}
+        <RunSection title={ui("Overview")}>
+          <dl className="text-sm">
+            <DetailRow icon={Hash} label={ui("Run ID")}>
+              <code className="text-xs select-text [overflow-wrap:anywhere]">{run.id}</code>
+            </DetailRow>
+            <DetailRow icon={Zap} label={ui("Trigger")}>
+              <RunTrigger run={run} />
+            </DetailRow>
+            <DetailRow icon={CalendarClock} label={ui("Started")}>
+              <HistoryTime value={run.startedAt} />
+            </DetailRow>
+            <DetailRow icon={CalendarCheck} label={ui("Finished")}>
+              {run.completedAt ? (
+                <HistoryTime value={run.completedAt} />
+              ) : runIsActive(run) ? (
+                ui("In progress")
+              ) : (
+                ui("Not recorded")
               )}
-            </p>
-            {run.counts.alreadyPending !== 0 ? (
-              <p className="mt-2 leading-relaxed">
-                {ui("Already pending belongs to earlier work, not indexing owned by this run.")}
-              </p>
+            </DetailRow>
+            <DetailRow icon={Timer} label={ui("Duration")}>
+              <RunDuration run={run} />
+            </DetailRow>
+            {run.nextRetryAt ? (
+              <DetailRow icon={RotateCw} label={ui("Next retry")}>
+                <span className="text-status-warning-content">
+                  <HistoryTime value={run.nextRetryAt} />
+                </span>
+              </DetailRow>
             ) : null}
-          </CollapsibleContent>
-        </Collapsible>
-      </section>
-      {run.detailsExpired ? (
-        <section className="space-y-3">
-          <h3 className="text-sm font-medium text-content-primary">{ui("Error details")}</h3>
-          <p className="text-sm text-content-muted">
-            {ui("Detailed errors expired; retained totals are shown.")}
-          </p>
-        </section>
-      ) : hasErrors || runIsActive(run) ? (
-        <section className="space-y-3">
-          <h3 className="text-sm font-medium text-content-primary">{ui("Error details")}</h3>
-          <RunErrors key={run.id} run={run} />
-        </section>
-      ) : null}
+          </dl>
+        </RunSection>
+        <RunSection title={ui("Stages")}>
+          <ol className="space-y-2 text-sm">
+            <RunStage
+              name={ui("Read content")}
+              state={run.acquisitionStatus}
+              duration={historyDuration(run.startedAt, run.acquisitionCompletedAt)}
+            />
+            <RunStage
+              name={ui("Index content")}
+              state={run.indexingStatus}
+              duration={
+                run.indexingStatus === "NOT_REQUIRED"
+                  ? null
+                  : historyDuration(run.acquisitionCompletedAt, run.completedAt)
+              }
+            />
+          </ol>
+        </RunSection>
+        <RunSection
+          title={ui("Files")}
+          help={
+            <HelpPopover label={ui("File counts")}>
+              <p className="leading-relaxed">
+                {ui(
+                  "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
+                )}
+              </p>
+              {run.counts.alreadyPending !== 0 ? (
+                <p className="mt-2 leading-relaxed">
+                  {ui("Already pending belongs to earlier work, not indexing owned by this run.")}
+                </p>
+              ) : null}
+            </HelpPopover>
+          }
+        >
+          <dl className="divide-y divide-border-subtle rounded-lg border border-border-subtle px-3 text-sm">
+            {counts.map(([field, label]) => {
+              const value = run.counts[field];
+              const failed = failureCounts.has(field) && (value ?? 0) > 0;
+              return (
+                <div key={field} className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-content-secondary">{ui(label)}</dt>
+                  <dd
+                    className={cn(
+                      "font-medium tabular-nums",
+                      failed ? "text-status-danger-content" : "text-content-primary",
+                    )}
+                  >
+                    {value?.toLocaleString(uiLocale()) ?? ui("Unknown")}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </RunSection>
+        {run.errorCode ? (
+          <section className="px-5 py-4">
+            <div className="rounded-xl bg-status-danger-surface p-4">
+              <h3 className="text-sm font-medium text-status-danger-content">
+                {ui("Historical run error")}
+              </h3>
+              <p className="mt-2 text-sm break-words text-content-primary">
+                {runErrorMessage(ui, run.errorCode)}
+              </p>
+              <Collapsible className="mt-2 text-xs text-content-secondary">
+                <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
+                  {ui("Technical details")}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <dl className="space-y-2">
+                    <div>
+                      <dt>{ui("Error code")}</dt>
+                      <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+                        <code>{run.errorCode}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </section>
+        ) : null}
+        {run.detailsExpired ? (
+          <RunSection title={ui("Error details")}>
+            <p className="text-sm text-content-muted">
+              {ui("Detailed errors expired; retained totals are shown.")}
+            </p>
+          </RunSection>
+        ) : hasErrors || runIsActive(run) ? (
+          <RunSection title={ui("Error details")}>
+            <RunErrors key={run.id} run={run} />
+          </RunSection>
+        ) : null}
+      </div>
     </>
   );
 }
@@ -711,18 +944,16 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
 function CurrentFileStateBadge({ error }: { error: SourceRunError }) {
   const ui = useAppTranslation();
   const status = error.currentItemStatus;
+  const tone =
+    status === "INDEXED"
+      ? "success"
+      : status === "FAILED"
+        ? "danger"
+        : status === "PENDING"
+          ? "info"
+          : "neutral";
   return (
-    <StatusBadge
-      tone={
-        status === "INDEXED"
-          ? "success"
-          : status === "FAILED"
-            ? "danger"
-            : status === "PENDING"
-              ? "info"
-              : "neutral"
-      }
-    >
+    <StatusBadge tone={tone} className={statusPill(tone)}>
       {ui(
         status === "INDEXED"
           ? "Indexed"

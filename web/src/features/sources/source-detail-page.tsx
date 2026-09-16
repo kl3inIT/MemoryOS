@@ -3,27 +3,27 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  DatabaseZap,
-  FileText,
-  LoaderCircle,
-  RefreshCw,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { DatabaseZap, FileText, LoaderCircle, Upload, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { Tabs } from "radix-ui";
 import { BrandLoader } from "@/components/brand-loader";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
-import { Select } from "@/components/ui/select";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { Progress } from "@/components/ui/progress";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -45,13 +45,12 @@ import {
   listSourcesQueryKey,
   reindexSourceItemMutation,
   removeSourceItemMutation,
-  renameSourceMutation,
-  updateSourceAccessMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceItem, SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
+import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
+import { FileTypeIcon } from "./file-type-icon";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { GoogleDrivePanel } from "./google-drive-panel";
@@ -61,9 +60,26 @@ import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceSectionIcon } from "./source-section-icon";
+import { SourceActionsMenu } from "./source-actions-menu";
+import { SourceFileActions } from "./source-file-actions";
+import { type SourceMetadataField, SourceMetadataDialog } from "./source-metadata-dialog";
+import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+import { type SourceSection, SourceSectionTabs } from "./source-section-tabs";
 import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
+
+const fileSections: readonly SourceSection[] = [
+  { value: "content", label: "Files" },
+  { value: "history", label: "Indexing history" },
+  { value: "settings", label: "Groups" },
+];
+
+const googleDriveSections: readonly SourceSection[] = [
+  { value: "content", label: "Content" },
+  { value: "history", label: "Sync history" },
+  { value: "settings", label: "Connection and settings" },
+];
 
 export function SourceDetailPage() {
   const { sourceId } = useParams({
@@ -99,6 +115,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const uploadController = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const backLinkRef = useRef<HTMLAnchorElement>(null);
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
+  const [sourceDialog, setSourceDialog] = useState<SourceMetadataField | "delete" | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
   useLayoutEffect(() => {
@@ -619,6 +637,14 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const canRemoveItems = can(detail, "removeItems");
   const canDelete = can(detail, "delete");
   const canManageGroups = can(detail, "edit");
+  const canRename = can(detail, "edit");
+  const canChangeAccess = can(detail, "publish");
+  if (
+    (sourceDialog === "name" && !canRename) ||
+    (sourceDialog === "access" && !canChangeAccess) ||
+    (sourceDialog === "delete" && !canDelete)
+  )
+    setSourceDialog(null);
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const managementBusy =
     uploadBusy ||
@@ -635,7 +661,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     sourceQuery.isError ||
     itemsQuery.isError ||
     driveBusy;
-  const ProviderIcon = findSourceProvider(detail?.type)?.icon ?? FileText;
+  const provider = findSourceProvider(detail?.type);
+  const ProviderIcon = provider?.icon ?? FileText;
   async function refreshAuthorityViews() {
     backLinkRef.current?.focus();
     await queryClient.invalidateQueries();
@@ -712,13 +739,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           role="region"
           aria-label={ui("Source files table")}
         >
-          <Table className="w-full min-w-[48rem] table-fixed text-left text-sm">
+          <Table className="w-full min-w-[42rem] table-fixed text-left text-sm">
             <colgroup>
               <col />
               <col className="w-24" />
               <col className="w-36" />
               <col className="w-36" />
-              <col className="w-44" />
+              <col className="w-24" />
             </colgroup>
             <TableHeader className="border-b border-border-subtle bg-surface-sunken text-content-muted">
               <TableRow>
@@ -744,13 +771,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 <TableRow key={item.id}>
                   <TableCell className="px-4 py-4 [overflow-wrap:anywhere]">
                     <span className="flex min-w-0 items-start gap-2 font-medium text-content-primary">
-                      <FileText
-                        className="mt-0.5 size-4 shrink-0 text-content-muted"
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0" title={item.filename ?? ui("Uploaded file")}>
-                        {item.filename ?? ui("Uploaded file")}
-                      </span>
+                      <FileTypeIcon name={item.filename} />
+                      <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
                       <p className="mt-1 text-xs text-status-danger-content">
@@ -767,56 +789,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
                   </TableCell>
-                  <TableCell className="px-4 py-4">
-                    <div className="flex justify-end gap-1">
-                      {canReindex ? (
-                        <Button
-                          prominence="tertiary"
-                          size="sm"
-                          pending={reindexingItems.includes(item.id)}
-                          disabled={
-                            itemBusy ||
-                            removingItems.includes(item.id) ||
-                            item.status === "DELETING" ||
-                            detail.status === "DELETING"
-                          }
-                          onClick={() => void reindex(item)}
-                        >
-                          <RefreshCw /> {ui("Reindex")}
-                        </Button>
-                      ) : null}
-                      {canRemoveItems ? (
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              tone="danger"
-                              prominence="tertiary"
-                              size="sm"
-                              pending={removingItems.includes(item.id)}
-                              disabled={
-                                itemBusy ||
-                                reindexingItems.includes(item.id) ||
-                                item.status === "DELETING" ||
-                                detail.status === "DELETING"
-                              }
-                            >
-                              <Trash2 /> {ui("Remove")}
-                            </Button>
-                          }
-                          title={ui("Remove {{v1}}?", {
-                            v1: item.filename ?? ui("uploaded file"),
-                          })}
-                          description={ui(
-                            "Removing “{{v1}}” makes its indexed document unavailable. Cleanup continues asynchronously.",
-                            { v1: item.filename ?? ui("this file") },
-                          )}
-                          confirmLabel={ui("Remove file")}
-                          pendingLabel={ui("Removing file")}
-                          onConfirm={() => removeSelectedItem(item)}
-                          errorMessage={(cause) => sourceMutationError(cause, "remove-item")}
-                        />
-                      ) : null}
-                    </div>
+                  <TableCell className="px-4 py-4 text-right">
+                    <SourceFileActions
+                      filename={item.filename}
+                      pending={reindexingItems.includes(item.id) || removingItems.includes(item.id)}
+                      disabled={
+                        itemBusy || item.status === "DELETING" || detail.status === "DELETING"
+                      }
+                      onReindex={canReindex ? () => void reindex(item) : undefined}
+                      onRemove={canRemoveItems ? () => removeSelectedItem(item) : undefined}
+                      removeError={(cause) => sourceMutationError(cause, "remove-item")}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -844,41 +827,47 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           setCursor(itemsQuery.data?.nextCursor ?? undefined);
         }}
       >
-        <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-          {ui("Rows")}
-          <Select
-            aria-label={ui("Files per page")}
-            size="sm"
-            className="w-auto px-2"
-            value={filesSize}
-            disabled={itemsQuery.isFetching}
-            onChange={(event) => {
-              setFilesSize(Number(event.target.value));
-              setCursor(undefined);
-              setPrevious([]);
-            }}
-          >
-            {[5, 10, 25, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <PageSizeSelect
+          label={ui("Files per page")}
+          rowsLabel={ui("Rows")}
+          value={filesSize}
+          sizes={[5, 10, 25, 50, 100]}
+          disabled={itemsQuery.isFetching}
+          onSizeChange={(size) => {
+            setFilesSize(size);
+            setCursor(undefined);
+            setPrevious([]);
+          }}
+        />
       </TablePagination>
     </section>
   ) : null;
 
   return (
     <SettingsLayout wide>
-      <Link
-        ref={backLinkRef}
-        to="/admin"
-        className="inline-flex items-center gap-2 font-secondary-action text-content-secondary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {ui("Sources")}
-      </Link>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link
+                ref={backLinkRef}
+                to="/admin"
+                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+              >
+                {ui("Sources")}
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {detail ? (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate">{detail.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          ) : null}
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {error ? (
         <p
@@ -935,401 +924,237 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             </Button>
           </div>
         ) : (
-          <Tabs.Root value={section} onValueChange={setSection}>
+          <Tabs value={section} onValueChange={setSection} className="block">
             <PageHeader
               icon={<ProviderIcon />}
               iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
               title={detail.name}
+              description={
+                <span className="flex flex-wrap items-center gap-2">
+                  <SourceStatusBadge status={detail.status} />
+                  <SourceAccessBadge access={detail.access} />
+                  {/* The header icon shows the provider but is hidden from assistive technology. */}
+                  {provider ? <span className="sr-only">{ui(provider.name)}</span> : null}
+                </span>
+              }
               actions={
-                canDelete ? (
-                  <ConfirmDialog
-                    trigger={
-                      <Button
-                        tone="danger"
-                        prominence="tertiary"
-                        disabled={busy || cleanupPending || detail.status === "DELETING"}
-                      >
-                        <Trash2 />
-                        {ui("Delete source")}
-                      </Button>
-                    }
-                    title={ui("Delete {{v1}}?", { v1: detail.name })}
-                    description={ui(
-                      "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
-                      { v1: detail.name },
-                    )}
-                    confirmLabel={ui("Delete source")}
-                    pendingLabel={ui("Deleting source")}
-                    onConfirm={deleteSelectedSource}
-                    errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
-                  />
-                ) : null
+                <SourceActionsMenu
+                  triggerRef={actionsTrigger}
+                  disabled={busy || detail.status === "DELETING"}
+                  onRename={canRename ? () => setSourceDialog("name") : undefined}
+                  onChangeAccess={canChangeAccess ? () => setSourceDialog("access") : undefined}
+                  onDelete={canDelete ? () => setSourceDialog("delete") : undefined}
+                />
               }
             />
-            <SourceMetadataEditor
-              key={`${detail.id}:${JSON.stringify(detail.permissions)}`}
-              source={detail}
-              disabled={busy || sourceQuery.isError || detail.status === "DELETING"}
-              onSaved={refreshAuthorityViews}
-            />
-            {detail.type !== "GOOGLE_DRIVE" ? <SourceSummaryCard source={detail} /> : null}
-            {detail.errorCode &&
-            !(detail.type === "GOOGLE_DRIVE" && detail.errorCode.startsWith("SOURCE_GOOGLE_")) ? (
+            {canDelete ? (
+              <ConfirmDialog
+                open={sourceDialog === "delete"}
+                onOpenChange={(open) => setSourceDialog(open ? "delete" : null)}
+                restoreFocusRef={actionsTrigger}
+                successFocusRef={backLinkRef}
+                title={ui("Delete {{v1}}?", { v1: detail.name })}
+                description={ui(
+                  "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.",
+                  { v1: detail.name },
+                )}
+                confirmLabel={ui("Delete source")}
+                pendingLabel={ui("Deleting source")}
+                onConfirm={deleteSelectedSource}
+                errorMessage={(cause) => sourceMutationError(cause, "delete-source")}
+              />
+            ) : null}
+            {sourceDialog === "name" || sourceDialog === "access" ? (
+              <SourceMetadataDialog
+                key={sourceDialog}
+                source={detail}
+                field={sourceDialog}
+                disabled={busy || detail.status === "DELETING"}
+                restoreFocusRef={actionsTrigger}
+                onClose={() => setSourceDialog(null)}
+                onSaved={refreshAuthorityViews}
+              />
+            ) : null}
+            {detail.type !== "GOOGLE_DRIVE" ? (
+              <SourceSummaryCard source={detail} className="my-6" />
+            ) : null}
+            {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
             ) : null}
 
-            {canUpload && detail.type === "FILE" ? (
-              <form
-                className="space-y-4 border-b border-border-subtle py-6"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void (activePendingFinalize ? retryFinalize() : submitFile());
-                }}
-              >
-                <div>
-                  <div className="flex items-center gap-3">
-                    <SourceSectionIcon icon={Upload} />
-                    <h2 className="font-heading-h3 text-content-primary">{ui("Upload content")}</h2>
-                  </div>
-                  <p className="mt-2 text-sm text-content-muted">
-                    {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file")}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="min-w-0 flex-1">
-                    <span className="sr-only">
-                      {ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
-                    </span>
-                    <Input
-                      ref={fileInput}
-                      type="file"
-                      accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                      disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
-                      onChange={(event) => {
-                        const selected = event.target.files?.[0] ?? null;
-                        if (
-                          selected &&
-                          (selected.size === 0 || selected.size > 100 * 1024 * 1024)
-                        ) {
-                          setFile(null);
-                          setError("Choose a file between 1 byte and 100 MiB.");
-                          event.target.value = "";
-                          return;
-                        }
-                        setError(null);
-                        setFile(selected);
-                      }}
-                      className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+            {detail.type === "GOOGLE_DRIVE" ? (
+              <>
+                <GoogleDrivePanel
+                  source={detail}
+                  sourceStale={sourceQuery.isError}
+                  disabled={managementBusy || detail.status === "DELETING"}
+                  onBusyChange={setDriveBusy}
+                  activeSection={section}
+                  content={filesPanel}
+                  settings={
+                    <SourceGroupsSection
+                      sourceId={selectedId}
+                      editable={canManageGroups}
+                      onAuthorityChanged={refreshAuthorityViews}
                     />
-                  </label>
-                  <Button
-                    type="submit"
-                    pending={uploadBusy}
-                    disabled={
-                      (!file && !activePendingFinalize) ||
-                      Boolean(pendingFinalize && !activePendingFinalize) ||
-                      busy ||
-                      detail.status === "DELETING"
-                    }
-                  >
-                    <Upload />
-                    {activePendingFinalize ? ui("Retry finalization") : ui("Upload file")}
-                  </Button>
-                  {uploadPhase !== "idle" || activePendingFinalize ? (
-                    <Button
-                      type="button"
-                      prominence="secondary"
-                      onClick={() => {
-                        if (activePendingFinalize && !uploadBusy) {
-                          setPendingFinalize(null);
-                          setUploadPhase("idle");
-                          setFile(null);
-                          if (fileInput.current) fileInput.current.value = "";
-                          setError(
-                            "Finalization cancelled. The unfinished object will expire automatically.",
-                          );
-                          notify({
-                            tone: "info",
-                            title: "Finalization cancelled",
-                            description: appText(
-                              "{{v1}}: the unfinished object will expire automatically.",
-                              { v1: activePendingFinalize.filename },
-                            ),
-                          });
-                        } else {
-                          uploadController.current?.abort(
-                            new DOMException("Upload cancelled", "AbortError"),
-                          );
-                        }
+                  }
+                  navigation={<SourceSectionTabs sections={googleDriveSections} />}
+                />
+                <TabsContent
+                  value="history"
+                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
+                >
+                  <SourceRunHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+              </>
+            ) : (
+              <>
+                <SourceSectionTabs sections={fileSections} />
+                <TabsContent value="content">
+                  {canUpload ? (
+                    <form
+                      className="space-y-4 border-b border-border-subtle py-6"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void (activePendingFinalize ? retryFinalize() : submitFile());
                       }}
                     >
-                      <X />
-                      {ui("Cancel")}
-                    </Button>
-                  ) : null}
-                </div>
-                {uploadPhase !== "idle" || activePendingFinalize ? (
-                  <div className="mt-3" aria-live="polite">
-                    <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
-                      <span>
-                        {uploadPhase === "preparing"
-                          ? ui("Calculating SHA-256 before authorization")
-                          : uploadPhase === "uploading"
-                            ? ui("Uploading directly to object storage")
-                            : uploadPhase === "finalizing"
-                              ? ui("Verifying and registering the stored file")
-                              : ui("{{v1}} is stored but not finalized", {
-                                  v1: activePendingFinalize?.filename ?? ui("File"),
-                                })}
-                      </span>
-                      {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
-                    </div>
-                    {uploadPhase === "uploading" ? (
-                      <div
-                        role="progressbar"
-                        aria-label={ui("Direct upload progress")}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuenow={uploadProgress}
-                        className="mt-2 h-1 overflow-hidden rounded-full bg-border-default"
-                      >
-                        <div
-                          className="h-full rounded-full bg-content-primary transition-[width] duration-150"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <SourceSectionIcon icon={Upload} />
+                          <h2 className="font-heading-h3 text-content-primary">
+                            {ui("Upload content")}
+                          </h2>
+                        </div>
+                        <p className="mt-2 text-sm text-content-muted">
+                          {ui(
+                            "PDF, DOCX, PPTX, XLSX, CSV, TXT or Markdown · Up to 100 MiB per file",
+                          )}
+                        </p>
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </form>
-            ) : detail.type === "GOOGLE_DRIVE" ? (
-              <GoogleDrivePanel
-                source={detail}
-                sourceStale={sourceQuery.isError}
-                disabled={managementBusy || detail.status === "DELETING"}
-                onBusyChange={setDriveBusy}
-                activeSection={section}
-                content={filesPanel}
-                settings={
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <label className="min-w-0 flex-1">
+                          <span className="sr-only">
+                            {ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
+                          </span>
+                          <Input
+                            ref={fileInput}
+                            type="file"
+                            accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,text/csv,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            disabled={uploadPhase !== "idle" || Boolean(pendingFinalize)}
+                            onChange={(event) => {
+                              const selected = event.target.files?.[0] ?? null;
+                              if (
+                                selected &&
+                                (selected.size === 0 || selected.size > 100 * 1024 * 1024)
+                              ) {
+                                setFile(null);
+                                setError("Choose a file between 1 byte and 100 MiB.");
+                                event.target.value = "";
+                                return;
+                              }
+                              setError(null);
+                              setFile(selected);
+                            }}
+                            className="bg-surface-raised pl-0 file:h-full file:border-r file:border-border-default file:bg-surface-subtle file:px-3"
+                          />
+                        </label>
+                        <Button
+                          type="submit"
+                          pending={uploadBusy}
+                          disabled={
+                            (!file && !activePendingFinalize) ||
+                            Boolean(pendingFinalize && !activePendingFinalize) ||
+                            busy ||
+                            detail.status === "DELETING"
+                          }
+                        >
+                          <Upload />
+                          {activePendingFinalize ? ui("Retry finalization") : ui("Upload file")}
+                        </Button>
+                        {uploadPhase !== "idle" || activePendingFinalize ? (
+                          <Button
+                            type="button"
+                            prominence="secondary"
+                            onClick={() => {
+                              if (activePendingFinalize && !uploadBusy) {
+                                setPendingFinalize(null);
+                                setUploadPhase("idle");
+                                setFile(null);
+                                if (fileInput.current) fileInput.current.value = "";
+                                setError(
+                                  "Finalization cancelled. The unfinished object will expire automatically.",
+                                );
+                                notify({
+                                  tone: "info",
+                                  title: "Finalization cancelled",
+                                  description: appText(
+                                    "{{v1}}: the unfinished object will expire automatically.",
+                                    { v1: activePendingFinalize.filename },
+                                  ),
+                                });
+                              } else {
+                                uploadController.current?.abort(
+                                  new DOMException("Upload cancelled", "AbortError"),
+                                );
+                              }
+                            }}
+                          >
+                            <X />
+                            {ui("Cancel")}
+                          </Button>
+                        ) : null}
+                      </div>
+                      {uploadPhase !== "idle" || activePendingFinalize ? (
+                        <div className="mt-3" aria-live="polite">
+                          <div className="flex items-center justify-between gap-3 font-secondary-body text-content-secondary">
+                            <span>
+                              {uploadPhase === "preparing"
+                                ? ui("Calculating SHA-256 before authorization")
+                                : uploadPhase === "uploading"
+                                  ? ui("Uploading directly to object storage")
+                                  : uploadPhase === "finalizing"
+                                    ? ui("Verifying and registering the stored file")
+                                    : ui("{{v1}} is stored but not finalized", {
+                                        v1: activePendingFinalize?.filename ?? ui("File"),
+                                      })}
+                            </span>
+                            {uploadPhase === "uploading" ? <span>{uploadProgress}%</span> : null}
+                          </div>
+                          {uploadPhase === "uploading" ? (
+                            <Progress
+                              value={uploadProgress}
+                              aria-label={ui("Direct upload progress")}
+                              className="mt-2"
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </form>
+                  ) : null}
+                  {filesPanel}
+                </TabsContent>
+                <TabsContent
+                  value="history"
+                  className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
+                >
+                  <SourceItemHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+                <TabsContent value="settings" className="mt-5 outline-none">
                   <SourceGroupsSection
                     sourceId={selectedId}
                     editable={canManageGroups}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
-                }
-                navigation={
-                  <>
-                    {detail.errorCode && !detail.errorCode.startsWith("SOURCE_GOOGLE_") ? (
-                      <p role="alert" className="text-sm text-status-danger-content">
-                        {ui(sourceStatusMessage(detail.errorCode))}
-                      </p>
-                    ) : null}
-                    <Tabs.List
-                      aria-label={ui("Source sections")}
-                      className="flex flex-wrap gap-1 border-b border-border-subtle"
-                    >
-                      {[
-                        ["content", "Content"],
-                        ["history", "Sync history"],
-                        ["settings", "Connection and settings"],
-                      ].map(([value, label]) => (
-                        <Tabs.Trigger
-                          key={value}
-                          value={value}
-                          className="min-h-11 border-b-2 border-transparent px-4 py-3 text-sm font-medium text-content-muted hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=active]:border-content-primary data-[state=active]:text-content-primary"
-                        >
-                          {ui(label)}
-                        </Tabs.Trigger>
-                      ))}
-                    </Tabs.List>
-                  </>
-                }
-              />
-            ) : null}
-
-            {detail.type !== "GOOGLE_DRIVE" ? filesPanel : null}
-            {detail.type === "GOOGLE_DRIVE" ? (
-              <Tabs.Content
-                value="history"
-                className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
-              >
-                <SourceRunHistory key={selectedId} sourceId={selectedId} />
-              </Tabs.Content>
-            ) : (
-              <SourceItemHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+              </>
             )}
-            {detail.type !== "GOOGLE_DRIVE" ? (
-              <div className="mt-5 rounded-xl border border-border-subtle bg-surface-raised px-4 sm:px-5">
-                <SourceGroupsSection
-                  sourceId={selectedId}
-                  editable={canManageGroups}
-                  onAuthorityChanged={refreshAuthorityViews}
-                />
-              </div>
-            ) : null}
-          </Tabs.Root>
+          </Tabs>
         )}
       </div>
     </SettingsLayout>
-  );
-}
-
-function SourceMetadataEditor({
-  source,
-  disabled,
-  onSaved,
-}: {
-  source: SourceSummary;
-  disabled: boolean;
-  onSaved: () => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const rename = useMutation(renameSourceMutation());
-  const updateAccess = useMutation(updateSourceAccessMutation());
-  const [editing, setEditing] = useState<"name" | "access" | null>(null);
-  const [name, setName] = useState(source.name);
-  const [access, setAccess] = useState<SourceSummary["access"]>(source.access);
-  const [error, setError] = useState<AppCopy | null>(null);
-  const canRename = can(source, "edit");
-  const canManageAccess = can(source, "publish");
-  const googleDrive = source.type === "GOOGLE_DRIVE";
-  const pending = rename.isPending || updateAccess.isPending;
-  if (editing === "access" && !canManageAccess) {
-    setEditing(null);
-    setAccess(source.access);
-    setError(null);
-  }
-
-  async function save() {
-    if (disabled || pending) return;
-    setError(null);
-    try {
-      if (editing === "name" && canRename && name.trim()) {
-        await rename.mutateAsync({
-          path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
-          body: { name: name.trim() },
-        });
-      } else if (editing === "access" && canManageAccess) {
-        await updateAccess.mutateAsync({
-          path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
-          body: { access },
-        });
-      } else return;
-      setEditing(null);
-      await onSaved();
-    } catch (cause) {
-      setError(sourceMutationError(cause, "metadata"));
-    }
-  }
-
-  if (!canRename && !canManageAccess) return null;
-  return (
-    <section aria-label={ui("Source settings")} className="mb-6 space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {canRename ? (
-          <Button
-            prominence="tertiary"
-            disabled={disabled || pending}
-            onClick={() => {
-              setName(source.name);
-              setError(null);
-              setEditing("name");
-            }}
-          >
-            {ui("Rename source")}
-          </Button>
-        ) : null}
-        {canManageAccess ? (
-          <Button
-            prominence="tertiary"
-            disabled={disabled || pending}
-            onClick={() => {
-              setAccess(source.access);
-              setError(null);
-              setEditing("access");
-            }}
-          >
-            {ui("Change visibility")}
-          </Button>
-        ) : null}
-      </div>
-      {editing ? (
-        <form
-          className="space-y-3 rounded-lg border border-border-subtle p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          {editing === "name" ? (
-            <label className="block space-y-2">
-              <span>{ui("Source name")}</span>
-              <Input
-                value={name}
-                maxLength={120}
-                required
-                disabled={disabled || pending}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-          ) : (
-            <label className="block space-y-2">
-              <span>{ui("Visibility")}</span>
-              <Select
-                value={access}
-                disabled={disabled || pending}
-                onChange={(event) => setAccess(event.target.value as SourceSummary["access"])}
-              >
-                <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                <option value="PRIVATE">{ui("Private · associated group members")}</option>
-                {googleDrive ? (
-                  <option value="SYNC">
-                    {ui("Auto Sync · people who can open each file in Google Drive")}
-                  </option>
-                ) : null}
-              </Select>
-              <span className="block text-sm text-content-muted">
-                {googleDrive
-                  ? ui(
-                      "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.",
-                    )
-                  : ui(
-                      "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
-                    )}
-              </span>
-            </label>
-          )}
-          {error ? (
-            <p role="alert" className="text-sm text-status-danger-content">
-              {ui(error)}
-            </p>
-          ) : null}
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              pending={pending}
-              disabled={disabled || (editing === "name" && !name.trim())}
-            >
-              {editing === "name" ? ui("Save name") : ui("Save visibility")}
-            </Button>
-            <Button
-              prominence="secondary"
-              disabled={pending}
-              onClick={() => {
-                setEditing(null);
-                setError(null);
-              }}
-            >
-              {ui("Cancel")}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-    </section>
   );
 }
 

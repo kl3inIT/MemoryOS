@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Tabs } from "radix-ui";
+import { Tabs } from "@/components/ui/tabs";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -303,6 +303,7 @@ function setup(
           completedAt: "2026-09-08T10:00:01Z",
           errorCode: null,
         });
+      if (url.pathname.endsWith("/groups")) return Response.json({ items: [] });
       throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
     }),
   );
@@ -313,7 +314,7 @@ function setup(
       <QueryClientProvider client={queryClient}>
         <ApplicationSessionProvider session={session}>
           <ActionNotifications>
-            <Tabs.Root value={activeSection}>
+            <Tabs value={activeSection}>
               <GoogleDrivePanel
                 source={currentSource}
                 sourceStale={sourceStale}
@@ -322,7 +323,7 @@ function setup(
                 content={null}
                 settings={null}
               />
-            </Tabs.Root>
+            </Tabs>
           </ActionNotifications>
         </ApplicationSessionProvider>
       </QueryClientProvider>
@@ -436,11 +437,11 @@ describe("Google Drive enterprise selection", () => {
       manageConfiguration: false,
       removeItems: false,
     });
-    expect(
-      screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: "Sync every" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pause automatic sync" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("switch", { name: "Automatic synchronization" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Source summary")).toBeVisible();
   });
 
@@ -448,10 +449,8 @@ describe("Google Drive enterprise selection", () => {
     const user = userEvent.setup();
     const server = setup();
     await user.click(await screen.findByRole("button", { name: "Filter selected content" }));
-    await user.selectOptions(
-      await screen.findByRole("combobox", { name: "Content type" }),
-      "LINKED",
-    );
+    await user.click(await screen.findByRole("combobox", { name: "Content type" }));
+    await user.click(await screen.findByRole("option", { name: "Linked documents" }));
     await user.keyboard("{Escape}");
     const input = await edit(user);
     expect(input).toHaveFocus();
@@ -562,7 +561,7 @@ describe("Google Drive enterprise selection", () => {
     const user = userEvent.setup();
     const server = setup();
     await user.click(await screen.findByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "1.5");
     expect(screen.getByRole("button", { name: "Save interval" })).toBeDisabled();
@@ -585,7 +584,7 @@ describe("Google Drive enterprise selection", () => {
     await user.clear(input);
     await user.paste(secondLink);
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "15");
     server.setConfiguration({ scheduleRevision: 4, syncIntervalMinutes: 30 });
@@ -603,7 +602,7 @@ describe("Google Drive enterprise selection", () => {
     expect(input).toHaveValue(secondLink);
     server.failSchedule();
     await user.click(screen.getByRole("button", { name: "Save interval" }));
-    expect(await screen.findByText("1 minute")).toBeVisible();
+    expect(await screen.findByText("Every 1 minute")).toBeVisible();
     expect(input).toHaveValue(secondLink);
   });
 
@@ -615,7 +614,7 @@ describe("Google Drive enterprise selection", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    expect(screen.getByRole("spinbutton", { name: "Interval in minutes" })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: "Sync every" })).toBeEnabled();
   });
 
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {

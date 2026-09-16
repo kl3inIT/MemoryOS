@@ -89,7 +89,7 @@ export function SourceGroupsSection({
   return (
     <section
       aria-labelledby="source-groups-heading"
-      className="mt-8 border-t border-border-subtle pt-6"
+      className="rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
     >
       <div className="flex items-center gap-3">
         <SourceSectionIcon icon={Users} />

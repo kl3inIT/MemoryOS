@@ -478,8 +478,9 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Discover linked docs" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Pause automatic sync" }).click();
-  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toBeVisible();
+  const automaticSync = page.getByRole("switch", { name: "Automatic synchronization" });
+  await automaticSync.click();
+  await expect(automaticSync).not.toBeChecked();
   await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
   await page.getByRole("button", { name: "Edit interval" }).click();
   entry.source.permissions = {
@@ -490,8 +491,8 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
     removeItems: false,
   };
   await page.getByRole("button", { name: "Refresh status" }).click();
-  await expect(page.getByRole("spinbutton", { name: "Interval in minutes" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Resume automatic sync" })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Sync every" })).toHaveCount(0);
+  await expect(automaticSync).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Google Drive configuration" })).toBeVisible();
 });
 
@@ -534,19 +535,22 @@ test("one credential creates independent Specific and General sources with separ
   server.finish();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await page.getByRole("button", { name: "Edit interval" }).click();
-  await page.getByRole("spinbutton", { name: "Interval in minutes" }).fill("15");
+  await expect(page.getByRole("spinbutton", { name: "Sync every" })).toHaveValue("5");
+  await page.getByRole("spinbutton", { name: "Sync every" }).fill("2");
+  await page.getByRole("combobox", { name: "Interval unit" }).click();
+  await page.getByRole("option", { name: "hours", exact: true }).click();
   await page.getByRole("button", { name: "Save interval" }).click();
-  await expect(page.getByText("15 minutes", { exact: true })).toBeVisible();
+  await expect(page.getByText("Every 2 hours", { exact: true })).toBeVisible();
   await page.goto(`/admin/sources/new/google-drive?credentialId=${credential.id}&step=connector`);
   await page.getByLabel("Source name").fill("Whole account");
-  await page.getByRole("radio", { name: "General", exact: true }).check();
+  await page.getByRole("radio", { name: "Entire My Drive", exact: true }).check();
   await page.getByRole("button", { name: "Create Source", exact: true }).click();
   await expect(page.getByText("Pending validation", { exact: true })).toBeVisible();
   server.finish();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${secondSourceId}$`));
   await expect(page.getByRole("button", { name: "Edit selection", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
-  expect(server.saved.get(source.id)!.configuration.syncIntervalMinutes).toBe(15);
+  expect(server.saved.get(source.id)!.configuration.syncIntervalMinutes).toBe(120);
   expect(server.saved.get(secondSourceId)!.configuration.syncIntervalMinutes).toBe(5);
   expect(server.saved.get(source.id)!.draft.links).toEqual([fileLink]);
   expect(server.saved.get(secondSourceId)!.draft.links).toEqual([]);
@@ -595,7 +599,8 @@ test("selection preserves hidden approvals across search and paging and restores
   await selection.getByRole("checkbox", { name: "Sync Project budget" }).check();
   // The filter popover renders in a portal, outside the selection region.
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await expect(selection.getByRole("list", { name: "Selection results" })).toBeVisible();
   await selection.getByRole("button", { name: "Next selection page" }).click();
@@ -649,7 +654,8 @@ test("selection preserves hidden approvals across search and paging and restores
   await edit.click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   await expect(
@@ -669,18 +675,29 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
   await expect(selection.getByText("Project archive", { exact: true })).toBeVisible();
   expect(server.requestedUrls.some((url) => new URL(url).searchParams.has("parentId"))).toBe(false);
-  await selection.getByRole("button", { name: "Load more selected content" }).click();
+  // Each branch shows one page at a time; the pager replaces it instead of appending.
+  const rootNext = selection.getByRole("button", { name: "Next page of selected content" });
+  const rootPrevious = selection.getByRole("button", { name: "Previous page of selected content" });
+  await expect(selection.getByText("Items 1–2", { exact: true })).toBeVisible();
+  await rootNext.focus();
+  await rootNext.press("Enter");
   await expect(selection.getByText("Retained project notes", { exact: true })).toBeVisible();
+  await expect(selection.getByText("Project archive", { exact: true })).toHaveCount(0);
+  await expect(selection.getByText("Items 3–3", { exact: true })).toBeVisible();
+  await expect(rootNext).toBeDisabled();
+  await expect(rootPrevious).toBeFocused();
+  await rootPrevious.press("Enter");
   const folder = selection.getByRole("button", { name: "Expand Project archive", exact: true });
   await folder.focus();
   await folder.press("Enter");
   await expect(selection.getByText("Archive index", { exact: true })).toBeVisible();
   await expect(selection.getByText("Notes without recorded links", { exact: true })).toHaveCount(0);
-  await selection.getByRole("button", { name: "Load more in Project archive" }).click();
-  await expect(selection.getByText("Archive index", { exact: true })).toBeVisible();
+  await selection.getByRole("button", { name: "Next page in Project archive" }).click();
   await expect(selection.getByText("Notes without recorded links", { exact: true })).toBeVisible();
+  await expect(selection.getByText("Archive index", { exact: true })).toHaveCount(0);
   await selection.getByRole("button", { name: "Expand Notes without recorded links" }).click();
   await expect(selection.getByText(/No discovered links are recorded for this file/)).toBeVisible();
+  await selection.getByRole("button", { name: "Previous page in Project archive" }).click();
   await selection.getByRole("button", { name: "Expand Archive index", exact: true }).click();
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
   const select = selection.getByRole("button", {
@@ -712,9 +729,13 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(checkboxes.last()).not.toBeChecked();
   await checkboxes.last().check();
   await expect(checkboxes.first()).toBeChecked();
+  await rootNext.click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
+  // Paging back restores the folders that were open on the first page.
+  await rootPrevious.click();
+  await expect(checkboxes).toHaveCount(2);
   expect(server.requestBodies).toHaveLength(0);
   for (const viewport of [
     { label: "desktop", width: 1440, height: 1000 },
@@ -740,9 +761,11 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(rootLinks).toBeFocused();
   await expect(rootLinks).toHaveValue([fileLink, folderLink].join("\n"));
   await expect(checkboxes.first()).toBeChecked();
+  await rootNext.click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
+  await rootPrevious.click();
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(edit).toBeFocused();
   expect(server.requestBodies).toHaveLength(0);
@@ -799,6 +822,27 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(select).toBeVisible();
 });
 
+test("the credentials disclosure shows Close and turns its chevron while open", async ({
+  page,
+}) => {
+  await enterprisePage(page, true);
+  await page.goto(`/admin/sources/${source.id}`);
+  await page.getByRole("tab", { name: "Connection and settings" }).click();
+  const credentials = page.getByRole("region", { name: "Credentials" });
+  const chevron = credentials.locator("svg.lucide-chevron-down");
+  await credentials.getByRole("button", { name: /Manage connection$/ }).click();
+  const close = credentials.getByRole("button", { name: /Close$/ });
+  await expect(close).toBeFocused();
+  await expect(credentials.getByText("Manage connection", { exact: true })).toBeHidden();
+  await expect(chevron).toHaveCSS("rotate", "180deg");
+  await expect(credentials.getByRole("button", { name: "Reconnect Google Drive" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(credentials.getByRole("button", { name: /Manage connection$/ })).toBeFocused();
+  await expect(credentials.getByText("Close", { exact: true })).toBeHidden();
+  await expect(chevron).not.toHaveCSS("rotate", "180deg");
+  await expect(credentials.getByRole("button", { name: "Reconnect Google Drive" })).toHaveCount(0);
+});
+
 test("unavailable approved documents can be deselected but not approved again", async ({
   page,
 }) => {
@@ -806,7 +850,8 @@ test("unavailable approved documents can be deselected but not approved again", 
   await page.goto(`/admin/sources/${source.id}`);
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
   await selection.getByRole("button", { name: "Filter selected content" }).click();
-  await page.getByRole("combobox", { name: "Content type" }).selectOption("LINKED");
+  await page.getByRole("combobox", { name: "Content type" }).click();
+  await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
   const deselect = selection.getByRole("button", {
