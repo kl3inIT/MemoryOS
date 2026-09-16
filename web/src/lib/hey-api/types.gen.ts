@@ -967,6 +967,10 @@ export type SourceRun = {
     nextRetryAt: string | null;
     errorCode: string | null;
     detailsExpired: boolean;
+    /**
+     * REFRESH or PRUNE for SharePoint; absent where a connector has one kind of run
+     */
+    runKind?: string;
     counts: SourceRunCounts;
 };
 

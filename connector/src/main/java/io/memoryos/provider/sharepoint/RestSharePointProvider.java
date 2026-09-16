@@ -11,6 +11,9 @@ import static io.memoryos.connector.SharePointProviderException.Failure.UNAVAILA
 
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
+import io.memoryos.provider.sharepoint.SharePointProviderMetrics.Operation;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,13 +45,20 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     private final HttpClient client;
     private final ExecutorService tokenExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final SharePointTokenSource tokens;
+    private final SharePointProviderMetrics metrics;
 
-    public RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper) {
-        this(properties, mapper, null);
+    public RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
+            MeterRegistry registry) {
+        this(properties, mapper, null, registry);
     }
 
     RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
             @Nullable SharePointTokenSource tokenSource) {
+        this(properties, mapper, tokenSource, new SimpleMeterRegistry());
+    }
+
+    RestSharePointProvider(SharePointProviderProperties properties, ObjectMapper mapper,
+            @Nullable SharePointTokenSource tokenSource, MeterRegistry registry) {
         this.properties = properties;
         this.mapper = mapper;
         // Invalid SharePoint configuration fails open() rather than preventing unrelated FILE or Drive startup.
@@ -58,12 +68,13 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
         this.client = HttpClient.newBuilder().connectTimeout(connect).followRedirects(HttpClient.Redirect.NEVER).build();
         this.tokens = tokenSource == null ? new MsalSharePointTokenSource(properties, tokenExecutor) : tokenSource;
+        this.metrics = new SharePointProviderMetrics(registry);
     }
 
     @Override public Session open(Credential credential) {
         properties.validate();
         if (credential.cloud() != Cloud.GLOBAL) throw new SharePointProviderException(MALFORMED);
-        return new GraphSession(tokens.token(credential));
+        return new GraphSession(metrics.record(Operation.TOKEN, () -> tokens.token(credential)));
     }
 
     @Override public void close() {
@@ -77,18 +88,23 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         private GraphSession(String bearer) { this.bearer = bearer; }
 
         @Override public RootSite root() {
-            JsonNode node = get("/sites/root?$select=id,webUrl,siteCollection", new Budget());
-            return new RootSite(required(node, "id"), required(node, "webUrl"),
-                    required(node.path("siteCollection"), "hostname"));
+            return metrics.record(Operation.ROOT_SITE, () -> {
+                JsonNode node = get("/sites/root?$select=id,webUrl,siteCollection", new Budget());
+                return new RootSite(required(node, "id"), required(node, "webUrl"),
+                        required(node.path("siteCollection"), "hostname"));
+            });
         }
 
         @Override public Site site(String hostname, String sitePath) {
-            var node = get("/sites/" + encodePath(hostname) + ":" + encodePath(sitePath)
-                    + "?$select=id,webUrl,displayName,isPersonalSite", new Budget());
-            return site(node);
+            return metrics.record(Operation.SITE, () -> site(get("/sites/" + encodePath(hostname) + ":"
+                    + encodePath(sitePath) + "?$select=id,webUrl,displayName,isPersonalSite", new Budget())));
         }
 
         @Override public List<Library> libraries(String siteId) {
+            return metrics.record(Operation.LIBRARIES, () -> libraries0(siteId));
+        }
+
+        private List<Library> libraries0(String siteId) {
             var node = get("/sites/" + encodePath(siteId) + "/drives?$select=id,name,webUrl,driveType", new Budget());
             var libraries = new ArrayList<Library>();
             for (JsonNode drive : array(node)) {
@@ -101,6 +117,10 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
 
         @Override public Folder folder(String driveId, List<String> folderSegments) {
+            return metrics.record(Operation.FOLDER, () -> folder0(driveId, folderSegments));
+        }
+
+        private Folder folder0(String driveId, List<String> folderSegments) {
             if (folderSegments.isEmpty()) throw new SharePointProviderException(MALFORMED);
             String path = String.join("/", folderSegments.stream().map(RestSharePointProvider::encodePath).toList());
             var node = get("/drives/" + encodePath(driveId) + "/root:/" + path + "?$select=id,name,folder", new Budget());
@@ -109,6 +129,10 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
 
         @Override public SitePage sites(@Nullable String nextLink) {
+            return metrics.record(Operation.SITES, () -> sites0(nextLink));
+        }
+
+        private SitePage sites0(@Nullable String nextLink) {
             var node = nextLink == null
                     ? get("/sites/getAllSites?$select=id,name,webUrl,isPersonalSite", new Budget())
                     : json(exchange(request(continuation(nextLink)), new Budget()));
@@ -126,6 +150,10 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
 
         @Override public DeltaPage delta(String driveId, @Nullable String token, @Nullable String link) {
+            return metrics.record(Operation.DELTA, () -> delta0(driveId, token, link));
+        }
+
+        private DeltaPage delta0(String driveId, @Nullable String token, @Nullable String link) {
             JsonNode node = link != null
                     ? json(exchange(request(continuation(link)), new Budget()))
                     : get("/drives/" + encodePath(driveId) + "/root/delta?$top=" + properties.pageSize()
@@ -137,6 +165,10 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
 
         @Override public ItemPage children(String driveId, String itemId, @Nullable String link) {
+            return metrics.record(Operation.CHILDREN, () -> children0(driveId, itemId, link));
+        }
+
+        private ItemPage children0(String driveId, String itemId, @Nullable String link) {
             JsonNode node = link != null
                     ? json(exchange(request(continuation(link)), new Budget()))
                     : get("/drives/" + encodePath(driveId) + "/items/" + encodePath(itemId) + "/children?$top="
@@ -147,11 +179,16 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
 
         @Override public DriveItem item(String driveId, String itemId) {
-            return parseItem(get("/drives/" + encodePath(driveId) + "/items/" + encodePath(itemId)
-                    + "?$select=" + encodeQuery(ITEM_FIELDS + ",@microsoft.graph.downloadUrl"), new Budget()), driveId);
+            return metrics.record(Operation.ITEM, () -> parseItem(get("/drives/" + encodePath(driveId) + "/items/"
+                    + encodePath(itemId) + "?$select=" + encodeQuery(ITEM_FIELDS + ",@microsoft.graph.downloadUrl"),
+                    new Budget()), driveId));
         }
 
         @Override public Content content(DriveItem item, String tenantHost, int maxBytes) {
+            return metrics.record(Operation.CONTENT, () -> content0(item, tenantHost, maxBytes));
+        }
+
+        private Content content0(DriveItem item, String tenantHost, int maxBytes) {
             if (!item.file() || item.driveId() == null) throw new SharePointProviderException(MALFORMED);
             int limit = Math.min(maxBytes, properties.maxContentBytes());
             var budget = new Budget();

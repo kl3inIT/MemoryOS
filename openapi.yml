@@ -11064,6 +11064,10 @@ components:
           - "null"
         detailsExpired:
           type: boolean
+        runKind:
+          type: string
+          description: REFRESH or PRUNE for SharePoint; absent where a connector has
+            one kind of run
         counts:
           $ref: "#/components/schemas/SourceRunCounts"
       required:

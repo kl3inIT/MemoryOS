@@ -37,6 +37,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -49,6 +51,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class DefaultSharePointSyncService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultSharePointSyncService.class);
     private static final int MAX_STEPS = 16;
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
     private static final int MAX_CONTENT_BYTES = 100 * 1024 * 1024;
@@ -106,6 +109,7 @@ public class DefaultSharePointSyncService {
                 if (connection.credentialRevision() != work.credentialRevision()) throw new StaleSyncException();
                 var run = fenced(work, () -> runs.openRun(work, state.pruneDue() ? "PRUNE" : "REFRESH",
                         state.pruneDue() ? null : windowStart(state.refreshWindowEnd()), Instant.now()));
+                log("sharepoint.sync.run.started", run, null);
                 String tenantHost = connection.tenantHost() == null
                         ? connection.session().root().hostname() : connection.tenantHost();
                 return walk(work, run, connection.session(), tenantHost);
@@ -242,6 +246,17 @@ public class DefaultSharePointSyncService {
         return targets.values().stream().sorted(Comparator.comparing(Target::driveId)).toList();
     }
 
+    /**
+     * Stable event fields only: the run kind and its outcome. Site addresses, item names and identifiers of
+     * what was read never appear here.
+     */
+    private static void log(String event, Run run, @Nullable String outcome) {
+        LOGGER.atInfo().addKeyValue("event", event).addKeyValue("run_kind", run.kind())
+                .addKeyValue("source_id", run.sourceId().value())
+                .addKeyValue("outcome", outcome == null ? "started" : outcome)
+                .log("SharePoint synchronization run");
+    }
+
     /** Ends the run: a refresh records its window, a prune removes what its complete listing did not see. */
     private Result finish(Work work, Run run) {
         if (!run.prune()) {
@@ -250,6 +265,7 @@ public class DefaultSharePointSyncService {
                 runs.completeRun(run, "SUCCEEDED", null);
                 runs.finishRefresh(work, run.windowEnd());
                 sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
+                log("sharepoint.sync.run.finished", run, "completed");
                 return Result.COMPLETED;
             }));
         }
@@ -263,6 +279,7 @@ public class DefaultSharePointSyncService {
             runs.completeRun(run, "SUCCEEDED", null);
             runs.finishPrune(work);
             sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
+            log("sharepoint.sync.run.finished", run, "completed");
             return Result.COMPLETED;
         }));
     }
