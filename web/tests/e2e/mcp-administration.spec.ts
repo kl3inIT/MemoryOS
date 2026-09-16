@@ -222,12 +222,63 @@ async function stub(page: import("@playwright/test").Page) {
   }
 }
 
+const OUTPUT = "D:/MemoryOS/output";
+
+// These tests boot the app and capture full pages; the default budget is short under parallel load.
+test.describe.configure({ timeout: 120_000 });
+
+/** Captures the delivered pages the way MEM-108 recorded its own: both themes, desktop and phone. */
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [1280, 390] as const) {
+    test(`MCP screens are captured in ${theme} at ${width}px`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem("memoryos-theme", value), theme);
+      await page.emulateMedia({ colorScheme: theme });
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await stub(page);
+
+      await page.goto("/admin/mcp");
+      // Four capture tests share one dev server, so the first paint is given more room than the default.
+      await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+        timeout: 30_000,
+      });
+      await page.screenshot({
+        path: `${OUTPUT}/mem112-mcp-admin-${theme}-${width}.png`,
+        fullPage: true,
+      });
+
+      await page.getByRole("button", { name: "Xem công cụ" }).first().click();
+      await expect(page.getByRole("heading", { name: "Ứng dụng OAuth" })).toBeVisible();
+      await page.screenshot({
+        path: `${OUTPUT}/mem112-mcp-tools-${theme}-${width}.png`,
+        fullPage: true,
+      });
+
+      await page.goto("/admin/mcp");
+      await page.getByRole("button", { name: "Thêm máy chủ" }).click();
+      await expect(page.getByText("Địa chỉ callback")).toBeVisible();
+      await page.screenshot({
+        path: `${OUTPUT}/mem112-mcp-add-${theme}-${width}.png`,
+        fullPage: true,
+      });
+      await page.keyboard.press("Escape");
+
+      await page.goto("/");
+      await page.getByRole("button", { name: "Thêm vào câu hỏi" }).click();
+      await page.getByRole("button", { name: "Công cụ MCP" }).click();
+      await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
+      await page.screenshot({ path: `${OUTPUT}/mem112-mcp-composer-${theme}-${width}.png` });
+    });
+  }
+}
+
 test("MCP administration lists servers, tools and OAuth applications", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await stub(page);
   await page.goto("/admin/mcp");
 
-  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByText("Google Drive")).toBeVisible();
   await expect(page.getByText("Đã kết nối")).toBeVisible();
   await expect(page.getByText("Cần kết nối")).toBeVisible();
