@@ -33,8 +33,8 @@ MemoryOS shows the plan, one tab per parallel agent with its task, tool steps wi
 
 ## Scope taken from this note
 
-1. Source count and elapsed time on the research group header, and per-agent duration and running state on its tab.
-2. Cycle position ("Chu kỳ n") on the group of agents that ran in one cycle.
-3. Collapsing the plan and intermediate reports the way Onyx does, so a long plan does not push the answer away.
+1. Done (2026-09-16): the group header shows the source count with elapsed time while the turn runs, and the step count with the source count once it ends; each agent tab shows a spinner while it runs and its panel says how long it ran.
+2. Done (2026-09-16): a cycle label names each group of agents when more than one cycle ran.
+3. Open: collapsing the plan and intermediate reports the way Onyx does, so a long plan does not push the answer away.
 
 Everything else stays out until the owner asks for it.

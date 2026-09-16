@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TextMessagePartProvider, useAuiState } from "@assistant-ui/react";
-import { Brain, ListChecks, Search } from "lucide-react";
+import { Brain, ListChecks, Loader2, Search } from "lucide-react";
 import {
   ActivityChips,
   ActivityGroupContent,
@@ -12,6 +12,7 @@ import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatResearchToolStep } from "./chat-activity-view";
+import { spokenDuration, useElapsed } from "./chat-duration";
 import { mergedReport, type ResearchAgent, type ResearchState } from "./chat-research";
 
 type StepState = "running" | "done" | "failed";
@@ -45,13 +46,25 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
   for (const agent of research.agents)
     cycles.set(agent.cycle, [...(cycles.get(agent.cycle) ?? []), agent]);
   const count = research.agents.length + (research.plan ? 1 : 0);
+  // As ChatGPT, Mistral and Copilot do, a long run says how much it has found and how long it has been working.
+  const sources = useAuiState(
+    (state) => (state.message.metadata.custom.sources as unknown[] | undefined)?.length ?? 0,
+  );
+  const elapsed = useElapsed(
+    useAuiState((state) => state.message.metadata.custom.createdAt),
+    active,
+  );
+  const found =
+    sources === 0 ? "" : sources === 1 ? ui("1 nguồn") : ui("{{n}} nguồn", { n: sources });
+  const steps = count === 1 ? ui("1 bước") : ui("{{n}} bước", { n: count });
+  const summary = (
+    active ? [found, elapsed === null ? "" : spokenDuration(elapsed)] : [steps, found]
+  )
+    .filter(Boolean)
+    .join(" · ");
   return (
     <ActivityGroupRoot open={open} onOpenChange={setManual}>
-      <ActivityGroupTrigger
-        label={label}
-        active={active}
-        steps={active ? undefined : count === 1 ? ui("1 bước") : ui("{{n}} bước", { n: count })}
-      />
+      <ActivityGroupTrigger label={label} active={active} steps={summary || undefined} />
       <ActivityGroupContent>
         {research.plan && (
           <ActivityStep
@@ -64,6 +77,9 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
         )}
         {[...cycles.entries()].map(([cycle, agents]) => (
           <li key={cycle} className="min-w-0 text-sm">
+            {cycles.size > 1 && (
+              <p className="mb-1 text-content-muted">{ui("Chu kỳ {{n}}", { n: cycle + 1 })}</p>
+            )}
             {agents.length === 1 ? (
               <AgentPanel agent={agents[0]!} running={running} />
             ) : (
@@ -71,7 +87,12 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
                 <TabsList className="max-w-full overflow-x-auto">
                   {agents.map((agent) => (
                     <TabsTrigger key={agent.toolCallId} value={agent.toolCallId}>
-                      {ui("Tác tử {{n}}", { n: agent.tabIndex + 1 })}
+                      <span className="flex items-center gap-1.5">
+                        {agent.status === "RUNNING" && running && (
+                          <Loader2 className="size-3 animate-spin" aria-hidden />
+                        )}
+                        {ui("Tác tử {{n}}", { n: agent.tabIndex + 1 })}
+                      </span>
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -97,6 +118,11 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
   return (
     <div className="mt-2 min-w-0 space-y-2">
       {agent.task && <p className="text-content-primary [overflow-wrap:anywhere]">{agent.task}</p>}
+      {agent.durationMs !== null && (
+        <p className="text-xs text-content-muted">
+          {ui("Đã chạy {{duration}}", { duration: spokenDuration(agent.durationMs) })}
+        </p>
+      )}
       {(agent.activity.steps.length > 0 || thoughts) && (
         <ol className="flex flex-col gap-2 border-l border-border-subtle pl-3">
           {agent.activity.steps.map((step) => {

@@ -14,6 +14,7 @@ import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
+import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "./chat-evidence";
 
 type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
@@ -190,18 +191,6 @@ function toolIcon(name: string) {
     default:
       return <Wrench />;
   }
-}
-
-/** Spoken duration for the collapsed header, e.g. "14 giây" / "14 seconds". */
-function spokenDuration(ms: number) {
-  const seconds = Math.max(1, Math.round(ms / 1000));
-  const format = (value: number, unit: "second" | "minute") =>
-    new Intl.NumberFormat(uiLocale(), { style: "unit", unit, unitDisplay: "long" }).format(value);
-  if (seconds < 60) return format(seconds, "second");
-  const rest = seconds % 60;
-  return [format(Math.floor(seconds / 60), "minute"), rest ? format(rest, "second") : ""]
-    .filter(Boolean)
-    .join(" ");
 }
 
 /** One disclosure for adjacent reasoning and tool steps; open while working, collapsed once the answer starts. */
