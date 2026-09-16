@@ -8,7 +8,7 @@ import java.util.Objects;
  */
 public final class SharePointProviderException extends RuntimeException {
     public enum Failure {
-        AUTHENTICATION, AUTHORIZATION, NOT_FOUND, QUOTA, UNAVAILABLE, MALFORMED, LIMIT_EXCEEDED
+        AUTHENTICATION, AUTHORIZATION, NOT_FOUND, RESYNC_REQUIRED, QUOTA, UNAVAILABLE, MALFORMED, LIMIT_EXCEEDED
     }
 
     public enum Reason {

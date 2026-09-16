@@ -1,5 +1,6 @@
 package io.memoryos.connector;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +24,22 @@ public interface SharePointProvider {
 
         /** One page of {@code /sites/getAllSites}; {@code nextLink} continues it. */
         SitePage sites(@Nullable String nextLink);
+
+        /**
+         * One page of a library's change log. {@code token} is the ISO-8601 instant the previous successful
+         * refresh ended at, or null for the whole library. {@code link} continues an unfinished page walk.
+         * A token Microsoft no longer accepts raises {@link SharePointProviderException.Failure#RESYNC_REQUIRED}.
+         */
+        DeltaPage delta(String driveId, @Nullable String token, @Nullable String link);
+
+        /** One page of a folder's direct children, used when the root is a folder rather than a library. */
+        ItemPage children(String driveId, String itemId, @Nullable String link);
+
+        /** Current metadata of one item, including the short-lived download address. */
+        DriveItem item(String driveId, String itemId);
+
+        /** Downloads an item, refusing any address outside {@code tenantHost}, the Tenant SharePoint host. */
+        Content content(DriveItem item, String tenantHost, int maxBytes);
 
         @Override void close();
     }
@@ -107,5 +124,47 @@ public interface SharePointProvider {
             Objects.requireNonNull(itemId, "itemId");
             Objects.requireNonNull(name, "name");
         }
+    }
+
+    /**
+     * A drive item as the change log reports it. A tombstone carries {@code deleted} with an identifier and
+     * a parent, but no name, which is why MemoryOS stores the identifier of everything it holds.
+     */
+    record DriveItem(String id, @Nullable String name, boolean folder, boolean deleted, long size,
+                     @Nullable String mimeType, @Nullable String quickXorHash, @Nullable String eTag,
+                     @Nullable Instant createdAt, @Nullable Instant lastModifiedAt,
+                     @Nullable String parentId, @Nullable String parentPath, @Nullable String webUrl,
+                     @Nullable String downloadUrl, @Nullable String driveId) {
+        public DriveItem {
+            Objects.requireNonNull(id, "id");
+        }
+
+        public boolean file() { return !folder && !deleted; }
+
+        /** The version used to decide whether stored content is still current. */
+        public String contentVersion() {
+            if (quickXorHash != null) return quickXorHash + ":" + size;
+            return (eTag == null ? "" : eTag) + ":" + (lastModifiedAt == null ? "" : lastModifiedAt);
+        }
+
+        @Override public String toString() { return "DriveItem[" + id + (deleted ? ",deleted]" : "]"); }
+    }
+
+    record DeltaPage(List<DriveItem> items, @Nullable String nextLink, @Nullable String deltaLink) {
+        public DeltaPage { items = List.copyOf(items); }
+    }
+
+    record ItemPage(List<DriveItem> items, @Nullable String nextLink) {
+        public ItemPage { items = List.copyOf(items); }
+    }
+
+    record Content(String filename, String mediaType, byte[] bytes) {
+        public Content {
+            Objects.requireNonNull(filename, "filename");
+            Objects.requireNonNull(mediaType, "mediaType");
+            Objects.requireNonNull(bytes, "bytes");
+        }
+
+        @Override public String toString() { return "Content[" + bytes.length + " bytes]"; }
     }
 }

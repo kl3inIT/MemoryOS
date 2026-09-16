@@ -6,6 +6,7 @@ import static io.memoryos.connector.SharePointProviderException.Failure.LIMIT_EX
 import static io.memoryos.connector.SharePointProviderException.Failure.MALFORMED;
 import static io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND;
 import static io.memoryos.connector.SharePointProviderException.Failure.QUOTA;
+import static io.memoryos.connector.SharePointProviderException.Failure.RESYNC_REQUIRED;
 import static io.memoryos.connector.SharePointProviderException.Failure.UNAVAILABLE;
 
 import io.memoryos.connector.SharePointProvider;
@@ -17,8 +18,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +35,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public final class RestSharePointProvider implements SharePointProvider, AutoCloseable {
+    private static final String ITEM_FIELDS =
+            "id,name,size,eTag,file,folder,deleted,createdDateTime,lastModifiedDateTime,parentReference,webUrl";
     private final SharePointProviderProperties properties;
     private final ObjectMapper mapper;
     private final HttpClient client;
@@ -120,6 +125,64 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
                     node.path("isPersonalSite").asBoolean(false));
         }
 
+        @Override public DeltaPage delta(String driveId, @Nullable String token, @Nullable String link) {
+            JsonNode node = link != null
+                    ? json(exchange(request(continuation(link)), new Budget()))
+                    : get("/drives/" + encodePath(driveId) + "/root/delta?$top=" + properties.pageSize()
+                            + "&$select=" + encodeQuery(ITEM_FIELDS)
+                            + (token == null ? "" : "&token=" + encodeQuery(instant(token))), new Budget());
+            var items = new ArrayList<DriveItem>();
+            for (JsonNode entry : array(node)) items.add(parseItem(entry, driveId));
+            return new DeltaPage(items, optionalLink(node, "@odata.nextLink"), optionalLink(node, "@odata.deltaLink"));
+        }
+
+        @Override public ItemPage children(String driveId, String itemId, @Nullable String link) {
+            JsonNode node = link != null
+                    ? json(exchange(request(continuation(link)), new Budget()))
+                    : get("/drives/" + encodePath(driveId) + "/items/" + encodePath(itemId) + "/children?$top="
+                            + properties.pageSize() + "&$select=" + encodeQuery(ITEM_FIELDS), new Budget());
+            var items = new ArrayList<DriveItem>();
+            for (JsonNode entry : array(node)) items.add(parseItem(entry, driveId));
+            return new ItemPage(items, optionalLink(node, "@odata.nextLink"));
+        }
+
+        @Override public DriveItem item(String driveId, String itemId) {
+            return parseItem(get("/drives/" + encodePath(driveId) + "/items/" + encodePath(itemId)
+                    + "?$select=" + encodeQuery(ITEM_FIELDS + ",@microsoft.graph.downloadUrl"), new Budget()), driveId);
+        }
+
+        @Override public Content content(DriveItem item, String tenantHost, int maxBytes) {
+            if (!item.file() || item.driveId() == null) throw new SharePointProviderException(MALFORMED);
+            int limit = Math.min(maxBytes, properties.maxContentBytes());
+            var budget = new Budget();
+            byte[] bytes = item.downloadUrl() != null
+                    ? download(URI.create(item.downloadUrl()), tenantHost, budget, limit)
+                    : redirectedDownload(item, tenantHost, budget, limit);
+            if (bytes.length == 0) throw new SharePointProviderException(MALFORMED);
+            return new Content(item.name() == null ? item.id() : item.name(),
+                    item.mimeType() == null ? "application/octet-stream" : item.mimeType(), bytes);
+        }
+
+        /** Without a download address Graph answers /content with one redirect, which must stay on the Tenant host. */
+        private byte[] redirectedDownload(DriveItem item, String tenantHost, Budget budget, int limit) {
+            URI uri = URI.create(properties.graphBaseUrl() + "/drives/"
+                    + encodePath(Objects.requireNonNull(item.driveId())) + "/items/" + encodePath(item.id()) + "/content");
+            var response = send(request(uri), budget, 8_192);
+            if (response.statusCode() < 300 || response.statusCode() >= 400) throw httpFailure(response.statusCode());
+            String location = response.headers().firstValue("Location").orElse("");
+            if (location.isBlank()) throw new SharePointProviderException(MALFORMED);
+            return download(URI.create(location), tenantHost, budget, limit);
+        }
+
+        private byte[] download(URI uri, String tenantHost, Budget budget, int limit) {
+            requireTenantHost(uri, tenantHost);
+            // The address carries its own short-lived credential, so no bearer token is attached to it.
+            var request = HttpRequest.newBuilder(uri).header("User-Agent", properties.userAgent()).GET().build();
+            var response = send(request, budget, limit);
+            if (response.statusCode() < 200 || response.statusCode() >= 300) throw httpFailure(response.statusCode());
+            return response.body();
+        }
+
         @Override public void close() { bearer = null; }
 
         private JsonNode get(String path, Budget budget) {
@@ -149,16 +212,21 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     }
 
     private byte[] exchange(HttpRequest request, Budget budget) {
+        var response = send(request, budget, properties.maxResponseBytes());
+        int status = response.statusCode();
+        if (status < 200 || status >= 300) throw httpFailure(status);
+        return response.body();
+    }
+
+    private HttpResponse<byte[]> send(HttpRequest request, Budget budget, int limit) {
         budget.request();
         long timeout = Math.min(properties.requestTimeout().toNanos(), budget.remaining());
         CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, info ->
-                new LimitedBody(info.statusCode() >= 200 && info.statusCode() < 300 ? properties.maxResponseBytes() : 8_192));
+                new LimitedBody(info.statusCode() >= 200 && info.statusCode() < 300 ? limit : 8_192));
         try {
             HttpResponse<byte[]> response = future.get(timeout, TimeUnit.NANOSECONDS);
             budget.check();
-            int status = response.statusCode();
-            if (status < 200 || status >= 300) throw httpFailure(status);
-            return response.body();
+            return response;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             future.cancel(true);
@@ -177,7 +245,9 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         return new SharePointProviderException(switch (status) {
             case 401 -> AUTHENTICATION;
             case 403 -> AUTHORIZATION;
-            case 404, 410 -> NOT_FOUND;
+            case 404 -> NOT_FOUND;
+            // A delta token Microsoft no longer accepts; the caller restarts that library.
+            case 410 -> RESYNC_REQUIRED;
             case 429 -> QUOTA;
             default -> status >= 500 || status == 408 ? UNAVAILABLE : MALFORMED;
         });
@@ -191,6 +261,70 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         } catch (tools.jackson.core.JacksonException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
+    }
+
+    /**
+     * Only an address on the Tenant SharePoint host may be downloaded, and its short-lived credential is
+     * never logged or reported.
+     */
+    private static void requireTenantHost(URI uri, String tenantHost) {
+        String host = uri.getHost();
+        boolean loopback = host != null && java.util.Set.of("localhost", "127.0.0.1", "[::1]").contains(host);
+        if (host == null || !host.equalsIgnoreCase(tenantHost)
+                || (!"https".equalsIgnoreCase(uri.getScheme()) && !loopback)) {
+            throw new SharePointProviderException(AUTHORIZATION);
+        }
+    }
+
+    private DriveItem parseItem(JsonNode node, String driveId) {
+        try {
+            JsonNode file = node.path("file");
+            JsonNode parent = node.path("parentReference");
+            String parentPath = parent.path("path").asString("");
+            int root = parentPath.indexOf("root:");
+            String parentDrive = optional(parent, "driveId");
+            return new DriveItem(required(node, "id"), optional(node, "name"), !node.path("folder").isMissingNode(),
+                    !node.path("deleted").isMissingNode(), node.path("size").asLong(0),
+                    optional(file, "mimeType"), optional(file.path("hashes"), "quickXorHash"), optional(node, "eTag"),
+                    instantOrNull(optional(node, "createdDateTime")), instantOrNull(optional(node, "lastModifiedDateTime")),
+                    optional(parent, "id"), root < 0 ? null : decode(parentPath.substring(root + "root:".length())),
+                    optional(node, "webUrl"), optional(node, "@microsoft.graph.downloadUrl"),
+                    parentDrive == null ? driveId : parentDrive);
+        } catch (java.time.DateTimeException exception) {
+            throw new SharePointProviderException(MALFORMED);
+        }
+    }
+
+    private static @Nullable Instant instantOrNull(@Nullable String value) {
+        return value == null ? null : Instant.parse(value);
+    }
+
+    private static String decode(String value) {
+        return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static String instant(String token) {
+        try {
+            return Instant.parse(token).toString();
+        } catch (java.time.DateTimeException exception) {
+            throw new SharePointProviderException(MALFORMED);
+        }
+    }
+
+    private static @Nullable String optionalLink(JsonNode node, String field) {
+        String value = node.path(field).asString("");
+        if (value.length() > 8_192) throw new SharePointProviderException(LIMIT_EXCEEDED);
+        return value.isBlank() ? null : value;
+    }
+
+    private static @Nullable String optional(JsonNode node, String field) {
+        String value = node.path(field).asString("");
+        if (value.length() > 16_384) throw new SharePointProviderException(LIMIT_EXCEEDED);
+        return value.isBlank() ? null : value;
+    }
+
+    private static String encodeQuery(String value) {
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private JsonNode array(JsonNode node) {

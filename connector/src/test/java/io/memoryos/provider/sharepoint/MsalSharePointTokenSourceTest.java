@@ -118,7 +118,7 @@ class MsalSharePointTokenSourceTest {
     private static MsalSharePointTokenSource source(Fixture fixture) {
         return new MsalSharePointTokenSource(new SharePointProviderProperties(fixture.base,
                 URI.create(fixture.base + "/v1.0"), Duration.ofSeconds(5), Duration.ofSeconds(10),
-                Duration.ofSeconds(20), 0, 0, null), EXECUTOR);
+                Duration.ofSeconds(20), 0, 0, 0, 0, null), EXECUTOR);
     }
 
     /** msal4j writes the thumbprint in standard base64; the JWT specification allows base64url. */

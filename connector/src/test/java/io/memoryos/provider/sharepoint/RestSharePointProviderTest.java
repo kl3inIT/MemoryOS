@@ -46,7 +46,7 @@ class RestSharePointProviderTest {
     @Test
     void classifiesGraphStatusCodesWithoutEchoingMicrosoftText() throws Exception {
         Map<Integer, Failure> expected = Map.of(401, Failure.AUTHENTICATION, 403, Failure.AUTHORIZATION,
-                404, Failure.NOT_FOUND, 410, Failure.NOT_FOUND, 429, Failure.QUOTA,
+                404, Failure.NOT_FOUND, 410, Failure.RESYNC_REQUIRED, 429, Failure.QUOTA,
                 500, Failure.UNAVAILABLE, 503, Failure.UNAVAILABLE, 408, Failure.UNAVAILABLE, 400, Failure.MALFORMED);
         for (var entry : expected.entrySet()) {
             try (var fixture = new Fixture(_ -> new Response(entry.getKey(),
@@ -181,6 +181,121 @@ class RestSharePointProviderTest {
     }
 
     @Test
+    void readsTheChangeLogIncludingTombstones() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertTrue(exchange.getRequestURI().getRawQuery().contains("token=2026-09-16T02%3A00%3A00Z"),
+                    exchange.getRequestURI().getRawQuery());
+            return ok("""
+                    {"value":[
+                      {"id":"file-1","name":"bao-cao.xlsx","size":16935,"eTag":"etag-1",
+                       "createdDateTime":"2026-09-16T02:11:13Z","lastModifiedDateTime":"2026-09-16T02:11:13Z",
+                       "file":{"mimeType":"application/vnd.ms-excel","hashes":{"quickXorHash":"S7GCo="}},
+                       "parentReference":{"id":"root-1","driveId":"drive-1","path":"/drives/drive-1/root:/Baocao"},
+                       "webUrl":"https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/Baocao/bao-cao.xlsx"},
+                      {"id":"folder-1","name":"Baocao","folder":{"childCount":1},
+                       "parentReference":{"id":"root-1","driveId":"drive-1","path":"/drives/drive-1/root:"}},
+                      {"id":"gone-1","deleted":{"state":"deleted"},"size":0,
+                       "parentReference":{"id":"root-1","driveId":"drive-1"}}],
+                     "@odata.deltaLink":"https://graph.invalid/delta?token=latest"}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var page = session.delta("drive-1", "2026-09-16T02:00:00Z", null);
+            assertEquals(3, page.items().size());
+            var file = page.items().getFirst();
+            assertTrue(file.file());
+            assertEquals("/Baocao", file.parentPath());
+            assertEquals("S7GCo=:16935", file.contentVersion(), "hash and size decide whether content changed");
+            assertTrue(page.items().get(1).folder());
+            var tombstone = page.items().get(2);
+            assertTrue(tombstone.deleted());
+            assertNull(tombstone.name(), "a tombstone has no name, only an identifier");
+            assertEquals("gone-1", tombstone.id());
+            assertNotNull(page.deltaLink());
+            assertNull(page.nextLink());
+        }
+    }
+
+    @Test
+    void reportsAnExpiredChangeTokenAsResyncRequired() throws Exception {
+        try (var fixture = new Fixture(_ -> new Response(410,
+                "{\"error\":{\"code\":\"resyncRequired\",\"message\":\"Resync required.\"}}".getBytes(StandardCharsets.UTF_8)));
+                var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertEquals(Failure.RESYNC_REQUIRED, assertThrows(SharePointProviderException.class,
+                    () -> session.delta("drive-1", "2020-01-01T00:00:00Z", null)).failure());
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.delta("drive-1", "not-a-time", null)).failure());
+        }
+    }
+
+    @Test
+    void walksFolderChildrenPageByPage() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getQuery().contains("skiptoken")) {
+                return ok("{\"value\":[{\"id\":\"file-2\",\"name\":\"second.docx\",\"parentReference\":{\"driveId\":\"drive-1\"}}]}");
+            }
+            String self = "http://127.0.0.1:" + exchange.getLocalAddress().getPort();
+            return ok(("""
+                    {"value":[{"id":"file-1","name":"first.docx","parentReference":{"driveId":"drive-1"}}],
+                     "@odata.nextLink":"%s/v1.0/drives/drive-1/items/folder-1/children?$skiptoken=next"}""")
+                    .formatted(self));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var first = session.children("drive-1", "folder-1", null);
+            assertEquals("file-1", first.items().getFirst().id());
+            assertNotNull(first.nextLink());
+            assertEquals("file-2", session.children("drive-1", "folder-1", first.nextLink()).items().getFirst().id());
+        }
+    }
+
+    @Test
+    void downloadsOnlyFromTheTenantHost() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertNull(exchange.getRequestHeaders().getFirst("Authorization"),
+                    "the download address carries its own credential");
+            return new Response(200, "report-bytes".getBytes(StandardCharsets.UTF_8));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var item = item("file-1", fixture.base + "/download?tempauth=secret");
+            var content = session.content(item, "127.0.0.1", 1024);
+            assertEquals("report-bytes", new String(content.bytes(), StandardCharsets.UTF_8));
+            assertEquals("bao-cao.xlsx", content.filename());
+
+            var foreign = item("file-1", "https://evil.example.com/download?tempauth=secret");
+            var refused = assertThrows(SharePointProviderException.class, () -> session.content(foreign, "127.0.0.1", 1024));
+            assertEquals(Failure.AUTHORIZATION, refused.failure());
+            assertFalse(refused.getMessage().contains("tempauth"));
+        }
+    }
+
+    @Test
+    void followsExactlyOneContentRedirect() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getPath().endsWith("/content")) {
+                exchange.getResponseHeaders().add("Location",
+                        "http://127.0.0.1:" + exchange.getLocalAddress().getPort() + "/download?tempauth=secret");
+                return new Response(302, new byte[0]);
+            }
+            return new Response(200, "redirected-bytes".getBytes(StandardCharsets.UTF_8));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var content = session.content(item("file-1", null), "127.0.0.1", 1024);
+            assertEquals("redirected-bytes", new String(content.bytes(), StandardCharsets.UTF_8));
+            assertEquals(2, fixture.requests.size(), "one redirect, then the download");
+        }
+    }
+
+    @Test
+    void stopsDownloadsThatExceedTheLimit() throws Exception {
+        try (var fixture = new Fixture(_ -> new Response(200, new byte[4096]));
+                var provider = provider(fixture, 0, 1024); var session = provider.open(credential())) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(SharePointProviderException.class,
+                    () -> session.content(item("file-1", fixture.base + "/download"), "127.0.0.1", 4096)).failure());
+        }
+    }
+
+    private static SharePointProvider.DriveItem item(String id, String downloadUrl) {
+        return new SharePointProvider.DriveItem(id, "bao-cao.xlsx", false, false, 12,
+                "application/vnd.ms-excel", "S7GCo=", "\"{A},1\"", null, null, "root-1", "/Baocao",
+                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/bao-cao.xlsx", downloadUrl, "drive-1");
+    }
+
+    @Test
     void classifiesEntraErrorNumbers() {
         assertEquals(Reason.INVALID_CLIENT_SECRET, MsalSharePointTokenSource.classify(
                 "AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value"));
@@ -198,8 +313,13 @@ class RestSharePointProviderTest {
     }
 
     private RestSharePointProvider provider(Fixture fixture, int maxResponseBytes) {
+        return provider(fixture, maxResponseBytes, 0);
+    }
+
+    private RestSharePointProvider provider(Fixture fixture, int maxResponseBytes, int maxContentBytes) {
         var properties = new SharePointProviderProperties(fixture.base, URI.create(fixture.base + "/v1.0"),
-                Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(10), 0, maxResponseBytes, null);
+                Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(10), 0, maxResponseBytes,
+                0, maxContentBytes == 0 ? 0 : maxContentBytes, null);
         return new RestSharePointProvider(properties, mapper, _ -> "test-token");
     }
 

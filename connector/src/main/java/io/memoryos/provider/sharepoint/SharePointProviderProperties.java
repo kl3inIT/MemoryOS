@@ -9,7 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("memoryos.sharepoint")
 public record SharePointProviderProperties(
         URI authority, URI graphBaseUrl, Duration connectTimeout, Duration requestTimeout,
-        Duration acquisitionTimeout, int maxRequests, int maxResponseBytes, String userAgent) {
+        Duration acquisitionTimeout, int maxRequests, int maxResponseBytes, int pageSize,
+        int maxContentBytes, String userAgent) {
 
     public SharePointProviderProperties {
         authority = authority == null ? URI.create("https://login.microsoftonline.com") : authority;
@@ -19,6 +20,8 @@ public record SharePointProviderProperties(
         acquisitionTimeout = acquisitionTimeout == null ? Duration.ofSeconds(15) : acquisitionTimeout;
         maxRequests = maxRequests == 0 ? 64 : maxRequests;
         maxResponseBytes = maxResponseBytes == 0 ? 1_048_576 : maxResponseBytes;
+        pageSize = pageSize == 0 ? 200 : pageSize;
+        maxContentBytes = maxContentBytes == 0 ? 104_857_600 : maxContentBytes;
         // Microsoft asks integrators to identify themselves; the format is theirs.
         userAgent = userAgent == null || userAgent.isBlank() ? "ISV|MemoryOS|SharePointConnector/1.0" : userAgent;
     }
@@ -29,6 +32,8 @@ public record SharePointProviderProperties(
                 || !duration(requestTimeout, 120) || !duration(acquisitionTimeout, 120)
                 || maxRequests < 1 || maxRequests > 256
                 || maxResponseBytes < 1024 || maxResponseBytes > 16_777_216
+                || pageSize < 1 || pageSize > 999
+                || maxContentBytes < 1024 || maxContentBytes > 104_857_600
                 || userAgent.length() > 200) {
             throw new SharePointProviderException(SharePointProviderException.Failure.UNAVAILABLE);
         }
