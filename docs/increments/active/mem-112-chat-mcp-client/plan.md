@@ -89,8 +89,8 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 
 ## Phase 6 — documentation and acceptance
 
-- [ ] `docs/specs/chat.md`, `docs/tests/chat.md`, `ARCHITECTURE.md`.
-- [ ] Self-host runbook: outbound domains, redirect-URI rules, CIMD reachability, `Internal` client per organization, MEM-60 client reuse.
+- [x] `docs/specs/chat.md` (MCP tools), `docs/tests/chat.md` (evidence table), `ARCHITECTURE.md` (`CHAT --> MCP`).
+- [x] Self-host runbook at `docs/runbooks/mcp-servers.md`, linked from README and AGENTS.
 - [ ] Live acceptance: two organizations' clients on Google Drive MCP, wrong-organization `org_internal`, read tools and `create_file` on a test folder.
 - [ ] `gradlew clean check` and frontend gate.
 

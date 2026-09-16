@@ -55,6 +55,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [MEM-84 architecture audit](https://linear.app/memory-os/issue/MEM-84)
 - [Conventions](docs/conventions.md)
 - [Observability conventions](docs/guidelines/observability.md)
+- [MCP server runbook](docs/runbooks/mcp-servers.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)
 - [Shared connector and JDBC source persistence decision](docs/decisions/0006-shared-connector-bundle-and-jdbc-source-persistence.md)
