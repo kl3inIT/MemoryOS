@@ -243,5 +243,5 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | The interpreter client reports streamed output as it arrives and returns the final result; a service error, a stream that ends without a result and a listener that stops reading all fail | `InterpreterClientTest` |
 | `run_python` publishes the code, output bounded to its budget and the generated files to the timeline, and a failure carries no service detail | `RunPythonToolTest` |
 | Generated files download from an authorized path, survive a reload and state their size; the step shows the code, the output and a failure in both languages | `chat-code.test.tsx` |
-| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V63) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V64) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |

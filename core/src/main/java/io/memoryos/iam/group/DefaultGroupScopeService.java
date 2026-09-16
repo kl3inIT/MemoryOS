@@ -107,6 +107,15 @@ public class DefaultGroupScopeService implements GroupScopeService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public boolean managesAnyOrdinaryGroup(TenantId tenantId, ActorId actorId) {
+        return invariants.managesAnyOrdinaryGroup(
+                Objects.requireNonNull(tenantId, "tenantId must not be null"),
+                Objects.requireNonNull(actorId, "actorId must not be null")
+        );
+    }
+
     private static Set<GroupId> requireGroupIds(Collection<GroupId> groupIds) {
         if (groupIds == null || groupIds.size() > GroupQuery.MAX_SIZE) {
             throw new IamException(

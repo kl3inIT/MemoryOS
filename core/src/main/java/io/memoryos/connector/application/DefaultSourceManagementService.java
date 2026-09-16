@@ -1,5 +1,6 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.connector.GroupSources;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -117,7 +118,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         String normalizedName = requireName(name);
         var creation = sourceAccess.lockCreation(requiredActorId, requestedAccess, groupIds);
         IamAccess access = creation.authority();
-        var pair = sources.createFileSource(access.tenantId(), requiredActorId, normalizedName, creation.access());
+        var pair = sources.createFileSource(access.tenantId(), requiredActorId, normalizedName, creation.access(),
+                sourceManagerFor(access, requiredActorId));
         sourceGroups.replace(access.tenantId(), pair.sourceId(), creation.groupIds());
         return getSource(requiredActorId, pair.sourceId());
     }
@@ -201,19 +203,45 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 requiredActorId,
                 IamCapability.SOURCES_MANAGE
         );
+        boolean global = access.authority() == Authority.GLOBAL;
         requireMutable(sources.lockAuthorized(
                 access.tenantId(),
                 requiredActorId,
                 requiredSourceId,
-                access.authority() == Authority.GLOBAL
+                global
         ));
-        List<GroupId> requiredGroupIds = normalizeGroupIds(groupIds, access.authority() == Authority.GLOBAL);
-        if (access.authority() == Authority.GLOBAL) {
+        List<GroupId> requiredGroupIds = normalizeGroupIds(groupIds);
+        if (global) {
             groupScopes.validateGroupIds(access.tenantId(), requiredGroupIds);
         } else {
-            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, requiredGroupIds);
+            // The recorded manager attaches and detaches only their own Groups; an association with a Group they
+            // do not manage belongs to that Group's manager and has to survive the replacement unchanged.
+            Set<GroupId> current = sourceGroups.groupIds(access.tenantId(), requiredSourceId);
+            Set<GroupId> changed = new LinkedHashSet<>(requiredGroupIds);
+            changed.removeAll(current);
+            current.stream().filter(groupId -> !requiredGroupIds.contains(groupId)).forEach(changed::add);
+            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, changed);
         }
         sourceGroups.replace(access.tenantId(), requiredSourceId, requiredGroupIds);
+    }
+
+    @Override
+    @Transactional
+    public SourceSummary assignSourceManager(
+            ActorId actorId,
+            SourceId sourceId,
+            @Nullable ActorId managerActorId
+    ) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequireAdministration(requiredActorId);
+        requireMutable(sources.lock(access.tenantId(), requiredSourceId));
+        if (managerActorId != null
+                && !groupScopes.managesAnyOrdinaryGroup(access.tenantId(), managerActorId)) {
+            throw SourceException.managerNotEligible();
+        }
+        sources.assignManager(access.tenantId(), requiredSourceId, managerActorId);
+        return getSource(requiredActorId, requiredSourceId);
     }
 
     @Override
@@ -237,16 +265,16 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SourceSummary> listGroupSources(ActorId actorId, GroupId groupId) {
+    public GroupSources listGroupSources(ActorId actorId, GroupId groupId) {
         ActorId requiredActorId = requireActorId(actorId);
         GroupId requiredGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
         SourceReadAuthority permissions = readPermissions(requiredActorId);
         groupScopes.validateGroupIds(permissions.tenantId(), List.of(requiredGroupId));
-        if (!permissions.globalRead()
-                && !groupScopes.isManagedBy(permissions.tenantId(), requiredActorId, requiredGroupId)) {
+        boolean managedGroup = groupScopes.isManagedBy(permissions.tenantId(), requiredActorId, requiredGroupId);
+        if (!permissions.globalRead() && !managedGroup) {
             throw SourceException.notFound();
         }
-        return queries.listForGroup(
+        List<SourceSummary> associated = queries.listForGroup(
                 permissions.tenantId(),
                 requiredActorId,
                 requiredGroupId,
@@ -254,6 +282,42 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 permissions.globalManage(),
                 permissions.globalDelete()
         );
+        boolean manages = permissions.globalManage()
+                || (managedGroup && authorization.scopedCapabilities(requiredActorId)
+                        .contains(IamCapability.SOURCES_MANAGE));
+        if (!manages) {
+            return new GroupSources(associated, Set.of());
+        }
+        Set<SourceId> removable = new LinkedHashSet<>(sourceGroups.removableFromGroup(
+                permissions.tenantId(),
+                requiredGroupId
+        ));
+        removable.retainAll(associated.stream().map(SourceSummary::id).toList());
+        return new GroupSources(associated, removable);
+    }
+
+    @Override
+    @Transactional
+    public void removeGroupSource(ActorId actorId, GroupId groupId, SourceId sourceId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        GroupId requiredGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequireScopedMutation(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE
+        );
+        // Authority comes from the Group, not the Source: a Group manager decides what their own Group carries,
+        // even for a Source they cannot otherwise manage. They never touch the Source's other Groups.
+        if (access.authority() == Authority.GLOBAL) {
+            groupScopes.validateGroupIds(access.tenantId(), List.of(requiredGroupId));
+        } else {
+            groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, List.of(requiredGroupId));
+        }
+        requireMutable(sources.lock(access.tenantId(), requiredSourceId));
+        if (!sourceGroups.groupIds(access.tenantId(), requiredSourceId).contains(requiredGroupId)) {
+            throw SourceException.notFound();
+        }
+        sourceGroups.remove(access.tenantId(), requiredSourceId, requiredGroupId);
     }
 
     @Override
@@ -586,20 +650,16 @@ public class DefaultSourceManagementService implements SourceManagementService {
         return Objects.requireNonNull(actorId, "actorId must not be null");
     }
 
-    private static List<GroupId> normalizeGroupIds(
-            Collection<GroupId> groupIds,
-            boolean allowEmpty
-    ) {
+    /** Scoped creation records its creator; global creation leaves the Source to global authority alone. */
+    private static @Nullable ActorId sourceManagerFor(IamAccess access, ActorId actorId) {
+        return access.authority() == Authority.GLOBAL ? null : actorId;
+    }
+
+    private static List<GroupId> normalizeGroupIds(Collection<GroupId> groupIds) {
         Objects.requireNonNull(groupIds, "groupIds must not be null");
         LinkedHashSet<GroupId> distinct = new LinkedHashSet<>();
         for (GroupId groupId : groupIds) {
             distinct.add(Objects.requireNonNull(groupId, "groupId must not be null"));
-        }
-        if (!allowEmpty && distinct.isEmpty()) {
-            throw SourceException.invalid(
-                    "Select at least one group.",
-                    "source group replacement did not contain a group"
-            );
         }
         if (distinct.size() > 100) {
             throw SourceException.invalid(
