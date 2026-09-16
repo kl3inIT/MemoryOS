@@ -60,33 +60,42 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 ## Giai đoạn 1 — Credential Entra app
 
 **Backend**
-- [ ] Migration: kind `SHAREPOINT_APP` trong CHECK `ck_credentials_kind`; bảng `sharepoint_credentials` (design §5.1).
-- [ ] Tách cipher AES-GCM dùng chung khỏi `GoogleDriveCredentialCipher` (Q7). Migrate caller Google trong cùng commit; dữ liệu Drive đã mã hóa vẫn giải được.
-- [ ] Cấu hình key `memoryos.sharepoint.credential-encryption-key` và `credential-key-version` cho API và worker; thiếu thì SharePoint fail closed. Cập nhật runbook biến môi trường và tên key Infisical, không kèm giá trị.
-- [ ] `gradle/libs.versions.toml`: thêm msal4j, pin version (Q2). Kiểm license và kích thước dependency.
-- [ ] Core `io.memoryos.connector`:
+- [x] Migration: kind `SHAREPOINT_APP` trong CHECK `ck_credentials_kind`; bảng `sharepoint_credentials` (design §5.1).
+- [x] Tách cipher AES-GCM dùng chung khỏi `GoogleDriveCredentialCipher` (Q7). Migrate caller Google trong cùng commit; dữ liệu Drive đã mã hóa vẫn giải được.
+- [x] Cấu hình key `memoryos.sharepoint.credential-encryption-key` và `credential-key-version` cho API và worker; thiếu thì SharePoint fail closed. Cập nhật runbook biến môi trường và tên key Infisical, không kèm giá trị.
+- [x] `gradle/libs.versions.toml`: thêm msal4j, pin version (Q2). Kiểm license và kích thước dependency.
+- [x] Core `io.memoryos.connector`:
   - port `SharePointProvider`;
   - `SharePointCredentialService` / `DefaultSharePointCredentialService`: tạo, sửa, xóa, liệt kê, test; kiểm với provider ngoài transaction;
   - `SharePointCertificate`: PKCS12 → PKCS8 + X.509, RSA ≥ 2048, chưa hết hạn, ≤ 16 KiB;
   - `JdbcSharePointCredentialRepository`;
   - `SharePointException` với mã `SOURCE_SHAREPOINT_*`.
-- [ ] Provider bundle `provider/sharepoint`:
+- [x] Provider bundle `provider/sharepoint`:
   - `MsalSharePointTokenSource`;
   - `RestSharePointProvider` (bước này chỉ có token + `/sites/root`), HTTP adapter có ngân sách, không redirect, header `User-Agent`;
   - phân loại AADSTS; `SharePointProviderProperties`; auto-configuration.
-- [ ] API `SharePointCredentialController` + DTO trong `api/.../source/contract/`; OpenAPI; hey-api.
+- [x] API `SharePointCredentialController` + DTO trong `api/.../source/contract/`; OpenAPI; hey-api.
 
 **Test**
-- [ ] Unit:
+- [x] Unit:
   - PFX: hợp lệ, sai mật khẩu, không có key, nhiều key, RSA 1024, hết hạn, quá 16 KiB, không phải PKCS12;
   - GUID; phân loại AADSTS; `toString` đã che.
-- [ ] Provider HTTP (JDK `HttpServer`, như `RestGoogleDriveProviderTest`):
+- [x] Provider HTTP (JDK `HttpServer`, như `RestGoogleDriveProviderTest`):
   - token endpoint nhận `client_secret` và `client_assertion` (kiểm `x5t`, `aud`, `iss`/`sub`);
   - lỗi AADSTS 400/401; 403 trên `/sites/root`;
   - không theo redirect; timeout.
-- [ ] PostgreSQL: mã hóa gắn AAD (đổi tenant/credential/purpose thì không giải được); revision/`If-Match`; cô lập Tenant; người quản lý theo phạm vi chỉ thấy credential của mình; xóa khi còn Source → conflict.
-- [ ] Test giải mã dữ liệu Drive hiện có sau khi tách cipher.
-- [ ] MVC/API: ma trận quyền; response không chứa secret hay key; body lỗi không lộ provider text; OpenAPI drift.
+- [x] PostgreSQL: mã hóa gắn AAD (đổi tenant/credential/purpose thì không giải được); revision/`If-Match`; cô lập Tenant; người quản lý theo phạm vi chỉ thấy credential của mình; xóa khi còn Source → conflict.
+- [x] Test giải mã dữ liệu Drive hiện có sau khi tách cipher.
+- [x] MVC/API: ma trận quyền; response không chứa secret hay key; body lỗi không lộ provider text; OpenAPI drift.
+
+**Ghi chú thực hiện (16/09/2026)**
+
+- Cipher chung là `CredentialCipher` (kind nằm trong AAD); `GoogleDriveCredentialCipher` bị xóa và mọi caller Drive chuyển sang cipher chung với purpose tường minh. `CredentialCipherTest` giải được một envelope Drive dựng theo công thức AAD cũ, nên dữ liệu đã mã hóa vẫn đọc được.
+- GUID được phân giải ở controller (`SOURCE_SHAREPOINT_DIRECTORY_INVALID`), nên `Draft` mang `UUID` và service không phải phân tích chuỗi.
+- msal4j **từ chối authority không phải https**, nên `MsalSharePointTokenSourceTest` phục vụ token endpoint qua TLS bằng certificate `localhost` có sẵn trong test resource. Test kiểm được cả `client_secret` lẫn `client_assertion`; msal4j gửi thumbprint ở `x5t#S256` (base64 chuẩn) chứ không phải `x5t`, và thêm `openid profile offline_access` vào scope.
+- Quyền quản trị vẫn do application service kiểm; test MVC mock service và kiểm rằng từ chối của service thành `403`, còn ma trận quyền thật nằm ở `PostgresSharePointCredentialTest`.
+- msal4j 1.21.0 là **MIT**. Phần thêm vào classpath khoảng **0,8 MiB** (msal4j, `azure-json`, `json-smart`); `nimbus-jose-jwt` và `oauth2-oidc-sdk` đã có sẵn theo Spring Security OAuth2.
+- Fence Source khi thay secret/certificate vẫn thuộc [Giai đoạn 2](#giai-đoạn-2--source-xác-minh-phạm-vi-refresh-và-prune-thư-viện): chưa có Source SharePoint nào tồn tại ở bước này.
 
 **Xong khi:** gate backend xanh. Chưa merge riêng giai đoạn này.
 

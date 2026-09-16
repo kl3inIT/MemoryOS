@@ -108,6 +108,54 @@ export type IdentityProviderResponse = {
     brokerRedirectUri: string;
 };
 
+export type RenameSharePointCredentialRequest = {
+    name: string;
+};
+
+export type SharePointCredentialRequest = {
+    name: string;
+    /**
+     * Directory (tenant) ID as a GUID
+     */
+    directoryId: string;
+    /**
+     * Application (client) ID as a GUID
+     */
+    clientId: string;
+    cloud: 'GLOBAL';
+    authMethod: 'CLIENT_SECRET' | 'CERTIFICATE';
+    /**
+     * Client secret Value, required for CLIENT_SECRET
+     */
+    clientSecret?: string;
+    /**
+     * Base64 PKCS#12 keystore, required for CERTIFICATE
+     */
+    certificate?: string;
+    /**
+     * PKCS#12 password
+     */
+    certificatePassword?: string;
+};
+
+export type SharePointCredentialResponse = {
+    id: string;
+    name: string;
+    directoryId: string;
+    clientId: string;
+    cloud: string;
+    authMethod: string;
+    status: string;
+    certificateThumbprint?: string;
+    certificateNotAfter?: string;
+    tenantHost?: string;
+    credentialRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceCount: number;
+    actions: Array<string>;
+};
+
 export type WebSelectionRequest = {
     search?: boolean;
     provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
@@ -631,6 +679,11 @@ export type AddGroupMembersRequest = {
 
 export type ReplaceGroupCapabilitiesRequest = {
     capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+};
+
+export type SharePointCredentialTestResponse = {
+    allSitesReadable: boolean;
+    tenantHost?: string;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -1529,6 +1582,168 @@ export type UpdateIdentityProviderResponses = {
 };
 
 export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[keyof UpdateIdentityProviderResponses];
+
+export type DeleteSharePointCredentialData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}';
+};
+
+export type DeleteSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type DeleteSharePointCredentialError = DeleteSharePointCredentialErrors[keyof DeleteSharePointCredentialErrors];
+
+export type DeleteSharePointCredentialResponses = {
+    /**
+     * SharePoint credential deleted
+     */
+    204: void;
+};
+
+export type DeleteSharePointCredentialResponse = DeleteSharePointCredentialResponses[keyof DeleteSharePointCredentialResponses];
+
+export type RenameSharePointCredentialData = {
+    body: RenameSharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}';
+};
+
+export type RenameSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type RenameSharePointCredentialError = RenameSharePointCredentialErrors[keyof RenameSharePointCredentialErrors];
+
+export type RenameSharePointCredentialResponses = {
+    /**
+     * SharePoint credential renamed
+     */
+    204: void;
+};
+
+export type RenameSharePointCredentialResponse = RenameSharePointCredentialResponses[keyof RenameSharePointCredentialResponses];
+
+export type ReplaceSharePointCredentialAuthenticationData = {
+    body: SharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}/authentication';
+};
+
+export type ReplaceSharePointCredentialAuthenticationErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceSharePointCredentialAuthenticationError = ReplaceSharePointCredentialAuthenticationErrors[keyof ReplaceSharePointCredentialAuthenticationErrors];
+
+export type ReplaceSharePointCredentialAuthenticationResponses = {
+    /**
+     * Updated SharePoint credential
+     */
+    200: SharePointCredentialResponse;
+};
+
+export type ReplaceSharePointCredentialAuthenticationResponse = ReplaceSharePointCredentialAuthenticationResponses[keyof ReplaceSharePointCredentialAuthenticationResponses];
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
@@ -3937,6 +4152,155 @@ export type ReplaceGroupCapabilitiesResponses = {
 };
 
 export type ReplaceGroupCapabilitiesResponse = ReplaceGroupCapabilitiesResponses[keyof ReplaceGroupCapabilitiesResponses];
+
+export type ListSharePointCredentialsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/sharepoint';
+};
+
+export type ListSharePointCredentialsErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListSharePointCredentialsError = ListSharePointCredentialsErrors[keyof ListSharePointCredentialsErrors];
+
+export type ListSharePointCredentialsResponses = {
+    /**
+     * SharePoint credentials
+     */
+    200: Array<SharePointCredentialResponse>;
+};
+
+export type ListSharePointCredentialsResponse = ListSharePointCredentialsResponses[keyof ListSharePointCredentialsResponses];
+
+export type CreateSharePointCredentialData = {
+    body: SharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/credentials/sharepoint';
+};
+
+export type CreateSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type CreateSharePointCredentialError = CreateSharePointCredentialErrors[keyof CreateSharePointCredentialErrors];
+
+export type CreateSharePointCredentialResponses = {
+    /**
+     * Stored SharePoint credential
+     */
+    201: SharePointCredentialResponse;
+};
+
+export type CreateSharePointCredentialResponse = CreateSharePointCredentialResponses[keyof CreateSharePointCredentialResponses];
+
+export type TestSharePointCredentialData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}/test';
+};
+
+export type TestSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type TestSharePointCredentialError = TestSharePointCredentialErrors[keyof TestSharePointCredentialErrors];
+
+export type TestSharePointCredentialResponses = {
+    /**
+     * SharePoint credential works
+     */
+    200: SharePointCredentialTestResponse;
+};
+
+export type TestSharePointCredentialResponse = TestSharePointCredentialResponses[keyof TestSharePointCredentialResponses];
 
 export type RevokeGoogleDriveCredentialData = {
     body: RevokeGoogleDriveCredentialRequest;

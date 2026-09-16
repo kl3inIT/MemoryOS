@@ -20,6 +20,7 @@ commons-compress = "1.28.0"
 spring-ai = "2.0.1"
 embabel = "1.5.1"
 opensearch-java = "3.10.0"
+msal4j = "1.21.0"
 
 [libraries]
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
@@ -29,6 +30,7 @@ embabel-platform = { module = "com.embabel.agent:embabel-agent-starter-platform"
 embabel-openai = { module = "com.embabel.agent:embabel-agent-openai", version.ref = "embabel" }
 spring-ai-model-tool = { module = "org.springframework.ai:spring-ai-autoconfigure-model-tool" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
+msal4j = { module = "com.microsoft.azure:msal4j", version.ref = "msal4j" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }
 okhttp = { module = "com.squareup.okhttp3:okhttp" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

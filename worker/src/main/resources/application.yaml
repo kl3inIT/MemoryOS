@@ -76,6 +76,16 @@ memoryos:
       endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
       engine-revision: ${MEMORYOS_EXTRACTION_DOCLING_ENGINE_REVISION:sha256:576fc2074ac77bcfbf3fe27633aa0dd89b452a170b2cd31689c8751e94d60f7a}
       api-key: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY:}
+  sharepoint:
+    credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
+    credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}
+    authority: https://login.microsoftonline.com
+    graph-base-url: https://graph.microsoft.com/v1.0
+    connect-timeout: 3s
+    request-timeout: 30s
+    acquisition-timeout: 15s
+    max-requests: 64
+    max-response-bytes: 1048576
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}
