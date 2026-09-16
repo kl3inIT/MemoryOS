@@ -2,6 +2,7 @@ package io.memoryos.connector.application;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -98,10 +99,56 @@ class PostgresSharePointSyncTest {
         when(connections.open(any(), any())).thenAnswer(_ ->
                 new SharePointConnectionService.Connection(session, 1L, "contoso.sharepoint.com"));
 
-        var writes = mock(ObjectWriteService.class);
+        var storage = mock(io.memoryos.objectstorage.ObjectStorage.class);
+        var storedBytes = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey, byte[]>();
+        var storedMetadata = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey,
+                io.memoryos.objectstorage.ObjectMetadata>();
+        doAnswer(call -> {
+            io.memoryos.objectstorage.ObjectKey key = call.getArgument(0);
+            byte[] value = call.getArgument(1);
+            storedBytes.put(key, value);
+            storedMetadata.put(key, new io.memoryos.objectstorage.ObjectMetadata(value.length, call.getArgument(2),
+                    checksum(value)));
+            return null;
+        }).when(storage).write(any(), any(), any());
+        when(storage.inspect(any())).thenAnswer(call -> storedMetadata.get(call.getArgument(0)));
+        var writes = new io.memoryos.objectstorage.application.DefaultObjectWriteService(
+                new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc),
+                new io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository(jdbc), storage,
+                new io.memoryos.objectstorage.application.ObjectUploadProperties(java.time.Duration.ofMinutes(15),
+                        java.time.Duration.ofSeconds(30), java.time.Duration.ofMinutes(5),
+                        java.time.Duration.ofMinutes(1), 16), manager);
         service = new DefaultSharePointSyncService(runs, sharePoint, sources, items, indexing, documents,
                 connections, writes, manager);
         seedSource();
+    }
+
+    @Test
+    void refreshStoresChangedContentAndQueuesItForIndexing() {
+        var file = file("file-new", "Bao cao.pdf", Instant.now());
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+        when(session.item(DRIVE, "file-new")).thenReturn(file);
+        when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
+                .thenReturn(new SharePointProvider.Content("Bao cao.pdf", "application/pdf",
+                        "noi dung bao cao".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        var result = service.execute(claim(enqueue()));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, result);
+        assertEquals("PENDING", status("file-new"), "the item is held and waiting to be indexed");
+        assertEquals(1, counter("acquired"));
+        assertEquals(1, jdbc.sql("""
+                SELECT COUNT(*) FROM index_attempts a
+                JOIN connector_credential_pairs p ON p.tenant_id = a.tenant_id AND p.id = a.connector_credential_pair_id
+                WHERE p.tenant_id = :tenant AND p.id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).query(Integer.class).single(),
+                "the acquired version is queued for indexing");
+
+        // A second run over unchanged content neither re-downloads nor queues another attempt.
+        service.execute(claim(enqueue()));
+        assertEquals(1, counter("acquired"));
+        verify(session, times(1)).content(any(), any(), anyInt());
     }
 
     @Test
@@ -173,6 +220,15 @@ class PostgresSharePointSyncTest {
         assertNotEquals("DELETING", status("file-present"),
                 "a site that cannot answer must never cause its documents to be deleted");
         assertNull(lastPrunedAt());
+    }
+
+    private static io.memoryos.objectstorage.ContentSha256 checksum(byte[] value) {
+        try {
+            return new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of()
+                    .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private SourceOperationId enqueue() {
@@ -281,7 +337,7 @@ class PostgresSharePointSyncTest {
     }
 
     private long counter(String column) {
-        return jdbc.sql("SELECT " + column + " FROM source_sync_attempts WHERE tenant_id = :tenant")
+        return jdbc.sql("SELECT COALESCE(SUM(" + column + "), 0) FROM source_sync_attempts WHERE tenant_id = :tenant")
                 .param("tenant", tenant.value()).query(Long.class).single();
     }
 
