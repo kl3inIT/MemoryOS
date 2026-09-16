@@ -110,7 +110,8 @@ export default defineConfig({
     port: 8080,
     strictPort: true,
     proxy: {
-      "/api": { ...apiProxy },
+      // The voice transcription stream is a WebSocket under /api.
+      "/api": { ...apiProxy, ws: true },
       "/actuator": { ...apiProxy },
       "/invite": { ...apiProxy },
       "/login/oauth2": { ...apiProxy },

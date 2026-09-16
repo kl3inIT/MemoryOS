@@ -830,8 +830,6 @@ Object.assign(englishUi, {
   "Stop voice search": "Dừng tìm kiếm bằng giọng nói",
   "Search by voice": "Tìm bằng giọng nói",
   "Stop listening": "Dừng nghe",
-  "Voice search is not supported in this browser":
-    "Trình duyệt này không hỗ trợ tìm kiếm bằng giọng nói",
   "Search is loading": "Đang tải tìm kiếm",
   "Searching documents": "Đang tìm tài liệu",
   Filters: "Bộ lọc",
@@ -1615,12 +1613,10 @@ Object.assign(englishUi, {
   Text: "Văn bản",
   "Untitled document": "Tài liệu chưa đặt tên",
   "Best match": "Phù hợp nhất",
-  "Voice search is not supported in this browser.":
-    "Trình duyệt không hỗ trợ tìm kiếm bằng giọng nói.",
+  "Starting the microphone…": "Đang bật micro…",
   "Listening… Speak now, then review your query.":
     "Đang nghe… Hãy nói rồi kiểm tra lại câu tìm kiếm.",
-  "Microphone access was not granted. Enable it in your browser and try again.":
-    "Chưa được cấp quyền micro. Bật quyền trong trình duyệt rồi thử lại.",
+  "Finishing the transcript…": "Đang hoàn tất văn bản…",
   "Voice search stopped unexpectedly. Please try again.":
     "Tìm kiếm giọng nói dừng ngoài dự kiến. Hãy thử lại.",
   "Voice search is ready.": "Sẵn sàng tìm kiếm bằng giọng nói.",
@@ -1741,6 +1737,116 @@ Object.assign(englishUi, {
     "{{v1}}: yêu cầu đã được thay thế bởi công việc mới hơn. Làm mới trước khi thử lại.",
   "{{v1}}: the unfinished object will expire automatically.":
     "{{v1}}: đối tượng chưa hoàn tất sẽ tự hết hạn.",
+});
+Object.assign(vietnameseUi, {
+  "Giọng nói": "Voice",
+  "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.":
+    "Connect providers so members can speak instead of typing and hear answers read aloud. Audio passes only through the MemoryOS server and is never stored.",
+  "Không tải được cấu hình giọng nói.": "Voice configuration could not be loaded.",
+  "Chuyển giọng nói thành văn bản": "Speech to text",
+  "Đọc văn bản thành giọng nói": "Text to speech",
+  "Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.":
+    "Transcribes speech when members use the microphone in Chat and Search.",
+  "Đọc câu trả lời của trợ lý thành tiếng.": "Reads assistant answers aloud.",
+  "Tắt nhận dạng giọng nói": "Turn off speech to text",
+  "Tắt đọc thành tiếng": "Turn off text to speech",
+  "Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.":
+    "No default provider is selected, so the microphone in Chat and Search is off.",
+  "Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.":
+    "No default provider is selected, so text to speech is off.",
+  "Tương thích OpenAI": "OpenAI-compatible",
+  "Whisper và GPT-4o Transcribe": "Whisper and GPT-4o Transcribe",
+  "TTS-1 và TTS-1 HD": "TTS-1 and TTS-1 HD",
+  "Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches":
+    "Self-hosted server with an OpenAI-compatible audio API, such as Speaches",
+  "Mặc định": "Default",
+  "Cần cấu hình thêm": "Needs setup",
+  "Ngắt kết nối {{name}}": "Disconnect {{name}}",
+  "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
+  "Khóa và cấu hình của {{name}} sẽ bị xóa khỏi cả nhận dạng giọng nói lẫn đọc thành tiếng. Chức năng đang dùng {{name}} làm mặc định sẽ tắt cho đến khi bạn chọn nhà cung cấp khác.":
+    "The key and settings for {{name}} are removed from both speech to text and text to speech. Any function that uses {{name}} as its default turns off until you choose another provider.",
+  "Ngắt kết nối": "Disconnect",
+  "Đang ngắt kết nối…": "Disconnecting…",
+  "Cấu hình {{name}}": "Configure {{name}}",
+  "Kết nối {{name}}": "Connect {{name}}",
+  "Dùng để nhận dạng giọng nói trong Chat và Tìm kiếm.":
+    "Used to transcribe speech in Chat and Search.",
+  "Dùng để đọc câu trả lời thành tiếng.": "Used to read answers aloud.",
+  "Địa chỉ máy chủ": "Server address",
+  "Địa chỉ API": "API address",
+  "Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.":
+    "Base address of the OpenAI-compatible API, usually ending in /v1.",
+  "Để trống để dùng địa chỉ mặc định của nhà cung cấp.":
+    "Leave empty to use the provider's default address.",
+  "Khóa API (không bắt buộc)": "API key (optional)",
+  "Khóa được mã hóa khi lưu và không bao giờ được gửi lại trình duyệt.":
+    "The key is encrypted when saved and is never sent back to the browser.",
+  "Xóa khóa đã lưu": "Remove saved key",
+  "Mô hình nhận dạng": "Transcription model",
+  "Mô hình giọng nói": "Speech model",
+  "Nhập đúng tên mô hình mà máy chủ cung cấp.":
+    "Enter the model name exactly as the server lists it.",
+  "Giọng đọc": "Voice",
+  "Nhập đúng tên giọng mà máy chủ cung cấp.":
+    "Enter the voice name exactly as the server lists it.",
+  "Nhà cung cấp đã chấp nhận cấu hình đã lưu.": "The provider accepted the saved configuration.",
+  "Đang kiểm tra khóa…": "Verifying key…",
+  "Nhập bằng giọng nói": "Dictate",
+  "Cấu hình nhập bằng giọng nói": "Set up dictation",
+  "Chưa có nhà cung cấp nhận dạng giọng nói. Mở trang cấu hình Giọng nói.":
+    "No speech-to-text provider is set up. Open Voice settings.",
+  "Ghi âm": "Recording",
+  "Micro đang tắt": "Microphone muted",
+  "Đang nghe…": "Listening…",
+  "Đang hoàn tất văn bản…": "Finishing transcript…",
+  "Đang bật micro…": "Starting microphone…",
+  "Bật micro": "Unmute microphone",
+  "Tắt micro": "Mute microphone",
+  "Dừng ghi âm": "Stop recording",
+  "Trình duyệt chưa cho phép dùng micro. Hãy cho phép quyền micro rồi thử lại.":
+    "Microphone access is not allowed in this browser. Allow it, then try again.",
+  "Không mở được micro. Kiểm tra thiết bị ghi âm rồi thử lại.":
+    "The microphone could not be opened. Check your recording device, then try again.",
+  "Nhận dạng giọng nói đang bận. Hãy thử lại sau ít phút.":
+    "Speech to text is busy. Try again in a few minutes.",
+  "Bản ghi đã đạt giới hạn độ dài nên đã dừng.":
+    "The recording reached its length limit and stopped.",
+  "Đã dừng ghi âm vì không nhận được âm thanh.": "Recording stopped because no audio was received.",
+  "Nhà cung cấp giọng nói không trả về văn bản. Hãy thử lại.":
+    "The voice provider returned no text. Try again.",
+  "Không kết nối được dịch vụ nhận dạng giọng nói. Hãy thử lại.":
+    "Could not connect to speech to text. Try again.",
+  "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
+  "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
+    "Your question is sent as soon as the transcript is ready, without pressing Send.",
+  "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
+  "Đọc thành tiếng": "Read aloud",
+  "Dừng đọc": "Stop reading",
+  "Đang tải âm thanh…": "Loading audio…",
+  "Tốc độ đọc": "Reading speed",
+  "Áp dụng khi đọc câu trả lời thành tiếng.": "Used when answers are read aloud.",
+  "Đọc thành tiếng đang bận. Hãy thử lại sau ít phút.":
+    "Read aloud is busy. Try again in a few minutes.",
+  "Câu trả lời này không có nội dung để đọc.": "This answer has nothing to read aloud.",
+  "Trình duyệt không phát được âm thanh của câu trả lời.":
+    "The browser could not play the answer's audio.",
+  "Không đọc được câu trả lời vì nhà cung cấp giọng nói không phản hồi.":
+    "The answer could not be read aloud because the voice provider did not respond.",
+  "Tự động đọc câu trả lời": "Auto-play answers",
+  "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.":
+    "New answers are read aloud while they are written. If you just asked with the microphone, it turns on again when reading ends.",
+  "Đọc tự động": "Auto-playback",
+  "MemoryOS đang đọc câu trả lời": "MemoryOS is reading the answer",
+  "Đang chuẩn bị giọng đọc…": "Preparing the voice…",
+  "MemoryOS đang đọc…": "MemoryOS is reading…",
+  "Bật tiếng": "Unmute",
+  "Tắt tiếng": "Mute",
+  "Nhận dạng tiếng Việt và tiếng Anh qua REST": "Vietnamese and English recognition over REST",
+  "Giọng Neural tiếng Việt và tiếng Anh": "Vietnamese and English neural voices",
+  "Địa chỉ tài nguyên Speech": "Speech resource endpoint",
+  "Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.":
+    "The Azure AI Speech resource endpoint, shown under Keys and Endpoint.",
+  "Voice ID trong thư viện giọng của ElevenLabs.": "A voice ID from your ElevenLabs voice library.",
 });
 Object.assign(vietnameseUi, {
   "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.":

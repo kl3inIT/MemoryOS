@@ -27,6 +27,19 @@ import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-composer";
+import {
+  ChatDictationAutoSend,
+  ChatDictationButton,
+  ChatDictationStrip,
+  ChatVoiceFailure,
+} from "@/features/voice/chat-dictation-controls";
+import { ChatReadAloudButton } from "@/features/voice/chat-read-aloud";
+import {
+  ChatAutoListen,
+  ChatAutoPlayback,
+  ChatSpeakingIndicator,
+} from "@/features/voice/chat-auto-playback";
+import { useAutoPlayback } from "@/features/voice/use-chat-auto-playback";
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatImages } from "./chat-images";
@@ -82,6 +95,8 @@ export function ChatThread({
 
   const { t } = useTranslation("chatStatus");
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
+  const dictating = useAuiState((state) => state.composer.dictation != null);
+  const reading = useAutoPlayback().phase !== "idle";
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
@@ -150,18 +165,30 @@ export function ChatThread({
                   action={{ label: t("check"), pending: checking, onClick: () => void onCheck() }}
                 />
               ) : null}
+              <ChatVoiceFailure />
+              <ChatSpeakingIndicator />
+              <ChatAutoPlayback />
               <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                 <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
                   <ChatComposerDraft />
+                  <ChatDictationAutoSend />
+                  <ChatAutoListen />
                   <ChatComposerQuote />
                   <ComposerAttachments />
                   <ComposerPrimitive.Input
                     aria-label={ui("Câu hỏi")}
-                    placeholder={ui("Nhập câu hỏi…")}
+                    placeholder={
+                      dictating
+                        ? ui("Đang nghe…")
+                        : reading
+                          ? ui("MemoryOS đang đọc…")
+                          : ui("Nhập câu hỏi…")
+                    }
                     rows={1}
                     maxLength={32000}
                     className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
                   />
+                  <ChatDictationStrip />
                   <AuiIf condition={(state) => state.composer.attachments.length > 20}>
                     <p role="alert" className="text-sm">
                       {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
@@ -174,6 +201,7 @@ export function ChatThread({
                     {composerMenu ?? <span />}
                     <div className="flex min-w-0 items-center gap-1">
                       {modelPicker}
+                      <ChatDictationButton />
                       <AuiIf condition={(state) => !state.thread.isRunning}>
                         <ChatComposerSend asChild>
                           <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
@@ -294,6 +322,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                 <Copy />
               </IconButton>
             </ActionBarPrimitive.Copy>
+            <ChatReadAloudButton />
           </AuiIf>
           <ChatSources />
           {!readOnly && <ChatMessageActions role="assistant" />}

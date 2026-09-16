@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ComponentProps } from "react";
 import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { fileIdFromReference } from "./chat-files";
+import { useFilesBlocked } from "./use-files-blocked";
 
 /**
  * Restores unsent composer text after a reload of the same tab. The draft is keyed by actor and
@@ -36,35 +36,18 @@ export function ChatComposerDraft() {
   return null;
 }
 
-/** Business readiness layered on the native composer; no duplicate draft state. */
-function useFilesBlocked() {
-  return useAuiState(
-    (state) =>
-      state.composer.attachments.length > 20 ||
-      state.composer.attachments.some(
-        (file) =>
-          file.status.type === "running" ||
-          file.status.type === "incomplete" ||
-          !file.content?.some(
-            (part) =>
-              part.type === "file" &&
-              typeof part.data === "string" &&
-              fileIdFromReference(part.data),
-          ),
-      ),
-  );
-}
-
 export function ChatComposerRoot({
   onSubmit,
   ...props
 }: ComponentProps<typeof ComposerPrimitive.Root>) {
   const blocked = useFilesBlocked();
+  // The draft is incomplete until dictation writes its final transcript.
+  const dictating = useAuiState((state) => state.composer.dictation != null);
   return (
     <ComposerPrimitive.Root
       {...props}
       onSubmit={(event) => {
-        if (blocked) event.preventDefault();
+        if (blocked || dictating) event.preventDefault();
         onSubmit?.(event);
       }}
     />
@@ -76,5 +59,6 @@ export function ChatComposerSend({
   ...props
 }: ComponentProps<typeof ComposerPrimitive.Send>) {
   const blocked = useFilesBlocked();
-  return <ComposerPrimitive.Send {...props} disabled={disabled || blocked} />;
+  const dictating = useAuiState((state) => state.composer.dictation != null);
+  return <ComposerPrimitive.Send {...props} disabled={disabled || blocked || dictating} />;
 }

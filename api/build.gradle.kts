@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.session.jdbc)
+    implementation(libs.spring.boot.starter.websocket)
     runtimeOnly(libs.flyway.database.postgresql)
     runtimeOnly(libs.postgresql)
     testAndDevelopmentOnly(platform(libs.arconia.bom))

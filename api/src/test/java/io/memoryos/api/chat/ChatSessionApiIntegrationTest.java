@@ -19,7 +19,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -102,6 +107,20 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.never;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.springframework.dao.DataIntegrityViolationException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import org.springframework.web.socket.BinaryMessage;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -1557,6 +1576,346 @@ class ChatSessionApiIntegrationTest {
                 .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void voiceConnectionsVerifyBeforeStoringAndKeepOneDefaultPerFunction() throws Exception {
+        mockMvc.perform(get("/api/chat/voice").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.sttAvailable").value(false)).andExpect(jsonPath("$.ttsAvailable").value(false));
+        mockMvc.perform(get("/api/chat/voice/connections").with(authentication(actor))).andExpect(status().isForbidden());
+        grantModelManagement();
+        var probes = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            probes.incrementAndGet();
+            boolean authorized = "Bearer voice-test-secret".equals(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] body = (authorized ? "{\"object\":\"list\",\"data\":[{\"id\":\"whisper-1\"}]}"
+                    : "{\"error\":\"voice-provider-diagnostic\"}").getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(authorized ? 200 : 401, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        try {
+            mockMvc.perform(get("/api/chat/voice/providers").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].provider").value("OPENAI")).andExpect(jsonPath("$[0].ttsModels[1]").value("tts-1-hd"))
+                    .andExpect(jsonPath("$[1].requiresEndpoint").value(true))
+                    .andExpect(jsonPath("$[2].provider").value("ELEVENLABS")).andExpect(jsonPath("$[2].sttModels[0]").value("scribe_v2"))
+                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true));
+            var draft = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "whisper-1").put("ttsModel", "kokoro").put("ttsVoice", "af_heart")
+                    .put("credentialAction", "REPLACE").put("credentialValue", "wrong-secret").put("activate", "STT").put("revision", 0);
+            var rejected = mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(draft.toString()))
+                    .andExpect(status().isServiceUnavailable()).andReturn().getResponse().getContentAsString();
+            assertFalse(rejected.contains("voice-provider-diagnostic"));
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT)
+                    .query(Integer.class).single());
+
+            draft.put("credentialValue", "voice-test-secret");
+            var saved = mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(draft.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.credentialConfigured").value(true))
+                    .andExpect(jsonPath("$.sttActive").value(true)).andExpect(jsonPath("$.ttsActive").value(false))
+                    .andReturn().getResponse().getContentAsString();
+            assertFalse(saved.contains("voice-test-secret"));
+            assertEquals(2, probes.get());
+            assertFalse(jdbc.sql("SELECT credential FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT)
+                    .query(String.class).single().contains("voice-test-secret"));
+            mockMvc.perform(get("/api/chat/voice").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sttAvailable").value(true)).andExpect(jsonPath("$.ttsAvailable").value(false));
+
+            mockMvc.perform(put("/api/chat/voice/selection").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"function\":\"TTS\",\"provider\":\"OPENAI_COMPATIBLE\",\"model\":\"kokoro-v2\"}"))
+                    .andExpect(status().isNoContent());
+            var listed = mockMvc.perform(get("/api/chat/voice/connections").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].ttsModel").value("kokoro-v2")).andExpect(jsonPath("$[0].ttsActive").value(true))
+                    .andReturn().getResponse().getContentAsString();
+            long revision = Json.mapper().readTree(listed).get(0).path("revision").asLong();
+
+            draft.putNull("activate").put("credentialAction", "KEEP").putNull("credentialValue").put("revision", revision - 1);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(draft.toString()))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(post("/api/chat/voice/connections/OPENAI_COMPATIBLE/test").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            mockMvc.perform(put("/api/chat/voice/selection").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"function\":\"STT\",\"provider\":\"OPENAI\"}"))
+                    .andExpect(status().isNotFound());
+            var keyless = Json.mapper().createObjectNode().put("endpoint", "").put("sttModel", "whisper-1").put("ttsModel", "tts-1")
+                    .put("ttsVoice", "alloy").put("credentialAction", "KEEP").put("activate", "TTS").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(keyless.toString()))
+                    .andExpect(status().isBadRequest());
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("""
+                    INSERT INTO chat_voice_connection(id, tenant_id, provider, credential, stt_model, stt_active)
+                    VALUES (:id, :tenant, 'OPENAI', 'v1:00', 'whisper-1', TRUE)""")
+                    .param("id", UUID.randomUUID()).param("tenant", TENANT).update());
+
+            mockMvc.perform(delete("/api/chat/voice/connections/OPENAI_COMPATIBLE").param("revision", String.valueOf(revision))
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            mockMvc.perform(get("/api/chat/voice").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.sttAvailable").value(false)).andExpect(jsonPath("$.ttsAvailable").value(false));
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void voiceTranscriptionStreamsInterimAndFinalTextOverATicketedSameOriginWebSocket() throws Exception {
+        grantModelManagement();
+        var uploads = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            byte[] body = "{\"data\":[]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.createContext("/v1/audio/transcriptions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = ("{\"text\":\"xin chào " + uploads.incrementAndGet() + "\"}").getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        String stream = "ws://localhost:" + port + "/api/chat/voice/transcribe/stream";
+        try {
+            var connection = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "whisper-1").put("ttsModel", "").put("ttsVoice", "").put("credentialAction", "KEEP")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+            var client = new StandardWebSocketClient();
+            var headers = new WebSocketHttpHeaders();
+            headers.add("Authorization", "Bearer " + token(actor));
+            headers.add("Origin", "http://localhost:" + port);
+            var messages = new LinkedBlockingQueue<String>();
+            var closed = new CompletableFuture<CloseStatus>();
+            var listener = new AbstractWebSocketHandler() {
+                @Override
+                protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                    messages.add(message.getPayload());
+                }
+
+                @Override
+                public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+                    closed.complete(status);
+                }
+            };
+            String ticket = voiceTicket(actor);
+            var session = client.execute(listener, headers, URI.create(stream + "?language=vi&ticket=" + ticket)).get(10, TimeUnit.SECONDS);
+            byte[] speech = voiceTone(3.2);
+            for (int offset = 0; offset < speech.length; offset += 48_000)
+                session.sendMessage(new BinaryMessage(ByteBuffer.wrap(speech, offset, Math.min(48_000, speech.length - offset))));
+            var interim = Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS));
+            assertEquals("transcript", interim.path("type").asText());
+            assertEquals("xin chào 1", interim.path("text").asText());
+            assertFalse(interim.path("isFinal").asBoolean());
+            session.sendMessage(new TextMessage("{\"type\":\"end\"}"));
+            var completed = Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS));
+            assertEquals("xin chào 2", completed.path("text").asText());
+            assertTrue(completed.path("isFinal").asBoolean());
+            assertEquals(CloseStatus.NORMAL.getCode(), closed.get(10, TimeUnit.SECONDS).getCode());
+
+            assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, headers,
+                    URI.create(stream + "?ticket=" + ticket)).get(10, TimeUnit.SECONDS), "a spent ticket is refused");
+            var crossOrigin = new WebSocketHttpHeaders();
+            crossOrigin.add("Authorization", "Bearer " + token(actor));
+            crossOrigin.add("Origin", "https://attacker.example");
+            String fresh = voiceTicket(actor);
+            assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, crossOrigin,
+                    URI.create(stream + "?ticket=" + fresh)).get(10, TimeUnit.SECONDS), "a cross-origin handshake is refused");
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void voiceSettingsArePrivatePartialAndBounded() throws Exception {
+        try {
+            mockMvc.perform(get("/api/chat/voice/settings").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.autoSend").value(false)).andExpect(jsonPath("$.autoPlayback").value(false))
+                    .andExpect(jsonPath("$.playbackSpeed").value(1.0));
+            mockMvc.perform(patch("/api/chat/voice/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"autoSend\":true,\"playbackSpeed\":1.26}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.autoSend").value(true))
+                    .andExpect(jsonPath("$.autoPlayback").value(false)).andExpect(jsonPath("$.playbackSpeed").value(1.3));
+            mockMvc.perform(patch("/api/chat/voice/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"autoPlayback\":true}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.autoSend").value(true))
+                    .andExpect(jsonPath("$.autoPlayback").value(true)).andExpect(jsonPath("$.playbackSpeed").value(1.3));
+            mockMvc.perform(get("/api/chat/voice/settings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.autoSend").value(false));
+            mockMvc.perform(patch("/api/chat/voice/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"playbackSpeed\":2.5}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(patch("/api/chat/voice/settings").with(authentication(actor)).with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"autoSend\":false}"))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/chat/voice/settings").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.autoSend").value(true));
+        } finally {
+            jdbc.sql("DELETE FROM chat_voice_settings WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void voiceSynthesisStreamsTheDefaultProviderAudioAfterValidation() throws Exception {
+        String speech = "{\"text\":\"Xin chào. Đây là câu trả lời.\",\"speed\":1.25}";
+        mockMvc.perform(post("/api/chat/voice/synthesize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(speech)).andExpect(status().isServiceUnavailable());
+        grantModelManagement();
+        var requests = new LinkedBlockingQueue<String>();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            byte[] body = "{\"data\":[]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.createContext("/v1/audio/speech", exchange -> {
+            requests.add(new String(exchange.getRequestBody().readAllBytes(), UTF_8));
+            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.sendResponseHeaders(200, 0);
+            try (var output = exchange.getResponseBody()) { output.write("mp3-audio".getBytes(UTF_8)); }
+        });
+        server.start();
+        try {
+            var connection = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "").put("ttsModel", "kokoro").put("ttsVoice", "af_heart").put("credentialAction", "KEEP")
+                    .put("activate", "TTS").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(post("/api/chat/voice/synthesize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"   \",\"speed\":1.0}")).andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/chat/voice/synthesize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"Xin chào\",\"speed\":2.5}")).andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/chat/voice/synthesize").with(authentication(actor)).with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(speech)).andExpect(status().isForbidden());
+            assertTrue(requests.isEmpty(), "rejected requests never reach the provider");
+
+            var started = mockMvc.perform(post("/api/chat/voice/synthesize").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(speech))
+                    .andExpect(request().asyncStarted()).andReturn();
+            mockMvc.perform(asyncDispatch(started)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", "audio/mpeg"))
+                    .andExpect(header().string("Cache-Control", "no-store"))
+                    .andExpect(header().string("X-Accel-Buffering", "no"))
+                    .andExpect(content().bytes("mp3-audio".getBytes(UTF_8)));
+            String providerRequest = requests.poll(10, TimeUnit.SECONDS);
+            assertNotNull(providerRequest);
+            assertTrue(providerRequest.contains("\"input\":\"Xin chào. Đây là câu trả lời.\""));
+            assertTrue(providerRequest.contains("\"model\":\"kokoro\""));
+            assertTrue(providerRequest.contains("\"voice\":\"af_heart\""));
+            assertTrue(providerRequest.contains("\"speed\":1.25"));
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void voiceSynthesisStreamReadsAnswerPartsOverATicketedWebSocket() throws Exception {
+        grantModelManagement();
+        var requests = new LinkedBlockingQueue<String>();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            byte[] body = "{\"data\":[]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.createContext("/v1/audio/speech", exchange -> {
+            requests.add(new String(exchange.getRequestBody().readAllBytes(), UTF_8));
+            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.sendResponseHeaders(200, 0);
+            try (var output = exchange.getResponseBody()) { output.write(("mp3-" + requests.size() + ";").getBytes(UTF_8)); }
+        });
+        server.start();
+        String stream = "ws://localhost:" + port + "/api/chat/voice/synthesize/stream";
+        try {
+            var connection = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "").put("ttsModel", "kokoro").put("ttsVoice", "af_heart").put("credentialAction", "KEEP")
+                    .put("activate", "TTS").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+            var client = new StandardWebSocketClient();
+            var headers = new WebSocketHttpHeaders();
+            headers.add("Authorization", "Bearer " + token(actor));
+            headers.add("Origin", "http://localhost:" + port);
+            String transcriptionTicket = voiceTicket(actor);
+            assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, headers,
+                    URI.create(stream + "?ticket=" + transcriptionTicket)).get(10, TimeUnit.SECONDS),
+                    "a transcription ticket cannot open read-aloud");
+
+            var audio = new StringBuffer();
+            var messages = new LinkedBlockingQueue<String>();
+            var closed = new CompletableFuture<CloseStatus>();
+            var listener = new AbstractWebSocketHandler() {
+                @Override
+                protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
+                    byte[] bytes = new byte[message.getPayload().remaining()];
+                    message.getPayload().get(bytes);
+                    audio.append(new String(bytes, UTF_8));
+                }
+
+                @Override
+                protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                    messages.add(message.getPayload());
+                }
+
+                @Override
+                public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+                    closed.complete(status);
+                }
+            };
+            var session = client.execute(listener, headers, URI.create(stream + "?ticket=" + voiceTicket(actor, "SYNTHESIZE")))
+                    .get(10, TimeUnit.SECONDS);
+            session.sendMessage(new TextMessage("{\"type\":\"config\",\"speed\":1.5}"));
+            session.sendMessage(new TextMessage("{\"type\":\"synthesize\",\"text\":\"Xin chào.\"}"));
+            session.sendMessage(new TextMessage("{\"type\":\"synthesize\",\"text\":\"Tạm biệt.\"}"));
+            session.sendMessage(new TextMessage("{\"type\":\"end\"}"));
+            assertEquals("audio_done", Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS)).path("type").asText());
+            assertEquals(CloseStatus.NORMAL.getCode(), closed.get(10, TimeUnit.SECONDS).getCode());
+            assertEquals("mp3-1;mp3-2;", audio.toString());
+            String first = requests.poll(1, TimeUnit.SECONDS);
+            String second = requests.poll(1, TimeUnit.SECONDS);
+            assertNotNull(first);
+            assertNotNull(second);
+            assertTrue(first.contains("\"input\":\"Xin chào.\"") && first.contains("\"speed\":1.5"));
+            assertTrue(second.contains("\"input\":\"Tạm biệt.\""));
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    private String voiceTicket(ActorAuthenticationToken authentication) throws Exception {
+        var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return Json.mapper().readTree(response).path("ticket").asText();
+    }
+
+    private String voiceTicket(ActorAuthenticationToken authentication, String purpose) throws Exception {
+        var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"purpose\":\"" + purpose + "\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return Json.mapper().readTree(response).path("ticket").asText();
+    }
+
+    private static byte[] voiceTone(double seconds) {
+        int samples = (int) (seconds * 24_000);
+        var buffer = ByteBuffer.allocate(samples * 2).order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < samples; i++) buffer.putShort((short) (3000 * Math.sin(2 * Math.PI * 220 * i / 24_000.0)));
+        return buffer.array();
     }
 
     private void grantModelManagement() {

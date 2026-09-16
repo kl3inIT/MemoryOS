@@ -72,6 +72,7 @@ spring-data-jpa = { module = "org.springframework.data:spring-data-jpa" }
 hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
 jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api" }
 spring-boot-starter-session-jdbc = { module = "org.springframework.boot:spring-boot-starter-session-jdbc" }
+spring-boot-starter-websocket = { module = "org.springframework.boot:spring-boot-starter-websocket" }
 spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway" }
 spring-boot-starter-actuator-test = { module = "org.springframework.boot:spring-boot-starter-actuator-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
