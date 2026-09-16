@@ -108,9 +108,10 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     role: message.role === "USER" ? "user" : "assistant",
     parts: [
       ...researchParts(message),
-      ...(message.role === "ASSISTANT"
+      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
+      ...((message.role === "ASSISTANT"
         ? historyParts(message.content, activitySchema.parse(message.activity))
-        : [{ type: "text" as const, text: message.content }]),
+        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
       ...(message.files ?? []).map((file) => ({
         type: "file" as const,
         filename: file.filename,
