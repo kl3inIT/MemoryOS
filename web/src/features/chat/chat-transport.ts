@@ -168,7 +168,14 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const deepResearch = this.deepResearch;
     const creating = !this.session;
     try {
-      return await this.submit(options, modelConfigurationId, webSearch, image, mcpServerIds, deepResearch);
+      return await this.submit(
+        options,
+        modelConfigurationId,
+        webSearch,
+        image,
+        mcpServerIds,
+        deepResearch,
+      );
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
       throw error;
