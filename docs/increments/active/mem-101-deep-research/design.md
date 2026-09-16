@@ -204,7 +204,7 @@ The Onyx renderers at `160f9b143` were read directly: `DeepResearchPlanRenderer.
 | `useDeepResearchToggle` resets the toggle when the assistant changes, as well as between existing sessions | Resets per session and reload only | Persona change keeps the toggle on here |
 | Agent duration is not shown in either | `durationMs` is persisted and streamed but never rendered | MEM-100 timeline does show a spoken duration |
 
-No comparison against other assistants (ChatGPT, Claude, Perplexity) has been made; Onyx is the only reference used so far.
+Patterns from eight shipped assistants are compared in [ux-research.md](ux-research.md) (Mobbin screenshots, 2026-09-16).
 
 ## Prompt fidelity check (2026-09-16)
 
