@@ -27,10 +27,14 @@ export function SourceManagerSection({
   const [search, setSearch] = useState("");
   const [error, setError] = useState<AppCopy | null>(null);
   const [pendingActorId, setPendingActorId] = useState<string | null>(null);
+  // The directory is only read once an administrator sets out to change the manager; naming the current one
+  // needs no read, because the Source summary carries the profile name.
+  const [picking, setPicking] = useState(false);
   const members = useQuery({
     ...listUsersOptions({
       query: { search: search.trim() || undefined, status: "ACTIVE", size: 10 },
     }),
+    enabled: picking,
     retry: false,
   });
   const assign = useMutation({
@@ -60,7 +64,6 @@ export function SourceManagerSection({
   const rows = (members.data?.items ?? []).filter(
     (member) => member.actorId !== null && member.accountType === "STANDARD",
   );
-  const current = rows.find((member) => member.actorId === source.managerActorId);
 
   return (
     <section
@@ -83,7 +86,7 @@ export function SourceManagerSection({
         {source.managerActorId === null
           ? ui("No responsible manager. Administrators only.")
           : ui("Responsible manager: {{v1}}", {
-              v1: current?.displayName ?? current?.email ?? source.managerActorId,
+              v1: source.managerName ?? source.managerActorId,
             })}
       </p>
 
@@ -96,80 +99,95 @@ export function SourceManagerSection({
         </p>
       ) : null}
 
-      <label className="mt-4 block space-y-2">
-        <span className="sr-only">{ui("Search members")}</span>
-        <Input
-          type="search"
-          value={search}
-          placeholder={ui("Search members…")}
-          disabled={assign.isPending}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </label>
+      {picking ? null : (
+        <Button prominence="secondary" className="mt-4" onClick={() => setPicking(true)}>
+          {source.managerActorId === null
+            ? ui("Appoint a responsible manager")
+            : ui("Change responsible manager")}
+        </Button>
+      )}
 
-      {members.isPending ? (
-        <p role="status" className="mt-3 font-main-ui-body text-content-muted">
-          {ui("Loading members")}
-        </p>
-      ) : members.isError ? (
-        <div className="mt-3">
-          <p role="alert" className="font-main-ui-body text-content-secondary">
-            {ui("Members could not be loaded.")}
-          </p>
-          <Button
-            size="sm"
-            prominence="secondary"
-            className="mt-3"
-            onClick={() => void members.refetch()}
-          >
-            {ui("Try again")}
-          </Button>
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="mt-3 font-secondary-body text-content-muted">
-          {ui("No members match your search.")}
-        </p>
-      ) : (
-        <ul className="mt-3 divide-y divide-border-subtle rounded-xl border border-border-subtle">
-          {rows.map((member) => (
-            <li key={member.actorId} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="min-w-0">
-                <span className="block truncate font-main-ui-action text-content-primary">
-                  {member.displayName ?? member.email ?? member.actorId}
-                </span>
-                {member.email ? (
-                  <span className="mt-0.5 block truncate font-secondary-body text-content-muted">
-                    {member.email}
-                  </span>
-                ) : null}
-              </span>
+      {picking ? (
+        <>
+          <label className="mt-4 block space-y-2">
+            <span className="sr-only">{ui("Search members")}</span>
+            <Input
+              type="search"
+              value={search}
+              placeholder={ui("Search members…")}
+              disabled={assign.isPending}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+
+          {members.isPending ? (
+            <p role="status" className="mt-3 font-main-ui-body text-content-muted">
+              {ui("Loading members")}
+            </p>
+          ) : members.isError ? (
+            <div className="mt-3">
+              <p role="alert" className="font-main-ui-body text-content-secondary">
+                {ui("Members could not be loaded.")}
+              </p>
               <Button
                 size="sm"
                 prominence="secondary"
-                pending={assign.isPending && pendingActorId === member.actorId}
-                disabled={assign.isPending || member.actorId === source.managerActorId}
-                onClick={() => void save(member.actorId)}
+                className="mt-3"
+                onClick={() => void members.refetch()}
               >
-                {member.actorId === source.managerActorId
-                  ? ui("Responsible")
-                  : ui("Make responsible")}
+                {ui("Try again")}
               </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="mt-3 font-secondary-body text-content-muted">
+              {ui("No members match your search.")}
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border-subtle rounded-xl border border-border-subtle">
+              {rows.map((member) => (
+                <li
+                  key={member.actorId}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-main-ui-action text-content-primary">
+                      {member.displayName ?? member.email ?? member.actorId}
+                    </span>
+                    {member.email ? (
+                      <span className="mt-0.5 block truncate font-secondary-body text-content-muted">
+                        {member.email}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Button
+                    size="sm"
+                    prominence="secondary"
+                    pending={assign.isPending && pendingActorId === member.actorId}
+                    disabled={assign.isPending || member.actorId === source.managerActorId}
+                    onClick={() => void save(member.actorId)}
+                  >
+                    {member.actorId === source.managerActorId
+                      ? ui("Responsible")
+                      : ui("Make responsible")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-      {source.managerActorId === null ? null : (
-        <Button
-          prominence="secondary"
-          className="mt-3"
-          pending={assign.isPending && pendingActorId === null}
-          disabled={assign.isPending}
-          onClick={() => void save(null)}
-        >
-          {ui("Remove responsible manager")}
-        </Button>
-      )}
+          {source.managerActorId === null ? null : (
+            <Button
+              prominence="secondary"
+              className="mt-3"
+              pending={assign.isPending && pendingActorId === null}
+              disabled={assign.isPending}
+              onClick={() => void save(null)}
+            >
+              {ui("Remove responsible manager")}
+            </Button>
+          )}
+        </>
+      ) : null}
     </section>
   );
 }

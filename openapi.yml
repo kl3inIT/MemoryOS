@@ -8627,6 +8627,11 @@ components:
           - "null"
           format: uuid
           description: Actor who may attach this source to the groups they manage.
+        managerName:
+          type:
+          - string
+          - "null"
+          description: Profile name of the responsible manager.
         permissions:
           $ref: "#/components/schemas/SourcePermissions"
       required:
@@ -8636,6 +8641,7 @@ components:
       - id
       - lastSucceededAt
       - managerActorId
+      - managerName
       - name
       - pendingWork
       - permissions

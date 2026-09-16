@@ -439,6 +439,10 @@ export type SourceSummary = {
      * Actor who may attach this source to the groups they manage.
      */
     managerActorId: string | null;
+    /**
+     * Profile name of the responsible manager.
+     */
+    managerName: string | null;
     permissions: SourcePermissions;
 };
 

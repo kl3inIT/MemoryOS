@@ -35,7 +35,7 @@ Consequences of the model:
 - `DefaultSourceManagementService.replaceSourceGroups` authorizes the **delta**: every added and every removed Group must be managed by the actor, so another manager's association survives the replacement untouched.
 - `removeGroupSource` authorizes against the Group, never the Source.
 - `assignSourceManager` takes the exclusive IAM lock, rejects a candidate who manages no ordinary Group (`SOURCE_MANAGER_NOT_ELIGIBLE`) and returns the refreshed summary.
-- `SourceSummary.managerActorId` reaches the browser; Source detail shows the manager and, for administrators, a member list to appoint from. Eligibility is not guessed in the browser — the server rejects an ineligible candidate.
+- `SourceSummary` carries `managerActorId` and `managerName`, so Source detail names the manager without reading the user directory. Administrators open the member list only to change it. Eligibility is not guessed in the browser — the server rejects an ineligible candidate.
 
 ## Not in this increment
 

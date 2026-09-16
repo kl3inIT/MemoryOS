@@ -475,6 +475,8 @@ export const englishUi: Record<string, string> = {
   Responsible: "Đang phụ trách",
   "Make responsible": "Giao phụ trách",
   "Remove responsible manager": "Bỏ người phụ trách",
+  "Appoint a responsible manager": "Chỉ định người phụ trách",
+  "Change responsible manager": "Đổi người phụ trách",
   "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.":
     "Chọn các nhóm bạn quản lý, hoặc để trống. Nguồn mới ở chế độ riêng tư và chưa đến được với ai cho tới khi thuộc một nhóm.",
   "Private Source. Group associations are optional and can be added later.":

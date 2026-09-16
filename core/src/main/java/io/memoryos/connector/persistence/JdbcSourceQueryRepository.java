@@ -62,12 +62,15 @@ public class JdbcSourceQueryRepository {
                    COALESCE((SELECT s.error_code FROM google_drive_sources s
                        WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), pair.error_code) AS error_code,
                    pair.manager_actor_id,
+                   manager_profile.display_name AS manager_name,
                    CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope,
                    (%s AND %s) AS creator_groupless
             FROM connector_credential_pairs pair
             JOIN connectors connector
               ON connector.tenant_id = pair.tenant_id
              AND connector.id = pair.connector_id
+            LEFT JOIN actor_profiles manager_profile
+              ON manager_profile.actor_id = pair.manager_actor_id
             JOIN tenant_memberships requesting_membership
               ON requesting_membership.tenant_id = pair.tenant_id
              AND requesting_membership.actor_id = :actorId
@@ -290,6 +293,7 @@ public class JdbcSourceQueryRepository {
                 JdbcSourceRepository.instant(resultSet, "last_succeeded_at"),
                 resultSet.getString("error_code"),
                 actorId(resultSet, "manager_actor_id"),
+                resultSet.getString("manager_name"),
                 SourcePermissions.of(globalManage, globalDelete, resultSet.getBoolean("managed_scope"),
                         resultSet.getBoolean("creator_groupless"))
         );

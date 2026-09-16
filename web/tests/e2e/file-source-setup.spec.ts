@@ -52,12 +52,6 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
         },
       }),
     );
-    // Source detail shows the responsible-manager section to administrators.
-    await page.route("**/api/users**", (route) =>
-      route.fulfill({
-        json: { items: [], page: 0, size: 10, totalItems: 0, totalPages: 1, counts: {} },
-      }),
-    );
     await page.route("**/api/sources**", async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (route.request().method() === "GET") {

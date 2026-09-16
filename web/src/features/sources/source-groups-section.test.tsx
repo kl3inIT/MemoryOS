@@ -43,6 +43,7 @@ const source: SourceSummary = {
   lastSucceededAt: null,
   errorCode: null,
   managerActorId: null,
+  managerName: null,
   permissions: {
     edit: true,
     delete: false,
