@@ -44,6 +44,11 @@ test("restores the research timeline of a saved answer", async ({ page }) => {
 
   await header.click();
   await expect(page.getByText("Xác định số ngày phép hằng năm").first()).toBeVisible();
+  // A long plan stays clamped behind a reveal so the answer is not pushed far down the thread.
+  const reveal = page.getByRole("button", { name: "Xem thêm" }).first();
+  await expect(reveal).toBeVisible();
+  await reveal.click();
+  await expect(page.getByRole("button", { name: "Thu gọn" }).first()).toBeVisible();
   await expect(page.getByText("Chu kỳ 1")).toBeVisible();
   await expect(page.getByText("Chu kỳ 2")).toBeVisible();
 

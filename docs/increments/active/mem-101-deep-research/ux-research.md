@@ -35,6 +35,6 @@ MemoryOS shows the plan, one tab per parallel agent with its task, tool steps wi
 
 1. Done (2026-09-16): the group header shows the source count with elapsed time while the turn runs, and the step count with the source count once it ends; each agent tab shows a spinner while it runs and its panel says how long it ran.
 2. Done (2026-09-16): a cycle label names each group of agents when more than one cycle ran.
-3. Open: collapsing the plan and intermediate reports the way Onyx does. The 2026-09-16 screenshots confirm the need: with a three-step plan and three agents the expanded block fills a 1440x1000 viewport, so the answer leaves the screen while the reader inspects the research.
+3. Done (2026-09-16): a long plan or intermediate report is clamped with a fade and a "Xem thêm" reveal, as Onyx clamps with `ExpandableTextDisplay`. The reveal appears only when the text actually overflows, measured after render.
 
 Everything else stays out until the owner asks for it.

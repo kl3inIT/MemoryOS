@@ -112,14 +112,14 @@ function seedResearch(value: Session) {
     activity: { steps: [], reasoning: [] },
     research: {
       clarification: false,
-      plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.",
+      plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
       agents: [
         agent(
           "agent-1",
           0,
           0,
           "Tra sổ tay nhân sự để xác định số ngày phép hằng năm và cách cộng thêm theo thâm niên.",
-          "Sổ tay nhân sự ghi **12 ngày phép** mỗi năm cho nhân viên chính thức, cộng một ngày cho mỗi 5 năm làm việc [1].",
+          "Sổ tay nhân sự ghi **12 ngày phép** mỗi năm cho nhân viên chính thức, cộng một ngày cho mỗi 5 năm làm việc [1].\n\nNăm đầu tiên tính theo số tháng làm việc thực tế, nên người vào giữa năm nhận số ngày theo tỷ lệ [1].\n\nPhép chưa dùng được chuyển tối đa **5 ngày** sang quý I năm sau, phần còn lại hết hiệu lực [1].",
           [
             step("s1", "search_knowledge", ["nghỉ phép hằng năm", "ngày phép thâm niên"], 0),
             step("s2", "read_file", [], 1),
