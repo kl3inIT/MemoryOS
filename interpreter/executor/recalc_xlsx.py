@@ -50,27 +50,22 @@ def _errors(path: Path) -> list[str]:
 
 
 def recalculate(paths: list[Path]) -> list[dict[str, object]]:
-    """Converts every eligible workbook in one LibreOffice start, which dominates the run time."""
-    reports: dict[Path, dict[str, object]] = {}
-    eligible: list[Path] = []
-    for path in paths:
+    """Converts every eligible workbook in one LibreOffice start, which dominates the run time.
+
+    Reports follow argument positions, so a repeated argument keeps its own report.
+    """
+    reports: list[dict[str, object]] = [{} for _ in paths]
+    eligible: list[int] = []
+    for index, path in enumerate(paths):
         if path.suffix.lower() != ".xlsx":
             # Converting .xlsm or .xls to .xlsx would silently drop macros or change the format.
-            reports[path] = {
-                "file": str(path),
-                "recalculated": False,
-                "error": "only .xlsx files are supported",
-            }
+            reports[index] = _refused(path, "only .xlsx files are supported")
         elif not path.is_file():
-            reports[path] = {"file": str(path), "recalculated": False, "error": "file not found"}
-        elif any(other.name == path.name for other in eligible):
-            reports[path] = {
-                "file": str(path),
-                "recalculated": False,
-                "error": "run separately: same file name as another argument",
-            }
+            reports[index] = _refused(path, "file not found")
+        elif any(paths[other].name == path.name for other in eligible):
+            reports[index] = _refused(path, "run separately: same file name as another argument")
         else:
-            eligible.append(path)
+            eligible.append(index)
     if eligible:
         with tempfile.TemporaryDirectory(prefix="recalc-", dir="/tmp") as work:
             profile = Path(work, "profile")
@@ -91,7 +86,7 @@ def recalculate(paths: list[Path]) -> list[dict[str, object]]:
                         "xlsx",
                         "--outdir",
                         str(out),
-                        *map(str, eligible),
+                        *(str(paths[index]) for index in eligible),
                     ],
                     capture_output=True,
                     text=True,
@@ -100,24 +95,27 @@ def recalculate(paths: list[Path]) -> list[dict[str, object]]:
                 )
             except subprocess.TimeoutExpired:
                 failure = f"LibreOffice timed out after {TIMEOUT_SEC} s"
-            for path in eligible:
+            for index in eligible:
+                path = paths[index]
                 converted = out / path.name
                 if failure is None and converted.is_file():
                     shutil.copyfile(converted, path)
                     errors = _errors(path)
-                    reports[path] = {
+                    reports[index] = {
                         "file": str(path),
                         "recalculated": True,
                         "error_count": len(errors),
                         "errors": errors[:MAX_REPORTED_ERRORS],
                     }
                 else:
-                    reports[path] = {
-                        "file": str(path),
-                        "recalculated": False,
-                        "error": failure or "LibreOffice could not open the workbook",
-                    }
-    return [reports[path] for path in paths]
+                    reports[index] = _refused(
+                        path, failure or "LibreOffice could not open the workbook"
+                    )
+    return reports
+
+
+def _refused(path: Path, error: str) -> dict[str, object]:
+    return {"file": str(path), "recalculated": False, "error": error}
 
 
 def main(arguments: list[str]) -> int:

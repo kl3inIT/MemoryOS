@@ -88,7 +88,7 @@ x = xlsxwriter.Workbook('cached.xlsx'); s = x.add_worksheet()
 s.write_column('A1', [10, 20, 30]); s.write_formula('A4', '=SUM(A1:A3)'); x.close()
 before = openpyxl.load_workbook('báo cáo.xlsx', data_only=True)
 before = before['Doanh thu']['B5'].value
-files = ['báo cáo.xlsx', 'cached.xlsx', 'macro.xlsm']
+files = ['báo cáo.xlsx', 'cached.xlsx', 'macro.xlsm', 'cached.xlsx']
 done = subprocess.run(['recalc-xlsx', *files], capture_output=True, text=True)
 reports = [json.loads(line) for line in done.stdout.splitlines()]
 book = openpyxl.load_workbook('báo cáo.xlsx', data_only=True)['Doanh thu']
@@ -124,4 +124,9 @@ print(json.dumps({
         "file": "macro.xlsm",
         "recalculated": False,
         "error": "only .xlsx files are supported",
+    }
+    assert result["reports"][3] == {
+        "file": "cached.xlsx",
+        "recalculated": False,
+        "error": "run separately: same file name as another argument",
     }
