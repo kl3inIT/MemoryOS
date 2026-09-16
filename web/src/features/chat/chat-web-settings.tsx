@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe, Settings2 } from "lucide-react";
+import { CheckCircle2, Cpu, Globe, Settings2, Telescope } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
@@ -10,10 +10,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  getChatSettings,
   listChatProviderAdapters,
   listChatProviders,
   listChatWebConnections,
   listConfiguredChatModels,
+  saveChatSettings,
   saveChatWebConnection,
   selectChatWebProvider,
   testChatWebConnection,
@@ -215,6 +217,7 @@ export function ChatWebSettings() {
             {readerProviders.map((provider) => card(provider, false))}
           </section>
           <NativeSearchSection onChanged={changed} />
+          <DeepResearchSection />
         </>
       )}
       {error && (
@@ -470,6 +473,69 @@ function ConnectionCard({
         </Dialog.Portal>
       </Dialog.Root>
     </ProviderCard>
+  );
+}
+
+/** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
+function DeepResearchSection() {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const session = useApplicationSession();
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<ErrorMessage>();
+  const settings = useQuery({
+    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
+    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  async function toggle(enabled: boolean) {
+    if (!settings.data) return;
+    setPending(true);
+    setError(undefined);
+    try {
+      await saveChatSettings({
+        body: { deepResearchEnabled: enabled, revision: settings.data.revision },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
+    } catch (failed) {
+      setError(presentProblem(failed, "mutation").message);
+    } finally {
+      setPending(false);
+    }
+  }
+  if (settings.isPending) return null;
+  return (
+    <section aria-label={ui("Deep Research")} className="mt-8 space-y-3">
+      <h2 className="text-lg font-semibold">{ui("Deep Research")}</h2>
+      {settings.isError ? (
+        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+      ) : (
+        <ProviderCard
+          logo={<Telescope />}
+          name={ui("Deep Research")}
+          description={ui(
+            "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.",
+          )}
+          selected={settings.data.deepResearchEnabled}
+          actions={
+            <Switch
+              checked={settings.data.deepResearchEnabled}
+              disabled={pending}
+              aria-label={ui("Bật Deep Research")}
+              onCheckedChange={(checked) => void toggle(checked)}
+            />
+          }
+        />
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {problemMessage(error)}
+        </p>
+      )}
+    </section>
   );
 }
 

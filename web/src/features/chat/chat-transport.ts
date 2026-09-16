@@ -36,6 +36,15 @@ import {
   toolEventSchema,
   type ChatActivity,
 } from "./chat-activity";
+import {
+  ResearchChunks,
+  historyResearch,
+  researchAgentEventSchema,
+  researchCitationsEventSchema,
+  researchPlanEventSchema,
+  researchReportEventSchema,
+  type ResearchState,
+} from "./chat-research";
 
 const eventSchema = z.object({
   assistantMessageId: z.string().uuid(),
@@ -78,6 +87,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectImage(mode: ImageMode) {
     this.image = mode;
     writeImagePreference(this.preferenceOwner, this.session?.id, mode);
+  }
+  /** Browser state of the current chat, as Onyx: reset on reload or chat switch, kept for a chat created from it. */
+  deepResearch = false;
+  selectResearch(enabled: boolean) {
+    this.deepResearch = enabled;
   }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
@@ -160,9 +174,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const modelConfigurationId = this.modelConfigurationId;
     const webSearch = this.webSearch;
     const image = this.image;
+    const deepResearch = this.deepResearch;
     const creating = !this.session;
     try {
-      return await this.submit(options, modelConfigurationId, webSearch, image);
+      return await this.submit(options, modelConfigurationId, webSearch, image, deepResearch);
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
       throw error;
@@ -174,6 +189,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     modelConfigurationId: string | undefined,
     webSearch: WebSearchMode,
     image: ImageMode,
+    deepResearch: boolean,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -210,6 +226,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         text,
         modelConfigurationId,
         webSearch,
+        deepResearch,
         fileIds: fileIds as string[],
       };
       const { data } = await sendChatMessage({
@@ -304,6 +321,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let artifacts: ChatArtifact[] = [];
     let hasArtifacts = false;
     const activity = new ActivityChunks(runId);
+    const research = new ResearchChunks(runId);
+    let committedResearch: ResearchState | undefined;
     let committedActivity: ChatActivity | undefined;
     let images: GeneratedImage[] = [];
     let imageGenerating = false;
@@ -371,6 +390,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             } else if (envelope.event === "tool") {
               const tool = toolEventSchema.parse(data);
+              // Research agents and their steps render in the research part, not as top-level timeline steps.
+              if (tool.parentToolCallId || tool.tabIndex !== null) {
+                yield* research.tool(tool);
+                continue;
+              }
               if (tool.stage === "SOURCE") {
                 if (!tool.source) throw new Error("Missing reply source");
                 sources = sourcesSchema.parse([
@@ -391,7 +415,21 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               }
               yield* chunks;
             } else if (envelope.event === "reasoning") {
-              yield* activity.reasoning(reasoningEventSchema.parse(data).text);
+              const reasoning = reasoningEventSchema.parse(data);
+              if (reasoning.parentToolCallId)
+                yield* research.reasoning(reasoning.parentToolCallId, reasoning.text);
+              else yield* activity.reasoning(reasoning.text);
+            } else if (envelope.event === "research-plan") {
+              yield* research.planDelta(researchPlanEventSchema.parse(data).text);
+            } else if (envelope.event === "research-agent-start") {
+              const start = researchAgentEventSchema.parse(data);
+              yield* research.agent(start.toolCallId, start.task);
+            } else if (envelope.event === "intermediate-report") {
+              const report = researchReportEventSchema.parse(data);
+              yield* research.report(report.toolCallId, report.text);
+            } else if (envelope.event === "intermediate-report-citations") {
+              const cited = researchCitationsEventSchema.parse(data);
+              yield* research.citations(cited.toolCallId, cited.citations);
             } else if (envelope.event === "image") {
               const image = imageSchema.parse(data);
               if (image.stage === "COMPLETED" && image.id) {
@@ -448,9 +486,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       }
       if (!outcome) {
         this.callbacks.state("recovering");
-        // Covers the server's maximum 30-minute deadline plus finalization grace.
-        const until = Date.now() + 31 * 60_000;
-        while (!outcome && Date.now() < until) {
+        // A turn has no total deadline, as Onyx: poll while it is RUNNING. The server lease fails a dead run.
+        while (!outcome) {
           signal.throwIfAborted();
           // Only the reply after its stable USER parent is needed; don't reload a long transcript on every poll.
           if (!this.runParentId) throw new Error("Reply parent is unavailable");
@@ -471,6 +508,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
+            committedResearch = historyResearch(message.research);
             images = parseGeneratedImages((message as { images?: unknown }).images);
             imageGenerating = false;
             // Code and output live only in the replay buffer; the files themselves are committed.
@@ -479,8 +517,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             );
           } else await pause(2000, signal);
         }
-        if (!outcome)
-          throw new Error("Reply status could not be confirmed; check the conversation again");
       }
       // Terminal SSE carries only a flag so bounded replay buffers never contain large UI specs.
       // Reuse the authorized history reader, scoped to the stable user parent, exactly once.
@@ -509,6 +545,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           generatedFiles,
         },
       };
+      yield* research.finish(committedResearch);
       yield* activity.finish(committedActivity);
       this.runId = undefined;
       this.callbacks.state("ready");

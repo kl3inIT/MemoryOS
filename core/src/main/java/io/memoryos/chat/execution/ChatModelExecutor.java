@@ -18,6 +18,7 @@ import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.chat.tools.EditImageTool;
 import io.memoryos.chat.tools.GenerateImageTool;
 import io.memoryos.chat.tools.SearchTool;
+import io.memoryos.chat.research.ResearchExecutor;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchTimings;
@@ -49,12 +50,13 @@ public final class ChatModelExecutor {
     private final ImageArtifactService imageArtifacts;
     private final io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter;
     private final io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings;
+    private final @Nullable ResearchExecutor research;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null);
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null);
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
@@ -62,9 +64,11 @@ public final class ChatModelExecutor {
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
-            io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings) {
+            io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
+            io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry) {
         this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
+        this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? io.memoryos.chat.research.ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
@@ -81,6 +85,9 @@ public final class ChatModelExecutor {
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
+
+    /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
+    private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
 
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
@@ -115,6 +122,35 @@ public final class ChatModelExecutor {
         } finally { processes.delete(process); }
     }
 
+    /** One research agent's tools: its own evidence, step identity and guard; the turn's search, Web and file access. */
+    private ResearchExecutor.AgentTools agentTools(ExecutingOperationContext context, ChatTurnSetup setup, ResearchExecutor.AgentScope agent,
+            Mono<?> cancellation, io.memoryos.retrieval.SearchTasks.Scope fileWork, int maxOutput) {
+        var selected = setup.binding();
+        agent.guard().synchronousLimit(searchLimits.helperCallLimit());
+        Runnable active = () -> { fileWork.checkActive(); agent.checkActive().run(); };
+        var tools = new java.util.ArrayList<Tool>();
+        SearchTool searchTool = null;
+        if (setup.options().searchEnabled()) {
+            var selectionRunner = context.ai().withLlmService(selected.withModel(agent.guard()));
+            selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
+            searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
+                    agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new com.embabel.chat.UserMessage(agent.task())),
+                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity());
+            tools.addAll(Tool.fromInstance(searchTool));
+        }
+        if (setup.webSearch() != io.memoryos.chat.WebSearchMode.off && web != null && setup.webAccess().search() != null) {
+            tools.addAll(Tool.fromInstance(new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), agent.evidence(), active, fileWork,
+                    agent.events(), agent.guard()::availableContextTokens, selected.policy().tokens(), agent.activity())));
+        }
+        if (!setup.fileIds().isEmpty()) {
+            tools.addAll(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(), setup.fileIds(), active,
+                    agent.guard()::availableContextTokens, selected.policy().tokens(), fileSearch, agent.evidence(), fileWork)));
+        }
+        var owned = searchTool;
+        return new ResearchExecutor.AgentTools(List.copyOf(tools), () -> { if (owned != null) owned.close(); },
+                owned == null ? CompletableFuture.completedFuture(null) : owned.whenDrained());
+    }
+
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
             Consumer<ChatImageEvent> imageEvents, Consumer<io.memoryos.chat.ChatCodeEvent> codeEvents,
@@ -138,6 +174,8 @@ public final class ChatModelExecutor {
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
+        var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
+        var drains = new java.util.concurrent.CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
         var fileWork = new io.memoryos.retrieval.SearchTasks.Scope(searchLimits.cleanupTimeout());
         var fileCancellation = cancellation.subscribe(ignored -> fileWork.cancel());
@@ -146,6 +184,18 @@ public final class ChatModelExecutor {
         try {
             setup.evidence().trackCalls(activity::current);
             setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
+            if (setup.research().enabled()) {
+                if (research == null || !selected.toolCalling()) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                java.util.List<com.embabel.chat.Message> conversation;
+                try (var ignored = fileWork.enter()) {
+                    conversation = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
+                }
+                research.run(new ResearchExecutor.Turn(setup, conversation, metadata.getChatModel(), process,
+                        new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), checkActive, cancellation, fileWork, maxOutput,
+                        output, events, agent -> agentTools(context, setup, agent, cancellation, fileWork, maxOutput), guards::add, drains::add));
+                return;
+            }
+            guards.add(guard);
             guard.evidenceAvailable(setup.evidence()::hasEvidence);
             var nativeService = selected.withModel(guard);
             var service = new StreamingLlmService(nativeService);
@@ -156,9 +206,7 @@ public final class ChatModelExecutor {
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             java.util.List<com.embabel.chat.Message> messages;
             try (var ignored = fileWork.enter()) {
-                var remaining = Duration.between(Instant.now(), setup.deadline());
-                if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
-                messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), remaining, fileActive);
+                messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
             }
             if (selected.toolCalling()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
@@ -166,59 +214,63 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
-                        fileWork, setup.deadline(), events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
+                        fileWork, events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
                 guard.webSiteFilter(setup.webAccess().search() != null && setup.webAccess().search().provider().supportsSiteFilter());
             }
             if (selected.toolCalling() && !setup.fileIds().isEmpty()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
-                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork, setup.deadline())));
+                        setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), setup.deadline(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.tenant(), setup.assistantMessageId(), fileActive, setup.deadline(), imageEvents, 4)));
+                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
-                        fileActive, setup.deadline(), imageEvents, 4)));
+                        fileActive, imageEvents, 4)));
             }
             // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
             if (selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
                     && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
-                        setup.deadline(), activity, codeEvents)));
+                        activity, codeEvents)));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
-            Duration remaining = Duration.between(Instant.now(), setup.deadline());
-            if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
+            // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()
-                    .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast(remaining);
+                    .takeUntilOther(cancellation).doOnNext(text -> { guard.checkActive(); output.accept(text); }).blockLast();
         } finally {
             if (searchTool != null) searchTool.close();
             fileCancellation.dispose();
             fileWork.close();
-            var drained = CompletableFuture.allOf(fileWork.drained(), searchTool == null ? CompletableFuture.<Void>completedFuture(null) : searchTool.whenDrained());
+            drains.add(fileWork.drained());
+            if (searchTool != null) drains.add(searchTool.whenDrained());
+            var drained = CompletableFuture.allOf(drains.toArray(CompletableFuture[]::new));
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone()) accounting.accept(new Accounting(null, null, null));
                 else {
+                    // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
+                    var used = guards.stream().filter(ChatModelGuard::used).toList();
+                    boolean known = !used.isEmpty() && used.stream().allMatch(ChatModelGuard::usageKnown);
                     var usage = process.usage();
-                    accounting.accept(new Accounting(guard.usageKnown() && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
-                            guard.usageKnown() && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
-                            guard.usageKnown() && metadata.getPricingModel() != null ? process.cost() : null));
+                    accounting.accept(new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
+                            known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
+                            known && metadata.getPricingModel() != null ? process.cost() : null));
                 }
             } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }

@@ -73,10 +73,10 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
 - [x] **Tool.** `run_python` is registered when tool calling, configured, enabled and healthy. It uses:
   - the Onyx staging order, caps, notice and name sanitizing;
   - an upload cache keyed by name and stored SHA-256;
-  - batch execution capped by the turn deadline;
+  - batch execution with the Onyx fixed per-call timeout (a turn has no total deadline since MEM-101);
   - the Onyx result JSON with a relative `file_link`, followed by `FILE_REMINDER` when files were generated.
 - [x] **Generated files.**
-  - `chat_file_artifact` (V64), staged then adopted, at most 25 MiB each.
+  - `chat_file_artifact` (V69), staged then adopted, at most 25 MiB each.
   - Served at `/api/chat/file-artifacts/{id}/content`.
   - Deleted from the service after download.
 - [x] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.

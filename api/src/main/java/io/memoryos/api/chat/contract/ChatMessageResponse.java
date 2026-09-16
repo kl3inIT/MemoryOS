@@ -23,13 +23,36 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes) {}
+
+    /** Deep research state: a clarification question makes the next research turn skip clarification. */
+    @Schema(name = "ChatMessageResearch")
+    public record Research(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean clarification,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String plan,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Agent> agents) {}
+
+    /** One research agent call with its own steps; report citation numbers map to this message's sources. */
+    @Schema(name = "ChatMessageResearchAgent")
+    public record Agent(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String toolCallId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int cycle,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int tabIndex,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String task,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"RUNNING", "COMPLETED", "FAILED"}) String status,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String report,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Citation> citations,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity) {}
+
+    @Schema(name = "ChatMessageResearchCitation")
+    public record Citation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int marker,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int citationId) {}
 
     /** A generated image attached to an assistant reply; bytes are served at /api/chat/image-artifacts/{id}/content. */
     public record ImageRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -46,6 +69,10 @@ public record ChatMessageResponse(
     public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images, List<GeneratedFileRef> generatedFiles) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
                 message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
-                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images, generatedFiles);
+                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images, generatedFiles,
+                new Research(message.research().clarification(), message.research().plan(), message.research().agents().stream()
+                        .map(agent -> new Agent(agent.toolCallId(), agent.cycle(), agent.tabIndex(), agent.task(), agent.status().name(),
+                                agent.durationMs(), agent.report(), agent.citations().stream()
+                                .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()));
     }
 }

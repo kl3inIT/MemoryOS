@@ -52,7 +52,7 @@ class EditImageToolTest {
 
     private EditImageTool tool(Set<UUID> attachments, Map<UUID, String> names, int maxCalls) {
         return new EditImageTool(client, connection, artifacts, files, actor, tenant, session, messageId, attachments, names,
-                () -> {}, Instant.now().plusSeconds(60), events::add, maxCalls);
+                () -> {}, events::add, maxCalls);
     }
 
     private static byte[] png(int width, int height, Color left, Color right) throws IOException {

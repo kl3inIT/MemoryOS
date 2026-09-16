@@ -33,6 +33,8 @@ import { ChatImages } from "./chat-images";
 import { ChatGeneratedFiles } from "./chat-generated-files";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatActivityGroup, ChatReasoningStep, ChatToolStep } from "./chat-activity-view";
+import { ChatResearchView } from "./chat-research-view";
+import type { ResearchState } from "./chat-research";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 
 const activityGroups = groupPartByType({
@@ -257,6 +259,10 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                   <div data-aui-quote-selectable>
                     <MarkdownText remarkPlugins={answerPlugins} components={answerComponents} />
                   </div>
+                ) : null;
+              case "data":
+                return part.name === "research" ? (
+                  <ChatResearchView research={part.data as ResearchState} />
                 ) : null;
               case "indicator":
                 return (

@@ -49,14 +49,10 @@ class RunPythonToolTest {
     private final List<io.memoryos.chat.ChatCodeEvent> published = new ArrayList<>();
 
     private RunPythonTool tool() {
-        return tool(Instant.now().plusSeconds(120));
-    }
-
-    private RunPythonTool tool(Instant deadline) {
         when(files.readable(eq(actor), eq(tenant), any())).thenReturn(attached);
         when(activity.current()).thenReturn(new io.memoryos.chat.ChatToolEvent.Call("call-1", "run_python"));
         return new RunPythonTool(client, artifacts, files, actor, tenant, messageId, attached.stream().map(UserFile::id).toList(),
-                () -> {}, deadline, activity, published::add);
+                () -> {}, activity, published::add);
     }
 
     private UserFile attach(String name, long size, int minutesAgo) throws IOException {
@@ -199,16 +195,16 @@ class RunPythonToolTest {
         verify(activity).fail();
     }
 
-    @Test void missingCodeGetsTheOnyxMessageAndTheTimeoutFollowsTheDeadline() throws Exception {
+    @Test void missingCodeGetsTheOnyxMessageAndEachCallUsesTheFixedTimeout() throws Exception {
         assertEquals(RunPythonTool.MISSING_CODE, tool().runPython(" "));
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
 
-        tool(Instant.now().plusSeconds(30)).runPython("print(1)");
+        tool().runPython("print(1)");
+
+        // A MemoryOS turn has no total deadline, so each call runs with the Onyx per-call timeout.
         var timeout = ArgumentCaptor.forClass(Integer.class);
         verify(client).executeStream(anyString(), timeout.capture(), anyList(), any());
-        assertTrue(timeout.getValue() <= 25_000 && timeout.getValue() > 20_000, "timeout " + timeout.getValue());
-
-        assertThrows(IllegalStateException.class, () -> tool(Instant.now().plusSeconds(3)).runPython("print(1)"));
+        assertEquals(RunPythonTool.DEFAULT_TIMEOUT_MS, timeout.getValue());
     }
 
     @Test void theTimelineGetsTheCodeBoundedOutputAndTheGeneratedFiles() throws Exception {

@@ -55,6 +55,7 @@ class OpenApiContractTest {
             "/api/chat/web/connections/{provider}",
             "/api/chat/web/connections/{provider}/test",
             "/api/chat/web/selection",
+            "/api/chat/settings",
             "/api/chat/files",
             "/api/chat/files/policy",
             "/api/chat/files/uploads",

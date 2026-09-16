@@ -9,8 +9,6 @@ import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -37,9 +35,8 @@ public final class RunPythonTool {
     static final int MAX_STAGED_FILES = 25;
     static final long MAX_STAGED_BYTES = 100L * 1024 * 1024;
     static final int MAX_OUTPUT_CHARACTERS = 50_000;
+    /** Onyx runs each call with a fixed timeout; a MemoryOS turn has no total deadline of its own. */
     static final int DEFAULT_TIMEOUT_MS = 60_000;
-    /** Leaves time for the answer after a run that uses its whole timeout. */
-    private static final long DEADLINE_MARGIN_MS = 5_000;
     static final String MISSING_CODE = "The python tool requires a 'code' parameter containing the Python code to execute. "
             + "Please provide like: {\"code\": \"print('Hello, world!')\"}";
     static final String FILE_REMINDER = """
@@ -68,17 +65,16 @@ public final class RunPythonTool {
     private final UUID messageId;
     private final Collection<UUID> fileIds;
     private final Runnable active;
-    private final Instant deadline;
     private final ChatToolActivity activity;
     private final java.util.function.Consumer<io.memoryos.chat.ChatCodeEvent> events;
     /** Onyx upload cache: (file name, content SHA-256) to service file id, for this turn only. */
     private final Map<String, String> uploads = new HashMap<>();
 
     public RunPythonTool(InterpreterClient client, InterpreterService artifacts, ChatFileContentService files, ActorId actor,
-                         TenantId tenant, UUID messageId, Collection<UUID> fileIds, Runnable active, Instant deadline,
+                         TenantId tenant, UUID messageId, Collection<UUID> fileIds, Runnable active,
                          ChatToolActivity activity, java.util.function.Consumer<io.memoryos.chat.ChatCodeEvent> events) {
         this.client = client; this.artifacts = artifacts; this.files = files; this.actor = actor; this.tenant = tenant;
-        this.messageId = messageId; this.fileIds = List.copyOf(fileIds); this.active = active; this.deadline = deadline;
+        this.messageId = messageId; this.fileIds = List.copyOf(fileIds); this.active = active;
         this.activity = activity; this.events = events;
     }
 
@@ -95,9 +91,7 @@ public final class RunPythonTool {
     public synchronized String runPython(@LlmTool.Param(description = "Python source code to execute") @Nullable String code) {
         active.run();
         if (code == null || code.isBlank()) return MISSING_CODE;
-        long remaining = Duration.between(Instant.now(), deadline).toMillis() - DEADLINE_MARGIN_MS;
-        if (remaining < 1_000) throw new IllegalStateException("CHAT_DEADLINE");
-        int timeoutMs = (int) Math.min(DEFAULT_TIMEOUT_MS, remaining);
+        int timeoutMs = DEFAULT_TIMEOUT_MS;
         String notice = null;
         try {
             var selection = select(code);
@@ -163,7 +157,7 @@ public final class RunPythonTool {
                     : io.memoryos.chat.ChatCodeEvent.completed(id, List.copyOf(produced)));
             return generated.isEmpty() ? result : result + "\n\n" + FILE_REMINDER;
         } catch (IOException | RuntimeException failure) {
-            active.run(); // Cancellation and deadline must propagate, not become an ordinary tool result.
+            active.run(); // Cancellation must propagate, not become an ordinary tool result.
             activity.fail();
             publish(io.memoryos.chat.ChatCodeEvent::failed);
             LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
