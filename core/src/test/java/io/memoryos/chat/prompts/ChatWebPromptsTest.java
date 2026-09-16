@@ -91,9 +91,9 @@ class ChatWebPromptsTest {
         assertFalse(attachments.contains("web_search"));
         assertEquals(1, headings(attachments));
         String all = ChatPrompts.forInference(prompt(Set.of("searchKnowledge", "web_search", "open_url",
-                "search_files", "read_file", "generate_image", "render_gui"), null), false, false).toString();
+                "search_files", "read_file", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
         for (String block : List.of("## searchKnowledge", "## web_search", "## open_url",
-                "## search_files and read_file", "## generate_image", "## render_gui"))
+                "## search_files and read_file", "## generate_image", "## edit_image", "## render_gui"))
             assertTrue(all.contains(block), block);
         assertEquals(1, headings(all));
     }

@@ -7,6 +7,7 @@ import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.iam.identity.ActorId;
@@ -40,15 +41,18 @@ public class ChatTurnPersistence {
     private final PersonaProperties persona;
     private final ChatFileService files;
     private final ActorLanguageService languages;
+    private final JdbcImageArtifactRepository imageArtifacts;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages) {
+                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
+                               JdbcImageArtifactRepository imageArtifacts) {
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
         this.persona = persona;
         this.files = files;
         this.languages = languages;
+        this.imageArtifacts = imageArtifacts;
     }
 
     /** Capability gate checked once per command or stream entry, before ownership and the session lock. */
@@ -218,15 +222,24 @@ public class ChatTurnPersistence {
                     try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
                     catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
                 });
+        // History keeps assistant replies as text; name their images so a later turn can edit one.
+        var generated = new LinkedHashMap<UUID, List<UUID>>();
+        imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
+                .map(ChatMessage::id).toList()).forEach((message, images) ->
+                generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
-                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor));
+                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor), generated);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
                               List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
                               Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles,
-                              @Nullable String uiLanguage) {
-        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); }
+                              @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
+        public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                           Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
+            this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
+        }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
                            Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
             this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, null);
