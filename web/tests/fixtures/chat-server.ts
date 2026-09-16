@@ -92,6 +92,7 @@ function seedResearch(value: Session) {
     files: [],
     images: [],
     activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
     research: { clarification: false, plan: null, agents: [] },
   };
   const assistant: ChatMessage = {
@@ -110,6 +111,7 @@ function seedResearch(value: Session) {
     files: [],
     images: [],
     activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
     research: {
       clarification: false,
       plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
@@ -484,6 +486,7 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "USER",
@@ -501,6 +504,7 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "ASSISTANT",

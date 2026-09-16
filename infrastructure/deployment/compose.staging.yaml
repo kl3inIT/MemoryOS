@@ -61,6 +61,10 @@ services:
       MEMORYOS_TENANT_SLUG: ${MEMORYOS_TENANT_SLUG:?Set MEMORYOS_TENANT_SLUG}
       MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
       MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
+      MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
+      MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+    secrets:
+      - interpreter_api_key
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully
@@ -109,6 +113,11 @@ services:
       MAX_CONCURRENT_EXECUTIONS: ${MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS:-4}
       # deploy-staging.sh pulls the executor with job-scoped registry credentials; the service has none.
       PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC: "0"
+      API_KEY_FILE: /run/secrets/interpreter_api_key
+      # A turn reuses its uploads for at most 2 minutes; expired files free the /tmp tmpfs.
+      FILE_TTL_SEC: "900"
+    secrets:
+      - interpreter_api_key
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -535,6 +544,8 @@ networks:
     internal: true
 
 secrets:
+  interpreter_api_key:
+    file: ${MEMORYOS_INTERPRETER_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/interpreter/api-key.txt}
   minio_console_oidc_client_secret:
     file: ${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET_FILE:?Set MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET_FILE}
   mailpit_oauth2_allowed_emails:

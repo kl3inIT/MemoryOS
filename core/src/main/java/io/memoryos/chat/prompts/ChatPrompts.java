@@ -123,6 +123,22 @@ public final class ChatPrompts {
             from data you already verified and runs no code or computation. Write labels and values in the
             user's language, keep the citations in your text answer, and never repeat the JSON spec.
             """;
+    /** Onyx 40eb240df {@code PYTHON_TOOL_GUIDANCE} verbatim, then lines for the MemoryOS executor additions (MEM-110). */
+    private static final String RUN_PYTHON_GUIDANCE = """
+            ## run_python
+            Use the `run_python` tool to execute Python code in an isolated sandbox. The tool will respond with the output of the execution or time out after 60.0 seconds.
+            Any files uploaded to the chat will be automatically be available in the execution environment's current directory. The current directory in the file system can be used to save and persist user files. Files written to the current directory will be returned with a `file_link`. Use this to give the user a way to download the file OR to display generated images.
+            Internet access for this session is disabled. Do not make external web requests or API calls as they will fail.
+            Use `openpyxl` to read and write Excel files. You have access to libraries like numpy, pandas, scipy, matplotlib, and PIL.
+            Write chart titles, axis labels, legends, and other text rendered into images in the language you reply in. The sandbox fonts cannot shape Arabic or render CJK glyphs (they come out as disconnected letters or boxes), so for those languages write the rendered text in English and explain the labels in your reply.
+            IMPORTANT: each call to this tool runs in a fresh, stateless sandbox. Variables, imports, and in-memory state from previous calls will NOT be available, and files written by a previous call will NOT be available in later calls. Therefore batch multi-step work into a single script per call: e.g. load a workbook once, read all needed sheets, apply all edits, and save the result in one execution — not one small step per call.
+            Also preinstalled: statsmodels, sympy, pyarrow, xlrd (legacy .xls), xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pdf2image, markitdown, beautifulsoup4, jinja2, markdown, tabulate, chardet and charset-normalizer. Packages cannot be installed; use only what is available.
+            If a text file's encoding is unknown, detect it with charset-normalizer before decoding.
+            Command-line tools are available via subprocess: pdftotext and pdftoppm, qpdf, sqlite3, zip and unzip.
+            Vietnamese and other Latin, Greek and Cyrillic text renders in matplotlib's default font, but the built-in PDF fonts (Helvetica, Times) cannot render it. Register a TTF font first, e.g. `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` with fpdf2 `add_font` or reportlab `TTFont`.
+            Memory is limited to about 1 GiB; process large files in chunks.
+            CPU time is limited to 30 seconds per run. A run killed by the memory or CPU limit exits with code 137 and no error message.
+            """;
     private static final String OPEN_URL_REMINDER = """
             After web_search, open promising, reputable pages with open_url unless the query is
             completely answered by the snippets. Use an array of URLs to read multiple pages.
@@ -153,6 +169,7 @@ public final class ChatPrompts {
         }
         if (tools.contains("open_url")) { heading(text); text.append(OPEN_URL_GUIDANCE); }
         if (tools.contains("search_files") || tools.contains("read_file")) { heading(text); text.append(FILES_GUIDANCE); }
+        if (tools.contains("run_python")) { heading(text); text.append(RUN_PYTHON_GUIDANCE); }
         if (tools.contains("generate_image")) { heading(text); text.append(IMAGE_GUIDANCE); }
         if (tools.contains("edit_image")) { heading(text); text.append(EDIT_IMAGE_GUIDANCE); }
         if (tools.contains("render_gui")) { heading(text); text.append(ARTIFACT_GUIDANCE); }

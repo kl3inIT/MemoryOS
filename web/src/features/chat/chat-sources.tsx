@@ -230,6 +230,18 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
     const source = sources.find((item) => item.citationId === Number(citation[1]));
     return source ? <Citation source={source} /> : <span>{children}</span>;
   }
+  // Files that run_python generated are ours and are served from this origin; everything else
+  // relative is model-written text, not a link.
+  if (href && /^\/api\/chat\/file-artifacts\/[0-9a-fA-F-]{36}\/content$/.test(href))
+    return (
+      <a
+        data-slot="generated-file"
+        href={href}
+        className="text-primary underline underline-offset-2"
+      >
+        {children}
+      </a>
+    );
   if (!href || !/^https?:\/\//i.test(href)) return <span>{children}</span>;
   const domain = new URL(href).hostname.replace(/^www\./, "");
   // Only hostnames of this answer's Web sources may reach the favicon service; other links,

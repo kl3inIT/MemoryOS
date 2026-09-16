@@ -259,3 +259,32 @@ A turn carries an image mode (`off`/`auto`/`required`, browser preference only; 
 With image mode on, the model also gets an `edit_image` tool (`imageId`, `prompt`, optional `maskId`). The source is an image generated earlier in the same session, looked up with owner and session scope, or an image attached in the turn's context that the owner can read and that is READY; any other id is refused before a provider call. History names earlier images on their answers (`image_id`), and attached files already carry their ids, so the model refers only to ids present in the conversation. The source is decoded as PNG or JPEG with pixel limits and normalized to at most 1024 px on the long side, on multiples of 16. Cloudflare edits with `@cf/black-forest-labs/flux-2-klein-9b` (multipart `prompt`, `width`, `height`, `input_image_0`); OpenAI edits with `POST /images/edits`, adding `input_fidelity=high` for `gpt-image` models.
 
 A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, black or transparent stays, and its name chooses the image it was painted on. The provider edits the whole image and the server takes its result only inside the mask, feathered inward, so every pixel outside the mask equals the source. A mask that selects nothing is refused; one that selects the whole image is a whole-image edit. The result is a new `chat_image_artifact` on the current answer recording `source_artifact_id` or `source_file_id` (provenance only, no foreign key), streamed with the same `ChatImageEvent`; the `memoryos.chat.image.request` timer is tagged `operation` `generate` or `edit`. On a generated image the UI offers an edit action: an optional brush mask and an instruction go to the composer as the mask attachment and the message text, and image mode is turned on for the session.
+
+## Code Interpreter
+
+`run_python` follows the Onyx 40eb240df Code Interpreter. It calls the `memoryos-interpreter` service (`interpreter/`), which runs model-written Python in a disposable, network-less executor. Design decisions and phases are in [MEM-110](../increments/active/mem-110-memoryos-interpreter/design.md).
+
+- **Availability.** The tool is registered only when all of these hold:
+  - the selected model supports tool calling;
+  - `memoryos.chat.interpreter.base-url` is configured;
+  - the Tenant has enabled Code Interpreter (`chat_interpreter_setting`; no row means disabled);
+  - the service's `/health`, cached for 30 seconds, is ok.
+
+  An unavailable interpreter omits the tool and never fails the turn. There is no separate capability: sending a turn (`CHAT_WRITE`) is enough. Model managers (`MODELS_MANAGE`) read and change the setting at `GET`/`PUT /api/chat/interpreter`, whose `revision` detects conflicts. Enabling is refused (503) when the deployment has no interpreter. `GET /api/chat/interpreter/health` returns the uncached `{connected, error, version}`.
+- **Input files.** The tool stages the turn's READY attachments that the owner can read:
+  - files named in the code come first, then the newest, at most 25 files and 100 MiB (at least one file is always staged), in chronological order;
+  - names are sanitized and de-duplicated as in Onyx;
+  - uploads stream from object storage and are reused within the turn by name and stored SHA-256;
+  - files left out or failing to upload are listed in `staging_notice`.
+- **Execution.** `POST /v1/execute/stream` runs with a fixed `timeout_ms` of 60 000 and an HTTP timeout 10 seconds longer, as in Onyx: a turn has no total deadline to subtract from. Stop and the tool-cycle limit bound a turn instead. Every `/v1` call sends the service `X-Api-Key`. The client reads the service's `output`/`result`/`error` events; unknown event names are ignored and only `result` ends a run successfully. Abandoning the read — a Stop or a listener that throws — closes the connection, which kills the executor container and frees the service's execution slot instead of holding it until the timeout.
+- **Result.** The model receives `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files, error, staging_notice}`.
+  - `stdout` and `stderr` are truncated to 50 000 characters.
+  - `error` is `stderr` unless the exit code is 0.
+  - An unreachable or busy service returns `exit_code` -1 with a generic error, and the step is recorded as failed. Service responses and ids never reach the model.
+  - When files were generated, the Onyx file reminder follows the JSON.
+- **Generated files.**
+  - Each workspace file of at most 25 MiB is downloaded, staged and adopted as a `chat_file_artifact` (V71) on the assistant message, then deleted from the service. Larger files are named in `staging_notice`.
+  - `file_link` is `/api/chat/file-artifacts/{id}/content`, which serves owner-authorized bytes with `no-store` and `nosniff`: PNG, JPEG and WebP inline, every other type as an attachment.
+  - The model links files with markdown `[filename](file_link)`. An answer body links only this exact path shape; every other relative path a model writes stays plain text.
+  - Generated files are returned on history messages as `generatedFiles` and rendered as download cards below the answer, like generated images.
+- **Progress.** Besides the generic tool `STARTED`/`COMPLETED`/`FAILED` events, a run publishes SSE `code` events `{assistantMessageId, sequence, toolCallId, stage, code, output, files}` with stages `RUNNING` (the code, at most 8 000 characters), `OUTPUT` (stdout/stderr as it is produced, at most 16 000 characters in total for the whole run), `COMPLETED` and `FAILED`. A run that timed out or exited non-zero is `FAILED`, and both terminal stages carry the files the run produced. This is the one place the timeline carries a tool's own arguments and output; it is bounded so one run cannot exhaust the replay buffer, and service ids, URLs and error text are still excluded. The step renders the code, the output so far and a failure line. Code and output live only in the replay buffer: they are not committed to `chat_message.activity`, so a reloaded conversation keeps the step and the generated files but not the transcript of the run.
