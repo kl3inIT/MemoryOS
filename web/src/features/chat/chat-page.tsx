@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -14,6 +14,8 @@ import {
   getChatBranches,
   getChatFeedback,
   getChatProject,
+  getChatSettings,
+  getChatWebAvailability,
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted } from "@/lib/hey-api/types.gen";
 import type { MemoryOsChatTransport } from "./chat-transport";
@@ -23,11 +25,13 @@ import { ChatComposerMenu } from "./chat-composer-menu";
 import type { WebSearchMode } from "./chat-web-preference";
 import type { ImageMode } from "./chat-image";
 import { ChatEditingContext } from "./chat-editing-context";
+import { ChatImageEditContext } from "./chat-image-edit-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
 import { ChatConversationSearch } from "./chat-conversation-search";
 import {
   branchSchema,
   feedbackSchema,
+  loadPersonas,
   projectSchema,
   type Project,
   type Feedback,
@@ -132,7 +136,63 @@ function ChatConversation({
   const model = useChatModelChoice(transport);
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
   const [image, setImage] = useState<ImageMode>(transport.image);
+  const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
+  const applicationSession = useApplicationSession();
+  const chatSettings = useQuery({
+    queryKey: [
+      "chat-settings",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+    ],
+    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  const personas = useQuery({
+    queryKey: [
+      "chat-personas",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+    ],
+    queryFn: ({ signal }) => loadPersonas(signal),
+  });
+  const persona = session?.personaId
+    ? personas.data?.find((candidate) => candidate.id === session.personaId)
+    : personas.data?.find((candidate) => candidate.builtin);
+  const webAvailability = useQuery({
+    queryKey: [
+      "chat-web",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+      session?.id,
+    ],
+    queryFn: async ({ signal }) =>
+      (
+        await getChatWebAvailability({
+          query: { sessionId: session?.id },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    retry: false,
+  });
+  // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
+  // have internal Search or an external Web search connection (research never uses provider-hosted search).
+  const researchAvailable =
+    !project &&
+    !session?.projectId &&
+    chatSettings.data?.deepResearchEnabled === true &&
+    (persona?.searchEnabled === true || webAvailability.data?.searchAvailable === true);
   const busy = state.connection !== "ready" || state.checking;
+  const imageEditing = useMemo(
+    () => ({
+      enableImages: () => {
+        if (transport.image !== "off") return;
+        transport.selectImage("auto");
+        setImage("auto");
+      },
+    }),
+    [transport],
+  );
   const branches = useQuery({
     queryKey: ["chat-branches", session?.id],
     enabled: !!session,
@@ -215,140 +275,155 @@ function ChatConversation({
       }
     >
       <div className="flex h-full min-h-0 flex-col">
-        <ChatEditingContext.Provider
-          value={{
-            sessionId: session?.id,
-            busy,
-            branches: branches.data ?? [],
-            feedback: feedback.data ?? [],
-            edit: (userMessageId, text, clientRequestId, fileIds) =>
-              controller.mutate(async () => {
-                const { data } = await editChatMessage({
-                  path: { sessionId: session!.id, userMessageId },
-                  body: {
-                    text,
-                    clientRequestId,
-                    modelConfigurationId: model.choice.id,
-                    fileIds,
-                    webSearch,
-                  },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
-                });
-                transport.recordModelSelection(data);
-              }),
-            regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
-              controller.mutate(async () => {
-                const { data } = await regenerateChatMessage({
-                  path: { sessionId: session!.id, userMessageId },
-                  body: {
-                    clientRequestId,
-                    modelConfigurationId: modelConfigurationId ?? model.choice.id,
-                    webSearch,
-                  },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
-                });
-                transport.recordModelSelection(data);
-              }),
-            branch: (messageId, expectedChildId) =>
-              controller.mutate(() =>
-                selectChatBranch({
-                  path: { sessionId: session!.id },
-                  body: { messageId, expectedChildId },
-                  headers: sameOriginMutationHeaders,
-                  signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
+        <ChatImageEditContext.Provider value={imageEditing}>
+          <ChatEditingContext.Provider
+            value={{
+              sessionId: session?.id,
+              busy,
+              branches: branches.data ?? [],
+              feedback: feedback.data ?? [],
+              edit: (userMessageId, text, clientRequestId, fileIds) =>
+                controller.mutate(async () => {
+                  const { data } = await editChatMessage({
+                    path: { sessionId: session!.id, userMessageId },
+                    body: {
+                      text,
+                      clientRequestId,
+                      modelConfigurationId: model.choice.id,
+                      fileIds,
+                      webSearch,
+                      deepResearch: researchAvailable && deepResearch,
+                    },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  });
+                  transport.recordModelSelection(data);
                 }),
-              ),
-          }}
-        >
-          {(branches.isError || feedback.isError) && (
-            <p role="alert" className="px-4 text-sm">
-              {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
-              <Button
-                prominence="internal"
-                size="sm"
-                onClick={() => {
-                  void branches.refetch();
-                  void feedback.refetch();
-                }}
-              >
-                {ui("Tải lại")}
-              </Button>
-            </p>
-          )}
-          {state.attachmentError && (
-            <p role="alert" className="text-sm">
-              {problemMessage(state.attachmentError)}
-              <Button
-                type="button"
-                size="sm"
-                prominence="internal"
-                onClick={() => controller.setAttachmentError(undefined)}
-              >
-                {ui("Đóng")}
-              </Button>
-            </p>
-          )}
-          <ChatThread
-            welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
-            afterComposer={
-              project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
-            }
-            starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
-            composerMenu={
-              <ChatComposerMenu
-                disabled={busy}
-                web={{
-                  sessionId: session?.id,
-                  modelId: model.choice.id,
-                  value: webSearch,
-                  onChange: (mode) => {
-                    transport.selectWeb(mode);
-                    setWebSearch(mode);
-                  },
-                }}
-                image={{
-                  value: image,
-                  onChange: (mode) => {
-                    transport.selectImage(mode);
-                    setImage(mode);
-                  },
-                }}
-              />
-            }
-            modelPicker={
-              <ChatModelPicker
-                sessionId={transport.session?.id}
-                value={model.choice.id}
-                onChange={model.select}
-                disabled={busy}
-              />
-            }
-            modelNotice={
-              model.choice.fallback
-                ? ui(
-                    "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
-                  )
-                : undefined
-            }
-            connection={state.connection}
-            stopping={state.stopping}
-            onStop={() => void controller.stop()}
-            error={
-              state.error
-                ? typeof state.error === "string"
-                  ? t(state.error)
-                  : problemMessage(state.error)
-                : undefined
-            }
-            onCheck={() => controller.check()}
-            checking={state.checking}
-          />
-        </ChatEditingContext.Provider>
+              regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
+                controller.mutate(async () => {
+                  const { data } = await regenerateChatMessage({
+                    path: { sessionId: session!.id, userMessageId },
+                    body: {
+                      clientRequestId,
+                      modelConfigurationId: modelConfigurationId ?? model.choice.id,
+                      webSearch,
+                      deepResearch: researchAvailable && deepResearch,
+                    },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  });
+                  transport.recordModelSelection(data);
+                }),
+              branch: (messageId, expectedChildId) =>
+                controller.mutate(() =>
+                  selectChatBranch({
+                    path: { sessionId: session!.id },
+                    body: { messageId, expectedChildId },
+                    headers: sameOriginMutationHeaders,
+                    signal: AbortSignal.timeout(30000),
+                    throwOnError: true,
+                  }),
+                ),
+            }}
+          >
+            {(branches.isError || feedback.isError) && (
+              <p role="alert" className="px-4 text-sm">
+                {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
+                <Button
+                  prominence="internal"
+                  size="sm"
+                  onClick={() => {
+                    void branches.refetch();
+                    void feedback.refetch();
+                  }}
+                >
+                  {ui("Tải lại")}
+                </Button>
+              </p>
+            )}
+            {state.attachmentError && (
+              <p role="alert" className="text-sm">
+                {problemMessage(state.attachmentError)}
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="internal"
+                  onClick={() => controller.setAttachmentError(undefined)}
+                >
+                  {ui("Đóng")}
+                </Button>
+              </p>
+            )}
+            <ChatThread
+              welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
+              afterComposer={
+                project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
+              }
+              starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
+              composerMenu={
+                <ChatComposerMenu
+                  disabled={busy}
+                  web={{
+                    sessionId: session?.id,
+                    modelId: model.choice.id,
+                    value: webSearch,
+                    onChange: (mode) => {
+                      transport.selectWeb(mode);
+                      setWebSearch(mode);
+                    },
+                  }}
+                  research={
+                    researchAvailable
+                      ? {
+                          value: deepResearch,
+                          onChange: (enabled) => {
+                            transport.selectResearch(enabled);
+                            setDeepResearch(enabled);
+                          },
+                        }
+                      : undefined
+                  }
+                  image={{
+                    value: image,
+                    onChange: (mode) => {
+                      transport.selectImage(mode);
+                      setImage(mode);
+                    },
+                  }}
+                />
+              }
+              modelPicker={
+                <ChatModelPicker
+                  sessionId={transport.session?.id}
+                  value={model.choice.id}
+                  onChange={model.select}
+                  disabled={busy}
+                />
+              }
+              modelNotice={
+                model.choice.fallback
+                  ? ui(
+                      "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
+                    )
+                  : undefined
+              }
+              connection={state.connection}
+              stopping={state.stopping}
+              onStop={() => void controller.stop()}
+              error={
+                state.error
+                  ? typeof state.error === "string"
+                    ? t(state.error)
+                    : problemMessage(state.error)
+                  : undefined
+              }
+              onCheck={() => controller.check()}
+              checking={state.checking}
+            />
+          </ChatEditingContext.Provider>
+        </ChatImageEditContext.Provider>
       </div>
     </AppShell>
   );

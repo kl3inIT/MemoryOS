@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { ImageGeneration } from "./image-generation";
 
 it("shows the shimmer status and the dot grid while generating, without an image", () => {
@@ -75,4 +75,23 @@ it("opens a fullscreen viewer with the enlarged image when the image is clicked"
     "/api/chat/image-artifacts/abc/content",
   );
   expect(within(dialog).getByRole("button", { name: "Đóng" })).toBeInTheDocument();
+});
+
+it("offers an edit action only where the conversation can edit the image", () => {
+  const onEdit = vi.fn();
+  const { rerender } = render(
+    <ImageGeneration generating={false} src="/image" label="a red fox" editLabel="Sửa ảnh" />,
+  );
+  expect(screen.queryByRole("button", { name: "Sửa ảnh" })).toBeNull();
+  rerender(
+    <ImageGeneration
+      generating={false}
+      src="/image"
+      label="a red fox"
+      editLabel="Sửa ảnh"
+      onEdit={onEdit}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Sửa ảnh" }));
+  expect(onEdit).toHaveBeenCalledOnce();
 });

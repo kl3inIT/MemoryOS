@@ -42,7 +42,10 @@ function files(dir) {
 }
 for (const path of files(root)) {
   const source = readFileSync(path, "utf8");
-  const ast = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
+  // Babel 8 rejects a `<` that starts a type argument list while the jsx plugin is on, so only
+  // .tsx files get it; .ts files use generics such as `useState<Record<string, string>>()`.
+  const plugins = path.endsWith(".tsx") ? ["typescript", "jsx"] : ["typescript"];
+  const ast = parse(source, { sourceType: "module", plugins });
   function visit(node, ancestors = []) {
     if (!node || typeof node !== "object" || !node.type) return;
     const parent = ancestors.at(-1);

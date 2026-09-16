@@ -1,13 +1,19 @@
 "use client";
 
+import { useContext, useState } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useAuiState } from "@assistant-ui/react";
+import { useAui, useAuiState } from "@assistant-ui/react";
 import { ImageGeneration } from "@/components/assistant-ui/elements/image-generation";
 import { imageArtifactUrl, type GeneratedImage } from "./chat-image";
+import { ChatImageEditDialog } from "./chat-image-edit";
+import { ChatImageEditContext } from "./chat-image-edit-context";
 
 /** Renders generated images on an assistant message, plus the in-flight placeholder. */
 export function ChatImages() {
   const ui = useAppTranslation();
+  const aui = useAui();
+  const editing = useContext(ChatImageEditContext);
+  const [target, setTarget] = useState<string>();
   const images = useAuiState(
     (state) => state.message.metadata.custom.images as GeneratedImage[] | undefined,
   );
@@ -28,9 +34,27 @@ export function ChatImages() {
           downloadLabel={ui("Tải ảnh")}
           viewLabel={ui("Xem ảnh phóng to")}
           closeLabel={ui("Đóng")}
+          editLabel={ui("Sửa ảnh")}
+          onEdit={editing ? () => setTarget(image.id) : undefined}
         />
       ))}
       {generating && <ImageGeneration generating label={ui("Đang tạo ảnh…")} />}
+      {editing && target && (
+        <ChatImageEditDialog
+          imageId={target}
+          src={imageArtifactUrl(target)}
+          onOpenChange={(open) => {
+            if (!open) setTarget(undefined);
+          }}
+          onSubmit={({ instruction, mask }) => {
+            // The thread composer, not this message's edit composer, sends the edit request.
+            editing.enableImages();
+            const composer = aui.thread.composer();
+            composer.setText(instruction);
+            void composer.addAttachment(mask);
+          }}
+        />
+      )}
     </div>
   );
 }

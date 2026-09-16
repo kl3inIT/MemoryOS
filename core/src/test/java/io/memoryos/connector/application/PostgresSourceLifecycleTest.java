@@ -320,19 +320,18 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void publicAndPartiallyManagedSourcesAreReadOnlyButGlobalAuthorityCanEdit() {
+    void sourcesWithoutARecordedManagerStayReadOnlyUntilAnAdministratorAppointsOne() {
         GroupId a = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(a);
         GroupId b = new GroupId(UUID.randomUUID());
         addScopedManager(b);
         var publicSource = service.createFileSource(owner, "Public", List.of(a), null);
         var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.RESTRICTED);
-        jdbcClient.sql("""
-                INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id, is_manager)
-                VALUES (:tenant, :group, :actor, FALSE)
-                """).param("tenant", tenantId).param("group", b.value()).param("actor", manager.value()).update();
-        var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.RESTRICTED);
-        for (var source : List.of(publicSource, shared, memberOnly)) {
+        var managedOnly = service.createFileSource(owner, "Managed only", List.of(a), SourceAccess.RESTRICTED);
+
+        // Managing every associated Group is no longer Source authority: these Sources record no manager.
+        for (var source : List.of(publicSource, shared, managedOnly)) {
+            assertNull(service.getSource(owner, source.id()).managerActorId());
             assertEquals(SourcePermissions.NONE, service.getSource(manager, source.id()).permissions());
             assertThrows(SourceException.class, () -> service.renameSource(manager, source.id(), "Denied"));
             assertThrows(SourceException.class, () -> upload(manager, source.id(), "denied.txt", new byte[] {1}));
@@ -340,39 +339,58 @@ class PostgresSourceLifecycleTest {
             assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
         }
         assertEquals("Global rename", service.renameSource(owner, shared.id(), "Global rename").name());
-        service.replaceSourceGroups(owner, shared.id(), List.of(a));
+
+        assertThrows(IamException.class, () -> service.assignSourceManager(manager, shared.id(), manager));
+        assertEquals("SOURCE_MANAGER_NOT_ELIGIBLE", assertThrows(SourceException.class,
+                () -> service.assignSourceManager(owner, shared.id(), owner)).code());
+        assertEquals(manager, service.assignSourceManager(owner, shared.id(), manager).managerActorId());
         assertEquals("Managed rename", service.renameSource(manager, shared.id(), "  Managed rename  ").name());
-        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a, b)));
-        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId())));
-        assertThrows(SourceException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of()));
-        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(a);
+
+        // Group b answers to its own manager, so the appointed manager may neither drop nor duplicate it.
+        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a)));
+        assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId(), b)));
+        service.replaceSourceGroups(manager, shared.id(), List.of(b));
+        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(b);
+        assertTrue(service.getSource(manager, shared.id()).permissions().edit());
         assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
+
+        // A public Source stays read-only even for its recorded manager, and clearing the manager restores that.
+        service.assignSourceManager(owner, publicSource.id(), manager);
+        assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
         long before = jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single();
         service.updateSourceAccess(owner, publicSource.id(), SourceAccess.RESTRICTED);
         assertThat(jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single()).isGreaterThan(before);
         assertTrue(service.getSource(manager, publicSource.id()).permissions().edit());
-        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
+        assertNull(service.assignSourceManager(owner, publicSource.id(), null).managerActorId());
         assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
     }
 
     @Test
-    void scopedCreationRequiresPrivateManagedOrdinaryGroups() {
+    void scopedCreationIsRestrictedAndMayStartWithoutAGroup() {
         GroupId managed = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(managed);
         GroupId foreign = new GroupId(UUID.randomUUID());
         addScopedManager(foreign);
         assertThrows(SourceException.class, () -> service.createFileSource(manager, "Public", List.of(managed), SourceAccess.PUBLIC));
-        assertThrows(SourceException.class, () -> service.createFileSource(manager, "Empty", List.of(), null));
         assertThrows(IamException.class, () -> service.createFileSource(manager, "Foreign", List.of(foreign), null));
         assertThrows(IamException.class, () -> service.createFileSource(manager, "Mixed", List.of(managed, foreign), null));
         assertThrows(IamException.class, () -> service.createFileSource(manager, "System", List.of(adminGroupId()), null));
         assertEquals(0L, count("connector_credential_pairs"));
-        var source = service.createFileSource(manager, "Private", List.of(managed), null);
+
+        // Nobody reads a restricted Source with no Group; its creator attaches it when they are ready.
+        var source = service.createFileSource(manager, "Unattached", List.of(), null);
         assertEquals(SourceAccess.RESTRICTED, source.access());
+        assertEquals(manager, source.managerActorId());
+        assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
         assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
+        service.replaceSourceGroups(manager, source.id(), List.of(managed));
+        assertThat(service.listSourceGroups(manager, source.id()))
+                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managed);
         assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
+        service.replaceSourceGroups(manager, source.id(), List.of());
+        assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
     }
 
     @Test
@@ -436,7 +454,7 @@ class PostgresSourceLifecycleTest {
         ActorId manager = addScopedManager(managedGroupId);
         GroupId foreignGroupId = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroupId);
-        var managed = service.createFileSource(owner, "Managed source", List.of(managedGroupId), SourceAccess.RESTRICTED);
+        var managed = service.createFileSource(manager, "Managed source", List.of(managedGroupId), SourceAccess.RESTRICTED);
         var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.RESTRICTED);
         var managedUpload = upload(
                 manager,
@@ -478,17 +496,57 @@ class PostgresSourceLifecycleTest {
         assertThat(service.listSourceGroupOptions(manager, "", 0, 25).items())
                 .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managedGroupId);
 
+        // Moving the Source to another manager's Group leaves its recorded manager in place: they keep the catalog
+        // row and their operations, while reading its documents still needs membership they no longer have.
         service.replaceSourceGroups(
                 owner,
                 managed.id(),
                 List.of(foreignGroupId)
         );
+        assertThat(service.listSources(manager)).extracting(io.memoryos.connector.SourceSummary::id)
+                .containsExactly(managed.id());
+        assertTrue(service.getSource(manager, managed.id()).permissions().edit());
+
+        service.assignSourceManager(owner, managed.id(), null);
         assertTrue(service.listSources(manager).isEmpty());
         assertThrows(SourceException.class, () -> service.getSource(manager, managed.id()));
         assertThrows(
                 SourceException.class,
                 () -> service.getOperation(manager, managedUpload.operation().id())
         );
+    }
+
+    @Test
+    void groupManagersDetachSourcesFromTheirOwnGroupWithoutSourceAuthority() {
+        GroupId managedGroup = new GroupId(UUID.randomUUID());
+        ActorId manager = addScopedManager(managedGroup);
+        GroupId foreignGroup = new GroupId(UUID.randomUUID());
+        addScopedManager(foreignGroup);
+        var shared = service.createFileSource(owner, "Shared", List.of(managedGroup, foreignGroup), SourceAccess.RESTRICTED);
+        var onlyGroup = service.createFileSource(owner, "Only group", List.of(managedGroup), SourceAccess.RESTRICTED);
+        var publicShared = service.createFileSource(owner, "Public shared", List.of(managedGroup), SourceAccess.PUBLIC);
+        var foreignOnly = service.createFileSource(owner, "Foreign only", List.of(foreignGroup), SourceAccess.RESTRICTED);
+
+        // What their own Group carries is theirs to decide, even for Sources they cannot otherwise manage.
+        assertEquals(SourcePermissions.NONE, service.getSource(manager, shared.id()).permissions());
+        assertThat(service.listGroupSources(manager, managedGroup).removableSourceIds())
+                .containsExactlyInAnyOrder(shared.id(), onlyGroup.id(), publicShared.id());
+        assertThrows(IamException.class, () -> service.removeGroupSource(manager, foreignGroup, shared.id()));
+        assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
+                () -> service.removeGroupSource(manager, managedGroup, foreignOnly.id())).code());
+
+        service.removeGroupSource(manager, managedGroup, shared.id());
+        assertThat(service.listSourceGroups(owner, shared.id()))
+                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(foreignGroup);
+        service.removeGroupSource(manager, managedGroup, onlyGroup.id());
+        assertThat(service.listSourceGroups(owner, onlyGroup.id())).isEmpty();
+        service.removeGroupSource(manager, managedGroup, publicShared.id());
+        assertThat(service.listGroupSources(manager, managedGroup).sources()).isEmpty();
+        assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
+                () -> service.removeGroupSource(manager, managedGroup, shared.id())).code());
+
+        service.removeGroupSource(owner, foreignGroup, shared.id());
+        assertThat(service.listSourceGroups(owner, shared.id())).isEmpty();
     }
 
     @Test
@@ -538,12 +596,10 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void associationRevocationDuringProviderVerificationPreventsUploadCommit() throws Exception {
+    void managerRevocationDuringProviderVerificationPreventsUploadCommit() throws Exception {
         GroupId managedGroupId = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(managedGroupId);
-        GroupId foreignGroupId = new GroupId(UUID.randomUUID());
-        addScopedManager(foreignGroupId);
-        SourceId sourceId = service.createFileSource(owner, "Revoked source", List.of(managedGroupId), SourceAccess.RESTRICTED).id();
+        SourceId sourceId = service.createFileSource(manager, "Revoked source", List.of(managedGroupId), SourceAccess.RESTRICTED).id();
         byte[] content = "revoked during verification".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization upload = service.initiateUpload(
                 manager,
@@ -563,7 +619,7 @@ class PostgresSourceLifecycleTest {
                     () -> service.finalizeUpload(manager, sourceId, upload.uploadId())
             );
             assertTrue(objectStorage.awaitInspection());
-            service.replaceSourceGroups(owner, sourceId, List.of(foreignGroupId));
+            service.assignSourceManager(owner, sourceId, null);
             objectStorage.resumeInspection();
 
             ExecutionException failure = assertThrows(ExecutionException.class, finalize::get);

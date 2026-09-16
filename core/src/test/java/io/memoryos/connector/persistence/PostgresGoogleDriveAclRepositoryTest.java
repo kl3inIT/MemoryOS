@@ -337,7 +337,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     }
 
     private Fixture source(TenantId tenant) {
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Drive ACL fixture", io.memoryos.connector.SourceAccess.RESTRICTED)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Drive ACL fixture", io.memoryos.connector.SourceAccess.RESTRICTED, owner)));
         var credential = credential(tenant);
         jdbc.sql("UPDATE connectors SET connector_type = 'GOOGLE_DRIVE' WHERE tenant_id = :tenant AND id = :connector")
                 .param("tenant", tenant.value()).param("connector", pair.connectorId()).update();

@@ -1,0 +1,16 @@
+apiVersion: v2
+name: memoryos-interpreter
+description: MemoryOS interpreter - runs model-written Python in disposable executor pods
+type: application
+version: 0.1.0
+appVersion: latest
+keywords:
+  - code-execution
+  - python
+  - fastapi
+  - sandbox
+home: https://github.com/kl3inIT/MemoryOS
+sources:
+  - https://github.com/kl3inIT/MemoryOS
+maintainers:
+  - name: MemoryOS

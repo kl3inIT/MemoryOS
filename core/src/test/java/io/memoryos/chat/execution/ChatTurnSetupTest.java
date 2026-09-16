@@ -45,7 +45,7 @@ class ChatTurnSetupTest {
         var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
                 "Continue", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT,
+                "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
                 java.util.Map.of(), List.of(file));
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, binding(), "");
         assertEquals(java.util.Map.of(), setup.images());
@@ -112,7 +112,7 @@ class ChatTurnSetupTest {
 
     private TurnContext context(List<ChatMessage> messages) {
         return new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "gpt-5-mini",
-                "Answer", messages, Instant.now().plusSeconds(60));
+                "Answer", messages);
     }
 
     @Test
@@ -153,7 +153,7 @@ class ChatTurnSetupTest {
         var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
                 "Tóm tắt", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT,
+                "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
                 java.util.Map.of(id, new io.memoryos.chat.ChatFileService.FileText("A😀Việt", 0, 6)), List.of(file));
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(4, setup.messages().size());
@@ -169,7 +169,7 @@ class ChatTurnSetupTest {
         var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
                 "Summarize", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
-                "Answer", List.of(question), Instant.now().plusSeconds(60), io.memoryos.chat.ChatTurnOptions.DEFAULT,
+                "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
                 java.util.Map.of(file.id(), new io.memoryos.chat.ChatFileService.FileText("text", 0, 4)), List.of());
         var base = binding();
         var policy = new ChatRequestPolicy(base.policy().tokens(),
@@ -183,5 +183,20 @@ class ChatTurnSetupTest {
         org.junit.jupiter.api.Assertions.assertTrue(setup.evidence().snapshot().isEmpty());
         var noTools = new ChatModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, false, false);
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, noTools, ""));
+    }
+
+    @Test
+    void earlierGeneratedImagesAreNamedOnTheirAnswerEvenWithoutText() {
+        var image = UUID.randomUUID();
+        var imageOnly = message(ChatMessage.Role.ASSISTANT, "");
+        var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture", "Answer",
+                List.of(message(ChatMessage.Role.USER, "Make the shirt red"), imageOnly, message(ChatMessage.Role.USER, "Draw a man")),
+                io.memoryos.chat.ChatTurnOptions.DEFAULT, java.util.Map.of(), List.of(), null,
+                java.util.Map.of(imageOnly.id(), List.of(image)));
+        var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
+        assertEquals(List.of("Draw a man", "Make the shirt red"), setup.messages().stream()
+                .filter(m -> m instanceof UserMessage).map(Message::getContent).toList());
+        assertTrue(setup.messages().stream().anyMatch(m -> m instanceof com.embabel.chat.AssistantMessage
+                && m.getContent().contains("(image_id): " + image)));
     }
 }

@@ -55,7 +55,7 @@ class WebToolsTest {
         var events = new ArrayList<ChatToolEvent>();
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
-                    Instant.now().plusSeconds(10), events::add, () -> 5000, new JTokkitTokenCountEstimator());
+                    events::add, () -> 5000, new JTokkitTokenCountEstimator());
             String result = tools.webSearch(List.of("news", "unavailable", "news"));
             assertTrue(result.contains("Verified excerpt"));
             assertTrue(result.contains("1 request(s) failed"));
@@ -74,7 +74,7 @@ class WebToolsTest {
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var evidence = new ChatEvidence();
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), evidence, () -> {}, scope,
-                    Instant.now().plusSeconds(10), ignored -> {}, () -> 5000, new JTokkitTokenCountEstimator());
+                    ignored -> {}, () -> 5000, new JTokkitTokenCountEstimator());
             assertTrue(tools.openUrl(List.of()).contains("one to five"));
             assertTrue(tools.openUrl(Collections.nCopies(6, "https://example.com")).contains("one to five"));
             verifyNoInteractions(client);
@@ -95,7 +95,7 @@ class WebToolsTest {
         var events = new ArrayList<ChatToolEvent>(); evidence.publishTo(events::add);
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(connection, null), evidence, () -> {}, scope,
-                    Instant.now().plusSeconds(10), events::add, () -> 5000, new JTokkitTokenCountEstimator());
+                    events::add, () -> 5000, new JTokkitTokenCountEstimator());
             assertTrue(tools.webSearch(List.of("news")).contains("[2]"));
             assertTrue(tools.webSearch(List.of("news")).contains("already attempted"));
             verify(client, times(1)).search(connection, "news");
@@ -116,7 +116,7 @@ class WebToolsTest {
         var client = mock(WebProviderClient.class);
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), new ChatEvidence(),
-                    () -> { throw new CancellationException(); }, scope, Instant.now().plusSeconds(5), ignored -> {},
+                    () -> { throw new CancellationException(); }, scope, ignored -> {},
                     () -> 5000, new JTokkitTokenCountEstimator());
             assertThrows(CancellationException.class, () -> tools.openUrl(List.of("https://example.com")));
             verifyNoInteractions(client);
@@ -130,7 +130,7 @@ class WebToolsTest {
         var estimator = new JTokkitTokenCountEstimator();
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tools = new WebTools(client, new WebConnectionService.Access(null, null), evidence, () -> {}, scope,
-                    Instant.now().plusSeconds(10), ignored -> {}, () -> 300, estimator);
+                    ignored -> {}, () -> 300, estimator);
             String output = tools.openUrl(List.of("https://example.com/article"));
             assertTrue(output.contains("[1]"));
             assertTrue(estimator.estimate(output) <= 300);

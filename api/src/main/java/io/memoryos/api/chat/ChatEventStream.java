@@ -4,6 +4,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.ChatImageEvent;
+import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.api.chat.contract.ChatSourceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,7 +28,35 @@ final class ChatEventStream {
 
     record ReasoningEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                           @Schema(requiredMode = REQUIRED) long sequence,
-                          @Schema(requiredMode = REQUIRED) String text) {}
+                          @Schema(requiredMode = REQUIRED) String text,
+                          @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId) {}
+
+    record ResearchPlanEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                             @Schema(requiredMode = REQUIRED) long sequence,
+                             @Schema(requiredMode = REQUIRED) String text) {}
+
+    record TopLevelBranchingEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                                  @Schema(requiredMode = REQUIRED) long sequence,
+                                  @Schema(requiredMode = REQUIRED) int branches) {}
+
+    record ResearchAgentStartEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                                   @Schema(requiredMode = REQUIRED) long sequence,
+                                   @Schema(requiredMode = REQUIRED) String toolCallId,
+                                   @Schema(requiredMode = REQUIRED) int tabIndex,
+                                   @Schema(requiredMode = REQUIRED) String task) {}
+
+    record IntermediateReportEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                                   @Schema(requiredMode = REQUIRED) long sequence,
+                                   @Schema(requiredMode = REQUIRED) String toolCallId,
+                                   @Schema(requiredMode = REQUIRED) String text) {}
+
+    record IntermediateReportCitationsEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                                            @Schema(requiredMode = REQUIRED) long sequence,
+                                            @Schema(requiredMode = REQUIRED) String toolCallId,
+                                            @Schema(requiredMode = REQUIRED) List<ResearchCitation> citations) {}
+
+    /** An intermediate report citation number and the merged turn source it refers to. */
+    record ResearchCitation(@Schema(requiredMode = REQUIRED) int marker, @Schema(requiredMode = REQUIRED) int citationId) {}
 
     record OutcomeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                         @Schema(requiredMode = REQUIRED) long sequence,
@@ -46,7 +75,9 @@ final class ChatEventStream {
                      @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
                      @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatToolEvent.@Nullable QueryPlan search,
                      @Schema(requiredMode = REQUIRED) List<ChatToolEvent.ReadingDocument> documents,
-                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs) {}
+                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId,
+                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex) {}
 
     record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED) long sequence,
@@ -85,13 +116,23 @@ final class ChatEventStream {
     private static Object payload(StreamBufferWriter.Event event) {
         return switch (event.type()) {
             case "text-delta" -> new TextDeltaEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
-            case "reasoning" -> new ReasoningEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()));
+            case "reasoning" -> new ReasoningEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(event.text()), event.parentToolCallId());
+            case "research-plan" -> new ResearchPlanEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(research(event).text()));
+            case "top-level-branching" -> new TopLevelBranchingEvent(event.assistantMessageId(), event.sequence(), Objects.requireNonNull(research(event).branches()));
+            case "research-agent-start" -> new ResearchAgentStartEvent(event.assistantMessageId(), event.sequence(),
+                    Objects.requireNonNull(research(event).toolCallId()), Objects.requireNonNull(research(event).tabIndex()), Objects.requireNonNull(research(event).text()));
+            case "intermediate-report" -> new IntermediateReportEvent(event.assistantMessageId(), event.sequence(),
+                    Objects.requireNonNull(research(event).toolCallId()), Objects.requireNonNull(research(event).text()));
+            case "intermediate-report-citations" -> new IntermediateReportCitationsEvent(event.assistantMessageId(), event.sequence(),
+                    Objects.requireNonNull(research(event).toolCallId()),
+                    research(event).citations().stream().map(citation -> new ResearchCitation(citation.marker(), citation.citationId())).toList());
             case "outcome" -> new OutcomeEvent(event.assistantMessageId(), event.sequence(),
                     Objects.requireNonNull(event.status()).name(), event.failureCode(), event.hasArtifacts());
             case "tool" -> {
                 var tool = Objects.requireNonNull(event.tool());
                 yield new ToolEvent(event.assistantMessageId(), event.sequence(), tool.toolCallId(), tool.toolName(), tool.stage(),
-                        tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs());
+                        tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs(),
+                        tool.parentToolCallId(), tool.tabIndex());
             }
             case "image" -> {
                 var image = Objects.requireNonNull(event.image());
@@ -100,5 +141,9 @@ final class ChatEventStream {
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };
+    }
+
+    private static ChatResearchEvent research(StreamBufferWriter.Event event) {
+        return Objects.requireNonNull(event.research());
     }
 }

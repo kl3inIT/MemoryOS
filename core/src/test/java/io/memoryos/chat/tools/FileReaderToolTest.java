@@ -42,7 +42,7 @@ class FileReaderToolTest {
         try (var scope = new SearchTasks.Scope(Duration.ofSeconds(1))) {
             var tool = new FileReaderTool(files, actor, tenant, allowed, () -> {}, () -> 4000,
                     new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(),
-                    search, new ChatEvidence(), scope, Instant.now().plusSeconds(30));
+                    search, new ChatEvidence(), scope);
             when(search.search(actor, tenant, allowed, "query")).thenThrow(new SearchUnavailableException());
             assertTrue(tool.searchFiles("query").contains("Use read_file"));
             doThrow(ChatException.unavailable()).when(search).search(actor, tenant, allowed, "query");

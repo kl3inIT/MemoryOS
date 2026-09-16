@@ -1153,13 +1153,88 @@ class SourceApiIntegrationTest {
     }
 
     @Test
+    void groupManagerDetachesSourcesAndAdministratorsAppointTheResponsibleManager() throws Exception {
+        UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
+                .query(UUID.class)
+                .single();
+        UUID managedGroupId = UUID.randomUUID();
+        ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
+        UUID otherGroupId = UUID.randomUUID();
+        scopedManager(tenantId, otherGroupId);
+        var managed = new io.memoryos.iam.group.GroupId(managedGroupId);
+        var other = new io.memoryos.iam.group.GroupId(otherGroupId);
+        UUID managerActorId = manager.getPrincipal().actorId().value();
+        String sharedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Shared source",
+                List.of(managed, other), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+        String onlySourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Only source",
+                List.of(managed), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+
+        // Both associations answer to this Group's manager, whatever authority they hold over the Sources.
+        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].permissions.edit").value(false))
+                .andExpect(jsonPath("$.removableSourceIds.length()").value(2));
+        for (String sourceId : List.of(onlySourceId, sharedSourceId)) {
+            mockMvc.perform(post("/api/groups/{groupId}/sources/{sourceId}/remove", managedGroupId, sourceId)
+                            .with(authentication(manager))
+                            .header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNoContent());
+        }
+        mockMvc.perform(get("/api/sources/{sourceId}/groups", sharedSourceId).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(otherGroupId.toString()));
+        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(0));
+
+        mockMvc.perform(post("/api/sources/{sourceId}/manager", sharedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actorId\":\"%s\"}".formatted(managerActorId)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/sources/{sourceId}/manager", sharedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actorId\":\"%s\"}".formatted(owner.getPrincipal().actorId().value())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOURCE_MANAGER_NOT_ELIGIBLE"));
+        mockMvc.perform(post("/api/sources/{sourceId}/manager", sharedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actorId\":\"%s\"}".formatted(managerActorId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managerActorId").value(managerActorId.toString()));
+        mockMvc.perform(get("/api/sources/{sourceId}", sharedSourceId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions.edit").value(true));
+        mockMvc.perform(post("/api/sources/{sourceId}/groups", sharedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"groupIds\":[\"%s\",\"%s\"]}".formatted(managedGroupId, otherGroupId)))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/sources/{sourceId}/manager", sharedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actorId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managerActorId").doesNotExist());
+    }
+
+    @Test
     void enforcesScopedSourceHttpSurfacesAndImmediateAssociationRevocation() throws Exception {
         UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
                 .query(UUID.class)
                 .single();
         UUID managedGroupId = UUID.randomUUID();
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
-        String managedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
+        String managedSourceId = sourceManagement.createFileSource(manager.getPrincipal().actorId(),
                 "Manager source", List.of(new io.memoryos.iam.group.GroupId(managedGroupId)),
                 io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
         String hiddenSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
@@ -1239,13 +1314,15 @@ class SourceApiIntegrationTest {
                         .header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
+        // A group manager may start a Source with no association and attach it once it is ready.
         mockMvc.perform(post("/api/sources/file")
                         .with(authentication(manager))
                         .header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Denied manager create\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+                        .content("{\"name\":\"Unattached manager create\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.access").value("RESTRICTED"))
+                .andExpect(jsonPath("$.managerActorId").value(manager.getPrincipal().actorId().value().toString()));
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(manager))
                         .header("X-MemoryOS-CSRF", "1")
@@ -1269,7 +1346,8 @@ class SourceApiIntegrationTest {
                         .content("{\"name\":\"Scoped private\",\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("RESTRICTED"));
 
-        mockMvc.perform(get("/api/sources/group-options?search=Scoped")
+        // Other tests share this Tenant and add their own "Scoped" Groups, so search for this one by its unique name.
+        mockMvc.perform(get("/api/sources/group-options").param("search", managedGroupId.toString())
                         .with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[?(@.id == '%s')]".formatted(managedGroupId)).exists());
@@ -1278,14 +1356,26 @@ class SourceApiIntegrationTest {
                         .header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"groupIds\":[]}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions.edit").value(true));
+
+        // Handing the Source to another Group and clearing its manager withdraws every scoped surface at once.
+        UUID foreignGroupId = UUID.randomUUID();
+        scopedManager(tenantId, foreignGroupId);
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"groupIds\":[]}"))
+                        .content("{\"groupIds\":[\"%s\"]}".formatted(foreignGroupId)))
                 .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/sources/{sourceId}/manager", managedSourceId)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actorId\":null}"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/sources/{sourceId}", managedSourceId).with(authentication(manager)))
                 .andExpect(status().isNotFound());

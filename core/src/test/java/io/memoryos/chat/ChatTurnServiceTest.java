@@ -51,11 +51,11 @@ class ChatTurnServiceTest {
     private final ChatModelExecutor model = mock(ChatModelExecutor.class);
     private final ChatModelResolver models = mock(ChatModelResolver.class);
     private final ChatModelClients.Lease lease = mock(ChatModelClients.Lease.class);
-    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(1), 6, 1024, 32000, 10000,
+    private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null);
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(4096, 16384,
-            Duration.ofMinutes(1), 512, Duration.ofMillis(25), 2048, 4, 8, 2048, 16,
+            Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 2048, 4, 8, 2048, 16,
             Duration.ofMillis(5), Duration.ofMinutes(1)));
     private final UUID session = UUID.randomUUID();
     private final UUID parent = UUID.randomUUID();
@@ -67,14 +67,14 @@ class ChatTurnServiceTest {
                 com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
         when(persistence.loadContext(any(), any(), any())).thenReturn(new ChatTurnPersistence.TurnContext(actor,
-                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question), Instant.now().plusSeconds(60)));
+                new TenantId(UUID.randomUUID()), "gpt-5-mini", "Answer", List.of(question)));
     }
 
     @Test
@@ -91,7 +91,7 @@ class ChatTurnServiceTest {
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
         }
     }
 
@@ -103,7 +103,7 @@ class ChatTurnServiceTest {
         }, streams, models)) {
             assertThrows(TaskRejectedException.class, () -> service.send(actor, session, parent, request, "Question", null));
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
+                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any());
             // A second rejected dispatch reaches the executor; it is not falsely rejected as capacity exhausted.
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
@@ -137,8 +137,40 @@ class ChatTurnServiceTest {
             queued.get().run();
             verify(model).execute(any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence, never()).control(any());
+            // A fresh run is not due for lease renewal; renewal cadence, not every tick, touches its row.
+            verify(persistence, never()).renewLeases(any(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
+        }
+    }
+
+    @Test
+    void failedLeaseRenewalKeepsTheRunAndLostOwnershipInterruptsIt() throws Exception {
+        prepare();
+        var renewing = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofMillis(50), Duration.ofSeconds(60),
+                6, 1024, 32000, 10000, null, null);
+        var started = new CountDownLatch(1);
+        doAnswer(call -> {
+            call.<Consumer<String>>getArgument(3).accept("Partial");
+            started.countDown();
+            call.<Mono<?>>getArgument(2).block(Duration.ofSeconds(10));
+            return null;
+        }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any());
+        when(persistence.renewLeases(any(), any())).thenThrow(new IllegalStateException("database unavailable"))
+                .thenReturn(java.util.Set.of());
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor();
+                var service = new ChatTurnService(persistence, model, renewing, tasks::execute, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            Thread.sleep(80);
+            service.maintain();
+            verify(persistence).renewLeases(eq(List.of(pair.assistantMessageId())), eq(Duration.ofMinutes(30)));
+            verify(persistence, never()).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            // The row was reconciled elsewhere: the next renewal does not return it, so the local run stops.
+            service.maintain();
+            verify(persistence, org.mockito.Mockito.timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()),
+                    eq(ChatMessage.Status.FAILED), eq("Partial"), eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(),
+                    eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
         }
     }
 
@@ -156,7 +188,7 @@ class ChatTurnServiceTest {
                 service.send(actor, session, parent, request, "Question", null);
                 service.maintain();
                 verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
+                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
                 verify(lease, never()).close();
                 assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class,
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
@@ -173,7 +205,7 @@ class ChatTurnServiceTest {
         prepare();
         doAnswer(call -> { call.<Consumer<String>>getArgument(3).accept("Partial"); return null; })
                 .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any());
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("database unavailable"))
                 .thenReturn(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.FAILED, "CHAT_INTERRUPTED"));
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
@@ -209,7 +241,7 @@ class ChatTurnServiceTest {
                 assertTrue(started.await(5, TimeUnit.SECONDS));
             }
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq("Partial"),
-                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any());
+                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY));
         }
     }
 
@@ -220,7 +252,7 @@ class ChatTurnServiceTest {
         var release = new CountDownLatch(1);
         var queued = new AtomicReference<Runnable>();
         when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(_ -> {
                     writing.countDown();
                     assertTrue(release.await(5, TimeUnit.SECONDS));
@@ -238,7 +270,7 @@ class ChatTurnServiceTest {
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
             } finally { release.countDown(); }
             execution.get(5, TimeUnit.SECONDS);
-            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 }

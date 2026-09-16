@@ -36,6 +36,15 @@ public final class SourceException extends BusinessException {
         );
     }
 
+    public static SourceException managerNotEligible() {
+        return new SourceException(
+                "SOURCE_MANAGER_NOT_ELIGIBLE",
+                FailureCategory.VALIDATION,
+                "Choose an active member who manages at least one group.",
+                "source manager candidate does not manage an ordinary group"
+        );
+    }
+
     public static SourceException invalidRootLink(String safeMessage) {
         return new SourceException("SOURCE_GOOGLE_ROOT_LINK_INVALID", FailureCategory.VALIDATION,
                 safeMessage, "invalid, duplicate or account-wide Google Drive link");

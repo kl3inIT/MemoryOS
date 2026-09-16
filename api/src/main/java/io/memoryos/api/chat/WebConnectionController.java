@@ -64,7 +64,7 @@ class WebConnectionController {
         var supported = models.availableWebModels(identity.actorId(), sessionId);
         return new WebAvailabilityResponse(access.search() != null, true,
                 access.search() == null ? null : access.search().provider(), access.content() == null ? null : access.content().provider(),
-                supported.automatic(), supported.required(), supported.inherited(), supported.nativeSearch());
+                supported.automatic(), supported.inherited(), supported.nativeSearch());
     }
     @GetMapping("/connections")
     @ApiResponse(responseCode = "200", description = "Web connections", useReturnTypeSchema = true)

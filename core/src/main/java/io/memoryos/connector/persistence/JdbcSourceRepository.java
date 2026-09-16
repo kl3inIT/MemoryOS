@@ -37,7 +37,8 @@ public class JdbcSourceRepository {
         this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
-    public SourcePair createFileSource(TenantId tenantId, ActorId actorId, String name, SourceAccess access) {
+    public SourcePair createFileSource(TenantId tenantId, ActorId actorId, String name, SourceAccess access,
+            @Nullable ActorId managerActorId) {
         UUID credentialId = ensureNoAuthCredential(tenantId);
         UUID connectorId = UUID.randomUUID();
         SourceId sourceId = new SourceId(UUID.randomUUID());
@@ -51,9 +52,11 @@ public class JdbcSourceRepository {
                 .update();
         jdbcClient.sql("""
                         INSERT INTO connector_credential_pairs (
-                            id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id
+                            id, tenant_id, connector_id, credential_id, access_type, status,
+                            created_by_actor_id, manager_actor_id
                         ) VALUES (
-                            :id, :tenantId, :connectorId, :credentialId, :access, 'NOT_STARTED', :actorId
+                            :id, :tenantId, :connectorId, :credentialId, :access, 'NOT_STARTED',
+                            :actorId, :managerActorId
                         )
                         """)
                 .param("id", sourceId.value())
@@ -62,6 +65,7 @@ public class JdbcSourceRepository {
                 .param("credentialId", credentialId)
                 .param("access", access.name())
                 .param("actorId", actorId.value())
+                .param("managerActorId", managerActorId == null ? null : managerActorId.value())
                 .update();
         return new SourcePair(connectorId, sourceId, SourceStatus.NOT_STARTED, 0);
     }
@@ -142,6 +146,20 @@ public class JdbcSourceRepository {
                 .param("actorId", actorId.value()).param("globalAccess", globalAccess)
                 .query(Boolean.class).single();
         if (!found) throw SourceException.notFound();
+    }
+
+    /** Records the Actor who may attach this Source to Groups, or clears it so only global authority remains. */
+    public void assignManager(TenantId tenantId, SourceId sourceId, @Nullable ActorId managerActorId) {
+        int updated = jdbcClient.sql("""
+                UPDATE connector_credential_pairs
+                SET manager_actor_id = :managerActorId, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenantId AND id = :pairId
+                """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .param("managerActorId", managerActorId == null ? null : managerActorId.value())
+                .update();
+        if (updated != 1) throw SourceException.notFound();
     }
 
     public void requireCreatorGroupless(TenantId tenantId, ActorId actorId, SourceId sourceId) {
