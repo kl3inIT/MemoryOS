@@ -435,7 +435,22 @@ export type SourceSummary = {
     documentCount: number;
     lastSucceededAt: string | null;
     errorCode: string | null;
+    /**
+     * Actor who may attach this source to the groups they manage.
+     */
+    managerActorId: string | null;
+    /**
+     * Profile name of the responsible manager.
+     */
+    managerName: string | null;
     permissions: SourcePermissions;
+};
+
+export type AssignSourceManagerRequest = {
+    /**
+     * Actor who may attach this source to the groups they manage; null leaves it to global source management alone.
+     */
+    actorId: string | null;
 };
 
 export type UpdateSourceGroupsRequest = {
@@ -1018,6 +1033,10 @@ export type GroupPage = {
 
 export type GroupSources = {
     items: Array<SourceSummary>;
+    /**
+     * Sources in items that the caller may remove from this group.
+     */
+    removableSourceIds: Array<string>;
 };
 
 export type GroupMember = {
@@ -3132,6 +3151,30 @@ export type RenameSourceResponses = {
 
 export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceResponses];
 
+export type AssignSourceManagerData = {
+    body: AssignSourceManagerRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/manager';
+};
+
+export type AssignSourceManagerResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type AssignSourceManagerResponse = AssignSourceManagerResponses[keyof AssignSourceManagerResponses];
+
 export type RemoveSourceItemData = {
     body?: never;
     headers: {
@@ -3726,6 +3769,31 @@ export type CreateGroupResponses = {
 };
 
 export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type RemoveGroupSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/sources/{sourceId}/remove';
+};
+
+export type RemoveGroupSourceResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RemoveGroupSourceResponse = RemoveGroupSourceResponses[keyof RemoveGroupSourceResponses];
 
 export type RenameGroupData = {
     body: RenameGroupRequest;

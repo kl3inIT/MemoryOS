@@ -2208,6 +2208,45 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/manager:
+    post:
+      tags:
+      - Sources
+      summary: Appoint the group manager responsible for one source
+      description: Administrator only. The appointed actor must manage at least one
+        ordinary group and may then attach the source to those groups.
+      operationId: assignSourceManager
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignSourceManagerRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -2999,6 +3038,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GroupSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/sources/{sourceId}/remove:
+    post:
+      tags:
+      - Groups
+      summary: Remove one source from one group
+      description: Global source managers may remove any association. A group manager
+        may remove a non-public source that stays associated with another group; other
+        groups keep their associations.
+      operationId: removeGroupSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -8546,6 +8621,17 @@ components:
           type:
           - string
           - "null"
+        managerActorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Actor who may attach this source to the groups they manage.
+        managerName:
+          type:
+          - string
+          - "null"
+          description: Profile name of the responsible manager.
         permissions:
           $ref: "#/components/schemas/SourcePermissions"
       required:
@@ -8554,11 +8640,26 @@ components:
       - errorCode
       - id
       - lastSucceededAt
+      - managerActorId
+      - managerName
       - name
       - pendingWork
       - permissions
       - status
       - type
+    AssignSourceManagerRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Actor who may attach this source to the groups they manage;
+            null leaves it to global source management alone.
+      required:
+      - actorId
     UpdateSourceGroupsRequest:
       type: object
       additionalProperties: false
@@ -10383,8 +10484,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceSummary"
+        removableSourceIds:
+          type: array
+          description: Sources in items that the caller may remove from this group.
+          items:
+            type: string
+            format: uuid
       required:
       - items
+      - removableSourceIds
     GroupMember:
       type: object
       additionalProperties: false
