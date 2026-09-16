@@ -18,6 +18,11 @@ import type { ChatSource } from "./chat-evidence";
 
 type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
 type ToolState = "running" | "done" | "failed";
+/** Internal search was renamed to snake case; answers saved before that still carry the old name. */
+function isInternalSearch(name: string) {
+  return name === "search_knowledge" || name === "searchKnowledge";
+}
+
 type Translate = ReturnType<typeof useAppTranslation>;
 const emptySources: ChatSource[] = [];
 
@@ -85,7 +90,8 @@ function stepTitle(
 ) {
   const running = state === "running";
   switch (part.toolName) {
-    case "searchKnowledge": {
+    case "searchKnowledge":
+    case "search_knowledge": {
       const scope = searchScope(ui, progress.filters);
       if (scope)
         return running
@@ -118,7 +124,7 @@ function stepTitle(
 /** The group header names the live phase while the assistant works. */
 function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
   const stage = toolProgress(tool.args).stage;
-  if (tool.toolName === "searchKnowledge") {
+  if (isInternalSearch(tool.toolName)) {
     if (stage === "SELECTING") return ui("Đang chọn đoạn liên quan…");
     if (stage === "EXPANDING" || stage === "SOURCE") return ui("Đang đọc ngữ cảnh tài liệu…");
     return ui("Đang tìm trong tài liệu…");
@@ -168,6 +174,7 @@ export function ChatResearchToolStep({
 function toolIcon(name: string) {
   switch (name) {
     case "searchKnowledge":
+    case "search_knowledge":
       return <Search />;
     case "web_search":
     case "open_url":
@@ -291,10 +298,12 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
     const source = sources.find((candidate) => candidate.citationId === id);
     return source ? [source] : [];
   });
-  const searching = ["searchKnowledge", "web_search", "search_files"].includes(part.toolName);
+  const searching = ["search_knowledge", "searchKnowledge", "web_search", "search_files"].includes(
+    part.toolName,
+  );
   // Reading candidates while searching; the evidence the step actually returned once it finished.
   const reading =
-    part.toolName === "searchKnowledge" && progress.documents.length > 0 && state === "running"
+    isInternalSearch(part.toolName) && progress.documents.length > 0 && state === "running"
       ? progress.documents.map((document) => ({
           key: `${document.documentId}:${document.startOrdinal}`,
           icon: <FileText />,

@@ -52,7 +52,7 @@ import org.jspecify.annotations.Nullable;
 
 /** One per turn. Embabel owns inference/tool continuation; this tool owns grounded retrieval. */
 public final class SearchTool implements AutoCloseable {
-    private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "searchKnowledge");
+    private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "search_knowledge");
     private final DocumentSearchService search;
     private final ActorId actor;
     private final PromptRunner selectionRunner;
@@ -135,7 +135,7 @@ public final class SearchTool implements AutoCloseable {
     private record SearchCycle(int cycleNumber, List<String> queries, List<SourceType> searchedSources) {}
     private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion) {}
 
-    @LlmTool(description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
+    @LlmTool(name = "search_knowledge", description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
     @SuppressWarnings("unused") // Invoked by the native Embabel method tool, verified through Chat HTTP tests.
     public String searchKnowledge(
             @LlmTool.Param(description = "One to three focused search queries covering the user's question; preserve exact names and resolve references from history") List<String> queries,
@@ -429,7 +429,7 @@ public final class SearchTool implements AutoCloseable {
         if (scope.isEmpty()) return "";
         return "(This internal search covered only: " + scope.stream().map(Enum::name).sorted().collect(Collectors.joining(", "))
                 + ". Queries run: " + (queriesRun.isEmpty() ? "(none)" : String.join("; ", queriesRun))
-                + ". Call searchKnowledge again with different query terms to keep searching.)";
+                + ". Call search_knowledge again with different query terms to keep searching.)";
     }
 
     private SemanticQuery semanticQuery(String fallbackQuery) {

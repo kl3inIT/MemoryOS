@@ -38,7 +38,7 @@ class ChatEventStreamTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[]")));
         streams.open(assistant);
-        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("tool-1", "searchKnowledge"), source));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("tool-1", "search_knowledge"), source));
         streams.append(assistant, "Twelve days [1]");
         streams.finish(assistant, Status.CANCELED, null);
         var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
@@ -47,7 +47,7 @@ class ChatEventStreamTest {
         assertEquals(List.of("tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
         var payload = assertInstanceOf(ChatEventStream.ToolEvent.class, events.getFirst().data());
         assertEquals("tool-1", payload.toolCallId());
-        assertEquals("searchKnowledge", payload.toolName());
+        assertEquals("search_knowledge", payload.toolName());
         assertNotNull(payload.source());
         assertEquals(source.documentId(), payload.source().documentId());
         assertEquals(assistant + ":1", events.getFirst().id());
@@ -85,7 +85,7 @@ class ChatEventStreamTest {
         streams.research(assistant, ChatResearchEvent.branching(2));
         streams.tool(assistant, new ChatToolEvent(agent, ChatToolEvent.Stage.STARTED).tab(1));
         streams.research(assistant, ChatResearchEvent.agent("call_agent", 1, "Revenue in 2025"));
-        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("call_search", "searchKnowledge"), ChatToolEvent.Stage.STARTED).nested("call_agent"));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("call_search", "search_knowledge"), ChatToolEvent.Stage.STARTED).nested("call_agent"));
         streams.reasoning(assistant, "Next, costs", "call_agent");
         streams.research(assistant, ChatResearchEvent.report("call_agent", "Revenue grew [1]."));
         streams.research(assistant, ChatResearchEvent.citations("call_agent", List.of(new ChatResearchEvent.Citation(1, 2))));

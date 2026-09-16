@@ -493,7 +493,7 @@ class ChatSessionApiIntegrationTest {
             Prompt prompt = call.getArgument(0);
             assertFalse(prompt.toString().contains("PRIVATE DENIED CONTENT"));
             if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
-                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("search-1", "function", "searchKnowledge",
+                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge",
                             "{\"queries\":[\"leave\"]}"))).build(),
                     ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                     ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
@@ -576,14 +576,14 @@ class ChatSessionApiIntegrationTest {
                 }
                 if (system.contains("research agent that conducts research")) {
                     // Onyx tool names must be renamed to the MemoryOS tools the agent actually has.
-                    assertTrue(system.contains("searchKnowledge"), "the agent prompt names the internal search tool");
+                    assertTrue(system.contains("search_knowledge"), "the agent prompt names the internal search tool");
                     assertFalse(system.contains("internal_search") || system.contains("open_urls"), "no Onyx tool names reach the agent prompt");
                     boolean bogus = contents.contains("Bogus task");
                     int step = phases.computeIfAbsent(bogus ? "bogus" : "leave", _ -> new AtomicInteger()).incrementAndGet();
                     if (step > 1) return Flux.just(toolCalls(new AssistantMessage.ToolCall((bogus ? "b" : "l") + "-report", "function", "generate_report", "{}")));
                     return Flux.just(bogus
                             ? toolCalls(new AssistantMessage.ToolCall("bogus-1", "function", "no_such_tool", "{}"))
-                            : toolCalls(new AssistantMessage.ToolCall("search-1", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")));
+                            : toolCalls(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")));
                 }
                 throw new AssertionError("Unexpected research inference: " + system.substring(0, Math.min(80, system.length())));
             } catch (Throwable failure) {
@@ -626,7 +626,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals("COMPLETED", leave.path("status").asText());
         assertEquals("Twelve days [1].", leave.path("report").asText());
         assertEquals(1, leave.path("citations").get(0).path("citationId").asInt());
-        assertEquals("searchKnowledge", leave.path("activity").path("steps").get(0).path("toolName").asText());
+        assertEquals("search_knowledge", leave.path("activity").path("steps").get(0).path("toolName").asText());
         var bogus = research.path("agents").get(1);
         assertEquals(1, bogus.path("tabIndex").asInt());
         assertEquals("COMPLETED", bogus.path("status").asText());
@@ -672,7 +672,7 @@ class ChatSessionApiIntegrationTest {
             if (system.contains("You are an orchestrator agent for deep research"))
                 return Flux.just(toolCalls(new AssistantMessage.ToolCall("agent-1", "function", "research_agent", "{\"task\":\"Leave task\"}")));
             if (system.contains("research agent that conducts research"))
-                return Flux.just(toolCalls(new AssistantMessage.ToolCall("search-1", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")));
+                return Flux.just(toolCalls(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")));
             reports.incrementAndGet();
             return Flux.just(response("Report", "stop", 12));
         });
@@ -794,8 +794,8 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\",\"policy\"]}"),
-                        new AssistantMessage.ToolCall("never-run", "function", "searchKnowledge", "{\"queries\":[\"second\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\",\"policy\"]}"),
+                        new AssistantMessage.ToolCall("never-run", "function", "search_knowledge", "{\"queries\":[\"second\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();
@@ -825,7 +825,7 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();
@@ -860,7 +860,7 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();

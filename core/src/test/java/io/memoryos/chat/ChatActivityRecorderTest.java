@@ -12,7 +12,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class ChatActivityRecorderTest {
-    private final ChatToolEvent.Call search = new ChatToolEvent.Call("call_1", "searchKnowledge");
+    private final ChatToolEvent.Call search = new ChatToolEvent.Call("call_1", "search_knowledge");
     private final ChatToolEvent.Call read = new ChatToolEvent.Call("call_2", "read_file");
 
     @Test
@@ -90,7 +90,7 @@ class ChatActivityRecorderTest {
         var documents = IntStream.range(0, 10).mapToObj(index ->
                 new ChatToolEvent.ReadingDocument(UUID.randomUUID(), UUID.randomUUID(), "T".repeat(255), index, index)).toList();
         for (int step = 0; step < 40; step++) {
-            var call = new ChatToolEvent.Call("call_" + step, "searchKnowledge");
+            var call = new ChatToolEvent.Call("call_" + step, "search_knowledge");
             recorder.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED), 0);
             recorder.accept(new ChatToolEvent(call, new ChatToolEvent.QueryPlan(
                     IntStream.range(0, 8).mapToObj(query -> query + "q".repeat(1990)).toList(), SearchFilters.NONE)), 0);
@@ -114,7 +114,7 @@ class ChatActivityRecorderTest {
     @Test
     void terminalDurationsBelongOnlyToTerminalStages() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ChatToolEvent("call_1", "searchKnowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L));
+                new ChatToolEvent("call_1", "search_knowledge", ChatToolEvent.Stage.STARTED, null, null, List.of(), 5L));
         assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent.Call("call_1", "bad name"));
         assertThrows(IllegalArgumentException.class, () -> new ChatReasoningDelta(""));
     }

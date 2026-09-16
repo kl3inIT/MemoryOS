@@ -421,7 +421,7 @@ export async function handleChatFixture(
     if (grounded)
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "STARTED",
         source: null,
       });
@@ -432,7 +432,7 @@ export async function handleChatFixture(
           {
             position: 1,
             toolCallId: "search-1",
-            toolName: "searchKnowledge",
+            toolName: "search_knowledge",
             status: "FAILED",
             startedAt: new Date().toISOString(),
             durationMs: 400,
@@ -448,7 +448,7 @@ export async function handleChatFixture(
       };
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "SEARCHING",
         source: null,
         documents: [],
@@ -463,7 +463,7 @@ export async function handleChatFixture(
       });
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "EXPANDING",
         source: null,
         search: null,
@@ -534,7 +534,7 @@ export async function handleChatFixture(
               {
                 position: 0,
                 toolCallId: "search-1",
-                toolName: "searchKnowledge",
+                toolName: "search_knowledge",
                 status: "COMPLETED",
                 startedAt: new Date().toISOString(),
                 durationMs: 1200,
@@ -546,7 +546,7 @@ export async function handleChatFixture(
             ],
             reasoning: [],
           };
-          const tool = { toolCallId: "search-1", toolName: "searchKnowledge" };
+          const tool = { toolCallId: "search-1", toolName: "search_knowledge" };
           emit(run, "tool", { ...tool, stage: "SOURCE", source: fixtureSource });
           emit(run, "tool", { ...tool, stage: "COMPLETED", source: null, durationMs: 1200 });
         }

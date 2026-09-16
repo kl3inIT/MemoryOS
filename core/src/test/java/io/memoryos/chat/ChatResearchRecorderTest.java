@@ -12,7 +12,7 @@ class ChatResearchRecorderTest {
     private final ChatToolEvent.Call revenue = new ChatToolEvent.Call("call_revenue", "research_agent");
     private final ChatToolEvent.Call costs = new ChatToolEvent.Call("call_costs", "research_agent");
     private final ChatToolEvent.Call policy = new ChatToolEvent.Call("call_policy", "research_agent");
-    private final ChatToolEvent.Call search = new ChatToolEvent.Call("call_search", "searchKnowledge");
+    private final ChatToolEvent.Call search = new ChatToolEvent.Call("call_search", "search_knowledge");
 
     @Test
     void recordsAgentsByCycleAndTabWithTheirStepsReportsAndCitations() {

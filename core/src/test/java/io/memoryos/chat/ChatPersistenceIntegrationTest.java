@@ -323,7 +323,7 @@ class ChatPersistenceIntegrationTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
         var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
-        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "searchKnowledge", ChatActivity.StepStatus.COMPLETED,
+        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "search_knowledge", ChatActivity.StepStatus.COMPLETED,
                 java.time.Instant.parse("2026-09-14T00:00:00Z"), 120L, 0, List.of("leave policy"), null, List.of(), List.of(1))),
                 List.of(new ChatActivity.ReasoningSegment(0, 0, "Checking the HR policy.")));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
@@ -426,7 +426,7 @@ class ChatPersistenceIntegrationTest {
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
         var agent = new ChatResearch.Agent("call_revenue", 0, 1, "Revenue in 2025", ChatActivity.StepStatus.COMPLETED, 900L,
                 "Revenue grew [1].", List.of(new ChatResearchEvent.Citation(1, 4)), new ChatActivity(List.of(new ChatActivity.ActivityStep(0,
-                "call_search", "searchKnowledge", ChatActivity.StepStatus.COMPLETED, java.time.Instant.parse("2026-09-15T10:00:00Z"), 12L, 0,
+                "call_search", "search_knowledge", ChatActivity.StepStatus.COMPLETED, java.time.Instant.parse("2026-09-15T10:00:00Z"), 12L, 0,
                 List.of("revenue"), null, List.of(), List.of())), List.of()));
         var state = new ChatResearch(true, "1. Revenue", List.of(agent));
         assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,

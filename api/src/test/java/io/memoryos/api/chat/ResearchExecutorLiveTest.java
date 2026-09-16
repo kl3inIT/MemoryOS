@@ -110,7 +110,7 @@ class ResearchExecutorLiveTest {
     }
 
     private static Tool knowledge(ResearchExecutor.AgentScope agent, AtomicInteger searches) {
-        return Tool.Companion.of("searchKnowledge", "Search authorized organization documents. Returns evidence with citation numbers.",
+        return Tool.Companion.of("search_knowledge", "Search authorized organization documents. Returns evidence with citation numbers.",
                 Tool.InputSchema.of(Tool.Parameter.string("query", "Focused search query")), Tool.Metadata.DEFAULT, input -> {
                     searches.incrementAndGet();
                     var call = Objects.requireNonNull(agent.activity().current());

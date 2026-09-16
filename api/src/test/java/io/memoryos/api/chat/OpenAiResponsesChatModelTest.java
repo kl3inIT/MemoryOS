@@ -91,7 +91,7 @@ class OpenAiResponsesChatModelTest {
         var request = requests.getFirst();
         assertFalse(request.path("store").asBoolean(true));
         assertEquals(List.of("function", "web_search"), types(request.path("tools")));
-        assertEquals("searchKnowledge", request.path("tools").get(0).path("name").asString());
+        assertEquals("search_knowledge", request.path("tools").get(0).path("name").asString());
         assertTrue(request.path("tool_choice").isMissingNode());
         assertEquals("https://example.com/news", evidence.snapshot().getFirst().web().url());
         assertEquals("Release", evidence.snapshot().getFirst().title());
@@ -146,7 +146,7 @@ class OpenAiResponsesChatModelTest {
     @Test
     void functionCallContinuationEchoesReasoningAndSendsToolOutput() {
         var reasoning = Map.<String, Object>of("type", "reasoning", "id", "rs_1", "summary", List.of(), "encrypted_content", "opaque-state");
-        var call = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "searchKnowledge", "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");
+        var call = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "search_knowledge", "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");
         bodies.add(sse(completed(List.of(reasoning, call))));
         bodies.add(sse(completed(List.of(message("Twelve days.")))));
         var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
@@ -158,7 +158,7 @@ class OpenAiResponsesChatModelTest {
         assertTrue(assistant.getMetadata().containsKey(OpenAiResponsesChatModel.OUTPUT_ITEMS));
         assertEquals("reasoning.encrypted_content", requests.getFirst().path("include").get(0).asString());
 
-        var toolOutput = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "searchKnowledge", "Annual leave is twelve days."))).build();
+        var toolOutput = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "search_knowledge", "Annual leave is twelve days."))).build();
         model.stream(new Prompt(List.of(new UserMessage("Leave?"), assistant, toolOutput), options(true))).collectList().block();
 
         var input = requests.get(1).path("input");
@@ -212,7 +212,7 @@ class OpenAiResponsesChatModelTest {
 
     private static OpenAiChatOptions options(boolean tools) {
         var callback = mock(ToolCallback.class);
-        when(callback.getToolDefinition()).thenReturn(ToolDefinition.builder().name("searchKnowledge").description("Search documents")
+        when(callback.getToolDefinition()).thenReturn(ToolDefinition.builder().name("search_knowledge").description("Search documents")
                 .inputSchema("{\"type\":\"object\",\"properties\":{\"queries\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}").build());
         return OpenAiChatOptions.builder().model("configured-model").maxCompletionTokens(100)
                 .toolCallbacks(tools ? List.of(callback) : List.of()).build();

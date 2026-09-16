@@ -171,7 +171,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         endOrdinal: fixtureSource.endOrdinal,
       },
     ];
-    const tool = { toolCallId: "s1", toolName: "searchKnowledge", source: null, durationMs: null };
+    const tool = { toolCallId: "s1", toolName: "search_knowledge", source: null, durationMs: null };
     const plan = packet(1, "tool", { ...tool, stage: "SEARCHING", search, documents: [] });
     fixture(() =>
       sse(
@@ -186,7 +186,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       {
         type: "tool-input-start",
         toolCallId: "s1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         providerExecuted: true,
         dynamic: true,
       },
@@ -245,7 +245,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
   it("feeds sequenced sources into native message state once and retains them on Stop", async () => {
     const source = packet(2, "tool", {
       toolCallId: "s1",
-      toolName: "searchKnowledge",
+      toolName: "search_knowledge",
       stage: "SOURCE",
       source: fixtureSource,
     });
@@ -316,7 +316,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       sse(
         packet(1, "tool", {
           toolCallId: "search-1",
-          toolName: "searchKnowledge",
+          toolName: "search_knowledge",
           stage: "STARTED",
           source: null,
         }) +
@@ -389,7 +389,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     const step = {
       ...tool,
       toolCallId: "call_s",
-      toolName: "searchKnowledge",
+      toolName: "search_knowledge",
       parentToolCallId: "call_a",
     };
     fixture(() =>
@@ -445,7 +445,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       },
     ]);
     expect(last.data.agents[0]!.activity.steps[0]).toMatchObject({
-      toolName: "searchKnowledge",
+      toolName: "search_knowledge",
       status: "COMPLETED",
       queries: ["revenue"],
     });
@@ -515,7 +515,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
             {
               position: 1,
               toolCallId: "call_1",
-              toolName: "searchKnowledge",
+              toolName: "search_knowledge",
               status: "COMPLETED",
               startedAt: row.createdAt,
               durationMs: 800,

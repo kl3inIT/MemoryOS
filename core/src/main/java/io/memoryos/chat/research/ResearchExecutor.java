@@ -69,7 +69,7 @@ public final class ResearchExecutor {
     private static final ObjectMapper JSON = new ObjectMapper();
     /** Onyx {@code collapse_citations}: {@code [25]}, {@code [1, 2, 3]}, {@code [[25]]} and the unicode bracket variants. */
     private static final Pattern CITATION = Pattern.compile("([\\[【［]{2}\\d+[\\]】］]{2})|([\\[【［]\\d+(?:, ?\\d+)*[\\]】］])");
-    private static final List<String> TOOL_ORDER = List.of("searchKnowledge", "web_search", "open_url", "search_files", "read_file");
+    private static final List<String> TOOL_ORDER = List.of("search_knowledge", "web_search", "open_url", "search_files", "read_file");
     private static final String REMINDER_OPEN = "<system-reminder>";
     private static final String REMINDER_CLOSE = "</system-reminder>";
 
@@ -353,9 +353,9 @@ public final class ResearchExecutor {
                     String system = fill(reasoning ? RESEARCH_AGENT_PROMPT_REASONING : RESEARCH_AGENT_PROMPT, Map.of(
                             "available_tools", toolList(names), "current_datetime", now(), "current_cycle_count", String.valueOf(count),
                             "max_research_cycles", String.valueOf(limits.agentCycles()),
-                            "optional_internal_search_tool_description", names.contains("searchKnowledge") ? text(INTERNAL_SEARCH_GUIDANCE) : "",
-                            "optional_web_search_tool_description", names.contains("web_search") ? text(WEB_SEARCH_TOOL_DESCRIPTION) : "",
-                            "optional_open_url_tool_description", !openUrl ? "" : text(reasoning ? OPEN_URLS_TOOL_DESCRIPTION_REASONING : OPEN_URLS_TOOL_DESCRIPTION)))
+                            "optional_internal_search_tool_description", names.contains("search_knowledge") ? INTERNAL_SEARCH_GUIDANCE : "",
+                            "optional_web_search_tool_description", names.contains("web_search") ? WEB_SEARCH_TOOL_DESCRIPTION : "",
+                            "optional_open_url_tool_description", !openUrl ? "" : reasoning ? OPEN_URLS_TOOL_DESCRIPTION_REASONING : OPEN_URLS_TOOL_DESCRIPTION))
                             + (names.contains("read_file") ? agentFiles : "");
                     var request = new ArrayList<Message>();
                     request.add(new SystemMessage(system));

@@ -165,7 +165,7 @@ class ChatModelGuardTest {
     void toolResponseContentCountsAgainstContextBeforeProviderInference() {
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 128, p -> p);
         var response = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
-                "tool-1", "searchKnowledge", "private document ".repeat(1000)))).build();
+                "tool-1", "search_knowledge", "private document ".repeat(1000)))).build();
         var request = new Prompt(List.of(response), prompt.getOptions());
         assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
         verify(provider, never()).stream(any(Prompt.class));

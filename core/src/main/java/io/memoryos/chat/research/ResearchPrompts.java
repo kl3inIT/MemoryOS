@@ -34,7 +34,7 @@ public final class ResearchPrompts {
     public static final String THINK_TOOL_NAME = "think_tool";
 
     /** MemoryOS tool names for the Onyx names used in prompt text. */
-    static final Map<String, String> TOOL_NAMES = Map.of("internal_search", "searchKnowledge", "open_urls", "open_url");
+    static final Map<String, String> TOOL_NAMES = Map.of("internal_search", "search_knowledge", "open_urls", "open_url");
 
     public static final String CLARIFICATION_PROMPT = """
             You are a clarification agent that runs prior to deep research. Assess whether you need to ask clarifying questions, or if the user has already provided enough information for you to start research. \

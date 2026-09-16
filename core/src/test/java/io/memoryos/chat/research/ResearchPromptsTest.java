@@ -26,12 +26,12 @@ class ResearchPromptsTest {
     @Test
     void missingValuesFailAndOnyxToolNamesBecomeMemoryOsToolNames() {
         assertThrows(IllegalArgumentException.class, () -> ResearchPrompts.fill(ResearchPrompts.FINAL_REPORT_PROMPT, Map.of()));
-        String agent = ResearchPrompts.fill(ResearchPrompts.RESEARCH_AGENT_PROMPT, Map.of("available_tools", "searchKnowledge, web_search, open_url",
-                "current_datetime", "today", "current_cycle_count", "2", "optional_internal_search_tool_description", "\n\n" + ResearchPrompts.INTERNAL_SEARCH_GUIDANCE,
+        String agent = ResearchPrompts.fill(ResearchPrompts.RESEARCH_AGENT_PROMPT, Map.of("available_tools", "search_knowledge, web_search, open_url",
+                "current_datetime", "today", "current_cycle_count", "2", "max_research_cycles", "8", "optional_internal_search_tool_description", "\n\n" + ResearchPrompts.INTERNAL_SEARCH_GUIDANCE,
                 "optional_web_search_tool_description", ResearchPrompts.WEB_SEARCH_TOOL_DESCRIPTION,
                 "optional_open_url_tool_description", ResearchPrompts.OPEN_URLS_TOOL_DESCRIPTION));
         assertTrue(agent.contains("You are on cycle 2 of 8."));
-        assertTrue(agent.contains("## searchKnowledge\nUse the `searchKnowledge` tool"));
+        assertTrue(agent.contains("## search_knowledge\nUse the `search_knowledge` tool"));
         assertTrue(agent.contains("## open_url\nUse the `open_url` tool"));
         assertFalse(agent.contains("internal_search"));
         assertFalse(agent.contains("open_urls"));
