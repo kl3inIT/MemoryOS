@@ -189,6 +189,15 @@ Survival across restart, tools other than internal search, Web/URL reading and a
 | Research input limit is the model window minus the report tokens | Same; the Chat `context-token-limit` and Persona context limit bound only normal answers and history selection | Mirrors Onyx; research prompts carry agent reports that exceed the normal-answer limit |
 | Clarification text streams | Clarification text is emitted once the inference ends | The same inference may instead call `generate_plan`, and text before that call must not become the answer; bounded by the answer token limit |
 
+## Prompt fidelity check (2026-09-16)
+
+The Onyx commit `160f9b143` was fetched and every `ResearchPrompts` constant compared with `orchestration_layer.py`, `research_agent.py`, `dr_tool_prompts.py` and `dr_mock_tools.py` by a script (scratchpad `compare_prompts.py`), after applying Java text-block rules, Python line joining, Onyx f-string tool names and the MemoryOS tool renames. Result: 19 shared constants, 17 identical byte for byte; the two agent prompts differ only in the placeholder name (`{MAX_RESEARCH_CYCLES}` against `{max_research_cycles}`). `INTERNAL_SEARCH_GUIDANCE` has no Onyx counterpart under that name.
+
+The check found two real defects, both fixed:
+
+- The agent prompt hard-coded "cycle X of 8" while `agent-cycles` is configurable (2-20). It now fills `{max_research_cycles}` from the limit, as Onyx interpolates `MAX_RESEARCH_CYCLES`.
+- The internal search, `web_search` and `open_url` tool descriptions were inserted without `text(...)`, so the agent prompt still said `internal_search` and `open_urls` while the registered tools are `searchKnowledge` and `open_url`. They now pass through the rename, and `ChatSessionApiIntegrationTest` asserts no Onyx tool name reaches an agent prompt.
+
 ## Spike evidence (2026-09-15)
 
 `api/src/test/java/io/memoryos/api/chat/DeepResearchSpikeProbeTest.java`, opt-in via `MEMORYOS_DR_SPIKE=true`; live probes also need `MEMORYOS_DR_SPIKE_LIVE=true` and `SPRING_AI_OPENAI_API_KEY`. All four passed. Fixture probes use a local OpenAI-compatible SSE server.

@@ -575,6 +575,9 @@ class ChatSessionApiIntegrationTest {
                     return Flux.just(toolCalls(new AssistantMessage.ToolCall("report-1", "function", "generate_report", "{}")));
                 }
                 if (system.contains("research agent that conducts research")) {
+                    // Onyx tool names must be renamed to the MemoryOS tools the agent actually has.
+                    assertTrue(system.contains("searchKnowledge"), "the agent prompt names the internal search tool");
+                    assertFalse(system.contains("internal_search") || system.contains("open_urls"), "no Onyx tool names reach the agent prompt");
                     boolean bogus = contents.contains("Bogus task");
                     int step = phases.computeIfAbsent(bogus ? "bogus" : "leave", _ -> new AtomicInteger()).incrementAndGet();
                     if (step > 1) return Flux.just(toolCalls(new AssistantMessage.ToolCall((bogus ? "b" : "l") + "-report", "function", "generate_report", "{}")));

@@ -229,7 +229,7 @@ public final class ResearchPrompts {
             For context, the date is {current_datetime}.
 
             # Tools
-            You have a limited number of cycles to complete your research and you do not have to use all cycles. You are on cycle {current_cycle_count} of 8.\
+            You have a limited number of cycles to complete your research and you do not have to use all cycles. You are on cycle {current_cycle_count} of {max_research_cycles}.\
             {optional_internal_search_tool_description}\
             {optional_web_search_tool_description}\
             {optional_open_url_tool_description}
@@ -294,7 +294,7 @@ public final class ResearchPrompts {
             For context, the date is {current_datetime}.
 
             # Tools
-            You have a limited number of cycles to complete your research and you do not have to use all cycles. You are on cycle {current_cycle_count} of 8.\
+            You have a limited number of cycles to complete your research and you do not have to use all cycles. You are on cycle {current_cycle_count} of {max_research_cycles}.\
             {optional_internal_search_tool_description}\
             {optional_web_search_tool_description}\
             {optional_open_url_tool_description}

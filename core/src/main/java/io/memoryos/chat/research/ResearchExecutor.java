@@ -352,9 +352,10 @@ public final class ResearchExecutor {
                     }
                     String system = fill(reasoning ? RESEARCH_AGENT_PROMPT_REASONING : RESEARCH_AGENT_PROMPT, Map.of(
                             "available_tools", toolList(names), "current_datetime", now(), "current_cycle_count", String.valueOf(count),
-                            "optional_internal_search_tool_description", names.contains("searchKnowledge") ? INTERNAL_SEARCH_GUIDANCE : "",
-                            "optional_web_search_tool_description", names.contains("web_search") ? WEB_SEARCH_TOOL_DESCRIPTION : "",
-                            "optional_open_url_tool_description", !openUrl ? "" : reasoning ? OPEN_URLS_TOOL_DESCRIPTION_REASONING : OPEN_URLS_TOOL_DESCRIPTION))
+                            "max_research_cycles", String.valueOf(limits.agentCycles()),
+                            "optional_internal_search_tool_description", names.contains("searchKnowledge") ? text(INTERNAL_SEARCH_GUIDANCE) : "",
+                            "optional_web_search_tool_description", names.contains("web_search") ? text(WEB_SEARCH_TOOL_DESCRIPTION) : "",
+                            "optional_open_url_tool_description", !openUrl ? "" : text(reasoning ? OPEN_URLS_TOOL_DESCRIPTION_REASONING : OPEN_URLS_TOOL_DESCRIPTION)))
                             + (names.contains("read_file") ? agentFiles : "");
                     var request = new ArrayList<Message>();
                     request.add(new SystemMessage(system));
