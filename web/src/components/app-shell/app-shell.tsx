@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Blocks,
   Globe,
   KeyRound,
   Menu,
@@ -27,7 +28,7 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models" | "mcp";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -112,6 +113,7 @@ function SidebarContents({
     canReadSources,
     canManageModels,
     canManageProviders,
+    canManageMcp,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -212,6 +214,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageMcp ? (
+              <SidebarSection title={ui("Connectors")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/mcp"
+                  icon={<Blocks className="size-4" />}
+                  selected={adminPage === "mcp"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Máy chủ MCP")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}
