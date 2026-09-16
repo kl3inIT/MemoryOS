@@ -56,9 +56,11 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     public boolean canReplay(TenantId tenant, SourceId source, UUID version) {
         return jdbcClient.sql("""
                 SELECT v.provider_file_id, v.credential_revision,
-                  v.scope_revision = s.revision AND m.eligible AND NOT m.excluded AS eligible
+                  c.connector_type <> 'GOOGLE_DRIVE'
+                    OR (v.scope_revision = s.revision AND m.eligible AND NOT m.excluded) AS eligible
                 FROM connector_item_versions v
                 JOIN connector_credential_pairs p ON p.tenant_id = v.tenant_id AND p.connector_id = v.connector_id
+                JOIN connectors c ON c.tenant_id = v.tenant_id AND c.id = v.connector_id
                 LEFT JOIN google_drive_sources s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
                 LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                   AND m.file_id = v.provider_file_id
@@ -443,11 +445,15 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
             var revision = jdbcClient.sql("""
                     SELECT v.credential_revision FROM index_attempts a
                     JOIN connector_item_versions v ON v.tenant_id = a.tenant_id AND v.id = a.connector_item_version_id
-                    JOIN google_drive_sources s ON s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
-                    JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
+                    JOIN connectors c ON c.tenant_id = a.tenant_id AND c.id = a.connector_id
+                    LEFT JOIN google_drive_sources s ON c.connector_type = 'GOOGLE_DRIVE'
+                      AND s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
+                    LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                       AND m.file_id = v.provider_file_id
-                    WHERE a.tenant_id = :tenant AND a.id = :id AND v.scope_revision = s.revision
-                      AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
+                    WHERE a.tenant_id = :tenant AND a.id = :id
+                      AND (c.connector_type <> 'GOOGLE_DRIVE'
+                           OR (v.scope_revision = s.revision
+                               AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL))
                     """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                     .param("ignoreEligibility", !requireEligibility)
                     .query(Long.class).optional();
