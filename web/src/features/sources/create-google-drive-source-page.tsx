@@ -130,7 +130,7 @@ function GoogleDriveSourceSetup() {
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
   const selectionError = googleDriveSelectionError(proposal, policy.data);
-  const validSelection = !selectionError && (globalManage || groupIds.size > 0);
+  const validSelection = !selectionError;
   const pendingValidation = Boolean(tracking.operation && !tracking.terminal);
   const frozenProposal =
     pendingValidation || tracking.uncertain || tracking.recovering || tracking.recoveryError;
@@ -576,7 +576,6 @@ function GoogleDriveSourceSetup() {
               "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
             )}
             selected={groupIds}
-            required={!globalManage}
             disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
             onChange={(ids) => {
               if (tracking.terminal) tracking.forget();
@@ -585,9 +584,7 @@ function GoogleDriveSourceSetup() {
             }}
           />
           <p className="text-sm text-content-muted">
-            {globalManage
-              ? ui("Private Source. Group associations are optional for global Source managers.")
-              : ui("Private Source. Select at least one group you manage.")}{" "}
+            {ui("Private Source. Group associations are optional and can be added later.")}{" "}
             {ui(
               "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.",
             )}

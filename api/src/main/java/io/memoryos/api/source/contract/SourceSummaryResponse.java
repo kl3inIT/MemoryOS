@@ -29,6 +29,9 @@ public record SourceSummaryResponse(
         @Nullable Instant lastSucceededAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Actor who may attach this source to the groups they manage.")
+        @Nullable UUID managerActorId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Permissions permissions
 ) {
@@ -58,6 +61,7 @@ public record SourceSummaryResponse(
                 source.documentCount(),
                 source.lastSucceededAt(),
                 source.errorCode(),
+                source.managerActorId() == null ? null : source.managerActorId().value(),
                 Permissions.from(source.permissions())
         );
     }

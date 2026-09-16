@@ -40,7 +40,11 @@ public interface SourceManagementService {
             int size
     );
 
-    List<SourceSummary> listGroupSources(ActorId actorId, GroupId groupId);
+    GroupSources listGroupSources(ActorId actorId, GroupId groupId);
+
+    void removeGroupSource(ActorId actorId, GroupId groupId, SourceId sourceId);
+
+    SourceSummary assignSourceManager(ActorId actorId, SourceId sourceId, @Nullable ActorId managerActorId);
 
     ObjectUploadAuthorization initiateUpload(
             ActorId actorId,
