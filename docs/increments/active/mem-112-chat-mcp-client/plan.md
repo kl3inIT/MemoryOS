@@ -91,7 +91,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 
 - [x] `docs/specs/chat.md` (MCP tools), `docs/tests/chat.md` (evidence table), `ARCHITECTURE.md` (`CHAT --> MCP`).
 - [x] Self-host runbook at `docs/runbooks/mcp-servers.md`, linked from README and AGENTS.
-- [ ] Live acceptance: two organizations' clients on Google Drive MCP, wrong-organization `org_internal`, read tools and `create_file` on a test folder.
+- [ ] Live acceptance: the nine observations in [acceptance.md](acceptance.md). Owner-run; it also settles whether Google accepts `resource` and what the per-turn bounds should be.
 - [ ] `gradlew clean check` and frontend gate.
 
 ## Phase 7 — pass-through OAuth (gated)
