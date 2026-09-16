@@ -61,6 +61,7 @@ public class JdbcSourceQueryRepository {
                    pair.last_succeeded_at,
                    COALESCE((SELECT s.error_code FROM google_drive_sources s
                        WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), pair.error_code) AS error_code,
+                   pair.manager_actor_id,
                    CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope,
                    (%s AND %s) AS creator_groupless
             FROM connector_credential_pairs pair
@@ -288,9 +289,15 @@ public class JdbcSourceQueryRepository {
                 resultSet.getLong("document_count"),
                 JdbcSourceRepository.instant(resultSet, "last_succeeded_at"),
                 resultSet.getString("error_code"),
+                actorId(resultSet, "manager_actor_id"),
                 SourcePermissions.of(globalManage, globalDelete, resultSet.getBoolean("managed_scope"),
                         resultSet.getBoolean("creator_groupless"))
         );
+    }
+
+    private static @Nullable ActorId actorId(ResultSet resultSet, String column) throws SQLException {
+        UUID value = resultSet.getObject(column, UUID.class);
+        return value == null ? null : new ActorId(value);
     }
 
     private static SourceItemView item(ResultSet resultSet, int ignored) throws SQLException {

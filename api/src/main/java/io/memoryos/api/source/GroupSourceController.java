@@ -1,6 +1,7 @@
 package io.memoryos.api.source;
 
 import io.memoryos.api.source.contract.GroupSourcesResponse;
+import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.identity.IdentityContext;
@@ -12,10 +13,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -41,5 +45,25 @@ final class GroupSourceController {
                 identityContext.actorId(),
                 new GroupId(groupId)
         ));
+    }
+
+    @Operation(
+            operationId = "removeGroupSource",
+            summary = "Remove one source from one group",
+            description = "Global source managers may remove any association. A group manager may remove a non-public "
+                    + "source that stays associated with another group; other groups keep their associations."
+    )
+    @PostMapping("/{sourceId}/remove")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void removeGroupSource(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID groupId,
+            @PathVariable UUID sourceId
+    ) {
+        sources.removeGroupSource(
+                identityContext.actorId(),
+                new GroupId(groupId),
+                new SourceId(sourceId)
+        );
     }
 }
