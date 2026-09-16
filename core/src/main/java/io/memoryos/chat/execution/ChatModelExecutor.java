@@ -180,6 +180,12 @@ public final class ChatModelExecutor {
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, setup.deadline(), imageEvents, 4)));
             }
+            if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
+                var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive, setup.deadline(),
+                        limits.mcpCallTimeout(), limits.mcpCallLimit(), events::accept, activity,
+                        guard::availableContextTokens, selected.policy().tokens());
+                for (var tool : mcpTools.tools()) runner = runner.withTools(java.util.List.of(tool));
+            }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());
             if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");

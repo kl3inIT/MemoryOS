@@ -7,7 +7,12 @@ import org.jspecify.annotations.Nullable;
 
 /** Identity includes the operation and target; retries never append another reply. */
 public record ChatCommand(Operation operation, UUID targetMessageId, UUID requestId,
-                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image) {
+                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image,
+                          List<UUID> mcpServerIds) {
+    public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId,
+                       List<UUID> fileIds, WebSearchMode webSearch, ImageMode image) {
+        this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch, image, List.of());
+    }
     public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch) {
         this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch, ImageMode.off);
     }
@@ -21,6 +26,12 @@ public record ChatCommand(Operation operation, UUID targetMessageId, UUID reques
     public ChatCommand {
         webSearch = webSearch == null ? WebSearchMode.off : webSearch;
         image = image == null ? ImageMode.off : image;
+        if (mcpServerIds != null && mcpServerIds.stream().anyMatch(java.util.Objects::isNull))
+            throw ChatException.invalid("Invalid MCP server identity.");
+        mcpServerIds = mcpServerIds == null ? List.of() : List.copyOf(mcpServerIds);
+        if (mcpServerIds.size() > io.memoryos.mcp.McpTurnService.MAX_SERVERS
+                || new HashSet<>(mcpServerIds).size() != mcpServerIds.size())
+            throw ChatException.invalid("Invalid MCP server selection.");
         if (fileIds != null && fileIds.stream().anyMatch(java.util.Objects::isNull))
             throw ChatException.invalid("Invalid file identity.");
         fileIds = fileIds == null ? List.of() : List.copyOf(fileIds);

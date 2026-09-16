@@ -34,19 +34,24 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                             String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,
                             Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
                             io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
-                            io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
+                            io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess,
+                            io.memoryos.mcp.@org.jspecify.annotations.Nullable McpTurnTools mcp) {
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts,
                 io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null),
-                io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null));
+                io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null), null);
     }
     public ChatTurnSetup withWeb(io.memoryos.chat.WebSearchMode intent, io.memoryos.chat.web.WebConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, intent, access, image, imageAccess);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, intent, access, image, imageAccess, mcp);
     }
     public ChatTurnSetup withImage(io.memoryos.chat.ImageMode intent, io.memoryos.chat.image.ImageConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, intent, access);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, intent, access, mcp);
+    }
+    /** The turn owns the opened MCP sessions and closes them when it ends. */
+    public ChatTurnSetup withMcp(io.memoryos.mcp.McpTurnTools tools) {
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, deadline, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, image, imageAccess, tools);
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, Instant deadline, ChatModelBinding binding, ChatTurnOptions options,

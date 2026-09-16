@@ -66,8 +66,9 @@ class ChatRuntimeConfiguration {
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
-                                    io.memoryos.chat.image.ImageConnectionService images) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
+                                    io.memoryos.chat.image.ImageConnectionService images,
+                                    io.memoryos.mcp.McpTurnService mcp) {
+        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, mcp);
     }
 
     @Bean
