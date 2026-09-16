@@ -222,7 +222,7 @@ async function stub(page: import("@playwright/test").Page) {
   }
 }
 
-const OUTPUT = "D:/MemoryOS/output";
+const OUTPUT = "D:/MemoryOS/output/mem112-mcp";
 
 // These tests boot the app and capture full pages; the default budget is short under parallel load.
 test.describe.configure({ timeout: 120_000 });
