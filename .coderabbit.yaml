@@ -11,6 +11,12 @@ reviews:
         MODELS_MANAGE là quyền quản trị endpoint tin cậy; không đề xuất bắt buộc HTTPS hoặc cấm private host cho luồng này.
         Vẫn báo lỗi nếu actor thiếu quyền cấu hình được endpoint, hoặc credential bị lộ qua response/log hay gửi sai endpoint đã cấu hình.
         Chính sách và tradeoff được ghi tại docs/specs/chat-models.md phần Credentials and provider extension.
+    - path: "**/mcp/**"
+      instructions: >-
+        MCP server endpoint HTTP và private/loopback host được chấp nhận có chủ đích cho MCP server nội bộ.
+        MCP_MANAGE là quyền quản trị endpoint tin cậy; không đề xuất bắt buộc HTTPS hoặc cấm private host cho luồng này.
+        Vẫn báo lỗi nếu actor thiếu quyền cấu hình được endpoint, credential bị lộ qua response/log/model, gửi tới endpoint khác endpoint đã lưu, hoặc token đăng nhập MemoryOS bị chuyển tiếp.
+        Chính sách được ghi tại docs/increments/active/mem-112-chat-mcp-client/design.md phần Departures và docs/decisions/0011-mcp-client-in-chat.md.
   profile: assertive
   request_changes_workflow: true
   high_level_summary: true

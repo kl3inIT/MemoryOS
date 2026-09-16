@@ -84,7 +84,7 @@ public class GroupProjectionRepository {
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
-                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE'
                                 )
                             )
                       )
@@ -137,7 +137,7 @@ public class GroupProjectionRepository {
                             OR (
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
-                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                                    'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE'
                                 )
                             )
                       )

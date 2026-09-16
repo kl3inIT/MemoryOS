@@ -114,6 +114,8 @@ memoryos:
       max-output-tokens: 4096
       context-token-limit: 32000
       max-answer-characters: 1000000
+      mcp-call-limit: 10
+      mcp-call-timeout: 60s
     interpreter:
       # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.
       base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
@@ -135,6 +137,13 @@ memoryos:
         read-timeout: 5s
   browser:
     registration-id: memoryos
+  mcp:
+    credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
+    # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.
+    redirect-uri: ${MEMORYOS_MCP_REDIRECT_URI:}
+    connect-timeout: 5s
+    # Upper bound per MCP request; Chat turns further cap it by their remaining deadline.
+    request-timeout: 30s
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}

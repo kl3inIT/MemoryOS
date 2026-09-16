@@ -42,6 +42,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
     private final @Nullable ChatSettingsService settings;
     private final io.memoryos.chat.research.@Nullable ResearchProperties research;
+    private final io.memoryos.mcp.@Nullable McpTurnService mcp;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -52,7 +53,7 @@ public final class ChatTurnService implements AutoCloseable {
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
-        this(persistence, model, limits, executor, streams, models, null, null);
+        this(persistence, model, limits, executor, streams, models, null, null, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
@@ -74,12 +75,22 @@ public final class ChatTurnService implements AutoCloseable {
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
             io.memoryos.chat.research.@Nullable ResearchProperties research) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web,
+            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            io.memoryos.chat.research.@Nullable ResearchProperties research,
+            io.memoryos.mcp.@Nullable McpTurnService mcp) {
         this.research = research;
         this.persistence = persistence;
         this.model = model;
         this.models = models;
         this.web = web;
         this.images = images;
+        this.mcp = mcp;
         this.settings = settings;
         this.limits = limits;
         this.executor = executor;
@@ -129,6 +140,7 @@ public final class ChatTurnService implements AutoCloseable {
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;
+        io.memoryos.mcp.McpTurnTools mcpTools = null;
         boolean transferred = false;
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
@@ -177,6 +189,13 @@ public final class ChatTurnService implements AutoCloseable {
             var context = persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
+            // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
+            if (!command.mcpServerIds().isEmpty() && !command.deepResearch()) {
+                if (!binding.toolCalling() || mcp == null) throw ChatException.providerUnavailable();
+                // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
+                setup = setup.withMcp(mcp.open(actor, command.mcpServerIds()));
+                mcpTools = setup.mcp();
+            }
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
@@ -202,6 +221,8 @@ public final class ChatTurnService implements AutoCloseable {
             throw failure;
         } finally {
             if (!transferred) {
+                // A setup failure after the tools opened must not leave MCP sessions behind.
+                if (mcpTools != null) mcpTools.close();
                 if (resolved != null) resolved.close();
                 permits.release();
             }
@@ -305,6 +326,7 @@ public final class ChatTurnService implements AutoCloseable {
                     run.setup.assistantMessageId(), failure.getClass().getSimpleName());
             try { run.resolved.close(); }
             finally {
+                if (run.setup.mcp() != null) run.setup.mcp().close();
                 run.drained = true;
                 // Terminal persistence and resource retirement may finish in either order.
                 releaseIfFinished(run);

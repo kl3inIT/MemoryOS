@@ -47,6 +47,8 @@ dependencies {
     testImplementation(libs.opensearch.java)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
+    // In-process Streamable HTTP MCP servers for administration tests.
+    testImplementation(libs.mcp)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

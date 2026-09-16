@@ -60,7 +60,7 @@ class ChatRuntimeConfiguration {
                                         io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
                 web, image, imageArtifacts, interpreter, interpreterSettings,
-                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations));
+                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations), meters);
     }
 
     @Bean(destroyMethod = "dispose")
@@ -74,8 +74,9 @@ class ChatRuntimeConfiguration {
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
                                     io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings,
-                                    io.memoryos.chat.research.ResearchProperties research) {
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research);
+                                    io.memoryos.chat.research.ResearchProperties research,
+                                    io.memoryos.mcp.McpTurnService mcp) {
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research, mcp);
         // Context refresh completes before the web server accepts requests, so no send can race this.
         service.failOrphanedRuns();
         return service;

@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.spring.ai.openai)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    implementation(libs.mcp)
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)
     implementation(libs.jsoup)
@@ -55,6 +56,8 @@ dependencies {
     testRuntimeOnly(libs.flyway.database.postgresql)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.h2)
+    // In-process Streamable HTTP MCP servers for client tests.
+    testImplementation(libs.tomcat.embed.core)
     testImplementation(libs.embabel.platform)
     testImplementation(libs.spring.ai.model.tool)
     testImplementation(libs.testcontainers.junit.jupiter)

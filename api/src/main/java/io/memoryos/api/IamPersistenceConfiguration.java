@@ -10,8 +10,8 @@ import org.springframework.orm.jpa.SharedEntityManagerCreator;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @Configuration(proxyBeanMethods = false)
-@EntityScan({"io.memoryos.iam", "io.memoryos.chat.persistence"})
-@EnableJpaRepositories(basePackages = {"io.memoryos.chat.persistence", "io.memoryos.iam"})
+@EntityScan({"io.memoryos.iam", "io.memoryos.chat.persistence", "io.memoryos.mcp.persistence"})
+@EnableJpaRepositories(basePackages = {"io.memoryos.chat.persistence", "io.memoryos.iam", "io.memoryos.mcp.persistence"})
 class IamPersistenceConfiguration {
 
     @Bean

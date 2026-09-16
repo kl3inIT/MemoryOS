@@ -52,7 +52,7 @@ class ChatTurnServiceTest {
     private final ChatModelResolver models = mock(ChatModelResolver.class);
     private final ChatModelClients.Lease lease = mock(ChatModelClients.Lease.class);
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
-            null, null);
+            null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(4096, 16384,
             Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 2048, 4, 8, 2048, 16,
@@ -148,7 +148,7 @@ class ChatTurnServiceTest {
     void failedLeaseRenewalKeepsTheRunAndLostOwnershipInterruptsIt() throws Exception {
         prepare();
         var renewing = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofMillis(50), Duration.ofSeconds(60),
-                6, 1024, 32000, 10000, null, null);
+                6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
         var started = new CountDownLatch(1);
         doAnswer(call -> {
             call.<Consumer<String>>getArgument(3).accept("Partial");

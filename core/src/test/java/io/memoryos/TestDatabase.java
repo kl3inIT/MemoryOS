@@ -159,7 +159,7 @@ public final class TestDatabase {
     public static JpaHarness jpa(DataSource dataSource, boolean validateSchema) {
         var factoryBean = new LocalContainerEntityManagerFactoryBean();
         factoryBean.setDataSource(dataSource);
-        factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.chat.persistence");
+        factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.chat.persistence", "io.memoryos.mcp.persistence");
         factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factoryBean.setJpaPropertyMap(java.util.Map.of(
                 "hibernate.hbm2ddl.auto", validateSchema ? "validate" : "none",

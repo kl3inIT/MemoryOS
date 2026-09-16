@@ -12,8 +12,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("memoryos.chat.execution")
 public record ChatExecutionProperties(int concurrency, Duration leaseTtl, Duration leaseRenewal, Duration providerReadTimeout,
                                       int maxCycles, int maxOutputTokens, int contextTokenLimit, int maxAnswerCharacters,
-                                      @Nullable Integer tokenBudget, @Nullable Double costBudgetUsd) {
+                                      @Nullable Integer tokenBudget, @Nullable Double costBudgetUsd, int mcpCallLimit, Duration mcpCallTimeout) {
     public ChatExecutionProperties {
+        if (mcpCallLimit < 1 || mcpCallLimit > 100 || invalid(mcpCallTimeout, Duration.ofMinutes(5)))
+            throw new IllegalArgumentException("Invalid Chat MCP limits");
         if (concurrency < 1 || concurrency > 1000 || invalid(leaseTtl, Duration.ofDays(1)) || invalid(leaseRenewal, Duration.ofDays(1))
                 || leaseRenewal.multipliedBy(2).compareTo(leaseTtl) > 0 || invalid(providerReadTimeout, Duration.ofMinutes(10))
                 || maxCycles < 1 || maxCycles > 20

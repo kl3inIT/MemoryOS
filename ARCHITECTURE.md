@@ -54,7 +54,9 @@ flowchart TB
     ING[ingestion]
     RET[retrieval]
     CHAT[chat]
+    MCP[mcp]
 
+    MCP --> IAM
     OBJ --> IAM
     DOC --> IAM
     DOC --> OBJ
@@ -73,6 +75,7 @@ flowchart TB
     CHAT --> IAM
     CHAT --> CON
     CHAT --> RET
+    CHAT --> MCP
 
     API[api composition root] --> IAM
     API --> OBJ
@@ -80,6 +83,7 @@ flowchart TB
     API --> DOC
     API --> RET
     API --> CHAT
+    API --> MCP
     WORKER[worker composition root] --> IAM
     WORKER --> OBJ
     WORKER --> CON
@@ -92,7 +96,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Seven capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `core` | Eight capability implementations and public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -106,6 +110,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
 | `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
+| `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
 
 ## Durable ingestion and Search projection
 

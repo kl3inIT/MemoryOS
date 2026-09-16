@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Blocks,
   Globe,
   KeyRound,
   Menu,
@@ -35,7 +36,8 @@ export type AdminPage =
   | "web"
   | "interpreter"
   | "providers"
-  | "models";
+  | "models"
+  | "mcp";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -120,6 +122,7 @@ function SidebarContents({
     canReadSources,
     canManageModels,
     canManageProviders,
+    canManageMcp,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -229,6 +232,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Code Interpreter")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageMcp ? (
+              <SidebarSection title={ui("Connectors")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/mcp"
+                  icon={<Blocks className="size-4" />}
+                  selected={adminPage === "mcp"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Máy chủ MCP")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

@@ -8,8 +8,14 @@ import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-r
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
     const ui = useAppTranslation();
-    const { canManageUsers, canReadGroups, canReadSources, canManageModels, canManageProviders } =
-      useAdminAccess();
+    const {
+      canManageUsers,
+      canReadGroups,
+      canReadSources,
+      canManageModels,
+      canManageProviders,
+      canManageMcp,
+    } = useAdminAccess();
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
       to: "/admin/sources/new/google-drive",
@@ -26,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
+    const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
@@ -38,7 +45,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
               ? "web"
               : interpreterSelected
                 ? "interpreter"
-                : "sources";
+                : mcpSelected
+                  ? "mcp"
+                  : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -48,7 +57,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
             ? canManageProviders
             : page === "models" || page === "web" || page === "interpreter"
               ? canManageModels
-              : canReadSources;
+              : page === "mcp"
+                ? canManageMcp
+                : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -71,7 +82,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                     ? "Tìm kiếm Web"
                     : page === "interpreter"
                       ? "Code Interpreter"
-                      : "Sources",
+                      : page === "mcp"
+                        ? "Máy chủ MCP"
+                        : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

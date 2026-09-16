@@ -20,6 +20,8 @@ import { composerMenuRow } from "./chat-composer-menu-row";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import type { WebSearchMode } from "./chat-web-preference";
 import { ChatImageToggle } from "./chat-image-options";
+import { ChatMcpServers, ChatMcpToggle } from "./chat-mcp-options";
+import { useMcpConnections } from "./chat-mcp-connections";
 import type { ImageMode } from "./chat-image";
 import { useComposerFileSelection } from "./use-composer-file-selection";
 
@@ -30,6 +32,7 @@ import { useComposerFileSelection } from "./use-composer-file-selection";
 export function ChatComposerMenu({
   web,
   image,
+  mcp,
   research,
   disabled,
 }: {
@@ -43,6 +46,11 @@ export function ChatComposerMenu({
     value: ImageMode;
     onChange: (mode: ImageMode) => void;
   };
+  mcp: {
+    selected: string[];
+    onChange: (ids: string[]) => void;
+    sessionId?: string;
+  };
   /** Present only where Deep research is available: enabled for the organization and outside Projects. */
   research?: {
     value: boolean;
@@ -52,8 +60,9 @@ export function ChatComposerMenu({
 }) {
   const ui = useAppTranslation();
   const files = useComposerFileSelection();
+  const mcpConnections = useMcpConnections();
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"root" | "files" | "web">("root");
+  const [view, setView] = useState<"root" | "files" | "web" | "mcp">("root");
   const [allFiles, setAllFiles] = useState(false);
   const close = () => {
     setOpen(false);
@@ -106,6 +115,11 @@ export function ChatComposerMenu({
               <div role="separator" className="my-1 border-t border-border-subtle" />
               <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
               <ChatImageToggle {...image} onDone={close} />
+              <ChatMcpToggle
+                selected={mcp.selected}
+                available={mcpConnections.data?.length ?? 0}
+                onOpen={() => setView("mcp")}
+              />
             </div>
           )}
           {view === "files" && (
@@ -138,6 +152,14 @@ export function ChatComposerMenu({
           )}
           {view === "web" && (
             <ChatWebModes {...web} onDone={close} onBack={() => setView("root")} />
+          )}
+          {view === "mcp" && (
+            <ChatMcpServers
+              selected={mcp.selected}
+              onChange={mcp.onChange}
+              sessionId={mcp.sessionId}
+              onBack={() => setView("root")}
+            />
           )}
         </PopoverContent>
       </Popover>
