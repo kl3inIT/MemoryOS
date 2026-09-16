@@ -69,8 +69,8 @@ class SearchToolTest {
         var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
-                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
-        tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
+                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
+        tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "search_knowledge", "{}")));
         return tool;
     }
 
@@ -185,7 +185,7 @@ class SearchToolTest {
     void nativeToolSchemaAndBindingUseNamedParametersAndRejectUnboundedArguments() {
         try (var tool = tool(8000)) {
             var nativeTool = Tool.fromInstance(tool).getFirst();
-            assertEquals("searchKnowledge", nativeTool.getDefinition().getName());
+            assertEquals("search_knowledge", nativeTool.getDefinition().getName());
             var result = nativeTool.call("{\"queries\":[\"a\",\"b\",\"c\",\"d\"]}");
             assertTrue(assertInstanceOf(Tool.Result.Text.class, result).getContent().contains("Invalid search arguments"));
             verifyNoInteractions(search);
@@ -272,8 +272,8 @@ class SearchToolTest {
         try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
-                        new UserMessage("How do I set it up?")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
-            tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "searchKnowledge", "{}")));
+                        new UserMessage("How do I set it up?")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
+            tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "search_knowledge", "{}")));
             tool.searchKnowledge(List.of("setup instructions"), null);
             tool.searchKnowledge(List.of("setup instructions"), null);
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));

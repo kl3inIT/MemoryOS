@@ -5,9 +5,14 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
+/**
+ * Replay limits follow Onyx: a live buffer expires only after {@code ttl} without a write, a completed one is kept for
+ * {@code doneTtl}, and one run holds at most {@code runBytes}. {@code totalBytes} bounds bytes actually held, not reserved.
+ */
 @ConfigurationProperties("memoryos.chat.stream")
-public record ChatStreamProperties(@DefaultValue("4194304") int runBytes,
-                                   @DefaultValue("67108864") long totalBytes, @DefaultValue("10m") Duration ttl,
+public record ChatStreamProperties(@DefaultValue("16777216") int runBytes,
+                                   @DefaultValue("67108864") long totalBytes, @DefaultValue("60m") Duration ttl,
+                                   @DefaultValue("10m") Duration doneTtl,
                                    @DefaultValue("16384") int chunkBytes, @DefaultValue("25ms") Duration flushInterval,
                                    @DefaultValue("131072") int readerBytes, @DefaultValue("4") int readersPerRun,
                                    @DefaultValue("64") int maxReaders, @DefaultValue("262144") int readBytes,
@@ -16,7 +21,7 @@ public record ChatStreamProperties(@DefaultValue("4194304") int runBytes,
     public ChatStreamProperties {
         if (runBytes < 512 || totalBytes < runBytes || chunkBytes < 4 || chunkBytes + 256L > runBytes
                 || readerBytes < chunkBytes + 256L || readBytes < chunkBytes + 256L || readersPerRun < 1
-                || maxReaders < readersPerRun || maxStreams < 1 || invalid(ttl) || invalid(flushInterval)
+                || maxReaders < readersPerRun || maxStreams < 1 || invalid(ttl) || invalid(doneTtl) || invalid(flushInterval)
                 || invalid(heartbeat) || invalid(connectionTimeout))
             throw new IllegalArgumentException("Invalid Chat stream limits");
     }

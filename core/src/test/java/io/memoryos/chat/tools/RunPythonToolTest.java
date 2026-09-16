@@ -48,13 +48,9 @@ class RunPythonToolTest {
     private final List<UserFile> attached = new ArrayList<>();
 
     private RunPythonTool tool() {
-        return tool(Instant.now().plusSeconds(120));
-    }
-
-    private RunPythonTool tool(Instant deadline) {
         when(files.readable(eq(actor), eq(tenant), any())).thenReturn(attached);
         return new RunPythonTool(client, artifacts, files, actor, tenant, messageId, attached.stream().map(UserFile::id).toList(),
-                () -> {}, deadline, activity);
+                () -> {}, activity);
     }
 
     private UserFile attach(String name, long size, int minutesAgo) throws IOException {
@@ -197,16 +193,16 @@ class RunPythonToolTest {
         verify(activity).fail();
     }
 
-    @Test void missingCodeGetsTheOnyxMessageAndTheTimeoutFollowsTheDeadline() throws Exception {
+    @Test void missingCodeGetsTheOnyxMessageAndEachCallUsesTheFixedTimeout() throws Exception {
         assertEquals(RunPythonTool.MISSING_CODE, tool().runPython(" "));
         when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok(""));
 
-        tool(Instant.now().plusSeconds(30)).runPython("print(1)");
+        tool().runPython("print(1)");
+
+        // A MemoryOS turn has no total deadline, so each call runs with the Onyx per-call timeout.
         var timeout = ArgumentCaptor.forClass(Integer.class);
         verify(client).execute(anyString(), timeout.capture(), anyList());
-        assertTrue(timeout.getValue() <= 25_000 && timeout.getValue() > 20_000, "timeout " + timeout.getValue());
-
-        assertThrows(IllegalStateException.class, () -> tool(Instant.now().plusSeconds(3)).runPython("print(1)"));
+        assertEquals(RunPythonTool.DEFAULT_TIMEOUT_MS, timeout.getValue());
     }
 
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {

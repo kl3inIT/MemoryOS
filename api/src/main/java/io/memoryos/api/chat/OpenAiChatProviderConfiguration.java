@@ -30,7 +30,7 @@ class OpenAiChatProviderConfiguration {
                                        ChatExecutionProperties limits) {
         requireCredential(key);
         requireEndpoint(baseUrl);
-        return OpenAiChatProviderAdapter.asyncClient(baseUrl, key, limits.deadline());
+        return OpenAiChatProviderAdapter.asyncClient(baseUrl, key, limits.providerReadTimeout());
     }
 
     @Bean(destroyMethod = "close")
@@ -40,7 +40,7 @@ class OpenAiChatProviderConfiguration {
                                       ChatExecutionProperties limits) {
         requireCredential(key);
         requireEndpoint(baseUrl);
-        return OpenAIOkHttpClient.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(limits.deadline()).build();
+        return OpenAIOkHttpClient.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(OpenAiCancellation.gap(limits.providerReadTimeout())).build();
     }
 
     @Bean
