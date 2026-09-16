@@ -1397,6 +1397,12 @@ Object.assign(englishUi, {
   "Loading sources": "Đang tải nguồn",
   "Sources unavailable": "Nguồn không khả dụng",
   "No sources yet": "Chưa có nguồn",
+  "Connect Google Drive or upload files. MemoryOS keeps them indexed, so Search and Chat can cite them.":
+    "Kết nối Google Drive hoặc tải tệp lên. MemoryOS sẽ lập chỉ mục để Tìm kiếm và Trò chuyện trích dẫn được.",
+  "Connect Google Drive": "Kết nối Google Drive",
+  "Upload files": "Tải tệp lên",
+  "Ask a workspace manager to add a source.":
+    "Hãy nhờ người quản trị không gian làm việc thêm nguồn.",
   "Collapse all": "Thu gọn tất cả",
   "Expand all": "Mở rộng tất cả",
   "Filter sources": "Lọc nguồn",

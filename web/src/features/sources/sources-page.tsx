@@ -6,6 +6,14 @@ import { BookOpen, ChevronDown, ChevronRight, Files, ListFilter, Settings } from
 import { useMemo, useState, type ReactNode } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,7 +35,11 @@ import {
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { findSourceProvider } from "./source-provider-catalog";
+import {
+  findSourceProvider,
+  sourceProviders,
+  type SourceProvider,
+} from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 
 /** Radix selects reject an empty option value, so "any" stands for an unset filter. */
@@ -77,21 +89,73 @@ export function SourcesPage() {
           </Button>
         </div>
       ) : sources.length === 0 ? (
-        <div className="py-14 text-center">
-          <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-            <Files className="size-5" aria-hidden="true" />
-          </span>
-          <h2 className="mt-4 font-heading-h3 text-content-primary">{ui("No sources yet")}</h2>
-          {canCreate ? (
-            <Button asChild size="sm" className="mt-4">
-              <Link to="/admin/sources/new">{ui("Add source")}</Link>
-            </Button>
-          ) : null}
-        </div>
+        <SourcesEmpty canCreate={canCreate} />
       ) : (
         <SourceList sources={sources} />
       )}
     </SettingsLayout>
+  );
+}
+
+/** The action that starts each provider's setup, in the words of the first step. */
+const emptyProviderActions: Record<SourceProvider["type"], string> = {
+  GOOGLE_DRIVE: "Connect Google Drive",
+  FILE: "Upload files",
+};
+
+/**
+ * The first run follows Fabric's "Let's add our first connection": the providers that can be
+ * connected, one sentence on what they are for, and an action for each.
+ */
+function SourcesEmpty({ canCreate }: { canCreate: boolean }) {
+  const ui = useAppTranslation();
+
+  return (
+    <Empty className="min-h-80 border border-dashed border-border-default bg-surface-base">
+      <EmptyHeader>
+        <EmptyMedia className="flex-row gap-3">
+          {sourceProviders.map((provider) => {
+            const ProviderIcon = provider.icon;
+            return (
+              <span
+                key={provider.type}
+                className="grid size-12 place-items-center rounded-2xl border border-border-subtle bg-surface-raised shadow-xs"
+              >
+                <ProviderIcon className="size-6" aria-hidden="true" />
+              </span>
+            );
+          })}
+        </EmptyMedia>
+        <EmptyTitle>{ui("No sources yet")}</EmptyTitle>
+        <EmptyDescription>
+          {ui(
+            "Connect Google Drive or upload files. MemoryOS keeps them indexed, so Search and Chat can cite them.",
+          )}
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="max-w-none flex-row flex-wrap justify-center">
+        {canCreate ? (
+          sourceProviders.map((provider) => {
+            const ProviderIcon = provider.icon;
+            return (
+              <Button
+                key={provider.type}
+                asChild
+                size="sm"
+                prominence={provider.type === "GOOGLE_DRIVE" ? "primary" : "secondary"}
+              >
+                <Link to={provider.setupPath}>
+                  <ProviderIcon className="size-4" aria-hidden="true" />
+                  {ui(emptyProviderActions[provider.type])}
+                </Link>
+              </Button>
+            );
+          })
+        ) : (
+          <EmptyDescription>{ui("Ask a workspace manager to add a source.")}</EmptyDescription>
+        )}
+      </EmptyContent>
+    </Empty>
   );
 }
 
