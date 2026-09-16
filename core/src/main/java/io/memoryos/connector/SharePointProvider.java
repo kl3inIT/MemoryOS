@@ -1,6 +1,7 @@
 package io.memoryos.connector;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -10,6 +11,18 @@ public interface SharePointProvider {
     interface Session extends AutoCloseable {
         /** {@code GET /sites/root}: proves the token works and resolves the Tenant SharePoint host. */
         RootSite root();
+
+        /** Resolves a site by its server-relative path, for example {@code /sites/Finance}. */
+        Site site(String hostname, String sitePath);
+
+        /** Document libraries of a site. Personal sites also return a cache library, which is not content. */
+        List<Library> libraries(String siteId);
+
+        /** Resolves a folder inside a library by its path below the library root. */
+        Folder folder(String driveId, List<String> folderSegments);
+
+        /** One page of {@code /sites/getAllSites}; {@code nextLink} continues it. */
+        SitePage sites(@Nullable String nextLink);
 
         @Override void close();
     }
@@ -62,6 +75,37 @@ public interface SharePointProvider {
             Objects.requireNonNull(siteId, "siteId");
             Objects.requireNonNull(webUrl, "webUrl");
             Objects.requireNonNull(hostname, "hostname");
+        }
+    }
+
+    /** {@code name} is null for sites that have none, such as a Tenant's search centre. */
+    record Site(String siteId, String webUrl, @Nullable String displayName, boolean personalSite) {
+        public Site {
+            Objects.requireNonNull(siteId, "siteId");
+            Objects.requireNonNull(webUrl, "webUrl");
+        }
+    }
+
+    record SitePage(List<Site> sites, @Nullable String nextLink) {
+        public SitePage { sites = List.copyOf(sites); }
+    }
+
+    /**
+     * {@code path} is the library's server-relative URL path, which stays in English even when the display
+     * name is localized, so matching a pasted address never depends on the site language.
+     */
+    record Library(String driveId, String name, String path) {
+        public Library {
+            Objects.requireNonNull(driveId, "driveId");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(path, "path");
+        }
+    }
+
+    record Folder(String itemId, String name) {
+        public Folder {
+            Objects.requireNonNull(itemId, "itemId");
+            Objects.requireNonNull(name, "name");
         }
     }
 }

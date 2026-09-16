@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -76,18 +77,74 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
                     required(node.path("siteCollection"), "hostname"));
         }
 
+        @Override public Site site(String hostname, String sitePath) {
+            var node = get("/sites/" + encodePath(hostname) + ":" + encodePath(sitePath)
+                    + "?$select=id,webUrl,displayName,isPersonalSite", new Budget());
+            return site(node);
+        }
+
+        @Override public List<Library> libraries(String siteId) {
+            var node = get("/sites/" + encodePath(siteId) + "/drives?$select=id,name,webUrl,driveType", new Budget());
+            var libraries = new ArrayList<Library>();
+            for (JsonNode drive : array(node)) {
+                if (!"documentLibrary".equals(drive.path("driveType").asString(""))
+                        && !"business".equals(drive.path("driveType").asString(""))) continue;
+                libraries.add(new Library(required(drive, "id"), required(drive, "name"),
+                        libraryPath(required(drive, "webUrl"))));
+            }
+            return List.copyOf(libraries);
+        }
+
+        @Override public Folder folder(String driveId, List<String> folderSegments) {
+            if (folderSegments.isEmpty()) throw new SharePointProviderException(MALFORMED);
+            String path = String.join("/", folderSegments.stream().map(RestSharePointProvider::encodePath).toList());
+            var node = get("/drives/" + encodePath(driveId) + "/root:/" + path + "?$select=id,name,folder", new Budget());
+            if (node.path("folder").isMissingNode()) throw new SharePointProviderException(NOT_FOUND);
+            return new Folder(required(node, "id"), required(node, "name"));
+        }
+
+        @Override public SitePage sites(@Nullable String nextLink) {
+            var node = nextLink == null
+                    ? get("/sites/getAllSites?$select=id,name,webUrl,isPersonalSite", new Budget())
+                    : json(exchange(request(continuation(nextLink)), new Budget()));
+            var sites = new ArrayList<Site>();
+            for (JsonNode entry : array(node)) sites.add(site(entry));
+            String next = node.path("@odata.nextLink").asString("");
+            return new SitePage(sites, next.isBlank() ? null : next);
+        }
+
+        private Site site(JsonNode node) {
+            String name = node.path("name").asString("");
+            if (name.isBlank()) name = node.path("displayName").asString("");
+            return new Site(required(node, "id"), required(node, "webUrl"), name.isBlank() ? null : name,
+                    node.path("isPersonalSite").asBoolean(false));
+        }
+
         @Override public void close() { bearer = null; }
 
         private JsonNode get(String path, Budget budget) {
+            return json(exchange(request(URI.create(properties.graphBaseUrl() + path)), budget));
+        }
+
+        private HttpRequest request(URI uri) {
             String token = bearer;
             if (token == null) throw new SharePointProviderException(MALFORMED);
-            URI base = properties.graphBaseUrl();
-            HttpRequest request = HttpRequest.newBuilder(URI.create(base + path))
+            return HttpRequest.newBuilder(uri)
                     .header("Authorization", "Bearer " + token)
                     .header("Accept", "application/json")
                     .header("User-Agent", properties.userAgent())
                     .GET().build();
-            return json(exchange(request, budget));
+        }
+
+        /** Graph continuation links are absolute; only links back to the configured Graph host are followed. */
+        private URI continuation(String nextLink) {
+            URI uri = URI.create(nextLink);
+            URI base = properties.graphBaseUrl();
+            if (!uri.isAbsolute() || !base.getHost().equalsIgnoreCase(uri.getHost())
+                    || base.getPort() != uri.getPort() || !base.getScheme().equalsIgnoreCase(uri.getScheme())) {
+                throw new SharePointProviderException(MALFORMED);
+            }
+            return uri;
         }
     }
 
@@ -134,6 +191,28 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         } catch (tools.jackson.core.JacksonException exception) {
             throw new SharePointProviderException(MALFORMED);
         }
+    }
+
+    private JsonNode array(JsonNode node) {
+        JsonNode value = node.path("value");
+        if (!value.isArray()) throw new SharePointProviderException(MALFORMED);
+        return value;
+    }
+
+    /** Keeps the library's server-relative path, dropping scheme and host. */
+    private static String libraryPath(String webUrl) {
+        URI uri = URI.create(webUrl);
+        String path = uri.getPath();
+        if (path == null || path.isBlank()) throw new SharePointProviderException(MALFORMED);
+        return java.net.URLDecoder.decode(path, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static String encodePath(String value) {
+        if (value.isBlank() || value.length() > 2048 || value.contains("?") || value.contains("#")) {
+            throw new SharePointProviderException(MALFORMED);
+        }
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20").replace("%2F", "/").replace("%3A", ":");
     }
 
     private static String required(JsonNode node, String field) {

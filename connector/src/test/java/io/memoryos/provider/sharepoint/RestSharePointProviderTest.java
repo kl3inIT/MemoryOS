@@ -99,6 +99,88 @@ class RestSharePointProviderTest {
     }
 
     @Test
+    void resolvesASiteByItsServerRelativePath() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("/v1.0/sites/contoso.sharepoint.com:/sites/Finance", exchange.getRequestURI().getPath());
+            return ok("""
+                    {"id":"contoso.sharepoint.com,1,2","webUrl":"https://contoso.sharepoint.com/sites/Finance",
+                     "displayName":"Finance","isPersonalSite":false}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var site = session.site("contoso.sharepoint.com", "/sites/Finance");
+            assertEquals("contoso.sharepoint.com,1,2", site.siteId());
+            assertEquals("Finance", site.displayName());
+            assertFalse(site.personalSite());
+        }
+    }
+
+    @Test
+    void keepsTheLibraryUrlPathSoLocalizedNamesStillMatch() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertTrue(exchange.getRequestURI().getPath().endsWith("/drives"), exchange.getRequestURI().getPath());
+            return ok("""
+                    {"value":[
+                      {"id":"cache","name":"PersonalCacheLibrary","driveType":"documentLibrary",
+                       "webUrl":"https://contoso.sharepoint.com/sites/Finance/Lists/PersonalCacheLibrary"},
+                      {"id":"drive-1","name":"Tài liệu","driveType":"documentLibrary",
+                       "webUrl":"https://contoso.sharepoint.com/sites/Finance/Shared%20Documents"},
+                      {"id":"other","name":"Ignored","driveType":"personal",
+                       "webUrl":"https://contoso.sharepoint.com/sites/Finance/Other"}]}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var libraries = session.libraries("contoso.sharepoint.com,1,2");
+            assertEquals(2, libraries.size(), "only document libraries are returned");
+            var library = libraries.get(1);
+            assertEquals("drive-1", library.driveId());
+            assertEquals("Tài liệu", library.name());
+            // The decoded URL path is what a pasted address is matched against.
+            assertEquals("/sites/Finance/Shared Documents", library.path());
+        }
+    }
+
+    @Test
+    void resolvesNestedFoldersAndRefusesFiles() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getRawPath().endsWith("/root:/Baocao/Quy%201")) {
+                return ok("{\"id\":\"item-1\",\"name\":\"Quy 1\",\"folder\":{\"childCount\":2}}");
+            }
+            return ok("{\"id\":\"item-2\",\"name\":\"report.docx\",\"file\":{\"mimeType\":\"application/pdf\"}}");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertEquals("item-1", session.folder("drive-1", List.of("Baocao", "Quy 1")).itemId());
+            assertEquals(Failure.NOT_FOUND, assertThrows(SharePointProviderException.class,
+                    () -> session.folder("drive-1", List.of("report.docx"))).failure());
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.folder("drive-1", List.of())).failure());
+        }
+    }
+
+    @Test
+    void pagesAllSitesAndRefusesForeignContinuations() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getQuery() != null && exchange.getRequestURI().getQuery().contains("skiptoken")) {
+                return ok("""
+                        {"value":[{"id":"site-2","webUrl":"https://contoso.sharepoint.com/sites/People","name":"People",
+                          "isPersonalSite":false}]}""");
+            }
+            String self = "http://127.0.0.1:" + exchange.getLocalAddress().getPort();
+            return ok("""
+                    {"value":[
+                       {"id":"site-1","webUrl":"https://contoso.sharepoint.com/sites/Finance","name":"Finance","isPersonalSite":false},
+                       {"id":"me","webUrl":"https://contoso-my.sharepoint.com/personal/ann","name":"Ann","isPersonalSite":true},
+                       {"id":"search","webUrl":"https://contoso.sharepoint.com/search"}],
+                     "@odata.nextLink":"%s/v1.0/sites/getAllSites?$skiptoken=next"}""".formatted(self));
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var first = session.sites(null);
+            assertEquals(3, first.sites().size());
+            assertTrue(first.sites().get(1).personalSite());
+            // A site without a name must still be usable.
+            assertNull(first.sites().get(2).displayName());
+            assertNotNull(first.nextLink());
+            assertEquals("site-2", session.sites(first.nextLink()).sites().getFirst().siteId());
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.sites("https://evil.example.com/v1.0/sites/getAllSites")).failure());
+        }
+    }
+
+    @Test
     void classifiesEntraErrorNumbers() {
         assertEquals(Reason.INVALID_CLIENT_SECRET, MsalSharePointTokenSource.classify(
                 "AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value"));
