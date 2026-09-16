@@ -48,7 +48,7 @@ Design: [OAuth setup (Phase 2b)](design.md#oauth-setup-phase-2b).
 - [x] Administrator connect: `/login/oauth2/code/mcp` with its own security chain, session state bound to actor and revisions, PKCE, `resource`, `iss` validation, token exchange; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
 - [x] Token refresh shared with Phase 3 (revision fencing, rotation, `invalid_grant` → `REAUTH_REQUIRED`), best-effort revocation on disconnect; tool refresh for `ADMIN` OAuth servers.
 - [x] Integration tests with a stub authorization server (see design).
-- [ ] Create `MEMORYOS_MCP_REDIRECT_URI` where staging sets `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI` (owner to confirm the location).
+- [x] Infisical (project `90ae5a61`, environments `dev` and `staging`) holds `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` (a fresh 32-byte key per environment) and `MEMORYOS_MCP_REDIRECT_URI` at the same browser origin as `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
 
 Evidence: [verification.md](verification.md#phase-2b--2026-09-16).
 
