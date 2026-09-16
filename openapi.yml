@@ -2518,6 +2518,116 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/interpreter:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Read whether Code Interpreter is configured and enabled for the Tenant
+      operationId: getChatInterpreterSettings
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Interpreter
+      summary: Enable or disable Code Interpreter for the Tenant
+      operationId: updateChatInterpreterSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpreterSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/selection:
     put:
       tags:
@@ -7556,6 +7666,7 @@ paths:
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
+                - $ref: "#/components/schemas/CodeEvent"
                 - $ref: "#/components/schemas/ResearchPlanEvent"
                 - $ref: "#/components/schemas/TopLevelBranchingEvent"
                 - $ref: "#/components/schemas/ResearchAgentStartEvent"
@@ -8075,6 +8186,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatPersonaPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/interpreter/health:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Check the Code Interpreter service without the cache
+      operationId: getChatInterpreterHealth
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Live Code Interpreter service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterHealthResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -8728,6 +8887,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatFilePolicyResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Read an owner-private file generated by Code Interpreter
+      operationId: getChatFileArtifact
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Generated file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
       security:
       - bearerAuth: []
       - browserSession: []
@@ -10396,6 +10605,33 @@ components:
           format: int64
       required:
       - modelConfigurationId
+      - revision
+    InterpreterSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    InterpreterSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment has a Code Interpreter service
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - configured
+      - enabled
       - revision
     ImageSelectionRequest:
       type: object
@@ -13118,6 +13354,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
+        generatedFiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFileRef"
         research:
           $ref: "#/components/schemas/ChatMessageResearch"
       required:
@@ -13127,6 +13367,7 @@ components:
       - createdAt
       - files
       - finishedAt
+      - generatedFiles
       - id
       - images
       - latestChildMessageId
@@ -13275,6 +13516,24 @@ components:
         ordinal:
           type: integer
           format: int32
+    GeneratedFileRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+      required:
+      - filename
+      - id
+      - mediaType
+      - sizeBytes
     ImageRef:
       type: object
       properties:
@@ -13561,6 +13820,57 @@ components:
       - sequence
       - stage
       - toolCallId
+    CodeEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - RUNNING
+          - OUTPUT
+          - COMPLETED
+          - FAILED
+        code:
+          type:
+          - string
+          - "null"
+        output:
+          type:
+          - string
+          - "null"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFile"
+      required:
+      - assistantMessageId
+      - code
+      - files
+      - output
+      - sequence
+      - stage
+      - toolCallId
+    GeneratedFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
     ResearchPlanEvent:
       type: object
       properties:
@@ -13852,6 +14162,19 @@ components:
       required:
       - items
       - nextCursor
+    InterpreterHealthResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        error:
+          type: string
+        version:
+          type: string
+      required:
+      - connected
+      - error
+      - version
     ImageAvailabilityResponse:
       type: object
       properties:

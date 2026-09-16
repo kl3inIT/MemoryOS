@@ -116,6 +116,10 @@ memoryos:
       max-answer-characters: 1000000
       mcp-call-limit: 10
       mcp-call-timeout: 60s
+    interpreter:
+      # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.
+      base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
+      api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     jit:

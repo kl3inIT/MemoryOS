@@ -43,11 +43,17 @@ public final class StreamBufferWriter {
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                         @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId) {
+                        @Nullable String parentToolCallId, io.memoryos.chat.@Nullable ChatCodeEvent code) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
+                     @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
+                     @Nullable String parentToolCallId) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, research, parentToolCallId, null);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                      @Nullable ChatImageEvent image, boolean hasArtifacts) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null);
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null, null);
         }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
@@ -169,6 +175,13 @@ public final class StreamBufferWriter {
         publish(stream, new Event(id, ++stream.sequence, "image", null, null, null, null, event, false));
     }
 
+    public synchronized void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+        var stream = require(id);
+        if (stream.done) return;
+        flush(stream);
+        publish(stream, new Event(id, ++stream.sequence, "code", null, null, null, null, null, false, null, null, event));
+    }
+
     public synchronized void flush() {
         for (var stream : new ArrayList<>(streams.values())) {
             flush(stream);
@@ -236,7 +249,8 @@ public final class StreamBufferWriter {
                 + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length)
                 + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length)
                 + (event.research() == null ? 0 : JSON.writeValueAsBytes(event.research()).length)
-                + (event.parentToolCallId() == null ? 0 : event.parentToolCallId().length());
+                + (event.parentToolCallId() == null ? 0 : event.parentToolCallId().length())
+                + (event.code() == null ? 0 : JSON.writeValueAsBytes(event.code()).length);
         stream.chunks.addLast(new Chunk(event, bytes));
         stream.bytes += bytes;
         total += bytes;
