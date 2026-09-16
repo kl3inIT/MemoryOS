@@ -91,7 +91,9 @@ public class McpServerService {
 
     public record Refresh(ServerView server, List<ToolView> tools) {}
 
-    private record Target(UUID tenantId, String url, Map<String, String> headers, long revision, boolean oauth) {
+    /** {@code ownerActorId} is the refreshing administrator's own credential on a per-User server, else null. */
+    private record Target(UUID tenantId, String url, Map<String, String> headers, long revision, boolean oauth,
+                          @Nullable UUID ownerActorId) {
         @Override public @NonNull String toString() { return "McpRefreshTarget[redacted]"; }
     }
 
@@ -175,22 +177,27 @@ public class McpServerService {
         Target target = Objects.requireNonNull(transactions.execute(status -> {
             UUID tenant = read(actor);
             var server = server(tenant, serverId);
-            return new Target(tenant, server.url(), headers(server), server.revision(), server.authType() == McpAuthType.OAUTH);
+            UUID owner = server.authPerformer() == McpAuthPerformer.PER_USER ? actor.value() : null;
+            return new Target(tenant, server.url(), headers(server, owner), server.revision(),
+                    server.authType() == McpAuthType.OAUTH, owner);
         }));
         List<McpToolDescriptor> listed;
         try {
             Map<String, String> headers = target.headers();
             if (target.oauth()) {
                 var authorized = new LinkedHashMap<>(headers);
-                authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, null));
+                authorized.put("Authorization", "Bearer " + oauth.accessToken(target.tenantId(), serverId, target.ownerActorId()));
                 headers = authorized;
             }
             try (var session = clients.open(target.url(), headers, REFRESH_DEADLINE)) {
                 listed = session.listTools();
             }
         } catch (McpException failure) {
-            recordFailure(actor, serverId, target.revision(), "MCP_AUTHORIZATION_REQUIRED".equals(failure.code())
-                    ? McpServerStatus.AWAITING_AUTH : McpServerStatus.DISCONNECTED);
+            boolean unauthorized = "MCP_AUTHORIZATION_REQUIRED".equals(failure.code());
+            // AWAITING_AUTH reports a missing shared connection, so one administrator's own credential never sets it.
+            if (!unauthorized || target.ownerActorId() == null)
+                recordFailure(actor, serverId, target.revision(),
+                        unauthorized ? McpServerStatus.AWAITING_AUTH : McpServerStatus.DISCONNECTED);
             throw failure;
         }
         var snapshot = McpServerRules.snapshot(listed);
@@ -311,25 +318,25 @@ public class McpServerService {
         return sharedCredential ? McpServerStatus.CREATED : McpServerStatus.AWAITING_AUTH;
     }
 
-    /** Headers for the administrator's refresh; OAuth adds the bearer token outside the transaction. */
-    private Map<String, String> headers(McpServerEntity server) {
+    /**
+     * Headers for a refresh. {@code ownerActorId} selects the refreshing administrator's own credential on a
+     * per-User server and is null for the shared one; OAuth adds the bearer token outside the transaction.
+     */
+    private Map<String, String> headers(McpServerEntity server, @Nullable UUID ownerActorId) {
         Map<String, String> template = server.headerTemplate() == null ? null : openTemplate(server);
         return switch (server.authType()) {
             case NONE -> McpServerRules.resolveHeaders(template, McpAuthType.NONE, null);
             case API_TOKEN -> {
-                if (server.authPerformer() != McpAuthPerformer.ADMIN) throw McpException.credentialRequired();
-                var shared = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId())
+                var credential = (ownerActorId == null
+                        ? credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(server.tenantId(), server.getId())
+                        : credentials.findByTenantIdAndServerIdAndOwnerActorId(server.tenantId(), server.getId(), ownerActorId))
                         .orElseThrow(McpException::credentialRequired);
-                String apiKey = McpServerRules.stringMap(secrets.open(server.tenantId(), shared.getId(),
-                        McpSecrets.Purpose.CREDENTIAL, shared.payload())).get(McpServerRules.API_KEY);
+                String apiKey = McpServerRules.stringMap(secrets.open(server.tenantId(), credential.getId(),
+                        McpSecrets.Purpose.CREDENTIAL, credential.payload())).get(McpServerRules.API_KEY);
                 if (apiKey == null) throw McpException.credentialUnreadable();
                 yield McpServerRules.resolveHeaders(template, McpAuthType.API_TOKEN, apiKey);
             }
-            case OAUTH -> {
-                // PER_USER OAuth servers are refreshed with the administrator's own connection in Phase 3.
-                if (server.authPerformer() != McpAuthPerformer.ADMIN) throw McpException.credentialRequired();
-                yield McpServerRules.resolveHeaders(template, McpAuthType.OAUTH, null);
-            }
+            case OAUTH -> McpServerRules.resolveHeaders(template, McpAuthType.OAUTH, null);
         };
     }
 

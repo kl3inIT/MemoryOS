@@ -609,6 +609,75 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/connections/{serverId}/api-key:
+    put:
+      tags:
+      - MCP
+      summary: Store the User's own API key after listing the server with it
+      operationId: saveMcpConnectionApiKey
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpConnectionApiKeyInput"
+        required: true
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Stored connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/identity/me/language:
     put:
       tags:
@@ -3641,6 +3710,76 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/connections/{serverId}/authorization:
+    post:
+      tags:
+      - MCP
+      summary: Start the User's own OAuth connection and return to the originating
+        page
+      operationId: startMcpConnectionAuthorization
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpConnectionAuthorizationInput"
+        required: true
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Authorization URL for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations:
     get:
       tags:
@@ -6640,6 +6779,57 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/connections:
+    get:
+      tags:
+      - MCP
+      summary: List the MCP servers available to the signed-in User with their own
+        connection state
+      operationId: listMcpConnections
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP servers this User may use
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations/current:
     get:
       tags:
@@ -8544,6 +8734,65 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/connections/{serverId}/connection:
+    delete:
+      tags:
+      - MCP
+      summary: Remove the User's own credential and revoke an OAuth connection
+      operationId: disconnectMcpConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Connection removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -9156,6 +9405,102 @@ components:
       - source
       - tokenEndpoint
       - tokenEndpointAuthMethod
+    McpConnectionApiKeyInput:
+      type: object
+      description: The User's own API key; write-only
+      properties:
+        apiKey:
+          type: string
+          maxLength: 8192
+      required:
+      - apiKey
+    McpConnection:
+      type: object
+      description: "An MCP server the signed-in User may use, with their own connection\
+        \ state"
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type:
+          - string
+          - "null"
+        url:
+          type: string
+        authType:
+          type: string
+          enum:
+          - NONE
+          - API_TOKEN
+          - OAUTH
+        authPerformer:
+          type: string
+          enum:
+          - ADMIN
+          - PER_USER
+        status:
+          type: string
+          enum:
+          - CREATED
+          - AWAITING_AUTH
+          - FETCHING_TOOLS
+          - CONNECTED
+          - DISCONNECTED
+        connectionState:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - SHARED
+          - NOT_CONNECTED
+          - CONNECTED
+          - REAUTH_REQUIRED
+        oauthClients:
+          type: array
+          description: Accounts to choose between when connecting
+          items:
+            $ref: "#/components/schemas/McpConnectionClient"
+        enabledToolCount:
+          type: integer
+          format: int64
+        connectedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+      required:
+      - authPerformer
+      - authType
+      - connectedAt
+      - connectionState
+      - description
+      - enabledToolCount
+      - id
+      - name
+      - oauthClients
+      - revision
+      - slug
+      - status
+      - url
+    McpConnectionClient:
+      type: object
+      description: A labelled OAuth client; endpoints stay server-side
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+      required:
+      - id
+      - label
     LanguagePreference:
       type: object
       additionalProperties: false
@@ -10535,6 +10880,21 @@ components:
           description: Navigate the browser here
       required:
       - authorizationUrl
+    McpConnectionAuthorizationInput:
+      type: object
+      properties:
+        oauthClientId:
+          type: string
+          format: uuid
+          description: The account to connect with
+        returnPath:
+          type:
+          - string
+          - "null"
+          description: "Relative MemoryOS page to return to, such as /chat/{sessionId}"
+          maxLength: 512
+      required:
+      - oauthClientId
     CreateInvitationRequest:
       type: object
       additionalProperties: false

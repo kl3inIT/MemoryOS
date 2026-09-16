@@ -198,6 +198,43 @@ export type McpOAuthClientView = {
     revision: number;
 };
 
+/**
+ * The User's own API key; write-only
+ */
+export type McpConnectionApiKeyInput = {
+    apiKey: string;
+};
+
+/**
+ * An MCP server the signed-in User may use, with their own connection state
+ */
+export type McpConnection = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
+    connectionState: 'NOT_REQUIRED' | 'SHARED' | 'NOT_CONNECTED' | 'CONNECTED' | 'REAUTH_REQUIRED';
+    /**
+     * Accounts to choose between when connecting
+     */
+    oauthClients: Array<McpConnectionClient>;
+    enabledToolCount: number;
+    connectedAt: string | null;
+    revision: number;
+};
+
+/**
+ * A labelled OAuth client; endpoints stay server-side
+ */
+export type McpConnectionClient = {
+    id: string;
+    label: string;
+};
+
 export type LanguagePreference = {
     uiLanguage: 'vi' | 'en';
 };
@@ -720,6 +757,17 @@ export type McpOAuthAuthorization = {
      * Navigate the browser here
      */
     authorizationUrl: string;
+};
+
+export type McpConnectionAuthorizationInput = {
+    /**
+     * The account to connect with
+     */
+    oauthClientId: string;
+    /**
+     * Relative MemoryOS page to return to, such as /chat/{sessionId}
+     */
+    returnPath?: string | null;
 };
 
 export type CreateInvitationRequest = {
@@ -1993,6 +2041,59 @@ export type UpdateMcpServerOAuthClientResponses = {
 };
 
 export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientResponses[keyof UpdateMcpServerOAuthClientResponses];
+
+export type SaveMcpConnectionApiKeyData = {
+    body: McpConnectionApiKeyInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/api-key';
+};
+
+export type SaveMcpConnectionApiKeyErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveMcpConnectionApiKeyError = SaveMcpConnectionApiKeyErrors[keyof SaveMcpConnectionApiKeyErrors];
+
+export type SaveMcpConnectionApiKeyResponses = {
+    /**
+     * Stored connection
+     */
+    200: McpConnection;
+};
+
+export type SaveMcpConnectionApiKeyResponse = SaveMcpConnectionApiKeyResponses[keyof SaveMcpConnectionApiKeyResponses];
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
@@ -4371,6 +4472,59 @@ export type StartMcpServerOAuthAuthorizationResponses = {
 
 export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthorizationResponses[keyof StartMcpServerOAuthAuthorizationResponses];
 
+export type StartMcpConnectionAuthorizationData = {
+    body: McpConnectionAuthorizationInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/authorization';
+};
+
+export type StartMcpConnectionAuthorizationErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StartMcpConnectionAuthorizationError = StartMcpConnectionAuthorizationErrors[keyof StartMcpConnectionAuthorizationErrors];
+
+export type StartMcpConnectionAuthorizationResponses = {
+    /**
+     * Authorization URL for the browser
+     */
+    200: McpOAuthAuthorization;
+};
+
+export type StartMcpConnectionAuthorizationResponse = StartMcpConnectionAuthorizationResponses[keyof StartMcpConnectionAuthorizationResponses];
+
 export type ListInvitationsData = {
     body?: never;
     path?: never;
@@ -6563,6 +6717,51 @@ export type ListMcpGroupOptionsResponses = {
 
 export type ListMcpGroupOptionsResponse = ListMcpGroupOptionsResponses[keyof ListMcpGroupOptionsResponses];
 
+export type ListMcpConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/connections';
+};
+
+export type ListMcpConnectionsErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpConnectionsError = ListMcpConnectionsErrors[keyof ListMcpConnectionsErrors];
+
+export type ListMcpConnectionsResponses = {
+    /**
+     * MCP servers this User may use
+     */
+    200: Array<McpConnection>;
+};
+
+export type ListMcpConnectionsResponse = ListMcpConnectionsResponses[keyof ListMcpConnectionsResponses];
+
 export type GetCurrentInvitationData = {
     body?: never;
     path?: never;
@@ -8096,6 +8295,59 @@ export type DisconnectMcpServerOAuthResponses = {
 };
 
 export type DisconnectMcpServerOAuthResponse = DisconnectMcpServerOAuthResponses[keyof DisconnectMcpServerOAuthResponses];
+
+export type DisconnectMcpConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/connection';
+};
+
+export type DisconnectMcpConnectionErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DisconnectMcpConnectionError = DisconnectMcpConnectionErrors[keyof DisconnectMcpConnectionErrors];
+
+export type DisconnectMcpConnectionResponses = {
+    /**
+     * Connection removed
+     */
+    204: void;
+};
+
+export type DisconnectMcpConnectionResponse = DisconnectMcpConnectionResponses[keyof DisconnectMcpConnectionResponses];
 
 export type DeleteGoogleDriveCredentialData = {
     body?: never;

@@ -59,3 +59,15 @@ Not run for 2a: `gradlew clean check` and the full web `pnpm check`.
 Spring Session JDBC owns the browser session, so MockMvc cannot supply a session-bound actor. The session path is covered at controller level (`McpOAuthCallbackTest`), as MEM-60 does with `GoogleDriveOAuthTest`. The integration test calls the same service methods against real persistence and HTTP.
 
 Not run for 2b: `gradlew clean check`, the full web `pnpm check` and a live authorization server. Whether Google accepts the `resource` parameter remains a live-probe item. Also not run: the full web `pnpm check` and live Google Drive MCP (deferred by the owner). JetBrains MCP was unavailable, so no IDE-inspection claim is made.
+
+## Phase 3 — 2026-09-16
+
+| Check | Command | Result |
+| --- | --- | --- |
+| User connections end to end | `gradlew :api:test --tests 'io.memoryos.api.chat.ChatSessionApiIntegrationTest.mcp*'` | `mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser` passed:<br>• a Group-restricted per-User server is listed for a member as `NOT_CONNECTED` and is absent, and 404, for a non-member<br>• a rejected API key gives 409 `MCP_AUTHORIZATION_REQUIRED` and stores nothing<br>• an accepted key is sealed (`v1:`) and never echoed<br>• tool refresh of a per-User server uses the refreshing administrator's own credential<br>• two Users hold separate credentials; disconnecting one leaves the other<br>• without their own credential the administrator gets 409 `MCP_CREDENTIAL_REQUIRED` and the server status is unchanged |
+| Callback ownership and return | `gradlew :api:test --tests io.memoryos.api.mcp.McpOAuthCallbackTest` | 5 tests passed, including a connecting User returned to `/chat/{session}` with the outcome code; a callback without pending state lands on `/`, which every User may open |
+| Return addresses | `McpReturnPathTest` | 2 tests passed: only `/`, `/chat/{id}`, `/projects/{id}` and `/admin/mcp` are accepted; absolute URLs, `//host`, backslashes, queries and fragments are refused |
+| Core MCP suites | `gradlew :core:test --tests 'io.memoryos.mcp.*'` | 32 tests passed across 6 suites after the `Pending`, access-predicate and per-User header changes |
+| OpenAPI and web client | `MEMORYOS_OPENAPI_WRITE=true` `OpenApiContractTest`; `pnpm generate:api`; `tsc -b --noEmit` | Passed with four new `/api/mcp/connections...` paths; the diff is 360 added lines and removes no operation; typecheck clean |
+
+Not run for Phase 3: `gradlew clean check`, the full `:api:test`, the full web `pnpm check`, and a live authorization server. Two Phase 3 behaviours are implemented but not covered by their own test: a User's end-to-end OAuth connect against the stub authorization server (the administrator path and the User callback path are each covered separately), and the concurrent-refresh race in which the losing refresh reuses the winner's token.

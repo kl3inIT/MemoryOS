@@ -1761,15 +1761,15 @@ class ChatSessionApiIntegrationTest {
             assertEquals(fixture.url(), mismatchedParameters.get("resource"));
             assertEquals("S256", mismatchedParameters.get("code_challenge_method"));
             assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
-                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
                             "https://evil.example")).code());
             assertEquals("MCP_OAUTH_ISSUER_MISMATCH", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
-                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "stolen-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "stolen-code", "verifier-1",
                             null)).code());
 
             var launch = mcpOAuth.startAdministratorAuthorization(actorId, serverId, clientId, "state-2",
                     io.memoryos.api.mcp.McpAuthorizationSessionState.challenge("verifier-2"));
-            mcpOAuth.completeAdministratorAuthorization(actorId, launch.pending(), "good-code", "verifier-2", issuer);
+            mcpOAuth.complete(actorId, launch.pending(), "good-code", "verifier-2", issuer);
             var exchanged = tokenForms.getLast();
             assertEquals("good-code", exchanged.get("code"));
             assertEquals(fixture.url(), exchanged.get("resource"));
@@ -1777,7 +1777,7 @@ class ChatSessionApiIntegrationTest {
                     io.memoryos.api.mcp.McpAuthorizationSessionState.challenge(exchanged.get("code_verifier")));
             // Connecting changed the server revision, so the earlier pending authorization can no longer complete.
             assertEquals("MCP_CONFLICT", org.junit.jupiter.api.Assertions.assertThrows(io.memoryos.mcp.McpException.class,
-                    () -> mcpOAuth.completeAdministratorAuthorization(actorId, mismatched.pending(), "late-code", "verifier-1",
+                    () -> mcpOAuth.complete(actorId, mismatched.pending(), "late-code", "verifier-1",
                             issuer)).code());
             String payload = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id IS NULL")
                     .param("id", UUID.fromString(id)).query(String.class).single();
@@ -1855,7 +1855,7 @@ class ChatSessionApiIntegrationTest {
             assertEquals("org-b-client", knownParameters.get("client_id"));
             assertEquals("files:read", knownParameters.get("scope"));
             assertEquals("offline", knownParameters.get("access_type"));
-            mcpOAuth.completeAdministratorAuthorization(actorId, knownLaunch.pending(), "known-code", "verifier-known", null);
+            mcpOAuth.complete(actorId, knownLaunch.pending(), "known-code", "verifier-known", null);
             assertEquals("org-b-client", tokenForms.getLast().get("client_id"));
             assertEquals("org-b-secret", tokenForms.getLast().get("client_secret"));
             assertEquals("null", tokenAuthorizations.getLast());
@@ -1881,6 +1881,85 @@ class ChatSessionApiIntegrationTest {
                     java.net.URLDecoder.decode(pair.substring(separator + 1), UTF_8));
         }
         return parameters;
+    }
+
+    @Test
+    void mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser() throws Exception {
+        grantCapability("MCP_MANAGE");
+        UUID group = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                .param("tenant", TENANT).param("id", group).param("name", group.toString()).update();
+        jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
+                .param("tenant", TENANT).param("group", group).param("actor", actor.getPrincipal().actorId().value()).update();
+        var required = Map.of("Authorization", "Bearer user-key", "X-Fixture", "static-header-secret");
+        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+            var body = mcpServerBody("peruser" + (System.nanoTime() % 100000), fixture.url());
+            body.put("authPerformer", "PER_USER").put("tenantWide", false);
+            body.putArray("groupIds").add(group.toString());
+            body.putObject("sharedApiKey").put("action", "KEEP");
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            UUID serverId = UUID.fromString(created.path("id").asText());
+            String connection = "/api/mcp/connections/" + serverId;
+
+            // Only Group members see the server; to everyone else it does not exist.
+            var mine = Json.mapper().readTree(mockMvc.perform(get("/api/mcp/connections").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            com.fasterxml.jackson.databind.JsonNode row = null;
+            for (var entry : mine) if (entry.path("id").asText().equals(serverId.toString())) row = entry;
+            assertNotNull(row);
+            assertEquals("NOT_CONNECTED", row.path("connectionState").asText());
+            assertTrue(row.path("oauthClients").isEmpty());
+            assertFalse(mockMvc.perform(get("/api/mcp/connections").with(authentication(other))).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString().contains(serverId.toString()));
+            mockMvc.perform(put(connection + "/api-key").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"apiKey\":\"user-key\"}"))
+                    .andExpect(status().isNotFound());
+
+            // The key is listed against the server before it is stored, so a rejected key is never persisted.
+            mockMvc.perform(put(connection + "/api-key").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"apiKey\":\"wrong-key\"}"))
+                    .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MCP_AUTHORIZATION_REQUIRED"));
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", serverId)
+                    .query(Long.class).single());
+            var connected = Json.mapper().readTree(mockMvc.perform(put(connection + "/api-key").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"apiKey\":\"user-key\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("CONNECTED", connected.path("connectionState").asText());
+            assertFalse(connected.toString().contains("user-key"));
+            String sealed = jdbc.sql("SELECT payload FROM mcp_credential WHERE server_id=:id AND owner_actor_id=:owner")
+                    .param("id", serverId).param("owner", actor.getPrincipal().actorId().value()).query(String.class).single();
+            assertTrue(sealed.startsWith("v1:") && !sealed.contains("user-key"));
+
+            // Tool refresh of a per-User server uses the refreshing administrator's own credential.
+            var refreshed = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString());
+            assertEquals("CONNECTED", refreshed.path("server").path("status").asText());
+
+            // A second User connects their own account; neither credential is visible to the other.
+            jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:group,:actor)")
+                    .param("tenant", TENANT).param("group", group).param("actor", other.getPrincipal().actorId().value()).update();
+            mockMvc.perform(put(connection + "/api-key").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"apiKey\":\"user-key\"}")).andExpect(status().isOk());
+            assertEquals(2, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id").param("id", serverId)
+                    .query(Long.class).single());
+
+            mockMvc.perform(delete(connection + "/connection").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id AND owner_actor_id=:owner")
+                    .param("id", serverId).param("owner", other.getPrincipal().actorId().value()).query(Long.class).single());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_credential WHERE server_id=:id AND owner_actor_id=:owner")
+                    .param("id", serverId).param("owner", actor.getPrincipal().actorId().value()).query(Long.class).single());
+
+            // Without their own credential the administrator cannot refresh, and the shared status stays untouched.
+            mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("MCP_CREDENTIAL_REQUIRED"));
+            mockMvc.perform(get("/api/mcp/servers/" + serverId).with(authentication(actor)))
+                    .andExpect(jsonPath("$.status").value("CONNECTED"));
+        }
     }
 
     private static ObjectNode oauthClientBody(String label, String issuer, String clientId, String secret, String method) {

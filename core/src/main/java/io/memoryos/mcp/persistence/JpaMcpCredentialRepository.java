@@ -9,4 +9,5 @@ public interface JpaMcpCredentialRepository extends JpaRepository<McpCredentialE
     Optional<McpCredentialEntity> findByTenantIdAndServerIdAndOwnerActorId(UUID tenantId, UUID serverId, UUID ownerActorId);
     Optional<McpCredentialEntity> findByTenantIdAndServerIdAndOwnerActorIdIsNull(UUID tenantId, UUID serverId);
     List<McpCredentialEntity> findByTenantIdAndServerId(UUID tenantId, UUID serverId);
+    List<McpCredentialEntity> findByTenantIdAndOwnerActorId(UUID tenantId, UUID ownerActorId);
 }

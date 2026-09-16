@@ -216,6 +216,22 @@ Follows MCP authorization `2025-11-25` (the negotiated target) plus the `2026-07
 - State replay, changed revision, wrong or missing required `iss`.
 - Token exchange with `resource`, refresh rotation, `invalid_grant`.
 
+### User connections (Phase 3)
+
+Reuses the Phase 2b protocol, callback chain and refresh; only ownership and authorization differ.
+
+**Access.** A User may use a server when they are an active Tenant member holding `CHAT_WRITE` (a Basic child) and the server is organization-wide or grants one of their Groups. A server outside that set is reported as not found, so restricted servers are not enumerable. The predicate is one SQL fragment in `mcp/persistence`, following `SourceScopeSql`: `mcp` may read `iam_group_memberships` directly, as `chat` and `connector` do.
+
+**One connect path.** `Pending` gains `ownerActorId` (null for the shared administrator credential) and `returnPath`, and one `complete(actor, pending, code, verifier, iss)` serves both. The completing actor must equal `ownerActorId`, and a pending whose ownership disagrees with the server's current performer is a conflict. Per-User connections never change the server status, which reports the shared credential only. `uq_mcp_credential_owner` already keeps one credential per User and server.
+
+**Return.** `returnPath` is captured when the authorization starts, restricted to a relative application path (`/`, `/chat/…`, `/projects/…`, `/admin/mcp`), and the callback returns there with the outcome code. An expired or replayed callback has no pending state, so it returns to `/` rather than to administration, which a User may not open.
+
+**User API key.** The header template allows only `{api_key}`, so the dialog has exactly one field. The key is probed before it is stored: the server is listed with the resolved headers, and a rejection returns `MCP_AUTHORIZATION_REQUIRED` with nothing persisted, the `refreshTools` shape.
+
+**Administrator refresh of a per-User server.** Tool refresh uses the administrator's own credential for that server, not a shared one, and an authorization failure there leaves the server status unchanged.
+
+**API.** `GET /api/mcp/connections` lists accessible servers with the User's own connection state, enabled tool count and the OAuth client labels (identifier and label only). `POST /api/mcp/connections/{serverId}/authorization`, `PUT /api/mcp/connections/{serverId}/api-key` and `DELETE /api/mcp/connections/{serverId}/connection` own the rest.
+
 ### Chat turn
 
 - Turn command gains `mcpServerIds`; `ChatTurnService` validates access, model `toolCalling()` and credential readiness, like `withWeb`/`withImage`. Composer lists accessible servers with status and connect/API-key actions; ready servers are selected by default.

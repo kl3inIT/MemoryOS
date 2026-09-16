@@ -54,9 +54,16 @@ Evidence: [verification.md](verification.md#phase-2b--2026-09-16).
 
 ## Phase 3 — User credentials
 
-- [ ] User OAuth connect with client choice, `/login/oauth2/code/mcp`, `iss` validation, refresh with revision fencing, `REAUTH_REQUIRED`, disconnect and revoke.
-- [ ] User API key and header substitutions.
-- [ ] Tests: state replay, actor mismatch, changed revisions, wrong issuer, refresh race, `invalid_grant`, cross-User isolation.
+- [x] Access predicate: active Tenant member with `CHAT_WRITE` and an organization-wide server or a granted Group; inaccessible servers are not found.
+- [x] One connect path: `Pending` carries `ownerActorId` and `returnPath`; `complete` serves administrator and User; per-User connections leave the server status alone.
+- [x] User OAuth connect with client choice, `iss` validation, refresh with revision fencing, `REAUTH_REQUIRED`, disconnect and revoke.
+- [x] User API key (the single `{api_key}` substitution), probed against the server before it is stored.
+- [x] Tool refresh of a per-User server uses the administrator's own credential and leaves the status unchanged on an authorization failure.
+- [x] `GET /api/mcp/connections` and the connect, API-key and disconnect routes.
+- [x] Tests: state replay, actor mismatch, changed revisions, wrong issuer, `invalid_grant`, cross-User isolation, Group-restricted access, API-key probe, return addresses.
+- [ ] Tests still missing: a User's end-to-end OAuth connect against the stub authorization server, and the concurrent-refresh race where the loser reuses the winner's token.
+
+Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 
 ## Phase 4 — Chat
 

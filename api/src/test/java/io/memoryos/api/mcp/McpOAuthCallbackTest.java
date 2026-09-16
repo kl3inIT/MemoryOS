@@ -43,7 +43,7 @@ class McpOAuthCallbackTest {
     private final McpOAuthCallbackController callback = new McpOAuthCallbackController(oauth);
     private final IdentityContext identity = new IdentityContext(new ActorId(UUID.randomUUID()));
     private final McpOAuthService.Pending pending =
-            new McpOAuthService.Pending(UUID.randomUUID(), UUID.randomUUID(), 3, UUID.randomUUID(), 2);
+            new McpOAuthService.Pending(UUID.randomUUID(), UUID.randomUUID(), 3, UUID.randomUUID(), 2, null, "/admin/mcp");
     private MockHttpSession session;
 
     @BeforeEach
@@ -87,25 +87,37 @@ class McpOAuthCallbackTest {
         assertEquals("/admin/mcp?mcp=connected&serverId=" + pending.serverId(), response.getRedirectedUrl());
         assertEquals("no-store", response.getHeader("Cache-Control"));
         assertEquals("no-referrer", response.getHeader("Referrer-Policy"));
-        verify(oauth).completeAdministratorAuthorization(identity.actorId(), pending, "the-code", "the-verifier", "https://as.example");
-        assertEquals("/admin/mcp?mcp=authorization-failed", deliver("state=the-state", "code=the-code").getRedirectedUrl());
-        verify(oauth, times(1)).completeAdministratorAuthorization(any(), any(), any(), any(), any());
+        verify(oauth).complete(identity.actorId(), pending, "the-code", "the-verifier", "https://as.example");
+        assertEquals("/?mcp=authorization-failed", deliver("state=the-state", "code=the-code").getRedirectedUrl());
+        verify(oauth, times(1)).complete(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void callbackReturnsAConnectingUserToTheOriginatingChat() throws IOException {
+        var userPending = new McpOAuthService.Pending(pending.tenantId(), pending.serverId(), 3, pending.oauthClientId(), 2,
+                identity.actorId().value(), "/chat/session-7");
+        McpAuthorizationSessionState.store(request(), identity, userPending, "u1", "u-verifier");
+
+        var response = deliver("state=u1", "code=u-code");
+
+        assertEquals("/chat/session-7?mcp=connected&serverId=" + userPending.serverId(), response.getRedirectedUrl());
+        verify(oauth).complete(identity.actorId(), userPending, "u-code", "u-verifier", null);
     }
 
     @Test
     void callbackMapsFailuresToOutcomesWithoutUpstreamDetail() throws IOException {
-        doThrow(McpException.oauthIssuerMismatch()).when(oauth).completeAdministratorAuthorization(any(), any(), any(), any(), any());
+        doThrow(McpException.oauthIssuerMismatch()).when(oauth).complete(any(), any(), any(), any(), any());
         McpAuthorizationSessionState.store(request(), identity, pending, "s1", "v");
         assertEquals("/admin/mcp?mcp=issuer-mismatch&serverId=" + pending.serverId(), deliver("state=s1", "code=c").getRedirectedUrl());
 
         reset(oauth);
-        doThrow(McpException.conflict()).when(oauth).completeAdministratorAuthorization(any(), any(), any(), any(), any());
+        doThrow(McpException.conflict()).when(oauth).complete(any(), any(), any(), any(), any());
         McpAuthorizationSessionState.store(request(), identity, pending, "s2", "v");
         assertEquals("/admin/mcp?mcp=configuration-changed&serverId=" + pending.serverId(), deliver("state=s2", "code=c").getRedirectedUrl());
 
         reset(oauth);
         doThrow(new IllegalStateException("upstream body with secret")).when(oauth)
-                .completeAdministratorAuthorization(any(), any(), any(), any(), any());
+                .complete(any(), any(), any(), any(), any());
         McpAuthorizationSessionState.store(request(), identity, pending, "s3", "v");
         var failed = deliver("state=s3", "code=c");
         assertEquals("/admin/mcp?mcp=authorization-failed&serverId=" + pending.serverId(), failed.getRedirectedUrl());
@@ -118,24 +130,24 @@ class McpOAuthCallbackTest {
         McpAuthorizationSessionState.store(request(), identity, pending, "s5", "v");
         assertEquals("/admin/mcp?mcp=authorization-failed&serverId=" + pending.serverId(),
                 deliver("state=s5", "code=c", "iss=https://a.example", "iss=https://b.example").getRedirectedUrl());
-        verify(oauth, never()).completeAdministratorAuthorization(any(), any(), any(), any(), any());
+        verify(oauth, never()).complete(any(), any(), any(), any(), any());
     }
 
     @Test
     void callbackRejectsUnknownStateExpiredSessionsAndAnotherActor() throws IOException {
         McpAuthorizationSessionState.store(request(), identity, pending, "the-state", "v");
-        assertEquals("/admin/mcp?mcp=authorization-failed", deliver("state=other-state", "code=c").getRedirectedUrl());
+        assertEquals("/?mcp=authorization-failed", deliver("state=other-state", "code=c").getRedirectedUrl());
 
         authenticate(new IdentityContext(new ActorId(UUID.randomUUID())));
-        assertEquals("/admin/mcp?mcp=authorization-failed", deliver("state=the-state", "code=c").getRedirectedUrl());
+        assertEquals("/?mcp=authorization-failed", deliver("state=the-state", "code=c").getRedirectedUrl());
 
         var noSession = new MockHttpServletRequest();
         noSession.addParameter("state", "the-state");
         noSession.addParameter("code", "c");
         var response = new MockHttpServletResponse();
         callback.callback(noSession, response);
-        assertEquals("/admin/mcp?mcp=authorization-failed", response.getRedirectedUrl());
-        verify(oauth, never()).completeAdministratorAuthorization(any(), any(), any(), any(), any());
+        assertEquals("/?mcp=authorization-failed", response.getRedirectedUrl());
+        verify(oauth, never()).complete(any(), any(), any(), any(), any());
         assertTrue(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8).isEmpty());
     }
 

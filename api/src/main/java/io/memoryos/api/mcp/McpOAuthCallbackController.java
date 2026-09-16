@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Authorization-code callback; the browser returns to administration with an outcome code only. */
+/** Authorization-code callback; the browser returns to the originating page with an outcome code only. */
 @Hidden
 @RestController
 final class McpOAuthCallbackController {
@@ -36,7 +36,7 @@ final class McpOAuthCallbackController {
         } else if (pending != null && error == null && code != null && !code.isBlank() && code.length() <= 8192
                 && (issuers == null || issuers.length == 1)) {
             try {
-                oauth.completeAdministratorAuthorization(new ActorId(pending.actorId()), pending.pending(), code,
+                oauth.complete(new ActorId(pending.actorId()), pending.pending(), code,
                         pending.verifier(), issuers == null ? null : issuers[0]);
                 outcome = "connected";
             } catch (McpException failure) {
@@ -49,8 +49,9 @@ final class McpOAuthCallbackController {
                 // Provider bodies and tokens must never enter logs, sessions, or redirect queries.
             }
         }
-        response.sendRedirect("/admin/mcp?mcp=" + outcome
-                + (pending == null ? "" : "&serverId=" + pending.pending().serverId()));
+        // A replayed or expired callback has no pending state, so it returns to a page every User may open.
+        response.sendRedirect(pending == null ? McpReturnPath.DEFAULT + "?mcp=" + outcome
+                : pending.pending().returnPath() + "?mcp=" + outcome + "&serverId=" + pending.pending().serverId());
     }
 
     private static @Nullable String single(HttpServletRequest request, String name) {

@@ -6,6 +6,7 @@ import io.memoryos.iam.identity.ActorId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpOAuthClientRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
+import io.memoryos.mcp.persistence.McpAccessRepository;
 import io.memoryos.mcp.persistence.McpCredentialEntity;
 import io.memoryos.mcp.persistence.McpOAuthClientEntity;
 import io.memoryos.mcp.persistence.McpServerEntity;
@@ -34,6 +35,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class McpOAuthService {
     static final String CLIENT_NAME = "MemoryOS";
+    /** Where an administrator's own connection returns; Users carry their originating page instead. */
+    static final String ADMINISTRATION_PATH = "/admin/mcp";
     private static final Duration REFRESH_MARGIN = Duration.ofSeconds(60);
     private static final int MAX_CLIENTS = 32;
     private static final int MAX_SECRET_CHARACTERS = 16384;
@@ -43,6 +46,7 @@ public class McpOAuthService {
     private final JpaMcpServerRepository servers;
     private final JpaMcpOAuthClientRepository clients;
     private final JpaMcpCredentialRepository credentials;
+    private final McpAccessRepository access;
     private final IamAuthorization authorization;
     private final McpSecrets secrets;
     private final McpOAuthProtocol protocol;
@@ -50,10 +54,12 @@ public class McpOAuthService {
     private final TransactionTemplate transactions;
 
     public McpOAuthService(JpaMcpServerRepository servers, JpaMcpOAuthClientRepository clients,
-                           JpaMcpCredentialRepository credentials, IamAuthorization authorization, McpSecrets secrets,
+                           JpaMcpCredentialRepository credentials, McpAccessRepository access,
+                           IamAuthorization authorization, McpSecrets secrets,
                            McpOAuthProtocol protocol, McpOAuthProperties properties,
                            PlatformTransactionManager transactionManager) {
-        this.servers = servers; this.clients = clients; this.credentials = credentials; this.authorization = authorization;
+        this.servers = servers; this.clients = clients; this.credentials = credentials; this.access = access;
+        this.authorization = authorization;
         this.secrets = secrets; this.protocol = protocol; this.properties = properties;
         this.transactions = new TransactionTemplate(transactionManager);
     }
@@ -77,10 +83,13 @@ public class McpOAuthService {
 
     public record DiscoveryView(String resource, List<String> suggestedScopes, List<AuthorizationServerView> authorizationServers) {}
 
-    /** Session-bound continuation of an authorization; holds identifiers and revisions only. */
-    public record Pending(UUID tenantId, UUID serverId, long serverRevision, UUID oauthClientId, long oauthClientRevision)
-            implements Serializable {
-        @Serial private static final long serialVersionUID = 1L;
+    /**
+     * Session-bound continuation of an authorization; holds identifiers and revisions only. {@code ownerActorId} is
+     * null for the shared administrator connection and otherwise names the connecting User.
+     */
+    public record Pending(UUID tenantId, UUID serverId, long serverRevision, UUID oauthClientId, long oauthClientRevision,
+                          @Nullable UUID ownerActorId, String returnPath) implements Serializable {
+        @Serial private static final long serialVersionUID = 2L;
     }
 
     public record AuthorizationStart(URI authorizationUrl, Pending pending) {}
@@ -224,19 +233,37 @@ public class McpOAuthService {
         if (server.authPerformer() != McpAuthPerformer.ADMIN)
             throw McpException.invalid("Users connect per-User servers from Chat.");
         var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
+        return start(tenant, server, client, state, codeChallenge, null, ADMINISTRATION_PATH);
+    }
+
+    /** A User connects their own account to a per-User server they may use; {@code returnPath} is already validated. */
+    @Transactional(readOnly = true)
+    public AuthorizationStart startUserAuthorization(ActorId actor, UUID serverId, UUID clientId, String state,
+                                                     String codeChallenge, String returnPath) {
+        UUID tenant = use(actor);
+        var server = accessibleOAuthServer(tenant, serverId, actor);
+        if (server.authPerformer() != McpAuthPerformer.PER_USER)
+            throw McpException.invalid("The administrator manages this server's shared connection.");
+        var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
+        return start(tenant, server, client, state, codeChallenge, actor.value(), returnPath);
+    }
+
+    private AuthorizationStart start(UUID tenant, McpServerEntity server, McpOAuthClientEntity client, String state,
+                                     String codeChallenge, @Nullable UUID ownerActorId, String returnPath) {
         String scope = String.join(" ", McpServerRules.stringList(server.oauthScopes()));
         URI url = protocol.authorizationUrl(URI.create(client.authorizationEndpoint()), client.clientId(),
                 properties.redirectUri(), state, codeChallenge, scope.isEmpty() ? null : scope,
                 McpOAuthProtocol.canonicalResource(server.url()), McpServerRules.stringMap(server.oauthAdditionalParameters()));
-        return new AuthorizationStart(url, new Pending(tenant, serverId, server.revision(), clientId, client.revision()));
+        return new AuthorizationStart(url, new Pending(tenant, server.getId(), server.revision(), client.getId(),
+                client.revision(), ownerActorId, returnPath));
     }
 
     /** Completes the administrator connection after the callback validated {@code state}. */
-    public void completeAdministratorAuthorization(ActorId actor, Pending pending, String code, String verifier,
-                                                   @Nullable String issuer) {
+    public void complete(ActorId actor, Pending pending, String code, String verifier, @Nullable String issuer) {
         Exchange exchange = inTransaction(() -> {
-            UUID tenant = read(actor);
+            UUID tenant = pending.ownerActorId() == null ? read(actor) : use(actor);
             if (!tenant.equals(pending.tenantId())) throw McpException.conflict();
+            if (pending.ownerActorId() != null && !pending.ownerActorId().equals(actor.value())) throw McpException.conflict();
             var loaded = pendingTargets(tenant, pending);
             var client = loaded.client();
             if (issuer != null ? !issuer.equals(client.issuer()) : client.issParameterRequired())
@@ -247,39 +274,50 @@ public class McpOAuthService {
         var tokens = protocol.exchangeCode(exchange.tokenEndpoint(), exchange.client(), code, properties.redirectUri(),
                 verifier, exchange.resource());
         transactions.executeWithoutResult(status -> {
-            UUID tenant = write(actor);
+            UUID owner = pending.ownerActorId();
+            UUID tenant = owner == null ? write(actor)
+                    : authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
+            if (!tenant.equals(pending.tenantId())) throw McpException.conflict();
             var loaded = pendingTargets(tenant, pending);
             Instant now = Instant.now();
-            var credential = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, pending.serverId())
-                    .orElseGet(() -> new McpCredentialEntity(UUID.randomUUID(), tenant, pending.serverId(), null, now));
+            var credential = (owner == null
+                    ? credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, pending.serverId())
+                    : credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, pending.serverId(), owner))
+                    .orElseGet(() -> new McpCredentialEntity(UUID.randomUUID(), tenant, pending.serverId(), owner, now));
             credential.store(pending.oauthClientId(), seal(tenant, credential.getId(), tokens.accessToken(),
                     tokens.refreshToken(), tokens.scope()), tokens.expiresAt(), now);
             credentials.saveAndFlush(credential);
-            loaded.server().status(McpServerStatus.CREATED, null, now);
-            servers.saveAndFlush(loaded.server());
+            // The server status reports the shared connection only; a User's own connection never changes it.
+            if (owner == null) {
+                loaded.server().status(McpServerStatus.CREATED, null, now);
+                servers.saveAndFlush(loaded.server());
+            }
         });
     }
 
     /** Removes the shared OAuth connection and revokes it at the authorization server afterwards. */
+    /** Removes the User's own connection; the server status reports the shared connection only, so it is untouched. */
+    public void disconnectUser(ActorId actor, UUID serverId) {
+        Revocation revocation = transactions.execute(status -> {
+            UUID tenant = authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
+            if (!access.accessible(tenant, serverId, actor.value())) throw McpException.notFound();
+            var credential = credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, serverId, actor.value()).orElse(null);
+            if (credential == null) return null;
+            Revocation pending = revocation(tenant, serverId, credential);
+            credentials.delete(credential);
+            credentials.flush();
+            return pending;
+        });
+        if (revocation != null) protocol.revoke(revocation.endpoint(), revocation.client(), revocation.token());
+    }
+
     public void disconnectAdministrator(ActorId actor, UUID serverId) {
         Revocation revocation = transactions.execute(status -> {
             UUID tenant = write(actor);
             var server = oauthServer(tenant, serverId);
             var credential = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, serverId).orElse(null);
             if (credential == null) return null;
-            Revocation pending = null;
-            if (credential.oauthClientId() != null) {
-                var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, credential.oauthClientId()).orElse(null);
-                if (client != null && client.revocationEndpoint() != null) {
-                    try {
-                        var payload = open(credential);
-                        String token = payload.getOrDefault(REFRESH_TOKEN, payload.get(ACCESS_TOKEN));
-                        if (token != null) pending = new Revocation(URI.create(client.revocationEndpoint()), protocolClient(client), token);
-                    } catch (McpException unreadable) {
-                        pending = null;
-                    }
-                }
-            }
+            Revocation pending = revocation(tenant, serverId, credential);
             credentials.delete(credential);
             server.status(McpServerStatus.AWAITING_AUTH, null, Instant.now());
             servers.saveAndFlush(server);
@@ -350,7 +388,8 @@ public class McpOAuthService {
         var client = clients.findByTenantIdAndServerIdAndId(tenant, pending.serverId(), pending.oauthClientId())
                 .orElseThrow(McpException::conflict);
         if (server.revision() != pending.serverRevision() || client.revision() != pending.oauthClientRevision()
-                || server.authPerformer() != McpAuthPerformer.ADMIN) throw McpException.conflict();
+                || (pending.ownerActorId() == null) != (server.authPerformer() == McpAuthPerformer.ADMIN))
+            throw McpException.conflict();
         return new PendingTargets(server, client);
     }
 
@@ -467,6 +506,31 @@ public class McpOAuthService {
 
     private static boolean fresh(@Nullable Instant expiresAt) {
         return expiresAt == null || expiresAt.isAfter(Instant.now().plus(REFRESH_MARGIN));
+    }
+
+    /** What to revoke for a credential being deleted, or null when nothing usable is stored. */
+    private @Nullable Revocation revocation(UUID tenant, UUID serverId, McpCredentialEntity credential) {
+        if (credential.oauthClientId() == null) return null;
+        var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, credential.oauthClientId()).orElse(null);
+        if (client == null || client.revocationEndpoint() == null) return null;
+        try {
+            var payload = open(credential);
+            String token = payload.getOrDefault(REFRESH_TOKEN, payload.get(ACCESS_TOKEN));
+            return token == null ? null : new Revocation(URI.create(client.revocationEndpoint()), protocolClient(client), token);
+        } catch (McpException unreadable) {
+            return null;
+        }
+    }
+
+    /** Tenant of a User who may use MCP servers at all; access to one server is checked separately. */
+    private UUID use(ActorId actor) {
+        return authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
+    }
+
+    /** A server the User may use, reported as missing otherwise so restricted servers are not enumerable. */
+    private McpServerEntity accessibleOAuthServer(UUID tenant, UUID serverId, ActorId actor) {
+        if (!access.accessible(tenant, serverId, actor.value())) throw McpException.notFound();
+        return oauthServer(tenant, serverId);
     }
 
     private McpServerEntity oauthServer(UUID tenant, UUID serverId) {
