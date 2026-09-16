@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Select } from "@/components/ui/select";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   listSourceRunErrorsOptions,
   listSourceRunsOptions,
@@ -131,6 +132,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       <TableRow>
                         {[
                           "Started",
+                          "Kind",
                           "Outcome",
                           "Checked",
                           "Indexed",
@@ -151,7 +153,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       {!history.data.items.length ? (
                         <TableRow>
                           <TableCell
-                            colSpan={7}
+                            colSpan={8}
                             className="px-3 py-6 text-center text-content-muted"
                           >
                             {ui("No Source executions on this page.")}
@@ -224,6 +226,15 @@ function SourceRunRow({ run }: { run: SourceRun }) {
     <TableRow className="align-top hover:bg-surface-base">
       <TableCell className="whitespace-nowrap px-3 py-3 text-content-primary">
         <HistoryTime value={run.startedAt} />
+      </TableCell>
+      <TableCell className="whitespace-nowrap px-3 py-3">
+        {run.runKind ? (
+          <StatusBadge tone="neutral" className="tracking-normal normal-case">
+            {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
+          </StatusBadge>
+        ) : (
+          <span className="text-content-muted">—</span>
+        )}
       </TableCell>
       <TableCell className="max-w-xs px-3 py-3">
         <RunOutcome run={run} />

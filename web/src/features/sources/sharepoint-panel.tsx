@@ -215,7 +215,11 @@ export function SharePointPanel({
       await refresh();
     } catch (cause) {
       if (!own.signal.aborted)
-        captureWorkflowFailure(cause, { workflow: "sharepoint-sync", stage: "operation-status" });
+        captureWorkflowFailure(cause, {
+          workflow: "sharepoint-sync",
+          stage: "operation-status",
+          failureKind: "status-unavailable",
+        });
     } finally {
       if (controller.current === own) {
         controller.current = null;
@@ -406,7 +410,10 @@ export function SharePointPanel({
         </p>
       ) : null}
       {verifying ? (
-        <p role="status" className="rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm">
+        <p
+          role="status"
+          className="rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
+        >
           <StatusBadge tone="info">{ui("Pending validation")}</StatusBadge>{" "}
           {ui("Microsoft is resolving the submitted addresses. The saved scope still applies.")}{" "}
           <span className="break-all text-xs text-content-muted">
@@ -519,7 +526,11 @@ export function SharePointPanel({
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" pending={activeAction === "scope"} disabled={busy || Boolean(scopeError)}>
+              <Button
+                type="submit"
+                pending={activeAction === "scope"}
+                disabled={busy || Boolean(scopeError)}
+              >
                 {ui("Save scope")}
               </Button>
               <Button prominence="tertiary" disabled={busy} onClick={() => setScopeDraft(null)}>

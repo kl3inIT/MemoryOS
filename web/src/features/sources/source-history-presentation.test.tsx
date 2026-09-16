@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceIndexAttempt, SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { historyDuration, runHasNoChanges } from "./source-history";
+import { uiLocale } from "@/i18n/format";
 import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
 import { SourceRunHistory } from "./source-run-history";
 
@@ -86,14 +87,14 @@ describe("Source execution and current-file history", () => {
     showHistory([run]);
     const table = screen.getByRole("table");
     const cells = within(within(table).getAllByRole("row")[1]).getAllByRole("cell");
-    expect(cells[1]).toHaveTextContent("No changes");
-    expect(cells[2]).toHaveTextContent(/^3$/);
-    expect(cells[3]).toHaveTextContent(/^0$/);
-    expect(cells[4]).toHaveTextContent(/^3$/);
+    expect(cells[2]).toHaveTextContent("No changes");
+    expect(cells[3]).toHaveTextContent(/^3$/);
+    expect(cells[4]).toHaveTextContent(/^0$/);
+    expect(cells[5]).toHaveTextContent(/^3$/);
     expect(
       within(table).queryByRole("columnheader", { name: /New Docs|Total Docs/ }),
     ).not.toBeInTheDocument();
-    expect(cells[5]).toHaveTextContent("30 sec");
+    expect(cells[6]).toHaveTextContent("30 sec");
   });
 
   it("does not turn missing legacy counters into zero or infer a no-change success", () => {
@@ -107,11 +108,11 @@ describe("Source execution and current-file history", () => {
     };
     showHistory([legacy]);
     const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
-    expect(cells[2]).toHaveTextContent(/^Unknown$/);
     expect(cells[3]).toHaveTextContent(/^Unknown$/);
     expect(cells[4]).toHaveTextContent(/^Unknown$/);
+    expect(cells[5]).toHaveTextContent(/^Unknown$/);
     expect(screen.queryByText("No changes")).not.toBeInTheDocument();
-    expect(cells[5]).toHaveTextContent("Not recorded");
+    expect(cells[6]).toHaveTextContent("Not recorded");
   });
 
   it("does not call a successful acquisition complete when indexing is still pending", () => {
@@ -124,7 +125,7 @@ describe("Source execution and current-file history", () => {
     };
     showHistory([pending]);
     const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
-    expect(cells[5]).toHaveTextContent("In progress");
+    expect(cells[6]).toHaveTextContent("In progress");
     expect(screen.queryByText("No changes")).not.toBeInTheDocument();
     expect(screen.queryByText("Completed", { exact: true })).not.toBeInTheDocument();
   });
@@ -149,7 +150,7 @@ describe("Source execution and current-file history", () => {
   it("exposes full local times accessibly and never measures processing duration from queued fallback", () => {
     const result = render(<HistoryTime value={run.startedAt} />);
     const time = result.container.querySelector("time")!;
-    const full = new Date(run.startedAt!).toLocaleString(undefined, {
+    const full = new Date(run.startedAt!).toLocaleString(uiLocale(), {
       dateStyle: "full",
       timeStyle: "long",
     });

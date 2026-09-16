@@ -212,7 +212,10 @@ export function SharePointCredentialInput({
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label htmlFor={`${id}-keystore`} className="font-secondary-action text-content-primary">
+            <label
+              htmlFor={`${id}-keystore`}
+              className="font-secondary-action text-content-primary"
+            >
               {ui("Keystore (.pfx or .p12)")}
             </label>
             <input

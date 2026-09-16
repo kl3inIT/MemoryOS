@@ -16,7 +16,9 @@ export function SharePointScheduleFields({
 }: {
   draft: Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">;
   disabled: boolean;
-  onChange: (draft: Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">) => void;
+  onChange: (
+    draft: Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">,
+  ) => void;
 }) {
   const ui = useAppTranslation();
 

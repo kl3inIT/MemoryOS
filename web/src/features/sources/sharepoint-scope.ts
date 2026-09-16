@@ -255,9 +255,12 @@ export function sharePointScopeError(
   const schedule = sharePointScheduleError(draft);
   if (schedule) return schedule;
   if (body && new TextEncoder().encode(JSON.stringify(body)).byteLength > policy.maxRequestBytes)
-    return appText("The request exceeds the server's {{count}}-byte limit. Paste fewer addresses.", {
-      count: policy.maxRequestBytes,
-    });
+    return appText(
+      "The request exceeds the server's {{count}}-byte limit. Paste fewer addresses.",
+      {
+        count: policy.maxRequestBytes,
+      },
+    );
   return null;
 }
 

@@ -127,7 +127,9 @@ function SharePointSourceSetup() {
       setError(
         terminalOperation.status === "SUPERSEDED"
           ? "This creation proposal was superseded or cancelled. No Source was activated by this proposal."
-          : sourceStatusMessage(terminalOperation.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED"),
+          : sourceStatusMessage(
+              terminalOperation.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED",
+            ),
       );
     }
   }
@@ -398,9 +400,7 @@ function SharePointSourceSetup() {
                     value={access}
                     disabled={controlsDisabled}
                     onChange={(event) =>
-                      editProposal(() =>
-                        setAccess(event.target.value as "PUBLIC" | "RESTRICTED"),
-                      )
+                      editProposal(() => setAccess(event.target.value as "PUBLIC" | "RESTRICTED"))
                     }
                   >
                     <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
@@ -499,7 +499,11 @@ function SharePointSourceSetup() {
                 )}
               </p>
               <footer className="flex flex-wrap justify-between gap-3">
-                <Button prominence="secondary" disabled={busy || frozen} onClick={() => go("access")}>
+                <Button
+                  prominence="secondary"
+                  disabled={busy || frozen}
+                  onClick={() => go("access")}
+                >
                   <ArrowLeft /> {ui("Access")}
                 </Button>
                 <Button

@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/table";
 
 const PERMISSIONS = [
-  { name: "Sites.Read.All", kind: "Application", why: "Read the sites, libraries and pages in scope" },
+  {
+    name: "Sites.Read.All",
+    kind: "Application",
+    why: "Read the sites, libraries and pages in scope",
+  },
   { name: "Files.Read.All", kind: "Application", why: "Download the files of those libraries" },
 ] as const;
 

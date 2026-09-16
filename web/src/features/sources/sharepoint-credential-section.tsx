@@ -81,6 +81,8 @@ export function SharePointCredentialSection({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<AppCopy | null>(null);
   const [testedId, setTestedId] = useState<string | null>(null);
+  // Captured once per mount; a credential's expiry does not need to tick live.
+  const [now] = useState(() => Date.now());
   const busy = saving || remove.isPending || rename.isPending || test.isPending;
   const unavailable = credentials.isPending || credentials.isError;
 
@@ -202,7 +204,7 @@ export function SharePointCredentialSection({
         description: result.allSitesReadable
           ? `${credential.name} can read this Tenant's sites.`
           : `${credential.name} works, but it cannot list every site. Name each site in the scope.`,
-        tone: result.allSitesReadable ? "success" : "warning",
+        tone: result.allSitesReadable ? "success" : "info",
       });
     } catch (cause) {
       if (!active.current) return;
@@ -296,7 +298,7 @@ export function SharePointCredentialSection({
                 ? new Date(credential.certificateNotAfter)
                 : null;
               const expiringSoon =
-                expiry !== null && expiry.getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000;
+                expiry !== null && expiry.getTime() - now < 30 * 24 * 60 * 60 * 1000;
               return (
                 <TableBody
                   key={credential.id}

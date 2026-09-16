@@ -13,7 +13,11 @@ export type SelectionReceipt = { sourceId: string; operation: SourceOperation };
  * in session storage, a receipt is recovered when the answer was lost, and the operation is polled
  * until it settles. Connectors differ only in which endpoint recovers a receipt.
  */
-export function useSourceSelectionOperation<Receipt extends SelectionReceipt, Key extends QueryKey>({
+export function useSourceSelectionOperation<
+  Receipt extends SelectionReceipt,
+  Key extends QueryKey,
+  Err = Error,
+>({
   provider,
   scope,
   recover,
@@ -21,7 +25,7 @@ export function useSourceSelectionOperation<Receipt extends SelectionReceipt, Ke
 }: {
   provider: string;
   scope: string;
-  recover: (requestId: string) => UseQueryOptions<Receipt, Error, Receipt, Key>;
+  recover: (requestId: string) => UseQueryOptions<Receipt, Err, Receipt, Key>;
   pending?: SourceOperation | null;
 }) {
   const session = useApplicationSession();

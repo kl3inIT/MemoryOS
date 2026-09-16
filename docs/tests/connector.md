@@ -38,7 +38,9 @@ Backend evidence for the SharePoint connector as implemented on the MEM-126 bran
 
 Two defects these tests found are fixed in the same branch: `source_sync_attempts` referenced `google_drive_sources`, so a SharePoint Source could not have a run at all, and activation enqueued its first run through Drive's repository, so a new Source never started. A third, `ck_item_versions_input`, refused the page input format.
 
-Not established here: live acceptance against the trial tenant (the spike ledger in the increment holds what was measured against real Microsoft), `Sites.Selected` behaviour, throttling limits, any browser surface, and the access model after MEM-105, which this work still reads as `PUBLIC`/`RESTRICTED`.
+Not established here: live acceptance against the trial tenant (the spike ledger in the increment holds what was measured against real Microsoft), `Sites.Selected` behaviour, throttling limits, and the access model after MEM-105, which this work still reads as `PUBLIC`/`RESTRICTED`.
+
+Browser surface (added 2026-09-16, same branch): `sharepoint-scope.test.ts` (13 cases) proves the TypeScript port of `SharePointUrl` — sharing links, Forms views, `/personal/`, Vietnamese site names, nesting, host mixing, duplicates, policy limits and schedule bounds; `sharepoint-credential-input.test.tsx` (4 cases) proves the secret/keystore draft is returned once then cleared, cleared on unmount, and bounded (16 KiB keystore, 256-character secret); `sharepoint-panel.test.tsx` (3 cases) proves the detail panel renders the saved schedule/credential/scope, sends the schedule revision on pause, and reports a completed sync. `sharepoint-source-setup.spec.ts` covers the four-step creation flow and per-line address errors against routed API doubles. `pnpm check:i18n` passes with the new Vietnamese catalog entries.
 
 ## Earlier integrated verification
 

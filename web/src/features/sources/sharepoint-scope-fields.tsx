@@ -31,7 +31,8 @@ export function SharePointScopeFields({
 
   const id = useId();
   const roots = parseSharePointLines(draft.siteUrlsText);
-  const problems = draft.scopeMode === "ALL_SITES" ? [] : sharePointAddressProblems(draft.siteUrlsText);
+  const problems =
+    draft.scopeMode === "ALL_SITES" ? [] : sharePointAddressProblems(draft.siteUrlsText);
 
   return (
     <div className="space-y-5">
@@ -111,7 +112,11 @@ export function SharePointScopeFields({
             placeholder="https://contoso.sharepoint.com/sites/Finance"
             onChange={(event) => onChange({ ...draft, siteUrlsText: event.target.value })}
           />
-          <p id={`${id}-roots-count`} className="mt-1 text-xs text-content-muted" aria-live="polite">
+          <p
+            id={`${id}-roots-count`}
+            className="mt-1 text-xs text-content-muted"
+            aria-live="polite"
+          >
             {policy
               ? ui("{{count}} of {{max}} addresses · one per line", {
                   count: roots.length.toLocaleString(uiLocale()),
@@ -174,9 +179,11 @@ export function SharePointScopeFields({
             </div>
             <ExclusionField
               id={`${id}-excluded-sites`}
-              label="Excluded sites"
-              help="One address or wildcard pattern per line, matched against site addresses. Example: https://contoso.sharepoint.com/sites/Archive*"
-              placeholder="https://contoso.sharepoint.com/sites/Archive*"
+              label={ui("Excluded sites")}
+              help={ui(
+                "One address or wildcard pattern per line, matched against site addresses. Example: https://contoso.sharepoint.com/sites/Archive*",
+              )}
+              placeholder={ui("https://contoso.sharepoint.com/sites/Archive*")}
               value={draft.excludedSitesText}
               policy={policy}
               disabled={disabled}
@@ -184,9 +191,11 @@ export function SharePointScopeFields({
             />
             <ExclusionField
               id={`${id}-excluded-paths`}
-              label="Excluded paths"
-              help="One wildcard pattern per line, matched case-insensitively against the path of each item. Example: */Archive/*"
-              placeholder="*/Archive/*"
+              label={ui("Excluded paths")}
+              help={ui(
+                "One wildcard pattern per line, matched case-insensitively against the path of each item. Example: */Archive/*",
+              )}
+              placeholder={ui("*/Archive/*")}
               value={draft.excludedPathsText}
               policy={policy}
               disabled={disabled}
@@ -227,9 +236,9 @@ function ExclusionField({
   return (
     <div>
       <label htmlFor={id} className="font-secondary-action text-content-primary">
-        {ui(label)}
+        {label}
       </label>
-      <p className="mt-1 font-secondary-body text-content-muted">{ui(help)}</p>
+      <p className="mt-1 font-secondary-body text-content-muted">{help}</p>
       <textarea
         id={id}
         rows={3}

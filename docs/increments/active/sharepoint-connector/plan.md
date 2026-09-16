@@ -2,7 +2,7 @@
 
 Design: [design.md](design.md). Tham chiếu: [Onyx](onyx-sharepoint-reference.md), [giao diện](ui-references.md). Tracking: [MEM-126](https://linear.app/memory-os/issue/MEM-126).
 
-Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/2026). Chưa chạy spike nào; chưa có code.
+Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao diện hoàn chỉnh; `pnpm check` và `./gradlew clean check` xanh. Còn lại: nghiệm thu tenant thật (Giai đoạn 5) và deep link webUrl trong citation (điểm mở).
 
 ## Nguyên tắc giao
 
@@ -196,44 +196,48 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 ## Giai đoạn 4 — Giao diện (shadcn)
 
-- [ ] Đối chiếu component đã có sau MEM-106. Cài phần còn thiếu bằng `pnpm exec shadcn add` và chuyển về token/`ui()`; ghi deviation vào [ui-references §8](ui-references.md#8-control-shadcn).
-- [ ] Catalog: thêm SharePoint vào `source-provider-catalog.ts`; provider mark SharePoint (kiểm quyền dùng logo).
-- [ ] Route `_authenticated.admin.sources.new.sharepoint.tsx`; trang tạo với setup rail Credential → Phạm vi → Truy cập → Xem lại.
-- [ ] Credential:
-  - danh sách/picker theo MEM-106 #4a. Dùng lại component credential của Drive nếu MEM-106 đã tổng quát hóa; nếu chưa, tách phần chung (lúc này có hai caller);
-  - hộp thoại `RadioGroup` card, secret, upload `.pfx` + mật khẩu, tóm tắt certificate;
-  - hướng dẫn Entra (bước đánh số, bảng quyền, nút copy); Test; sửa; xóa bằng `ConfirmDialog`.
-  - Secret và PFX không được vào biến mutation của React Query hay browser storage; xóa khỏi state khi submit hoặc unmount (như JSON OAuth của Drive).
-- [ ] Phạm vi:
-  - `RadioGroup` All sites / Site cụ thể;
-  - `Textarea` URL có lỗi theo từng dòng;
+- [x] Đối chiếu component đã có sau MEM-106. Cài phần còn thiếu bằng `pnpm exec shadcn add` và chuyển về token/`ui()`; ghi deviation vào [ui-references §8](ui-references.md#8-control-shadcn).
+  **Làm trước MEM-106**: MEM-106 chưa tổng quát hoá credential Drive, nên đã tự tách phần chung
+  (`source-selection-operation.ts` cho receipt/khôi phục/poll; `SharePointCredentialSection` riêng).
+  Khi MEM-106 merge phải đối chiếu lại component credential/access và gỡ phần trùng.
+- [x] Catalog: thêm SharePoint vào `source-provider-catalog.ts`; provider mark SharePoint (`sharepoint-icon.tsx`).
+- [x] Route `_authenticated.admin.sources.new.sharepoint.tsx`; trang tạo với setup rail Credential → Content → Access → Review (`create-sharepoint-source-page.tsx`).
+- [x] Credential:
+  - danh sách/picker theo mẫu Drive #4a, bản SharePoint riêng vì MEM-106 chưa tổng quát hoá;
+  - hộp thoại `RadioGroup` card, secret, upload `.pfx` + mật khẩu (`sharepoint-credential-input.tsx`);
+  - hướng dẫn Entra (bước đánh số, bảng quyền, nút copy) trong `sharepoint-entra-guide.tsx`;
+    Test / Rename / Replace authentication / Delete bằng `ConfirmDialog` + `If-Match`.
+  - Secret và PFX chỉ nằm trong `useRef`, `take()` trả một lần rồi xoá; không vào React Query,
+    state sống sót sau submit, hay browser storage.
+- [x] Phạm vi (`sharepoint-scope-fields.tsx` + `sharepoint-scope.ts`):
+  - `RadioGroup` All sites / Specific sites;
+  - `Textarea` URL có lỗi theo từng dòng (bản TS của `SharePointUrl.java`: sharing link `:f:/r`,
+    view `Forms` → LIBRARY, `/sites|/teams|/personal`, phát hiện lồng nhau, khác host, trùng);
   - Nâng cao: hai `Switch` include và hai `Textarea` loại trừ.
-- [ ] Truy cập Public/Private + Group: dùng lại bước của MEM-106.
-- [ ] Xem lại:
-  - interval mặc định 30 phút; prune interval mặc định 168 giờ, 0 là tắt, kèm help giải thích tài liệu đã xóa còn tìm thấy tới lượt prune;
-  - tạo → receipt đang chờ → trang chi tiết.
-- [ ] Chi tiết Source:
-  - panel Đồng bộ: interval, prune interval, lượt refresh/prune gần nhất, pause, sync now;
-  - Phạm vi: danh sách root, sửa trong `Sheet`;
-  - Credential: phương thức, hạn certificate;
-  - `Alert` theo mã lỗi;
-  - run history hiện loại lượt.
-- [ ] Search/Chat: icon SharePoint và deep link trong citation.
-- [ ] Nhãn tiếng Anh viết trong code, bản dịch vi trong catalog; `pnpm check:i18n`.
-- [ ] **Test:**
-  - Vitest:
-    - validate URL theo dòng;
-    - đổi phương thức xóa secret của phương thức kia;
-    - tóm tắt certificate;
-    - validate interval/prune interval;
-    - render mã lỗi → copy đã dịch;
-    - control bị ẩn khi `can()` từ chối.
-  - Playwright `web/tests/e2e/sharepoint-source-setup.spec.ts`, mock API bằng `page.route`:
-    - tạo credential (test thất bại rồi thành công);
-    - tạo Source, receipt đang chờ, chi tiết;
-    - alert thiếu quyền, throttling, prune không hoàn tất;
-    - viewport 390px; chỉ dùng bàn phím.
-  - Ảnh chụp desktop/mobile, sáng/tối qua Orca, đặt cạnh tham chiếu Mobbin (theo cách nghiệm thu của MEM-106).
+- [x] Truy cập Public/Private + Group: `GroupAccessPicker` dùng lại.
+- [x] Xem lại:
+  - interval mặc định 30 phút; prune interval mặc định 168 giờ, 0 là tắt, kèm help giải thích
+    (`sharepoint-schedule-fields.tsx`);
+  - tạo → receipt 202 đang chờ → điều hướng sang trang chi tiết khi operation SUCCEEDED;
+  - khôi phục `requestId` qua sessionStorage (`memoryos:sharepoint-selection:…`).
+- [x] Chi tiết Source (`sharepoint-panel.tsx`):
+  - panel Đồng bộ: interval, prune interval, last prune, pause, sync now;
+  - Phạm vi: danh sách root, sửa inline (không `Sheet` — khớp pattern panel Drive);
+  - Credential: phương thức, hạn certificate, host;
+  - `Alert` theo mã lỗi; backend `SharePointException.rejected` giờ sinh mã riêng cho từng lý do
+    Entra từ chối để giao diện dịch được;
+  - run history hiện cột Kind (REFRESH/PRUNE) trong `source-run-history.tsx`.
+- [x] Search/Chat: icon SharePoint qua `findSourceProvider` trong `document-source-icon.tsx`;
+  `ProviderLink` nhận `provider` thay vì hardcode "Google Drive". Deep link SharePoint vẫn chờ
+  quyết định webUrl (điểm mở đã ghi) — chưa bịa liên kết.
+- [x] Nhãn tiếng Anh viết trong code, bản dịch vi trong catalog; `pnpm check:i18n` sạch.
+- [x] **Test:**
+  - Vitest: `sharepoint-scope.test.ts` (parse, coverage, per-line problems, policy, schedule),
+    `sharepoint-credential-input.test.tsx` (take() một lần, unmount xoá, giới hạn .pfx/secret),
+    `sharepoint-panel.test.tsx` (mock hey-api theo mẫu `google-drive-panel.test.tsx`).
+  - Playwright `web/tests/e2e/sharepoint-source-setup.spec.ts`: luồng 4 bước với receipt 202 và
+    lỗi địa chỉ theo dòng, mock API bằng `page.route`.
+  - Ảnh chụp desktop/mobile, sáng/tối qua Orca: **chưa** — chờ chạy app thật.
 
 ## Giai đoạn 5 — Hợp nhất tài liệu và nghiệm thu
 
@@ -261,7 +265,7 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 | Reader trang | Unit với fixture | `SharePointPageExtractionTest` | Xong |
 | Quyền HTTP, `If-Match`, `202`, problem details, OpenAPI | MVC/API | `SharePointCredentialApiTest`, `SharePointSourceApiTest`, `OpenApiContractTest` | Xong |
 | Ingest → Document → Search thấy tài liệu | Full context worker | `SharePointSourceIngestionTest` | **Chưa**: acquisition và index attempt đã được kiểm ở `PostgresSharePointSyncTest`; còn thiếu chặng Document → Search |
-| Luồng tạo, lỗi, responsive, bàn phím | Vitest + Playwright | `sharepoint-*.test.tsx`, `sharepoint-source-setup.spec.ts` | **Chưa**: thuộc Giai đoạn 4, chờ MEM-106 |
+| Luồng tạo, lỗi, responsive, bàn phím | Vitest + Playwright | `sharepoint-scope.test.ts`, `sharepoint-credential-input.test.tsx`, `sharepoint-panel.test.tsx`, `sharepoint-source-setup.spec.ts` | Xong (unit); E2E đã viết, chờ chạy trên app thật |
 | Kiến trúc | ArchUnit/Modulith | `ProviderDependencyRulesTest`, `ModulithArchitectureTest` | Chạy trong gate hiện có, chưa mở rộng riêng cho SharePoint |
 
 ## Spike ledger
