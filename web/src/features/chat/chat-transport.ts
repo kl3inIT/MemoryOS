@@ -337,9 +337,15 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
     };
     try {
-      for (let attempt = 0; attempt < 3 && !outcome && !fallback; attempt++) {
+      // A research turn runs for minutes with gaps between events, so the stream is resumed from its cursor for as
+      // long as it keeps producing; only a silent stream falls back to history polling.
+      let idle = 0;
+      let first = true;
+      while (!outcome && !fallback && idle < 3) {
         signal.throwIfAborted();
-        this.callbacks.state(attempt === 0 ? "streaming" : "recovering");
+        let received = false;
+        this.callbacks.state(first ? "streaming" : "recovering");
+        first = false;
         const connection = new AbortController();
         const connectionSignal = AbortSignal.any([
           signal,
@@ -377,6 +383,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             }
             sequence = event.sequence;
+            if (!received) {
+              received = true;
+              this.callbacks.state("streaming");
+            }
             if (envelope.event === "text-delta") {
               const delta = textSchema.parse(data).text;
               if (text.length + delta.length > 1_000_000)
@@ -482,7 +492,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           connection.abort();
         }
         // Clean EOF without an outcome is a disconnect, never successful completion.
-        if (!outcome && !fallback) await pause(500 * (attempt + 1), signal);
+        idle = received ? 0 : idle + 1;
+        if (!outcome && !fallback) await pause(500 * idle, signal);
       }
       if (!outcome) {
         this.callbacks.state("recovering");
