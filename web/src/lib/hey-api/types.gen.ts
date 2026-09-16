@@ -1374,6 +1374,7 @@ export type ActivityStep = {
     filters?: SearchFilters;
     documents?: Array<ReadingDocument>;
     citations?: Array<number>;
+    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
 };
 
 export type ChatActivity = {
@@ -1536,6 +1537,10 @@ export type ToolEvent = {
     durationMs: number | null;
     parentToolCallId: string | null;
     tabIndex: number | null;
+    /**
+     * Why a FAILED step failed when the person can act on it; a category only.
+     */
+    failure: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
 };
 
 export type ReasoningEvent = {

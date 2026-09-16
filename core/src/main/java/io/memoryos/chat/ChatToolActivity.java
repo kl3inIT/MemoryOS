@@ -17,6 +17,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     private final Consumer<? super ChatToolEvent> events;
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
+    private volatile ChatToolEvent.@Nullable Failure failure;
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
         this.events = events;
@@ -31,6 +32,7 @@ public final class ChatToolActivity implements ToolCallInspector {
         var call = call(id, name);
         current = call;
         failed = false;
+        failure = null;
         events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
         return call;
     }
@@ -38,7 +40,7 @@ public final class ChatToolActivity implements ToolCallInspector {
     /** Closes a step opened by {@link #begin}. */
     public void end(ChatToolEvent.Call call, boolean error, long durationMs) {
         current = null;
-        events.accept(ChatToolEvent.finished(call, failed || error, durationMs));
+        events.accept(ChatToolEvent.finished(call, failed || error, durationMs, failure));
     }
 
     @Override public void afterToolCall(AfterToolCallContext context) {
@@ -46,7 +48,7 @@ public final class ChatToolActivity implements ToolCallInspector {
         var call = active != null && active.name().equals(context.getToolCall().getName()) ? active
                 : call(context.getToolCall().getId(), context.getToolCall().getName());
         current = null;
-        events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs()));
+        events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs(), failure));
     }
 
     /** The call in progress, so tool evidence and progress share its identity. */
@@ -57,6 +59,12 @@ public final class ChatToolActivity implements ToolCallInspector {
     /** A tool that reports its own failure as a model-visible message still records the step as failed. */
     public void fail() {
         failed = true;
+    }
+
+    /** As {@link #fail()}, with the category the person can act on. */
+    public void fail(ChatToolEvent.Failure reason) {
+        failed = true;
+        failure = reason;
     }
 
     /** Provider call identity normalized to the event bounds. */

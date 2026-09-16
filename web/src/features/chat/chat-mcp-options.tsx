@@ -119,7 +119,7 @@ export function ChatMcpServers({
   );
 }
 
-function ConnectAction({
+export function ConnectAction({
   connection,
   sessionId,
   onApiKey,
@@ -187,7 +187,7 @@ function ConnectAction({
   );
 }
 
-function McpApiKeyDialog({
+export function McpApiKeyDialog({
   connection,
   onClose,
 }: {

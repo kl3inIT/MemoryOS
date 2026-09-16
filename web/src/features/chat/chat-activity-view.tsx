@@ -1,6 +1,15 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useAuiState, type EnrichedPartState } from "@assistant-ui/react";
-import { Brain, FileText, Globe, ImageIcon, LayoutDashboard, Search, Wrench } from "lucide-react";
+import {
+  Blocks,
+  Brain,
+  FileText,
+  Globe,
+  ImageIcon,
+  LayoutDashboard,
+  Search,
+  Wrench,
+} from "lucide-react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -16,6 +25,8 @@ import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
 import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "./chat-evidence";
+import { parseMcpToolName } from "./chat-mcp-connections";
+import { ChatMcpToolStep } from "./chat-mcp-step";
 
 type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
 type ToolState = "running" | "done" | "failed";
@@ -38,6 +49,7 @@ function toolProgress(args: unknown): ToolProgress {
         documents: [],
         citations: [],
         durationMs: null,
+        failure: null,
       };
 }
 
@@ -145,8 +157,10 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
       return ui("Đang tạo ảnh…");
     case "edit_image":
       return ui("Đang sửa ảnh…");
-    default:
-      return ui("Đang dùng công cụ…");
+    default: {
+      const mcp = parseMcpToolName(tool.toolName);
+      return mcp ? ui("Đang dùng {{tool}}…", { tool: mcp.tool }) : ui("Đang dùng công cụ…");
+    }
   }
 }
 
@@ -189,7 +203,7 @@ function toolIcon(name: string) {
     case "edit_image":
       return <ImageIcon />;
     default:
-      return <Wrench />;
+      return parseMcpToolName(name) ? <Blocks /> : <Wrench />;
   }
 }
 
@@ -217,7 +231,13 @@ export function ChatActivityGroup({
     [parts, indices],
   );
   const tools = group.flatMap((part) => (part.type === "tool-call" ? [part] : []));
-  const open = manual ?? (running && !answerStarted);
+  // A step the person must act on (reconnect) stays visible after the answer, instead of hiding its action.
+  const actionable = tools.some(
+    (tool) =>
+      toolState(tool, running) === "failed" &&
+      toolProgress(tool.args).failure === "AUTHORIZATION_REQUIRED",
+  );
+  const open = manual ?? ((running && !answerStarted) || actionable);
   const stopped = useAuiState(
     (state) =>
       state.message.status?.type === "incomplete" ||
@@ -314,6 +334,9 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
             label: source.web ? hostname(source.web.url) : source.title,
             title: source.title,
           }));
+  const mcp = parseMcpToolName(part.toolName);
+  if (mcp)
+    return <ChatMcpToolStep slug={mcp.slug} tool={mcp.tool} progress={progress} state={state} />;
   const queries = progress.queries.map((query) => ({ key: query, icon: <Search />, label: query }));
   const noResults = searching && state === "done" && progress.queries.length > 0 && !reading.length;
   return (

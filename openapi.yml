@@ -13019,6 +13019,12 @@ components:
           items:
             type: integer
             format: int32
+        failure:
+          type: string
+          enum:
+          - AUTHORIZATION_REQUIRED
+          - TIMEOUT
+          - UNAVAILABLE
     ChatActivity:
       type: object
       properties:
@@ -13474,10 +13480,21 @@ components:
           - integer
           - "null"
           format: int32
+        failure:
+          type:
+          - string
+          - "null"
+          description: Why a FAILED step failed when the person can act on it; a category
+            only.
+          enum:
+          - AUTHORIZATION_REQUIRED
+          - TIMEOUT
+          - UNAVAILABLE
       required:
       - assistantMessageId
       - documents
       - durationMs
+      - failure
       - parentToolCallId
       - search
       - sequence

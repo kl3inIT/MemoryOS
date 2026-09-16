@@ -155,6 +155,75 @@ function seedResearch(value: Session) {
   value.allMessages.set(assistant.id, assistant);
 }
 
+/** A saved answer that used a connected MCP server, then was refused by it for authorization. */
+function seedMcp(value: Session) {
+  const now = new Date().toISOString();
+  const userId = randomUUID();
+  const assistantId = randomUUID();
+  const base = { textOffset: 0, queries: [], documents: [], citations: [] };
+  const user: ChatMessage = {
+    id: userId,
+    sessionId: value.session.id,
+    parentMessageId: value.session.rootMessageId,
+    latestChildMessageId: assistantId,
+    role: "USER",
+    content: "Tìm báo cáo doanh thu quý 3 trên Drive và tóm tắt giúp tôi.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    activity: { steps: [], reasoning: [] },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  const assistant: ChatMessage = {
+    id: assistantId,
+    sessionId: value.session.id,
+    parentMessageId: userId,
+    latestChildMessageId: null,
+    role: "ASSISTANT",
+    content:
+      "Tôi tìm thấy **Báo cáo doanh thu Q3 2026** trên Drive, nhưng Google Drive đã từ chối khi tôi mở nội dung tệp. Bạn kết nối lại Google Drive rồi hỏi lại để tôi tóm tắt.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    activity: {
+      steps: [
+        {
+          ...base,
+          position: 0,
+          toolCallId: "mcp-1",
+          toolName: "mcp_drive_search_files",
+          status: "COMPLETED",
+          startedAt: now,
+          durationMs: 1800,
+        },
+        {
+          ...base,
+          position: 1,
+          toolCallId: "mcp-2",
+          toolName: "mcp_drive_read_file_content",
+          status: "FAILED",
+          startedAt: now,
+          durationMs: 420,
+          failure: "AUTHORIZATION_REQUIRED",
+        },
+      ],
+      reasoning: [],
+    },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  value.messages.push(user, assistant);
+  value.allMessages.set(user.id, user);
+  value.allMessages.set(assistant.id, assistant);
+}
+
 function create(title = "Browser conversation", mode = "normal"): Session {
   const now = new Date().toISOString();
   const session = {
@@ -179,6 +248,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
   };
   sessions.set(session.id, value);
   if (mode === "research") seedResearch(value);
+  if (mode === "mcp") seedMcp(value);
   return value;
 }
 function emit(run: Run, event: string, data: object) {
