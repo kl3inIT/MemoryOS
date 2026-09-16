@@ -72,7 +72,9 @@ export function ChatInterpreterSettings() {
       <PageHeader
         title={ui("Code Interpreter")}
         icon={<SquareTerminal />}
-        description={ui("Cho phép trợ lý chạy Python trong sandbox để phân tích dữ liệu và tạo tệp.")}
+        description={ui(
+          "Cho phép trợ lý chạy Python trong sandbox để phân tích dữ liệu và tạo tệp.",
+        )}
       />
       {settings.isError ? (
         <div role="alert">
