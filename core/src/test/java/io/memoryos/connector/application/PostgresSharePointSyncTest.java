@@ -1,0 +1,297 @@
+package io.memoryos.connector.application;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.TestDatabase;
+import io.memoryos.connector.ConnectorSyncPort;
+import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.SharePointConnectionService;
+import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointSourceService.Scope;
+import io.memoryos.connector.SharePointSourceService.ScopeMode;
+import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
+import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
+import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
+import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
+import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.persistence.JdbcSourceItemRepository;
+import io.memoryos.connector.persistence.JdbcSourceRepository;
+import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.objectstorage.ObjectWriteService;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+/**
+ * The SharePoint refresh and prune against a real database, with Microsoft and object storage replaced by
+ * doubles. What matters here is which documents survive a run, not how Graph is called.
+ */
+@Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
+class PostgresSharePointSyncTest {
+    private static final String DRIVE = "drive-1";
+    private static final String SITE = "site-1";
+
+    private HikariDataSource dataSource;
+    private JdbcClient jdbc;
+    private DataSourceTransactionManager manager;
+    private TenantId tenant;
+    private ActorId owner;
+    private SourceId source;
+    private CredentialId credential;
+    private SharePointProvider.Session session;
+    private JdbcSharePointSyncRepository runs;
+    private JdbcSharePointSourceRepository sharePoint;
+    private JdbcSourceSyncRepository attempts;
+    private DefaultSharePointSyncService service;
+    private org.springframework.transaction.support.TransactionTemplate tx;
+
+    @AfterEach
+    void closeDatabase() {
+        if (dataSource != null) dataSource.close();
+    }
+
+    @BeforeEach
+    void setup() throws Exception {
+        dataSource = TestDatabase.freshPostgres();
+        jdbc = JdbcClient.create(dataSource);
+        manager = new DataSourceTransactionManager(dataSource);
+        tx = new org.springframework.transaction.support.TransactionTemplate(manager);
+        tenant = new TenantId(UUID.randomUUID());
+        owner = new ActorId(UUID.randomUUID());
+        source = new SourceId(UUID.randomUUID());
+        credential = new CredentialId(UUID.randomUUID());
+        seedTenant();
+
+        var sources = new JdbcSourceRepository(jdbc, event -> { });
+        var documents = new JdbcSourceDocumentRepository(jdbc);
+        var items = new JdbcSourceItemRepository(jdbc);
+        var indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents,
+                mock(io.memoryos.connector.GoogleDriveConnectionService.class));
+        attempts = new JdbcSourceSyncRepository(jdbc);
+        runs = new JdbcSharePointSyncRepository(jdbc, attempts);
+        sharePoint = new JdbcSharePointSourceRepository(jdbc, sources);
+
+        session = mock(SharePointProvider.Session.class);
+        when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
+                "contoso.sharepoint.com"));
+        var connections = mock(SharePointConnectionService.class);
+        when(connections.state(any(), any())).thenReturn(new SharePointConnectionService.State(credential,
+                "Entra app", "ACTIVE", 1L, "contoso.sharepoint.com"));
+        when(connections.open(any(), any())).thenAnswer(_ ->
+                new SharePointConnectionService.Connection(session, 1L, "contoso.sharepoint.com"));
+
+        var writes = mock(ObjectWriteService.class);
+        service = new DefaultSharePointSyncService(runs, sharePoint, sources, items, indexing, documents,
+                connections, writes, manager);
+        seedSource();
+    }
+
+    @Test
+    void refreshRemovesWhatATombstoneReports() {
+        seedItem("file-gone", "Gone.docx");
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(
+                List.of(tombstone("file-gone")), null, "delta-link"));
+
+        var result = service.execute(claim(enqueue()));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, result);
+        assertEquals("DELETING", status("file-gone"), "a tombstone removes the document it names");
+        assertEquals(1, counter("removed"));
+        assertNotNull(refreshWindowEnd(), "a successful refresh records the window its next run continues from");
+    }
+
+    @Test
+    void refreshKeepsAnItemWhoseTimestampIsOlderThanTheWindow() {
+        // Moving a file into scope does not change its timestamp, so filtering the change log would drop it.
+        Instant old = Instant.now().minus(400, ChronoUnit.DAYS);
+        var moved = file("file-moved", "Moved.docx", old);
+        jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = :end WHERE tenant_id = :tenant")
+                .param("end", java.sql.Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)))
+                .param("tenant", tenant.value()).update();
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(moved), null, "delta-link"));
+        // Reading the item back is where acquisition starts; one unreadable item does not fail the run.
+        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
+                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+
+        var result = service.execute(claim(enqueue()));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, result);
+        assertEquals(1, ledger("file-moved"), "the change log decides what the refresh handles");
+        verify(session).item(DRIVE, "file-moved");
+    }
+
+    @Test
+    void pruneRemovesOnlyWhatACompleteListingDidNotSee() {
+        var present = file("file-present", "Present.docx", Instant.now());
+        seedItem("file-present", "Present.docx");
+        seedItem("file-vanished", "Vanished.docx");
+        pruneDue();
+        when(session.delta(eq(DRIVE), isNull(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(present), null, "delta-link"));
+
+        var work = claim(enqueue());
+        var first = service.execute(work);
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, first, "removals are handed back in batches");
+        assertEquals("DELETING", status("file-vanished"));
+        assertNotEquals("DELETING", status("file-present"));
+
+        var second = service.execute(claim(work.operationId()));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, second);
+        assertNotNull(lastPrunedAt());
+    }
+
+    @Test
+    void pruneRemovesNothingWhenTheListingCannotFinish() {
+        seedItem("file-present", "Present.docx");
+        pruneDue();
+        when(session.delta(eq(DRIVE), isNull(), any())).thenThrow(
+                new io.memoryos.connector.SharePointProviderException(
+                        io.memoryos.connector.SharePointProviderException.Failure.UNAVAILABLE));
+
+        var result = service.execute(claim(enqueue()));
+
+        assertEquals(ConnectorSyncPort.Result.FAILED, result);
+        assertNotEquals("DELETING", status("file-present"),
+                "a site that cannot answer must never cause its documents to be deleted");
+        assertNull(lastPrunedAt());
+    }
+
+    private SourceOperationId enqueue() {
+        return Objects.requireNonNull(tx.execute(_ -> runs.enqueue(tenant, source, 1L, SourceRunTrigger.MANUAL, owner).id()));
+    }
+
+    /** Stands in for the relay, which stamps the delivery a worker then claims. */
+    private ConnectorSyncPort.Work claim(SourceOperationId operation) {
+        UUID delivery = UUID.randomUUID();
+        return Objects.requireNonNull(tx.execute(_ -> {
+            jdbc.sql("""
+                    UPDATE source_sync_attempts SET delivery_id = :delivery, dispatched_at = CURRENT_TIMESTAMP
+                    WHERE tenant_id = :tenant AND id = :id
+                    """).param("delivery", delivery).param("tenant", tenant.value())
+                    .param("id", operation.value()).update();
+            return attempts.claim(tenant, operation, delivery).orElseThrow();
+        }));
+    }
+
+    private SharePointProvider.DriveItem file(String id, String name, Instant modified) {
+        return new SharePointProvider.DriveItem(id, name, false, false, 12, "application/pdf", "hash-" + id,
+                "etag-" + id, modified, modified, "root-1", "/Reports",
+                "https://contoso.sharepoint.com/sites/Finance/Shared%20Documents/" + name, null, DRIVE);
+    }
+
+    private static SharePointProvider.DriveItem tombstone(String id) {
+        return new SharePointProvider.DriveItem(id, null, false, true, 0, null, null, null, null, null,
+                "root-1", null, null, null, DRIVE);
+    }
+
+    private void seedTenant() {
+        jdbc.sql("INSERT INTO actors (id) VALUES (:id)").param("id", owner.value()).update();
+        jdbc.sql("""
+                INSERT INTO tenants (id, slug, display_name, status, bootstrap_reference)
+                VALUES (:id, 'sharepoint-sync', 'SharePoint sync', 'ACTIVE', 'TEST')
+                """).param("id", tenant.value()).update();
+        jdbc.sql("""
+                INSERT INTO tenant_memberships (tenant_id, actor_id, role, status)
+                VALUES (:tenant, :actor, 'OWNER', 'ACTIVE')
+                """).param("tenant", tenant.value()).param("actor", owner.value()).update();
+        jdbc.sql("""
+                INSERT INTO credentials (id, tenant_id, name, credential_kind, status, owner_actor_id)
+                VALUES (:id, :tenant, 'Entra app', 'SHAREPOINT_APP', 'ACTIVE', :actor)
+                """).param("id", credential.value()).param("tenant", tenant.value())
+                .param("actor", owner.value()).update();
+        jdbc.sql("""
+                INSERT INTO sharepoint_credentials (tenant_id, credential_id, directory_id, client_id, cloud,
+                    auth_method, connection_status, secret_ciphertext, secret_nonce, secret_key_version)
+                VALUES (:tenant, :credential, :directory, :client, 'GLOBAL', 'CLIENT_SECRET', 'ACTIVE',
+                    :ciphertext, :nonce, 'v1')
+                """).param("tenant", tenant.value()).param("credential", credential.value())
+                .param("directory", UUID.randomUUID()).param("client", UUID.randomUUID())
+                .param("ciphertext", new byte[32]).param("nonce", new byte[12]).update();
+    }
+
+    private void seedSource() {
+        var scope = new Scope(ScopeMode.SPECIFIC, List.of("https://contoso.sharepoint.com/sites/Finance/Shared Documents"),
+                List.of(), List.of(), true, false, 30, 168);
+        tx.executeWithoutResult(_ -> sharePoint.create(tenant, source, owner, null, "Finance", credential,
+                SourceAccess.PUBLIC, scope,
+                List.of(new ResolvedRoot(io.memoryos.connector.SharePointSourceService.RootKind.LIBRARY,
+                        "https://contoso.sharepoint.com/sites/Finance/Shared Documents", SITE, DRIVE, null,
+                        "Documents")), "contoso.sharepoint.com"));
+    }
+
+    /** Seeds an item the Source already holds, as a completed acquisition would have left it. */
+    private void seedItem(String providerFileId, String name) {
+        UUID connector = jdbc.sql("""
+                SELECT connector_id FROM connector_credential_pairs WHERE tenant_id = :tenant AND id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).query(UUID.class).single();
+        UUID item = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO connector_items (id, tenant_id, connector_id, provider_file_id, content_sha256, status)
+                VALUES (:id, :tenant, :connector, :file, :sha, 'PENDING')
+                """).param("id", item).param("tenant", tenant.value()).param("connector", connector)
+                .param("file", providerFileId).param("sha", "0".repeat(64)).update();
+        jdbc.sql("""
+                INSERT INTO sharepoint_items (tenant_id, source_id, provider_file_id, kind, drive_id, site_id, name)
+                VALUES (:tenant, :source, :file, 'FILE', :drive, :site, :name)
+                """).param("tenant", tenant.value()).param("source", source.value()).param("file", providerFileId)
+                .param("drive", DRIVE).param("site", SITE).param("name", name).update();
+    }
+
+    private void pruneDue() {
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET next_prune_at = CURRENT_TIMESTAMP - INTERVAL '1 hour'
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    private String status(String providerFileId) {
+        return jdbc.sql("""
+                SELECT i.status FROM connector_items i
+                JOIN connector_credential_pairs p ON p.tenant_id = i.tenant_id AND p.connector_id = i.connector_id
+                WHERE p.tenant_id = :tenant AND p.id = :source AND i.provider_file_id = :file
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("file", providerFileId).query(String.class).optional().orElse("ABSENT");
+    }
+
+    private int ledger(String providerFileId) {
+        return jdbc.sql("""
+                SELECT COUNT(*) FROM sharepoint_items
+                WHERE tenant_id = :tenant AND source_id = :source AND provider_file_id = :file
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("file", providerFileId).query(Integer.class).single();
+    }
+
+    private long counter(String column) {
+        return jdbc.sql("SELECT " + column + " FROM source_sync_attempts WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Long.class).single();
+    }
+
+    private java.sql.@org.jspecify.annotations.Nullable Timestamp refreshWindowEnd() {
+        return jdbc.sql("SELECT refresh_window_end FROM sharepoint_sources WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(java.sql.Timestamp.class).optional().orElse(null);
+    }
+
+    private java.sql.@org.jspecify.annotations.Nullable Timestamp lastPrunedAt() {
+        return jdbc.sql("SELECT last_pruned_at FROM sharepoint_sources WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(java.sql.Timestamp.class).optional().orElse(null);
+    }
+}

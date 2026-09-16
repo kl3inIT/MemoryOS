@@ -104,6 +104,12 @@ CREATE TABLE sharepoint_sync_runs (
 );
 CREATE UNIQUE INDEX uq_sharepoint_run_live ON sharepoint_sync_runs (tenant_id, source_id) WHERE status = 'IN_PROGRESS';
 
+-- Sync attempts were tied to Google Drive Sources; every connector writes them, so they now reference the
+-- Source itself. Deleting a Source still removes its attempts.
+ALTER TABLE source_sync_attempts DROP CONSTRAINT source_sync_attempts_tenant_id_source_id_fkey;
+ALTER TABLE source_sync_attempts ADD CONSTRAINT fk_source_sync_attempts_source
+    FOREIGN KEY (tenant_id, source_id) REFERENCES connector_credential_pairs (tenant_id, id) ON DELETE CASCADE;
+
 CREATE TABLE sharepoint_selection_operations (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

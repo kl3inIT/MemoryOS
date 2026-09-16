@@ -56,8 +56,10 @@ public class JdbcSharePointSourceRepository {
                 .update();
         jdbc.sql("""
                 INSERT INTO sharepoint_sources (tenant_id, source_id, scope_mode, include_documents, include_pages,
-                    sync_interval_minutes, prune_interval_hours, tenant_host)
-                VALUES (:tenant, :source, :mode, :documents, :pages, :sync, :prune, :host)
+                    sync_interval_minutes, prune_interval_hours, tenant_host, next_prune_at)
+                VALUES (:tenant, :source, :mode, :documents, :pages, :sync, :prune, :host,
+                    -- The first run is a refresh; a prune only makes sense once a window has been collected.
+                    CURRENT_TIMESTAMP + GREATEST(:prune, 1) * INTERVAL '1 hour')
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("mode", scope.scopeMode().name()).param("documents", scope.includeDocuments())
                 .param("pages", scope.includePages()).param("sync", scope.syncIntervalMinutes())
