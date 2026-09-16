@@ -11,6 +11,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -507,9 +514,21 @@ export function SharePointCredentialSection({
             </Button>
           </div>
         ) : !credentials.data?.length ? (
-          <p className="mt-4 text-sm text-content-primary">
-            {ui("No credentials exist for this connector!")}
-          </p>
+          <Empty className="mt-4 gap-3 border border-dashed border-border-default py-8">
+            <EmptyMedia variant="icon">
+              <KeyRound />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle className="font-main-ui-action">
+                {ui("No SharePoint credentials yet")}
+              </EmptyTitle>
+              <EmptyDescription>
+                {ui(
+                  "Register the Entra application once, then every SharePoint Source in this Tenant can use it.",
+                )}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : null}
         {error && !modalOpen ? (
           <p role="alert" className="mt-4 text-sm text-status-danger-content">

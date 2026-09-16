@@ -1203,8 +1203,10 @@ Object.assign(englishUi, {
     "Mỗi dòng một mẫu wildcard, khớp không phân biệt hoa thường với đường dẫn của từng mục. Ví dụ: */Archive/*",
   Kind: "Loại",
   Prune: "Dọn dẹp",
+  "No SharePoint credentials yet": "Chưa có credential SharePoint",
+  "Register the Entra application once, then every SharePoint Source in this Tenant can use it.":
+    "Đăng ký ứng dụng Entra một lần, rồi mọi Nguồn SharePoint trong Tenant này đều dùng được.",
 });
-
 Object.assign(englishUi, {
   "Manage connection": "Quản lý kết nối",
   Close: "Đóng",
