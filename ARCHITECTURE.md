@@ -75,6 +75,7 @@ flowchart TB
     CHAT --> IAM
     CHAT --> CON
     CHAT --> RET
+    CHAT --> MCP
 
     API[api composition root] --> IAM
     API --> OBJ
