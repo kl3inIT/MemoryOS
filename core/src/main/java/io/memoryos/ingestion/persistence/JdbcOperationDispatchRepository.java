@@ -39,11 +39,14 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             JOIN connector_items item
               ON item.tenant_id = attempt.tenant_id
              AND item.id = attempt.connector_item_id
+            JOIN connectors connector
+              ON connector.tenant_id = item.tenant_id
+             AND connector.id = item.connector_id
             WHERE tenant.status = 'ACTIVE'
               AND pair.status <> 'DELETING'
               AND item.status <> 'DELETING'
               AND item.current_version_id = attempt.connector_item_version_id
-              AND (item.provider_file_id IS NULL OR EXISTS (
+              AND (item.provider_file_id IS NULL OR connector.connector_type <> 'GOOGLE_DRIVE' OR EXISTS (
                   SELECT 1 FROM google_drive_membership m
                   JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
                   JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id

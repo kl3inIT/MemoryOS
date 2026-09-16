@@ -1135,6 +1135,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             </section>
             {detail.type === "GOOGLE_DRIVE" ? (
               <SourceRunHistory key={selectedId} sourceId={selectedId} />
+            ) : detail.type === "SHAREPOINT" ? (
+              <>
+                <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} />
+                <SourceItemHistory key={selectedId} sourceId={selectedId} />
+              </>
             ) : (
               <SourceItemHistory key={selectedId} sourceId={selectedId} />
             )}
