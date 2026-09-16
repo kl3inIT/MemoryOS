@@ -59,6 +59,8 @@ import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
+import { SourceManagerSection } from "./source-manager-section";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { SourceSectionIcon } from "./source-section-icon";
 import { can } from "@/lib/resource-permissions";
 
@@ -616,6 +618,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const canRemoveItems = can(detail, "removeItems");
   const canDelete = can(detail, "delete");
   const canManageGroups = can(detail, "edit");
+  const isAdministrator = useGlobalCapability("SYSTEM_ADMIN");
   const uploadBusy = uploadPhase !== "idle" && uploadPhase !== "finalize-retry";
   const managementBusy =
     uploadBusy ||
@@ -1130,8 +1133,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             <SourceGroupsSection
               sourceId={selectedId}
               editable={canManageGroups}
+              restricted={detail.access !== "PUBLIC"}
               onAuthorityChanged={refreshAuthorityViews}
             />
+            {isAdministrator ? (
+              <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+            ) : null}
           </div>
         )}
       </div>
