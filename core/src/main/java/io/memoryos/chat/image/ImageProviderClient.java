@@ -16,8 +16,11 @@ import tools.jackson.databind.ObjectMapper;
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
 public final class ImageProviderClient {
-    /** Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109. */
-    static final String CLOUDFLARE_EDIT_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
+    /**
+     * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
+     * Klein 9B is preferred over 4B for quality at about 1,300 neurons per 1024 px edit.
+     */
+    static final String CLOUDFLARE_EDIT_MODEL = "@cf/black-forest-labs/flux-2-klein-9b";
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ImageHttp http;
     private final ImageConnectionService connections;

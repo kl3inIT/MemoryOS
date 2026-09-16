@@ -1,5 +1,7 @@
 package io.memoryos.connector;
 
+import io.memoryos.iam.identity.ActorId;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -15,6 +17,10 @@ public record SourceSummary(
         long documentCount,
         @Nullable Instant lastSucceededAt,
         @Nullable String errorCode,
+        /** The Actor allowed to attach this Source to the Groups they manage; null leaves that to global authority. */
+        @Nullable ActorId managerActorId,
+        /** That Actor's profile name, so naming the manager needs no separate directory read. */
+        @Nullable String managerName,
         SourcePermissions permissions
 ) {
     public SourceSummary {

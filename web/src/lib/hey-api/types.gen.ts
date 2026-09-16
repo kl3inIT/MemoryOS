@@ -291,6 +291,19 @@ export type WebConnectionResponse = {
     revision?: number;
 };
 
+export type ChatSettingsRequest = {
+    deepResearchEnabled: boolean;
+    revision?: number;
+};
+
+export type ChatSettingsResponse = {
+    /**
+     * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
+     */
+    deepResearchEnabled: boolean;
+    revision: number;
+};
+
 export type Title = {
     title: string;
 };
@@ -595,7 +608,22 @@ export type SourceSummary = {
     documentCount: number;
     lastSucceededAt: string | null;
     errorCode: string | null;
+    /**
+     * Actor who may attach this source to the groups they manage.
+     */
+    managerActorId: string | null;
+    /**
+     * Profile name of the responsible manager.
+     */
+    managerName: string | null;
     permissions: SourcePermissions;
+};
+
+export type AssignSourceManagerRequest = {
+    /**
+     * Actor who may attach this source to the groups they manage; null leaves it to global source management alone.
+     */
+    actorId: string | null;
 };
 
 export type UpdateSourceGroupsRequest = {
@@ -888,6 +916,10 @@ export type Send = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
     mcpServerIds?: Array<string>;
 };
 
@@ -903,6 +935,10 @@ export type Regenerate = {
     modelConfigurationId?: string;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
     mcpServerIds?: Array<string>;
 };
 
@@ -913,6 +949,10 @@ export type Edit = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
     mcpServerIds?: Array<string>;
 };
 
@@ -1257,6 +1297,10 @@ export type GroupPage = {
 
 export type GroupSources = {
     items: Array<SourceSummary>;
+    /**
+     * Sources in items that the caller may remove from this group.
+     */
+    removableSourceIds: Array<string>;
 };
 
 export type GroupMember = {
@@ -1365,6 +1409,30 @@ export type ChatMessage = {
     artifacts: Array<ChatArtifact>;
     activity: ChatActivity;
     images: Array<ImageRef>;
+    research: ChatMessageResearch;
+};
+
+export type ChatMessageResearch = {
+    clarification: boolean;
+    plan: string | null;
+    agents: Array<ChatMessageResearchAgent>;
+};
+
+export type ChatMessageResearchAgent = {
+    toolCallId: string;
+    cycle: number;
+    tabIndex: number;
+    task: string | null;
+    status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+    durationMs: number | null;
+    report: string | null;
+    citations: Array<ChatMessageResearchCitation>;
+    activity: ChatActivity;
+};
+
+export type ChatMessageResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatSource = {
@@ -1466,12 +1534,15 @@ export type ToolEvent = {
     search: QueryPlan | null;
     documents: Array<ReadingDocument>;
     durationMs: number | null;
+    parentToolCallId: string | null;
+    tabIndex: number | null;
 };
 
 export type ReasoningEvent = {
     assistantMessageId: string;
     sequence: number;
     text: string;
+    parentToolCallId: string | null;
 };
 
 export type ImageEvent = {
@@ -1482,6 +1553,45 @@ export type ImageEvent = {
     id: string | null;
     mediaType: string | null;
     revisedPrompt: string | null;
+};
+
+export type ResearchPlanEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    text: string;
+};
+
+export type TopLevelBranchingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    branches: number;
+};
+
+export type ResearchAgentStartEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    tabIndex: number;
+    task: string;
+};
+
+export type IntermediateReportEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    text: string;
+};
+
+export type IntermediateReportCitationsEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    citations: Array<ResearchCitation>;
+};
+
+export type ResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatBranch = {
@@ -2289,6 +2399,94 @@ export type SaveChatWebConnectionResponses = {
 };
 
 export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
+
+export type GetChatSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings';
+};
+
+export type GetChatSettingsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatSettingsError = GetChatSettingsErrors[keyof GetChatSettingsErrors];
+
+export type GetChatSettingsResponses = {
+    /**
+     * Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type GetChatSettingsResponse = GetChatSettingsResponses[keyof GetChatSettingsResponses];
+
+export type SaveChatSettingsData = {
+    body: ChatSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings';
+};
+
+export type SaveChatSettingsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatSettingsError = SaveChatSettingsErrors[keyof SaveChatSettingsErrors];
+
+export type SaveChatSettingsResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -3788,6 +3986,30 @@ export type RenameSourceResponses = {
 
 export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceResponses];
 
+export type AssignSourceManagerData = {
+    body: AssignSourceManagerRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/manager';
+};
+
+export type AssignSourceManagerResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type AssignSourceManagerResponse = AssignSourceManagerResponses[keyof AssignSourceManagerResponses];
+
 export type RemoveSourceItemData = {
     body?: never;
     headers: {
@@ -4843,6 +5065,31 @@ export type CreateGroupResponses = {
 };
 
 export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type RemoveGroupSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        groupId: string;
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/groups/{groupId}/sources/{sourceId}/remove';
+};
+
+export type RemoveGroupSourceResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RemoveGroupSourceResponse = RemoveGroupSourceResponses[keyof RemoveGroupSourceResponses];
 
 export type RenameGroupData = {
     body: RenameGroupRequest;
@@ -7216,7 +7463,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

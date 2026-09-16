@@ -85,9 +85,69 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 | Google Drive structured ingestion — active MEM-9/MEM-10/MEM-60/MEM-63 | Reusable OAuth credentials, explicit linked approvals, asynchronous selection, native readers, paginated Source views and owned-index history are merged. Live-provider and customer-data acceptance remains active; MEM-76 is Done | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Verification](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09) |
 | MEM-58 frontend observability | Optional Sentry Cloud browser error monitoring and trace correlation; rollout configuration and Linear reconciliation remain active | [Design](increments/active/mem-58-frontend-observability/design.md) |
 | [MEM-110 MemoryOS interpreter](https://linear.app/memory-os/issue/MEM-110) | Onyx python-sandbox snapshot vendored as `interpreter/` and renamed to `memoryos-interpreter`; staging runtime, authentication, Java `run_python` tool, browser rendering and office output quality remain open | [Design](increments/active/mem-110-memoryos-interpreter/design.md) · [Plan](increments/active/mem-110-memoryos-interpreter/plan.md) |
+| [MEM-101 deep research](https://linear.app/memory-os/issue/MEM-101) | Onyx `160f9b143` Deep research mode in Chat (clarification, streamed plan, ≤3 parallel research agents, merged-citation report) plus Chat-wide Onyx timing and uncapped citations; implemented with spans, metrics and integration tests in PR #202; visual review, full `clean check` and staging acceptance remain open; restart survival excluded | [Design](increments/active/mem-101-deep-research/design.md) · [Plan](increments/active/mem-101-deep-research/plan.md) |
 | MEM-77 provider/model administration | Backend foundation is merged; catalog administration UI and local OpenAI-compatible provider integration remain active | [Design](increments/active/mem-77-provider-backend/design.md) |
 | [MEM-79 standalone OCR](https://linear.app/memory-os/issue/MEM-79) | Vietnamese/English OCR is deployed in the Jmix team namespace; server access, Worker integration and full indexing acceptance remain open | [Deployment runbook](../infrastructure/deployment/ocr/README.md) · [Design](increments/active/mem-79-rancher-ocr/design.md) · [Plan](increments/active/mem-79-rancher-ocr/plan.md) |
 | Sign-out without the Keycloak logout page | Application sign-out ends the Keycloak session named by the ID token `sid` through the realm admin API, so the browser returns to MemoryOS sign-in without the provider confirmation page; the provider logout page remains the fallback; managed identity providers enable back-channel logout so a brokered (Tasco) session also ends upstream; implemented locally, not merged | [Design](increments/active/logout-without-keycloak-page/design.md) · [Plan](increments/active/logout-without-keycloak-page/plan.md) |
+| Source manager owns Group attachment | Scoped Source authority follows a recorded manager instead of "manages every associated Group": that manager attaches the Source to their own Groups and may start with none, any Group's manager detaches it from their Group, and `SYSTEM_ADMIN` appoints a manager when the previous one loses the role; implemented locally, not merged | [Design](increments/active/source-manager-group-authority/design.md) · [Plan](increments/active/source-manager-group-authority/plan.md) · [ADR 0011](decisions/0011-source-manager-group-attachment-authority.md) |
+
+## Timeline
+
+Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/MEM-115)). Linear projects own the live dates, milestones and issue membership; this section records the agreed shape. **Every date is provisional** until the SEP490 lecturer and each project lead confirm it. The project started around 2026-08-24; SEP490 closing is the final milestone, around the week of 2026-12-21.
+
+| Project | Status | Provisional window | Issues |
+| --- | --- | --- | --- |
+| Giai đoạn 1: Nền tảng MemoryOS | Completed | → 2026-09-15 | Delivered foundation listed above |
+| [SEP490: Hồ sơ và bảo vệ đồ án](https://linear.app/memory-os/project/sep490-f571b6150b5f) | In progress, at risk | 2026-08-24 → 2026-12-21 | MEM-85, MEM-86, MEM-115 |
+| Nguồn Google Drive và phân quyền | In progress | → 2026-10 | MEM-60, MEM-9, MEM-10, MEM-63, MEM-88, MEM-89, MEM-90, MEM-104, MEM-105 |
+| Đọc tài liệu scan (OCR) | In progress | → 2026-10 | MEM-79 |
+| Trợ lý AI nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116; candidates MEM-117, MEM-122 |
+| Mô hình AI và chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123 |
+| Bảo mật, quản trị và vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
+| Agent và Skill tùy chỉnh | Planned | 2026-10 → 2026-11 | MEM-119, MEM-120 |
+| Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490) |
+| Giọng nói và cuộc họp | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
+| Giao diện và trải nghiệm | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
+| Tích hợp hệ thống ngoài (MCP, API) | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
+
+SEP490 milestones follow the stage order of the [R2 template](academic/sep490/README.md#giai-đoạn-tham-khảo-từ-mẫu-r2): R1/R2 v1.0/R3 v0.9 (2026-09-27, behind the template's week 3), R4 SDS v1.0 with test plan and R3 v1.0 (2026-10-11), three iteration packages (2026-10-25, 2026-11-08, 2026-11-22), verification and validation with R6 (2026-12-06), and R7 with the defense (2026-12-21).
+
+```mermaid
+gantt
+    title MemoryOS provisional timeline (2026-09-15 snapshot)
+    dateFormat YYYY-MM-DD
+    axisFormat %d/%m
+    section SEP490
+    R1 R2 v1.0 R3 v0.9            :crit, s1, 2026-09-15, 2026-09-27
+    R4 SDS R5 plan R3 v1.0        :s2, after s1, 2026-10-11
+    Iteration 1                   :s3, after s2, 2026-10-25
+    Iteration 2                   :s4, after s3, 2026-11-08
+    Iteration 3                   :s5, after s4, 2026-11-22
+    Verification and R6           :s6, after s5, 2026-12-06
+    R7 and defense                :milestone, s7, 2026-12-21, 0d
+    section In progress
+    Nguồn Google Drive và phân quyền :2026-08-24, 2026-10-31
+    Đọc tài liệu scan (OCR)       :2026-09-01, 2026-10-31
+    Trợ lý AI nâng cao            :2026-09-01, 2026-11-30
+    Mô hình AI và chi phí         :2026-09-01, 2026-11-30
+    Bảo mật quản trị và vận hành  :2026-08-24, 2026-12-06
+    section Planned
+    Agent và Skill tùy chỉnh      :2026-10-01, 2026-11-30
+    Kết nối nguồn dữ liệu mới     :2026-10-01, 2026-11-30
+    Giao diện và trải nghiệm      :2026-10-01, 2026-11-30
+    Voice STT batch               :v1, 2026-10-01, 2026-10-31
+    Meeting recording source      :v2, after v1, 2026-11-22
+    Meeting task extraction       :v3, after v2, 2026-12-06
+```
+
+Known blocking relations recorded in Linear:
+
+- MEM-91 speech-to-text blocks MEM-92 meeting task extraction.
+- MEM-110 interpreter blocks MEM-111 artifacts, MEM-120 skills and MEM-122 Craft; MEM-111 also blocks MEM-122.
+- MEM-98 usage recording blocks MEM-123 quotas.
+- MEM-124 API keys and personal access tokens block MEM-114 public MCP server.
+
+Candidates are recorded so they can be prioritized, not as commitments. Promote one into a committed window only with an issue, an active increment and a confirmed owner.
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
@@ -113,7 +173,6 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 ## Other tracked work
 
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
-- [MEM-100](https://linear.app/memory-os/issue/MEM-100) (Todo) is the agent activity timeline: persisted step and reasoning parts rendered with assistant-ui grouped parts. [MEM-101](https://linear.app/memory-os/issue/MEM-101) (Backlog) is Deep research and is blocked by MEM-100. MEM-100 is listed under Active; MEM-101 has no increment record yet.
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Todo: the [backend foundation](increments/active/mem-77-provider-backend/design.md) is merged through PR #88; the issue continues catalog administration UI and local OpenAI-compatible provider integration.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.
 

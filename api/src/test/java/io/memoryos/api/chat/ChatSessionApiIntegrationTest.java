@@ -497,7 +497,7 @@ class ChatSessionApiIntegrationTest {
             Prompt prompt = call.getArgument(0);
             assertFalse(prompt.toString().contains("PRIVATE DENIED CONTENT"));
             if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
-                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("search-1", "function", "searchKnowledge",
+                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge",
                             "{\"queries\":[\"leave\"]}"))).build(),
                     ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                     ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
@@ -524,6 +524,203 @@ class ChatSessionApiIntegrationTest {
                     && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
             assertEquals("outcome", events.getLast().type());
         }
+    }
+
+    @Test
+    void deepResearchClarifiesThenRunsParallelAgentsThroughProductToolsAndPersistsMergedCitations() throws Exception {
+        String modelId = researchModel();
+        var document = UUID.randomUUID();
+        var generation = UUID.randomUUID();
+        when(searchIndex.identity()).thenReturn("space");
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(call -> call.<List<io.memoryos.retrieval.SearchQuery>>getArgument(1)
+                .stream().map(query -> query.text().equals("leave") ? List.of(new SearchHit(document, generation, 0, "HR policy", "text/plain",
+                        "Annual leave is twelve days.", "[]", Instant.EPOCH, .9)) : List.<SearchHit>of()).toList());
+        when(chunks.currentGenerations(any(), any(), any())).thenReturn(Map.of(document, generation));
+        when(sourceSearch.readableMetadata(any(), any())).thenReturn(Map.of(document, List.of(new io.memoryos.connector.DocumentSourceMetadata(
+                searchSource, UUID.randomUUID(), io.memoryos.connector.SourceType.FILE, Instant.EPOCH, Instant.EPOCH, List.of()))));
+        when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
+        when(searchIndex.document(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new SearchDocument(document, generation, "HR policy", List.of(), 0, 0, false));
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            String text = call.<Prompt>getArgument(0).getContents();
+            if (text.contains("provide a standalone query")) return response("{\"query\":\"leave\"}", "stop", 7);
+            if (text.contains("provide a set of keyword only queries")) return response("{\"queries\":[]}", "stop", 7);
+            if (text.contains("You scope an internal search to a time filter")) return response("{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
+            if (text.contains("# Main Section:")) return response("{\"classification\":\"MAIN_SECTION_ONLY\"}", "stop", 7);
+            return response("{\"sections\":[1]}", "stop", 7);
+        });
+        var phases = new java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>();
+        var problems = new CopyOnWriteArrayList<String>();
+        var clarified = new java.util.concurrent.atomic.AtomicBoolean();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            try {
+                Prompt prompt = call.getArgument(0);
+                String system = prompt.getSystemMessage().getText();
+                String contents = prompt.toString();
+                if (system.contains("You are a clarification agent")) {
+                    phases.computeIfAbsent("clarification", _ -> new AtomicInteger()).incrementAndGet();
+                    if (clarified.compareAndSet(false, true)) return Flux.just(response("Which country's leave policy?", "stop", 12));
+                    return Flux.just(toolCalls(new AssistantMessage.ToolCall("plan-1", "function", "generate_plan", "{}")));
+                }
+                if (system.contains("You are a research planner agent")) return Flux.just(response("1. Leave policy\n2. Exceptions", "stop", 12));
+                if (system.contains("You are the final answer generator")) {
+                    assertTrue(contents.contains("Twelve days [1]."), "the orchestrator history must carry the renumbered agent report");
+                    assertTrue(contents.contains("Research agent call failed") || contents.contains("No findings."));
+                    return Flux.just(response("Vietnam grants twelve days of annual leave [1].", "stop", 12));
+                }
+                if (system.contains("research sub-agent that has conducted research")) {
+                    return Flux.just(response(contents.contains("Bogus task") ? "No findings." : "Twelve days [1].", "stop", 12));
+                }
+                if (system.contains("You are an orchestrator agent for deep research")) {
+                    if (phases.computeIfAbsent("orchestrator", _ -> new AtomicInteger()).incrementAndGet() == 1)
+                        return Flux.just(toolCalls(
+                                new AssistantMessage.ToolCall("agent-1", "function", "research_agent", "{\"task\":\"Leave task in Vietnam\"}"),
+                                new AssistantMessage.ToolCall("agent-2", "function", "research_agent", "{\"task\":\"Bogus task\"}")));
+                    return Flux.just(toolCalls(new AssistantMessage.ToolCall("report-1", "function", "generate_report", "{}")));
+                }
+                if (system.contains("research agent that conducts research")) {
+                    // Onyx tool names must be renamed to the MemoryOS tools the agent actually has.
+                    assertTrue(system.contains("search_knowledge"), "the agent prompt names the internal search tool");
+                    assertFalse(system.contains("internal_search") || system.contains("open_urls"), "no Onyx tool names reach the agent prompt");
+                    boolean bogus = contents.contains("Bogus task");
+                    int step = phases.computeIfAbsent(bogus ? "bogus" : "leave", _ -> new AtomicInteger()).incrementAndGet();
+                    if (step > 1) return Flux.just(toolCalls(new AssistantMessage.ToolCall((bogus ? "b" : "l") + "-report", "function", "generate_report", "{}")));
+                    return Flux.just(bogus
+                            ? toolCalls(new AssistantMessage.ToolCall("bogus-1", "function", "no_such_tool", "{}"))
+                            : toolCalls(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")));
+                }
+                throw new AssertionError("Unexpected research inference: " + system.substring(0, Math.min(80, system.length())));
+            } catch (Throwable failure) {
+                problems.add(String.valueOf(failure));
+                throw failure;
+            }
+        });
+        var session = create();
+        var first = research(session, session.path("rootMessageId").asText(), modelId);
+        String clarification = first.path("assistantMessageId").asText();
+        awaitOutcome(clarification, "COMPLETED");
+        var asked = history(session).get(1);
+        assertEquals("Which country's leave policy?", asked.path("content").asText());
+        assertTrue(asked.path("research").path("clarification").asBoolean());
+
+        String request = UUID.randomUUID().toString();
+        var second = research(session, clarification, modelId, request, true, 202);
+        String id = second.path("assistantMessageId").asText();
+        await().atMost(Duration.ofSeconds(30)).until(() -> !"RUNNING".equals(jdbc.sql("SELECT status FROM chat_message WHERE id = :id")
+                .param("id", UUID.fromString(id)).query(String.class).single()));
+        assertEquals(List.of(), problems);
+        assertEquals("COMPLETED null", jdbc.sql("SELECT status || ' ' || coalesce(failure_code, 'null') FROM chat_message WHERE id = :id")
+                .param("id", UUID.fromString(id)).query(String.class).single());
+        assertEquals(1, phases.get("clarification").get(), "the answer to a clarification skips clarification");
+        assertEquals(id, research(session, clarification, modelId, request, true, 202).path("assistantMessageId").asText(), "a replay returns the same turn");
+        research(session, clarification, modelId, request, false, 409);
+        var saved = history(session).get(3);
+        assertEquals("Vietnam grants twelve days of annual leave [1].", saved.path("content").asText());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id = :id AND input_tokens IS NOT NULL")
+                .param("id", UUID.fromString(id)).query(Long.class).single(), "usage of every agent guard is known");
+        assertEquals(1, saved.path("sources").size());
+        assertEquals(document.toString(), saved.path("sources").get(0).path("documentId").asText());
+        var research = saved.path("research");
+        assertFalse(research.path("clarification").asBoolean());
+        assertEquals("1. Leave policy\n2. Exceptions", research.path("plan").asText());
+        assertEquals(2, research.path("agents").size());
+        var leave = research.path("agents").get(0);
+        assertEquals("agent-1", leave.path("toolCallId").asText());
+        assertEquals(0, leave.path("tabIndex").asInt());
+        assertEquals("COMPLETED", leave.path("status").asText());
+        assertEquals("Twelve days [1].", leave.path("report").asText());
+        assertEquals(1, leave.path("citations").get(0).path("citationId").asInt());
+        assertEquals("search_knowledge", leave.path("activity").path("steps").get(0).path("toolName").asText());
+        var bogus = research.path("agents").get(1);
+        assertEquals(1, bogus.path("tabIndex").asInt());
+        assertEquals("COMPLETED", bogus.path("status").asText());
+        assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
+        try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
+            var events = reader.read().events();
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
+            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "agent-2".equals(e.tool().toolCallId())
+                    && Integer.valueOf(1).equals(e.tool().tabIndex())));
+            assertTrue(events.stream().anyMatch(e -> e.tool() != null && "search-1".equals(e.tool().toolCallId())
+                    && "agent-1".equals(e.tool().parentToolCallId())));
+            assertTrue(events.stream().anyMatch(e -> e.type().equals("intermediate-report-citations")));
+            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
+                    && e.tool().source().citationId() == 1 && "agent-1".equals(e.tool().toolCallId())));
+            assertEquals("outcome", events.getLast().type());
+        }
+        verify(searchIndex).batch(any(), any(), any(), any());
+    }
+
+    @Test
+    void stopDuringResearchAgentSearchInterruptsItSkipsTheReportAndPersistsThePlanAndFailedAgent() throws Exception {
+        String modelId = researchModel();
+        var entered = new CountDownLatch(1);
+        var interrupted = new CountDownLatch(1);
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            String text = call.<Prompt>getArgument(0).getContents();
+            return response(text.contains("provide a standalone query") ? "{\"query\":\"leave\"}"
+                    : text.contains("provide a set of keyword only queries") ? "{\"queries\":[]}" : "{\"field\":\"updated\",\"start\":null,\"end\":null}", "stop", 7);
+        });
+        when(searchIndex.batch(any(), any(), any(), any())).thenAnswer(ignored -> {
+            entered.countDown();
+            try { assertTrue(new CountDownLatch(1).await(20, TimeUnit.SECONDS), "Stop must interrupt the agent's retrieval"); }
+            catch (InterruptedException stopped) { interrupted.countDown(); Thread.currentThread().interrupt(); }
+            throw new io.memoryos.retrieval.SearchUnavailableException();
+        });
+        var reports = new AtomicInteger();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            String system = call.<Prompt>getArgument(0).getSystemMessage().getText();
+            if (system.contains("You are a clarification agent"))
+                return Flux.just(toolCalls(new AssistantMessage.ToolCall("plan-1", "function", "generate_plan", "{}")));
+            if (system.contains("You are a research planner agent")) return Flux.just(response("1. Leave policy", "stop", 12));
+            if (system.contains("You are an orchestrator agent for deep research"))
+                return Flux.just(toolCalls(new AssistantMessage.ToolCall("agent-1", "function", "research_agent", "{\"task\":\"Leave task\"}")));
+            if (system.contains("research agent that conducts research"))
+                return Flux.just(toolCalls(new AssistantMessage.ToolCall("search-1", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")));
+            reports.incrementAndGet();
+            return Flux.just(response("Report", "stop", 12));
+        });
+        var session = create();
+        String id = research(session, session.path("rootMessageId").asText(), modelId).path("assistantMessageId").asText();
+        assertTrue(entered.await(10, TimeUnit.SECONDS));
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages/" + id + "/cancel")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
+        awaitOutcome(id, "CANCELED");
+        assertTrue(interrupted.await(3, TimeUnit.SECONDS));
+        assertEquals(0, reports.get(), "no intermediate or final report runs after Stop");
+        var research = history(session).get(1).path("research");
+        assertEquals("1. Leave policy", research.path("plan").asText());
+        assertEquals(1, research.path("agents").size());
+        assertEquals("FAILED", research.path("agents").get(0).path("status").asText());
+        assertEquals("Leave task", research.path("agents").get(0).path("task").asText());
+    }
+
+    private String researchModel() throws Exception {
+        grantModelManagement();
+        var configured = modelBody("research-model", 0.2);
+        // Research needs at least 50,000 input tokens; the default fixture model has less.
+        ((ObjectNode) configured.path("settings")).put("contextWindow", 128000).put("maxOutputTokens", 4096);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers/" + createProvider("http://research.internal/v1", true).path("id").asText() + "/models")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(configured.toString())).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText();
+    }
+
+    private JsonNode research(JsonNode session, String parent, String modelId) throws Exception {
+        return research(session, parent, modelId, UUID.randomUUID().toString(), true, 202);
+    }
+
+    private JsonNode research(JsonNode session, String parent, String modelId, String request, boolean deepResearch, int expectedStatus) throws Exception {
+        var body = Json.mapper().createObjectNode().put("parentMessageId", parent)
+                .put("clientRequestId", request).put("text", "Research annual leave").put("deepResearch", deepResearch).put("modelConfigurationId", modelId);
+        return Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString())).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString());
+    }
+
+    private static ChatResponse toolCalls(AssistantMessage.ToolCall... calls) {
+        return new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("").toolCalls(List.of(calls)).build(),
+                ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build());
     }
 
     @Test
@@ -601,8 +798,8 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\",\"policy\"]}"),
-                        new AssistantMessage.ToolCall("never-run", "function", "searchKnowledge", "{\"queries\":[\"second\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\",\"policy\"]}"),
+                        new AssistantMessage.ToolCall("never-run", "function", "search_knowledge", "{\"queries\":[\"second\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();
@@ -632,7 +829,7 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();
@@ -667,7 +864,7 @@ class ChatSessionApiIntegrationTest {
         });
         when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
                 AssistantMessage.builder().content("Checking documents.").toolCalls(List.of(
-                        new AssistantMessage.ToolCall("search-stop", "function", "searchKnowledge", "{\"queries\":[\"leave\"]}")
+                        new AssistantMessage.ToolCall("search-stop", "function", "search_knowledge", "{\"queries\":[\"leave\"]}")
                 )).build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build())));
         var session = create();
@@ -856,7 +1053,7 @@ class ChatSessionApiIntegrationTest {
         var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
-                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), Instant.now().plusSeconds(10), binding);
+                    new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {});
@@ -981,7 +1178,7 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void lateCompletionCannotOverwritePersistedDeadlineOutcome() throws Exception {
+    void lateCompletionCannotOverwriteReconciledLeaseOutcome() throws Exception {
         var streaming = new CountDownLatch(1);
         var complete = Sinks.<ChatResponse>one();
         when(model.stream(any(Prompt.class))).thenReturn(Flux.concat(Flux.just(response("Partial", "", 0)),
@@ -990,7 +1187,7 @@ class ChatSessionApiIntegrationTest {
         var reply = send(session, UUID.randomUUID().toString());
         String id = reply.path("assistantMessageId").asText();
         assertTrue(streaming.await(8, TimeUnit.SECONDS));
-        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '1 second', status = 'FAILED', failure_code = 'CHAT_INTERRUPTED', finished_at = clock_timestamp() WHERE id = :id")
+        jdbc.sql("UPDATE chat_message SET status = 'FAILED', failure_code = 'CHAT_INTERRUPTED', finished_at = clock_timestamp() WHERE id = :id")
                 .param("id", UUID.fromString(id)).update();
         complete.tryEmitValue(response(" late", "stop", 12));
         awaitOutcome(id, "FAILED");
@@ -2280,6 +2477,38 @@ class ChatSessionApiIntegrationTest {
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertEquals("COMPLETED",
                 jdbc.sql("SELECT coalesce(failure_code, status) FROM chat_message WHERE id=:id")
                         .param("id", UUID.fromString(reply.path("assistantMessageId").asText())).query(String.class).single()));
+    }
+
+    @Test
+    void deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff() throws Exception {
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(true));
+        var disable = "{\"deepResearchEnabled\":false,\"revision\":0}";
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(disable)).andExpect(status().isForbidden());
+        grantModelManagement();
+        var saved = mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(disable))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(false))
+                .andReturn().getResponse().getContentAsString();
+        long revision = Json.mapper().readTree(saved).path("revision").asLong();
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"deepResearchEnabled\":true,\"revision\":" + (revision + 7) + "}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(false));
+        var session = create();
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Research the market").put("deepResearch", true);
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("CHAT_RESEARCH_UNAVAILABLE"));
+        assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM chat_command WHERE session_id = :session")
+                .param("session", UUID.fromString(session.path("id").asText())).query(Long.class).single());
+        mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"deepResearchEnabled\":true,\"revision\":" + revision + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(true));
     }
 
     @Test

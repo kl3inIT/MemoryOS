@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+import threading
+from collections.abc import Generator
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
+from starlette.concurrency import run_in_threadpool
+from starlette.types import Receive, Scope, Send
 
 from memoryos_interpreter.app_configs import get_settings
 from memoryos_interpreter.models.schemas import (
@@ -44,6 +47,88 @@ UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 # Initialize file storage service
 _file_storage: FileStorageService | None = None
+
+
+class ExecutionSlots:
+    """Bounds executions running at once; ``limit`` 0 means unlimited."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self._semaphore = threading.BoundedSemaphore(limit) if limit > 0 else None
+
+    def try_acquire(self) -> _ExecutionSlot | None:
+        if self._semaphore is not None and not self._semaphore.acquire(blocking=False):
+            return None
+        return _ExecutionSlot(self._semaphore)
+
+
+class _ExecutionSlot:
+    """One acquired slot; releasing it more than once is a no-op."""
+
+    def __init__(self, semaphore: threading.BoundedSemaphore | None) -> None:
+        self._semaphore = semaphore
+        self._lock = threading.Lock()
+
+    def release(self) -> None:
+        with self._lock:
+            semaphore, self._semaphore = self._semaphore, None
+        if semaphore is not None:
+            semaphore.release()
+
+
+class _SlotStreamingResponse(StreamingResponse):
+    """Frees the execution slot only after the executor is cleaned up, also on client disconnect.
+
+    The body generator releases the slot in its own ``finally``, after closing the executor stream.
+    When the response ends, the generator is closed so that cleanup runs now. A generator that never
+    started holds no executor, so its slot is released here.
+    """
+
+    def __init__(
+        self, content: Generator[str, None, None], slot: _ExecutionSlot, **kwargs: object
+    ) -> None:
+        super().__init__(content, **kwargs)  # type: ignore[arg-type]
+        self._content = content
+        self._slot = slot
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            await run_in_threadpool(self._close_body)
+
+    def _close_body(self) -> None:
+        try:
+            self._content.close()
+        except ValueError:
+            # A worker thread is still producing a chunk; the generator releases the slot when
+            # that chunk returns and the generator is closed.
+            return
+        self._slot.release()
+
+
+_execution_slots: ExecutionSlots | None = None
+_execution_slots_lock = threading.Lock()
+
+
+def get_execution_slots() -> ExecutionSlots:
+    """Get or create the global ExecutionSlots instance."""
+    global _execution_slots
+    with _execution_slots_lock:
+        if _execution_slots is None:
+            _execution_slots = ExecutionSlots(get_settings().max_concurrent_executions)
+        return _execution_slots
+
+
+def _acquire_execution_slot() -> _ExecutionSlot:
+    slot = get_execution_slots().try_acquire()
+    if slot is None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"All {get_execution_slots().limit} execution slots are in use; retry later",
+            headers={"Retry-After": "1"},
+        )
+    return slot
 
 
 def get_file_storage() -> FileStorageService:
@@ -132,6 +217,7 @@ def execute(req: ExecuteRequest) -> ExecuteResponse:
     settings = get_settings()
     storage = get_file_storage()
     staged_files, input_files_map = _stage_request_files(req, storage)
+    slot = _acquire_execution_slot()
 
     try:
         result = execute_python(
@@ -149,6 +235,8 @@ def execute(req: ExecuteRequest) -> ExecuteResponse:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+    finally:
+        slot.release()
 
     return ExecuteResponse(
         stdout=result.stdout,
@@ -167,19 +255,22 @@ def execute_stream(req: ExecuteRequest) -> StreamingResponse:
     settings = get_settings()
     storage = get_file_storage()
     staged_files, input_files_map = _stage_request_files(req, storage)
+    # Acquired before the response starts, so a full service can still answer 429.
+    slot = _acquire_execution_slot()
 
-    def generate() -> Iterator[str]:
+    def generate() -> Generator[str, None, None]:
+        events = execute_python_streaming(
+            code=req.code,
+            stdin=req.stdin,
+            timeout_ms=req.timeout_ms,
+            max_output_bytes=settings.max_output_bytes,
+            cpu_time_limit_sec=settings.cpu_time_limit_sec,
+            memory_limit_mb=settings.memory_limit_mb,
+            files=staged_files,
+            last_line_interactive=req.last_line_interactive,
+        )
         try:
-            for event in execute_python_streaming(
-                code=req.code,
-                stdin=req.stdin,
-                timeout_ms=req.timeout_ms,
-                max_output_bytes=settings.max_output_bytes,
-                cpu_time_limit_sec=settings.cpu_time_limit_sec,
-                memory_limit_mb=settings.memory_limit_mb,
-                files=staged_files,
-                last_line_interactive=req.last_line_interactive,
-            ):
+            for event in events:
                 if isinstance(event, StreamChunk):
                     yield StreamOutputEvent(stream=event.stream, data=event.data).to_sse()
 
@@ -193,9 +284,14 @@ def execute_stream(req: ExecuteRequest) -> StreamingResponse:
 
         except Exception as exc:
             yield StreamErrorEvent(message=str(exc)).to_sse()
+        finally:
+            # Closing the executor stream kills its container before the slot is freed.
+            events.close()
+            slot.release()
 
-    return StreamingResponse(
+    return _SlotStreamingResponse(
         generate(),
+        slot,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

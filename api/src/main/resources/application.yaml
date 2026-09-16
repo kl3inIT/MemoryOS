@@ -106,7 +106,10 @@ memoryos:
       base-url: ${MEMORYOS_CHAT_BASE_URL:https://api.openai.com/v1}
     execution:
       concurrency: 8
-      deadline: 2m
+      # No total turn deadline, as Onyx: a renewed lease detects a dead process; providers get a read-gap timeout.
+      lease-ttl: 30m
+      lease-renewal: 60s
+      provider-read-timeout: 60s
       max-cycles: 6
       max-output-tokens: 4096
       context-token-limit: 32000

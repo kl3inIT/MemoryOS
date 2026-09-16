@@ -19,7 +19,6 @@ import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,7 @@ class McpToolsTest {
     private McpTools tools(int maxCalls, int contextTokens) {
         when(turn.bindings()).thenReturn(List.of(binding));
         when(turn.unavailable()).thenReturn(List.of());
-        return new McpTools(turn, () -> {}, Instant.now().plusSeconds(120), Duration.ofSeconds(30), maxCalls,
+        return new McpTools(turn, () -> {}, Duration.ofSeconds(30), maxCalls,
                 events::add, new ChatToolActivity(ignored -> {}), () -> contextTokens,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters);
     }
@@ -55,7 +54,7 @@ class McpToolsTest {
         assertTrue(tool.getDescription().contains("untrusted data"));
         assertFalse(tool.getDescription().contains("can change or delete"));
 
-        var writeTool = new McpTools(turn, () -> {}, Instant.now().plusSeconds(120), Duration.ofSeconds(30), 10,
+        var writeTool = new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters);
         when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "drive", "Drive", "delete_file",
@@ -72,7 +71,7 @@ class McpToolsTest {
             when(typed.bindings()).thenReturn(List.of(binding));
             when(typed.unavailable()).thenReturn(List.of());
             when(typed.call(any(), any(), any())).thenThrow(failure(reason));
-            var result = new McpTools(typed, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
+            var result = new McpTools(typed, () -> {}, Duration.ofSeconds(30), 10,
                     events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                     new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters)
                     .tools().getFirst().call("{}");
@@ -89,7 +88,7 @@ class McpToolsTest {
         when(rejected.bindings()).thenReturn(List.of(binding));
         when(rejected.unavailable()).thenReturn(List.of());
         when(rejected.call(any(), any(), any())).thenThrow(failure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED));
-        var rejectedResult = new McpTools(rejected, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
+        var rejectedResult = new McpTools(rejected, () -> {}, Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst().call("{}");
         String message = assertInstanceOf(Tool.Result.Error.class, rejectedResult).getMessage();
@@ -127,7 +126,7 @@ class McpToolsTest {
         when(pending.unavailable()).thenReturn(List.of(
                 new McpTurnTools.Unavailable(SERVER, "Drive", McpTurnTools.Unavailable.Reason.NOT_CONNECTED),
                 new McpTurnTools.Unavailable(UUID.randomUUID(), "Jira", McpTurnTools.Unavailable.Reason.REAUTH_REQUIRED)));
-        String notice = new McpTools(pending, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
+        String notice = new McpTools(pending, () -> {}, Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).unavailableNotice();
         assertTrue(notice.contains("Drive: not connected"));
@@ -150,7 +149,7 @@ class McpToolsTest {
 
         // Within the limit, unparseable arguments are their own outcome and never reach the server.
         var parsing = new SimpleMeterRegistry();
-        new McpTools(turn, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10, events::add,
+        new McpTools(turn, () -> {}, Duration.ofSeconds(30), 10, events::add,
                 new ChatToolActivity(ignored -> {}), () -> 8000,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), parsing).tools().getFirst().call("not json");
         assertEquals(1, parsing.find("memoryos.chat.mcp.call").tag("outcome", "invalid_arguments").timer().count());
@@ -170,7 +169,7 @@ class McpToolsTest {
         when(rejected.bindings()).thenReturn(List.of(binding));
         when(rejected.unavailable()).thenReturn(List.of());
         when(rejected.call(any(), any(), any())).thenThrow(failure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED));
-        new McpTools(rejected, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
+        new McpTools(rejected, () -> {}, Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst().call("{}");
         assertEquals(1, meters.find("memoryos.chat.mcp.call").tag("outcome", "auth_required").timer().count());

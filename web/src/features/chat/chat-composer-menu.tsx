@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { ComposerPrimitive } from "@assistant-ui/react";
-import { ArrowLeft, ChevronRight, FileText, Globe, ImagePlus, Plus, Upload, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  FileText,
+  Globe,
+  ImagePlus,
+  Plus,
+  Telescope,
+  Upload,
+  X,
+} from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -23,6 +33,7 @@ export function ChatComposerMenu({
   web,
   image,
   mcp,
+  research,
   disabled,
 }: {
   web: {
@@ -39,6 +50,11 @@ export function ChatComposerMenu({
     selected: string[];
     onChange: (ids: string[]) => void;
     sessionId?: string;
+  };
+  /** Present only where Deep research is available: enabled for the organization and outside Projects. */
+  research?: {
+    value: boolean;
+    onChange: (enabled: boolean) => void;
   };
   disabled: boolean;
 }) {
@@ -147,6 +163,20 @@ export function ChatComposerMenu({
           )}
         </PopoverContent>
       </Popover>
+      {research && (
+        <Button
+          type="button"
+          size="sm"
+          prominence={research.value ? "secondary" : "internal"}
+          aria-pressed={research.value}
+          title={ui("Deep research")}
+          disabled={disabled}
+          onClick={() => research.onChange(!research.value)}
+        >
+          <Telescope className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{ui("Deep research")}</span>
+        </Button>
+      )}
       {web.value !== "off" && (
         <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
           <Globe className="size-3.5" aria-hidden="true" />

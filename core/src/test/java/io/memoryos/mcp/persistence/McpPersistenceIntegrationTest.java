@@ -25,7 +25,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** V63 schema, Hibernate validation of the MCP entities, and the database-enforced MCP invariants. */
+/** V69 schema, Hibernate validation of the MCP entities, and the database-enforced MCP invariants. */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class McpPersistenceIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-09-15T08:00:00Z");

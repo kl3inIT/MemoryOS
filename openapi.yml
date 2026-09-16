@@ -925,6 +925,104 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings:
+    get:
+      tags:
+      - Chat Settings
+      summary: "Read Tenant Chat settings, such as whether Deep research is offered"
+      operationId: getChatSettings
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Settings
+      summary: Change Tenant Chat settings for model managers
+      operationId: saveChatSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -2794,6 +2892,45 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/manager:
+    post:
+      tags:
+      - Sources
+      summary: Appoint the group manager responsible for one source
+      description: Administrator only. The appointed actor must manage at least one
+        ordinary group and may then attach the source to those groups.
+      operationId: assignSourceManager
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignSourceManagerRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/items/{itemId}/remove:
     post:
       tags:
@@ -4177,6 +4314,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GroupSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/groups/{groupId}/sources/{sourceId}/remove:
+    post:
+      tags:
+      - Groups
+      summary: Remove one source from one group
+      description: Global source managers may remove any association. A group manager
+        may remove a non-public source that stays associated with another group; other
+        groups keep their associations.
+      operationId: removeGroupSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7315,9 +7488,11 @@ paths:
       tags:
       - Chat
       summary: Read or resume reply events; reset requires persisted history
-      description: "Events: text-delta, reasoning, tool, image, outcome, reset. Content\
-        \ event id is assistantMessageId:sequence. Only outcome confirms a committed\
-        \ terminal state. Heartbeats are comments. A reset has no event id."
+      description: "Events: text-delta, reasoning, tool, image, research-plan, top-level-branching,\
+        \ research-agent-start, intermediate-report, intermediate-report-citations,\
+        \ outcome, reset. Content event id is assistantMessageId:sequence. Only outcome\
+        \ confirms a committed terminal state. Heartbeats are comments. A reset has\
+        \ no event id."
       operationId: streamChatMessage
       parameters:
       - name: sessionId
@@ -7381,6 +7556,11 @@ paths:
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
+                - $ref: "#/components/schemas/ResearchPlanEvent"
+                - $ref: "#/components/schemas/TopLevelBranchingEvent"
+                - $ref: "#/components/schemas/ResearchAgentStartEvent"
+                - $ref: "#/components/schemas/IntermediateReportEvent"
+                - $ref: "#/components/schemas/IntermediateReportCitationsEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9654,6 +9834,30 @@ components:
       - endpoint
       - engineId
       - provider
+    ChatSettingsRequest:
+      type: object
+      properties:
+        deepResearchEnabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - deepResearchEnabled
+    ChatSettingsResponse:
+      type: object
+      properties:
+        deepResearchEnabled:
+          type: boolean
+          description: "Deep research: agentic research across the web and connected\
+            \ sources; uses significantly more tokens per query."
+        revision:
+          type: integer
+          format: int64
+      required:
+      - deepResearchEnabled
+      - revision
     Title:
       type: object
       properties:
@@ -10480,6 +10684,17 @@ components:
           type:
           - string
           - "null"
+        managerActorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Actor who may attach this source to the groups they manage.
+        managerName:
+          type:
+          - string
+          - "null"
+          description: Profile name of the responsible manager.
         permissions:
           $ref: "#/components/schemas/SourcePermissions"
       required:
@@ -10488,11 +10703,26 @@ components:
       - errorCode
       - id
       - lastSucceededAt
+      - managerActorId
+      - managerName
       - name
       - pendingWork
       - permissions
       - status
       - type
+    AssignSourceManagerRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: Actor who may attach this source to the groups they manage;
+            null leaves it to global source management alone.
+      required:
+      - actorId
     UpdateSourceGroupsRequest:
       type: object
       additionalProperties: false
@@ -11273,6 +11503,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
         mcpServerIds:
           type: array
           items:
@@ -11321,6 +11554,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
         mcpServerIds:
           type: array
           items:
@@ -11361,6 +11597,9 @@ components:
           - "off"
           - auto
           - required
+        deepResearch:
+          type: boolean
+          description: Run Deep research; absent means false. Part of request identity.
         mcpServerIds:
           type: array
           items:
@@ -12505,8 +12744,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceSummary"
+        removableSourceIds:
+          type: array
+          description: Sources in items that the caller may remove from this group.
+          items:
+            type: string
+            format: uuid
       required:
       - items
+      - removableSourceIds
     GroupMember:
       type: object
       additionalProperties: false
@@ -12866,6 +13112,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
+        research:
+          $ref: "#/components/schemas/ChatMessageResearch"
       required:
       - activity
       - artifacts
@@ -12877,10 +13125,86 @@ components:
       - images
       - latestChildMessageId
       - parentMessageId
+      - research
       - role
       - sessionId
       - sources
       - status
+    ChatMessageResearch:
+      type: object
+      properties:
+        clarification:
+          type: boolean
+        plan:
+          type:
+          - string
+          - "null"
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageResearchAgent"
+      required:
+      - agents
+      - clarification
+      - plan
+    ChatMessageResearchAgent:
+      type: object
+      properties:
+        toolCallId:
+          type: string
+        cycle:
+          type: integer
+          format: int32
+        tabIndex:
+          type: integer
+          format: int32
+        task:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - FAILED
+        durationMs:
+          type:
+          - integer
+          - "null"
+          format: int64
+        report:
+          type:
+          - string
+          - "null"
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageResearchCitation"
+        activity:
+          $ref: "#/components/schemas/ChatActivity"
+      required:
+      - activity
+      - citations
+      - cycle
+      - durationMs
+      - report
+      - status
+      - tabIndex
+      - task
+      - toolCallId
+    ChatMessageResearchCitation:
+      type: object
+      properties:
+        marker:
+          type: integer
+          format: int32
+        citationId:
+          type: integer
+          format: int32
+      required:
+      - citationId
+      - marker
     ChatSource:
       type: object
       properties:
@@ -13141,14 +13465,25 @@ components:
           - integer
           - "null"
           format: int64
+        parentToolCallId:
+          type:
+          - string
+          - "null"
+        tabIndex:
+          type:
+          - integer
+          - "null"
+          format: int32
       required:
       - assistantMessageId
       - documents
       - durationMs
+      - parentToolCallId
       - search
       - sequence
       - source
       - stage
+      - tabIndex
       - toolCallId
       - toolName
     ReasoningEvent:
@@ -13162,8 +13497,13 @@ components:
           format: int64
         text:
           type: string
+        parentToolCallId:
+          type:
+          - string
+          - "null"
       required:
       - assistantMessageId
+      - parentToolCallId
       - sequence
       - text
     ImageEvent:
@@ -13204,6 +13544,109 @@ components:
       - sequence
       - stage
       - toolCallId
+    ResearchPlanEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
+    TopLevelBranchingEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        branches:
+          type: integer
+          format: int32
+      required:
+      - assistantMessageId
+      - branches
+      - sequence
+    ResearchAgentStartEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        tabIndex:
+          type: integer
+          format: int32
+        task:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - tabIndex
+      - task
+      - toolCallId
+    IntermediateReportEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        text:
+          type: string
+      required:
+      - assistantMessageId
+      - sequence
+      - text
+      - toolCallId
+    IntermediateReportCitationsEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResearchCitation"
+      required:
+      - assistantMessageId
+      - citations
+      - sequence
+      - toolCallId
+    ResearchCitation:
+      type: object
+      properties:
+        marker:
+          type: integer
+          format: int32
+        citationId:
+          type: integer
+          format: int32
+      required:
+      - citationId
+      - marker
     ChatBranch:
       type: object
       properties:

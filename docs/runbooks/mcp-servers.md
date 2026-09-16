@@ -57,6 +57,6 @@ failing, timing out or rejecting credentials is visible before people report it.
 ## Limits
 
 A turn offers at most 8 servers and 64 tools. `memoryos.chat.execution.mcp-call-limit` and
-`mcp-call-timeout` bound the calls in one turn; the per-call deadline is the smaller of that timeout and the
-turn's remaining time. The shipped defaults of 10 calls and 60 seconds are provisional and have not been
+`mcp-call-timeout` bound the calls in one turn; a turn has no total deadline, so the timeout alone bounds each
+call. The shipped defaults of 10 calls and 60 seconds are provisional and have not been
 measured against a live provider.

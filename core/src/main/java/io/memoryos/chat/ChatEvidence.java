@@ -8,8 +8,10 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
-/** One bounded citation namespace for context files, file tools and organization search per turn. */
+/** One citation namespace for context files, file tools and organization search per turn: no count cap, as Onyx, only a storage byte bound. */
 public final class ChatEvidence {
+    /** Estimated bytes of a turn's sources, below the {@code chat_message.sources} column check. */
+    public static final int MAX_BYTES = 1_048_576;
     public static final ChatToolEvent.Call FILE_CONTEXT = new ChatToolEvent.Call("file-context", "file_context");
     private static final ChatToolEvent.Call FILE_READER = new ChatToolEvent.Call("file-reader", "read_file");
     private final LinkedHashMap<String, ChatSource> sources = new LinkedHashMap<>();
@@ -44,18 +46,38 @@ public final class ChatEvidence {
     public synchronized @Nullable ChatSource register(String key, IntFunction<ChatSource> factory, ChatToolEvent.Call call) {
         var previous = sources.get(key);
         if (previous != null) return previous;
-        if (sources.size() >= 24) return null;
         var source = factory.apply(nextId());
         int size = 512 + source.title().length() * 6
                 + (source.mediaType() == null ? 0 : source.mediaType().length() * 6) + source.sourceTypes().size() * 24
                 + (source.providerUrl() == null ? 0 : source.providerUrl().length() * 6)
                 + (source.web() == null ? 0 : (source.web().url().length() + source.web().excerpt().length()) * 6)
                 + source.provenance().stream().mapToInt(p -> 64 + p.provenanceJson().length() * 6).sum();
-        if (bytes + size > 131072) return null;
+        if (bytes + size > MAX_BYTES) return null;
         sources.put(key, source);
         bytes += size;
         events.accept(new ChatToolEvent(call, source));
         return source;
+    }
+
+    /**
+     * Merges the cited sources of a research agent's own evidence into this turn evidence, as Onyx
+     * {@code collapse_citations}: a source already present keeps its number, a new one takes the next number and is
+     * published under the agent call. Returns each merged agent citation number with its turn citation number; a
+     * source beyond the storage bound is left out.
+     */
+    public java.util.Map<Integer, Integer> merge(ChatEvidence agent, java.util.Set<Integer> cited, ChatToolEvent.Call call) {
+        LinkedHashMap<String, ChatSource> entries;
+        synchronized (agent) { entries = new LinkedHashMap<>(agent.sources); }
+        var mapping = new java.util.LinkedHashMap<Integer, Integer>();
+        synchronized (this) {
+            for (var entry : entries.entrySet()) {
+                var source = entry.getValue();
+                if (!cited.contains(source.citationId())) continue;
+                var merged = register(entry.getKey(), source::withCitationId, call);
+                if (merged != null) mapping.put(source.citationId(), merged.citationId());
+            }
+        }
+        return mapping;
     }
 
     private ChatToolEvent.Call currentCall() {

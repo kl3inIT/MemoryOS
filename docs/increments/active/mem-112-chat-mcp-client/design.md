@@ -155,7 +155,7 @@ The review also corrected a defect of ours. Both implementations require the pro
 
 New `core` package `io.memoryos.mcp`: servers, OAuth clients, tool snapshots, credentials, client sessions. Chat depends on it for per-turn tools. Persistence follows the [persistence policy](../../../guidelines/persistence.md).
 
-### Data (Flyway V63)
+### Data (Flyway V69)
 
 - `mcp_server`: tenant, name, description, `slug` (`[a-z0-9]{1,16}`, unique per tenant), URL, transport, auth type, performer, provider mode, scope override, extra authorization parameters, encrypted header template, status, `tenant_wide`, `last_refreshed_at`, revision.
 - `mcp_oauth_client`: server, label, source (`ADMIN`, `REGISTERED`, `METADATA_DOCUMENT`), issuer (credentials are never reused with another issuer), client ID, encrypted secret, authorization/token/revocation/registration endpoints, registration access token (encrypted), revision.
@@ -197,7 +197,7 @@ Follows MCP authorization `2025-11-25` (the negotiated target) plus the `2026-07
    - The `client_id` is `<redirect origin>/mcp/oauth/client-metadata.json`, served publicly.
    - The document carries `client_id`, `client_name`, `redirect_uris`, the `authorization_code` and `refresh_token` grant types and `token_endpoint_auth_method` `none`.
 3. Dynamic Client Registration (`REGISTERED`), when `registration_endpoint` exists. `client_secret` and `registration_access_token` are sealed with their purposes, keyed by the client row.
-- A new `V64` adds `token_endpoint_auth_method` (`none`, `client_secret_basic`, `client_secret_post`) and `iss_parameter_required` to `mcp_oauth_client`.
+- A new `V70` adds `token_endpoint_auth_method` (`none`, `client_secret_basic`, `client_secret_post`) and `iss_parameter_required` to `mcp_oauth_client`.
 
 **Authorization request.**
 - Parameters: `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge` (`S256`), `resource` and additional parameters. `resource` is the canonical server URL (RFC 8707), sent always; whether Google tolerates it is a live-probe item.

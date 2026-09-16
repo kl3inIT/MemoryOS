@@ -14,6 +14,8 @@ import {
   getChatBranches,
   getChatFeedback,
   getChatProject,
+  getChatSettings,
+  getChatWebAvailability,
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted } from "@/lib/hey-api/types.gen";
 import type { MemoryOsChatTransport } from "./chat-transport";
@@ -29,6 +31,7 @@ import { ChatConversationSearch } from "./chat-conversation-search";
 import {
   branchSchema,
   feedbackSchema,
+  loadPersonas,
   projectSchema,
   type Project,
   type Feedback,
@@ -134,6 +137,52 @@ function ChatConversation({
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
   const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
   const [image, setImage] = useState<ImageMode>(transport.image);
+  const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
+  const applicationSession = useApplicationSession();
+  const chatSettings = useQuery({
+    queryKey: [
+      "chat-settings",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+    ],
+    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  const personas = useQuery({
+    queryKey: [
+      "chat-personas",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+    ],
+    queryFn: ({ signal }) => loadPersonas(signal),
+  });
+  const persona = session?.personaId
+    ? personas.data?.find((candidate) => candidate.id === session.personaId)
+    : personas.data?.find((candidate) => candidate.builtin);
+  const webAvailability = useQuery({
+    queryKey: [
+      "chat-web",
+      applicationSession.actorId,
+      applicationSession.authorizationVersion,
+      session?.id,
+    ],
+    queryFn: async ({ signal }) =>
+      (
+        await getChatWebAvailability({
+          query: { sessionId: session?.id },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    retry: false,
+  });
+  // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
+  // have internal Search or an external Web search connection (research never uses provider-hosted search).
+  const researchAvailable =
+    !project &&
+    !session?.projectId &&
+    chatSettings.data?.deepResearchEnabled === true &&
+    (persona?.searchEnabled === true || webAvailability.data?.searchAvailable === true);
   const busy = state.connection !== "ready" || state.checking;
   const imageEditing = useMemo(
     () => ({
@@ -244,6 +293,7 @@ function ChatConversation({
                       modelConfigurationId: model.choice.id,
                       fileIds,
                       webSearch,
+                      deepResearch: researchAvailable && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
@@ -259,6 +309,7 @@ function ChatConversation({
                       clientRequestId,
                       modelConfigurationId: modelConfigurationId ?? model.choice.id,
                       webSearch,
+                      deepResearch: researchAvailable && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
@@ -324,6 +375,17 @@ function ChatConversation({
                       setWebSearch(mode);
                     },
                   }}
+                  research={
+                    researchAvailable
+                      ? {
+                          value: deepResearch,
+                          onChange: (enabled) => {
+                            transport.selectResearch(enabled);
+                            setDeepResearch(enabled);
+                          },
+                        }
+                      : undefined
+                  }
                   image={{
                     value: image,
                     onChange: (mode) => {

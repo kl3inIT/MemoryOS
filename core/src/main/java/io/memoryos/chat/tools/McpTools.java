@@ -29,7 +29,6 @@ public final class McpTools {
 
     private final McpTurnTools turn;
     private final Runnable active;
-    private final Instant deadline;
     private final Duration callTimeout;
     private final Consumer<ChatToolEvent> events;
     private final ChatToolActivity activity;
@@ -39,10 +38,10 @@ public final class McpTools {
     private final int maxCalls;
     private int calls;
 
-    public McpTools(McpTurnTools turn, Runnable active, Instant deadline, Duration callTimeout, int maxCalls,
+    public McpTools(McpTurnTools turn, Runnable active, Duration callTimeout, int maxCalls,
                     Consumer<ChatToolEvent> events, ChatToolActivity activity, IntSupplier contextTokens,
                     TokenCountEstimator tokens, MeterRegistry meters) {
-        this.turn = turn; this.active = active; this.deadline = deadline; this.callTimeout = callTimeout;
+        this.turn = turn; this.active = active; this.callTimeout = callTimeout;
         this.maxCalls = maxCalls; this.events = events; this.activity = activity;
         this.contextTokens = contextTokens; this.tokens = tokens; this.meters = meters;
     }
@@ -105,8 +104,8 @@ public final class McpTools {
             return refused(binding, "invalid_arguments",
                     "The arguments were not a JSON object matching the tool's schema.");
         }
+        // A turn has no total deadline, so each call is bounded only by the configured MCP call timeout.
         Instant callDeadline = Instant.now().plus(callTimeout);
-        if (callDeadline.isAfter(deadline)) callDeadline = deadline;
         long start = System.nanoTime();
         String outcome = "unavailable";
         try {

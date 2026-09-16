@@ -38,6 +38,6 @@ class ChatModelCatalogConfigurationTest {
     }
 
     private ChatExecutionProperties limits(Double cost) {
-        return new ChatExecutionProperties(2, Duration.ofSeconds(30), 2, 1024, 4096, 10000, 10000, cost, 10, Duration.ofSeconds(60));
+        return new ChatExecutionProperties(2, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(30), 2, 1024, 4096, 10000, 10000, cost, 10, Duration.ofSeconds(60));
     }
 }

@@ -484,10 +484,12 @@ jobs:
           docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
             --tag memoryos-interpreter:ci --tag "memoryos-interpreter:sha-$GITHUB_SHA" .
 
+      # test_concurrent_execute.py sends 5 requests at once; the default limit of 4 would reject one.
       - name: Run e2e tests against the service container
         run: |
           docker run --detach --name memoryos-interpreter-ci --publish 127.0.0.1:8000:8000 \
-            --user root --volume /var/run/docker.sock:/var/run/docker.sock memoryos-interpreter:ci
+            --user root --volume /var/run/docker.sock:/var/run/docker.sock \
+            --env MAX_CONCURRENT_EXECUTIONS=5 memoryos-interpreter:ci
           for _ in {1..30}; do
             curl --silent --fail http://127.0.0.1:8000/health && break
             sleep 2

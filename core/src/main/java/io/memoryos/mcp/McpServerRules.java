@@ -28,7 +28,7 @@ final class McpServerRules {
     private static final int MAX_TOOL_NAME = 128;
     private static final int MAX_TOOL_TITLE = 200;
     private static final int MAX_TOOL_DESCRIPTION = 16384;
-    /** Compact JSON bound; V63 checks PostgreSQL's wider jsonb text form against 65536 bytes. */
+    /** Compact JSON bound; V69 checks PostgreSQL's wider jsonb text form against 65536 bytes. */
     private static final int MAX_SCHEMA_BYTES = 32768;
     private static final Map<String, String> DEFAULT_API_TOKEN_HEADERS = Map.of("Authorization", "Bearer {api_key}");
     private static final Pattern SLUG = Pattern.compile("^[a-z0-9]{1,16}$");

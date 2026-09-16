@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class StreamBufferWriterTest {
-    private final ChatStreamProperties limits = new ChatStreamProperties(2048, 4096, Duration.ofMinutes(10),
+    private final ChatStreamProperties limits = new ChatStreamProperties(2048, 4096, Duration.ofMinutes(10), Duration.ofMinutes(5),
             32, Duration.ofMillis(25), 1024, 2, 4, 1024, 8, Duration.ofMillis(5), Duration.ofMinutes(1));
 
     @Test
@@ -63,6 +63,45 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder() throws Exception {
+        // Research events carry JSON payloads; the shared fixture's 2 KiB run bound would drop them as a gap.
+        var writer = new StreamBufferWriter(new ChatStreamProperties(65536, 131072, Duration.ofMinutes(10), Duration.ofMinutes(5),
+                32, Duration.ofMillis(25), 65536, 2, 4, 65536, 8, Duration.ofMillis(5), Duration.ofMinutes(1)));
+        var id = UUID.randomUUID();
+        writer.open(id);
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.plan("1. Rev"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.plan("enue"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.branching(2));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.agent("call_a", 0, "Revenue"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.agent("call_b", 1, "Costs"));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_a", "Grew "));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_b", "Fell "));
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.report("call_a", "[1]."));
+        writer.reasoning(id, "Agent b thinks", "call_b");
+        writer.reasoning(id, "Orchestrator thinks");
+        writer.research(id, io.memoryos.chat.ChatResearchEvent.citations("call_a", java.util.List.of(new io.memoryos.chat.ChatResearchEvent.Citation(1, 3))));
+        writer.finish(id, Status.COMPLETED, null);
+        var events = new java.util.ArrayList<StreamBufferWriter.Event>();
+        try (var reader = writer.subscribe(id, 0)) {
+            for (var batch = reader.read(); ; batch = reader.read()) {
+                events.addAll(batch.events());
+                if (batch.done()) break;
+            }
+        }
+        assertEquals(java.util.List.of("research-plan", "research-plan", "top-level-branching", "research-agent-start", "research-agent-start",
+                        "intermediate-report", "intermediate-report", "intermediate-report", "reasoning", "reasoning", "intermediate-report-citations", "outcome"),
+                events.stream().map(StreamBufferWriter.Event::type).toList());
+        assertEquals("1. Revenue", events.subList(0, 2).stream().map(event -> Objects.requireNonNull(event.research()).text()).reduce("", String::concat));
+        // A pending delta belongs to one agent: another agent's delta flushes it first.
+        assertEquals(java.util.List.of("call_a", "call_b", "call_a"), events.subList(5, 8).stream()
+                .map(event -> Objects.requireNonNull(event.research()).toolCallId()).toList());
+        assertEquals("call_b", events.get(8).parentToolCallId());
+        assertEquals(null, events.get(9).parentToolCallId());
+        assertEquals(3, Objects.requireNonNull(events.get(10).research()).citations().getFirst().citationId());
+        for (int i = 0; i < events.size(); i++) assertEquals(i + 1, events.get(i).sequence());
+    }
+
+    @Test
     void slowReaderAndEvictionDoNotStopWriterAndAdmissionIsReleased() throws Exception {
         var writer = new StreamBufferWriter(limits);
         var id = UUID.randomUUID();
@@ -82,7 +121,8 @@ class StreamBufferWriterTest {
 
     @Test
     void completedBufferCanBeEvictedButActiveCapacityIsBounded() throws Exception {
-        var writer = new StreamBufferWriter(limits);
+        var writer = new StreamBufferWriter(new ChatStreamProperties(2048, 4096, Duration.ofMinutes(10), Duration.ofMinutes(5),
+                32, Duration.ofMillis(25), 1024, 2, 4, 1024, 2, Duration.ofMillis(5), Duration.ofMinutes(1)));
         var first = UUID.randomUUID();
         var second = UUID.randomUUID();
         writer.open(first);
@@ -110,5 +150,64 @@ class StreamBufferWriterTest {
             assertEquals("BUFFER_EXPIRED", second.read().reset());
         }
         assertEquals(0, writer.readerCount());
+    }
+
+    @Test
+    void liveReplayTtlIsRefreshedByEachWriteAndCompletionHasItsOwnTtl() throws Exception {
+        var clock = new AtomicReference<>(Instant.parse("2026-01-01T00:00:00Z"));
+        var writer = new StreamBufferWriter(limits, () -> clock.get().toEpochMilli());
+        var id = UUID.randomUUID();
+        writer.open(id);
+        writer.append(id, "first");
+        writer.flush();
+        clock.set(clock.get().plus(Duration.ofMinutes(8)));
+        writer.append(id, "second");
+        writer.flush();
+        clock.set(clock.get().plus(Duration.ofMinutes(8)));
+        // Sixteen minutes after the first event, but only eight since the last write: nothing has expired.
+        try (var reader = writer.subscribe(id, 0)) {
+            assertEquals("first", reader.read().events().getFirst().text());
+        }
+        writer.finish(id, Status.COMPLETED, null);
+        clock.set(clock.get().plus(Duration.ofMinutes(4)));
+        writer.flush();
+        try (var reader = writer.subscribe(id, 0)) {
+            assertEquals(3, reader.read().events().size());
+        }
+        clock.set(clock.get().plus(Duration.ofMinutes(1)));
+        writer.flush();
+        try (var reader = writer.subscribe(id, 0)) {
+            assertEquals("BUFFER_MISSING", reader.read().reset());
+        }
+    }
+
+    @Test
+    void totalBytesBoundHeldBytesAndEvictCompletedReplaysFirst() throws Exception {
+        // One text event holds 1256 bytes: a run fits three (4096), the total fits four (5000).
+        var writer = new StreamBufferWriter(new ChatStreamProperties(4096, 5000, Duration.ofMinutes(10), Duration.ofMinutes(5),
+                1024, Duration.ofMillis(25), 2048, 2, 4, 2048, 8, Duration.ofMillis(5), Duration.ofMinutes(1)));
+        var done = UUID.randomUUID();
+        var live = UUID.randomUUID();
+        writer.open(done);
+        writer.append(done, "d".repeat(1000));
+        writer.finish(done, Status.COMPLETED, null);
+        writer.open(live);
+        // Admission no longer reserves the per-run maximum, so more runs than total/run bytes can be open.
+        for (int index = 0; index < 5; index++) writer.open(UUID.randomUUID());
+        writer.append(live, "l".repeat(1000));
+        writer.flush();
+        writer.append(live, "m".repeat(1000));
+        writer.flush();
+        try (var reader = writer.subscribe(done, 0)) {
+            assertEquals("d".repeat(1000), reader.read().events().getFirst().text());
+        }
+        writer.append(live, "n".repeat(1000));
+        writer.flush();
+        try (var reader = writer.subscribe(done, 0)) {
+            assertEquals("BUFFER_MISSING", reader.read().reset());
+        }
+        try (var reader = writer.subscribe(live, 0)) {
+            assertEquals("l".repeat(1000), reader.read().events().getFirst().text());
+        }
     }
 }

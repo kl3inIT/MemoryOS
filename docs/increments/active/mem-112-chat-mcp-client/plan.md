@@ -17,7 +17,7 @@ Design: [design.md](design.md). MemoryOS as an MCP server is [MEM-114](https://l
 ## Phase 1 — persistence, IAM, client core
 
 - [x] Declare `io.modelcontextprotocol.sdk:mcp` `2.0.0` in `gradle/libs.versions.toml` (the Spring AI BOM does not manage it); `tomcat-embed-core` for in-process test servers.
-- [x] `V63__mcp_client.sql` (servers, Group access, OAuth clients keyed by issuer, tool snapshots, owner/shared credentials) and `MCP_MANAGE` (enum, `CAPABILITY_REGISTRY`, CHECK constraint, OpenAPI enum, generated client, `group-capability-copy.ts`, identity spec and matrix). `V62` was taken by MEM-110 on main.
+- [x] `V69__mcp_client.sql` (renumbered from V63 when main took V63–V68) (servers, Group access, OAuth clients keyed by issuer, tool snapshots, owner/shared credentials) and `MCP_MANAGE` (enum, `CAPABILITY_REGISTRY`, CHECK constraint, OpenAPI enum, generated client, `group-capability-copy.ts`, identity spec and matrix). `V62` was taken by MEM-110 on main.
 - [x] Closed `mcp` module (`ModulithArchitectureTest`, `AGENTS.md`, `ARCHITECTURE.md`); entities and Spring Data repositories registered in API and test JPA scanning; context-bound `McpSecrets` with `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` (redirect URI and CIMD URL arrive with the flows that use them).
 - [x] Streamable HTTP client (`McpClients`, `McpSession`): endpoint and header policy, per-credential headers, deadline-bounded timeouts, paginated bounded tool listing, result conversion, typed failures without upstream detail.
 
@@ -42,7 +42,7 @@ Evidence: [verification.md](verification.md#phase-2a--2026-09-16).
 
 Design: [OAuth setup (Phase 2b)](design.md#oauth-setup-phase-2b).
 
-- [x] `V64`: `token_endpoint_auth_method`, `iss_parameter_required` on `mcp_oauth_client`.
+- [x] `V70` (was V64): `token_endpoint_auth_method`, `iss_parameter_required` on `mcp_oauth_client`.
 - [x] Discovery (protected-resource metadata from `WWW-Authenticate` or well-known, authorization-server metadata in spec order, `S256` required) returning a review; nothing persisted until a client is created.
 - [x] Clients: pre-registered (`KNOWN_PROVIDER` only source), CIMD document route, DCR with sealed secrets.
 - [x] Administrator connect: `/login/oauth2/code/mcp` with its own security chain, session state bound to actor and revisions, PKCE, `resource`, `iss` validation, token exchange; `MEMORYOS_MCP_REDIRECT_URI` set like `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI`.
