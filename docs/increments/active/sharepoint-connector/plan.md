@@ -102,48 +102,57 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 ## Giai đoạn 2 — Source, xác minh phạm vi, refresh và prune thư viện
 
 **Backend**
-- [ ] Migration:
+- [x] Migration:
   - `SHAREPOINT` trong `ck_connectors_type`;
   - `sharepoint_sources`, `sharepoint_roots`, `sharepoint_exclusions`;
   - `sharepoint_selection_operations` (+ entries);
   - `sharepoint_sync_runs`, `sharepoint_items` (design §5.9).
-- [ ] `SourceType.SHAREPOINT` và mọi switch exhaustive: summary, `SourcePermissions`, access resolver, provenance Search, cleanup, due scan.
-- [ ] `SharePointUrl`: tiền tố share link, `/sites|/teams|/personal`, đoạn thư viện/thư mục, host theo cloud. `SharePointGlob` cho site và path.
-- [ ] `SharePointSelectionPolicy` + endpoint policy.
-- [ ] Tạo Source và `PUT …/scope` → `202` + receipt. Workload `SHAREPOINT_SELECTION_VALIDATION`:
+- [x] `SourceType.SHAREPOINT` và mọi switch exhaustive: summary, `SourcePermissions`, access resolver, provenance Search, cleanup, due scan.
+- [x] `SharePointUrl`: tiền tố share link, `/sites|/teams|/personal`, đoạn thư viện/thư mục, host theo cloud. `SharePointGlob` cho site và path.
+- [x] `SharePointSelectionPolicy` + endpoint policy.
+- [x] Tạo Source và `PUT …/scope` → `202` + receipt. Workload `SHAREPOINT_SELECTION_VALIDATION`:
   - stream v1; routing; config exhaustive;
   - `SelectionValidationProcessor` phân nhánh;
   - resolve site → drive theo path `webUrl` → folder;
   - activation transaction; supersede proposal cũ; gỡ item ngoài phạm vi mới; đánh dấu root mới cần refresh từ epoch.
-- [ ] `DefaultSharePointSyncService`, lượt **refresh**:
+- [x] `DefaultSharePointSyncService`, lượt **refresh**:
   - cửa sổ `[cuối lượt thành công trước − 30 phút, bắt đầu lượt]` (lượt đầu và root mới từ epoch), lượt lỗi giữ nguyên mốc;
   - delta timestamp token cho thư viện, BFS `children` cho thư mục;
   - nhánh delta không lọc lại theo cửa sổ, nhánh BFS vẫn lọc [Q12]; bỏ thư mục; tombstone `deleted` → `REMOVE_ITEM` theo `provider_file_id` [Q11]; bỏ trùng; 410 → `Location`;
   - `excludedPaths` dựa trên đường dẫn dựng từ parent id;
   - `Retry-After` → `next_dispatch_at`; checkpoint theo drive/site; tối đa 16 bước mỗi lần giao.
   - `SourceSyncProcessor` phân nhánh theo `SourceType`.
-- [ ] Lượt **prune** (lưới an toàn cho những gì lượt refresh không thấy):
+- [x] Lượt **prune** (lưới an toàn cho những gì lượt refresh không thấy):
   - liệt kê đầy đủ chỉ metadata (delta không token, BFS, danh sách site);
   - hoàn tất toàn phạm vi mới tạo `REMOVE_ITEM`; không hoàn tất thì `SOURCE_SHAREPOINT_PRUNE_INCOMPLETE` và không gỡ gì;
   - due scan ưu tiên prune khi đến hạn; `pruneIntervalHours = 0` thì không bao giờ prune.
-- [ ] Acquisition:
+- [x] Acquisition:
   - `downloadUrl` kiểm host, fallback `/content` một redirect, stream có giới hạn 100 MiB;
   - `ObjectWriteService` stage/adopt; INDEX attempt có `source_sync_attempt_id`;
   - counter lượt chạy; `skipped` có mã.
 - [ ] Run history: loại lượt REFRESH/PRUNE và cửa sổ trong projection (nullable cho Drive/FILE).
 - [ ] Truy cập `PUBLIC`/`PRIVATE` theo contract MEM-105: nhánh `SHAREPOINT` trong luật SQL dùng chung của `JdbcSourceDocumentRepository`; `SourceAccessChanged`.
-- [ ] Đọc cấu hình; phân trang root; `schedule` (`syncIntervalMinutes`, `pruneIntervalHours`); `sync`; pause/resume theo contract hiện hành.
+- [x] Đọc cấu hình; phân trang root; `schedule` (`syncIntervalMinutes`, `pruneIntervalHours`); `sync`; pause/resume theo contract hiện hành.
 - [ ] Thay secret/certificate fence Source (credential revision). Xóa Source dọn theo thứ tự phụ thuộc.
 - [ ] Metric `memoryos.connector.provider.request`; log `event`.
 
+**Ghi chú thực hiện (16/09/2026)**
+
+- **Còn mở trong giai đoạn này:** test worker full-context, test MVC cho các endpoint Source, metric/log theo [quy ước quan sát](../../../guidelines/observability.md), `SourceAccessChanged`, dọn Source khi xóa, và loại lượt REFRESH/PRUNE trong projection run history.
+- **Truy cập:** MEM-105 chưa merge, nên Source SharePoint dùng đúng contract hiện tại (`PUBLIC` | `RESTRICTED`) và tài liệu SharePoint được đưa vào tập tìm kiếm theo Group grant sẵn có. Khi MEM-105 vào phải đối chiếu lại tên và ngữ nghĩa `PRIVATE`.
+- **Lọc định dạng:** lượt refresh mới chặn theo kích thước (100 MiB). Lọc theo định dạng router extraction hỗ trợ nằm ở tầng ingestion chứ không ở `core`, nên file không đọc được sẽ hỏng ở lượt index chứ chưa bị `skipped` với mã riêng như design §5.3 mô tả. Cần thống nhất lại khi hợp nhất tài liệu ở [Giai đoạn 5](#giai-đoạn-5--hợp-nhất-tài-liệu-và-nghiệm-thu).
+- **Trang site** (`includePages`) được lưu trong cấu hình nhưng chưa đồng bộ; đó là [Giai đoạn 3](#giai-đoạn-3--trang-site).
+- **Hai lỗi nền tảng do test bắt được:** `source_sync_attempts` có khóa ngoại tới `google_drive_sources` nên Source SharePoint không thể có lượt chạy; và activation enqueue qua repository của Drive nên Source mới không bao giờ khởi động. Cả hai đã sửa.
+- Bảng `source_sync_attempts` dùng chung: `DefaultConnectorSyncService` định tuyến lượt chạy theo `SourceType` của Source.
+
 **Test**
-- [ ] Unit:
+- [x] Unit:
   - `SharePointUrl` với các loại URL thật (share link `/:f:/r/`, `/teams/`, `/personal/`, thư mục lồng, `%20`, host sai tenant, `http://`);
   - glob;
   - tính cửa sổ: lượt đầu, sau lượt thành công, sau lượt lỗi, root mới;
   - lọc theo cửa sổ ở nhánh BFS và bỏ trùng; dựng đường dẫn cho `excludedPaths`;
   - so phiên bản hash/eTag; phân loại lỗi.
-- [ ] Provider HTTP:
+- [x] Provider HTTP:
   - delta có `token` timestamp và không có token; `nextLink`; tombstone `deleted` sinh `REMOVE_ITEM`, gồm cả tombstone của từng file con khi xóa thư mục; item bị di chuyển có `lastModifiedDateTime` cũ hơn cửa sổ vẫn được giữ;
   - BFS `children` nhiều trang;
   - 410 kèm `Location`;
@@ -152,7 +161,7 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
   - vượt 100 MiB giữa stream;
   - `getAllSites` phân trang và 403;
   - drive khớp theo path với tên tiếng Việt.
-- [ ] PostgreSQL:
+- [x] PostgreSQL:
   - activation nguyên tử; thất bại không tạo Source; supersede;
   - cửa sổ lưu và đọc lại đúng;
   - prune hoàn tất gỡ item vắng mặt; prune không hoàn tất (một site 403) không gỡ gì;
