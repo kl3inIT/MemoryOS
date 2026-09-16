@@ -114,3 +114,21 @@ Not run for Phase 5: `gradlew clean check`. The Chromium scenario stubs the API 
 | Failure paths inside a real turn | `gradlew :api:test --tests 'io.memoryos.api.chat.ChatSessionApiIntegrationTest.mcpToolFailures*'` | Passed. With a 2s per-call timeout, one turn each for the three paths that were previously covered only against mocks:<br>• the server answers with its own `isError` — the turn completes and the model receives the tool's text<br>• a call outlives the per-call timeout — the model is told the server did not answer in time, and no credential appears in any prompt<br>• the stored API key is replaced with a rejected one through the real sealing path — the model is told to reconnect, with no upstream status code |
 
 The reuse review of `spring-ai-community/mcp-security` is recorded in [design.md](design.md#library-reuse-review-2026-09-16).
+
+## Repository gate — 2026-09-16
+
+| Module | Command | Result |
+| --- | --- | --- |
+| `connector`, `worker` | `gradlew :connector:check :worker:check` | Passed |
+| `api` | `gradlew :api:check` | Passed: 23 suites, 177 tests, 0 failures |
+| `core` (static and verification tasks) | `gradlew :core:check -x test` | Passed |
+| `core` (tests, first half) | `gradlew :core:test --tests 'io.memoryos.{mcp,chat,iam}.*' --tests 'io.memoryos.Modulith*' --tests 'io.memoryos.Core*'` | Passed |
+| `core` (tests, second half) | `gradlew :core:test --tests 'io.memoryos.{objectstorage,connector,document,ingestion,retrieval}.*'` | Passed: 34 suites, 284 tests, 0 failures |
+
+`gradlew clean check` in one process was not run and is not expected to complete on this machine. `:core:test`
+runs the whole module in one JVM capped at `maxHeapSize = "1g"` (`core/build.gradle.kts:16`), and on a 14 GB host
+it ends with `OutOfMemoryError` inside `ObjectWriteLifecycleIntegrationTest` after 558 of the module's tests have
+passed with no failures. That test passes on its own (9 tests), so the cause is heap pressure from running the
+module in one JVM, not a defect in it and not related to MCP. The build configuration was deliberately left
+unchanged: it is shared, and the constraint is local. CI, which runs the modules on larger workers, remains the
+authority for the single-command gate.
