@@ -38,6 +38,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public final class RestSharePointProvider implements SharePointProvider, AutoCloseable {
+    static final String PAGE_SCHEMA = "memoryos-sharepoint-page-v1";
+    private static final String PAGE_FIELDS = "id,name,title,description,webUrl,eTag,lastModifiedDateTime";
+    private static final int MAX_WEB_PARTS = 200;
+    private static final int MAX_PART_TEXTS = 200;
+    private static final int MAX_PART_CHARS = 200_000;
     private static final String ITEM_FIELDS =
             "id,name,size,eTag,file,folder,deleted,createdDateTime,lastModifiedDateTime,parentReference,webUrl";
     private final SharePointProviderProperties properties;
@@ -220,6 +225,31 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             return response.body();
         }
 
+        @Override public SitePageList pages(String siteId, @Nullable String link) {
+            return metrics.record(Operation.PAGES, () -> pages0(siteId, link));
+        }
+
+        private SitePageList pages0(String siteId, @Nullable String link) {
+            JsonNode node = link != null
+                    ? json(exchange(request(continuation(link)), new Budget()))
+                    : get("/sites/" + encodePath(siteId) + "/pages/microsoft.graph.sitePage?$top="
+                            + properties.pageSize() + "&$select=" + encodeQuery(PAGE_FIELDS), new Budget());
+            var pages = new ArrayList<SitePageMetadata>();
+            for (JsonNode entry : array(node)) pages.add(pageMetadata(entry));
+            return new SitePageList(pages, optionalLink(node, "@odata.nextLink"));
+        }
+
+        @Override public PageContent page(String siteId, String pageId) {
+            return metrics.record(Operation.PAGE, () -> page0(siteId, pageId));
+        }
+
+        private PageContent page0(String siteId, String pageId) {
+            JsonNode node = get("/sites/" + encodePath(siteId) + "/pages/" + encodePath(pageId)
+                    + "/microsoft.graph.sitePage?$expand=canvasLayout", new Budget());
+            var metadata = pageMetadata(node);
+            return new PageContent(metadata, snapshot(node, metadata));
+        }
+
         @Override public void close() { bearer = null; }
 
         private JsonNode get(String path, Budget budget) {
@@ -362,6 +392,73 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
 
     private static String encodeQuery(String value) {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static SitePageMetadata pageMetadata(JsonNode node) {
+        try {
+            String title = optional(node, "title");
+            if (title == null) title = optional(node, "name");
+            return new SitePageMetadata(required(node, "id"), title == null ? required(node, "id") : title,
+                    required(node, "webUrl"), optional(node, "eTag"),
+                    instantOrNull(optional(node, "lastModifiedDateTime")));
+        } catch (java.time.DateTimeException exception) {
+            throw new SharePointProviderException(MALFORMED);
+        }
+    }
+
+    /**
+     * The page as the reader consumes it: its title and description, the HTML of each text web part, and the
+     * searchable text Microsoft prepared for the other web parts. Layout and web part configuration are left out.
+     */
+    private byte[] snapshot(JsonNode node, SitePageMetadata metadata) {
+        var snapshot = mapper.createObjectNode();
+        snapshot.put("schema", PAGE_SCHEMA);
+        snapshot.put("kind", "SHAREPOINT_PAGE");
+        var source = snapshot.putObject("source");
+        source.put("id", metadata.pageId());
+        source.put("version", metadata.contentVersion());
+        var content = snapshot.putObject("content");
+        content.put("title", metadata.title());
+        content.put("webUrl", metadata.webUrl());
+        String description = optional(node, "description");
+        if (description != null) content.put("description", description);
+        String above = node.path("titleArea").path("textAboveTitle").asString("");
+        if (!above.isBlank()) content.put("textAboveTitle", above);
+        var parts = content.putArray("parts");
+        for (JsonNode section : node.path("canvasLayout").path("horizontalSections")) {
+            for (JsonNode column : section.path("columns")) {
+                for (JsonNode webPart : column.path("webparts")) part(parts, webPart);
+            }
+        }
+        for (JsonNode webPart : node.path("canvasLayout").path("verticalSection").path("webparts")) {
+            part(parts, webPart);
+        }
+        return mapper.writeValueAsBytes(snapshot);
+    }
+
+    private void part(tools.jackson.databind.node.ArrayNode parts, JsonNode webPart) {
+        if (parts.size() >= MAX_WEB_PARTS) throw new SharePointProviderException(LIMIT_EXCEEDED);
+        String html = webPart.path("innerHtml").asString("");
+        if (!html.isBlank()) {
+            var part = parts.addObject();
+            part.put("kind", "text");
+            part.put("html", html.length() > MAX_PART_CHARS ? html.substring(0, MAX_PART_CHARS) : html);
+            return;
+        }
+        JsonNode data = webPart.path("data");
+        var texts = data.path("serverProcessedContent").path("searchablePlainTexts");
+        String title = data.path("title").asString("");
+        if (!texts.isArray() && title.isBlank()) return;
+        var part = parts.addObject();
+        part.put("kind", "standard");
+        if (!title.isBlank()) part.put("title", title);
+        var values = part.putArray("texts");
+        for (JsonNode text : texts) {
+            String value = text.path("value").asString("");
+            if (value.isBlank()) continue;
+            if (values.size() >= MAX_PART_TEXTS) break;
+            values.add(value.length() > MAX_PART_CHARS ? value.substring(0, MAX_PART_CHARS) : value);
+        }
     }
 
     private JsonNode array(JsonNode node) {

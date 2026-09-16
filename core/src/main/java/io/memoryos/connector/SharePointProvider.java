@@ -41,6 +41,15 @@ public interface SharePointProvider {
         /** Downloads an item, refusing any address outside {@code tenantHost}, the Tenant SharePoint host. */
         Content content(DriveItem item, String tenantHost, int maxBytes);
 
+        /** One page of a site's published pages, as metadata only. */
+        SitePageList pages(String siteId, @Nullable String link);
+
+        /**
+         * One page with its canvas, as a snapshot the page reader turns into text. Each page is read on its
+         * own, so a page whose canvas cannot be read affects only itself.
+         */
+        PageContent page(String siteId, String pageId);
+
         @Override void close();
     }
 
@@ -156,6 +165,37 @@ public interface SharePointProvider {
 
     record ItemPage(List<DriveItem> items, @Nullable String nextLink) {
         public ItemPage { items = List.copyOf(items); }
+    }
+
+    /** A published site page as listed, without its canvas. */
+    record SitePageMetadata(String pageId, String title, String webUrl, @Nullable String eTag,
+                            @Nullable Instant lastModifiedAt) {
+        public SitePageMetadata {
+            Objects.requireNonNull(pageId, "pageId");
+            Objects.requireNonNull(title, "title");
+            Objects.requireNonNull(webUrl, "webUrl");
+        }
+
+        /** The version used to decide whether a stored page is still current. */
+        public String contentVersion() {
+            return (eTag == null ? "" : eTag) + ":" + (lastModifiedAt == null ? "" : lastModifiedAt);
+        }
+    }
+
+    record SitePageList(List<SitePageMetadata> pages, @Nullable String nextLink) {
+        public SitePageList { pages = List.copyOf(pages); }
+    }
+
+    /** {@code snapshot} is the JSON the page reader consumes. */
+    record PageContent(SitePageMetadata metadata, byte[] snapshot) {
+        public PageContent {
+            Objects.requireNonNull(metadata, "metadata");
+            snapshot = Objects.requireNonNull(snapshot, "snapshot").clone();
+        }
+
+        @Override public byte[] snapshot() { return snapshot.clone(); }
+
+        @Override public String toString() { return "PageContent[" + metadata.pageId() + "]"; }
     }
 
     record Content(String filename, String mediaType, byte[] bytes) {

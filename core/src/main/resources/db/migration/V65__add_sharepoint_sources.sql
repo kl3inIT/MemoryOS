@@ -104,6 +104,15 @@ CREATE TABLE sharepoint_sync_runs (
 );
 CREATE UNIQUE INDEX uq_sharepoint_run_live ON sharepoint_sync_runs (tenant_id, source_id) WHERE status = 'IN_PROGRESS';
 
+-- A site page is stored as a JSON snapshot, like the other native inputs.
+ALTER TABLE connector_item_versions DROP CONSTRAINT ck_item_versions_input;
+ALTER TABLE connector_item_versions ADD CONSTRAINT ck_item_versions_input CHECK (
+    input_format IN ('BINARY', 'GOOGLE_SHEETS', 'GOOGLE_DOCS', 'SHAREPOINT_PAGE')
+    AND size_bytes BETWEEN 1 AND CASE WHEN input_format = 'BINARY' THEN 104857600 ELSE 33554432 END
+    AND ((provider_file_id IS NULL AND input_format = 'BINARY' AND scope_revision IS NULL AND credential_revision IS NULL)
+      OR (provider_file_id IS NOT NULL AND scope_revision > 0 AND credential_revision > 0))
+);
+
 -- Sync attempts were tied to Google Drive Sources; every connector writes them, so they now reference the
 -- Source itself. Deleting a Source still removes its attempts.
 ALTER TABLE source_sync_attempts DROP CONSTRAINT source_sync_attempts_tenant_id_source_id_fkey;

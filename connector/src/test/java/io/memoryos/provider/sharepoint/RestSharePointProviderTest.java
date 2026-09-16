@@ -296,6 +296,62 @@ class RestSharePointProviderTest {
     }
 
     @Test
+    void listsSitePagesAndSnapshotsWhatTheirCanvasSays() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            if (exchange.getRequestURI().getRawQuery() != null
+                    && exchange.getRequestURI().getRawQuery().contains("expand=canvasLayout")) {
+                return ok("""
+                        {"id":"page-1","title":"Trang thử nghiệm","description":"Mô tả",
+                         "webUrl":"https://contoso.sharepoint.com/sites/Finance/SitePages/Home.aspx",
+                         "eTag":"etag-1","lastModifiedDateTime":"2026-09-16T02:30:00Z",
+                         "titleArea":{"textAboveTitle":"Spike"},
+                         "canvasLayout":{"horizontalSections":[{"columns":[{"webparts":[
+                            {"@odata.type":"#microsoft.graph.textWebPart","innerHtml":"<p>Đoạn văn</p>"},
+                            {"@odata.type":"#microsoft.graph.standardWebPart","webPartType":"c70391ea",
+                             "data":{"title":"Liên kết nhanh","serverProcessedContent":{
+                               "searchablePlainTexts":[{"key":"title","value":"Tiêu đề tìm được"}]}}}]}]}]}}""");
+            }
+            assertTrue(exchange.getRequestURI().getPath().endsWith("/pages/microsoft.graph.sitePage"),
+                    exchange.getRequestURI().getPath());
+            return ok("""
+                    {"value":[{"id":"page-1","title":"Trang thử nghiệm","name":"Home.aspx",
+                       "webUrl":"https://contoso.sharepoint.com/sites/Finance/SitePages/Home.aspx",
+                       "eTag":"etag-1","lastModifiedDateTime":"2026-09-16T02:30:00Z"}]}""");
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            var listed = session.pages("site-1", null);
+            assertEquals(1, listed.pages().size());
+            var metadata = listed.pages().getFirst();
+            assertEquals("Trang thử nghiệm", metadata.title());
+            assertEquals("etag-1:2026-09-16T02:30:00Z", metadata.contentVersion());
+            assertNull(listed.nextLink());
+
+            var page = session.page("site-1", "page-1");
+            var snapshot = mapper.readTree(page.snapshot());
+            assertEquals("memoryos-sharepoint-page-v1", snapshot.path("schema").asString(""));
+            assertEquals("page-1", snapshot.path("source").path("id").asString(""));
+            var content = snapshot.path("content");
+            assertEquals("Trang thử nghiệm", content.path("title").asString(""));
+            assertEquals("Mô tả", content.path("description").asString(""));
+            assertEquals("Spike", content.path("textAboveTitle").asString(""));
+            var parts = content.path("parts");
+            assertEquals(2, parts.size());
+            assertEquals("<p>Đoạn văn</p>", parts.path(0).path("html").asString(""));
+            assertEquals("standard", parts.path(1).path("kind").asString(""));
+            assertEquals("Tiêu đề tìm được", parts.path(1).path("texts").path(0).asString(""));
+        }
+    }
+
+    @Test
+    void aPageThatCannotBeReadFailsOnItsOwn() throws Exception {
+        try (var fixture = new Fixture(_ -> new Response(400,
+                "{\"error\":{\"code\":\"invalidRequest\"}}".getBytes(StandardCharsets.UTF_8)));
+                var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertEquals(Failure.MALFORMED, assertThrows(SharePointProviderException.class,
+                    () -> session.page("site-1", "page-1")).failure());
+        }
+    }
+
+    @Test
     void classifiesEntraErrorNumbers() {
         assertEquals(Reason.INVALID_CLIENT_SECRET, MsalSharePointTokenSource.classify(
                 "AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value"));

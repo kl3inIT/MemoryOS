@@ -152,6 +152,56 @@ class PostgresSharePointSyncTest {
     }
 
     @Test
+    void refreshCollectsSitePagesWhenTheSourceAsksForThem() {
+        collectPages();
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+        var metadata = new SharePointProvider.SitePageMetadata("page-1", "Trang chủ",
+                "https://contoso.sharepoint.com/sites/Finance/SitePages/Home.aspx", "etag-1", Instant.now());
+        when(session.pages(eq(SITE), any()))
+                .thenReturn(new SharePointProvider.SitePageList(List.of(metadata), null));
+        when(session.page(SITE, "page-1")).thenReturn(new SharePointProvider.PageContent(metadata,
+                "{\"schema\":\"memoryos-sharepoint-page-v1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        var result = service.execute(claim(enqueue()));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, result);
+        assertEquals("PENDING", status("page-1"), "the page is held and waiting to be indexed");
+        assertEquals(1, counter("acquired"));
+        assertEquals(1, jdbc.sql("""
+                SELECT COUNT(*) FROM sharepoint_items
+                WHERE tenant_id = :tenant AND source_id = :source AND kind = 'PAGE'
+                """).param("tenant", tenant.value()).param("source", source.value()).query(Integer.class).single());
+
+        // Reading it again with the same version neither re-reads the canvas nor queues another attempt.
+        service.execute(claim(enqueue()));
+        assertEquals(1, counter("acquired"));
+        verify(session, times(1)).page(SITE, "page-1");
+    }
+
+    @Test
+    void pruneRemovesAPageThatIsNoLongerPublished() {
+        collectPages();
+        seedItem("page-gone", "Trang cũ");
+        pruneDue();
+        when(session.delta(eq(DRIVE), isNull(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+        when(session.pages(eq(SITE), any()))
+                .thenReturn(new SharePointProvider.SitePageList(List.of(), null));
+
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
+
+        assertEquals("DELETING", status("page-gone"));
+    }
+
+    private void collectPages() {
+        jdbc.sql("""
+                UPDATE sharepoint_sources SET include_pages = TRUE
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    @Test
     void refreshRemovesWhatATombstoneReports() {
         seedItem("file-gone", "Gone.docx");
         when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(

@@ -55,6 +55,8 @@ public class DefaultSharePointSyncService {
     private static final int MAX_STEPS = 16;
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
     private static final int MAX_CONTENT_BYTES = 100 * 1024 * 1024;
+    // A page snapshot is stored as JSON, like the other native snapshots; its input format identifies the reader.
+    private static final String PAGE_MEDIA_TYPE = "application/json";
 
     private final JdbcSharePointSyncRepository runs;
     private final JdbcSharePointSourceRepository sharePoint;
@@ -131,20 +133,26 @@ public class DefaultSharePointSyncService {
             settle(work, () -> runs.terminal(work, "FAILED", "SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE"));
             return Result.FAILED;
         } catch (RuntimeException exception) {
+            LOGGER.atWarn().addKeyValue("event", "sharepoint.sync.run.failed")
+                    .addKeyValue("source_id", work.sourceId().value())
+                    .setCause(exception).log("SharePoint synchronization run failed unexpectedly");
             settle(work, () -> runs.retry(work, "SOURCE_SHAREPOINT_INTERNAL"));
             return Result.FAILED;
         }
     }
 
-    /** Walks the drives in scope, one page per step, and finishes the run when there is nothing left. */
+    /** Walks the drives in scope, then its site pages, one page of results per step. */
     private Result walk(Work work, Run run, SharePointProvider.Session session, String tenantHost) {
         var excludedPaths = SharePointGlob.all(sharePoint.exclusions(work.tenantId(), work.sourceId(), "PATH"));
-        var targets = targets(work, run, session);
+        var scope = scope(work, run, session);
+        var targets = scope.drives();
         long deadline = System.nanoTime() + EXECUTION_NANOS;
         String cursorDrive = run.checkpointDriveId();
         String cursorLink = run.checkpointLink();
         int steps = 0;
-        for (Target target : targets) {
+        // A checkpoint with a site but no drive means the drives are done and the pages are in progress.
+        boolean drivesDone = cursorDrive == null && run.checkpointSiteId() != null;
+        for (Target target : drivesDone ? List.<Target>of() : targets) {
             if (cursorDrive != null && target.driveId().compareTo(cursorDrive) < 0) continue;
             String link = target.driveId().equals(cursorDrive) ? cursorLink : null;
             do {
@@ -167,7 +175,95 @@ public class DefaultSharePointSyncService {
             cursorDrive = null;
             cursorLink = null;
         }
-        return finish(work, run);
+        var pending = pages(work, run, session, scope, drivesDone ? run.checkpointSiteId() : null,
+                drivesDone ? run.checkpointLink() : null, steps, deadline);
+        return pending == null ? finish(work, run) : pending;
+    }
+
+    /**
+     * Site pages, when the Source collects them. Pages have no change log, so a refresh compares each page's
+     * version against what is held rather than asking Microsoft what changed.
+     */
+    private @Nullable Result pages(Work work, Run run, SharePointProvider.Session session, ScopeTargets scope,
+            @Nullable String resumeSite, @Nullable String resumeLink, int steps, long deadline) {
+        if (!scope.includePages()) return null;
+        boolean resuming = resumeSite != null;
+        for (String siteId : scope.sites()) {
+            if (resuming && !siteId.equals(resumeSite)) continue;
+            String link = resuming ? resumeLink : null;
+            resuming = false;
+            do {
+                if (steps++ >= MAX_STEPS || System.nanoTime() >= deadline) {
+                    String pendingLink = link;
+                    fenced(work, () -> {
+                        runs.checkpoint(run, null, siteId, pendingLink);
+                        runs.continuation(work, null);
+                        return true;
+                    });
+                    return Result.CONTINUED;
+                }
+                var listed = session.pages(siteId, link);
+                for (var metadata : listed.pages()) {
+                    if (!insideWindow(run, metadata.lastModifiedAt())) continue;
+                    fenced(work, () -> {
+                        runs.observe(work.tenantId(), work.sourceId(), metadata.pageId(), "PAGE", null, siteId,
+                                metadata.title(), metadata.webUrl(), metadata.contentVersion(), metadata.eTag(), 0,
+                                run.prune() ? run.id() : null);
+                        runs.counted(work, "scanned", 1);
+                        return true;
+                    });
+                    if (!run.prune()) acquirePage(work, session, siteId, metadata);
+                }
+                link = listed.nextLink();
+            } while (link != null);
+            fenced(work, () -> {
+                runs.checkpoint(run, null, siteId, null);
+                return true;
+            });
+        }
+        return null;
+    }
+
+    private void acquirePage(Work work, SharePointProvider.Session session, String siteId,
+            SharePointProvider.SitePageMetadata metadata) {
+        boolean unchanged = fenced(work, () -> {
+            if (items.unchanged(work, metadata.pageId(), metadata.contentVersion()).isEmpty()) return false;
+            runs.counted(work, "unchanged", 1);
+            return true;
+        });
+        if (unchanged) return;
+        try {
+            var page = session.page(siteId, metadata.pageId());
+            var descriptor = new SourceInputDescriptor(SourceInputFormat.SHAREPOINT_PAGE, metadata.pageId(),
+                    page.metadata().contentVersion(), metadata.webUrl());
+            var staged = writes.stage(work.tenantId(), new ObjectWriteService.Specification(
+                    metadata.title() + ".json", PAGE_MEDIA_TYPE, true), page.snapshot());
+            boolean adopted = false;
+            try {
+                adopted = fenced(work, () -> {
+                    var pair = sources.lock(work.tenantId(), work.sourceId());
+                    writes.adopt(work.tenantId(), staged);
+                    var version = items.acceptRemote(work, pair, staged.object(), descriptor);
+                    indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
+                    indexing.create(work.tenantId(), pair, version, work.operationId());
+                    runs.counted(work, "acquired", 1);
+                    return true;
+                });
+            } finally {
+                if (!adopted) writes.discard(work.tenantId(), staged);
+            }
+        } catch (SharePointProviderException exception) {
+            if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION
+                    || exception.failure() == SharePointProviderException.Failure.QUOTA
+                    || exception.failure() == SharePointProviderException.Failure.UNAVAILABLE) {
+                throw exception;
+            }
+            // A page whose canvas cannot be read affects only itself.
+            fenced(work, () -> {
+                runs.counted(work, "acquisition_failed", 1);
+                return true;
+            });
+        }
     }
 
     /** One page of a library's change log, or of a folder's children when the root is a folder. */
@@ -212,26 +308,30 @@ public class DefaultSharePointSyncService {
         return next;
     }
 
-    /** Drives the run covers, ordered so a continued run resumes where it stopped. */
-    private List<Target> targets(Work work, Run run, SharePointProvider.Session session) {
+    /** Drives and sites the run covers, ordered so a continued run resumes where it stopped. */
+    private ScopeTargets scope(Work work, Run run, SharePointProvider.Session session) {
         var roots = fenced(work, () -> sharePoint.resolvedRoots(work.tenantId(), work.sourceId()));
         var excludedSites = SharePointGlob.all(fenced(work,
                 () -> sharePoint.exclusions(work.tenantId(), work.sourceId(), "SITE")));
         var targets = new LinkedHashMap<String, Target>();
+        var sites = new java.util.LinkedHashSet<String>();
+        boolean includePages = fenced(work, () -> runs.state(work.tenantId(), work.sourceId()).includePages());
         if (roots.isEmpty()) {
             String link = null;
             do {
-                var sites = session.sites(link);
-                for (var site : sites.sites()) {
+                var listed = session.sites(link);
+                for (var site : listed.sites()) {
                     if (site.personalSite() || SharePointGlob.excluded(excludedSites, site.webUrl())) continue;
+                    sites.add(site.siteId());
                     for (var library : session.libraries(site.siteId())) {
                         targets.putIfAbsent(library.driveId(), new Target(library.driveId(), site.siteId(), null));
                     }
                 }
-                link = sites.nextLink();
+                link = listed.nextLink();
             } while (link != null);
         } else {
             for (ResolvedRoot root : roots) {
+                if (root.siteId() != null) sites.add(root.siteId());
                 if (root.kind() == RootKind.SITE) {
                     String siteId = Objects.requireNonNull(root.siteId());
                     for (var library : session.libraries(siteId)) {
@@ -243,7 +343,8 @@ public class DefaultSharePointSyncService {
                 }
             }
         }
-        return targets.values().stream().sorted(Comparator.comparing(Target::driveId)).toList();
+        return new ScopeTargets(targets.values().stream().sorted(Comparator.comparing(Target::driveId)).toList(),
+                List.copyOf(sites), includePages);
     }
 
     /**
@@ -396,9 +497,11 @@ public class DefaultSharePointSyncService {
      * it again would drop an item that was moved into scope without its timestamp changing.
      */
     private static boolean insideWindow(Run run, SharePointProvider.DriveItem item) {
-        if (run.windowStart() == null) return true;
-        Instant changed = item.lastModifiedAt() == null ? item.createdAt() : item.lastModifiedAt();
-        return changed == null || !changed.isBefore(run.windowStart());
+        return insideWindow(run, item.lastModifiedAt() == null ? item.createdAt() : item.lastModifiedAt());
+    }
+
+    private static boolean insideWindow(Run run, @Nullable Instant changed) {
+        return run.windowStart() == null || changed == null || !changed.isBefore(run.windowStart());
     }
 
     private static String path(SharePointProvider.DriveItem item) {
@@ -430,6 +533,8 @@ public class DefaultSharePointSyncService {
     }
 
     private record Target(String driveId, @Nullable String siteId, @Nullable String itemId) {}
+
+    private record ScopeTargets(List<Target> drives, List<String> sites, boolean includePages) {}
 
     private static final class StaleSyncException extends RuntimeException {}
 }
