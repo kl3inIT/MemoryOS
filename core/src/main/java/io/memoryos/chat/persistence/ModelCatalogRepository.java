@@ -45,16 +45,16 @@ public class ModelCatalogRepository {
     public boolean personaExists(UUID tenant, UUID actor, UUID persona) {
         return jdbc.sql("""
                 SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND id=:id
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor))
-                """).param("tenant", tenant).param("actor", actor).param("id", persona).query(Boolean.class).single();
+                    AND deleted_at IS NULL)
+                """).param("tenant", tenant).param("id", persona).query(Boolean.class).single();
     }
 
     public List<PersonaSummary> personas(UUID tenant, UUID actor, @Nullable UUID after, int limit) {
         return jdbc.sql("""
                 SELECT id, name FROM persona WHERE tenant_id=:tenant
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
+                    AND deleted_at IS NULL
                 """ + (after == null ? "" : " AND id > :after") + " ORDER BY id LIMIT :limit")
-                .param("tenant", tenant).param("actor", actor).param("after", after, Types.OTHER).param("limit", limit)
+                .param("tenant", tenant).param("after", after, Types.OTHER).param("limit", limit)
                 .query((row, number) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
     }
 
@@ -138,8 +138,8 @@ public class ModelCatalogRepository {
     public PersonaModel personaModel(UUID tenant, UUID actor, UUID persona) {
         return jdbc.sql("""
                 SELECT id, model_configuration_id, model_revision FROM persona WHERE tenant_id=:tenant AND id=:id
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
-                """).param("tenant", tenant).param("actor", actor).param("id", persona)
+                    AND deleted_at IS NULL
+                """).param("tenant", tenant).param("id", persona)
                 .query((r, ignored) -> new PersonaModel(r.getObject(1, UUID.class), r.getObject(2, UUID.class), r.getLong(3)))
                 .optional().orElseThrow(ChatException::unavailable);
     }
@@ -147,8 +147,8 @@ public class ModelCatalogRepository {
         requireChanged(jdbc.sql("""
                 UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1
                 WHERE tenant_id=:tenant AND id=:persona AND model_revision=:revision
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
-                """).param("tenant", tenant).param("actor", actor).param("persona", persona)
+                    AND deleted_at IS NULL
+                """).param("tenant", tenant).param("persona", persona)
                 .param("model", model, Types.OTHER).param("revision", revision).update());
     }
     public void deleteModel(UUID tenant, UUID model, long revision) {

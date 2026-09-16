@@ -263,7 +263,8 @@ public class ModelCatalogService {
     @Transactional
     public List<AvailableModel> availableModelsForPersona(ActorId actor, UUID personaId) {
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        if (!chats.usablePersona(tenant, actor, personaId)) throw ChatException.unavailable();
+        if (!chats.usablePersona(tenant, actor, personaId, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE)))
+            throw ChatException.unavailable();
         initialize(tenant.value());
         return availableModels(actor, tenant.value(), personaId);
     }
@@ -306,7 +307,7 @@ public class ModelCatalogService {
         chats.lockOwner(membership.tenantId(), actor);
         var session = chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
         initialize(tenant);
-        var context = chats.persona(sessionId, true);
+        var context = chats.persona(sessionId, true, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         UUID preferred = requested != null ? requested : context.modelConfigurationId();
         if (preferred == null) preferred = defaultId;
@@ -341,7 +342,10 @@ public class ModelCatalogService {
 
     private boolean available(Provider p, UUID personaId, boolean manager, Set<UUID> groups) {
         if (!p.enabled() || !credentialUsable(p) || (!p.personaIds().isEmpty() && !p.personaIds().contains(personaId))) return false;
-        return p.isPublic() || manager || p.groupIds().stream().anyMatch(groups::contains);
+        // Onyx can_user_access_llm_provider: an agent-restricted provider without Groups is usable through its agents.
+        if (p.isPublic()) return true;
+        if (!p.groupIds().isEmpty()) return manager || p.groupIds().stream().anyMatch(groups::contains);
+        return !p.personaIds().isEmpty() || manager;
     }
     private boolean usableDefaultProvider(Provider p) {
         return p.enabled() && p.isPublic() && p.personaIds().isEmpty() && credentialUsable(p);

@@ -1,6 +1,6 @@
 # Implementation plan
 
-One pull request on `mem-119/custom-agents`, committed in compiling slices. Onyx reference: `D:\MemoryOS\.tmp\onyx` (not in this worktree). If `main` adds migrations past V70 before merge, renumber V71.
+One pull request on `kl3inIT/mem-119-custom-agents`, committed in compiling slices. Onyx reference: `D:\MemoryOS\.tmp\onyx` (not in this worktree). If `main` adds migrations past V70 before merge, renumber V71.
 
 ## 1. Authority and schema
 

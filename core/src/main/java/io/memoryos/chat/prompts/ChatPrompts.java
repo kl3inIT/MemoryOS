@@ -177,19 +177,29 @@ public final class ChatPrompts {
     }
 
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
-        return instructions.replace("{{CURRENT_DATETIME}}", now.toString())
-                + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
+        return resolve(instructions, searchEnabled, now, true);
+    }
+
+    /** Onyx {@code datetime_aware}: fill the date placeholder when aware; otherwise drop the date sentence. */
+    static String resolve(String instructions, boolean searchEnabled, Instant now, boolean datetimeAware) {
+        String dated = datetimeAware ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
+                : instructions.replace("The current date is {{CURRENT_DATETIME}}.\n", "").replace("{{CURRENT_DATETIME}}", "");
+        return dated + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
     }
 
     /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
     public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage) {
+        return resolve(instructions, searchEnabled, now, uiLanguage, true);
+    }
+
+    public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage, boolean datetimeAware) {
         String language = "vi".equals(uiLanguage)
                 ? "Prefer replying in Vietnamese. If the user explicitly requests another language, use that language."
                 : "Reply in the language the user writes in, unless they explicitly request another language.";
         String base = instructions.startsWith(DEFAULT_SYSTEM)
                 ? instructions.replace("Reply in the language the user writes in, unless they explicitly request another language.", language)
                 : "# Account language preference\n" + language + "\n\n" + instructions;
-        return resolve(base, searchEnabled, now);
+        return resolve(base, searchEnabled, now, datetimeAware);
     }
 
     /** Per-inference reminders stay in the model request, not in the saved user transcript. */
@@ -198,14 +208,21 @@ public final class ChatPrompts {
     }
 
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter) {
+        return forInference(original, hasEvidence, lastCycle, siteFilter, "");
+    }
+
+    /** The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder). */
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt) {
+        boolean task = taskPrompt != null && !taskPrompt.isBlank();
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
-        if (!hasEvidence && !lastCycle && !openPages && guidance.isEmpty()) return original;
+        if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(original.getInstructions());
         if (!guidance.isEmpty()) messages.addFirst(new SystemMessage(guidance));
-        if (!hasEvidence && !lastCycle && !openPages) return new Prompt(messages, original.getOptions());
+        if (!hasEvidence && !lastCycle && !openPages && !task) return new Prompt(messages, original.getOptions());
         var reminder = new StringBuilder("<system-reminder>\n");
+        if (task) reminder.append(taskPrompt.strip()).append('\n');
         if (openPages) reminder.append(OPEN_URL_REMINDER);
         if (hasEvidence) reminder.append(CITATION_GUIDANCE).append("Remember to provide inline citations for the supplied evidence.\n");
         if (lastCycle) reminder.append("""

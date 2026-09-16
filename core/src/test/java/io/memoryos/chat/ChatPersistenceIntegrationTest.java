@@ -101,7 +101,7 @@ class ChatPersistenceIntegrationTest {
         tenant = tenant();
         owner = member(tenant);
         other = member(tenant);
-        when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE));
+        when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE, IamCapability.AGENTS_MANAGE, IamCapability.AGENTS_CREATE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
         var models = mock(ModelCatalogService.class);
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
@@ -110,7 +110,9 @@ class ChatPersistenceIntegrationTest {
         var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                new PersonaProperties(), models, sources, fileService), ChatPersonaService.class);
+                new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc), new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
+                new PersonaProperties(), models, sources, fileService, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
+                mock(ChatFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
@@ -135,8 +137,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> projects.update(owner, project.id(), project.revision(), new ChatProjectService.ProjectInput("Stale", "", "")));
         assertFalse(turns.loadContext(owner, session.id(), first).instructions().contains("CHANGED PROJECT"));
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
-        var assistant = personas.create(owner, new ChatPersonaService.PersonaInput("Private", "", "", List.of("A starter"),
-                List.of(sourceId), false, null, 8000, 1000));
+        var assistant = personas.create(owner, input("Private", List.of("A starter"), List.of(sourceId), false, 8000, 1000, null));
         assertThrows(ChatException.class, () -> personas.get(other, assistant.id()));
         personas.select(owner, session.id(), assistant.id());
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Continue");
@@ -659,7 +660,7 @@ class ChatPersistenceIntegrationTest {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var reader = executor.submit(() -> tx.execute(_ -> {
                 repository.lockOwner(new TenantId(tenant), other);
-                var snapshot = repository.persona(session.id(), true);
+                var snapshot = repository.persona(session.id(), true, false);
                 locked.countDown();
                 try {
                     if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("timeout");
@@ -667,14 +668,13 @@ class ChatPersistenceIntegrationTest {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException(ex);
                 }
-                assertEquals(snapshot, repository.persona(session.id(), true));
+                assertEquals(snapshot, repository.persona(session.id(), true, false));
                 return snapshot;
             }));
             try {
                 assertTrue(locked.await(10, TimeUnit.SECONDS));
                 var writer = executor.submit(() -> personas.update(owner, before.id(), before.revision(),
-                        new ChatPersonaService.PersonaInput(before.name(), "", "Updated builtin", List.of(), List.of(sourceId),
-                                false, null, null, null)));
+                        input(before.name(), "Updated builtin", List.of(), List.of(sourceId), false, null, null, null)));
                 try {
                     assertThrows(java.util.concurrent.TimeoutException.class, () -> writer.get(200, TimeUnit.MILLISECONDS));
                 } finally {
@@ -682,7 +682,7 @@ class ChatPersistenceIntegrationTest {
                 }
                 writer.get(10, TimeUnit.SECONDS);
                 var snapshot = reader.get(10, TimeUnit.SECONDS);
-                var after = tx.execute(_ -> repository.persona(session.id(), true));
+                var after = tx.execute(_ -> repository.persona(session.id(), true, false));
                 assertNotNull(snapshot);
                 assertNotNull(after);
                 assertNotEquals(snapshot.revision(), after.revision());
@@ -772,20 +772,30 @@ class ChatPersistenceIntegrationTest {
         var reloaded = turns.loadContext(owner, session.id(), new ChatTurnPersistence.Reservation(first.userMessageId(), first.assistantMessageId(), false));
         assertEquals(List.of(file), reloaded.workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Project answer");
-        var persona = personas.create(owner, new ChatPersonaService.PersonaInput("No files", "", "", List.of(),
-                List.of(), false, null, null, null, List.of()));
+        var persona = personas.create(owner, input("No files", List.of(), List.of(), false, null, null, List.of()));
         personas.select(owner, session.id(), persona.id());
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Custom assistant");
         assertNotNull(second.context());
         assertTrue(second.context().workspaceFiles().isEmpty());
         turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "No project files");
-        var settings = new ChatPersonaService.PersonaInput("With files", "", "", List.of(), List.of(), false, null, null, null, List.of(file));
+        var settings = input("With files", List.of(), List.of(), false, null, null, List.of(file));
         personas.update(owner, persona.id(), persona.revision(), settings);
         assertThrows(ChatException.class, () -> personas.update(owner, persona.id(), persona.revision(), settings));
         var third = reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Read custom files");
         assertNotNull(third.context());
         assertEquals(List.of(file), third.context().workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
         assertTrue(second.context().workspaceFiles().isEmpty());
+    }
+
+    private static ChatPersonaService.PersonaInput input(String name, List<String> starters, List<UUID> sources, boolean search,
+            Integer context, Integer output, List<UUID> files) {
+        return input(name, "", starters, sources, search, context, output, files);
+    }
+
+    private static ChatPersonaService.PersonaInput input(String name, String instructions, List<String> starters, List<UUID> sources,
+            boolean search, Integer context, Integer output, List<UUID> files) {
+        return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources,
+                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null);
     }
 
     private UUID readyFile(ActorId actor) {

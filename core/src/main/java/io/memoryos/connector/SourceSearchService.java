@@ -43,6 +43,12 @@ public class SourceSearchService {
         return documents.searchableSourceOptions(tenant, actor, offset, limit);
     }
 
+    /** Tenant-scoped Source names regardless of the reader's Source authority; names never grant search access. */
+    public List<SourceOption> names(TenantId tenant, java.util.Collection<UUID> ids) {
+        if (ids.size() > 500) throw SourceException.invalid("Invalid source page", "source name lookup out of bounds");
+        return ids.isEmpty() ? List.of() : documents.sourceNames(tenant, ids);
+    }
+
     public Map<UUID, List<DocumentSourceMetadata>> readableMetadata(SourceSearchScope scope, List<UUID> ids) {
         if (tenants.findActiveTenant(scope.actor()).filter(scope.tenant()::equals).isEmpty()) return Map.of();
         var metadata = new java.util.LinkedHashMap<UUID, List<DocumentSourceMetadata>>();

@@ -65,7 +65,7 @@ class ModelCatalogSelectionTest {
             var membership = mock(TenantMembership.class);
             when(membership.tenantId()).thenReturn(new TenantId(tenant));
             when(tenants.lockActiveMembership(actor)).thenReturn(Optional.of(membership));
-            when(chats.usablePersona(new TenantId(tenant), actor, persona)).thenReturn(true);
+            when(chats.usablePersona(new TenantId(tenant), actor, persona, false)).thenReturn(true);
             var authorization = mock(IamAuthorization.class);
             when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of());
             var adapters = mock(ChatProviderAdapters.class);

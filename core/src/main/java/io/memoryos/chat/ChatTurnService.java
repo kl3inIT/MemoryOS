@@ -137,6 +137,12 @@ public final class ChatTurnService implements AutoCloseable {
         // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
+        // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
+        var agent = persistence.agent(actor, session);
+        if (command.webSearch() != WebSearchMode.off && !agent.tools().contains("web_search")) throw ChatException.webUnavailable();
+        if (command.image() != ImageMode.off && !agent.tools().contains("image_generation")) throw ChatException.providerUnavailable();
+        if (agent.mcpServerIds() != null && !agent.mcpServerIds().containsAll(command.mcpServerIds()))
+            throw ChatException.providerUnavailable();
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;

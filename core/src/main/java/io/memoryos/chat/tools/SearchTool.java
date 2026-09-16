@@ -87,6 +87,23 @@ public final class SearchTool implements AutoCloseable {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, timings, List.of());
     }
 
+    private io.memoryos.retrieval.SearchFilters.@org.jspecify.annotations.Nullable Interval knowledgeFloor;
+
+    /** Onyx {@code search_start_date}: an agent never searches documents updated before its cutoff. */
+    public SearchTool knowledgeCutoff(java.time.@org.jspecify.annotations.Nullable Instant cutoff) {
+        knowledgeFloor = cutoff == null ? null : new SearchFilters.Interval(cutoff, null);
+        return this;
+    }
+
+    static SearchFilters.@org.jspecify.annotations.Nullable Interval floor(SearchFilters.@org.jspecify.annotations.Nullable Interval requested,
+            SearchFilters.@org.jspecify.annotations.Nullable Interval floor) {
+        if (floor == null) return requested;
+        if (requested == null) return floor;
+        var from = requested.from() == null || requested.from().isBefore(floor.from()) ? floor.from() : requested.from();
+        var to = requested.to();
+        return to != null && to.isBefore(from) ? new SearchFilters.Interval(from, from) : new SearchFilters.Interval(from, to);
+    }
+
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
@@ -307,7 +324,7 @@ public final class SearchTool implements AutoCloseable {
         queryExpansion = new QueryExpansion(semantic, keywords);
         var resolved = plan.isEmpty() ? explicit.sources() : plan;
         var filters = new SearchFilters(resolved, SearchFilters.intersect(explicit.created(), timeFilters.created()),
-                SearchFilters.intersect(explicit.updated(), timeFilters.updated()));
+                floor(SearchFilters.intersect(explicit.updated(), timeFilters.updated()), knowledgeFloor));
         // The source-agnostic expansion is used on the first cycle and whenever the scope reaches a not-yet-searched source.
         var searched = new HashSet<SourceType>();
         searchCycles.forEach(cycle -> searched.addAll(cycle.searchedSources()));

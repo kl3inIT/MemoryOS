@@ -132,7 +132,8 @@ public final class ChatModelExecutor {
             selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new com.embabel.chat.UserMessage(agent.task())),
-                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity());
+                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity())
+                    .knowledgeCutoff(setup.options().knowledgeCutoff());
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != io.memoryos.chat.WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -170,6 +171,7 @@ public final class ChatModelExecutor {
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
+        guard.taskPrompt(setup.options().taskPrompt());
         var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new java.util.concurrent.CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
@@ -223,7 +225,8 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity)
+                        .knowledgeCutoff(setup.options().knowledgeCutoff());
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {

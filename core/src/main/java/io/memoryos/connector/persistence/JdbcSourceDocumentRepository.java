@@ -131,6 +131,17 @@ public class JdbcSourceDocumentRepository {
 
     private record AccessRow(String accessType, @Nullable UUID groupId) { }
 
+    public List<io.memoryos.connector.SourceSearchService.SourceOption> sourceNames(TenantId tenant, java.util.Collection<UUID> ids) {
+        return jdbcClient.sql("""
+                SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
+                JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
+                WHERE p.tenant_id=:tenant AND p.id IN (:ids)
+                ORDER BY c.name,p.id
+                """).param("tenant", tenant.value()).param("ids", ids)
+                .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
+                        rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
+    }
+
     public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, ActorId actor, int offset, int limit) {
         if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw new IllegalArgumentException("source page out of bounds");
         return jdbcClient.sql("""
