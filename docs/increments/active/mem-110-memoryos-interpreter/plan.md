@@ -89,9 +89,12 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
 
 ## Phase 4 — browser and authorization
 
-- [ ] Tool step with code, output and generated files in the activity timeline (vi/en).
-- [ ] Capability decision and enforcement.
-- [ ] Chat spec and verification matrix updated.
+- [x] **Streaming.** A Java SSE consumer (`InterpreterClient.executeStream`) replaces the batch call, so output reaches the timeline while the code runs and a Stop closes the connection, which kills the container and frees the execution slot. This removes the phase 3 departure.
+- [x] **Timeline.** `ChatCodeEvent` (`RUNNING`/`OUTPUT`/`COMPLETED`/`FAILED`) streams on a new `code` channel beside `image`; the step renders the code and its output (vi/en).
+- [x] **Generated files.** Download cards below the answer, from the stream and from `generatedFiles` on history messages. Answer bodies link the artifact path, which the citation link handler previously flattened to plain text.
+- [x] **Capability.** Decided 2026-09-16: no new capability, as in Onyx. `CHAT_WRITE` plus the Tenant switch is the whole authorization; a code-execution capability would need a group-management story that the single Tenant switch already covers.
+- [x] Chat spec and verification matrix updated.
+- **Bounded, not persisted:** code is capped at 8 000 characters and a run's streamed output at 16 000, so one run cannot exhaust the 128 KiB per-reader replay budget. Neither is committed to `chat_message.activity`, which is allowlisted summaries; a reload keeps the step and the files, not the transcript. Persisting a bounded excerpt is a candidate follow-up.
 
 ## Phase 5 — office output quality and self-checks (wave 3)
 

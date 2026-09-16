@@ -19,6 +19,14 @@ import {
   type GeneratedImage,
   type ImageMode,
 } from "./chat-image";
+import {
+  generatedFileSchema,
+  parseGeneratedFiles,
+  MAX_CODE_CHARACTERS,
+  MAX_OUTPUT_CHARACTERS,
+  type CodeRun,
+  type GeneratedFile,
+} from "./chat-code";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import {
@@ -37,6 +45,13 @@ const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
 const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
   hasArtifacts: z.boolean().default(false),
+});
+const codeSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  stage: z.enum(["RUNNING", "OUTPUT", "COMPLETED", "FAILED"]),
+  code: z.string().max(MAX_CODE_CHARACTERS).nullish(),
+  output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
+  files: z.array(generatedFileSchema).max(25).default([]),
 });
 const imageSchema = eventSchema.extend({
   stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
@@ -292,6 +307,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let committedActivity: ChatActivity | undefined;
     let images: GeneratedImage[] = [];
     let imageGenerating = false;
+    let codeRuns: Record<string, CodeRun> = {};
+    let generatedFiles: GeneratedFile[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
@@ -389,6 +406,35 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 imageGenerating = false;
               } else imageGenerating = image.stage === "GENERATING";
               yield { type: "message-metadata", messageMetadata: { images, imageGenerating } };
+            } else if (envelope.event === "code") {
+              const run = codeSchema.parse(data);
+              const previous = codeRuns[run.toolCallId] ?? {
+                code: "",
+                output: "",
+                files: [],
+                status: "running" as const,
+              };
+              codeRuns = {
+                ...codeRuns,
+                [run.toolCallId]: {
+                  code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
+                  output:
+                    run.stage === "OUTPUT" ? previous.output + (run.output ?? "") : previous.output,
+                  files: run.stage === "COMPLETED" ? run.files : previous.files,
+                  status:
+                    run.stage === "COMPLETED"
+                      ? "done"
+                      : run.stage === "FAILED"
+                        ? "failed"
+                        : "running",
+                },
+              };
+              if (run.stage === "COMPLETED" && run.files.length)
+                generatedFiles = [
+                  ...generatedFiles.filter((file) => !run.files.some((one) => one.id === file.id)),
+                  ...run.files,
+                ];
+              yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -427,6 +473,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             committedActivity = activitySchema.parse(message.activity);
             images = parseGeneratedImages((message as { images?: unknown }).images);
             imageGenerating = false;
+            // Code and output live only in the replay buffer; the files themselves are committed.
+            generatedFiles = parseGeneratedFiles(
+              (message as { generatedFiles?: unknown }).generatedFiles,
+            );
           } else await pause(2000, signal);
         }
         if (!outcome)
@@ -455,6 +505,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           artifacts,
           images,
           imageGenerating: false,
+          codeRuns,
+          generatedFiles,
         },
       };
       yield* activity.finish(committedActivity);

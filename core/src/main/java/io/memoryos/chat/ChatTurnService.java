@@ -239,6 +239,7 @@ public final class ChatTurnService implements AutoCloseable {
                             case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text());
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
+                    codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
                     draining -> run.draining = draining);
             run.check();
             if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");

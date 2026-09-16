@@ -46,6 +46,7 @@ class RunPythonToolTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID messageId = UUID.randomUUID();
     private final List<UserFile> attached = new ArrayList<>();
+    private final List<io.memoryos.chat.ChatCodeEvent> published = new ArrayList<>();
 
     private RunPythonTool tool() {
         return tool(Instant.now().plusSeconds(120));
@@ -53,8 +54,9 @@ class RunPythonToolTest {
 
     private RunPythonTool tool(Instant deadline) {
         when(files.readable(eq(actor), eq(tenant), any())).thenReturn(attached);
+        when(activity.current()).thenReturn(new io.memoryos.chat.ChatToolEvent.Call("call-1", "run_python"));
         return new RunPythonTool(client, artifacts, files, actor, tenant, messageId, attached.stream().map(UserFile::id).toList(),
-                () -> {}, deadline, activity);
+                () -> {}, deadline, activity, published::add);
     }
 
     private UserFile attach(String name, long size, int minutesAgo) throws IOException {
@@ -86,14 +88,14 @@ class RunPythonToolTest {
     @SuppressWarnings("unchecked")
     private List<InterpreterClient.StagedFile> staged() throws IOException {
         ArgumentCaptor<List<InterpreterClient.StagedFile>> captor = ArgumentCaptor.forClass(List.class);
-        verify(client).execute(anyString(), anyInt(), captor.capture());
+        verify(client).executeStream(anyString(), anyInt(), captor.capture(), any());
         return captor.getValue();
     }
 
     @Test void stagesAttachmentsChronologicallyAndReturnsTheOnyxResult() throws Exception {
         attach("old.csv", 10, 30);
         attach("new.csv", 10, 1);
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok("42\n"));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("42\n"));
 
         var reply = tool().runPython("print(42)");
 
@@ -111,7 +113,7 @@ class RunPythonToolTest {
     @Test void referencedFilesWinTheFileCapAndTheNoticeNamesTheLimit() throws Exception {
         var referenced = attach("budget.xlsx", 10, 100);
         for (int i = 0; i < RunPythonTool.MAX_STAGED_FILES; i++) attach("f" + i + ".csv", 10, 50 - i);
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok(""));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
 
         var reply = tool().runPython("import pandas as pd\npd.read_excel('budget.xlsx')");
 
@@ -125,7 +127,7 @@ class RunPythonToolTest {
     @Test void theByteBudgetStillStagesAtLeastOneFile() throws Exception {
         attach("huge.parquet", RunPythonTool.MAX_STAGED_BYTES + 1, 1);
         attach("small.csv", 10, 2);
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok(""));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
 
         tool().runPython("print(1)");
 
@@ -134,7 +136,7 @@ class RunPythonToolTest {
 
     @Test void uploadsAreReusedWithinTheTurn() throws Exception {
         attach("data.csv", 10, 1);
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok(""));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
         var tool = tool();
 
         tool.runPython("print(1)");
@@ -145,7 +147,7 @@ class RunPythonToolTest {
 
     @Test void generatedFilesAreStoredLinkedAndDeletedFromTheService() throws Exception {
         var artifact = UUID.randomUUID();
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok("",
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
                 new InterpreterClient.WorkspaceFile("out/report.xlsx", "file", "11111111-1111-1111-1111-111111111111"),
                 new InterpreterClient.WorkspaceFile("out", "directory", null)));
         when(client.download("11111111-1111-1111-1111-111111111111")).thenReturn(new byte[]{1, 2});
@@ -163,7 +165,7 @@ class RunPythonToolTest {
     }
 
     @Test void oversizedGeneratedFilesAreReportedAndStillDeleted() throws Exception {
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok("",
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
                 new InterpreterClient.WorkspaceFile("big.csv", "file", "22222222-2222-2222-2222-222222222222")));
         when(client.download(anyString())).thenThrow(mock(InterpreterClient.TooLargeException.class));
 
@@ -176,7 +178,7 @@ class RunPythonToolTest {
 
     @Test void failedRunsReportStderrAsTheErrorAndTruncateOutput() throws Exception {
         String longOutput = "x".repeat(RunPythonTool.MAX_OUTPUT_CHARACTERS + 7);
-        when(client.execute(anyString(), anyInt(), anyList()))
+        when(client.executeStream(anyString(), anyInt(), anyList(), any()))
                 .thenReturn(new InterpreterClient.Execution(longOutput, "Traceback", 1, false, List.of()));
 
         var json = result(tool().runPython("raise SystemExit(1)"));
@@ -186,7 +188,7 @@ class RunPythonToolTest {
     }
 
     @Test void anUnreachableServiceReturnsExitMinusOneWithoutDetails() throws Exception {
-        when(client.execute(anyString(), anyInt(), anyList())).thenThrow(new IOException("secret-service-detail"));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
 
         var reply = tool().runPython("print(1)");
 
@@ -199,14 +201,49 @@ class RunPythonToolTest {
 
     @Test void missingCodeGetsTheOnyxMessageAndTheTimeoutFollowsTheDeadline() throws Exception {
         assertEquals(RunPythonTool.MISSING_CODE, tool().runPython(" "));
-        when(client.execute(anyString(), anyInt(), anyList())).thenReturn(ok(""));
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
 
         tool(Instant.now().plusSeconds(30)).runPython("print(1)");
         var timeout = ArgumentCaptor.forClass(Integer.class);
-        verify(client).execute(anyString(), timeout.capture(), anyList());
+        verify(client).executeStream(anyString(), timeout.capture(), anyList(), any());
         assertTrue(timeout.getValue() <= 25_000 && timeout.getValue() > 20_000, "timeout " + timeout.getValue());
 
         assertThrows(IllegalStateException.class, () -> tool(Instant.now().plusSeconds(3)).runPython("print(1)"));
+    }
+
+    @Test void theTimelineGetsTheCodeBoundedOutputAndTheGeneratedFiles() throws Exception {
+        var artifact = UUID.randomUUID();
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenAnswer(call -> {
+            InterpreterClient.OutputListener listener = call.getArgument(3);
+            listener.output("stdout", "first\n");
+            listener.output("stderr", "x".repeat(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS));
+            listener.output("stdout", "dropped, the budget is gone");
+            return ok("", new InterpreterClient.WorkspaceFile("chart.png", "file", "33333333-3333-3333-3333-333333333333"));
+        });
+        when(client.download(anyString())).thenReturn(new byte[]{9});
+        when(artifacts.store(tenant, messageId, "chart.png", "image/png", new byte[]{9})).thenReturn(artifact);
+
+        tool().runPython("plt.savefig('chart.png')");
+
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.RUNNING, published.getFirst().stage());
+        assertEquals("plt.savefig('chart.png')", published.getFirst().code());
+        var streamed = published.stream().filter(event -> event.stage() == io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT).toList();
+        assertEquals("first\n", streamed.getFirst().output());
+        assertEquals(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS,
+                streamed.stream().mapToInt(event -> event.output().length()).sum());
+        var completed = published.getLast();
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.COMPLETED, completed.stage());
+        assertEquals(List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(artifact, "chart.png", "image/png", 1)),
+                completed.files());
+    }
+
+    @Test void aFailedRunTellsTheTimelineWithoutServiceDetail() throws Exception {
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
+
+        tool().runPython("print(1)");
+
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
+        assertTrue(published.stream().noneMatch(event -> String.valueOf(event.output()).contains("secret")));
     }
 
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {

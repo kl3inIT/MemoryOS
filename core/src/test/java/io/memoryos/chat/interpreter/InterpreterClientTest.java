@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,6 +57,29 @@ class InterpreterClientTest {
                     {"stdout":"hi\\n","stderr":"","exit_code":null,"timed_out":true,"duration_ms":5,
                      "files":[{"path":"chart.png","kind":"file","file_id":"bbbbbbbb-0000-0000-0000-000000000002"},
                               {"path":"out","kind":"directory","file_id":null}]}""");
+        });
+        server.createContext("/v1/execute/stream", exchange -> {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requests.put("POST /v1/execute/stream", body);
+            if (body.contains("boom")) { reply(exchange, 200, "event: error\ndata: {\"message\":\"executor exploded\"}\n\n"); return; }
+            if (body.contains("cut")) { reply(exchange, 200, "event: output\ndata: {\"stream\":\"stdout\",\"data\":\"partial\"}\n\n"); return; }
+            reply(exchange, 200, """
+                    event: output
+                    data: {"stream":"stdout","data":"step 1\\n"}
+
+                    event: heartbeat
+                    data: {}
+
+                    event: output
+                    data: {"stream":"stderr","data":"warn\\n"}
+
+                    event: output
+                    data: {"stream":"stdout","data":"step 2\\n"}
+
+                    event: result
+                    data: {"exit_code":0,"timed_out":false,"duration_ms":7,"files":[{"path":"chart.png","kind":"file","file_id":"bbbbbbbb-0000-0000-0000-000000000002"}]}
+
+                    """);
         });
         server.start();
     }
@@ -123,6 +147,31 @@ class InterpreterClientTest {
         assertThrows(IOException.class, () -> client.download("../../etc"));
         var wrongKey = new InterpreterClient(new InterpreterProperties("http://127.0.0.1:" + server.getAddress().getPort(), "wrong"), now::get);
         assertThrows(IOException.class, () -> wrongKey.delete("cccccccc-0000-0000-0000-000000000003"));
+    }
+
+    @Test void streamingReportsOutputAsItArrivesAndReturnsTheFinalResult() throws Exception {
+        var seen = new ArrayList<String>();
+
+        var execution = client().executeStream("print(1)", 1000, List.of(),
+                (stream, data) -> seen.add(stream + ":" + data));
+
+        assertEquals(List.of("stdout:step 1\n", "stderr:warn\n", "stdout:step 2\n"), seen);
+        assertEquals("step 1\nstep 2\n", execution.stdout());
+        assertEquals("warn\n", execution.stderr());
+        assertEquals(0, execution.exitCode());
+        assertFalse(execution.timedOut());
+        assertEquals("bbbbbbbb-0000-0000-0000-000000000002", execution.files().getFirst().fileId());
+    }
+
+    @Test void aStreamErrorEndedEarlyOrAbandonedByTheListenerFails() {
+        var client = client();
+
+        // The service's own error event, a stream that stops before its result, and a caller that stops reading
+        // (a Stop, which must abandon the body so the container is killed) are all failures, never a partial result.
+        assertThrows(IOException.class, () -> client.executeStream("boom", 1000, List.of(), (stream, data) -> { }));
+        assertThrows(IOException.class, () -> client.executeStream("cut", 1000, List.of(), (stream, data) -> { }));
+        assertThrows(IOException.class, () -> client.executeStream("print(1)", 1000, List.of(),
+                (stream, data) -> { throw new IOException("stopped"); }));
     }
 
     @Test void propertiesRejectCredentialsInTheUrlAndRedactTheKey() {

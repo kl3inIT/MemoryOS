@@ -251,7 +251,7 @@ A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, bla
   - names are sanitized and de-duplicated as in Onyx;
   - uploads stream from object storage and are reused within the turn by name and stored SHA-256;
   - files left out or failing to upload are listed in `staging_notice`.
-- **Execution.** `POST /v1/execute` runs with `timeout_ms` = min(60 000, the remaining turn deadline minus 5 seconds); less than a second left fails the turn with `CHAT_DEADLINE`. Every `/v1` call sends the service `X-Api-Key`.
+- **Execution.** `POST /v1/execute/stream` runs with `timeout_ms` = min(60 000, the remaining turn deadline minus 5 seconds); less than a second left fails the turn with `CHAT_DEADLINE`. Every `/v1` call sends the service `X-Api-Key`. The client reads the service's `output`/`result`/`error` events; unknown event names are ignored and only `result` ends a run successfully. Abandoning the read — a Stop, the deadline, or a listener that throws — closes the connection, which kills the executor container and frees the service's execution slot instead of holding it until the timeout.
 - **Result.** The model receives `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files, error, staging_notice}`.
   - `stdout` and `stderr` are truncated to 50 000 characters.
   - `error` is `stderr` unless the exit code is 0.
@@ -260,5 +260,6 @@ A mask is an attached PNG named `mask-for-<image_id>.png`: white may change, bla
 - **Generated files.**
   - Each workspace file of at most 25 MiB is downloaded, staged and adopted as a `chat_file_artifact` (V63) on the assistant message, then deleted from the service. Larger files are named in `staging_notice`.
   - `file_link` is `/api/chat/file-artifacts/{id}/content`, which serves owner-authorized bytes with `no-store` and `nosniff`: PNG, JPEG and WebP inline, every other type as an attachment.
-  - The model links files with markdown `[filename](file_link)`.
-- **Progress.** The timeline shows the step through the generic tool `STARTED`/`COMPLETED`/`FAILED` events. Code, output and file previews in the timeline are MEM-110 phase 4.
+  - The model links files with markdown `[filename](file_link)`. An answer body links only this exact path shape; every other relative path a model writes stays plain text.
+  - Generated files are returned on history messages as `generatedFiles` and rendered as download cards below the answer, like generated images.
+- **Progress.** Besides the generic tool `STARTED`/`COMPLETED`/`FAILED` events, a run publishes SSE `code` events `{assistantMessageId, sequence, toolCallId, stage, code, output, files}` with stages `RUNNING` (the code, at most 8 000 characters), `OUTPUT` (stdout/stderr as it is produced, at most 16 000 characters in total for the whole run), `COMPLETED` (the generated files) and `FAILED`. This is the one place the timeline carries a tool's own arguments and output; it is bounded so one run cannot exhaust the replay buffer, and service ids, URLs and error text are still excluded. The step renders the code, the output so far and a failure line. Code and output live only in the replay buffer: they are not committed to `chat_message.activity`, so a reloaded conversation keeps the step and the generated files but not the transcript of the run.

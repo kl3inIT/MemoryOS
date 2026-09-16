@@ -68,6 +68,16 @@ public class InterpreterService {
     }
 
     /** Persists a generated file against the assistant message; returns the artifact id. */
+    /**
+     * Generated files for an already-authorized page of messages, keyed by message id. The caller has resolved these
+     * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
+     */
+    public java.util.Map<UUID, java.util.List<JdbcInterpreterRepository.GeneratedFile>> forMessages(
+            ActorId actor, java.util.Collection<UUID> messageIds) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(io.memoryos.chat.ChatException::unavailable);
+        return repository.byMessages(tenant, messageIds);
+    }
+
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes) {
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);

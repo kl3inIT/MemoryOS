@@ -117,7 +117,8 @@ public final class ChatModelExecutor {
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
-            Consumer<ChatImageEvent> imageEvents, Consumer<CompletableFuture<Void>> onDrained) {
+            Consumer<ChatImageEvent> imageEvents, Consumer<io.memoryos.chat.ChatCodeEvent> codeEvents,
+            Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
@@ -198,7 +199,7 @@ public final class ChatModelExecutor {
                     && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy()) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
-                        setup.deadline(), activity)));
+                        setup.deadline(), activity, codeEvents)));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());

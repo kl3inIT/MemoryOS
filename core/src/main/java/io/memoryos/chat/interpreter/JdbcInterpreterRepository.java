@@ -17,6 +17,24 @@ public class JdbcInterpreterRepository {
 
     public record Setting(boolean enabled, long revision) {}
     public record Artifact(ObjectKey key, String filename, String mediaType) {}
+    public record GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes) {}
+
+    /** Generated files of an already-authorized page of messages, keyed by message id. */
+    public java.util.Map<UUID, java.util.List<GeneratedFile>> byMessages(TenantId tenant, java.util.Collection<UUID> messageIds) {
+        if (messageIds.isEmpty()) return java.util.Map.of();
+        var result = new java.util.LinkedHashMap<UUID, java.util.List<GeneratedFile>>();
+        jdbc.sql("""
+                SELECT message_id, id, filename, media_type, size_bytes FROM chat_file_artifact
+                WHERE tenant_id = :tenant AND message_id IN (:messages) ORDER BY created_at, id
+                """).param("tenant", tenant.value()).param("messages", messageIds)
+                .query((row, ignored) -> {
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new java.util.ArrayList<>())
+                            .add(new GeneratedFile(row.getObject("id", UUID.class), row.getString("filename"),
+                                    row.getString("media_type"), row.getLong("size_bytes")));
+                    return true;
+                }).list();
+        return result;
+    }
 
     public Optional<Setting> setting(TenantId tenant) {
         return jdbc.sql("SELECT enabled, revision FROM chat_interpreter_setting WHERE tenant_id = :tenant")

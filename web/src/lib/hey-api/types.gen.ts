@@ -1140,6 +1140,7 @@ export type ChatMessage = {
     artifacts: Array<ChatArtifact>;
     activity: ChatActivity;
     images: Array<ImageRef>;
+    generatedFiles: Array<GeneratedFileRef>;
 };
 
 export type ChatSource = {
@@ -1163,6 +1164,13 @@ export type FileLocation = {
     count?: number;
     generation?: string;
     ordinal?: number;
+};
+
+export type GeneratedFileRef = {
+    id: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
 };
 
 export type ImageRef = {

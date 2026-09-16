@@ -70,15 +70,22 @@ public final class RunPythonTool {
     private final Runnable active;
     private final Instant deadline;
     private final ChatToolActivity activity;
+    private final java.util.function.Consumer<io.memoryos.chat.ChatCodeEvent> events;
     /** Onyx upload cache: (file name, content SHA-256) to service file id, for this turn only. */
     private final Map<String, String> uploads = new HashMap<>();
 
     public RunPythonTool(InterpreterClient client, InterpreterService artifacts, ChatFileContentService files, ActorId actor,
                          TenantId tenant, UUID messageId, Collection<UUID> fileIds, Runnable active, Instant deadline,
-                         ChatToolActivity activity) {
+                         ChatToolActivity activity, java.util.function.Consumer<io.memoryos.chat.ChatCodeEvent> events) {
         this.client = client; this.artifacts = artifacts; this.files = files; this.actor = actor; this.tenant = tenant;
         this.messageId = messageId; this.fileIds = List.copyOf(fileIds); this.active = active; this.deadline = deadline;
-        this.activity = activity;
+        this.activity = activity; this.events = events;
+    }
+
+    /** Publishes timeline progress for the call in flight; a tool call outside an inspected run publishes nothing. */
+    private void publish(java.util.function.Function<String, io.memoryos.chat.ChatCodeEvent> event) {
+        var call = activity.current();
+        if (call != null) events.accept(event.apply(call.id()));
     }
 
     private record Candidate(UserFile file, String name, int order) {}
@@ -106,9 +113,20 @@ public final class RunPythonTool {
                 }
             }
             notice = notice(selection, failed);
-            var execution = client.execute(code, timeoutMs, staged);
+            publish(id -> io.memoryos.chat.ChatCodeEvent.running(id, code));
+            // Streaming shows output while the code runs, and abandoning the read on Stop frees the service's slot.
+            var streamed = new int[1];
+            var execution = client.executeStream(code, timeoutMs, staged, (stream, data) -> {
+                active.run();
+                int room = io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS - streamed[0];
+                if (room <= 0 || data.isEmpty()) return;
+                String delta = data.length() <= room ? data : data.substring(0, room);
+                streamed[0] += delta.length();
+                publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, delta));
+            });
             active.run();
             var generated = new ArrayList<Map<String, String>>();
+            var produced = new ArrayList<io.memoryos.chat.ChatCodeEvent.GeneratedFile>();
             var tooLarge = new ArrayList<String>();
             for (var file : execution.files()) {
                 if (!"file".equals(file.kind()) || file.fileId() == null) continue;
@@ -117,8 +135,11 @@ public final class RunPythonTool {
                 try {
                     byte[] bytes = client.download(file.fileId());
                     active.run();
-                    UUID id = artifacts.store(tenant, messageId, name, mediaType(name), bytes);
+                    String mediaType = mediaType(name);
+                    UUID id = artifacts.store(tenant, messageId, name, mediaType, bytes);
                     generated.add(Map.of("filename", name, "file_link", "/api/chat/file-artifacts/" + id + "/content"));
+                    if (produced.size() < MAX_STAGED_FILES)
+                        produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, mediaType, bytes.length));
                 } catch (InterpreterClient.TooLargeException large) {
                     tooLarge.add(name);
                 } catch (IOException | RuntimeException failure) {
@@ -135,10 +156,12 @@ public final class RunPythonTool {
             Integer exit = execution.exitCode();
             String result = json(truncate(execution.stdout()), stderr, exit, execution.timedOut(), generated,
                     exit != null && exit == 0 ? null : stderr, notice);
+            publish(id -> io.memoryos.chat.ChatCodeEvent.completed(id, List.copyOf(produced)));
             return generated.isEmpty() ? result : result + "\n\n" + FILE_REMINDER;
         } catch (IOException | RuntimeException failure) {
             active.run(); // Cancellation and deadline must propagate, not become an ordinary tool result.
             activity.fail();
+            publish(io.memoryos.chat.ChatCodeEvent::failed);
             LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
             String error = failure instanceof InterpreterClient.BusyException
                     ? "Code interpreter is busy. Try again shortly." : "Code interpreter is unavailable.";

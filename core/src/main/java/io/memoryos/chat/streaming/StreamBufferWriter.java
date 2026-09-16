@@ -40,7 +40,12 @@ public final class StreamBufferWriter {
 
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
-                        @Nullable ChatImageEvent image, boolean hasArtifacts) {
+                        @Nullable ChatImageEvent image, io.memoryos.chat.@Nullable ChatCodeEvent code, boolean hasArtifacts) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
+                     @Nullable ChatImageEvent image, boolean hasArtifacts) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, null, hasArtifacts);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
             this(assistantMessageId, sequence, type, text, status, failureCode, tool, null, hasArtifacts);
@@ -131,6 +136,13 @@ public final class StreamBufferWriter {
         publish(stream, new Event(id, ++stream.sequence, "image", null, null, null, null, event, false));
     }
 
+    public synchronized void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+        var stream = require(id);
+        if (stream.done) return;
+        flush(stream);
+        publish(stream, new Event(id, ++stream.sequence, "code", null, null, null, null, null, event, false));
+    }
+
     public synchronized void flush() {
         for (var stream : new ArrayList<>(streams.values())) {
             flush(stream);
@@ -190,7 +202,8 @@ public final class StreamBufferWriter {
     private void publish(Stream stream, Event event) {
         int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
                 + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length)
-                + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length);
+                + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length)
+                + (event.code() == null ? 0 : JSON.writeValueAsBytes(event.code()).length);
         stream.chunks.addLast(new Chunk(event, bytes, millis.getAsLong()));
         stream.bytes += bytes;
         for (var reader : new ArrayList<>(stream.readers)) {

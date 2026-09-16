@@ -22,19 +22,30 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatFileDescriptor> files,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles) {
+
+    /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
+    public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes) {}
 
     /** A generated image attached to an assistant reply; bytes are served at /api/chat/image-artifacts/{id}/content. */
     public record ImageRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
     public static ChatMessageResponse from(ChatMessage message) {
-        return from(message, List.of());
+        return from(message, List.of(), List.of());
     }
 
     public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images) {
+        return from(message, images, List.of());
+    }
+
+    public static ChatMessageResponse from(ChatMessage message, List<ImageRef> images, List<GeneratedFileRef> generatedFiles) {
         return new ChatMessageResponse(message.id(), message.sessionId(), message.parentMessageId(),
                 message.latestChildMessageId(), message.role().name(), message.content() == null ? "" : message.content(), message.status().name(),
-                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images);
+                message.createdAt(), message.finishedAt(), message.sources().stream().map(ChatSourceResponse::from).toList(), message.files(), message.artifacts(), message.activity(), images, generatedFiles);
     }
 }

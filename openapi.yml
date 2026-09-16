@@ -10977,6 +10977,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
+        generatedFiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFileRef"
       required:
       - activity
       - artifacts
@@ -10984,6 +10988,7 @@ components:
       - createdAt
       - files
       - finishedAt
+      - generatedFiles
       - id
       - images
       - latestChildMessageId
@@ -11056,6 +11061,24 @@ components:
         ordinal:
           type: integer
           format: int32
+    GeneratedFileRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+      required:
+      - filename
+      - id
+      - mediaType
+      - sizeBytes
     ImageRef:
       type: object
       properties:

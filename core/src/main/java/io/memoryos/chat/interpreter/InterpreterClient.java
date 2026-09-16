@@ -37,6 +37,8 @@ public class InterpreterClient implements AutoCloseable {
     /** Largest generated file copied into MemoryOS object storage (MEM-110 design). */
     public static final int MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
     private static final int JSON_LIMIT = 8 * 1024 * 1024;
+    /** Guard on accumulated stdout/stderr; the service caps its own output well below this. */
+    private static final int MAX_STREAM_CHARACTERS = 4 * 1024 * 1024;
     private static final long HEALTH_CACHE_NANOS = TimeUnit.SECONDS.toNanos(30);
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -124,12 +126,8 @@ public class InterpreterClient implements AutoCloseable {
 
     /** Runs code with {@code POST /v1/execute}; the HTTP timeout is 10 seconds longer than the execution timeout. */
     public Execution execute(String code, int timeoutMs, List<StagedFile> files) throws IOException {
-        var body = new LinkedHashMap<String, Object>();
-        body.put("code", code);
-        body.put("timeout_ms", timeoutMs);
-        if (!files.isEmpty()) body.put("files", files.stream().map(f -> Map.of("path", f.path(), "file_id", f.fileId())).toList());
         var request = request("POST", "/v1/execute", timeoutMs / 1000 + 10);
-        request.setEntity(new StringEntity(JSON.writeValueAsString(body), ContentType.APPLICATION_JSON));
+        request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
         return send(request, response -> {
             requireSuccess(response.status());
             var json = JSON.readTree(response.body());
@@ -143,6 +141,85 @@ public class InterpreterClient implements AutoCloseable {
             return new Execution(json.path("stdout").asString(""), json.path("stderr").asString(""),
                     exit.isNumber() ? exit.asInt() : null, json.path("timed_out").asBoolean(false), List.copyOf(workspace));
         });
+    }
+
+    /** Receives one stdout/stderr chunk while the code runs; throwing aborts the run. */
+    public interface OutputListener {
+        void output(String stream, String data) throws IOException;
+    }
+
+    /**
+     * Runs code with {@code POST /v1/execute/stream}, reporting output as it is produced. Aborting the read (a listener
+     * that throws, or an interrupted thread) closes the connection, which kills the executor container and frees the
+     * service's execution slot instead of holding it until the timeout.
+     */
+    public Execution executeStream(String code, int timeoutMs, List<StagedFile> files, OutputListener listener) throws IOException {
+        if (!configured()) throw new IOException("Interpreter not configured");
+        var request = request("POST", "/v1/execute/stream", timeoutMs / 1000L + 10);
+        request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
+        return client.execute(request, response -> {
+            requireSuccess(response.getCode());
+            var entity = response.getEntity();
+            if (entity == null) throw new IOException("Interpreter returned no stream");
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
+                return consume(reader, listener);
+            } catch (IOException | RuntimeException failure) {
+                request.cancel(); // Abandoning the body kills the container; never leave the slot held.
+                throw failure;
+            }
+        });
+    }
+
+    /** Reads {@code event:}/{@code data:} frames until the terminal {@code result}, accumulating output as Onyx does. */
+    private static Execution consume(java.io.BufferedReader reader, OutputListener listener) throws IOException {
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        String event = "";
+        var data = new StringBuilder();
+        for (String line; (line = reader.readLine()) != null; ) {
+            if (!line.isEmpty()) {
+                if (line.startsWith("event:")) event = line.substring(6).strip();
+                else if (line.startsWith("data:")) data.append(line.substring(5).strip());
+                if (data.length() > JSON_LIMIT) throw new IOException("Interpreter stream frame too large");
+                continue;
+            }
+            if (data.isEmpty()) continue;
+            var json = JSON.readTree(data.toString());
+            data.setLength(0);
+            switch (event) {
+                case "output" -> {
+                    String stream = json.path("stream").asString("stdout");
+                    String chunk = json.path("data").asString("");
+                    var target = "stderr".equals(stream) ? stderr : stdout;
+                    if (target.length() + chunk.length() > MAX_STREAM_CHARACTERS)
+                        throw new IOException("Interpreter stream exceeded its output limit");
+                    target.append(chunk);
+                    listener.output(stream, chunk);
+                }
+                case "error" -> throw new IOException("Interpreter stream failed");
+                case "result" -> {
+                    var workspace = new ArrayList<WorkspaceFile>();
+                    for (var file : json.path("files")) {
+                        var id = file.path("file_id");
+                        workspace.add(new WorkspaceFile(file.path("path").asString(""), file.path("kind").asString(""),
+                                id.isString() ? id.asString() : null));
+                    }
+                    var exit = json.path("exit_code");
+                    return new Execution(stdout.toString(), stderr.toString(), exit.isNumber() ? exit.asInt() : null,
+                            json.path("timed_out").asBoolean(false), List.copyOf(workspace));
+                }
+                default -> { } // A newer service may add events; the terminal result still decides the outcome.
+            }
+        }
+        throw new IOException("Interpreter stream ended without a result");
+    }
+
+    private static Map<String, Object> body(String code, int timeoutMs, List<StagedFile> files) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("code", code);
+        body.put("timeout_ms", timeoutMs);
+        if (!files.isEmpty()) body.put("files", files.stream().map(f -> Map.of("path", f.path(), "file_id", f.fileId())).toList());
+        return body;
     }
 
     /** Downloads a generated file of at most {@link #MAX_DOWNLOAD_BYTES}. */

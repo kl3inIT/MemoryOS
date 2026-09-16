@@ -100,15 +100,15 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
 
    As in Onyx, there is no per-turn call cap: the six tool cycles and the two-minute turn deadline bound it to about two full 60-second runs.
 
-   Departure: Onyx calls `/v1/execute/stream`. MemoryOS has no Java SSE consumer, and stream deltas only feed the phase 4 timeline, so phase 3 uses the batch route. A Stop therefore leaves the run holding one of the four execution slots for at most 60 seconds; the executor's own timeout kills the container.
-4. **Progress.** Phase 3 reports `STARTED`, `COMPLETED` and `FAILED` through the existing `ChatToolActivity`. Streaming code and output into the timeline is phase 4.
+   Phase 3 used the batch `POST /v1/execute` because MemoryOS had no Java SSE consumer, which left a Stop holding one of the four execution slots for up to 60 seconds. Phase 4 adds that consumer and calls `/v1/execute/stream` as Onyx does, so output reaches the timeline while the code runs and abandoning the read kills the container at once.
+4. **Progress.** `ChatToolActivity` reports `STARTED`, `COMPLETED` and `FAILED` like every tool. Phase 4 adds `ChatCodeEvent` on its own `code` stream channel, modelled on `ChatImageEvent`, carrying the code, bounded output deltas and the generated files. Tool events stay allowlisted summaries; the code channel is the deliberate exception, bounded so it cannot exhaust the replay buffer and not committed to `chat_message.activity`.
 5. **Generated files.** Each workspace file up to 25 MiB is downloaded with `GET /v1/files/{id}`, staged and adopted into object storage as a `chat_file_artifact` (V63) row on the assistant message, and deleted from the interpreter. Larger files are reported as skipped. Uploaded inputs stay on the service until its file TTL (`FILE_TTL_SEC`, 900 seconds on staging), as in Onyx; phase 3 adds the missing expiry loop to the service. Files are served owner-authorized at `GET /api/chat/file-artifacts/{id}/content`: `inline` for PNG, JPEG and WebP, `attachment` otherwise, with `nosniff` and `no-store`.
 6. **Model result.** The Onyx JSON: `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files: [{filename, file_link}], error, staging_notice}`.
    - `stdout` and `stderr` are truncated to 50 000 characters with the Onyx suffix.
    - `exit_code` is -1 when the service cannot be reached or rejects the call.
    - `file_link` is the relative MemoryOS URL above, so the model never sees interpreter file IDs or URLs.
    - MemoryOS has no reminder message, so the Onyx `FILE_REMINDER` text follows the JSON in the tool result when files were generated.
-7. **Browser.** Phase 3 adds the administration page and a timeline label. The model's markdown link is the download path. Code, output, previews and download chips in the timeline are phase 4.
+7. **Browser.** Phase 3 adds the administration page and a timeline label. Phase 4 adds the code and output in the step and download cards for generated files below the answer, and makes the model's markdown link to the artifact path clickable.
 8. **Administration and runtime.**
    - `/api/chat/interpreter`: `GET` and `PUT` the Tenant setting, and `GET /health` returns the uncached `{connected, error, version}` (Onyx `server/manage/code_interpreter/api.py`), all with `MODELS_MANAGE`.
    - The interpreter requires `X-Api-Key` on every `/v1` route (a MemoryOS addition). The API sends the same key.
@@ -123,7 +123,7 @@ In scope, by phase:
 1. Staging runtime: Compose service, executor image publication and pull, release/deploy contract, and a runbook.
 2. Service hardening: JSON logs and a concurrent-execution limit on staging.
 3. Java integration: client with service API key authentication, `run_python` tool in the existing Chat tool loop, file staging with Onyx limits, generated files stored like image artifacts, admin enable/health.
-4. Browser: tool step in the activity timeline, generated file download, and a capability decision (`CODE_EXECUTE` or Basic grant).
+4. Browser: streamed code and output in the activity timeline, generated file download, and the capability decision (no new capability).
 5. Office output quality and self-checks: LibreOffice rendering of docx/pptx/pdf to images the model inspects, xlsx formula recalculation, templates and on-demand instructions (Anthropic Agent Skills pattern).
 6. Structured outputs and state: captured charts and DataFrames (E2B pattern), session-scoped stateful execution per Chat, a small warm pool.
 
