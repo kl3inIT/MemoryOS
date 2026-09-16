@@ -30,7 +30,7 @@ Consequences of the model:
 
 ## Implementation
 
-- `V62__source_manager_group_authority.sql` adds `connector_credential_pairs.manager_actor_id`, backfills it from `created_by_actor_id` and bumps `authorization_version`.
+- `V63__source_manager_group_authority.sql` adds `connector_credential_pairs.manager_actor_id`, backfills it from `created_by_actor_id` and bumps `authorization_version`.
 - `SourceScopeSql.WRITE` becomes "active Group manager, not public, and the recorded manager"; `READ` gains the recorded manager for catalog rows only.
 - `DefaultSourceManagementService.replaceSourceGroups` authorizes the **delta**: every added and every removed Group must be managed by the actor, so another manager's association survives the replacement untouched.
 - `removeGroupSource` authorizes against the Group, never the Source.
