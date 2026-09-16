@@ -611,6 +611,36 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     },
   );
 
+  it("resumes a research-length stream past three disconnects while it keeps producing events", async () => {
+    // Deep research runs for minutes and each connection is capped, so only a silent stream may fall back to history.
+    let call = 0;
+    const fetch = fixture(() => {
+      call += 1;
+      return call <= 5
+        ? sse(packet(call, "text-delta", { text: `part ${call} ` }))
+        : sse(packet(6, "outcome", { status: "COMPLETED", failureCode: null }));
+    });
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "text-delta")).toHaveLength(5);
+    expect(chunks.at(-1)?.type).toBe("finish");
+    expect(
+      fetch.mock.calls.filter(([input, init]) =>
+        new URL(new Request(input, init).url).pathname.endsWith("/events"),
+      ),
+    ).toHaveLength(6);
+  });
+
+  it("falls back to committed history when three connections in a row deliver nothing", async () => {
+    const fetch = fixture(() => sse(""));
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.at(-1)?.type).toBe("finish");
+    expect(
+      fetch.mock.calls.filter(([input, init]) =>
+        new URL(new Request(input, init).url).pathname.endsWith("/events"),
+      ),
+    ).toHaveLength(3);
+  });
+
   it("keeps a failed partial reply and never emits finish", async () => {
     fixture(() => sse(delta + terminal("FAILED")));
     const chunks = await collect(await send(new MemoryOsChatTransport(session)));
