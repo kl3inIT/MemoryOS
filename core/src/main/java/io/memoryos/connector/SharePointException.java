@@ -46,6 +46,27 @@ public final class SharePointException extends BusinessException {
                 "Entra rejected the SharePoint credential: " + reason);
     }
 
+    public static SharePointException invalidRootUrl(String safeMessage) {
+        return new SharePointException("SOURCE_SHAREPOINT_ROOT_URL_INVALID", FailureCategory.VALIDATION,
+                safeMessage, "invalid SharePoint site, library or folder address");
+    }
+
+    public static SharePointException invalidExclusion() {
+        return new SharePointException("SOURCE_SHAREPOINT_EXCLUSION_INVALID", FailureCategory.VALIDATION,
+                "Each exclusion must contain 1 to 512 characters, with at most 100 exclusions.",
+                "invalid SharePoint exclusion pattern");
+    }
+
+    public static SharePointException overlappingRoots() {
+        return new SharePointException("SOURCE_SHAREPOINT_ROOTS_OVERLAP", FailureCategory.VALIDATION,
+                "Select either a site, library or folder, not one inside another.", "overlapping SharePoint roots");
+    }
+
+    public static SharePointException mixedTenants() {
+        return new SharePointException("SOURCE_SHAREPOINT_ROOTS_MIXED_TENANTS", FailureCategory.VALIDATION,
+                "Every address must be on the same SharePoint host.", "SharePoint roots span more than one host");
+    }
+
     public static SharePointException unavailable() {
         return new SharePointException("SOURCE_SHAREPOINT_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
                 "Microsoft did not answer. Try again in a moment.", "SharePoint provider request did not complete");
