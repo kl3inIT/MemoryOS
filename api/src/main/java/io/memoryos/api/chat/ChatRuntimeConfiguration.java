@@ -52,8 +52,9 @@ class ChatRuntimeConfiguration {
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
-                                        io.memoryos.chat.image.ImageArtifactService imageArtifacts) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts);
+                                        io.memoryos.chat.image.ImageArtifactService imageArtifacts,
+                                        io.micrometer.core.instrument.MeterRegistry meters) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, meters);
     }
 
     @Bean(destroyMethod = "dispose")

@@ -26,6 +26,8 @@ public final class McpFixtureServer implements AutoCloseable {
 
     /** Tool calls the fixture served, so a turn can assert what actually reached the server. */
     private static final java.util.List<String> CALLS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    private static final java.util.concurrent.atomic.AtomicBoolean TOOL_ERROR = new java.util.concurrent.atomic.AtomicBoolean();
+    private static final java.util.concurrent.atomic.AtomicReference<Runnable> BEHAVIOUR = new java.util.concurrent.atomic.AtomicReference<>();
 
     private final Tomcat tomcat;
     private final McpSyncServer server;
@@ -42,6 +44,18 @@ public final class McpFixtureServer implements AutoCloseable {
 
     public static void resetCalls() {
         CALLS.clear();
+        TOOL_ERROR.set(false);
+        BEHAVIOUR.set(null);
+    }
+
+    /** Makes every tool answer with the server's own {@code isError}, which is a tool outcome, not a failure. */
+    public static void failTools(boolean failing) {
+        TOOL_ERROR.set(failing);
+    }
+
+    /** Runs inside the tool handler, so a test can stall a call past the per-call timeout. */
+    public static void onCall(@Nullable Runnable behaviour) {
+        BEHAVIOUR.set(behaviour);
     }
 
     public static McpFixtureServer start(Map<String, String> requiredHeaders) throws Exception {
@@ -94,6 +108,12 @@ public final class McpFixtureServer implements AutoCloseable {
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
                 .callHandler((exchange, request) -> {
                     CALLS.add(name + "(" + request.arguments() + ")");
+                    var behaviour = BEHAVIOUR.get();
+                    if (behaviour != null) behaviour.run();
+                    if (TOOL_ERROR.get()) {
+                        return McpSchema.CallToolResult.builder().isError(true)
+                                .addTextContent("the fixture refused: no such file").build();
+                    }
                     return McpSchema.CallToolResult.builder()
                             .addTextContent("fixture result for " + request.arguments()).build();
                 }).build();

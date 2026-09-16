@@ -296,7 +296,6 @@ public class McpOAuthService {
         });
     }
 
-    /** Removes the shared OAuth connection and revokes it at the authorization server afterwards. */
     /** Removes the User's own connection; the server status reports the shared connection only, so it is untouched. */
     public void disconnectUser(ActorId actor, UUID serverId) {
         Revocation revocation = transactions.execute(status -> {
@@ -312,6 +311,11 @@ public class McpOAuthService {
         if (revocation != null) protocol.revoke(revocation.endpoint(), revocation.client(), revocation.token());
     }
 
+    /**
+     * Removes the shared connection and revokes it afterwards. This stays separate from
+     * {@link #disconnectUser}: the two differ in who may call them, and folding that into a parameter would
+     * hide an authorization decision behind a flag.
+     */
     public void disconnectAdministrator(ActorId actor, UUID serverId) {
         Revocation revocation = transactions.execute(status -> {
             UUID tenant = write(actor);

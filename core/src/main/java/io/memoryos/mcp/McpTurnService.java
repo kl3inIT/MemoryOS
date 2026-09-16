@@ -77,7 +77,8 @@ public class McpTurnService {
         return new McpTurnTools(clients, targets, bindings, unavailable);
     }
 
-    public McpTurnTools empty() {
+    /** A turn that selected no usable server; only {@link #open} needs it. */
+    private McpTurnTools empty() {
         return new McpTurnTools(clients, Map.of(), List.of(), List.of());
     }
 

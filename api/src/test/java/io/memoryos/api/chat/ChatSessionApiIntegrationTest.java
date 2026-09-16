@@ -133,6 +133,8 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
         "memoryos.chat.catalog.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "memoryos.mcp.credential-encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        // Short enough that a stalled MCP tool can be exercised without stalling the suite.
+        "memoryos.chat.execution.mcp-call-timeout=2s",
         "memoryos.mcp.redirect-uri=http://127.0.0.1:8080/login/oauth2/code/mcp",
         "memoryos.chat.stream.heartbeat=100ms",
         "springdoc.api-docs.enabled=true",
@@ -2198,6 +2200,86 @@ class ChatSessionApiIntegrationTest {
             awaitOutcome(stopReply.path("assistantMessageId").asText(), "CANCELED");
             assertEquals(List.of(), io.memoryos.api.mcp.McpFixtureServer.calls());
         }
+    }
+
+    @Test
+    void mcpToolFailuresReachTheModelAsCategoriesWithoutStoppingTheTurn() throws Exception {
+        grantCapability("MCP_MANAGE");
+        grantModelManagement();
+        io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+        var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
+        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+            String slug = "fail" + (System.nanoTime() % 100000);
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(mcpServerBody(slug, fixture.url()).toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            UUID serverId = UUID.fromString(created.path("id").asText());
+            mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            mockMvc.perform(put("/api/mcp/servers/" + serverId + "/tools/enabled").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                    .andExpect(status().isOk());
+            String toolName = "mcp_" + slug + "_search_files";
+
+            var prompts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                Prompt prompt = call.getArgument(0);
+                prompts.add(prompt.toString());
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
+                    return Flux.just(response("Đã xử lý.", "stop", 12));
+                return Flux.just(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
+                        .toolCalls(List.of(new AssistantMessage.ToolCall("mcp-fail", "function", toolName, "{\"query\":\"x\"}")))
+                        .build(), ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                        ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+            });
+
+            // 1. The server answers with its own isError. The turn still completes and the model sees the text.
+            io.memoryos.api.mcp.McpFixtureServer.failTools(true);
+            runMcpTurn(serverId, "Tìm tệp.");
+            assertTrue(prompts.getLast().contains("the fixture refused"));
+
+            // 2. One call outlives the per-call timeout. The turn completes; the model is told, without detail.
+            io.memoryos.api.mcp.McpFixtureServer.failTools(false);
+            io.memoryos.api.mcp.McpFixtureServer.onCall(() -> {
+                try { Thread.sleep(2500); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            });
+            prompts.clear();
+            runMcpTurn(serverId, "Tìm tệp lần nữa.");
+            io.memoryos.api.mcp.McpFixtureServer.onCall(null);
+            String afterTimeout = prompts.getLast();
+            assertTrue(afterTimeout.contains("did not answer in time"));
+            assertFalse(afterTimeout.contains("fixture-mcp-key"));
+
+            // 3. The stored credential stops working. The model is told to reconnect, and the turn still answers.
+            var wrongKey = mcpServerBody(slug, fixture.url());
+            wrongKey.putObject("sharedApiKey").put("action", "REPLACE").put("value", "no-longer-valid");
+            var current = Json.mapper().readTree(mockMvc.perform(get("/api/mcp/servers/" + serverId)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString());
+            mockMvc.perform(put("/api/mcp/servers/" + serverId).param("revision", current.path("revision").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(wrongKey.toString())).andExpect(status().isOk());
+            prompts.clear();
+            runMcpTurn(serverId, "Thử lại lần ba.");
+            String afterRejection = prompts.getLast();
+            assertTrue(afterRejection.contains("reconnect"));
+            assertFalse(afterRejection.contains("401"));
+        }
+    }
+
+    /** Sends one turn that selects the server and waits for it to finish, whatever the tool did. */
+    private void runMcpTurn(UUID serverId, String text) throws Exception {
+        var session = create();
+        var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                .put("clientRequestId", UUID.randomUUID().toString()).put("text", text);
+        body.putArray("mcpServerIds").add(serverId.toString());
+        var reply = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertEquals("COMPLETED",
+                jdbc.sql("SELECT coalesce(failure_code, status) FROM chat_message WHERE id=:id")
+                        .param("id", UUID.fromString(reply.path("assistantMessageId").asText())).query(String.class).single()));
     }
 
     @Test
