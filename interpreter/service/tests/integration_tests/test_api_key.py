@@ -23,6 +23,7 @@ from memoryos_interpreter.services.file_storage import FileStorageService
 def _fresh_key(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.delenv("API_KEY", raising=False)
     monkeypatch.delenv("API_KEY_FILE", raising=False)
+    monkeypatch.delenv("ALLOW_UNAUTHENTICATED", raising=False)
     configured_api_key.cache_clear()
     get_executor.cache_clear()
     yield
