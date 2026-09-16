@@ -57,6 +57,32 @@ class StagingDeploymentContractTest(unittest.TestCase):
         self.assertIn("exit 1", rollback)
         self.assertNotIn("pg_restore", rollback)
 
+    def test_interpreter_images_join_the_release_contract(self):
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("name: candidate-interpreter", CI_WORKFLOW)
+        self.assertIn("docker load --input candidate/interpreter.tar", publish)
+        self.assertIn("for component in api worker web interpreter interpreter-executor; do", publish)
+        # Compose rejects a hyphen in an environment key.
+        self.assertIn("key=${component//-/_}", publish)
+        self.assertIn("images=(api worker web interpreter interpreter-executor)", SCRIPT)
+        self.assertIn('[[ $(wc -l < "$tx/images.env") == 6 ]]', SCRIPT)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
+        self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
+        self.assertLess(deploy.index("docker pull --quiet"), deploy.index('> "$state/pending"'))
+        # A runtime accepted before the interpreter joined the release has no interpreter container.
+        self.assertIn('has_interpreter "$state/current.env"', deploy)
+        self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+
+    def test_interpreter_is_reachable_only_on_the_internal_network(self):
+        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
+        service = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        self.assertNotIn("ports:", service)
+        self.assertIn("memoryos-internal:", service)
+        for network in ("shared-infra", "proxy", "memoryos-telemetry"):
+            self.assertNotIn(network, service)
+        self.assertIn("PYTHON_EXECUTOR_DOCKER_NETWORK: none", service)
+
 
 if __name__ == "__main__":
     unittest.main()

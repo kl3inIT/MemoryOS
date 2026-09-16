@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memoryos-interpreter"
+version = "0.1.0"
+description = "MemoryOS code interpreter service: runs model-written Python in disposable executors"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+authors = [{ name = "MemoryOS" }]
+dependencies = [
+  "fastapi==0.138.0",
+  "httpx>=0.28.1",
+  "python-multipart>=0.0.31",
+  "uvicorn==0.30.6",
+  "kubernetes>=31.0.0",
+  "python-json-logger>=3.1.0",
+]
+
+[project.scripts]
+memoryos-interpreter-api = "memoryos_interpreter.main:run"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+pretty = true
+color_output = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["memoryos_interpreter"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ANN", "S"]
+ignore = ["S603", "S607"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["kubernetes"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[dependency-groups]
+dev = [
+    "autoflake>=2.3.1",
+    "dotenv>=0.9.9",
+    "mypy>=1.18.2",
+    "pre-commit>=3.8.0",
+    "pytest>=9.0.3",
+    "ruff>=0.13.1",
+]
