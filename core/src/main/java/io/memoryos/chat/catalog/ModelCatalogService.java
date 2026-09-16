@@ -221,10 +221,10 @@ public class ModelCatalogService {
             } catch (IllegalArgumentException invalid) {
                 throw ChatException.invalid("Invalid Persona cursor.");
             }
-            if (!catalog.personaExists(tenant, actor.value(), after)) throw ChatException.invalid("Invalid Persona cursor.");
+            if (!catalog.personaExists(tenant, actor.value(), after, agentsManage(actor))) throw ChatException.invalid("Invalid Persona cursor.");
         }
         chats.provisionPersona(new TenantId(tenant), persona.getName(), persona.getInstructions(), persona.getModel());
-        var page = catalog.personas(tenant, actor.value(), after, limit + 1);
+        var page = catalog.personas(tenant, actor.value(), agentsManage(actor), after, limit + 1);
         boolean hasMore = page.size() > limit;
         var items = hasMore ? page.subList(0, limit) : page;
         return new PersonaPage(items, hasMore ? items.getLast().id().toString() : null);
@@ -232,21 +232,21 @@ public class ModelCatalogService {
 
     @Transactional
     public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
-        return catalog.personaModel(admin(actor, false), actor.value(), id);
+        return catalog.personaModel(admin(actor, false), actor.value(), agentsManage(actor), id);
     }
 
     @Transactional
     public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
         initialize(tenant);
-        catalog.personaModel(tenant, actor.value(), id);
+        catalog.personaModel(tenant, actor.value(), agentsManage(actor), id);
         if (modelId != null) {
             var model = catalog.model(tenant, modelId).orElseThrow(ChatException::unavailable);
             var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
             if (!available(provider, id, true, Set.of())) throw ChatException.invalid("Model is unavailable to this Persona.");
         }
-        catalog.setPersonaModel(tenant, actor.value(), id, modelId, revision);
-        return catalog.personaModel(tenant, actor.value(), id);
+        catalog.setPersonaModel(tenant, actor.value(), agentsManage(actor), id, modelId, revision);
+        return catalog.personaModel(tenant, actor.value(), agentsManage(actor), id);
     }
 
     @Transactional
@@ -289,7 +289,7 @@ public class ModelCatalogService {
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID personaDefault = catalog.personaModel(tenant, actor.value(), personaId).modelConfigurationId();
+        UUID personaDefault = catalog.personaModel(tenant, actor.value(), agentsManage(actor), personaId).modelConfigurationId();
         UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
                 ? personaDefault : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
@@ -346,6 +346,9 @@ public class ModelCatalogService {
         if (p.isPublic()) return true;
         if (!p.groupIds().isEmpty()) return manager || p.groupIds().stream().anyMatch(groups::contains);
         return !p.personaIds().isEmpty() || manager;
+    }
+    private boolean agentsManage(ActorId actor) {
+        return authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE);
     }
     private boolean usableDefaultProvider(Provider p) {
         return p.enabled() && p.isPublic() && p.personaIds().isEmpty() && credentialUsable(p);

@@ -37,6 +37,19 @@ class ModelCatalogSelectionTest {
         assertEquals(1, fixture.service.availableModelsForPersona(fixture.actor, fixture.persona).size());
     }
 
+    @Test void agentRestrictedProviderWithoutGroupsIsUsableThroughItsAgentsOnly() {
+        var fixture = new Fixture();
+        var agentOnly = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+                "Agent provider", "test", "http://model.invalid", true, false, null, 1, Set.of(), Set.of(fixture.persona));
+        when(fixture.catalog.providers(fixture.tenant)).thenReturn(List.of(fixture.provider, agentOnly));
+        // Onyx can_user_access_llm_provider: no Groups, listed agent, non-public provider.
+        assertEquals(2, fixture.service.availableModelsForPersona(fixture.actor, fixture.persona).size());
+        var grouped = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+                "Grouped agent provider", "test", "http://model.invalid", true, false, null, 1, Set.of(UUID.randomUUID()), Set.of(fixture.persona));
+        when(fixture.catalog.providers(fixture.tenant)).thenReturn(List.of(fixture.provider, grouped));
+        assertEquals(1, fixture.service.availableModelsForPersona(fixture.actor, fixture.persona).size());
+    }
+
     @Test void hiddenInheritedModelDoesNotFalselyMarkTenantDefault() {
         var fixture = new Fixture();
         fixture.preferPersona();
@@ -79,7 +92,7 @@ class ModelCatalogSelectionTest {
             when(catalog.model(tenant, otherId)).thenReturn(Optional.of(otherModel));
             when(catalog.provider(tenant, otherProvider.id())).thenReturn(Optional.of(otherProvider));
             when(catalog.defaultModel(tenant)).thenReturn(new ModelCatalogRepository.Default(defaultId, 1));
-            when(catalog.personaModel(tenant, actor.value(), persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
+            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
                     mock(ProviderCredentials.class), mock(GroupScopeService.class), new PersonaProperties(), null);
         }
@@ -88,7 +101,7 @@ class ModelCatalogSelectionTest {
                     true, true, null, 1, Set.of(), Set.of());
         }
         void preferPersona() {
-            when(catalog.personaModel(tenant, actor.value(), persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, otherId, 1));
+            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, otherId, 1));
         }
         List<UUID> defaults() {
             return service.availableModelsForPersona(actor, persona).stream().filter(ModelCatalogService.AvailableModel::isDefault)

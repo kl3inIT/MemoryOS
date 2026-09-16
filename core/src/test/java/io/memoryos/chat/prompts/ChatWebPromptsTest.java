@@ -43,6 +43,18 @@ class ChatWebPromptsTest {
         }).toList();
         return new Prompt(messages, OpenAiChatOptions.builder().toolCallbacks(callbacks).build());
     }
+    @Test void agentTaskPromptIsTheFinalReminderAndDateAwarenessIsOptional() {
+        var guided = ChatPrompts.forInference(prompt(Set.of(), null), false, false, true, "Always answer with the KPI month.");
+        var last = guided.getInstructions().getLast().getText();
+        assertTrue(last.startsWith("<system-reminder>"));
+        assertTrue(last.contains("Always answer with the KPI month."));
+        var now = java.time.Instant.parse("2026-09-17T00:00:00Z");
+        assertTrue(ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, true).contains("2026-09-17T00:00:00Z"));
+        var unaware = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, false);
+        assertFalse(unaware.contains("CURRENT_DATETIME"));
+        assertFalse(unaware.contains("The current date is"));
+    }
+
     @Test void webOnlyDoesNotAdvertiseInternalSearchAndPreservesOriginalPrompt() {
         var original = prompt(Set.of("web_search", "open_url"), null);
         var guided = ChatPrompts.forInference(original, false, false);

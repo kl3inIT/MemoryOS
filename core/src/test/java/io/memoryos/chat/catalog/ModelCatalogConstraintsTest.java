@@ -68,7 +68,7 @@ class ModelCatalogConstraintsTest {
         UUID persona = UUID.randomUUID();
         jdbc.sql("INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model) VALUES (:id, :tenant, 'default', 'Persona', '', 'model')")
                 .param("id", persona).param("tenant", otherTenant).update();
-        assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.setPersonaModel(otherTenant, UUID.randomUUID(), persona, model.id(), 1)));
+        assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.setPersonaModel(otherTenant, UUID.randomUUID(), true, persona, model.id(), 1)));
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.sql("INSERT INTO llm_provider_persona VALUES (:tenant, :provider, :persona)")
                 .param("tenant", tenant).param("provider", provider).param("persona", persona).update());
         UUID group = UUID.randomUUID();
@@ -166,7 +166,7 @@ class ModelCatalogConstraintsTest {
                     VALUES (:id,:tenant,:provider,'hosted','Hosted',CAST(:settings AS jsonb),9)
                     """).param("id", legacy).param("tenant", tenant).param("provider", provider).param("settings", legacySettings).update();
             catalog.setDefault(tenant, legacy, 1);
-            catalog.setPersonaModel(tenant, actor.value(), persona, installed, 1);
+            catalog.setPersonaModel(tenant, actor.value(), true, persona, installed, 1);
             var session = chats.create(new TenantId(tenant), actor, persona, "Preserved history");
             UUID user = UUID.randomUUID(), assistant = UUID.randomUUID();
             chats.insertPair(session.id(), session.rootMessageId(), UUID.randomUUID(), user, assistant, "Tiếng Việt", Duration.ofMinutes(1), List.of());
