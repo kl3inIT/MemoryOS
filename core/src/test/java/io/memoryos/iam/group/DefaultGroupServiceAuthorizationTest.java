@@ -172,6 +172,6 @@ class DefaultGroupServiceAuthorizationTest {
         }
         assertEquals(EnumSet.allOf(IamCapability.class), registered);
         assertEquals(Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
-                IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE), editable);
+                IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE), editable);
     }
 }

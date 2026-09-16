@@ -76,7 +76,7 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
   - batch execution with the Onyx fixed per-call timeout (a turn has no total deadline since MEM-101);
   - the Onyx result JSON with a relative `file_link`, followed by `FILE_REMINDER` when files were generated.
 - [x] **Generated files.**
-  - `chat_file_artifact` (V69), staged then adopted, at most 25 MiB each.
+  - `chat_file_artifact` (V71), staged then adopted, at most 25 MiB each.
   - Served at `/api/chat/file-artifacts/{id}/content`.
   - Deleted from the service after download.
 - [x] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.

@@ -49,6 +49,9 @@ public class DefaultGroupService implements GroupService {
     private static final List<GroupCapabilityMetadata> CAPABILITY_REGISTRY = List.of(
             metadata(IamCapability.MODELS_MANAGE, "Manage models",
                     "Configure Chat providers, credentials, models and access within the Tenant.", true),
+            metadata(IamCapability.MCP_MANAGE, "Manage MCP servers",
+                    "Register remote MCP servers, their authentication and OAuth clients, enable their tools "
+                            + "and control Group access within the Tenant.", true),
             metadata(
                     IamCapability.SYSTEM_ADMIN,
                     "Administrator access",

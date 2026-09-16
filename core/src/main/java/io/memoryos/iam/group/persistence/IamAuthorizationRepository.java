@@ -59,7 +59,7 @@ public class IamAuthorizationRepository {
                     OR (
                         authority_group.system_key IS NULL
                         AND capability.capability IN (
-                            'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE'
+                            'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE'
                         )
                     )
              )

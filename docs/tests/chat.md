@@ -247,7 +247,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | The interpreter client reports streamed output as it arrives and returns the final result; a service error, a stream that ends without a result, a listener that stops reading and an unterminated oversized frame all fail | `InterpreterClientTest` |
 | `run_python` publishes the code, output bounded to its budget and the generated files to the timeline; a timeout or non-zero exit is a failed step that keeps its files, and a failure carries no service detail | `RunPythonToolTest` |
 | Generated files download from an authorized path, survive a reload and state their size; the step shows the code, the output and a failure in both languages | `chat-code.test.tsx` |
-| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V69) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V71) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
 
 ## Deep research (MEM-101)
@@ -268,3 +268,21 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Real provider run (opt-in `MEMORYOS_DR_LIVE=true` with `SPRING_AI_OPENAI_API_KEY`) | `ResearchExecutorLiveTest`: gpt-5-mini, plan, agent cycles, merged citations, usage from every guard |
 
 Open: visual review of the research timeline, staging acceptance with the real corpus.
+
+## MCP tools
+
+| Behaviour | Evidence |
+| --- | --- |
+| Administration seals secrets, refreshes the tool snapshot and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
+| A per-User server is Group-scoped; a User's API key is listed against the server before it is stored, a rejected key writes nothing, and two Users hold separate credentials | `ChatSessionApiIntegrationTest.mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser` |
+| Discovery, DCR, per-organization clients, `iss` validation, PKCE with `resource`, refresh races and disconnect-with-revocation | `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects` |
+| Protected-resource metadata from the challenge or either well-known URL, the spec's authorization-server probing order, `S256` required, redirects never followed, and the root document permitted to name the origin | `McpOAuthProtocolTest` (9) |
+| The browser session binds state and the PKCE verifier; the callback completes once, maps failures to outcome codes without upstream detail, and returns a connecting User to their own chat | `McpOAuthCallbackTest` (5); `McpReturnPathTest` (2) |
+| A turn calls MCP tools with unchanged arguments, never exposes a credential in a prompt, omits a tool whose model-facing name cannot fit, ignores a server the actor may not use, and closes its sessions on Stop | `ChatSessionApiIntegrationTest.mcpToolsRunInATurnAndUnusableServersBecomeAConnectAction` |
+| A tool error, a per-call timeout and a rejected credential each reach the model as a category, with no upstream body, and none of them ends the turn | `ChatSessionApiIntegrationTest.mcpToolFailuresReachTheModelAsCategoriesWithoutStoppingTheTurn` |
+| Every failure category is reported without upstream text; the per-turn call limit is checked before arguments are parsed; one result is capped against the remaining context; `memoryos.chat.mcp.call` carries exactly `{server, tool, outcome}` | `McpToolsTest` (8) |
+| Slug, header template, API key, scopes, parameters, model tool names and tool snapshots are validated at the capability boundary | `McpServerRulesTest` (7) |
+| The composer offers a connected server, replaces the switch with Connect when the User must act, asks which account only when several exist, and disables a server with no enabled tools | `chat-mcp-options.test.tsx` (5) |
+| Administration screens list servers, tools and OAuth applications; discovery is offered only in auto-discovery mode; a pasted application posts its secret in the token request | `mcp-oauth-clients.test.tsx` (7); `mcp-administration.spec.ts` (7, with screenshots) |
+
+Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/verification.md).
