@@ -40,7 +40,7 @@ export function SourceAccessChoice({
       <SelectTrigger
         id={id}
         aria-labelledby={labelledBy}
-        className="w-full data-[size=default]:h-[var(--control-height-md)] sm:max-w-md"
+        className="w-full data-[size=default]:h-[var(--control-height-md)]"
       >
         <SelectValue>
           <span className="flex items-center gap-2 text-content-primary">
