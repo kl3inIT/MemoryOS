@@ -70,6 +70,18 @@ public class JdbcSourceRepository {
         return new SourcePair(connectorId, sourceId, SourceStatus.NOT_STARTED, 0);
     }
 
+    /** The connector kind behind a Source, which decides whose synchronization runs it. */
+    public io.memoryos.connector.SourceType type(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql("""
+                        SELECT c.connector_type FROM connector_credential_pairs p
+                        JOIN connectors c ON c.tenant_id = p.tenant_id AND c.id = p.connector_id
+                        WHERE p.tenant_id = :tenantId AND p.id = :sourceId
+                        """)
+                .param("tenantId", tenantId.value()).param("sourceId", sourceId.value())
+                .query(String.class).optional().map(io.memoryos.connector.SourceType::valueOf)
+                .orElseThrow(SourceException::notFound);
+    }
+
     public SourcePair lock(TenantId tenantId, SourceId sourceId) {
         jdbcClient.sql("SELECT id FROM tenants WHERE id = :tenant FOR SHARE")
                 .param("tenant", tenantId.value()).query(UUID.class).optional();

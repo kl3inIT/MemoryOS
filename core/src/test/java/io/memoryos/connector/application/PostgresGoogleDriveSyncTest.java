@@ -995,7 +995,8 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private DefaultConnectorSyncService service() {
-        return new DefaultConnectorSyncService(syncRows, sources, roots, items, attempts, mappings, connections, writes, manager);
+        return new DefaultConnectorSyncService(syncRows, sources, roots, items, attempts, mappings, connections, writes,
+                org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
     }
 
     private SourceOperationId enqueue() {

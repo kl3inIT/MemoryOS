@@ -12,6 +12,8 @@ CREATE TABLE sharepoint_sources (
         CHECK (prune_interval_hours = 0 OR prune_interval_hours BETWEEN 1 AND 8760),
     scope_revision BIGINT NOT NULL DEFAULT 1 CHECK (scope_revision > 0),
     schedule_revision BIGINT NOT NULL DEFAULT 1 CHECK (schedule_revision > 0),
+    -- Bumped whenever a run is enqueued, so an older attempt cannot write after a newer one starts.
+    generation BIGINT NOT NULL DEFAULT 0 CHECK (generation >= 0),
     sync_paused BOOLEAN NOT NULL DEFAULT FALSE,
     tenant_host VARCHAR(255),
     -- End of the window of the last successful refresh; the next window starts here minus the overlap.

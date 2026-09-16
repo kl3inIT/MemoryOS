@@ -1,0 +1,418 @@
+package io.memoryos.connector.application;
+
+import io.memoryos.connector.ConnectorSyncPort.Result;
+import io.memoryos.connector.ConnectorSyncPort.Work;
+import io.memoryos.connector.SharePointConnectionService;
+import io.memoryos.connector.SharePointGlob;
+import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointProviderException;
+import io.memoryos.connector.SharePointSourceService.RootKind;
+import io.memoryos.connector.SourceException;
+import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.connector.SourceItemId;
+import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceStorageFailure;
+import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
+import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
+import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
+import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
+import io.memoryos.connector.persistence.JdbcSharePointSyncRepository.Run;
+import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.persistence.JdbcSourceItemRepository;
+import io.memoryos.connector.persistence.JdbcSourceRepository;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.iam.tenant.TenantId;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Synchronizes a SharePoint Source. A refresh reads each library's change log since the previous window and
+ * applies what it reports, including the tombstones that say an item is gone. A prune lists the whole scope
+ * and removes what it no longer finds, but only when the listing finished, so a site that fails to answer
+ * never causes its documents to be deleted.
+ */
+@Service
+public class DefaultSharePointSyncService {
+    private static final int MAX_STEPS = 16;
+    private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
+    private static final int MAX_CONTENT_BYTES = 100 * 1024 * 1024;
+
+    private final JdbcSharePointSyncRepository runs;
+    private final JdbcSharePointSourceRepository sharePoint;
+    private final JdbcSourceRepository sources;
+    private final JdbcSourceItemRepository items;
+    private final JdbcIndexAttemptRepository indexing;
+    private final JdbcSourceDocumentRepository documents;
+    private final SharePointConnectionService connections;
+    private final ObjectWriteService writes;
+    private final TransactionTemplate transactions;
+
+    public DefaultSharePointSyncService(JdbcSharePointSyncRepository runs, JdbcSharePointSourceRepository sharePoint,
+            JdbcSourceRepository sources, JdbcSourceItemRepository items, JdbcIndexAttemptRepository indexing,
+            JdbcSourceDocumentRepository documents, SharePointConnectionService connections,
+            ObjectWriteService writes, PlatformTransactionManager manager) {
+        this.runs = runs;
+        this.sharePoint = sharePoint;
+        this.sources = sources;
+        this.items = items;
+        this.indexing = indexing;
+        this.documents = documents;
+        this.connections = connections;
+        this.writes = writes;
+        this.transactions = new TransactionTemplate(manager);
+    }
+
+    public int enqueueDue(int limit) {
+        int count = 0;
+        for (var due : runs.due(limit)) {
+            try {
+                boolean accepted = Boolean.TRUE.equals(transactions.execute(_ -> {
+                    sources.lock(due.tenantId(), due.sourceId());
+                    if (!runs.automaticSyncEnabled(due.tenantId(), due.sourceId())) return false;
+                    var state = connections.state(due.tenantId(), due.sourceId());
+                    runs.postpone(due.tenantId(), due.sourceId());
+                    runs.enqueue(due.tenantId(), due.sourceId(), state.credentialRevision(),
+                            SourceRunTrigger.SCHEDULED, null);
+                    return true;
+                }));
+                if (accepted) count++;
+            } catch (io.memoryos.BusinessException exception) {
+                transactions.executeWithoutResult(_ -> runs.postpone(due.tenantId(), due.sourceId()));
+            }
+        }
+        return count;
+    }
+
+    public Result execute(Work work) {
+        try {
+            var state = fenced(work, () -> runs.state(work.tenantId(), work.sourceId()));
+            try (var connection = connections.open(work.tenantId(), work.sourceId())) {
+                if (connection.credentialRevision() != work.credentialRevision()) throw new StaleSyncException();
+                var run = fenced(work, () -> runs.openRun(work, state.pruneDue() ? "PRUNE" : "REFRESH",
+                        state.pruneDue() ? null : windowStart(state.refreshWindowEnd()), Instant.now()));
+                String tenantHost = connection.tenantHost() == null
+                        ? connection.session().root().hostname() : connection.tenantHost();
+                return walk(work, run, connection.session(), tenantHost);
+            }
+        } catch (StaleSyncException exception) {
+            settle(work, () -> runs.terminal(work, "SUPERSEDED", null));
+            return Result.SUPERSEDED;
+        } catch (SharePointProviderException exception) {
+            String code = "SOURCE_SHAREPOINT_" + exception.failure().name();
+            if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION) {
+                settle(work, () -> connections.authenticationFailed(work.tenantId(),
+                        sharePoint.credentialId(work.tenantId(), work.sourceId()), work.credentialRevision()));
+                settle(work, () -> runs.terminal(work, "FAILED", code));
+            } else {
+                settle(work, () -> runs.retry(work, code));
+            }
+            return Result.FAILED;
+        } catch (io.memoryos.BusinessException exception) {
+            settle(work, () -> runs.terminal(work, "FAILED", "SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE"));
+            return Result.FAILED;
+        } catch (RuntimeException exception) {
+            settle(work, () -> runs.retry(work, "SOURCE_SHAREPOINT_INTERNAL"));
+            return Result.FAILED;
+        }
+    }
+
+    /** Walks the drives in scope, one page per step, and finishes the run when there is nothing left. */
+    private Result walk(Work work, Run run, SharePointProvider.Session session, String tenantHost) {
+        var excludedPaths = SharePointGlob.all(sharePoint.exclusions(work.tenantId(), work.sourceId(), "PATH"));
+        var targets = targets(work, run, session);
+        long deadline = System.nanoTime() + EXECUTION_NANOS;
+        String cursorDrive = run.checkpointDriveId();
+        String cursorLink = run.checkpointLink();
+        int steps = 0;
+        for (Target target : targets) {
+            if (cursorDrive != null && target.driveId().compareTo(cursorDrive) < 0) continue;
+            String link = target.driveId().equals(cursorDrive) ? cursorLink : null;
+            do {
+                if (steps++ >= MAX_STEPS || System.nanoTime() >= deadline) {
+                    String pending = link;
+                    fenced(work, () -> {
+                        runs.checkpoint(run, target.driveId(), target.siteId(), pending);
+                        runs.continuation(work, null);
+                        return true;
+                    });
+                    return Result.CONTINUED;
+                }
+                link = page(work, run, session, target, link, excludedPaths, tenantHost);
+            } while (link != null);
+            String next = target.driveId();
+            fenced(work, () -> {
+                runs.checkpoint(run, next, target.siteId(), null);
+                return true;
+            });
+            cursorDrive = null;
+            cursorLink = null;
+        }
+        return finish(work, run);
+    }
+
+    /** One page of a library's change log, or of a folder's children when the root is a folder. */
+    private @Nullable String page(Work work, Run run, SharePointProvider.Session session, Target target,
+            @Nullable String link, List<SharePointGlob> excludedPaths, String tenantHost) {
+        List<SharePointProvider.DriveItem> page;
+        String next;
+        if (target.itemId() != null) {
+            // A folder root has no change log of its own, so its children are listed and filtered by window.
+            var children = session.children(target.driveId(), target.itemId(), link);
+            page = children.items();
+            next = children.nextLink();
+        } else {
+            var delta = session.delta(target.driveId(), run.prune() ? null : token(run), link);
+            page = delta.items();
+            next = delta.nextLink();
+        }
+        int scanned = 0;
+        for (var item : page) {
+            if (item.deleted()) {
+                if (!run.prune()) remove(work, item.id());
+                continue;
+            }
+            if (item.folder() || !item.file()) continue;
+            scanned++;
+            String path = path(item);
+            if (SharePointGlob.excluded(excludedPaths, path)) continue;
+            if (target.itemId() != null && !insideWindow(run, item)) continue;
+            fenced(work, () -> {
+                runs.observe(work.tenantId(), work.sourceId(), item.id(), "FILE", target.driveId(), target.siteId(),
+                        item.name(), path, item.contentVersion(), item.eTag(), item.size(),
+                        run.prune() ? run.id() : null);
+                return true;
+            });
+            if (!run.prune()) acquire(work, item, session, tenantHost);
+        }
+        int counted = scanned;
+        fenced(work, () -> {
+            runs.counted(work, "scanned", counted);
+            return true;
+        });
+        return next;
+    }
+
+    /** Drives the run covers, ordered so a continued run resumes where it stopped. */
+    private List<Target> targets(Work work, Run run, SharePointProvider.Session session) {
+        var roots = fenced(work, () -> sharePoint.resolvedRoots(work.tenantId(), work.sourceId()));
+        var excludedSites = SharePointGlob.all(fenced(work,
+                () -> sharePoint.exclusions(work.tenantId(), work.sourceId(), "SITE")));
+        var targets = new LinkedHashMap<String, Target>();
+        if (roots.isEmpty()) {
+            String link = null;
+            do {
+                var sites = session.sites(link);
+                for (var site : sites.sites()) {
+                    if (site.personalSite() || SharePointGlob.excluded(excludedSites, site.webUrl())) continue;
+                    for (var library : session.libraries(site.siteId())) {
+                        targets.putIfAbsent(library.driveId(), new Target(library.driveId(), site.siteId(), null));
+                    }
+                }
+                link = sites.nextLink();
+            } while (link != null);
+        } else {
+            for (ResolvedRoot root : roots) {
+                if (root.kind() == RootKind.SITE) {
+                    String siteId = Objects.requireNonNull(root.siteId());
+                    for (var library : session.libraries(siteId)) {
+                        targets.putIfAbsent(library.driveId(), new Target(library.driveId(), siteId, null));
+                    }
+                } else {
+                    String driveId = Objects.requireNonNull(root.driveId());
+                    targets.putIfAbsent(driveId, new Target(driveId, root.siteId(), root.itemId()));
+                }
+            }
+        }
+        return targets.values().stream().sorted(Comparator.comparing(Target::driveId)).toList();
+    }
+
+    /** Ends the run: a refresh records its window, a prune removes what its complete listing did not see. */
+    private Result finish(Work work, Run run) {
+        if (!run.prune()) {
+            return Objects.requireNonNull(fenced(work, () -> {
+                runs.listingComplete(run);
+                runs.completeRun(run, "SUCCEEDED", null);
+                runs.finishRefresh(work, run.windowEnd());
+                sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
+                return Result.COMPLETED;
+            }));
+        }
+        return Objects.requireNonNull(fenced(work, () -> {
+            runs.listingComplete(run);
+            var missing = runs.missing(work.tenantId(), work.sourceId(), run.id());
+            if (!missing.isEmpty()) {
+                removeAll(work, missing);
+                return Result.CONTINUED;
+            }
+            runs.completeRun(run, "SUCCEEDED", null);
+            runs.finishPrune(work);
+            sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
+            return Result.COMPLETED;
+        }));
+    }
+
+    private void removeAll(Work work, List<JdbcSharePointSyncRepository.Missing> missing) {
+        var pair = sources.lock(work.tenantId(), work.sourceId());
+        for (var entry : missing) {
+            remove(work, pair, entry.itemId());
+            runs.forget(work.tenantId(), work.sourceId(), entry.providerFileId());
+        }
+        runs.counted(work, "removed", missing.size());
+        runs.continuation(work, null);
+    }
+
+    /** Removes what a tombstone reports, matching by the provider identifier it carries. */
+    private void remove(Work work, String providerFileId) {
+        fenced(work, () -> {
+            var item = runs.item(work.tenantId(), work.sourceId(), providerFileId);
+            if (item.isPresent()) {
+                remove(work, sources.lock(work.tenantId(), work.sourceId()), item.get());
+                runs.counted(work, "removed", 1);
+            }
+            runs.forget(work.tenantId(), work.sourceId(), providerFileId);
+            return true;
+        });
+    }
+
+    private void remove(Work work, JdbcSourceRepository.SourcePair pair, SourceItemId item) {
+        items.markDeleting(work.tenantId(), pair, item);
+        documents.invalidateItem(work.tenantId(), work.sourceId(), item);
+        indexing.cancelForItem(work.tenantId(), work.sourceId(), item);
+        sources.createCleanup(new SourceOperationId(UUID.randomUUID()), work.tenantId(),
+                SourceOperationType.REMOVE_ITEM, "ITEM:" + item.value(), work.sourceId(), item, null);
+    }
+
+    private void acquire(Work work, SharePointProvider.DriveItem item, SharePointProvider.Session session,
+            String tenantHost) {
+        if (item.size() > MAX_CONTENT_BYTES) {
+            fenced(work, () -> {
+                runs.counted(work, "skipped", 1);
+                return true;
+            });
+            return;
+        }
+        boolean unchanged = fenced(work, () -> {
+            var version = items.unchanged(work, item.id(), item.contentVersion());
+            if (version.isEmpty()) return false;
+            runs.counted(work, "unchanged", 1);
+            return true;
+        });
+        if (unchanged) return;
+        try {
+            var current = session.item(item.driveId() == null ? "" : item.driveId(), item.id());
+            var content = session.content(current, tenantHost, MAX_CONTENT_BYTES);
+            var descriptor = new SourceInputDescriptor(SourceInputFormat.BINARY, item.id(), current.contentVersion(),
+                    current.webUrl());
+            var staged = writes.stage(work.tenantId(), new ObjectWriteService.Specification(content.filename(),
+                    content.mediaType(), false), content.bytes());
+            boolean adopted = false;
+            try {
+                boolean sameContent = fenced(work, () -> {
+                    var version = items.sameContent(work, item.id(), staged.object().metadata().checksum().value(),
+                            staged.object().filename(), descriptor.providerVersion());
+                    if (version.isEmpty()) return false;
+                    runs.counted(work, "unchanged", 1);
+                    return true;
+                });
+                if (sameContent) return;
+                adopted = fenced(work, () -> {
+                    var pair = sources.lock(work.tenantId(), work.sourceId());
+                    writes.adopt(work.tenantId(), staged);
+                    var version = items.acceptRemote(work, pair, staged.object(), descriptor);
+                    indexing.cancelForItem(work.tenantId(), work.sourceId(), version.itemId());
+                    // The current Document stays retrievable until the new version publishes over the same mapping.
+                    indexing.create(work.tenantId(), pair, version, work.operationId());
+                    runs.counted(work, "acquired", 1);
+                    return true;
+                });
+            } finally {
+                if (!adopted) writes.discard(work.tenantId(), staged);
+            }
+        } catch (ObjectStorageException exception) {
+            String code = "SOURCE_STORAGE_WRITE_" + SourceStorageFailure.code(exception);
+            fenced(work, () -> {
+                runs.counted(work, "acquisition_failed", 1);
+                runs.retry(work, code);
+                return true;
+            });
+            throw new StaleSyncException();
+        } catch (SharePointProviderException exception) {
+            if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION
+                    || exception.failure() == SharePointProviderException.Failure.QUOTA
+                    || exception.failure() == SharePointProviderException.Failure.UNAVAILABLE) {
+                throw exception;
+            }
+            // One unreadable item does not fail the run; the next prune reconciles it.
+            fenced(work, () -> {
+                runs.counted(work, "acquisition_failed", 1);
+                return true;
+            });
+        }
+    }
+
+    private static @Nullable String token(Run run) {
+        return run.windowStart() == null ? null : run.windowStart().toString();
+    }
+
+    private static @Nullable Instant windowStart(@Nullable Instant previousWindowEnd) {
+        return previousWindowEnd == null ? null : previousWindowEnd.minus(JdbcSharePointSyncRepository.OVERLAP);
+    }
+
+    /**
+     * Only the children listing needs the window: the change log already reports what changed, and filtering
+     * it again would drop an item that was moved into scope without its timestamp changing.
+     */
+    private static boolean insideWindow(Run run, SharePointProvider.DriveItem item) {
+        if (run.windowStart() == null) return true;
+        Instant changed = item.lastModifiedAt() == null ? item.createdAt() : item.lastModifiedAt();
+        return changed == null || !changed.isBefore(run.windowStart());
+    }
+
+    private static String path(SharePointProvider.DriveItem item) {
+        String parent = item.parentPath() == null ? "" : item.parentPath();
+        return parent + "/" + (item.name() == null ? item.id() : item.name());
+    }
+
+    private <T> T fenced(Work work, Supplier<T> action) {
+        return transactions.execute(_ -> {
+            if (!lockSource(work) || !runs.current(work)) throw new StaleSyncException();
+            return action.get();
+        });
+    }
+
+    private void settle(Work work, Runnable action) {
+        transactions.executeWithoutResult(_ -> {
+            if (lockSource(work)) action.run();
+        });
+    }
+
+    private boolean lockSource(Work work) {
+        try {
+            sources.lock(work.tenantId(), work.sourceId());
+            return true;
+        } catch (SourceException exception) {
+            if ("SOURCE_NOT_FOUND".equals(exception.code())) return false;
+            throw exception;
+        }
+    }
+
+    private record Target(String driveId, @Nullable String siteId, @Nullable String itemId) {}
+
+    private static final class StaleSyncException extends RuntimeException {}
+}
