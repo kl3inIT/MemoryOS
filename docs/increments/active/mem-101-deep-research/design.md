@@ -198,6 +198,8 @@ The check found two real defects, both fixed:
 - The agent prompt hard-coded "cycle X of 8" while `agent-cycles` is configurable (2-20). It now fills `{max_research_cycles}` from the limit, as Onyx interpolates `MAX_RESEARCH_CYCLES`.
 - The internal search, `web_search` and `open_url` tool descriptions were inserted without `text(...)`, so the agent prompt still said `internal_search` and `open_urls` while the registered tools are `searchKnowledge` and `open_url`. They now pass through the rename, and `ChatSessionApiIntegrationTest` asserts no Onyx tool name reaches an agent prompt.
 
+The limits were checked against the same commit: `MAX_ORCHESTRATOR_CYCLES` 8 and 4 for reasoning, `MAX_RESEARCH_CYCLES` 8 with the loop condition `while cycle <= MAX`, `DEEP_RESEARCH_FORCE_REPORT_SECONDS` 30 minutes, 12 minutes before a forced intermediate report, a 30-minute agent timeout, `MAX_FINAL_REPORT_TOKENS` 20,000, `MAX_INTERMEDIATE_REPORT_LENGTH_TOKENS` 10,000, orchestrator `max_tokens` 1,024, agent `max_tokens` 1,000 and `MAX_USER_MESSAGES_FOR_CONTEXT` 5. Every value matches `ResearchProperties`.
+
 ## Spike evidence (2026-09-15)
 
 `api/src/test/java/io/memoryos/api/chat/DeepResearchSpikeProbeTest.java`, opt-in via `MEMORYOS_DR_SPIKE=true`; live probes also need `MEMORYOS_DR_SPIKE_LIVE=true` and `SPRING_AI_OPENAI_API_KEY`. All four passed. Fixture probes use a local OpenAI-compatible SSE server.
