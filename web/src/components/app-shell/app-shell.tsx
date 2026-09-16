@@ -10,6 +10,7 @@ import {
   Plug,
   Settings2,
   Sparkles,
+  SquareTerminal,
   User,
   Users,
   X,
@@ -27,7 +28,14 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
+export type AdminPage =
+  | "sources"
+  | "users"
+  | "groups"
+  | "web"
+  | "interpreter"
+  | "providers"
+  | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -212,6 +220,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/code-interpreter"
+                  icon={<SquareTerminal className="size-4" />}
+                  selected={adminPage === "interpreter"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Code Interpreter")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

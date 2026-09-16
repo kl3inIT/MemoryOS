@@ -47,11 +47,24 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null);
+    }
+
+    public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
+            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
+            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
+            io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
+            io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings) {
+        this.interpreter = interpreter;
+        this.interpreterSettings = interpreterSettings;
         this.contexts = contexts;
         this.processes = processes;
         this.limits = limits;
@@ -179,6 +192,13 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, setup.deadline(), imageEvents, 4)));
+            }
+            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
+            if (selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
+                    && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy()) {
+                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
+                        fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
+                        setup.deadline(), activity)));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             Duration remaining = Duration.between(Instant.now(), setup.deadline());

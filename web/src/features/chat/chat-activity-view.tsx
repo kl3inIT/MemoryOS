@@ -110,6 +110,8 @@ function stepTitle(
       return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
     case "edit_image":
       return running ? ui("Đang sửa ảnh…") : ui("Đã sửa ảnh");
+    case "run_python":
+      return running ? ui("Đang chạy Python…") : ui("Đã chạy Python");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -138,6 +140,8 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
       return ui("Đang tạo ảnh…");
     case "edit_image":
       return ui("Đang sửa ảnh…");
+    case "run_python":
+      return ui("Đang chạy Python…");
     default:
       return ui("Đang dùng công cụ…");
   }

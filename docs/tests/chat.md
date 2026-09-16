@@ -234,4 +234,11 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Earlier generated images are named on their answers, even an answer without text | `ChatTurnSetupTest` |
 | Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
 | `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
+| `run_python` guidance keeps the Onyx text plus the executor lines and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
+| `run_python` stages attachments in the Onyx order, file cap, byte budget and notice; reuses uploads in a turn; stores, links and deletes generated files; reports oversized files; truncates output; returns exit -1 without service details; follows the turn deadline | `RunPythonToolTest` |
+| The interpreter client caches health for 30 seconds, reports Onyx health errors, sends `X-Api-Key`, streams multipart uploads, parses execution results and types busy responses | `InterpreterClientTest` |
+| Opt-in, against a real interpreter (`MEMORYOS_INTERPRETER_LIVE_URL`, `MEMORYOS_INTERPRETER_LIVE_API_KEY`): a streamed upload with a Vietnamese file name, execution over it, download of the generated file and delete | `InterpreterServiceLiveTest` |
+| Assistant markdown keeps the relative generated-file link and image URL and drops `javascript:` links | `markdown-text.test.tsx` |
+| An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text | `chat-answer-links.test.tsx` |
+| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V63) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |

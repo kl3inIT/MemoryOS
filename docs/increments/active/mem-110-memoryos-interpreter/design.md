@@ -83,29 +83,37 @@ The memory line must match the deployed `MEMORY_LIMIT_MB`.
 
 ## Integration with MemoryOS
 
-The runtime path this increment targets. Names below are proposals until the phase that implements them.
+The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx references are `backend/onyx/tools/tool_implementations/python/python_tool.py` and `code_interpreter_client.py` at `40eb240df`):
 
-1. **Chat request.** The browser sends a turn with attachments. `ChatTurnService` checks the caller's capability, following the `IMAGE_GENERATE` check at `ChatTurnService.java:98`.
-2. **Tool registration.** `ChatModelExecutor` registers `RunPythonTool` next to `GenerateImageTool` when three conditions hold:
+1. **Chat request.** No new capability, as in Onyx: a user who can send a Chat turn (`CHAT_WRITE`) can use the tool.
+2. **Tool registration.** `ChatModelExecutor` registers `RunPythonTool` when four conditions hold:
    - the selected model supports tool calling;
-   - the interpreter is enabled for the Tenant;
-   - a cached `/health` check reports healthy.
+   - `memoryos.chat.interpreter.base-url` is configured;
+   - the interpreter is enabled for the Tenant (`chat_interpreter_setting`; no row means disabled, unlike Onyx's enabled default, so an administrator turns it on after deployment);
+   - `/health`, cached for 30 seconds as in Onyx, reports healthy.
 
-   `ChatPrompts` adds the Onyx Python tool guidance only when the tool is actually registered.
+   Unlike Web search and image generation, an unavailable interpreter omits the tool instead of failing the turn. `ChatPrompts` adds the guidance only when the tool is registered.
 3. **Running code.** When the model calls `run_python(code)`, the tool:
-   - selects authorized chat files through `ChatFileContentService`, using the Onyx order and limits;
-   - uploads them with `POST /v1/files`, reusing uploads within the turn by content hash;
-   - calls `POST /v1/execute/stream` with a timeout capped by the turn deadline.
+   - selects this turn's attachments (`ChatTurnSetup.fileIds`) in the Onyx order (files named in the code first, then newest) within 25 files and 100 MiB, with Onyx file-name sanitizing and de-duplication;
+   - uploads them with `POST /v1/files`, streaming from object storage, and reuses uploads within the turn by file name and the stored SHA-256, so no attachment is buffered in the API heap;
+   - calls **`POST /v1/execute`** with `timeout_ms` = min(60 000, the remaining turn deadline minus 5 seconds) and an HTTP timeout 10 seconds longer.
 
-   Stop and deadline cancel the HTTP call; the executor's own timeout kills the container.
-4. **Progress.** `output` events become tool activity on the existing SSE `tool` stream. Code, output and file references are persisted with the message activity, so history replays them.
-5. **Generated files.** Each workspace file is downloaded with `GET /v1/files/{id}` and stored in object storage under Tenant and message, in a table like `chat_image_artifact` (V57). It is served through an authorized API, then deleted from the interpreter.
-6. **Model result.** The model receives stdout/stderr truncated to the output token budget, the exit code, the timeout flag, the stored file names and a staging notice. It never receives interpreter file IDs or URLs.
-7. **Browser.** The activity timeline renders the step with collapsible code, output, inline image previews and download chips for pptx/docx/xlsx/csv/pdf.
+   As in Onyx, there is no per-turn call cap: the six tool cycles and the two-minute turn deadline bound it to about two full 60-second runs.
+
+   Departure: Onyx calls `/v1/execute/stream`. MemoryOS has no Java SSE consumer, and stream deltas only feed the phase 4 timeline, so phase 3 uses the batch route. A Stop therefore leaves the run holding one of the four execution slots for at most 60 seconds; the executor's own timeout kills the container.
+4. **Progress.** Phase 3 reports `STARTED`, `COMPLETED` and `FAILED` through the existing `ChatToolActivity`. Streaming code and output into the timeline is phase 4.
+5. **Generated files.** Each workspace file up to 25 MiB is downloaded with `GET /v1/files/{id}`, staged and adopted into object storage as a `chat_file_artifact` (V63) row on the assistant message, and deleted from the interpreter. Larger files are reported as skipped. Uploaded inputs stay on the service until its file TTL (`FILE_TTL_SEC`, 900 seconds on staging), as in Onyx; phase 3 adds the missing expiry loop to the service. Files are served owner-authorized at `GET /api/chat/file-artifacts/{id}/content`: `inline` for PNG, JPEG and WebP, `attachment` otherwise, with `nosniff` and `no-store`.
+6. **Model result.** The Onyx JSON: `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files: [{filename, file_link}], error, staging_notice}`.
+   - `stdout` and `stderr` are truncated to 50 000 characters with the Onyx suffix.
+   - `exit_code` is -1 when the service cannot be reached or rejects the call.
+   - `file_link` is the relative MemoryOS URL above, so the model never sees interpreter file IDs or URLs.
+   - MemoryOS has no reminder message, so the Onyx `FILE_REMINDER` text follows the JSON in the tool result when files were generated.
+7. **Browser.** Phase 3 adds the administration page and a timeline label. The model's markdown link is the download path. Code, output, previews and download chips in the timeline are phase 4.
 8. **Administration and runtime.**
-   - An admin page enables the interpreter per Tenant and shows health.
-   - The API (the deployable that runs Chat turns) reads the service URL and API key from configuration and Infisical.
-   - The interpreter runs as a Compose service reachable only on `memoryos-internal`.
+   - `/api/chat/interpreter`: `GET` and `PUT` the Tenant setting, and `GET /health` returns the uncached `{connected, error, version}` (Onyx `server/manage/code_interpreter/api.py`), all with `MODELS_MANAGE`.
+   - The interpreter requires `X-Api-Key` on every `/v1` route (a MemoryOS addition). The API sends the same key.
+   - Both containers read one host file mounted as the Compose secret `interpreter_api_key`. The API reads `MEMORYOS_INTERPRETER_API_KEY_FILE` through its launcher; there is no Infisical entry.
+   - The interpreter stays reachable only on `memoryos-internal`.
 
 ## Scope
 
