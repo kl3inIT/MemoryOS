@@ -11273,6 +11273,13 @@ components:
           - "off"
           - auto
           - required
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
       - parentMessageId
@@ -11314,6 +11321,13 @@ components:
           - "off"
           - auto
           - required
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
     Edit:
@@ -11347,6 +11361,13 @@ components:
           - "off"
           - auto
           - required
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
       - text

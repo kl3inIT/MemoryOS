@@ -67,6 +67,13 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 
 ## Phase 4 — Chat
 
+- [x] `chat` may depend on `mcp`; `McpTurnService.open` resolves access, credentials and OAuth refresh before the model runs, and the turn owns the sessions.
+- [x] One Embabel `Tool.create` per enabled tool with the snapshotted schema; per-turn call limit, per-call timeout and result cap reuse the existing guard.
+- [x] Failures are mapped from MCP error codes, never matched text, and carry no upstream body to the model or the logs.
+- [x] `mcpServerIds` on send, edit and regenerate.
+- [ ] An end-to-end turn against the fixture MCP server, including Stop closing the sessions.
+- [ ] Activity rendering for MCP steps and the `auth_required` connect action (with Phase 5).
+
 - [ ] `mcpServerIds` and validation in `ChatTurnService`.
 - [ ] Per-turn toolset: `Tool.of` with schema `InputSchema`, client reuse, closed at turn end.
 - [ ] Bounds from measured schemas, cancellation, activity events, metrics.

@@ -73,3 +73,14 @@ Not run for 2b: `gradlew clean check`, the full web `pnpm check` and a live auth
 | OpenAPI and web client | `MEMORYOS_OPENAPI_WRITE=true` `OpenApiContractTest`; `pnpm generate:api`; `tsc -b --noEmit` | Passed with four new `/api/mcp/connections...` paths; the diff is 360 added lines and removes no operation; typecheck clean |
 
 Not run for Phase 3: `gradlew clean check`, the full web `pnpm check`, and a live authorization server.
+
+## Phase 4 (backend) — 2026-09-16
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Model-facing tool surface | `gradlew :core:test --tests io.memoryos.chat.tools.McpToolsTest` | 6 tests passed:<br>• each tool carries its snapshotted JSON Schema and an untrusted-data warning; a non-read-only tool says so first<br>• every failure category returns a category sentence with no upstream body, URL or status code — the reference appends `Original error: {e}` instead<br>• only an authorization failure tells the User to reconnect<br>• the per-turn call limit refuses further calls<br>• one result is capped against the remaining context and unparseable arguments never reach the server<br>• servers that are selected but unusable are named with the reason |
+| Module boundary | `gradlew :core:test --tests io.memoryos.ModulithArchitectureTest --tests io.memoryos.CoreDependencyRulesTest` | Passed with `chat` now allowed to depend on `mcp`; `mcp` stays closed and Chat sees only `McpTurnService`/`McpTurnTools` |
+| Turn lifecycle | `gradlew :core:test --tests io.memoryos.chat.ChatTurnServiceTest` | 8 tests passed after the command, setup and cleanup changes |
+| OpenAPI and web client | `MEMORYOS_OPENAPI_WRITE=true` `OpenApiContractTest`; `pnpm generate:api`; `tsc -b --noEmit` | Passed; `mcpServerIds` added to send, edit and regenerate (21 added lines), no operation removed, typecheck clean |
+
+Not run for Phase 4: an end-to-end chat turn that actually calls a fixture MCP server, `gradlew clean check`, the full `:api:test`, and the composer UI (Phase 5). The per-turn defaults (10 calls, 60s per call) are configuration and not yet measured against real Google Drive schemas.

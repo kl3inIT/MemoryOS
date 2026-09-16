@@ -888,6 +888,7 @@ export type Send = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    mcpServerIds?: Array<string>;
 };
 
 export type Accepted = {
@@ -902,6 +903,7 @@ export type Regenerate = {
     modelConfigurationId?: string;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    mcpServerIds?: Array<string>;
 };
 
 export type Edit = {
@@ -911,6 +913,7 @@ export type Edit = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    mcpServerIds?: Array<string>;
 };
 
 export type Cancellation = {

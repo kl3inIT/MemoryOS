@@ -10,14 +10,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ChatExecutionProperties(int concurrency, Duration deadline, int maxCycles, int maxOutputTokens,
                                       int contextTokenLimit, int maxAnswerCharacters, @Nullable Integer tokenBudget,
                                       @Nullable Double costBudgetUsd, int mcpCallLimit, Duration mcpCallTimeout) {
-    /** Defaults keep existing constructions working; MCP limits are configuration like every other bound. */
-    public ChatExecutionProperties(int concurrency, Duration deadline, int maxCycles, int maxOutputTokens,
-                                   int contextTokenLimit, int maxAnswerCharacters, @Nullable Integer tokenBudget,
-                                   @Nullable Double costBudgetUsd) {
-        this(concurrency, deadline, maxCycles, maxOutputTokens, contextTokenLimit, maxAnswerCharacters, tokenBudget,
-                costBudgetUsd, 10, Duration.ofSeconds(60));
-    }
-
     public ChatExecutionProperties {
         if (mcpCallLimit < 1 || mcpCallLimit > 100 || mcpCallTimeout == null || mcpCallTimeout.isNegative()
                 || mcpCallTimeout.isZero() || mcpCallTimeout.compareTo(Duration.ofMinutes(5)) > 0)
