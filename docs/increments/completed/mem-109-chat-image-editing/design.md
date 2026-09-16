@@ -34,7 +34,7 @@ Schemas came from `GET /accounts/{id}/ai/models/schema`; each model ran on a 102
 | # | Decision | Reason |
 |---|---|---|
 | D1 | A separate `edit_image` tool next to `generate_image` | Clear tool descriptions for the model; the generate contract is unchanged |
-| D2 | Cloudflare edits always use `flux-2-klein-4b`; no SD 1.5 | §3 |
+| D2 | Cloudflare edits use FLUX.2 klein, never SD 1.5: `flux-2-klein-4b` at delivery, then `flux-2-klein-9b` for quality at about 1,300 neurons per 1024 px edit | §3 |
 | D3 | `OPENAI_IMAGE` edits through multipart `POST {base}/images/edits`, with `input_fidelity=high` for `gpt-image-*` models | Same provider contract; no connection change |
 | D4 | Masks are applied on the server: the provider edits the whole image and the server takes its result only inside the white area, feathered inward, keeping the source everywhere else | One mask meaning for every provider; guaranteed preservation outside the mask; provider masks are only hints |
 | D5 | App-managed state: an edit source is an image generated in the owner's session or a file attached in the turn's context | Provider-agnostic (the Onyx pattern); no `previous_response_id` |
@@ -47,7 +47,7 @@ Schemas came from `GET /accounts/{id}/ai/models/schema`; each model ran on a 102
 ## 5. Contracts
 
 - **Tool** `edit_image(imageId, prompt, maskId?)`: at most 4 calls per answer; emits `ChatImageEvent` like generate; the result is a new artifact on the current answer and its `image_id` is returned to the model.
-- **Provider** `ImageProviderClient.edit(connection, prompt, image)` → `Result`; Cloudflare calls `/ai/run/@cf/black-forest-labs/flux-2-klein-4b`, OpenAI calls `/images/edits`.
+- **Provider** `ImageProviderClient.edit(connection, prompt, image)` → `Result`; Cloudflare calls `/ai/run/@cf/black-forest-labs/flux-2-klein-9b`, OpenAI calls `/images/edits`.
 - **Images**: working-image normalization and mask compositing live in `core/chat/image` (`ImageEditImages`, plain Java2D).
 - **Storage**: `ImageArtifactService.sessionImage(...)` reads a source; `store(..., sourceArtifactId, sourceFileId)` records lineage.
 - **History**: `TurnContext.generatedImages` (message id → artifact ids) is loaded in `ChatTurnPersistence`; `ChatTurnSetup` appends the `image_id` line to earlier answers.
