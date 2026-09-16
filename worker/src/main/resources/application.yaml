@@ -129,6 +129,10 @@ memoryos:
       stream: memoryos:execution:selection-validation:operations:v1
       group: memoryos:execution:selection-validation:workers:v1
       batch-size: ${MEMORYOS_WORKER_SELECTION_VALIDATION_BATCH_SIZE:2}
+    sharepoint-selection-validation:
+      stream: memoryos:execution:sharepoint-selection:operations:v1
+      group: memoryos:execution:sharepoint-selection:workers:v1
+      batch-size: ${MEMORYOS_WORKER_SHAREPOINT_SELECTION_BATCH_SIZE:2}
     user-file:
       stream: memoryos:execution:user-file:operations:v1
       group: memoryos:execution:user-file:workers:v1

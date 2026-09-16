@@ -1,7 +1,7 @@
 package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.*;
-import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;

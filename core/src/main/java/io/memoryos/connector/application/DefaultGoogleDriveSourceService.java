@@ -15,7 +15,7 @@ import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
-import io.memoryos.connector.GoogleDriveSelectionProcessor.Work;
+import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.SourceRunTrigger;
 import java.util.UUID;
 import java.security.MessageDigest;
