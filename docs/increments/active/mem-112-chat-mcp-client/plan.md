@@ -93,7 +93,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] Self-host runbook at `docs/runbooks/mcp-servers.md`, linked from README and AGENTS.
 - [ ] Live acceptance: the nine observations in [acceptance.md](acceptance.md). Owner-run; it also settles whether Google accepts `resource` and what the per-turn bounds should be.
 - [x] Repository gate run module by module (see verification): `connector`, `worker`, `api` and `core` all pass. The single-command `gradlew clean check` is left to CI, because `:core:test` exhausts its 1 GB test JVM on this host.
-- [ ] Frontend `pnpm check` in one run; its parts (lint, i18n, typecheck, unit, format) pass individually.
+- [x] Frontend `pnpm check` passes in one run.
 
 ## Phase 7 — pass-through OAuth (gated)
 

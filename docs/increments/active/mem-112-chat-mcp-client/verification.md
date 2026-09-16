@@ -125,6 +125,8 @@ The reuse review of `spring-ai-community/mcp-security` is recorded in [design.md
 | `core` (tests, first half) | `gradlew :core:test --tests 'io.memoryos.{mcp,chat,iam}.*' --tests 'io.memoryos.Modulith*' --tests 'io.memoryos.Core*'` | Passed |
 | `core` (tests, second half) | `gradlew :core:test --tests 'io.memoryos.{objectstorage,connector,document,ingestion,retrieval}.*'` | Passed: 34 suites, 284 tests, 0 failures |
 
+| frontend | `pnpm check` | Passed in one run: generated-client stability, Playwright image, i18n audit, lint, format, typecheck, 55 files with 298 unit tests, and route-tree stability |
+
 `gradlew clean check` in one process was not run and is not expected to complete on this machine. `:core:test`
 runs the whole module in one JVM capped at `maxHeapSize = "1g"` (`core/build.gradle.kts:16`), and on a 14 GB host
 it ends with `OutOfMemoryError` inside `ObjectWriteLifecycleIntegrationTest` after 558 of the module's tests have
