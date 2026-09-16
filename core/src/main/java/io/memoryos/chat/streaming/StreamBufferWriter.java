@@ -68,11 +68,17 @@ public final class StreamBufferWriter {
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                         @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId) {
+                        @Nullable String parentToolCallId, io.memoryos.chat.@Nullable ChatCodeEvent code) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
+                     @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
+                     @Nullable String parentToolCallId) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, research, parentToolCallId, null);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                      @Nullable ChatImageEvent image, boolean hasArtifacts) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null);
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null, null);
         }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
@@ -196,6 +202,15 @@ public final class StreamBufferWriter {
             if (stream.done) return;
             chunk(stream);
             publish(stream, new Event(id, stream.sequence + 1, "image", null, null, null, null, event, false));
+        }
+    }
+
+    public void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+        var stream = require(id);
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, "code", null, null, null, null, null, false, null, null, event));
         }
     }
 

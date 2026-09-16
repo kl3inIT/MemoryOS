@@ -87,6 +87,14 @@ final class ChatEventStream {
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String mediaType,
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
 
+    record CodeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                     @Schema(requiredMode = REQUIRED) long sequence,
+                     @Schema(requiredMode = REQUIRED) String toolCallId,
+                     @Schema(requiredMode = REQUIRED) io.memoryos.chat.ChatCodeEvent.Stage stage,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String code,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String output,
+                     @Schema(requiredMode = REQUIRED) List<io.memoryos.chat.ChatCodeEvent.GeneratedFile> files) {}
+
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
         return Flux.using(reader::get, resource -> Flux.<StreamBufferWriter.Batch>generate(sink -> {
@@ -138,6 +146,11 @@ final class ChatEventStream {
                 var image = Objects.requireNonNull(event.image());
                 yield new ImageEvent(event.assistantMessageId(), event.sequence(), image.toolCallId(), image.stage(),
                         image.artifactId(), image.mediaType(), image.revisedPrompt());
+            }
+            case "code" -> {
+                var run = Objects.requireNonNull(event.code());
+                yield new CodeEvent(event.assistantMessageId(), event.sequence(), run.toolCallId(), run.stage(),
+                        run.code(), run.output(), run.files());
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };

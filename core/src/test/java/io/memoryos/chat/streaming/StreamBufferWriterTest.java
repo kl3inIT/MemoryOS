@@ -128,6 +128,9 @@ class StreamBufferWriterTest {
         writer.open(id);
         published.forEach(event -> writer.tool(id, event));
         writer.image(id, image);
+        var code = List.of(io.memoryos.chat.ChatCodeEvent.running("call_p", "print(1)"), io.memoryos.chat.ChatCodeEvent.output("call_p", "1\n"),
+                io.memoryos.chat.ChatCodeEvent.completed("call_p", List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(UUID.randomUUID(), "a.csv", "text/csv", 3))));
+        code.forEach(event -> writer.code(id, event));
         writer.finish(id, Status.FAILED, "CHAT_INTERRUPTED", true);
         List<StreamBufferWriter.Event> events;
         try (var reader = writer.subscribe(id, 0, () -> false)) {
@@ -135,7 +138,8 @@ class StreamBufferWriterTest {
         }
         assertEquals(published, events.subList(0, 4).stream().map(StreamBufferWriter.Event::tool).toList());
         assertEquals(image, events.get(4).image());
-        assertEquals(new StreamBufferWriter.Event(id, 6, "outcome", null, Status.FAILED, "CHAT_INTERRUPTED", null, true), events.get(5));
+        assertEquals(code, events.subList(5, 8).stream().map(StreamBufferWriter.Event::code).toList());
+        assertEquals(new StreamBufferWriter.Event(id, 9, "outcome", null, Status.FAILED, "CHAT_INTERRUPTED", null, true), events.get(8));
     }
 
     @Test
