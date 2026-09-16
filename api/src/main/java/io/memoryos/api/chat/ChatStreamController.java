@@ -61,7 +61,7 @@ class ChatStreamController {
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @Schema(oneOf = {ChatEventStream.TextDeltaEvent.class, ChatEventStream.OutcomeEvent.class,
                             ChatEventStream.ResetEvent.class, ChatEventStream.ToolEvent.class, ChatEventStream.ReasoningEvent.class,
-                            ChatEventStream.ImageEvent.class})))
+                            ChatEventStream.ImageEvent.class, ChatEventStream.CodeEvent.class})))
     ResponseEntity<Flux<ServerSentEvent<Object>>> events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,

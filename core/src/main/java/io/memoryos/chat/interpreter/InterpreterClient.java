@@ -176,7 +176,7 @@ public class InterpreterClient implements AutoCloseable {
         var stderr = new StringBuilder();
         String event = "";
         var data = new StringBuilder();
-        for (String line; (line = reader.readLine()) != null; ) {
+        for (String line; (line = readLine(reader)) != null; ) {
             if (!line.isEmpty()) {
                 if (line.startsWith("event:")) event = line.substring(6).strip();
                 else if (line.startsWith("data:")) data.append(line.substring(5).strip());
@@ -212,6 +212,21 @@ public class InterpreterClient implements AutoCloseable {
             }
         }
         throw new IOException("Interpreter stream ended without a result");
+    }
+
+    /**
+     * One SSE line, refusing one longer than {@link #JSON_LIMIT}. {@code BufferedReader.readLine} would buffer an
+     * unterminated line of any length first, so the limit has to be enforced while reading.
+     */
+    private static @Nullable String readLine(java.io.Reader reader) throws IOException {
+        var line = new StringBuilder();
+        for (int character; (character = reader.read()) != -1; ) {
+            if (character == '\n') return line.toString();
+            if (character == '\r') continue; // CRLF frames; a lone CR cannot end a line here.
+            if (line.length() >= JSON_LIMIT) throw new IOException("Interpreter stream line too long");
+            line.append((char) character);
+        }
+        return line.isEmpty() ? null : line.toString();
     }
 
     private static Map<String, Object> body(String code, int timeoutMs, List<StagedFile> files) {

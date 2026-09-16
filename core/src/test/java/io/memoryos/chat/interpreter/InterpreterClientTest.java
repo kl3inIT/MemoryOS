@@ -63,6 +63,17 @@ class InterpreterClientTest {
             requests.put("POST /v1/execute/stream", body);
             if (body.contains("boom")) { reply(exchange, 200, "event: error\ndata: {\"message\":\"executor exploded\"}\n\n"); return; }
             if (body.contains("cut")) { reply(exchange, 200, "event: output\ndata: {\"stream\":\"stdout\",\"data\":\"partial\"}\n\n"); return; }
+            if (body.contains("flood")) {
+                // One unterminated line larger than the frame limit; readLine must refuse it, not buffer it.
+                exchange.sendResponseHeaders(200, 0);
+                try (var out = exchange.getResponseBody()) {
+                    out.write("event: output\ndata: ".getBytes(StandardCharsets.UTF_8));
+                    byte[] filler = "x".repeat(64 * 1024).getBytes(StandardCharsets.UTF_8);
+                    for (int written = 0; written < 9 * 1024 * 1024; written += filler.length) out.write(filler);
+                } catch (IOException ignored) { /* the client aborts the connection, which is the point */ }
+                exchange.close();
+                return;
+            }
             reply(exchange, 200, """
                     event: output
                     data: {"stream":"stdout","data":"step 1\\n"}
@@ -172,6 +183,10 @@ class InterpreterClientTest {
         assertThrows(IOException.class, () -> client.executeStream("cut", 1000, List.of(), (stream, data) -> { }));
         assertThrows(IOException.class, () -> client.executeStream("print(1)", 1000, List.of(),
                 (stream, data) -> { throw new IOException("stopped"); }));
+    }
+
+    @Test void anUnterminatedFrameIsRefusedInsteadOfBuffered() {
+        assertThrows(IOException.class, () -> client().executeStream("flood", 1000, List.of(), (stream, data) -> { }));
     }
 
     @Test void propertiesRejectCredentialsInTheUrlAndRedactTheKey() {

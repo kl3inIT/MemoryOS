@@ -156,7 +156,11 @@ public final class RunPythonTool {
             Integer exit = execution.exitCode();
             String result = json(truncate(execution.stdout()), stderr, exit, execution.timedOut(), generated,
                     exit != null && exit == 0 ? null : stderr, notice);
-            publish(id -> io.memoryos.chat.ChatCodeEvent.completed(id, List.copyOf(produced)));
+            // A timeout or a non-zero exit is a failed run in the timeline, even though the tool still
+            // answers the model; the files it managed to produce stay on the event.
+            boolean unsuccessful = execution.timedOut() || exit == null || exit != 0;
+            publish(id -> unsuccessful ? io.memoryos.chat.ChatCodeEvent.failed(id, List.copyOf(produced))
+                    : io.memoryos.chat.ChatCodeEvent.completed(id, List.copyOf(produced)));
             return generated.isEmpty() ? result : result + "\n\n" + FILE_REMINDER;
         } catch (IOException | RuntimeException failure) {
             active.run(); // Cancellation and deadline must propagate, not become an ordinary tool result.

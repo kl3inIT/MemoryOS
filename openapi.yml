@@ -6203,6 +6203,7 @@ paths:
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
+                - $ref: "#/components/schemas/CodeEvent"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11446,6 +11447,57 @@ components:
       - sequence
       - stage
       - toolCallId
+    CodeEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - RUNNING
+          - OUTPUT
+          - COMPLETED
+          - FAILED
+        code:
+          type:
+          - string
+          - "null"
+        output:
+          type:
+          - string
+          - "null"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFile"
+      required:
+      - assistantMessageId
+      - code
+      - files
+      - output
+      - sequence
+      - stage
+      - toolCallId
+    GeneratedFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
     ChatBranch:
       type: object
       properties:

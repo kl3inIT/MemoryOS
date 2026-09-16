@@ -1286,6 +1286,23 @@ export type ImageEvent = {
     revisedPrompt: string | null;
 };
 
+export type CodeEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    stage: 'RUNNING' | 'OUTPUT' | 'COMPLETED' | 'FAILED';
+    code: string | null;
+    output: string | null;
+    files: Array<GeneratedFile>;
+};
+
+export type GeneratedFile = {
+    id?: string;
+    filename?: string;
+    mediaType?: string;
+    sizeBytes?: number;
+};
+
 export type ChatBranch = {
     id?: string;
     parentMessageId?: string | null;
@@ -6150,7 +6167,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];

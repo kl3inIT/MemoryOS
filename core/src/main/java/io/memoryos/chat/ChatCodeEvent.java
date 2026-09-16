@@ -32,7 +32,8 @@ public record ChatCodeEvent(String toolCallId, Stage stage, @Nullable String cod
                 || (stage == Stage.OUTPUT) != (output != null)
                 || code != null && code.length() > MAX_CODE_CHARACTERS
                 || output != null && output.length() > MAX_OUTPUT_CHARACTERS
-                || files.size() > 25 || !files.isEmpty() && stage != Stage.COMPLETED)
+                || files.size() > 25
+                || !files.isEmpty() && stage != Stage.COMPLETED && stage != Stage.FAILED)
             throw new IllegalArgumentException("Invalid code event");
     }
 
@@ -48,8 +49,13 @@ public record ChatCodeEvent(String toolCallId, Stage stage, @Nullable String cod
         return new ChatCodeEvent(toolCallId, Stage.COMPLETED, null, null, files);
     }
 
+    /** A run that timed out or exited non-zero still keeps the files it managed to produce. */
+    public static ChatCodeEvent failed(String toolCallId, List<GeneratedFile> files) {
+        return new ChatCodeEvent(toolCallId, Stage.FAILED, null, null, files);
+    }
+
     public static ChatCodeEvent failed(String toolCallId) {
-        return new ChatCodeEvent(toolCallId, Stage.FAILED, null, null, List.of());
+        return failed(toolCallId, List.of());
     }
 
     private static String truncate(String text, int limit) {

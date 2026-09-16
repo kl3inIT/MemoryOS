@@ -237,6 +237,27 @@ class RunPythonToolTest {
                 completed.files());
     }
 
+    @Test void aNonZeroExitOrTimeoutIsAFailedStepThatKeepsItsFiles() throws Exception {
+        var artifact = UUID.randomUUID();
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(
+                new InterpreterClient.Execution("", "ZeroDivisionError", 1, false,
+                        List.of(new InterpreterClient.WorkspaceFile("partial.csv", "file", "44444444-4444-4444-4444-444444444444"))));
+        when(client.download(anyString())).thenReturn(new byte[]{7});
+        when(artifacts.store(tenant, messageId, "partial.csv", "text/csv", new byte[]{7})).thenReturn(artifact);
+
+        tool().runPython("1/0");
+
+        var last = published.getLast();
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, last.stage());
+        assertEquals(List.of(artifact), last.files().stream().map(io.memoryos.chat.ChatCodeEvent.GeneratedFile::id).toList());
+
+        published.clear();
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(
+                new InterpreterClient.Execution("", "", null, true, List.of()));
+        tool().runPython("while True: pass");
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
+    }
+
     @Test void aFailedRunTellsTheTimelineWithoutServiceDetail() throws Exception {
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
 
