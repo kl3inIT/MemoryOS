@@ -177,11 +177,18 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 ## Giai đoạn 3 — Trang site
 
-- [ ] Input format `SHAREPOINT_PAGE` trong `SourceInputDescriptor`.
-- [ ] Refresh: liệt kê metadata trang → lấy canvas cho trang có `lastModifiedDateTime` trong cửa sổ → snapshot JSON. Prune: gỡ trang không còn.
-- [ ] `SharePointPageSourceContentExtractor` (jsoup) đăng ký trong `SourceContentExtractorRouter`.
-- [ ] Bật/tắt `includePages` đi qua cập nhật phạm vi và fence.
-- [ ] **Test:**
+- [x] Input format `SHAREPOINT_PAGE` trong `SourceInputDescriptor`.
+- [x] Refresh: liệt kê metadata trang → lấy canvas cho trang có `lastModifiedDateTime` trong cửa sổ → snapshot JSON. Prune: gỡ trang không còn.
+- [x] `SharePointPageSourceContentExtractor` (jsoup) đăng ký trong `SourceContentExtractorRouter`.
+- [x] Bật/tắt `includePages` đi qua cập nhật phạm vi và fence.
+**Ghi chú thực hiện (16/09/2026)**
+
+- Snapshot trang là JSON `memoryos-sharepoint-page-v1`: tiêu đề, `textAboveTitle`, mô tả, HTML của từng `textWebPart` và `searchablePlainTexts` của các web part khác. Bố cục và cấu hình web part không được lưu.
+- Reader dùng jsoup giữ heading, paragraph, list item và table thành canonical block; trang rỗng vẫn ra tiêu đề.
+- Trang **không có change log**, nên lượt refresh liệt kê rồi so version từng trang, và lượt prune gỡ trang không còn được xuất bản. Mỗi trang đọc canvas riêng nên trang hỏng chỉ ảnh hưởng chính nó.
+- Migration mở `ck_item_versions_input` cho `SHAREPOINT_PAGE` (test bắt được: nếu không, trang được tải về nhưng không ghi được version).
+
+- [x] **Test:**
   - fixture canvas từ S0.7 (đã che): heading, list, table, standard web part, trang rỗng, canvas lỗi;
   - provider 404/400;
   - PostgreSQL prune trang;
