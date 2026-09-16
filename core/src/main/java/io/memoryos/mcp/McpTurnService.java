@@ -114,8 +114,8 @@ public class McpTurnService {
                 if (!tool.enabled()) continue;
                 var modelName = McpServerRules.modelToolName(server.slug(), tool.name());
                 if (modelName.isEmpty() || offered + bindings.size() >= MAX_TOOLS) continue;
-                bindings.add(new McpTurnTools.Binding(serverId, server.name(), tool.name(), modelName.get(),
-                        tool.description(), tool.inputSchema(), tool.readOnly()));
+                bindings.add(new McpTurnTools.Binding(serverId, server.slug(), server.name(), tool.name(),
+                        modelName.get(), tool.description(), tool.inputSchema(), tool.readOnly()));
             }
             if (bindings.isEmpty()) {
                 unavailable.add(new McpTurnTools.Unavailable(serverId, server.name(),

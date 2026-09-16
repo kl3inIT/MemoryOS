@@ -135,6 +135,20 @@ End user in Chat:
 - Embabel tools: `Tool.create(name, description, Tool.InputSchema, Tool.Metadata, Tool.Handler)` (verified against `embabel-agent-api-1.5.1`). `Tool.InputSchema` is an interface over `toJsonSchema()` and `getParameters()` with factories for classes only, so a small implementation returns the snapshotted schema and no parameters. `Tool.Handler` takes the raw argument JSON and returns `Tool.Result.text` or `Tool.Result.error`, which is where the per-call guard, deadline and result cap live. `SpringAiMcpToolFactory` is not used; it binds fixed clients and bypasses the Chat guard.
 - OAuth: authorization-code with PKCE implemented like the MEM-60 flow; DCR (RFC 7591) and metadata discovery (RFC 9728, RFC 8414) with `RestClient`. The SDK's client OAuth helpers are used where the Java SDK provides them; verified in Phase 1.
 
+### Library reuse review (2026-09-16)
+
+[`spring-ai-community/mcp-security`](https://github.com/spring-ai-community/mcp-security) ships an `mcp-client-security` module that overlaps this increment: `McpMetadataDiscoveryService`, `ProtectedResourceMetadata`, `WwwAuthenticateParameters`, `DynamicClientRegistrationService` and a CIMD client manager. It was reviewed against `McpOAuthProtocol` and not adopted, for reasons that are properties of our requirements rather than of its quality:
+
+- Its storage model is `McpClientRegistrationRepository extends ClientRegistrationRepository`, keyed by one `registrationId`, with only an in-memory implementation. This increment needs several clients per server per Tenant chosen by label at connect time, sealed in PostgreSQL, plus per-actor tokens with revision fencing and a `REAUTH_REQUIRED` state.
+- `McpMetadataDiscoveryService` covers protected-resource metadata only. It does not fetch authorization-server metadata, so it performs neither the RFC 8414/OIDC probing order nor the `S256` check.
+- It builds on `RestClient`, which follows redirects, and reads metadata bodies unbounded. `McpOAuthProtocol` deliberately uses `Redirect.NEVER` and a 64 KiB cap, per the accepted endpoint policy.
+- Adopting it puts `spring-security-oauth2-client` into `core`, which today has no Spring Security; only `api` does.
+- It is `0.1.15-SNAPSHOT`.
+
+Where its behaviour is stricter, ours matches or exceeds it: both require the protected-resource `resource` to identify the server, and ours applies that equality to the root fallback too, where `mcp-client-security` compares against the origin instead.
+
+Revisit if the library gains a Tenant-aware registration store and authorization-server metadata discovery. Separately, Spring AI does not instrument MCP client tool calls ([spring-ai#4560](https://github.com/spring-projects/spring-ai/issues/4560) concerns server-side `@McpTool`), so the `memoryos.chat.mcp.call` timer duplicates no framework instrumentation.
+
 ### Capability placement
 
 New `core` package `io.memoryos.mcp`: servers, OAuth clients, tool snapshots, credentials, client sessions. Chat depends on it for per-turn tools. Persistence follows the [persistence policy](../../../guidelines/persistence.md).

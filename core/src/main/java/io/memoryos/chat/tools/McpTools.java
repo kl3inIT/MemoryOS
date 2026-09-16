@@ -1,11 +1,13 @@
 package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.tool.Tool;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.mcp.McpTurnTools;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,15 +35,16 @@ public final class McpTools {
     private final ChatToolActivity activity;
     private final IntSupplier contextTokens;
     private final TokenCountEstimator tokens;
+    private final MeterRegistry meters;
     private final int maxCalls;
     private int calls;
 
     public McpTools(McpTurnTools turn, Runnable active, Instant deadline, Duration callTimeout, int maxCalls,
                     Consumer<ChatToolEvent> events, ChatToolActivity activity, IntSupplier contextTokens,
-                    TokenCountEstimator tokens) {
+                    TokenCountEstimator tokens, MeterRegistry meters) {
         this.turn = turn; this.active = active; this.deadline = deadline; this.callTimeout = callTimeout;
         this.maxCalls = maxCalls; this.events = events; this.activity = activity;
-        this.contextTokens = contextTokens; this.tokens = tokens;
+        this.contextTokens = contextTokens; this.tokens = tokens; this.meters = meters;
     }
 
     /** Embabel tools for this turn, in the order the servers were resolved. */
@@ -90,7 +93,7 @@ public final class McpTools {
         }
         if (++calls > maxCalls) {
             activity.fail();
-            return Tool.Result.error("The MCP tool call limit for this turn is reached. "
+            return refused(binding, "call_limit", "The MCP tool call limit for this turn is reached. "
                     + "Answer with what you have or ask the user to narrow the request.");
         }
         Map<String, Object> arguments;
@@ -99,21 +102,50 @@ public final class McpTools {
                     : JSON.readValue(argumentJson, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
         } catch (RuntimeException invalid) {
             activity.fail();
-            return Tool.Result.error("The arguments were not a JSON object matching the tool's schema.");
+            return refused(binding, "invalid_arguments",
+                    "The arguments were not a JSON object matching the tool's schema.");
         }
         Instant callDeadline = Instant.now().plus(callTimeout);
         if (callDeadline.isAfter(deadline)) callDeadline = deadline;
+        long start = System.nanoTime();
+        String outcome = "unavailable";
         try {
-            var outcome = turn.call(binding, arguments, callDeadline);
+            var result = turn.call(binding, arguments, callDeadline);
             active.run();
-            if (outcome.error()) activity.fail();
-            return Tool.Result.text(cap(binding, outcome.text()));
+            // The server's own isError is a tool outcome, not a transport failure, and is counted apart.
+            outcome = result.error() ? "tool_error" : "succeeded";
+            if (result.error()) activity.fail();
+            return Tool.Result.text(cap(binding, result.text()));
         } catch (McpTurnTools.CallFailure failure) {
             activity.fail();
+            outcome = switch (failure.reason()) {
+                case AUTHORIZATION_REQUIRED -> "auth_required";
+                case TIMEOUT -> "timeout";
+                case INVALID_ARGUMENTS -> "invalid_arguments";
+                case UNKNOWN_TOOL -> "unknown_tool";
+                case UNAVAILABLE -> "unavailable";
+            };
             // The reason is a code from the MCP capability, not matched text, and carries no upstream body.
             LOG.warn("MCP tool {} failed on server {}: {}", binding.modelName(), binding.serverId(), failure.reason());
             return Tool.Result.error(message(binding, failure.reason()));
+        } finally {
+            measure(binding, outcome, System.nanoTime() - start);
         }
+    }
+
+    /** Refused before the server was called, so the timer records no upstream latency for it. */
+    private Tool.Result refused(McpTurnTools.Binding binding, String outcome, String message) {
+        measure(binding, outcome, 0);
+        return Tool.Result.error(message);
+    }
+
+    /**
+     * One series for every outcome. Labels stay bounded: the server's slug rather than its free-form name, the
+     * tool name from the stored snapshot, and a fixed outcome vocabulary — never a Tenant, URL or error text.
+     */
+    private void measure(McpTurnTools.Binding binding, String outcome, long elapsedNanos) {
+        meters.timer("memoryos.chat.mcp.call", "server", binding.slug(), "tool", binding.toolName(),
+                "outcome", outcome).record(elapsedNanos, TimeUnit.NANOSECONDS);
     }
 
     private static String message(McpTurnTools.Binding binding, McpTurnTools.CallFailure.Reason reason) {

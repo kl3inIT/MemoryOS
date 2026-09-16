@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.tool.Tool;
 import com.knuddels.jtokkit.api.EncodingType;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.mcp.McpTurnTools;
@@ -33,7 +35,8 @@ class McpToolsTest {
     private static final UUID SERVER = UUID.randomUUID();
     private final McpTurnTools turn = mock(McpTurnTools.class);
     private final List<ChatToolEvent> events = new ArrayList<>();
-    private final McpTurnTools.Binding binding = new McpTurnTools.Binding(SERVER, "Drive", "search_files",
+    private final MeterRegistry meters = new SimpleMeterRegistry();
+    private final McpTurnTools.Binding binding = new McpTurnTools.Binding(SERVER, "drive", "Drive", "search_files",
             "mcp_drive_search_files", "Search files.", "{\"type\":\"object\"}", true);
 
     private McpTools tools(int maxCalls, int contextTokens) {
@@ -41,7 +44,7 @@ class McpToolsTest {
         when(turn.unavailable()).thenReturn(List.of());
         return new McpTools(turn, () -> {}, Instant.now().plusSeconds(120), Duration.ofSeconds(30), maxCalls,
                 events::add, new ChatToolActivity(ignored -> {}), () -> contextTokens,
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE));
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters);
     }
 
     @Test
@@ -54,8 +57,8 @@ class McpToolsTest {
 
         var writeTool = new McpTools(turn, () -> {}, Instant.now().plusSeconds(120), Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE));
-        when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "Drive", "delete_file",
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters);
+        when(turn.bindings()).thenReturn(List.of(new McpTurnTools.Binding(SERVER, "drive", "Drive", "delete_file",
                 "mcp_drive_delete_file", "Delete a file.", "{\"type\":\"object\"}", false)));
         assertTrue(writeTool.tools().getFirst().getDefinition().getDescription()
                 .startsWith("This tool can change or delete data."));
@@ -71,7 +74,7 @@ class McpToolsTest {
             when(typed.call(any(), any(), any())).thenThrow(failure(reason));
             var result = new McpTools(typed, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
                     events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
-                    new JTokkitTokenCountEstimator(EncodingType.O200K_BASE))
+                    new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters)
                     .tools().getFirst().call("{}");
             String message = assertInstanceOf(Tool.Result.Error.class, result).getMessage();
             assertFalse(message.contains("SECRET-LEAK"), reason.name());
@@ -88,7 +91,7 @@ class McpToolsTest {
         when(rejected.call(any(), any(), any())).thenThrow(failure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED));
         var rejectedResult = new McpTools(rejected, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)).tools().getFirst().call("{}");
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst().call("{}");
         String message = assertInstanceOf(Tool.Result.Error.class, rejectedResult).getMessage();
         assertTrue(message.contains("reconnect"));
         assertTrue(message.contains("Drive"));
@@ -126,10 +129,51 @@ class McpToolsTest {
                 new McpTurnTools.Unavailable(UUID.randomUUID(), "Jira", McpTurnTools.Unavailable.Reason.REAUTH_REQUIRED)));
         String notice = new McpTools(pending, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
                 events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
-                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)).unavailableNotice();
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).unavailableNotice();
         assertTrue(notice.contains("Drive: not connected"));
         assertTrue(notice.contains("Jira: the connection expired"));
         assertEquals("", tools(10, 8000).unavailableNotice());
+    }
+
+    @Test
+    void recordsOneTimerPerOutcomeWithBoundedLabels() {
+        when(turn.call(any(), any(), any())).thenReturn(new McpTurnTools.Outcome("ok", false));
+        var tools = tools(1, 8000);
+        tools.tools().getFirst().call("{}");
+        // Over this turn's limit: refused before the arguments are even parsed, so it counts as call_limit.
+        tools.tools().getFirst().call("not json");
+
+        var outcomes = meters.find("memoryos.chat.mcp.call").timers().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        timer -> timer.getId().getTag("outcome"), io.micrometer.core.instrument.Timer::count));
+        assertEquals(Map.of("succeeded", 1L, "call_limit", 1L), outcomes);
+
+        // Within the limit, unparseable arguments are their own outcome and never reach the server.
+        var parsing = new SimpleMeterRegistry();
+        new McpTools(turn, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10, events::add,
+                new ChatToolActivity(ignored -> {}), () -> 8000,
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), parsing).tools().getFirst().call("not json");
+        assertEquals(1, parsing.find("memoryos.chat.mcp.call").tag("outcome", "invalid_arguments").timer().count());
+
+        var sample = meters.find("memoryos.chat.mcp.call").timers().iterator().next().getId();
+        // The slug and the snapshotted tool name are bounded; the free-form server name is never a label.
+        assertEquals("drive", sample.getTag("server"));
+        assertEquals("search_files", sample.getTag("tool"));
+        assertEquals(java.util.Set.of("server", "tool", "outcome"),
+                sample.getTags().stream().map(io.micrometer.core.instrument.Tag::getKey)
+                        .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void countsAnAuthorizationFailureUnderItsOwnOutcome() {
+        var rejected = mock(McpTurnTools.class);
+        when(rejected.bindings()).thenReturn(List.of(binding));
+        when(rejected.unavailable()).thenReturn(List.of());
+        when(rejected.call(any(), any(), any())).thenThrow(failure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED));
+        new McpTools(rejected, () -> {}, Instant.now().plusSeconds(60), Duration.ofSeconds(30), 10,
+                events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst().call("{}");
+        assertEquals(1, meters.find("memoryos.chat.mcp.call").tag("outcome", "auth_required").timer().count());
     }
 
     private static McpTurnTools.CallFailure failure(McpTurnTools.CallFailure.Reason reason) {
