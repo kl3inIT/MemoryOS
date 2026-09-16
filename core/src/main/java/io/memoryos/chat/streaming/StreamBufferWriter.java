@@ -231,8 +231,9 @@ public final class StreamBufferWriter {
     public void validateSubscription(UUID id, long after) {
         if (after < 0) throw ChatException.invalid("Invalid stream cursor.");
         long last;
+        // Unreadable replay is reported by the reader as a reset, so the browser falls back to history.
         try { last = lastSequence(id); }
-        catch (org.springframework.dao.DataAccessException unavailable) { throw ChatException.busy(); }
+        catch (org.springframework.dao.DataAccessException unavailable) { last = after; }
         if (after > last) throw ChatException.invalid("Stream cursor is ahead of this reply.");
         synchronized (readersPerRun) {
             if (readers >= limits.maxReaders() || readersPerRun.getOrDefault(id, 0) >= limits.readersPerRun())
@@ -416,11 +417,17 @@ public final class StreamBufferWriter {
         public Batch read() throws InterruptedException {
             long heartbeatAt = System.nanoTime() + limits.heartbeat().toNanos();
             while (!closed) {
-                var batch = next();
+                Batch batch;
+                try { batch = next(); }
+                catch (org.springframework.dao.DataAccessException unavailable) {
+                    // As Onyx's resume endpoint without a buffer: the browser reads history and polls while RUNNING.
+                    LOG.warn("Chat stream replay unavailable for reply {} ({})", id, unavailable.getClass().getSimpleName());
+                    return end("BUFFER_MISSING");
+                }
                 if (batch != null) return batch;
                 long now = System.nanoTime();
                 if (drainUntil != 0) {
-                    if (now >= drainUntil) return end(Boolean.TRUE.equals(redis.hasKey(key(id))) ? "BUFFER_GAP" : "BUFFER_MISSING");
+                    if (now >= drainUntil) return end(exists() ? "BUFFER_GAP" : "BUFFER_MISSING");
                 } else if (!checked || now >= heartbeatAt) {
                     boolean first = !checked;
                     checked = true;
@@ -455,6 +462,11 @@ public final class StreamBufferWriter {
                 if (bytes >= limits.readBytes()) break;
             }
             return new Batch(List.copyOf(events), false, null);
+        }
+
+        private boolean exists() {
+            try { return Boolean.TRUE.equals(redis.hasKey(key(id))); }
+            catch (org.springframework.dao.DataAccessException unavailable) { return false; }
         }
 
         private Batch end(String reason) {

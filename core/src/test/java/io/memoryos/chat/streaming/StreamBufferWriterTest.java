@@ -296,6 +296,26 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void unreachableRedisResetsTheReaderToHistoryInsteadOfFailingTheSubscription() throws Exception {
+        var factory = new org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory(
+                new org.springframework.data.redis.connection.RedisStandaloneConfiguration("127.0.0.1", 1),
+                org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration.builder().commandTimeout(Duration.ofMillis(200)).build());
+        factory.afterPropertiesSet();
+        factory.start();
+        try {
+            var writer = new StreamBufferWriter(new StringRedisTemplate(factory), limits);
+            try (var reader = writer.subscribe(UUID.randomUUID(), 3, () -> true)) {
+                var batch = reader.read();
+                assertTrue(batch.done());
+                assertEquals("BUFFER_MISSING", batch.reset());
+            }
+            assertEquals(0, writer.readerCount());
+        } finally {
+            factory.destroy();
+        }
+    }
+
+    @Test
     void cursorAheadAndReaderLimitsHaveExplicitOutcomesAndDiscardDeletesTheReply() throws Exception {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();

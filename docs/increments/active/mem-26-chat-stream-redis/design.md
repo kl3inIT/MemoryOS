@@ -72,6 +72,8 @@ Each `read()`:
 4. Nothing new → sleep `poll-interval` (200 ms, Onyx `CHAT_RESUME_POLL_INTERVAL_S`) and retry until the heartbeat interval passes.
 5. On the first empty read and at each heartbeat after it, the reader re-checks the reply through `ChatTurnService`: the actor must still be authorized for it and the row must still be `RUNNING`. A reply that is no longer `RUNNING` gets a final drain of up to 2 s (the outcome is written after the terminal commit, on the next flush tick); if no outcome entry appears it ends with `reset` (`BUFFER_MISSING` when the key is absent, otherwise `BUFFER_GAP`), and the browser reads the committed reply from history. This is Onyx's "fence lapsed → final drain → end", driven by the lease row. It covers a dead writer, a lapsed or startup-failed run, an expired or evicted buffer, and a Redis outage longer than the writer queue.
 
+A reader that cannot reach Redis ends at once with `reset` `BUFFER_MISSING` instead of failing the subscription, so the browser reads history and polls while the reply is RUNNING. This matters on a deploy that recreates only the API: a missing ACL user or Redis outage degrades Chat to history polling, not to endless reconnects.
+
 Polling instead of `XREAD BLOCK`: Spring Data Redis shares one native Lettuce connection, and a blocking read on it stalls every other Redis command in the process. Polling follows the reference and needs no connection per reader. Cost: 64 readers × 5 reads/s at most.
 
 `BUFFER_EXPIRED` stays in the contract but is no longer emitted separately: an expired key cannot be told from a missing one.
