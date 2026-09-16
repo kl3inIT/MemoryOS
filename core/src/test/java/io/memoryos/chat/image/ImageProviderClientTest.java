@@ -127,7 +127,7 @@ class ImageProviderClientTest {
         assertEquals("image/jpeg", result.mediaType());
         ArgumentCaptor<Map<String, String>> fields = ArgumentCaptor.forClass(Map.class);
         ArgumentCaptor<List<ImageHttp.FilePart>> files = ArgumentCaptor.forClass(List.class);
-        verify(http).postMultipart(argThat(uri -> uri.toString().equals(CF_BASE + "/ai/run/@cf/black-forest-labs/flux-2-klein-4b")),
+        verify(http).postMultipart(argThat(uri -> uri.toString().equals(CF_BASE + "/ai/run/@cf/black-forest-labs/flux-2-klein-9b")),
                 eq(Map.of("Authorization", "Bearer test-secret")), fields.capture(), files.capture());
         assertEquals(Map.of("prompt", "make the shirt red", "width", "384", "height", "512"), fields.getValue());
         assertEquals("input_image_0", files.getValue().getFirst().name());
