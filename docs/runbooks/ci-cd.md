@@ -90,7 +90,7 @@ Operating constraints:
   - To rotate the key, replace the file, then recreate `memoryos-interpreter` and `memoryos-api` with the accepted configuration; both read the key at start.
 - **Uploaded files.** Files uploaded for a run expire after `FILE_TTL_SEC` (900 seconds on staging) and are removed every minute.
 - **Logs.** The service writes JSON logs to stdout. Read them with `docker logs memoryos-interpreter`; they are not exported through OTLP.
-- **Executor image.** The image is about 2.8 GB. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
+- **Executor image.** The image is about 3.3 GB, including LibreOffice Calc for `recalc-xlsx`. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3.5 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
 
 ## Failure and recovery
 

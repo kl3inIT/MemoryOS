@@ -39,6 +39,7 @@ The Onyx baseline is checkout `40eb240df` together with the service repository [
 | Libraries and CLI tools | Onyx executor list; no CLI tools | Add statsmodels, pyarrow, xlrd, chardet, tabulate, jinja2, markdown, beautifulsoup4, markitdown, pdf2image, sympy; poppler-utils, qpdf, sqlite3, unzip/zip | Legacy `.xls`, CSV encodings, statistics, markdown tables and PDF rendering; the same items ship in Anthropic, AWS AgentCore, LibreChat or E2B images | Larger image and lockfile | Onyx list only |
 | Image size | Includes `nvidia-nccl-cu12` pulled by xgboost | uv override removes the CUDA NCCL wheel | About −380 MB; executors have no GPU | xgboost GPU training unavailable (never was without a GPU) | Keep the wheel |
 | Execution limits | 256 MB memory, 5 s CPU, 60 s wall | 1024 MB, 30 s CPU, 60 s wall (service defaults and Helm values) | Measured 2026-09-15: a 320 MB DataFrame is killed with exit 137 at 256 MB; peers default to 512 MiB–5 GiB | More host memory per concurrent run | Upstream limits |
+| Spreadsheet formula values | No LibreOffice; openpyxl workbooks keep formulas without values | `libreoffice-calc-nogui` and `recalc-xlsx`, run by the model after saving a workbook (phase 5) | Measured 2026-09-16: a staging `=SUM` read back as `None`; after `recalc-xlsx`, values, errors, charts and formatting are correct | +470 MB image (3.26 GB); about 10 s LibreOffice start per call | Leave values empty until a spreadsheet application opens the file |
 
 Behaviour of the service, executor and Helm chart is otherwise unchanged in phase 0.
 
@@ -126,7 +127,7 @@ In scope, by phase:
 4. Browser: streamed code and output in the activity timeline, generated file download, and the capability decision (no new capability).
 5. xlsx formula values: recalculate a generated workbook before it is stored, because `openpyxl` writes formulas without computed values.
 
-Phases 5 and 6 originally carried more, taken from comparative research into Anthropic Agent Skills and E2B rather than from Onyx. They were rescoped on 2026-09-16 to the one verified gap above; [plan.md](plan.md#not-planned) records what is not planned and why. The largest of those, capturing charts and DataFrames as structured results, would have duplicated two contracts MemoryOS already has: generated files as `chat_file_artifact` (phase 4) and `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary for a table the user reads.
+Phases 5 and 6 originally carried more, taken from comparative research into Anthropic Agent Skills and E2B rather than from Onyx. They were rescoped on 2026-09-16 to the one verified gap above; [plan.md](plan.md#not-planned) records what is not planned and what the owner is still considering. The largest of those, capturing charts and DataFrames as structured results, would have duplicated two contracts MemoryOS already has: generated files as `chat_file_artifact` (phase 4) and `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary for a table the user reads.
 
 Authorization follows Onyx: no new capability. Any user who can chat can use `run_python` once an administrator has enabled a configured, healthy interpreter.
 
