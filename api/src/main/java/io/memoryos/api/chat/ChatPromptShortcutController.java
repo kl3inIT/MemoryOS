@@ -1,9 +1,9 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.ChatPromptShortcutService;
-import io.memoryos.chat.ChatPromptShortcutService.Preferences;
+import io.memoryos.chat.ChatPromptShortcutService.PromptShortcutPreferences;
 import io.memoryos.chat.ChatPromptShortcutService.ShortcutInput;
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository.Shortcut;
+import io.memoryos.chat.persistence.JdbcPromptShortcutRepository.PromptShortcut;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,7 +43,7 @@ class ChatPromptShortcutController {
     @GetMapping
     @Operation(operationId = "listChatPromptShortcuts", summary = "List the actor's own and public prompt shortcuts")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<Shortcut> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    List<PromptShortcut> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(defaultValue = "false") boolean includeHidden) {
         return shortcuts.list(identity.actorId(), includeHidden);
     }
@@ -51,13 +51,13 @@ class ChatPromptShortcutController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatPromptShortcut", summary = "Create a private prompt shortcut")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    Shortcut create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ShortcutInput request) {
+    PromptShortcut create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ShortcutInput request) {
         return shortcuts.create(identity.actorId(), request, false);
     }
     @PutMapping("/{shortcutId}")
     @Operation(operationId = "updateChatPromptShortcut", summary = "Update a private prompt shortcut with an expected revision")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    Shortcut update(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID shortcutId,
+    PromptShortcut update(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID shortcutId,
             @RequestParam long revision, @RequestBody ShortcutInput request) {
         return shortcuts.update(identity.actorId(), shortcutId, revision, request, false);
     }
@@ -77,32 +77,32 @@ class ChatPromptShortcutController {
     @GetMapping("/preferences")
     @Operation(operationId = "getChatPromptShortcutPreferences", summary = "Read whether the actor uses prompt shortcuts")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    Preferences preferences(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    PromptShortcutPreferences preferences(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         return shortcuts.preferences(identity.actorId());
     }
     @PutMapping("/preferences")
     @Operation(operationId = "setChatPromptShortcutPreferences", summary = "Enable or disable prompt shortcuts for the actor")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    Preferences setPreferences(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody PreferencesRequest request) {
+    PromptShortcutPreferences setPreferences(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody PreferencesRequest request) {
         return shortcuts.preferences(identity.actorId(), request.enabled());
     }
     @GetMapping("/public")
     @Operation(operationId = "listPublicChatPromptShortcuts", summary = "List public prompt shortcuts; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<Shortcut> publicShortcuts(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    List<PromptShortcut> publicShortcuts(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         return shortcuts.publicShortcuts(identity.actorId());
     }
     @PostMapping("/public")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createPublicChatPromptShortcut", summary = "Create a public prompt shortcut; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    Shortcut createPublic(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ShortcutInput request) {
+    PromptShortcut createPublic(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ShortcutInput request) {
         return shortcuts.create(identity.actorId(), request, true);
     }
     @PutMapping("/public/{shortcutId}")
     @Operation(operationId = "updatePublicChatPromptShortcut", summary = "Update a public prompt shortcut; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    Shortcut updatePublic(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID shortcutId,
+    PromptShortcut updatePublic(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID shortcutId,
             @RequestParam long revision, @RequestBody ShortcutInput request) {
         return shortcuts.update(identity.actorId(), shortcutId, revision, request, true);
     }

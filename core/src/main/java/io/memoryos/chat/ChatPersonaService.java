@@ -4,11 +4,11 @@ import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.persistence.JdbcAgentRepository;
 import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
-import io.memoryos.chat.persistence.JdbcAgentRepository.GroupShare;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Owner;
+import io.memoryos.chat.persistence.JdbcAgentRepository.AgentGroupShare;
+import io.memoryos.chat.persistence.JdbcAgentRepository.AgentOwner;
 import io.memoryos.chat.persistence.JdbcAgentRepository.Permission;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Ref;
-import io.memoryos.chat.persistence.JdbcAgentRepository.UserShare;
+import io.memoryos.chat.persistence.JdbcAgentRepository.AgentRef;
+import io.memoryos.chat.persistence.JdbcAgentRepository.AgentUserShare;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.chat.persistence.JpaPersonaRepository;
@@ -84,13 +84,13 @@ public class ChatPersonaService {
                                @Nullable Boolean replaceBaseSystemPrompt, @Nullable Boolean datetimeAware, @Nullable Instant knowledgeCutoff) {
     }
 
-    public record SourceRef(UUID id, String name) {}
+    public record AgentSourceRef(UUID id, String name) {}
     public record PersonaView(UUID id, boolean builtin, PersonaPermissions permissions, long revision, String name,
                               String description, String instructions, String taskPrompt, List<String> starterPrompts,
-                              List<UUID> sourceIds, List<SourceRef> sources, Set<String> tools, List<Ref> mcpServers,
+                              List<UUID> sourceIds, List<AgentSourceRef> sources, Set<String> tools, List<AgentRef> mcpServers,
                               @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
-                              List<UUID> fileIds, @Nullable String iconName, boolean hasAvatar, List<Ref> labels, Owner owner,
-                              boolean vacant, List<UserShare> userShares, List<GroupShare> groupShares, boolean isPublic,
+                              List<UUID> fileIds, @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
+                              boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               Permission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
                               boolean replaceBaseSystemPrompt, boolean datetimeAware, @Nullable Instant knowledgeCutoff,
                               boolean pinned, @Nullable Instant deletedAt) {}
@@ -277,30 +277,30 @@ public class ChatPersonaService {
     }
 
     @Transactional(readOnly = true)
-    public List<Ref> labels(ActorId actor) {
+    public List<AgentRef> labels(ActorId actor) {
         return agents.labels(tenant(actor).value());
     }
 
     @Transactional
-    public Ref createLabel(ActorId actor, String name) {
+    public AgentRef createLabel(ActorId actor, String name) {
         var tenant = write(actor);
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         String normalized = labelName(name);
         if (agents.labelNameTaken(tenant.value(), normalized, null)) throw ChatException.conflict();
         var id = UUID.randomUUID();
         agents.saveLabel(tenant.value(), id, normalized);
-        return new Ref(id, normalized);
+        return new AgentRef(id, normalized);
     }
 
     @Transactional
-    public Ref renameLabel(ActorId actor, UUID id, String name) {
+    public AgentRef renameLabel(ActorId actor, UUID id, String name) {
         var tenant = write(actor);
         requireManage(actor);
         if (!agents.labelExists(tenant.value(), id)) throw ChatException.unavailable();
         String normalized = labelName(name);
         if (agents.labelNameTaken(tenant.value(), normalized, id)) throw ChatException.conflict();
         agents.saveLabel(tenant.value(), id, normalized);
-        return new Ref(id, normalized);
+        return new AgentRef(id, normalized);
     }
 
     @Transactional
@@ -341,7 +341,7 @@ public class ChatPersonaService {
     }
 
     @Transactional(readOnly = true)
-    public JdbcAgentRepository.ShareOptions shareOptions(ActorId actor, @Nullable String query, int limit) {
+    public JdbcAgentRepository.AgentShareOptions shareOptions(ActorId actor, @Nullable String query, int limit) {
         var tenant = tenant(actor);
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         if (limit < 1 || limit > 50) throw ChatException.invalid("Invalid page.");
@@ -458,11 +458,11 @@ public class ChatPersonaService {
                     leave, manage);
             result.add(new PersonaView(id, entity.builtin(), permissions, entity.revision(), entity.name(), entity.description(),
                     entity.instructions(), entity.taskPrompt(), entity.starterPrompts(), entity.sourceIds(),
-                    entity.sourceIds().stream().map(source -> new SourceRef(source, names.getOrDefault(source, ""))).toList(),
+                    entity.sourceIds().stream().map(source -> new AgentSourceRef(source, names.getOrDefault(source, ""))).toList(),
                     details.tools().getOrDefault(id, Set.of()), details.mcpServers().getOrDefault(id, List.of()),
                     entity.modelConfigurationId(), entity.contextTokenLimit(), entity.outputTokenLimit(), entity.fileIds(),
                     entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
-                    details.owners().getOrDefault(id, new Owner(null, null)), granted.vacant(), userShares,
+                    details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), Permission.valueOf(entity.publicPermission()),
                     entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(),
                     entity.datetimeAware(), entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));

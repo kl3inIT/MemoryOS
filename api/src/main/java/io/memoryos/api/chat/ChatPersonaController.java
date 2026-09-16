@@ -161,27 +161,27 @@ class ChatPersonaController {
     @GetMapping("/persona-share-options")
     @Operation(operationId = "listChatPersonaShareOptions", summary = "Search active members and ordinary Groups to share an agent with")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.ShareOptions shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    JdbcAgentRepository.AgentShareOptions shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(required = false) @Nullable String q, @RequestParam(defaultValue = "20") int limit) {
         return personas.shareOptions(identity.actorId(), q, limit);
     }
     @GetMapping("/persona-labels")
     @Operation(operationId = "listChatPersonaLabels", summary = "List agent labels")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<JdbcAgentRepository.Ref> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    List<JdbcAgentRepository.AgentRef> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         return personas.labels(identity.actorId());
     }
     @PostMapping("/persona-labels")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatPersonaLabel", summary = "Create an agent label")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.Ref createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody LabelRequest request) {
+    JdbcAgentRepository.AgentRef createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody LabelRequest request) {
         return personas.createLabel(identity.actorId(), request.name());
     }
     @PutMapping("/persona-labels/{labelId}")
     @Operation(operationId = "renameChatPersonaLabel", summary = "Rename an agent label; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.Ref renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    JdbcAgentRepository.AgentRef renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID labelId, @RequestBody LabelRequest request) {
         return personas.renameLabel(identity.actorId(), labelId, request.name());
     }

@@ -2,7 +2,7 @@ package io.memoryos.chat;
 
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository.Shortcut;
+import io.memoryos.chat.persistence.JdbcPromptShortcutRepository.PromptShortcut;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -33,24 +33,24 @@ public class ChatPromptShortcutService {
     }
 
     public record ShortcutInput(String name, String content, @Nullable Boolean active) {}
-    public record Preferences(boolean enabled) {}
+    public record PromptShortcutPreferences(boolean enabled) {}
 
     @Transactional(readOnly = true)
-    public List<Shortcut> list(ActorId actor, boolean includeHidden) {
+    public List<PromptShortcut> list(ActorId actor, boolean includeHidden) {
         var tenant = tenant(actor);
         authorization.require(actor, IamCapability.CHAT_READ, false);
         return shortcuts.visible(tenant.value(), actor.value(), includeHidden);
     }
 
     @Transactional(readOnly = true)
-    public List<Shortcut> publicShortcuts(ActorId actor) {
+    public List<PromptShortcut> publicShortcuts(ActorId actor) {
         var tenant = tenant(actor);
         requireManage(actor);
         return shortcuts.publicShortcuts(tenant.value());
     }
 
     @Transactional
-    public Shortcut create(ActorId actor, ShortcutInput input, boolean isPublic) {
+    public PromptShortcut create(ActorId actor, ShortcutInput input, boolean isPublic) {
         var tenant = write(actor);
         if (isPublic) requireManage(actor); else authorization.require(actor, IamCapability.CHAT_WRITE, false);
         UUID owner = isPublic ? null : actor.value();
@@ -65,7 +65,7 @@ public class ChatPromptShortcutService {
     }
 
     @Transactional
-    public Shortcut update(ActorId actor, UUID id, long revision, ShortcutInput input, boolean isPublic) {
+    public PromptShortcut update(ActorId actor, UUID id, long revision, ShortcutInput input, boolean isPublic) {
         var tenant = write(actor);
         if (isPublic) requireManage(actor); else authorization.require(actor, IamCapability.CHAT_WRITE, false);
         UUID owner = isPublic ? null : actor.value();
@@ -94,17 +94,17 @@ public class ChatPromptShortcutService {
     }
 
     @Transactional(readOnly = true)
-    public Preferences preferences(ActorId actor) {
+    public PromptShortcutPreferences preferences(ActorId actor) {
         var tenant = tenant(actor);
-        return new Preferences(shortcuts.shortcutsEnabled(tenant.value(), actor.value()));
+        return new PromptShortcutPreferences(shortcuts.shortcutsEnabled(tenant.value(), actor.value()));
     }
 
     @Transactional
-    public Preferences preferences(ActorId actor, boolean enabled) {
+    public PromptShortcutPreferences preferences(ActorId actor, boolean enabled) {
         var tenant = write(actor);
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         shortcuts.shortcutsEnabled(tenant.value(), actor.value(), enabled);
-        return new Preferences(enabled);
+        return new PromptShortcutPreferences(enabled);
     }
 
     private static String name(@Nullable String value) {

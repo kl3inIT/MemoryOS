@@ -796,7 +796,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(vacant.permissions().transfer(), "Agent managers transfer vacant agents");
         var adopted = personas.transfer(owner, agent.id(), vacant.revision(), new ChatPersonaService.TransferInput(null, editors));
         assertEquals(editors, adopted.owner().group().id());
-        assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "Owner Group members own the agent");
+        assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "AgentOwner Group members own the agent");
         personas.delete(groupEditor, agent.id(), personas.get(groupEditor, agent.id()).revision());
         assertThrows(ChatException.class, () -> personas.get(groupEditor, agent.id()));
         assertTrue(personas.restore(owner, agent.id()).deletedAt() == null);
@@ -842,10 +842,10 @@ class ChatPersistenceIntegrationTest {
         var shared = shortcuts.create(owner, new ChatPromptShortcutService.ShortcutInput("kpi", "Xếp loại KPI tháng này", null), true);
         assertThrows(ChatException.class, () -> shortcuts.update(other, own.id(), own.revision(),
                 new ChatPromptShortcutService.ShortcutInput("tomtat", "Changed", null), false));
-        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.Shortcut::name).toList());
+        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
         shortcuts.hide(member, shared.id(), true);
-        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.Shortcut::name).toList());
-        assertTrue(shortcuts.list(member, true).stream().anyMatch(JdbcPromptShortcutRepository.Shortcut::hidden));
+        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
+        assertTrue(shortcuts.list(member, true).stream().anyMatch(JdbcPromptShortcutRepository.PromptShortcut::hidden));
         assertTrue(shortcuts.preferences(member).enabled());
         assertFalse(shortcuts.preferences(member, false).enabled());
     }
