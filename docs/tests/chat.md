@@ -240,5 +240,5 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Opt-in, against a real interpreter (`MEMORYOS_INTERPRETER_LIVE_URL`, `MEMORYOS_INTERPRETER_LIVE_API_KEY`): a streamed upload with a Vietnamese file name, execution over it, download of the generated file and delete | `InterpreterServiceLiveTest` |
 | Assistant markdown keeps the relative generated-file link and image URL and drops `javascript:` links | `markdown-text.test.tsx` |
 | An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text | `chat-answer-links.test.tsx` |
-| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V63) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V64) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
