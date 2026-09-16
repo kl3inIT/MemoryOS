@@ -11,11 +11,13 @@ import { documentSourceLabels, type DocumentSourceType } from "./document-source
 export function ProviderLink({
   href,
   title,
+  provider = "Google Drive",
   children,
   className,
 }: {
   href: string;
   title: string;
+  provider?: string;
   children: ReactNode;
   className?: string;
 }) {
@@ -27,8 +29,8 @@ export function ProviderLink({
       rel="noopener noreferrer"
       referrerPolicy="no-referrer"
       data-slot="provider-link"
-      aria-label={ui("Mở {{title}} trong Google Drive", { title })}
-      title={ui("Mở trong Google Drive")}
+      aria-label={ui("Mở {{title}} trong {{provider}}", { title, provider })}
+      title={ui("Mở trong {{provider}}", { provider })}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-sm text-content-secondary underline decoration-border-default underline-offset-4 transition-colors hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none",
         className,
@@ -67,7 +69,7 @@ export function DocumentMeta({
       key: `provider:${provider}`,
       node:
         providerUrl && provider !== "Tệp tải lên" ? (
-          <ProviderLink href={providerUrl} title={title}>
+          <ProviderLink href={providerUrl} title={title} provider={provider}>
             {ui(provider)}
           </ProviderLink>
         ) : (

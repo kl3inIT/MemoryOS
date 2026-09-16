@@ -54,6 +54,7 @@ import { SourceSummaryCard } from "./source-summary-card";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { GoogleDrivePanel } from "./google-drive-panel";
+import { SharePointPanel } from "./sharepoint-panel";
 import { waitForSourceOperation } from "./source-operations";
 import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
@@ -879,6 +880,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               </form>
             ) : detail.type === "GOOGLE_DRIVE" ? (
               <GoogleDrivePanel
+                source={detail}
+                sourceStale={sourceQuery.isError}
+                disabled={managementBusy || detail.status === "DELETING"}
+                onBusyChange={setDriveBusy}
+              />
+            ) : detail.type === "SHAREPOINT" ? (
+              <SharePointPanel
                 source={detail}
                 sourceStale={sourceQuery.isError}
                 disabled={managementBusy || detail.status === "DELETING"}

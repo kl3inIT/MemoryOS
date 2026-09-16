@@ -144,7 +144,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
             try {
                 verification = verify(stored.cloud(), stored.directoryId(), stored.clientId(), authentication);
             } catch (SharePointException rejected) {
-                if ("SOURCE_SHAREPOINT_CREDENTIAL_REJECTED".equals(rejected.code())) {
+                if (SharePointException.isCredentialRejection(rejected.code())) {
                     transactions.executeWithoutResult(_ -> credentials.markNeedsUpdate(tenantId, credentialId, stored.revision()));
                 }
                 throw rejected;

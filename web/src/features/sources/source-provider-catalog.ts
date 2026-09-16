@@ -1,14 +1,18 @@
 import { Files } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { GoogleDriveIcon } from "./google-drive-icon";
+import { SharePointIcon } from "./sharepoint-icon";
 
 export type SourceCategory = "Popular";
 
 export type SourceProvider = {
-  type: "FILE" | "GOOGLE_DRIVE";
+  type: "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT";
   name: string;
   category: SourceCategory;
-  setupPath: "/admin/sources/new/file" | "/admin/sources/new/google-drive";
+  setupPath:
+    | "/admin/sources/new/file"
+    | "/admin/sources/new/google-drive"
+    | "/admin/sources/new/sharepoint";
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
@@ -26,6 +30,13 @@ export const sourceProviders = [
     category: "Popular",
     setupPath: "/admin/sources/new/google-drive",
     icon: GoogleDriveIcon,
+  },
+  {
+    type: "SHAREPOINT",
+    name: "SharePoint",
+    category: "Popular",
+    setupPath: "/admin/sources/new/sharepoint",
+    icon: SharePointIcon,
   },
 ] as const satisfies readonly SourceProvider[];
 

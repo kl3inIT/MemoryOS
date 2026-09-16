@@ -42,8 +42,8 @@ export const vietnameseUi: Record<string, string> = {
   "Nguồn {{number}}": "Source {{number}}",
   "Trang {{pages}}": "Page {{pages}}",
   "Trang tính {{name}}": "Sheet {{name}}",
-  "Mở trong Google Drive": "Open in Google Drive",
-  "Mở {{title}} trong Google Drive": "Open {{title}} in Google Drive",
+  "Mở trong {{provider}}": "Open in {{provider}}",
+  "Mở {{title}} trong {{provider}}": "Open {{title}} in {{provider}}",
   "Đoạn trích": "Passages",
   "Trang PDF": "PDF pages",
   "Cách xem bằng chứng": "Evidence view",
@@ -1030,6 +1030,177 @@ Object.assign(englishUi, {
   "Reconnect the same Google account to save links and synchronize. Saved roots are retained.":
     "Kết nối lại cùng tài khoản Google để lưu liên kết và đồng bộ. Các mục gốc đã lưu được giữ lại.",
   Connected: "Đã kết nối",
+});
+
+Object.assign(englishUi, {
+  SharePoint: "SharePoint",
+  "Index sites, document libraries and pages from SharePoint Online.":
+    "Lập chỉ mục site, thư viện tài liệu và trang từ SharePoint Online.",
+  "Microsoft is resolving every address in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.":
+    "Microsoft đang xác minh mọi địa chỉ trong phạm vi này. Nguồn của bạn chưa hoạt động. Rời trang này không hủy việc xác minh; quay lại đây để khôi phục trạng thái.",
+  "Retry selection limits": "Thử lại giới hạn lựa chọn",
+  "Choose what to synchronize": "Chọn nội dung cần đồng bộ",
+  "Select a verified credential before choosing content. Return to the credential step to test or replace it.":
+    "Chọn một credential đã xác minh trước khi chọn nội dung. Quay lại bước credential để kiểm tra hoặc thay thế.",
+  "Name and access": "Tên và quyền truy cập",
+  "e.g. Finance SharePoint": "ví dụ: SharePoint Tài chính",
+  "Group members can search and read what this Source imports. SharePoint's own per-item permissions are not synchronized.":
+    "Thành viên nhóm được tìm kiếm và đọc nội dung Nguồn này nhập về. Quyền theo từng mục của SharePoint không được đồng bộ.",
+  Content: "Nội dung",
+  "Review and create": "Xem lại và tạo",
+  "Not set": "Chưa đặt",
+  "All sites": "Tất cả site",
+  "{{count}} addresses": "{{count}} địa chỉ",
+  Collects: "Thu thập",
+  "Documents and site pages": "Tài liệu và trang site",
+  "Site pages": "Trang site",
+  Documents: "Tài liệu",
+  "Creating answers immediately with a receipt. Every address is then resolved with Microsoft, and the Source starts its first run once they all resolve.":
+    "Tạo xong trả lời ngay bằng một biên nhận. Sau đó mọi địa chỉ được xác minh với Microsoft, và Nguồn bắt đầu lượt chạy đầu tiên khi tất cả đều xác minh xong.",
+  "SharePoint authentication": "Xác thực SharePoint",
+  Authentication: "Xác thực",
+  Certificate: "Chứng chỉ",
+  "Fastest to set up; Entra expires it on its own schedule.":
+    "Thiết lập nhanh nhất; Entra tự hết hạn nó theo lịch của Entra.",
+  "Upload a PKCS#12 keystore whose certificate is registered on the app.":
+    "Tải lên keystore PKCS#12 có chứng chỉ đã đăng ký trên ứng dụng.",
+  "Client secret Value": "Giá trị client secret",
+  "Paste the secret Value, not the Secret ID": "Dán giá trị secret, không phải Secret ID",
+  "Hide secret": "Ẩn secret",
+  "Show secret": "Hiện secret",
+  "Keystore (.pfx or .p12)": "Keystore (.pfx hoặc .p12)",
+  "No keystore chosen": "Chưa chọn keystore",
+  "Clear keystore": "Xóa keystore",
+  "Choose keystore": "Chọn keystore",
+  "Keystore password": "Mật khẩu keystore",
+  "Leave empty when the keystore has no password": "Để trống nếu keystore không có mật khẩu",
+  "Sent once to MemoryOS, stored encrypted, and never returned. It is not kept in browser storage and is cleared when you submit or leave this dialog.":
+    "Gửi một lần tới MemoryOS, lưu dưới dạng mã hóa và không bao giờ trả về. Không giữ trong bộ nhớ trình duyệt và bị xóa khi bạn gửi hoặc rời hộp thoại này.",
+  "Maximum 16 KiB, exactly one RSA key of at least 2048 bits with an unexpired certificate. Only the private key and certificate are stored; the uploaded keystore and its password are not.":
+    "Tối đa 16 KiB, đúng một khóa RSA ít nhất 2048 bit kèm chứng chỉ còn hạn. Chỉ khóa riêng và chứng chỉ được lưu; keystore đã tải lên và mật khẩu của nó thì không.",
+  "Reading keystore…": "Đang đọc keystore…",
+  "MemoryOS signs in as an Entra application, so there is no consent screen and no reader account.":
+    "MemoryOS đăng nhập với tư cách ứng dụng Entra, nên không có màn hình đồng ý và không có tài khoản đọc.",
+  "SharePoint credentials": "Credential SharePoint",
+  "SharePoint host": "Máy chủ SharePoint",
+  "Needs update": "Cần cập nhật",
+  "Verified just now": "Vừa xác minh",
+  "Expires {{v1}}": "Hết hạn {{v1}}",
+  "Not resolved yet": "Chưa xác minh",
+  Test: "Kiểm tra",
+  Rename: "Đổi tên",
+  "Replace authentication": "Thay xác thực",
+  "Permanently delete this unused credential and its stored authentication. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn credential chưa dùng này cùng xác thực đã lưu. Credential đang gắn với một Nguồn không thể xóa.",
+  "Replace SharePoint authentication": "Thay xác thực SharePoint",
+  "Create a SharePoint credential": "Tạo credential SharePoint",
+  "The credential is verified with Microsoft before it is stored, so what Entra rejects is never saved.":
+    "Credential được xác minh với Microsoft trước khi lưu, nên thứ Entra từ chối sẽ không bao giờ được lưu.",
+  "e.g. Contoso SharePoint": "ví dụ: SharePoint Contoso",
+  "Directory (tenant) ID": "Directory (tenant) ID",
+  "Application (client) ID": "Application (client) ID",
+  "Replacing authentication affects all": "Thay xác thực ảnh hưởng tới tất cả",
+  "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.":
+    "Nguồn đang dùng credential này. Directory và ứng dụng giữ nguyên; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Verify and save": "Xác minh và lưu",
+  "In the Microsoft Entra admin center, register an application for MemoryOS. No redirect URI is needed: MemoryOS signs in as the application, not as a person.":
+    "Trong trung tâm quản trị Microsoft Entra, đăng ký một ứng dụng cho MemoryOS. Không cần redirect URI: MemoryOS đăng nhập với tư cách ứng dụng, không phải con người.",
+  "Copy the Directory (tenant) ID and the Application (client) ID from the app's Overview page. Both are GUIDs.":
+    "Sao chép Directory (tenant) ID và Application (client) ID từ trang Overview của ứng dụng. Cả hai đều là GUID.",
+  "Add the application permissions below under API permissions → Microsoft Graph → Application permissions, then use Grant admin consent.":
+    "Thêm các quyền ứng dụng dưới đây trong API permissions → Microsoft Graph → Application permissions, rồi dùng Grant admin consent.",
+  "Create a client secret and copy its Value, or upload a certificate to the app and keep the matching PKCS#12 keystore for the next step.":
+    "Tạo client secret và sao chép giá trị của nó, hoặc tải chứng chỉ lên ứng dụng và giữ keystore PKCS#12 tương ứng cho bước tiếp theo.",
+  Permission: "Quyền",
+  Type: "Loại",
+  Why: "Vì sao",
+  "Write access is never requested. A credential limited to selected sites still works; the catalog of all sites is then unavailable and the scope must name each site.":
+    "Không bao giờ yêu cầu quyền ghi. Credential giới hạn ở các site đã chọn vẫn hoạt động; khi đó danh mục mọi site không khả dụng và phạm vi phải nêu tên từng site.",
+  "Copy {{v1}}": "Sao chép {{v1}}",
+  "{{v1}}: content is synchronized. Indexing may still be running.":
+    "{{v1}}: nội dung đã đồng bộ. Việc lập chỉ mục có thể vẫn đang chạy.",
+  "Synchronization interval": "Chu kỳ đồng bộ",
+  "Loading SharePoint configuration…": "Đang tải cấu hình SharePoint…",
+  "SharePoint configuration": "Cấu hình SharePoint",
+  "{{count}} minutes": "{{count}} phút",
+  "Pruning disabled": "Đã tắt dọn dẹp",
+  "Prune every {{count}} hours": "Dọn dẹp mỗi {{count}} giờ",
+  "A refresh reads each library's change log from where the previous run stopped, with a thirty-minute overlap, and applies deletions the log reports.":
+    "Một lượt làm mới đọc nhật ký thay đổi của từng thư viện từ chỗ lượt trước dừng, chồng lấn ba mươi phút, và áp dụng các xóa mà nhật ký báo.",
+  "A prune lists the whole scope and removes what it no longer finds, but only after the listing completes.":
+    "Một lượt dọn dẹp liệt kê toàn bộ phạm vi và xóa những gì không còn tìm thấy, nhưng chỉ sau khi việc liệt kê hoàn tất.",
+  "This credential needs updating. Replace its authentication in SharePoint setup; saved scope and documents are retained.":
+    "Credential này cần cập nhật. Thay xác thực của nó trong thiết lập SharePoint; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Microsoft is resolving the submitted addresses. The saved scope still applies.":
+    "Microsoft đang xác minh các địa chỉ đã gửi. Phạm vi đã lưu vẫn được áp dụng.",
+  "Last prune": "Dọn dẹp gần nhất",
+  "Saved scope": "Phạm vi đã lưu",
+  "Edit scope": "Sửa phạm vi",
+  "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.":
+    "Chỉ hiển thị {{count}} địa chỉ đầu tiên. Lưu sẽ thay toàn bộ phạm vi bằng những gì liệt kê ở đây.",
+  "Save scope": "Lưu phạm vi",
+  "Saving answers with a receipt and resolves every address with Microsoft. The running synchronization is cancelled and the Source reads its content again.":
+    "Lưu trả lời bằng một biên nhận và xác minh mọi địa chỉ với Microsoft. Lượt đồng bộ đang chạy bị hủy và Nguồn đọc lại nội dung của nó.",
+  Schedule: "Lịch chạy",
+  "Edit intervals": "Sửa chu kỳ",
+  "Save intervals": "Lưu chu kỳ",
+  "All sites the Entra application can read": "Mọi site ứng dụng Entra có thể đọc",
+  "{{count}} sites, libraries or folders": "{{count}} site, thư viện hoặc thư mục",
+  "Loading saved addresses…": "Đang tải địa chỉ đã lưu…",
+  "Saved addresses could not be loaded. Refresh status before editing the scope.":
+    "Không tải được địa chỉ đã lưu. Làm mới trạng thái trước khi sửa phạm vi.",
+  Site: "Site",
+  Library: "Thư viện",
+  Folder: "Thư mục",
+  "{{sites}} site and {{paths}} path exclusions":
+    "{{sites}} loại trừ site và {{paths}} loại trừ đường dẫn",
+  "Synchronization interval in minutes": "Chu kỳ đồng bộ tính bằng phút",
+  "Each run reads the change log from where the previous one stopped, with a thirty-minute overlap.":
+    "Mỗi lượt chạy đọc nhật ký thay đổi từ chỗ lượt trước dừng, chồng lấn ba mươi phút.",
+  "Prune interval in hours": "Chu kỳ dọn dẹp tính bằng giờ",
+  "A prune lists the whole scope and removes what it no longer finds. It only removes after recording that the listing finished, so a site that cannot answer leaves its documents in place.":
+    "Một lượt dọn dẹp liệt kê toàn bộ phạm vi và xóa những gì không còn tìm thấy. Nó chỉ xóa sau khi ghi nhận việc liệt kê đã xong, nên site không trả lời được sẽ giữ nguyên tài liệu.",
+  "A deleted file is normally removed by the next synchronization, because the change log reports it. Pruning covers what the change log cannot: an item the application loses permission to read, one moved out of a selected folder, and anything missed when a stale change token forces a full rescan.":
+    "Tệp bị xóa thường được gỡ ở lượt đồng bộ kế tiếp vì nhật ký thay đổi báo nó. Dọn dẹp xử lý những gì nhật ký không báo: mục ứng dụng mất quyền đọc, mục bị chuyển ra khỏi thư mục đã chọn, và những gì bị bỏ sót khi change token cũ buộc quét lại toàn bộ.",
+  "0 disables pruning. The first prune runs one interval after creation.":
+    "0 tắt dọn dẹp. Lượt dọn dẹp đầu tiên chạy sau một chu kỳ kể từ khi tạo.",
+  "Pruning is disabled. Only what the change log reports is removed.":
+    "Dọn dẹp đang tắt. Chỉ những gì nhật ký thay đổi báo mới bị gỡ.",
+  "Documents deleted outside the change log are found by the next prune.":
+    "Tài liệu bị xóa ngoài nhật ký thay đổi sẽ được lượt dọn dẹp kế tiếp phát hiện.",
+  "Paste addresses as they appear in the browser: a site, one of its document libraries, or a folder inside a library. Sharing links and library view addresses are accepted and reduced to the underlying path.":
+    "Dán địa chỉ như hiển thị trên trình duyệt: một site, một thư viện tài liệu của nó, hoặc thư mục trong thư viện. Liên kết chia sẻ và địa chỉ dạng xem thư viện được chấp nhận và quy về đường dẫn gốc.",
+  "A library is matched by the path in its URL, not by its displayed name, so a site created in another language resolves like any other. Every address must be on the same SharePoint host, and no address may sit inside another.":
+    "Thư viện được khớp theo đường dẫn trong URL chứ không theo tên hiển thị, nên site tạo bằng ngôn ngữ khác vẫn xác minh như thường. Mọi địa chỉ phải cùng một máy chủ SharePoint, và không địa chỉ nào được nằm trong địa chỉ khác.",
+  "Addresses are verified with Microsoft after you submit. Nothing is saved when one of them does not resolve.":
+    "Địa chỉ được xác minh với Microsoft sau khi bạn gửi. Không gì được lưu nếu một địa chỉ không xác minh được.",
+  "Specific sites": "Site cụ thể",
+  "Every site the Entra application can read in this directory, minus the exclusions below. New sites are picked up as they appear.":
+    "Mọi site ứng dụng Entra đọc được trong directory này, trừ các loại trừ bên dưới. Site mới được nhận vào khi xuất hiện.",
+  "Only the sites, libraries and folders you paste{{v1}}, including everything inside them.":
+    "Chỉ các site, thư viện và thư mục bạn dán{{v1}}, gồm mọi thứ bên trong chúng.",
+  "Site, library or folder addresses": "Địa chỉ site, thư viện hoặc thư mục",
+  "{{count}} of {{max}} addresses · one per line":
+    "{{count}} trên {{max}} địa chỉ · mỗi dòng một địa chỉ",
+  "{{count}} addresses · one per line": "{{count}} địa chỉ · mỗi dòng một địa chỉ",
+  Advanced: "Nâng cao",
+  "What to collect, and what to leave out": "Thu thập gì, và bỏ qua gì",
+  "{{count}} of {{max}} patterns": "{{count}} trên {{max}} mẫu",
+  "{{count}} patterns": "{{count}} mẫu",
+  "Line {{line}}: {{message}}": "Dòng {{line}}: {{message}}",
+  "Select at most {{count}} sites, libraries or folders.":
+    "Chọn tối đa {{count}} site, thư viện hoặc thư mục.",
+  "Use at most {{count}} exclusions of each kind.": "Dùng tối đa {{count}} loại trừ cho mỗi loại.",
+  "The request exceeds the server's {{count}}-byte limit. Paste fewer addresses.":
+    "Yêu cầu vượt giới hạn {{count}} byte của máy chủ. Dán ít địa chỉ hơn.",
+  "Excluded sites": "Site bị loại trừ",
+  "Excluded paths": "Đường dẫn bị loại trừ",
+  "One address or wildcard pattern per line, matched against site addresses. Example: https://contoso.sharepoint.com/sites/Archive*":
+    "Mỗi dòng một địa chỉ hoặc mẫu wildcard, khớp với địa chỉ site. Ví dụ: https://contoso.sharepoint.com/sites/Archive*",
+  "One wildcard pattern per line, matched case-insensitively against the path of each item. Example: */Archive/*":
+    "Mỗi dòng một mẫu wildcard, khớp không phân biệt hoa thường với đường dẫn của từng mục. Ví dụ: */Archive/*",
+  Kind: "Loại",
+  Prune: "Dọn dẹp",
 });
 
 Object.assign(englishUi, {
@@ -2278,6 +2449,8 @@ const unchanged = [
   " · {{v1}}",
   " +{{v1}}",
   "{{percent}}%",
+  "*/Archive/*",
+  "https://contoso.sharepoint.com/sites/Archive*",
 ];
 export const appEn: Record<string, string> = Object.fromEntries([
   ...Object.keys(englishUi).map((key) => [key, key]),

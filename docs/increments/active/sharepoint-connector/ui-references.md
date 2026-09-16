@@ -150,3 +150,11 @@ Registry: `web/components.json`, style `radix-nova`, Lucide. Tuân thủ [shadcn
 | Stepper | setup rail hiện có (`source-setup-steps`), không tự viết stepper mới |
 
 Không viết raw `<input type="checkbox|radio">`, `<table>`, `<details>` hoặc tooltip bằng `title=` trong feature code.
+
+**Đã làm (Giai đoạn 4, trước MEM-106):** mọi control dùng đúng primitive trong bảng "Đã có trên
+main" — `RadioGroup` cho chọn credential và scope mode, `Switch` cho include documents/pages,
+`Table` cho danh sách credential, `ConfirmDialog` cho xoá, `StatusBadge` cho trạng thái,
+`Collapsible` cho mục Advanced. Không cài component mới nào: `Textarea` dùng `inputVariants()`
+trên `<textarea>` thô như Drive đang làm; sửa phạm vi nằm inline trong panel thay vì `Sheet`
+(khớp pattern panel Drive hiện có). `useSourceSelectionOperation` là hook chung trích từ Drive;
+khi MEM-106 merge cần đối chiếu lại credential/access component.

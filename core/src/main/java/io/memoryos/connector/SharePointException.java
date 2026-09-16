@@ -31,9 +31,25 @@ public final class SharePointException extends BusinessException {
                 safeMessage, diagnosticMessage);
     }
 
-    /** Entra rejected the credential itself, so nothing is stored. */
+    /** Every rejection code, so a caller can recognise one without listing the reasons again. */
+    public static boolean isCredentialRejection(String code) {
+        return code != null && code.startsWith("SOURCE_SHAREPOINT_CREDENTIAL_");
+    }
+
+    /**
+     * Entra rejected the credential itself, so nothing is stored. Each reason carries its own code
+     * because what an administrator must change differs, and a browser cannot read English detail.
+     */
     public static SharePointException rejected(SharePointProviderException.Reason reason) {
-        return new SharePointException("SOURCE_SHAREPOINT_CREDENTIAL_REJECTED", FailureCategory.VALIDATION,
+        return new SharePointException(switch (reason) {
+            case INVALID_CLIENT_SECRET -> "SOURCE_SHAREPOINT_CREDENTIAL_SECRET_REJECTED";
+            case EXPIRED_CLIENT_SECRET -> "SOURCE_SHAREPOINT_CREDENTIAL_SECRET_EXPIRED";
+            case CERTIFICATE_NOT_REGISTERED -> "SOURCE_SHAREPOINT_CREDENTIAL_CERTIFICATE_UNKNOWN";
+            case DIRECTORY_NOT_FOUND -> "SOURCE_SHAREPOINT_CREDENTIAL_DIRECTORY_UNKNOWN";
+            case APPLICATION_NOT_FOUND -> "SOURCE_SHAREPOINT_CREDENTIAL_APPLICATION_UNKNOWN";
+            case CONSENT_REQUIRED -> "SOURCE_SHAREPOINT_CREDENTIAL_CONSENT_REQUIRED";
+            case UNCLASSIFIED -> "SOURCE_SHAREPOINT_CREDENTIAL_REJECTED";
+        }, FailureCategory.VALIDATION,
                 switch (reason) {
                     case INVALID_CLIENT_SECRET -> "Microsoft rejected the client secret. Copy the secret Value, not the Secret ID.";
                     case EXPIRED_CLIENT_SECRET -> "The client secret has expired. Create a new secret in Entra.";
