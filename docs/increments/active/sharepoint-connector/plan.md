@@ -35,7 +35,7 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 **Ghi kết quả:** vào [Spike ledger](#spike-ledger), gồm response đã che, trường có hoặc không có, và mã lỗi.
 
-**Đã chạy 16/09/2026.** S0.1 và S0.3–S0.9 đạt; S0.2 còn thiếu nhánh `Sites.Selected`; S0.10 chưa chạy. Hai phát hiện làm phát sinh [Q11 và Q12](design.md#71-phát-sinh-sau-spike-chờ-chốt).
+**Đã chạy 16/09/2026.** S0.1 và S0.3–S0.9 đạt; S0.2 còn thiếu nhánh `Sites.Selected`; S0.10 chưa chạy. Hai phát hiện làm phát sinh [Q11 và Q12](design.md#7-quyết-định), đã chốt cùng ngày.
 
 - [x] **S0.1** msal4j: lấy token Graph bằng client secret và bằng certificate (client assertion `x5t`). Ghi mã AADSTS cho các trường hợp: secret sai, certificate chưa upload lên app, tenant sai, chưa admin consent.
 - [~] **S0.2** Quyền (nhánh `Sites.Read.All` đạt; nhánh `Sites.Selected` chưa kiểm, cần app riêng):
@@ -109,11 +109,11 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 - [ ] `DefaultSharePointSyncService`, lượt **refresh**:
   - cửa sổ `[cuối lượt thành công trước − 30 phút, bắt đầu lượt]` (lượt đầu và root mới từ epoch), lượt lỗi giữ nguyên mốc;
   - delta timestamp token cho thư viện, BFS `children` cho thư mục;
-  - lọc theo cửa sổ; bỏ thư mục và `deleted`; bỏ trùng; 410 → `Location`;
+  - nhánh delta không lọc lại theo cửa sổ, nhánh BFS vẫn lọc [Q12]; bỏ thư mục; tombstone `deleted` → `REMOVE_ITEM` theo `provider_file_id` [Q11]; bỏ trùng; 410 → `Location`;
   - `excludedPaths` dựa trên đường dẫn dựng từ parent id;
   - `Retry-After` → `next_dispatch_at`; checkpoint theo drive/site; tối đa 16 bước mỗi lần giao.
   - `SourceSyncProcessor` phân nhánh theo `SourceType`.
-- [ ] Lượt **prune**:
+- [ ] Lượt **prune** (lưới an toàn cho những gì lượt refresh không thấy):
   - liệt kê đầy đủ chỉ metadata (delta không token, BFS, danh sách site);
   - hoàn tất toàn phạm vi mới tạo `REMOVE_ITEM`; không hoàn tất thì `SOURCE_SHAREPOINT_PRUNE_INCOMPLETE` và không gỡ gì;
   - due scan ưu tiên prune khi đến hạn; `pruneIntervalHours = 0` thì không bao giờ prune.
@@ -132,10 +132,10 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
   - `SharePointUrl` với các loại URL thật (share link `/:f:/r/`, `/teams/`, `/personal/`, thư mục lồng, `%20`, host sai tenant, `http://`);
   - glob;
   - tính cửa sổ: lượt đầu, sau lượt thành công, sau lượt lỗi, root mới;
-  - lọc theo cửa sổ và bỏ trùng; dựng đường dẫn cho `excludedPaths`;
+  - lọc theo cửa sổ ở nhánh BFS và bỏ trùng; dựng đường dẫn cho `excludedPaths`;
   - so phiên bản hash/eTag; phân loại lỗi.
 - [ ] Provider HTTP:
-  - delta có `token` timestamp và không có token; `nextLink`; bản ghi `deleted` bị bỏ;
+  - delta có `token` timestamp và không có token; `nextLink`; tombstone `deleted` sinh `REMOVE_ITEM`, gồm cả tombstone của từng file con khi xóa thư mục; item bị di chuyển có `lastModifiedDateTime` cũ hơn cửa sổ vẫn được giữ;
   - BFS `children` nhiều trang;
   - 410 kèm `Location`;
   - 429/503 `Retry-After`;
@@ -147,13 +147,14 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
   - activation nguyên tử; thất bại không tạo Source; supersede;
   - cửa sổ lưu và đọc lại đúng;
   - prune hoàn tất gỡ item vắng mặt; prune không hoàn tất (một site 403) không gỡ gì;
-  - prune tắt; refresh không bao giờ gỡ;
+  - prune tắt; refresh gỡ theo tombstone và không gỡ gì khác;
   - fence khi đổi phạm vi hoặc credential;
   - counter idempotent khi giao lặp; cô lập Tenant.
 - [ ] Full context worker: provider giả + PostgreSQL/Redis/MinIO fixture hiện có.
   - Tạo → refresh → Document → Search thấy tài liệu với PUBLIC và PRIVATE.
   - Refresh không có thay đổi → "No changes".
-  - Xóa file trên provider giả → refresh vẫn giữ; prune gỡ.
+  - Xóa file trên provider giả → lượt refresh kế tiếp gỡ khỏi Search.
+  - File biến mất mà delta không báo (site trả 403) → refresh giữ nguyên; prune gỡ.
 - [ ] MVC/API: ma trận quyền (design §5.8), `If-Match`, `202` + receipt recovery, validation interval/prune interval, OpenAPI drift.
 
 ## Giai đoạn 3 — Trang site
@@ -292,7 +293,7 @@ Thí nghiệm trên thư viện `Tài liệu` của site `MemoryOSVi`: tạo th�
 
 **Phát hiện 1 — timestamp token vẫn trả bản ghi xóa.** Tombstone có `deleted: {state: "deleted"}`, `id`, `parentReference` (driveId, siteId, id thư mục cha), `cTag` với version `-1`, `size: 0`, `file.hashes.quickXorHash` toàn `A`; **không có `name`**. Xóa một thư mục có 2 file con trả đủ 3 tombstone. Nghĩa là **phát hiện xóa không bắt buộc phải chờ lượt prune**, khác giả định trong [tham chiếu Onyx](onyx-sharepoint-reference.md) và khác hệ quả đã ghi cho Q1.
 
-**Phát hiện 2 — delta là change-log, không phải bộ lọc theo `lastModifiedDateTime`.** Kiểm định riêng: tạo file, **đợi 45 giây**, lấy mốc token, rồi di chuyển file. `lastModifiedDateTime` giữ nguyên giá trị **cũ hơn mốc token**, nhưng delta **vẫn trả** item với `parentReference.path` mới. Vậy bộ lọc phía client `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]` trong [design §5.3](design.md#53-đồng-bộ-thư-viện-q1-giữ-mô-hình-onyx) **sẽ loại mất chính những item vừa được di chuyển vào phạm vi** — đúng rủi ro O4/O5, nhưng nguyên nhân nằm ở bộ lọc của Onyx, không nằm ở Graph.
+**Phát hiện 2 — delta là change-log, không phải bộ lọc theo `lastModifiedDateTime`.** Kiểm định riêng: tạo file, **đợi 45 giây**, lấy mốc token, rồi di chuyển file. `lastModifiedDateTime` giữ nguyên giá trị **cũ hơn mốc token**, nhưng delta **vẫn trả** item với `parentReference.path` mới. Vậy bộ lọc phía client `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]` trong [design §5.3](design.md#53-đồng-bộ-thư-viện-q1-giữ-mô-hình-onyx-q11-q12-sửa-theo-spike) **sẽ loại mất chính những item vừa được di chuyển vào phạm vi** — đúng rủi ro O4/O5, nhưng nguyên nhân nằm ở bộ lọc của Onyx, không nằm ở Graph.
 
 **Lệch đồng hồ:** máy chạy spike chậm hơn server Graph **2,7 giây**. Mốc cửa sổ lấy theo giờ máy ứng dụng, nên độ chồng lấn phải lớn hơn lệch đồng hồ; 30 phút vẫn thừa sức.
 

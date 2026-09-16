@@ -230,7 +230,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
   - lượt refresh kế tiếp bắt đầu lại từ epoch cho các root mới thêm, để lấy đủ nội dung cũ của chúng;
   - item nằm ngoài phạm vi mới bị gỡ ngay trong activation transaction, như scope shrink của Drive.
 
-### 5.3 Đồng bộ thư viện (Q1: giữ mô hình Onyx)
+### 5.3 Đồng bộ thư viện (Q1 giữ mô hình Onyx; Q11, Q12 sửa theo spike)
 
 **Tập drive của một lượt:**
 - `SPECIFIC`:
@@ -252,15 +252,15 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - **Root là site hoặc thư viện:**
   - gọi `GET /drives/{id}/root/delta?$top=200&$select=…&token=<start ISO-8601>`; lượt bắt đầu từ epoch thì không gửi `token`. Graph chỉ nhận timestamp token trên OneDrive for Business và SharePoint, đúng trường hợp này;
   - theo `@odata.nextLink`; **không lưu `@odata.deltaLink`**, như Onyx;
-  - lọc phía client theo `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]` [**chờ chốt Q12**: spike S0.3 cho thấy bộ lọc này loại mất item vừa bị di chuyển vào phạm vi];
-  - bỏ thư mục và bản ghi `deleted` [**chờ chốt Q11**: spike S0.3 cho thấy timestamp token vẫn trả tombstone, kể cả từng file con của thư mục bị xóa];
+  - **không lọc lại theo cửa sổ** [Q12]: delta là change-log, không phải bộ lọc theo `lastModifiedDateTime`; item bị di chuyển được trả về tuy `lastModifiedDateTime` không đổi (spike S0.3). Cửa sổ chỉ dùng để dựng `token`;
+  - bỏ thư mục; **bản ghi `deleted` sinh `REMOVE_ITEM`** theo `provider_file_id` [Q11]: tombstone chỉ có `id` và `parentReference`, không có `name`; xóa một thư mục thì Graph trả thêm tombstone cho từng file con (spike S0.3);
   - bỏ trùng theo item id trong một drive của một lượt;
   - HTTP 410: bắt đầu lại drive đó bằng URL trong header `Location` (quét toàn bộ) và vẫn lọc theo cửa sổ.
-- **Root là thư mục:** duyệt BFS `GET /drives/{d}/items/{folderId}/children?$top=200` toàn bộ thư mục mỗi lượt, lọc theo cùng cửa sổ, như Onyx.
+- **Root là thư mục:** duyệt BFS `GET /drives/{d}/items/{folderId}/children?$top=200` toàn bộ thư mục mỗi lượt, **vẫn lọc theo cửa sổ** vì `children` không phải change-log [Q12]. Hệ quả: file được chuyển vào thư mục root chỉ được lấy ở lượt prune hoặc khi có thay đổi khác (§9).
 - **`excludedPaths`:** so với đường dẫn tương đối và tên file, như Onyx. Delta không trả `parentReference.path`, nên đường dẫn dựng từ `parentReference.id` → thư mục đã thấy; thư mục chưa biết thì đọc metadata thư mục đó (có giới hạn số lời gọi mỗi bước).
-- **Lượt refresh không bao giờ xóa item.** Item bị xóa, đổi quyền đọc của app hay bị chuyển ra khỏi thư mục root chỉ được gỡ ở lượt prune [**chờ chốt Q11**].
+- **Lượt refresh gỡ item ngay khi delta trả tombstone** [Q11]. Những gì delta không thấy — app mất quyền đọc site, item bị chuyển ra khỏi thư mục root, item rơi khỏi phạm vi sau 410 — vẫn chờ lượt prune.
 
-**Lượt prune** (theo Prune Frequency; `0` là tắt, như Onyx):
+**Lượt prune** (theo Prune Frequency; `0` là tắt, như Onyx) — lưới an toàn cho những gì lượt refresh không thấy [Q11]:
 - Liệt kê đầy đủ phạm vi hiện hành, **chỉ metadata, không tải nội dung**:
   - thư viện: delta không token;
   - thư mục root: BFS;
@@ -295,7 +295,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 
 **Lịch sử lượt chạy:**
 - Dùng lại `source_sync_attempts` và các counter hiện có. Thêm loại lượt `REFRESH` / `PRUNE` cùng cửa sổ refresh, để UI phân biệt và để tính `start`.
-- `removed` chỉ xuất hiện ở lượt prune. `No changes` của lượt refresh nghĩa là không có item nào trong cửa sổ, không có nghĩa phạm vi đã được đối chiếu đầy đủ.
+- `removed` xuất hiện ở cả lượt refresh (theo tombstone) và lượt prune (theo đối chiếu đầy đủ). `No changes` của lượt refresh nghĩa là không có thay đổi nào trong cửa sổ, không có nghĩa phạm vi đã được đối chiếu đầy đủ.
 
 ### 5.4 Trang site
 
@@ -383,6 +383,8 @@ Tên dưới đây là dự kiến; SQL nằm trong repository `JdbcSharePoint*`
 | `sharepoint_sync_runs` | `source_sync_attempt_id`, `kind` REFRESH/PRUNE, `window_start`, `window_end`, tiến độ drive/site trong lượt (checkpoint) |
 | `sharepoint_items` | `source_id`, `provider_file_id`, `kind` FILE/PAGE, `content_version`, `e_tag`, `last_seen_prune_run` |
 
+- `provider_file_id` là drive item id; lượt refresh khớp tombstone của delta theo cột này [Q11], nên cần unique index theo `(tenant_id, source_id, provider_file_id)`.
+
 - Mọi bảng có `tenant_id`, xóa cascade theo Source.
 - Chỉ thêm index khi có truy vấn dùng tới.
 - Không sửa migration đã áp dụng.
@@ -454,11 +456,11 @@ Giữ nguyên hành vi Onyx (Q1), dù đã xác định là điểm yếu: times
 
 ## 7. Quyết định
 
-Người dùng chốt ngày 16/09/2026. Các câu ghi "theo khuyến nghị" được đề xuất và người dùng không phản đối.
+Người dùng chốt Q1–Q10 ngày 16/09/2026, và chốt Q11–Q12 cùng ngày sau khi Giai đoạn 0 đo trên tenant thật. Các câu ghi "theo khuyến nghị" được đề xuất và người dùng không phản đối.
 
 | # | Quyết định | Hệ quả |
 | --- | --- | --- |
-| Q1 | **Giữ mô hình theo dõi thay đổi của Onyx**: refresh theo timestamp token (chồng lấn 30 phút), không lưu `deltaLink`; prune theo Prune Frequency (mặc định 7 ngày, 0 là tắt) | Có thêm cấu hình prune interval (khác tiền lệ Drive). Xóa trên SharePoint chỉ phản ánh sau lượt prune (§9). Không có bảng cursor |
+| Q1 | **Giữ mô hình theo dõi thay đổi của Onyx**: refresh theo timestamp token (chồng lấn 30 phút), không lưu `deltaLink`; prune theo Prune Frequency (mặc định 7 ngày, 0 là tắt) | Có thêm cấu hình prune interval (khác tiền lệ Drive). Không có bảng cursor. Việc xóa được xử lý theo Q11, không chờ prune |
 | Q2 | Gọi Graph bằng HTTP adapter JDK + msal4j (theo khuyến nghị) | Cùng mẫu `RestGoogleDriveProvider`; tự map vài resource JSON |
 | Q3 | **Khớp thư viện theo path của URL** | Hỗ trợ site tiếng Việt; xác nhận bằng spike S0.6 |
 | Q4 | **Chưa làm Auto Sync** | Không có REST SharePoint, role assignment, mở rộng group, `SYNC`, link chia sẻ công khai. MEM-88 không còn là phụ thuộc |
@@ -467,18 +469,9 @@ Người dùng chốt ngày 16/09/2026. Các câu ghi "theo khuyến nghị" đ�
 | Q7 | Cipher AES-GCM dùng chung, key SharePoint riêng (theo khuyến nghị) | Refactor nhỏ; test giải mã dữ liệu Drive cũ |
 | Q8 | **Tạo [MEM-126](https://linear.app/memory-os/issue/MEM-126)** dưới MEM-118, nhánh `anhnd05122004/mem-126-sharepoint-connector-ket-noi-sharepoint-online-theo-logic` | Đã làm |
 | Q9 | Chỉ cloud `GLOBAL` (theo khuyến nghị) | Enum đã chừa chỗ cho cloud khác |
-| Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị) | Cần spike trên OneDrive của tenant thử |
-
-### 7.1 Phát sinh sau spike (chờ chốt)
-
-Giai đoạn 0 đo trên tenant thật ([Spike ledger](plan.md#spike-ledger)) và bác bỏ hai giả định mà Q1 dựa vào. Hai câu dưới đây chưa chốt; design vẫn đang mô tả phương án Onyx.
-
-| # | Câu hỏi | Bằng chứng | Khuyến nghị |
-| --- | --- | --- | --- |
-| Q11 | Lượt refresh có xử lý tombstone của delta để gỡ tài liệu ngay, thay vì chờ lượt prune? | S0.3: timestamp token trả `deleted: {state: deleted}` cho file bị xóa và cho từng file con của thư mục bị xóa; tombstone có `id` và `parentReference`, không có `name` | **Có.** Gỡ theo item id ngay trong lượt refresh, giữ prune làm lưới an toàn cho các trường hợp delta không thấy (mất quyền đọc, 410, đổi phạm vi). Rút thời gian tài liệu đã xóa còn tìm được từ 7 ngày xuống một chu kỳ refresh |
-| Q12 | Có giữ bộ lọc cửa sổ phía client cho nhánh delta? | S0.3: item bị di chuyển được delta trả về tuy `lastModifiedDateTime` không đổi và cũ hơn mốc token | **Bỏ** cho nhánh delta: tin theo kết quả delta, cửa sổ chỉ dùng để dựng token. Nhánh BFS `children` (root là thư mục) vẫn phải lọc vì không có change-log |
-
-Chốt Q11 và Q12 xong thì sửa lại §5.3, §9 và [plan giai đoạn 2](plan.md#giai-đoạn-2--source-xác-minh-phạm-vi-refresh-và-prune-thư-viện) trong cùng một lần.
+| Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị) | Đã kiểm ở [spike S0.8](plan.md#s08--url-personal-q10): thư viện chính tên `OneDrive`, path `/Documents`; lọc `ALL_SITES` theo cờ `isPersonalSite` |
+| Q11 | **Lượt refresh gỡ tài liệu ngay theo tombstone của delta**; prune trở thành lưới an toàn | Phải lưu `provider_file_id` để khớp tombstone, vì tombstone không có `name`. Tài liệu đã xóa chỉ còn tìm được tối đa một chu kỳ refresh thay vì 7 ngày. Bằng chứng: [spike S0.3](plan.md#s03--delta-theo-timestamp-token) |
+| Q12 | **Bỏ bộ lọc cửa sổ phía client ở nhánh delta**; nhánh BFS `children` vẫn lọc | Sửa lỗi O4/O5: item được di chuyển vào phạm vi được index ngay thay vì chờ tới khi có người sửa nội dung. Cửa sổ chỉ còn dùng để dựng token |
 
 ## 8. Ngoài phạm vi
 
@@ -500,11 +493,11 @@ Chốt Q11 và Q12 xong thì sửa lại §5.3, §9 và [plan giai đoạn 2](pl
 
 ## 9. Rủi ro và khoảng trống bằng chứng
 
-- **Tài liệu đã xóa vẫn tìm thấy tới lượt prune kế tiếp** (mặc định tối đa 7 ngày), như Onyx — chỉ đúng nếu Q11 giữ phương án Onyx; nếu chốt xử lý tombstone thì rút xuống một chu kỳ refresh. Trường hợp file bị gỡ quyền đọc của app hoặc bị chuyển ra khỏi thư mục root vẫn phải chờ prune.
+- **Xóa được phản ánh trong vòng một chu kỳ refresh** (mặc định 30 phút) nhờ tombstone [Q11], sớm hơn Onyx. Vẫn phải chờ lượt prune (mặc định tối đa 7 ngày) ở các trường hợp delta không thấy: app bị gỡ quyền đọc site, file bị chuyển ra khỏi thư mục root, item rơi khỏi phạm vi sau khi 410 buộc quét lại.
   - Với nội dung nhạy cảm, quản trị viên có thể giảm prune interval hoặc gỡ item/Source trong MemoryOS.
   - Cần ghi rõ trong hướng dẫn và trong help của trường Prune Frequency.
 - **Bỏ sót item bị di chuyển** (O4, O5) — đã đo ở S0.3:
-  - Graph **có** trả item bị di chuyển qua timestamp token, nên nguyên nhân bỏ sót nằm ở bộ lọc phía client của Onyx, không nằm ở API (xem Q12);
+  - Graph **có** trả item bị di chuyển qua timestamp token, nên nguyên nhân bỏ sót nằm ở bộ lọc phía client của Onyx, không nằm ở API; Q12 bỏ bộ lọc đó;
   - nhánh BFS `children` cho root là thư mục vẫn bỏ sót thật, vì không có change-log và `lastModifiedDateTime` không đổi khi di chuyển;
   - lệch đồng hồ giữa máy ứng dụng và server Graph đo được 2,7 giây; độ chồng lấn 30 phút thừa sức che.
 - **Tenant thử nghiệm hết hạn ngày 15/10/2026:** spike và nghiệm thu thật phải xong trước ngày đó, hoặc cần tenant khác (M365 Developer Program qua Visual Studio, hoặc tenant công ty). Không ghi secret vào repo hay Linear.
