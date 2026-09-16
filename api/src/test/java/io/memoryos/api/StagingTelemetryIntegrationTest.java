@@ -41,7 +41,9 @@ import org.springframework.test.context.TestPropertySource;
 @ActiveProfiles("staging")
 @TestPropertySource(properties = {
         "management.otlp.metrics.export.step=1s",
-        "MEMORYOS_RELEASE=telemetry-contract-test"
+        "MEMORYOS_RELEASE=telemetry-contract-test",
+        // The staging profile trusts the Redis CA for Chat replay; a throwaway public certificate satisfies the bundle.
+        "MEMORYOS_REDIS_TLS_CA_CERTIFICATE=classpath:staging/redis-test-ca.crt"
 })
 class StagingTelemetryIntegrationTest {
 
