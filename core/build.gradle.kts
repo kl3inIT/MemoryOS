@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.pdfbox)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.security.crypto)
     implementation(libs.jakarta.persistence.api)
     implementation(libs.spring.data.jpa)

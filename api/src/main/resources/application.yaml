@@ -39,6 +39,21 @@ spring:
       hibernate.cache.use_query_cache: false
   flyway:
     enabled: true
+  data:
+    redis:
+      # Chat reply replay (MEM-26). Commands are short and non-blocking, so the shared Lettuce connection serves them.
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:6379}
+      username: ${MEMORYOS_REDIS_USERNAME:}
+      password: ${MEMORYOS_REDIS_PASSWORD:}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:2s}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
+      lettuce:
+        shutdown-timeout: 1s
   security:
     oauth2:
       resourceserver:
@@ -98,6 +113,10 @@ management:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      # Redis holds only Chat replay; a Redis outage degrades resume to history and must not mark the API down.
+      enabled: false
 
 memoryos:
   chat:

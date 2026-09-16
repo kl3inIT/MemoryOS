@@ -335,15 +335,17 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
     };
     try {
-      // A research turn runs for minutes with gaps between events, so the stream is resumed from its cursor for as
-      // long as it keeps producing; only a silent stream falls back to history polling.
-      let idle = 0;
-      let first = true;
-      while (!outcome && !fallback && idle < 3) {
+      // As Onyx, the reply is resumed from its cursor until the outcome: the server ends every live stream with an
+      // outcome or a reset, so a connection that simply ended (including the per-connection cap) reconnects at once.
+      // Only failed connections back off and show recovery; history is read after a reset or a sequence gap.
+      let failures = 0;
+      while (!outcome && !fallback) {
         signal.throwIfAborted();
-        let received = false;
-        this.callbacks.state(first ? "streaming" : "recovering");
-        first = false;
+        if (failures > 0 && globalThis.navigator?.onLine === false) {
+          this.callbacks.state("recovering");
+          await online(signal);
+        }
+        this.callbacks.state(failures > 0 ? "recovering" : "streaming");
         const connection = new AbortController();
         const connectionSignal = AbortSignal.any([
           signal,
@@ -381,8 +383,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             }
             sequence = event.sequence;
-            if (!received) {
-              received = true;
+            if (failures > 0) {
+              failures = 0;
               this.callbacks.state("streaming");
             }
             if (envelope.event === "text-delta") {
@@ -461,12 +463,16 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           connection.abort();
         }
         // Clean EOF without an outcome is a disconnect, never successful completion.
-        idle = received ? 0 : idle + 1;
-        if (!outcome && !fallback) await pause(500 * idle, signal);
+        if (outcome || fallback) break;
+        const healthy =
+          failure === undefined ||
+          (failure instanceof DOMException && failure.name === "TimeoutError");
+        failures = healthy ? 0 : failures + 1;
+        if (failures > 0) await pause(Math.min(500 * 2 ** (failures - 1), 10_000), signal);
       }
       if (!outcome) {
         this.callbacks.state("recovering");
-        // A turn has no total deadline, as Onyx: poll while it is RUNNING. The server lease fails a dead run.
+        // Only a reset or a gap reaches this: poll while the reply is RUNNING. The server lease fails a dead run.
         while (!outcome) {
           signal.throwIfAborted();
           // Only the reply after its stable USER parent is needed; don't reload a long transcript on every poll.
@@ -566,6 +572,23 @@ const boundedEventFetch: typeof fetch = async (input, init) => {
   );
   return new Response(body, { status: response.status, headers: response.headers });
 };
+
+function online(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    signal.throwIfAborted();
+    const done = () => {
+      globalThis.removeEventListener("online", done);
+      signal.removeEventListener("abort", abort);
+      resolve();
+    };
+    const abort = () => {
+      globalThis.removeEventListener("online", done);
+      reject(signal.reason);
+    };
+    globalThis.addEventListener("online", done, { once: true });
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
 
 function pause(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {

@@ -170,7 +170,7 @@ flowchart LR
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
 
-Chat inference runs in the API process and does not use the ingestion worker or Redis journal. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded in-memory buffer supports live SSE and short replay; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+Chat inference runs in the API process and does not use the ingestion worker or its Redis work streams. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
 
 Deep research is the one Chat mode where MemoryOS owns the inference loop: `ResearchExecutor` runs clarification, plan, orchestrator cycles, up to three parallel research agents and the final report as single guarded `streamInference` calls, executing agent tools directly and merging agent citations into the turn sources. It runs in the same turn, lease, Stop scope and budget as other answers; see the [Deep research contract](docs/specs/chat.md#deep-research).
 
@@ -216,6 +216,7 @@ Google authorization is a separate Connector credential flow. Its callback canno
 | PostgreSQL | Identity bindings, authorization, Sources, operations, current Documents, Chat state and lifecycle evidence | No |
 | Object storage | Immutable raw inputs, canonical extraction artifacts and private file bytes | Bytes are authoritative; associations and lifecycle remain in PostgreSQL |
 | Redis Streams | Background delivery and pending consumer-group state | Yes, from eligible PostgreSQL operations |
+| Redis Chat replay | Live and recently finished reply events for SSE resume | No; lost replay resets the browser to committed history |
 | OpenSearch | Searchable text/vector projection | Yes, from current authorized Document generations |
 | Keycloak | External authentication and broker configuration | MemoryOS authorization is separate |
 

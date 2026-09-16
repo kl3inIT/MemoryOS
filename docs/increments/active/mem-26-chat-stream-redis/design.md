@@ -56,7 +56,7 @@ Departures from Onyx, each for a reason:
 
 ### Writer
 
-`StreamBufferWriter` keeps its public API (`open`, `append`, `reasoning`, `research`, `tool`, `image`, `finish`, `flush`, `discard`) and its in-process coalescing under its monitor. Completed events move to a per-reply outbound queue; no Redis call runs under the monitor. The existing 25 ms maintenance flush drains each queue with one pipelined `XADD`…`PEXPIRE`. `finish` publishes the outcome only after the terminal transaction commits (unchanged) and sets the done TTL. The local entry is removed once the outcome is written.
+`StreamBufferWriter` keeps its public API (`open`, `append`, `reasoning`, `research`, `tool`, `image`, `finish`, `flush`, `discard`) and its in-process coalescing under its monitor. Completed events move to a per-reply outbound queue; no Redis call runs under the monitor. The existing 25 ms maintenance flush drains each queue with `XADD`s and one `PEXPIRE` as plain commands on the shared connection (a pipeline would take a dedicated connection on every tick). `finish` publishes the outcome only after the terminal transaction commits (unchanged), writes it at once and sets the done TTL. A failed write keeps the queue; the writer reads the stream's last ID and drops entries Redis already holds, so a timed-out write that was applied is not duplicated. The local entry stays for `done-ttl` so late model callbacks are ignored, then leaves the process.
 
 The process-wide `total-bytes`, `max-streams`, reader lag (`reader-bytes`) and slow-reader reset exist to protect the heap and go away with it. Readers no longer hold writer memory, so a slow reader cannot starve the writer.
 
@@ -70,7 +70,7 @@ Each `read()`:
 2. First entry ≠ `0-(after+1)`, or a `truncated` entry → `reset` `BUFFER_GAP`.
 3. Outcome entry → done.
 4. Nothing new → sleep `poll-interval` (200 ms, Onyx `CHAT_RESUME_POLL_INTERVAL_S`) and retry until the heartbeat interval passes.
-5. At each heartbeat, with nothing new, the reader re-checks the reply through `ChatTurnService`: the actor must still be authorized for it and the row must still be `RUNNING`. A reply that is no longer `RUNNING` gets a final drain of up to 2 s (the outcome is written after the terminal commit, on the next flush tick); if no outcome entry appears it ends with `reset` (`BUFFER_MISSING` when the key is absent, otherwise `BUFFER_GAP`), and the browser reads the committed reply from history. This is Onyx's "fence lapsed → final drain → end", driven by the lease row. It covers a dead writer, a lapsed or startup-failed run, an expired or evicted buffer, and a Redis outage longer than the writer queue.
+5. On the first empty read and at each heartbeat after it, the reader re-checks the reply through `ChatTurnService`: the actor must still be authorized for it and the row must still be `RUNNING`. A reply that is no longer `RUNNING` gets a final drain of up to 2 s (the outcome is written after the terminal commit, on the next flush tick); if no outcome entry appears it ends with `reset` (`BUFFER_MISSING` when the key is absent, otherwise `BUFFER_GAP`), and the browser reads the committed reply from history. This is Onyx's "fence lapsed → final drain → end", driven by the lease row. It covers a dead writer, a lapsed or startup-failed run, an expired or evicted buffer, and a Redis outage longer than the writer queue.
 
 Polling instead of `XREAD BLOCK`: Spring Data Redis shares one native Lettuce connection, and a blocking read on it stalls every other Redis command in the process. Polling follows the reference and needs no connection per reader. Cost: 64 readers × 5 reads/s at most.
 
@@ -92,11 +92,11 @@ Polling instead of `XREAD BLOCK`: Spring Data Redis shares one native Lettuce co
 
 ### Deployment
 
-- `api`: `spring-boot-starter-data-redis` in `core` (the capability that owns the buffer), `spring.data.redis` from `MEMORYOS_REDIS_*` as in the worker, TLS through the `memoryos-redis` SSL bundle on staging, `redis` in the readiness group. The launcher already reads `MEMORYOS_REDIS_PASSWORD_FILE` and `MEMORYOS_REDIS_TLS_CA_FILE`.
-- Redis ACL: a new `memoryos-api` user limited to `~memoryos:chat:stream:*` and `+ping +hello +info +client|setname +client|setinfo +xadd +xrange +xrevrange +pexpire +del +exists`. The worker user is unchanged.
-- Staging secret `redis_api_password` (`/apps/memoryos/secrets/redis/api-password.txt`), compose secret, env example, and `depends_on: redis` for the API.
+- `api`: `spring-boot-starter-data-redis` in `core` (the capability that owns the buffer), `spring.data.redis` from `MEMORYOS_REDIS_*` as in the worker, TLS through the `memoryos-redis` SSL bundle on staging. The Redis health indicator is disabled for the API: Redis holds only replay, so an outage degrades resume to history and must not mark the API down. The launcher already reads `MEMORYOS_REDIS_PASSWORD_FILE` and `MEMORYOS_REDIS_TLS_CA_FILE`.
+- Redis ACL: a new `memoryos-api` user limited to `~memoryos:chat:stream:*` and `+ping +hello +info +client|setname +client|setinfo +xadd +xrange +xrevrange +pexpire +del +exists`, no Pub/Sub channels. The worker user is unchanged.
+- Staging secret `redis_api_password` (`/apps/memoryos/secrets/redis/api-password.txt`, created by `provision-staging-secrets.sh`), compose secret, env example, and `depends_on: redis` for the API. The host `.env.staging` needs `MEMORYOS_REDIS_API_PASSWORD_FILE` before the first deploy, and the running Redis needs the ACL user (`ACL SETUSER`, or a restart that regenerates the ACL file).
 - Staging Redis has no `maxmemory`, so it runs `noeviction` and is shared with the ingestion queue. Worst case for Chat is `concurrency` (8) × 16 MiB live plus completed replies for 10 min. This is recorded, not changed here; setting `maxmemory` with `volatile-ttl` (only Chat keys carry TTLs) is an operator decision.
-- Local development: the API uses Arconia Redis dev services like the worker; integration tests use a Redis Testcontainer. There is no in-memory fallback or toggle ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
+- Local development: the API uses Arconia Redis dev services like the worker, shared with it on port 56379; integration tests use a Redis Testcontainer. There is no in-memory fallback or toggle ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 
 ## MEM-26 acceptance mapped to checks
 
