@@ -132,7 +132,7 @@ End user in Chat:
 
 - `io.modelcontextprotocol.sdk:mcp:2.0.0` is on the `core` runtime classpath through `embabel-agent-api:1.5.1 → spring-ai-mcp:2.0.1`. Declare it explicitly in the version catalog at that version.
 - Transports built per credential with `httpRequestCustomizer(McpSyncHttpClientRequestCustomizer)` setting headers per request, `authorizationErrorHandler` mapping 401/403, `connectTimeout`. `McpSyncClient.requestTimeout` per call.
-- Embabel tools: `Tool.of(name, description, InputSchema, Metadata, ContextAwareFunction)`. `Tool.InputSchema` has no JSON Schema factory, so a small implementation returns the snapshotted schema. `SpringAiMcpToolFactory` is not used; it binds fixed clients and bypasses the Chat guard.
+- Embabel tools: `Tool.create(name, description, Tool.InputSchema, Tool.Metadata, Tool.Handler)` (verified against `embabel-agent-api-1.5.1`). `Tool.InputSchema` is an interface over `toJsonSchema()` and `getParameters()` with factories for classes only, so a small implementation returns the snapshotted schema and no parameters. `Tool.Handler` takes the raw argument JSON and returns `Tool.Result.text` or `Tool.Result.error`, which is where the per-call guard, deadline and result cap live. `SpringAiMcpToolFactory` is not used; it binds fixed clients and bypasses the Chat guard.
 - OAuth: authorization-code with PKCE implemented like the MEM-60 flow; DCR (RFC 7591) and metadata discovery (RFC 9728, RFC 8414) with `RestClient`. The SDK's client OAuth helpers are used where the Java SDK provides them; verified in Phase 1.
 
 ### Capability placement
