@@ -63,7 +63,7 @@ import {
   type GoogleDriveOAuthClientInputHandle,
 } from "./google-drive-oauth-client-input";
 import { sourceMutationError } from "./source-errors";
-import { statusPill } from "./source-status-presentation";
+import { GoogleDriveConnectionAccount } from "./google-drive-connection-account";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
@@ -561,28 +561,7 @@ function GoogleDriveSourceSetup() {
             >
               {ui("Connection")}
             </h2>
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3">
-              <span
-                aria-hidden="true"
-                className="grid size-10 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-base [&_svg]:size-5"
-              >
-                <GoogleDriveIcon />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-main-ui-action text-content-primary">{ui("Google Drive")}</p>
-                <p className="truncate text-sm text-content-muted">
-                  {selected
-                    ? ui("{{v1}} ({{v2}})", { v1: selected.name, v2: selected.accountEmail })
-                    : ui("No credential selected")}
-                </p>
-              </div>
-              <StatusBadge
-                tone={connected ? "success" : "warning"}
-                className={statusPill(connected ? "success" : "warning")}
-              >
-                {connected ? ui("Connected") : ui("Not connected")}
-              </StatusBadge>
-            </div>
+            <GoogleDriveConnectionAccount credential={selected} connected={connected} />
             {unavailable || !connected ? (
               <p role="alert" className="text-sm text-status-warning-content">
                 {ui(
