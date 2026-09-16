@@ -210,3 +210,9 @@ The inspector tab, panel, its 68 panel-only translations, both ACL endpoints and
 
 - `:core:compileTestJava`, `:api:compileTestJava` and `:worker:compileTestJava` passed.
 - `PostgresGoogleDriveSyncTest` 46/46 (including unchanged, same-content and lost-access paths), `PostgresSourceRunHistoryTest` 13/13 and `PostgresGoogleDriveAclRepositoryTest` 19/19 passed.
+
+## Main integration — 2026-09-16
+
+Merged `origin/main` at `83c61b8d` with no conflicts. Main had grown to V68, so the branch migrations moved to V69 (ACL snapshots) and V70 (run error messages); a local database that applied the intermediate branch V61/V62 fails Flyway validation and must be recreated. No deployed environment applied them.
+
+Focused gate on the merge commit: `PostgresGoogleDriveSyncTest` 46/46, `PostgresSourceRunHistoryTest` 13/13, `PostgresGoogleDriveAclRepositoryTest` 19/19 and `RestGoogleDriveProviderTest` 22/22 passed without skips; `:api:compileTestJava` and `:worker:compileTestJava` passed. The full `clean check` and `pnpm check` gates were last run on the 2026-09-15 merge commit `634d3388`; CI runs them on the pull request.
