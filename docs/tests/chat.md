@@ -253,6 +253,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Research events chunk per agent and keep wire placement; nested events stay out of the top-level activity | `StreamBufferWriterTest.researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder`, `ChatEventStreamTest.researchEventsAndNestedStepsKeepTheirPlacementOnTheWire`, `ChatActivityRecorderTest` |
 | Phase spans and timers with bounded outcomes, agent spans parented across threads, counters | `ResearchTelemetryTest` |
 | Live data part routing and history restore in the browser transport | `chat-transport.test.ts` |
+| Saved research restored in the browser: answer first, collapsed header with step and source counts, plan, cycle labels, agent tabs with durations, intermediate report on demand; composer toggle off by default | `chat-research.spec.ts` (Playwright, fixture backend); `chat-research-view.test.tsx` (render unit) |
 | Real provider run (opt-in `MEMORYOS_DR_LIVE=true` with `SPRING_AI_OPENAI_API_KEY`) | `ResearchExecutorLiveTest`: gpt-5-mini, plan, agent cycles, merged citations, usage from every guard |
 
 Open: visual review of the research timeline, staging acceptance with the real corpus.
