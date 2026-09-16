@@ -145,7 +145,7 @@ End user in Chat:
 - Adopting it puts `spring-security-oauth2-client` into `core`, which today has no Spring Security; only `api` does.
 - It is `0.1.15-SNAPSHOT`.
 
-Where its behaviour is stricter, ours matches or exceeds it: both require the protected-resource `resource` to identify the server, and ours applies that equality to the root fallback too, where `mcp-client-security` compares against the origin instead.
+The review also corrected a defect of ours. Both implementations require the protected-resource `resource` to identify the server, but MemoryOS applied strict equality to the root fallback as well. The spec permits metadata at the root ("At the root: `https://example.com/.well-known/oauth-protected-resource`") and lists an origin-only URI among the valid canonical resources, so a server at `/mcp` may conformantly publish a root document naming the origin. Strict equality refused it. `mcp-client-security` compares the root document against the origin, which is correct, and MemoryOS now does the same while keeping strict equality for the challenge and path documents. Being stricter than the specification is a defect, not a safeguard.
 
 Revisit if the library gains a Tenant-aware registration store and authorization-server metadata discovery. Separately, Spring AI does not instrument MCP client tool calls ([spring-ai#4560](https://github.com/spring-projects/spring-ai/issues/4560) concerns server-side `@McpTool`), so the `memoryos.chat.mcp.call` timer duplicates no framework instrumentation.
 

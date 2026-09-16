@@ -103,3 +103,12 @@ Mobbin (2026-09-16, web) for this phase: [Replit](https://mobbin.com/screens/718
 | Route tree | `pnpm build` | `/admin/mcp` generated into `routeTree.gen.ts`; the OAuth callback target now exists |
 
 Not run for Phase 5: `gradlew clean check`. The Chromium scenario stubs the API rather than running a fixture MCP server end to end. The MCP activity timeline still has no dedicated renderer, so an MCP tool step shows under the generic tool row.
+
+## Library reuse review and its findings — 2026-09-16
+
+| Check | Command | Result |
+| --- | --- | --- |
+| MCP tool-call metrics | `gradlew :core:test --tests io.memoryos.chat.tools.McpToolsTest` | 8 tests passed. `memoryos.chat.mcp.call` records one timer per outcome (`succeeded`, `tool_error`, `auth_required`, `timeout`, `invalid_arguments`, `unknown_tool`, `unavailable`, `call_limit`). A test pins the label set to exactly `{server, tool, outcome}` so no high-cardinality label is added later; `server` is the slug, never the administrator's free-form name. Spring AI does not instrument MCP client tool calls, so nothing is duplicated. |
+| Root protected-resource document | `gradlew :core:test --tests io.memoryos.mcp.McpOAuthProtocolTest` | 9 tests passed. A new test pins that the root well-known document may name the origin, while the challenge and path documents must still name the server exactly. This fixed a real defect: the previous strict equality refused a conformant server that publishes its metadata at the root. |
+
+The reuse review of `spring-ai-community/mcp-security` is recorded in [design.md](design.md#library-reuse-review-2026-09-16).

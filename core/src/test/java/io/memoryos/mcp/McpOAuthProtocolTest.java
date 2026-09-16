@@ -94,6 +94,25 @@ class McpOAuthProtocolTest {
     }
 
     @Test
+    void acceptsTheOriginAsTheResourceOnlyFromTheRootDocument() {
+        // The spec permits metadata at the root and lists an origin-only URI as a valid canonical resource,
+        // so a server at /mcp may publish a root document naming the origin. Rejecting it refuses a
+        // conformant server; accepting it from the path document instead would weaken the RFC 9728 check.
+        routes.put("POST /mcp", exchange -> respond(exchange, 405, null));
+        routes.put("GET /.well-known/oauth-protected-resource", exchange -> respond(exchange, 200, Map.of(
+                "resource", origin, "authorization_servers", List.of(origin + "/tenant1"))));
+        routes.put("GET /.well-known/oauth-authorization-server/tenant1",
+                exchange -> respond(exchange, 200, metadata(origin + "/tenant1")));
+
+        assertEquals(origin, protocol.discover(origin + "/mcp").protectedResource().resource());
+
+        routes.put("GET /.well-known/oauth-protected-resource/mcp", exchange -> respond(exchange, 200, Map.of(
+                "resource", origin, "authorization_servers", List.of(origin + "/tenant1"))));
+        assertEquals("MCP_OAUTH_DISCOVERY_FAILED",
+                assertThrows(McpException.class, () -> protocol.discover(origin + "/mcp")).code());
+    }
+
+    @Test
     void refusesMetadataThatDoesNotMatchOrLacksPkce() {
         routes.put("POST /mcp", exchange -> respond(exchange, 401, null));
         routes.put("GET /.well-known/oauth-protected-resource/mcp", exchange -> respond(exchange, 200, Map.of(

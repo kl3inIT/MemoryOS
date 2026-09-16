@@ -92,11 +92,15 @@ public final class McpOAuthProtocol {
         Challenge challenge = unauthenticatedChallenge(server);
         List<URI> metadataUrls = challenge.resourceMetadata() != null
                 ? List.of(challenge.resourceMetadata()) : protectedResourceMetadataUrls(server);
+        URI root = URI.create(server.getScheme() + "://" + server.getRawAuthority());
         ProtectedResource resource = null;
         for (URI url : metadataUrls) {
             JsonNode document = optionalJson(url);
             if (document == null) continue;
-            resource = protectedResource(url, document, server);
+            // The spec allows the metadata to live at the root, and lists an origin-only URI as a valid
+            // canonical resource, so the root document may identify the origin instead of the MCP endpoint.
+            boolean rootDocument = url.getRawPath().equals(PROTECTED_RESOURCE);
+            resource = protectedResource(url, document, server, rootDocument ? root : null);
             break;
         }
         if (resource == null)
@@ -277,10 +281,13 @@ public final class McpOAuthProtocol {
         }
     }
 
-    private ProtectedResource protectedResource(URI url, JsonNode document, URI server) {
+    /** {@code alternative} is the origin when the document came from the root well-known URI, else null. */
+    private ProtectedResource protectedResource(URI url, JsonNode document, URI server, @Nullable URI alternative) {
         String resource = text(document, "resource", 2048);
         try {
-            if (!canonicalResource(resource).equals(canonicalResource(server.toString())))
+            String declared = canonicalResource(resource);
+            if (!declared.equals(canonicalResource(server.toString()))
+                    && (alternative == null || !declared.equals(canonicalResource(alternative.toString()))))
                 throw McpException.oauthDiscoveryFailed("The protected-resource metadata describes a different resource.");
         } catch (IllegalArgumentException invalid) {
             throw McpException.oauthDiscoveryFailed("The protected-resource metadata describes a different resource.");
