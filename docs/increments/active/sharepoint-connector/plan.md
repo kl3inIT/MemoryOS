@@ -237,9 +237,9 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 ## Giai đoạn 5 — Hợp nhất tài liệu và nghiệm thu
 
-- [ ] `docs/specs/connector.md`: phần SharePoint (credential, phạm vi, refresh/prune, lỗi, truy cập, hướng dẫn thiết lập Entra với bảng quyền).
-- [ ] `docs/specs/ingestion.md` (workload, stream, ngân sách); `docs/specs/search.md` (access); `docs/specs/document.md` nếu format trang ảnh hưởng artifact.
-- [ ] `docs/tests/connector.md`: ma trận SharePoint có ngày và test tương ứng. `ARCHITECTURE.md`: provider `sharepoint`, workload mới.
+- [x] `docs/specs/connector.md`: phần SharePoint (credential, phạm vi, refresh/prune, lỗi, truy cập). Hướng dẫn thiết lập Entra nằm ở `README.md`.
+- [x] `docs/specs/ingestion.md` (workload, stream riêng, activation); `docs/specs/search.md` (access). `docs/specs/document.md` không đổi: snapshot trang đi qua đúng đường native snapshot sẵn có.
+- [x] `docs/tests/connector.md`: ma trận SharePoint có ngày và test tương ứng. `ARCHITECTURE.md`: connector SharePoint.
 - [ ] Nghiệm thu thật trên tenant (trước 15/10/2026, hoặc tenant thay thế):
   - client secret và certificate;
   - site tiếng Anh và tiếng Việt;
@@ -251,16 +251,18 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 ## Ma trận kiểm chứng dự kiến
 
-| Contract | Boundary | Test dự kiến |
-| --- | --- | --- |
-| PFX, GUID, URL, glob, cửa sổ refresh, lọc, phân loại lỗi | Unit | `SharePointCertificateTest`, `SharePointUrlTest`, `SharePointRefreshWindowTest` |
-| Token, delta timestamp, BFS, 410, `Retry-After`, host download, redirect, giới hạn byte | Provider HTTP giả | `RestSharePointProviderTest` |
-| Mã hóa, revision, activation, cửa sổ, prune hoàn tất/không hoàn tất, fence, counter, cô lập Tenant | PostgreSQL + Flyway | `PostgresSharePointCredentialTest`, `PostgresSharePointSelectionTest`, `PostgresSharePointSyncTest` |
-| Workload, routing, ingest → Document → Search, xóa sau prune | Full context worker | `SharePointSourceIngestionTest` |
-| Quyền HTTP, `If-Match`, `202`, problem details, OpenAPI | MVC/API | `SharePointSourceApiIntegrationTest`, `OpenApiContractTest` |
-| Reader trang | Unit với fixture | `SharePointPageExtractionTest` |
-| Luồng tạo, lỗi, responsive, bàn phím | Vitest + Playwright | `sharepoint-*.test.tsx`, `sharepoint-source-setup.spec.ts` |
-| Kiến trúc | ArchUnit/Modulith | `ProviderDependencyRulesTest`, `ModulithArchitectureTest` (mở rộng) |
+Đã chạy, xem [ma trận Connector](../../../tests/connector.md#mem-126-sharepoint-connector--2026-09-16).
+
+| Contract | Boundary | Test | Trạng thái |
+| --- | --- | --- | --- |
+| PFX, GUID, URL, glob, phân loại lỗi | Unit | `SharePointCertificateTest`, `SharePointUrlTest`, `SharePointGlobTest`, `CredentialCipherTest` | Xong |
+| Token, delta timestamp, children, 410, host download, redirect, giới hạn byte, trang | Provider HTTP giả | `RestSharePointProviderTest`, `MsalSharePointTokenSourceTest` | Xong |
+| Mã hóa, revision, activation, cửa sổ, prune hoàn tất/không hoàn tất, fence, counter, cô lập Tenant | PostgreSQL + Flyway | `PostgresSharePointCredentialTest`, `PostgresSharePointSelectionTest`, `PostgresSharePointSyncTest` | Xong |
+| Reader trang | Unit với fixture | `SharePointPageExtractionTest` | Xong |
+| Quyền HTTP, `If-Match`, `202`, problem details, OpenAPI | MVC/API | `SharePointCredentialApiTest`, `SharePointSourceApiTest`, `OpenApiContractTest` | Xong |
+| Ingest → Document → Search thấy tài liệu | Full context worker | `SharePointSourceIngestionTest` | **Chưa**: acquisition và index attempt đã được kiểm ở `PostgresSharePointSyncTest`; còn thiếu chặng Document → Search |
+| Luồng tạo, lỗi, responsive, bàn phím | Vitest + Playwright | `sharepoint-*.test.tsx`, `sharepoint-source-setup.spec.ts` | **Chưa**: thuộc Giai đoạn 4, chờ MEM-106 |
+| Kiến trúc | ArchUnit/Modulith | `ProviderDependencyRulesTest`, `ModulithArchitectureTest` | Chạy trong gate hiện có, chưa mở rộng riêng cho SharePoint |
 
 ## Spike ledger
 
