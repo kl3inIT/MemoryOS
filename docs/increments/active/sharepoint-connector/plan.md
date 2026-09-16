@@ -18,7 +18,7 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 - [x] Người dùng chốt Q1–Q10 ([design §7](design.md#7-quyết-định)).
 - [x] Tạo [MEM-126](https://linear.app/memory-os/issue/MEM-126) dưới MEM-118; nhánh `anhnd05122004/mem-126-sharepoint-connector-ket-noi-sharepoint-online-theo-logic` từ `main` `3ccafac7`.
 - [x] Thêm increment vào `AGENTS.md` (Current active increments) và `docs/roadmap.md` (Active).
-- [ ] Người dùng chuẩn bị tenant và file thông tin đăng nhập cho spike ([Giai đoạn 0](#giai-đoạn-0--spike-trên-tenant-thật)).
+- [x] Người dùng chuẩn bị tenant và file thông tin đăng nhập cho spike ([Giai đoạn 0](#giai-đoạn-0--spike-trên-tenant-thật)).
 - [ ] Trước giai đoạn 2: MEM-105 đã merge. Rebase và đối chiếu lại `SourceAccess`, luật SQL truy cập, pause/resume.
 - [ ] Trước giai đoạn 4: MEM-106 đã merge. Rebase và đối chiếu lại bố cục Nguồn và danh sách component đã có.
 
@@ -35,24 +35,26 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 **Ghi kết quả:** vào [Spike ledger](#spike-ledger), gồm response đã che, trường có hoặc không có, và mã lỗi.
 
-- [ ] **S0.1** msal4j: lấy token Graph bằng client secret và bằng certificate (client assertion `x5t`). Ghi mã AADSTS cho các trường hợp: secret sai, certificate chưa upload lên app, tenant sai, chưa admin consent.
-- [ ] **S0.2** Quyền:
+**Đã chạy 16/09/2026.** S0.1 và S0.3–S0.9 đạt; S0.2 còn thiếu nhánh `Sites.Selected`; S0.10 chưa chạy. Hai phát hiện làm phát sinh [Q11 và Q12](design.md#71-phát-sinh-sau-spike-chờ-chốt).
+
+- [x] **S0.1** msal4j: lấy token Graph bằng client secret và bằng certificate (client assertion `x5t`). Ghi mã AADSTS cho các trường hợp: secret sai, certificate chưa upload lên app, tenant sai, chưa admin consent.
+- [~] **S0.2** Quyền (nhánh `Sites.Read.All` đạt; nhánh `Sites.Selected` chưa kiểm, cần app riêng):
   - với `Sites.Read.All`: `GET /sites/root`, `/sites/getAllSites`;
   - app chỉ có `Sites.Selected`: `getAllSites` bị từ chối; site đã cấp `read` qua `POST /sites/{id}/permissions` đọc được.
-- [ ] **S0.3** Timestamp token và `children`, như Onyx:
+- [x] **S0.3** Timestamp token và `children`, như Onyx:
   - `/drives/{id}/root/delta?token=<ISO>` sau khi thêm, sửa nội dung, đổi tên, di chuyển file trong thư viện, chuyển file vào/ra thư mục, xóa file, xóa thư mục có con;
   - ghi item nào xuất hiện, `createdDateTime`/`lastModifiedDateTime` có đổi khi di chuyển/đổi tên không, và các trường `file.hashes.quickXorHash`, `size`, `eTag`, `parentReference.id`, `deleted`;
   - so với BFS `children` trên thư mục.
-- [ ] **S0.4** 410: thử tái hiện với timestamp rất cũ hoặc URL sửa tay. Không tái hiện được thì ghi rõ, và chỉ kiểm bằng fixture theo tài liệu Graph.
-- [ ] **S0.5** `@microsoft.graph.downloadUrl`: host, thời hạn, có chứa `tempauth`; `/content` trả redirect về host nào.
-- [ ] **S0.6** Site **tiếng Việt**: tên drive, path của `drive.webUrl`; xác nhận khớp theo path hoạt động (Q3).
-- [ ] **S0.7** Trang site:
+- [x] **S0.4** 410: thử tái hiện với timestamp rất cũ hoặc URL sửa tay. Không tái hiện được thì ghi rõ, và chỉ kiểm bằng fixture theo tài liệu Graph.
+- [x] **S0.5** `@microsoft.graph.downloadUrl`: host, thời hạn, có chứa `tempauth`; `/content` trả redirect về host nào.
+- [x] **S0.6** Site **tiếng Việt**: tên drive, path của `drive.webUrl`; xác nhận khớp theo path hoạt động (Q3).
+- [x] **S0.7** Trang site:
   - danh sách metadata;
   - `$expand=canvasLayout` từng trang;
   - ghi loại web part thực tế (text, standard, `searchablePlainTexts`);
   - trang tin tức; trang có bảng.
-- [ ] **S0.8** URL `/personal/` (OneDrive của một người trong tenant thử): resolve drive, delta (Q10).
-- [ ] **S0.9** Throttling: chỉ ghi nếu gặp 429/503 (header `Retry-After`). Không cố tình gây tải.
+- [x] **S0.8** URL `/personal/` (OneDrive của một người trong tenant thử): resolve drive, delta (Q10).
+- [x] **S0.9** Throttling: chỉ ghi nếu gặp 429/503 (header `Retry-After`). Không cố tình gây tải.
 - [ ] **S0.10** Chạy lại luồng tương tự trên Onyx Cloud với site tiếng Việt và với credential certificate, để có bằng chứng baseline cho O2.
 
 ## Giai đoạn 1 — Credential Entra app
@@ -236,4 +238,130 @@ Trạng thái: **đã chốt hướng, chưa bắt đầu triển khai** (16/09/
 
 ## Spike ledger
 
-Chưa chạy.
+Chạy **16/09/2026** trên tenant thử `memoryosvadan` (M365 Business Standard, hết hạn 15/10/2026), app Entra `Onyx Test`.
+Quyền lúc chạy: `Sites.Read.All` và `Sites.ReadWrite.All` (Application). `Sites.ReadWrite.All` **chỉ để tạo dữ liệu thử**; connector chỉ cần `Sites.Read.All` ([design §5.1](design.md#51-credential)).
+Script chạy ngoài repo, đọc credential từ file ngoài repo, không in giá trị. Dữ liệu thử đã dọn sau khi chạy.
+
+| Mục | Kết quả |
+| --- | --- |
+| S0.1 Xác thực | **Đạt** |
+| S0.2 Quyền và phạm vi | **Một phần** — `Sites.Selected` chưa kiểm |
+| S0.3 Delta theo timestamp | **Đạt, có 2 phát hiện ngược giả định** |
+| S0.4 410 | **Đạt, tái hiện được** |
+| S0.5 Tải nội dung | **Đạt** |
+| S0.6 Site tiếng Việt | **Đạt, xác nhận Q3** |
+| S0.7 Trang site | **Đạt** |
+| S0.8 URL `/personal/` | **Đạt** |
+| S0.9 Throttling | **Không gặp** |
+| S0.10 Baseline Onyx Cloud | **Chưa chạy** |
+
+### S0.1 — msal4j / client credentials
+
+- Client secret và certificate (client assertion RS256 với `x5t`) đều lấy được token `Bearer`, `expires_in=3599`.
+- Certificate tự ký RSA-2048 SHA-256, upload public key `.cer` lên app; private key chỉ nằm ở máy chạy spike.
+- Mã lỗi ghi được, dùng cho phân loại lỗi credential ở [design §5.6](design.md#56-lỗi-và-bảo-mật-provider):
+
+| Trường hợp | HTTP | Mã |
+| --- | --- | --- |
+| Secret sai | 401 | `AADSTS7000215` (thông điệp nhắc gửi nhầm Secret ID thay vì Value) |
+| Tenant không hợp lệ | 400 | `AADSTS900021` |
+| Certificate chưa upload lên app | 401 | `AADSTS700027` |
+| Sai mật khẩu PFX | — | lỗi cục bộ khi mở PKCS#12, chưa gọi mạng |
+
+### S0.2 — quyền và phạm vi
+
+- `GET /sites/root` → 200.
+- `GET /sites/getAllSites` → 200, **8 site**, không phân trang ở tenant này. Trả về:
+  - site OneDrive cá nhân, có cờ **`isPersonalSite: true`** → lọc bằng cờ này, chính xác hơn so host `{tenant}-my` [cập nhật cách sửa lỗi O8 trong design §5.3];
+  - site `https://…/search` có **`name: null`** → code phải chịu được tên rỗng;
+  - `contentTypeHub` và site gốc `/` cũng nằm trong danh sách.
+- **Chưa kiểm:** app chỉ có `Sites.Selected`. Cần một app đăng ký riêng, và việc cấp quyền theo site (`POST /sites/{id}/permissions`) lại đòi `Sites.FullControl.All` cho app đi cấp. Ghi là khoảng trống bằng chứng.
+
+### S0.3 — delta theo timestamp token
+
+Thí nghiệm trên thư viện `Tài liệu` của site `MemoryOSVi`: tạo thư mục và file, sửa nội dung, đổi tên, di chuyển giữa hai thư mục, xóa file, xóa thư mục có 2 file con. Sau mỗi thao tác gọi `GET /drives/{id}/root/delta?token=<ISO-8601>` với mốc lấy ngay trước thao tác.
+
+| Thao tác | Delta có trả item? | `lastModifiedDateTime` |
+| --- | --- | --- |
+| Tạo file, tạo thư mục | Có, kèm `root` | mới |
+| Sửa nội dung | Có | mới, `quickXorHash` đổi |
+| Đổi tên | Có, tên mới | **đổi** |
+| Di chuyển sang thư mục khác | **Có** | **không đổi** |
+| Xóa file | **Có, dạng tombstone** | không có |
+| Xóa thư mục có con | **Có: tombstone cho cả thư mục và từng file con** | không có |
+
+**Phát hiện 1 — timestamp token vẫn trả bản ghi xóa.** Tombstone có `deleted: {state: "deleted"}`, `id`, `parentReference` (driveId, siteId, id thư mục cha), `cTag` với version `-1`, `size: 0`, `file.hashes.quickXorHash` toàn `A`; **không có `name`**. Xóa một thư mục có 2 file con trả đủ 3 tombstone. Nghĩa là **phát hiện xóa không bắt buộc phải chờ lượt prune**, khác giả định trong [tham chiếu Onyx](onyx-sharepoint-reference.md) và khác hệ quả đã ghi cho Q1.
+
+**Phát hiện 2 — delta là change-log, không phải bộ lọc theo `lastModifiedDateTime`.** Kiểm định riêng: tạo file, **đợi 45 giây**, lấy mốc token, rồi di chuyển file. `lastModifiedDateTime` giữ nguyên giá trị **cũ hơn mốc token**, nhưng delta **vẫn trả** item với `parentReference.path` mới. Vậy bộ lọc phía client `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]` trong [design §5.3](design.md#53-đồng-bộ-thư-viện-q1-giữ-mô-hình-onyx) **sẽ loại mất chính những item vừa được di chuyển vào phạm vi** — đúng rủi ro O4/O5, nhưng nguyên nhân nằm ở bộ lọc của Onyx, không nằm ở Graph.
+
+**Lệch đồng hồ:** máy chạy spike chậm hơn server Graph **2,7 giây**. Mốc cửa sổ lấy theo giờ máy ứng dụng, nên độ chồng lấn phải lớn hơn lệch đồng hồ; 30 phút vẫn thừa sức.
+
+### S0.4 — 410 `resyncRequired`
+
+**Tái hiện được, và đo được ngưỡng.** Cùng một thư viện, token thời gian càng cũ càng bị từ chối:
+
+| Mốc token | Kết quả |
+| --- | --- |
+| −1 ngày → −60 ngày | 200, trả đủ item |
+| −61 ngày trở về trước (thử tới −730 ngày) | **410 `resyncRequired`** |
+| Chuỗi không phải thời gian (`not-a-date`) | 400 `invalidRequest`, "Provided sync token is malformed" |
+| Chuỗi giống token nhưng sai | 400 `invalidRequest` |
+| `token=latest` | 200, 0 item, có `@odata.deltaLink` |
+
+Ngưỡng ~60 ngày chưa chắc là hằng số của dịch vụ, nhưng đủ để kết luận: **Source bị tạm dừng lâu sẽ buộc phải quét lại toàn bộ**. Nhánh 410 trong design là bắt buộc, không phải phòng xa.
+
+### S0.5 — metadata và tải nội dung
+
+- `file.hashes.quickXorHash` **có** trên thư viện SharePoint (không chỉ OneDrive) → giữ nguyên quy tắc phiên bản `quickXorHash` + `size`.
+- Item trả cả `eTag` và `cTag` khi gọi trực tiếp `/items/{id}`.
+- `@microsoft.graph.downloadUrl` trỏ **host tenant** `memoryosvadan.sharepoint.com`, query gồm `tempauth`, `UniqueId`, `ApiVersion`, `Translate` → xác nhận phép kiểm tra host và quy tắc không log `tempauth`.
+- `GET /items/{id}/content` trả **302** về **cùng host tenant** → quy tắc "chấp nhận đúng một redirect, kiểm host đích" là đủ.
+
+### S0.6 — site tiếng Việt (xác nhận Q3)
+
+Site `MemoryOSVi` tạo với ngôn ngữ Tiếng Việt. Token app-only, không có ngữ cảnh ngôn ngữ người dùng:
+
+```
+drive.name   = 'Tài liệu'
+drive.webUrl = https://memoryosvadan.sharepoint.com/sites/MemoryOSVi/Shared%20Documents
+```
+
+So với site tiếng Anh `Onyxtest`: `drive.name = 'Documents'`, cùng path `/Shared Documents`.
+
+Kết luận: **khớp theo tên thư viện trượt trên site tiếng Việt, khớp theo path của `webUrl` trúng cả hai** → Q3 đúng, và bảng 3 ngôn ngữ của Onyx (O2) đúng là lỗi. Giao diện trình duyệt hiện "Documents" vì SharePoint dịch tên thư viện hệ thống theo ngôn ngữ hiển thị của người dùng; không dùng giao diện để kết luận.
+
+### S0.7 — trang site
+
+- `GET /sites/{id}/pages` trả danh sách; `?$expand=canvasLayout` trên `/microsoft.graph.sitePage` chạy trên **v1.0**.
+- Trang mặc định (`Home.aspx`, `TopicHome.aspx`) có `canvasLayout.horizontalSections = []` → reader phải chịu được trang rỗng, và trang mặc định gần như không có nội dung để index.
+- Trang tự tạo có `textWebPart`: `innerHtml` trả **nguyên văn HTML kể cả bảng**, giữ tiếng Việt:
+  `<p>Đoạn văn bản…</p><table><tbody><tr><th>Cột A</th>…</table>`
+  → reader cần chuyển HTML sang text và giữ được bảng.
+- Trang có `standardWebPart` (Quick links): đọc trên v1.0 trả `data.title` và `data.serverProcessedContent.searchablePlainTexts` dạng `[{key, value}]` → đúng như Onyx khai thác.
+- `titleArea` trả `title`, `textAboveTitle`, `authorByline`.
+- Ghi chú phụ: **tạo** trang có `standardWebPart` chỉ chạy trên endpoint beta (v1.0 trả 400 "Parsing JSON Light resource sets…"). Không ảnh hưởng connector vì connector chỉ đọc.
+
+### S0.8 — URL `/personal/` (Q10)
+
+- `GET /sites/{tenant}-my.sharepoint.com:/personal/{upn_thay_@_và_._bằng_}` → 200.
+- Site cá nhân có **2 drive**: `PersonalCacheLibrary` (phải bỏ) và `OneDrive`.
+- Drive chính tên **`OneDrive`**, `driveType: business`, `webUrl` kết thúc bằng **`/Documents`**, không phải `/Shared Documents`.
+  → luật khớp thư viện theo path phải có nhánh riêng cho site cá nhân; khớp theo tên cũng trượt ở đây.
+- `GET /drives/{id}/root/delta` không token chạy bình thường và có `@odata.deltaLink`.
+- `isPersonalSite` chỉ xuất hiện trong kết quả `getAllSites`, **không** có khi resolve site trực tiếp.
+
+### S0.9 — throttling
+
+Không gặp 429 hay 503 trong khoảng 90 request của spike. Không chủ động gây tải. Ngân sách request vẫn chỉ kiểm được bằng fixture.
+
+### S0.10 — baseline Onyx Cloud
+
+Chưa chạy. Cần thêm một connector SharePoint trên Onyx Cloud trỏ tới `https://memoryosvadan.sharepoint.com/sites/MemoryOSVi` để xác nhận Onyx **không index được** thư viện `Tài liệu` (bằng chứng ngoài cho O2), và thử credential dạng certificate.
+
+### Hệ quả với thiết kế
+
+1. **Q1 cần chốt lại một điểm** ([design §7](design.md#7-quyết-định), Q11): timestamp token vẫn trả tombstone, nên lượt refresh có thể gỡ tài liệu bị xóa ngay trong lượt, thay vì chờ tới 7 ngày.
+2. **Bỏ bộ lọc cửa sổ phía client cho nhánh delta** (Q12): bộ lọc này loại mất item bị di chuyển. Nhánh BFS `children` cho root là thư mục vẫn cần lọc.
+3. Lọc site cá nhân bằng `isPersonalSite`, và chịu được `name: null`.
+4. Luật khớp thư viện theo path thêm nhánh `/Documents` cho site `/personal/`.
+5. Nhánh 410 là bắt buộc; ghi ngưỡng quan sát được (~60 ngày) vào tài liệu vận hành.

@@ -218,6 +218,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 **Xác minh bất đồng bộ** (workload `SHAREPOINT_SELECTION_VALIDATION`; gọi provider ngoài transaction; checkpoint và retry như Drive):
 - **Site:** `GET /sites/{host}:/{server-relative-path}`, lưu `siteId`.
 - **Thư viện:** liệt kê `GET /sites/{siteId}/drives`. Đoạn URL sau site được so với path của `drive.webUrl`, là URL nội bộ của thư viện, không so tên hiển thị [Sửa lỗi O2, Q3; spike S0.6].
+  - Site `/personal/`: thư viện chính tên `OneDrive` và path là `/Documents`, không phải `/Shared Documents`; drive `PersonalCacheLibrary` của site đó bị bỏ [spike S0.8].
 - **Thư mục:** `GET /drives/{driveId}/root:/{path}`, lưu `itemId`.
 - **`ALL_SITES`:** thử trang đầu `/sites/getAllSites`. Bị 403 thì trả `SOURCE_SHAREPOINT_ALL_SITES_FORBIDDEN`; hướng dẫn cấp `Sites.Read.All` hoặc chuyển sang Site cụ thể.
 - **Activation transaction:** kiểm lại Tenant, credential revision, quyền và claim, rồi tạo Source, root và lượt đồng bộ đầu một cách nguyên tử. Mọi thất bại để lại receipt truy vấn được, không để lại Source tạo dở.
@@ -237,7 +238,8 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
   - root là thư viện hoặc thư mục → drive chứa root đó.
 - `ALL_SITES`:
   - mỗi lượt đọc lại `getAllSites` có phân trang, nên site mới tự vào phạm vi;
-  - bỏ site OneDrive bằng cách so với host `{tenant}-my` của cloud [Sửa lỗi O8];
+  - bỏ site OneDrive theo cờ `isPersonalSite` của `getAllSites`, thay cho so host `{tenant}-my` [Sửa lỗi O8; spike S0.2];
+  - `getAllSites` có thể trả site không tên (`name: null`, ví dụ site `/search`), nên tên rỗng phải xử lý được [spike S0.2];
   - áp `excludedSites`, rồi lấy drive của từng site.
 
 **Lượt refresh** (theo Automatic interval, và khi bấm Synchronize now):
@@ -250,13 +252,13 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - **Root là site hoặc thư viện:**
   - gọi `GET /drives/{id}/root/delta?$top=200&$select=…&token=<start ISO-8601>`; lượt bắt đầu từ epoch thì không gửi `token`. Graph chỉ nhận timestamp token trên OneDrive for Business và SharePoint, đúng trường hợp này;
   - theo `@odata.nextLink`; **không lưu `@odata.deltaLink`**, như Onyx;
-  - lọc phía client theo `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]`;
-  - bỏ thư mục và bản ghi `deleted`;
+  - lọc phía client theo `max(createdDateTime, lastModifiedDateTime) ∈ [start, end]` [**chờ chốt Q12**: spike S0.3 cho thấy bộ lọc này loại mất item vừa bị di chuyển vào phạm vi];
+  - bỏ thư mục và bản ghi `deleted` [**chờ chốt Q11**: spike S0.3 cho thấy timestamp token vẫn trả tombstone, kể cả từng file con của thư mục bị xóa];
   - bỏ trùng theo item id trong một drive của một lượt;
   - HTTP 410: bắt đầu lại drive đó bằng URL trong header `Location` (quét toàn bộ) và vẫn lọc theo cửa sổ.
 - **Root là thư mục:** duyệt BFS `GET /drives/{d}/items/{folderId}/children?$top=200` toàn bộ thư mục mỗi lượt, lọc theo cùng cửa sổ, như Onyx.
 - **`excludedPaths`:** so với đường dẫn tương đối và tên file, như Onyx. Delta không trả `parentReference.path`, nên đường dẫn dựng từ `parentReference.id` → thư mục đã thấy; thư mục chưa biết thì đọc metadata thư mục đó (có giới hạn số lời gọi mỗi bước).
-- **Lượt refresh không bao giờ xóa item.** Item bị xóa, đổi quyền đọc của app hay bị chuyển ra khỏi thư mục root chỉ được gỡ ở lượt prune.
+- **Lượt refresh không bao giờ xóa item.** Item bị xóa, đổi quyền đọc của app hay bị chuyển ra khỏi thư mục root chỉ được gỡ ở lượt prune [**chờ chốt Q11**].
 
 **Lượt prune** (theo Prune Frequency; `0` là tắt, như Onyx):
 - Liệt kê đầy đủ phạm vi hiện hành, **chỉ metadata, không tải nội dung**:
@@ -467,6 +469,17 @@ Người dùng chốt ngày 16/09/2026. Các câu ghi "theo khuyến nghị" đ�
 | Q9 | Chỉ cloud `GLOBAL` (theo khuyến nghị) | Enum đã chừa chỗ cho cloud khác |
 | Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị) | Cần spike trên OneDrive của tenant thử |
 
+### 7.1 Phát sinh sau spike (chờ chốt)
+
+Giai đoạn 0 đo trên tenant thật ([Spike ledger](plan.md#spike-ledger)) và bác bỏ hai giả định mà Q1 dựa vào. Hai câu dưới đây chưa chốt; design vẫn đang mô tả phương án Onyx.
+
+| # | Câu hỏi | Bằng chứng | Khuyến nghị |
+| --- | --- | --- | --- |
+| Q11 | Lượt refresh có xử lý tombstone của delta để gỡ tài liệu ngay, thay vì chờ lượt prune? | S0.3: timestamp token trả `deleted: {state: deleted}` cho file bị xóa và cho từng file con của thư mục bị xóa; tombstone có `id` và `parentReference`, không có `name` | **Có.** Gỡ theo item id ngay trong lượt refresh, giữ prune làm lưới an toàn cho các trường hợp delta không thấy (mất quyền đọc, 410, đổi phạm vi). Rút thời gian tài liệu đã xóa còn tìm được từ 7 ngày xuống một chu kỳ refresh |
+| Q12 | Có giữ bộ lọc cửa sổ phía client cho nhánh delta? | S0.3: item bị di chuyển được delta trả về tuy `lastModifiedDateTime` không đổi và cũ hơn mốc token | **Bỏ** cho nhánh delta: tin theo kết quả delta, cửa sổ chỉ dùng để dựng token. Nhánh BFS `children` (root là thư mục) vẫn phải lọc vì không có change-log |
+
+Chốt Q11 và Q12 xong thì sửa lại §5.3, §9 và [plan giai đoạn 2](plan.md#giai-đoạn-2--source-xác-minh-phạm-vi-refresh-và-prune-thư-viện) trong cùng một lần.
+
 ## 8. Ngoài phạm vi
 
 - **Auto Sync theo quyền SharePoint.** Khi làm, cần:
@@ -487,22 +500,19 @@ Người dùng chốt ngày 16/09/2026. Các câu ghi "theo khuyến nghị" đ�
 
 ## 9. Rủi ro và khoảng trống bằng chứng
 
-- **Tài liệu đã xóa vẫn tìm thấy tới lượt prune kế tiếp** (mặc định tối đa 7 ngày), như Onyx. Tương tự với file bị chuyển ra khỏi thư mục root hoặc bị gỡ quyền đọc của app.
+- **Tài liệu đã xóa vẫn tìm thấy tới lượt prune kế tiếp** (mặc định tối đa 7 ngày), như Onyx — chỉ đúng nếu Q11 giữ phương án Onyx; nếu chốt xử lý tombstone thì rút xuống một chu kỳ refresh. Trường hợp file bị gỡ quyền đọc của app hoặc bị chuyển ra khỏi thư mục root vẫn phải chờ prune.
   - Với nội dung nhạy cảm, quản trị viên có thể giảm prune interval hoặc gỡ item/Source trong MemoryOS.
   - Cần ghi rõ trong hướng dẫn và trong help của trường Prune Frequency.
-- **Timestamp token và BFS `children` có thể bỏ sót** (O4, O5):
-  - Graph ghi rằng chỉ delta mới bảo đảm đọc đủ khi có ghi đồng thời;
-  - item chuyển vào phạm vi mà không đổi `lastModifiedDateTime` có thể không được lấy cho tới khi bị sửa.
-  - Độ chồng lấn 30 phút giảm nhưng không loại bỏ rủi ro. Spike S0.3 đo hành vi di chuyển.
+- **Bỏ sót item bị di chuyển** (O4, O5) — đã đo ở S0.3:
+  - Graph **có** trả item bị di chuyển qua timestamp token, nên nguyên nhân bỏ sót nằm ở bộ lọc phía client của Onyx, không nằm ở API (xem Q12);
+  - nhánh BFS `children` cho root là thư mục vẫn bỏ sót thật, vì không có change-log và `lastModifiedDateTime` không đổi khi di chuyển;
+  - lệch đồng hồ giữa máy ứng dụng và server Graph đo được 2,7 giây; độ chồng lấn 30 phút thừa sức che.
 - **Tenant thử nghiệm hết hạn ngày 15/10/2026:** spike và nghiệm thu thật phải xong trước ngày đó, hoặc cần tenant khác (M365 Developer Program qua Visual Studio, hoặc tenant công ty). Không ghi secret vào repo hay Linear.
-- **Chưa xác minh trên tenant thật:**
-  - `quickXorHash` trong delta SharePoint;
-  - timestamp token trả gì với item bị xóa hoặc di chuyển;
-  - 410 có tái hiện được không;
-  - host của `downloadUrl`;
-  - path `drive.webUrl` của site tiếng Việt;
-  - web part thực tế trong canvas;
-  - hành vi `Sites.Selected` với `getAllSites`.
+- **Đã xác minh trên tenant thật** ([Spike ledger](plan.md#spike-ledger), 16/09/2026): `quickXorHash`, hành vi timestamp token với xóa và di chuyển, 410 (`resyncRequired` với token cũ hơn ~60 ngày), host của `downloadUrl` và redirect của `/content`, `drive.webUrl` của site tiếng Việt, web part `textWebPart`/`standardWebPart` trong canvas.
+- **Còn là khoảng trống bằng chứng:**
+  - hành vi `Sites.Selected` với `getAllSites` — cần một app riêng, và việc cấp quyền theo site lại đòi `Sites.FullControl.All`;
+  - ngưỡng ~60 ngày của timestamp token có thể khác theo tenant;
+  - baseline trên Onyx Cloud với site tiếng Việt (S0.10) chưa chạy.
 - **Throttling:** giới hạn SharePoint phụ thuộc tenant và không có header RateLimit. Lượt prune liệt kê toàn phạm vi là lượt tốn request nhất. Ngân sách chỉ kiểm được bằng fixture; số đo thật cần corpus lớn.
 - **Phụ thuộc chưa merge:** MEM-105/MEM-106 có thể đổi contract. Kế hoạch bám theo nhánh hiện tại và phải đối chiếu lại khi các nhánh merge.
 - **Provider mark SharePoint:** phải kiểm tra quyền sử dụng logo Microsoft trước khi đưa vào repository.
