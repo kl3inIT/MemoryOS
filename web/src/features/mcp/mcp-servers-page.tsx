@@ -24,6 +24,7 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { McpOAuthClients } from "./mcp-oauth-clients";
 import { McpServerEditor } from "./mcp-server-editor";
+import { McpServerMark } from "./mcp-server-mark";
 import { serverStatus } from "./mcp-status";
 
 const servers = { queryKey: ["mcp", "servers"] as const };
@@ -132,28 +133,38 @@ export function McpServersPage() {
               className="rounded-xl border border-border-subtle bg-surface-raised p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-main-ui-body-strong text-content-primary">{server.name}</h3>
-                    <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
+                <div className="flex min-w-0 gap-3">
+                  <McpServerMark slug={server.slug} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-main-ui-body-strong text-content-primary">
+                        {server.name}
+                      </h3>
+                      <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
+                    </div>
+                    {server.description ? (
+                      <p className="mt-0.5 font-secondary-body text-content-secondary">
+                        {server.description}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 font-secondary-body break-all text-content-muted">
+                      {server.url}
+                    </p>
+                    <p className="mt-1 font-secondary-body text-content-muted">
+                      {ui("{{enabled}}/{{total}} công cụ đang bật", {
+                        enabled: server.enabledToolCount,
+                        total: server.toolCount,
+                      })}
+                      {" · "}
+                      {ui(
+                        server.authPerformer === "ADMIN"
+                          ? "Một kết nối dùng chung"
+                          : "Mỗi người tự kết nối",
+                      )}
+                      {" · "}
+                      {ui(server.tenantWide ? "Cả tổ chức" : "Chọn nhóm")}
+                    </p>
                   </div>
-                  <p className="mt-1 font-secondary-body break-all text-content-muted">
-                    {server.url}
-                  </p>
-                  <p className="mt-1 font-secondary-body text-content-muted">
-                    {ui("{{enabled}}/{{total}} công cụ đang bật", {
-                      enabled: server.enabledToolCount,
-                      total: server.toolCount,
-                    })}
-                    {" · "}
-                    {ui(
-                      server.authPerformer === "ADMIN"
-                        ? "Một kết nối dùng chung"
-                        : "Mỗi người tự kết nối",
-                    )}
-                    {" · "}
-                    {ui(server.tenantWide ? "Cả tổ chức" : "Chọn nhóm")}
-                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -298,13 +309,16 @@ function McpToolList({ serverId }: { serverId: string }) {
   }
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4">
-      <div className="flex gap-2">
-        <Button prominence="secondary" size="sm" onClick={() => toggleAll.mutate(true)}>
-          {ui("Bật tất cả")}
-        </Button>
-        <Button prominence="secondary" size="sm" onClick={() => toggleAll.mutate(false)}>
-          {ui("Tắt tất cả")}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-main-ui-body-strong text-content-primary">{ui("Công cụ")}</h4>
+        <div className="flex gap-2">
+          <Button prominence="secondary" size="sm" onClick={() => toggleAll.mutate(true)}>
+            {ui("Bật tất cả")}
+          </Button>
+          <Button prominence="secondary" size="sm" onClick={() => toggleAll.mutate(false)}>
+            {ui("Tắt tất cả")}
+          </Button>
+        </div>
       </div>
       <ul className="flex flex-col gap-2">
         {(tools.data ?? []).map((tool) => (

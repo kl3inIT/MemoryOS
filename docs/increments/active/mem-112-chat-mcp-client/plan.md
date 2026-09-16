@@ -87,7 +87,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] Vietnamese and English copy for every new string.
 - [ ] Generic MCP activity renderer in the timeline.
 - [x] Unit tests for the composer submenu.
-- [ ] Chromium scenario with fixture servers.
+- [x] Chromium scenario over stubbed responses, with screenshots reviewed and the defects it exposed fixed.
 
 ## Phase 6 — documentation and acceptance
 

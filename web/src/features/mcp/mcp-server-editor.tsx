@@ -148,25 +148,18 @@ export function McpServerEditor({
           />
         </div>
 
-        <fieldset className="flex flex-col gap-3">
-          <legend className="font-main-ui-body-strong text-content-primary">
-            {ui("Cách đăng nhập")}
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {(["OAUTH", "API_TOKEN", "NONE"] as const).map((option) => (
-              <Button
-                key={option}
-                type="button"
-                prominence={authType === option ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => setAuthType(option)}
-              >
-                {ui(
-                  option === "OAUTH" ? "OAuth" : option === "API_TOKEN" ? "Khoá API" : "Không cần",
-                )}
-              </Button>
-            ))}
-          </div>
+        <fieldset className="flex flex-col gap-4">
+          <legend className="sr-only">{ui("Cách đăng nhập")}</legend>
+          <Choice
+            label={ui("Cách đăng nhập")}
+            value={authType}
+            onChange={setAuthType}
+            options={[
+              { value: "OAUTH", label: ui("OAuth") },
+              { value: "API_TOKEN", label: ui("Khoá API") },
+              { value: "NONE", label: ui("Không cần") },
+            ]}
+          />
           {editing && authType !== server.authType ? (
             <p className="font-secondary-body text-status-warning-content">
               {ui("Đổi cách đăng nhập sẽ xoá thông tin đăng nhập đã lưu.")}
@@ -174,35 +167,33 @@ export function McpServerEditor({
           ) : null}
 
           {authType !== "NONE" ? (
-            <div className="flex flex-wrap gap-2">
-              {(["PER_USER", "ADMIN"] as const).map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  prominence={performer === option ? "primary" : "secondary"}
-                  size="sm"
-                  onClick={() => setPerformer(option)}
-                >
-                  {ui(option === "PER_USER" ? "Mỗi người tự kết nối" : "Một kết nối dùng chung")}
-                </Button>
-              ))}
-            </div>
+            <Choice
+              label={ui("Ai đăng nhập")}
+              hint={ui(
+                "Mỗi người tự kết nối: công cụ chạy bằng quyền của chính người hỏi. Một kết nối dùng chung: mọi người dùng chung một tài khoản do bạn kết nối.",
+              )}
+              value={performer}
+              onChange={setPerformer}
+              options={[
+                { value: "PER_USER", label: ui("Mỗi người tự kết nối") },
+                { value: "ADMIN", label: ui("Một kết nối dùng chung") },
+              ]}
+            />
           ) : null}
 
           {authType === "OAUTH" ? (
-            <div className="flex flex-wrap gap-2">
-              {(["AUTO_DISCOVERY", "KNOWN_PROVIDER"] as const).map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  prominence={providerMode === option ? "primary" : "secondary"}
-                  size="sm"
-                  onClick={() => setProviderMode(option)}
-                >
-                  {ui(option === "AUTO_DISCOVERY" ? "Tự dò máy chủ OAuth" : "Tự nhập điểm cuối")}
-                </Button>
-              ))}
-            </div>
+            <>
+              <Choice
+                label={ui("Lấy thông tin OAuth thế nào")}
+                value={providerMode}
+                onChange={setProviderMode}
+                options={[
+                  { value: "AUTO_DISCOVERY", label: ui("Tự dò máy chủ OAuth") },
+                  { value: "KNOWN_PROVIDER", label: ui("Tự nhập điểm cuối") },
+                ]}
+              />
+              <RedirectUri />
+            </>
           ) : null}
 
           {authType === "API_TOKEN" && performer === "ADMIN" ? (
@@ -221,27 +212,16 @@ export function McpServerEditor({
         </fieldset>
 
         <fieldset className="flex flex-col gap-3">
-          <legend className="font-main-ui-body-strong text-content-primary">
-            {ui("Ai dùng được")}
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              prominence={tenantWide ? "primary" : "secondary"}
-              size="sm"
-              onClick={() => setTenantWide(true)}
-            >
-              {ui("Cả tổ chức")}
-            </Button>
-            <Button
-              type="button"
-              prominence={tenantWide ? "secondary" : "primary"}
-              size="sm"
-              onClick={() => setTenantWide(false)}
-            >
-              {ui("Chọn nhóm")}
-            </Button>
-          </div>
+          <legend className="sr-only">{ui("Ai dùng được")}</legend>
+          <Choice
+            label={ui("Ai dùng được")}
+            value={tenantWide ? "ALL" : "GROUPS"}
+            onChange={(value) => setTenantWide(value === "ALL")}
+            options={[
+              { value: "ALL", label: ui("Cả tổ chức") },
+              { value: "GROUPS", label: ui("Chọn nhóm") },
+            ]}
+          />
           {!tenantWide ? (
             <div className="flex flex-col gap-2">
               {(groups.data?.items ?? []).map((group) => (
@@ -296,5 +276,82 @@ export function McpServerEditor({
         </div>
       </div>
     </CatalogDialog>
+  );
+}
+
+/**
+ * A labelled set of mutually exclusive options. Plain buttons would announce no selected state, so the group
+ * carries radio semantics and each option its own checked state.
+ */
+function Choice<T extends string>({
+  label,
+  hint,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  hint?: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="font-main-ui-body-strong text-content-primary" id={`mcp-choice-${label}`}>
+        {label}
+      </p>
+      {hint ? <p className="font-secondary-body text-content-muted">{hint}</p> : null}
+      <div
+        role="radiogroup"
+        aria-labelledby={`mcp-choice-${label}`}
+        className="flex flex-wrap gap-2"
+      >
+        {options.map((option) => (
+          <Button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            prominence={value === option.value ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Google and other providers reject a callback that is not registered, so the exact URI is copyable here. */
+function RedirectUri() {
+  const ui = useAppTranslation();
+  const [copied, setCopied] = useState(false);
+  const uri = `${window.location.origin}/login/oauth2/code/mcp`;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="font-main-ui-body-strong text-content-primary">{ui("Địa chỉ callback")}</p>
+      <p className="font-secondary-body text-content-muted">
+        {ui("Đăng ký đúng địa chỉ này trong ứng dụng OAuth của mỗi tổ chức.")}
+      </p>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-md bg-surface-sunken px-2 py-1 font-secondary-body text-content-secondary">
+          {uri}
+        </code>
+        <Button
+          type="button"
+          prominence="secondary"
+          size="sm"
+          onClick={() => {
+            void navigator.clipboard?.writeText(uri);
+            setCopied(true);
+          }}
+        >
+          {ui(copied ? "Đã chép" : "Chép")}
+        </Button>
+      </div>
+    </div>
   );
 }

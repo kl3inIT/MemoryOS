@@ -101,6 +101,17 @@ export const vietnameseUi: Record<string, string> = {
   "Tự động dùng Web": "Use Web automatically",
   "Bắt buộc tìm trên Web": "Require Web search",
   "Tìm kiếm Web": "Web search",
+  "Công cụ": "Tools",
+  OAuth: "OAuth",
+  "Ai đăng nhập": "Who signs in",
+  "Mỗi người tự kết nối: công cụ chạy bằng quyền của chính người hỏi. Một kết nối dùng chung: mọi người dùng chung một tài khoản do bạn kết nối.":
+    "Each person connects: tools run with the asking person's own permissions. One shared connection: everyone uses the single account you connect.",
+  "Lấy thông tin OAuth thế nào": "How to obtain the OAuth settings",
+  "Địa chỉ callback": "Callback URL",
+  "Đăng ký đúng địa chỉ này trong ứng dụng OAuth của mỗi tổ chức.":
+    "Register exactly this URL in each organization's OAuth application.",
+  Chép: "Copy",
+  "Đã chép": "Copied",
   "Ứng dụng OAuth": "OAuth applications",
   "Dò máy chủ OAuth": "Discover the authorization server",
   "Nhập ứng dụng": "Enter an application",
