@@ -22,6 +22,7 @@ import {
 import type { McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import { McpOAuthClients } from "./mcp-oauth-clients";
 import { McpServerEditor } from "./mcp-server-editor";
 import { serverStatus } from "./mcp-status";
 
@@ -185,7 +186,12 @@ export function McpServersPage() {
                   </Button>
                 </div>
               </div>
-              {opened === server.id ? <McpToolList serverId={server.id} /> : null}
+              {opened === server.id ? (
+                <>
+                  {server.authType === "OAUTH" ? <McpOAuthClients server={server} /> : null}
+                  <McpToolList serverId={server.id} />
+                </>
+              ) : null}
             </section>
           );
         })}

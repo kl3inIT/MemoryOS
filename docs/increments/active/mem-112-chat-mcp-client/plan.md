@@ -82,7 +82,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 ## Phase 5 — web
 
 - [x] Admin `web/src/features/mcp/`: servers, authentication, tools and Groups at `/admin/mcp`, with the trust acknowledgement on creation.
-- [ ] Admin OAuth clients: discovery review, DCR and per-organization clients still have no screen.
+- [x] Admin OAuth clients: discovery review, DCR, the metadata-document route, per-organization pasted clients, and the administrator's own connect/disconnect.
 - [x] Composer: server list with status, OAuth connect with account choice, API-key entry.
 - [x] Vietnamese and English copy for every new string.
 - [ ] Generic MCP activity renderer in the timeline.
