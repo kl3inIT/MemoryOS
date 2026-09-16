@@ -2082,6 +2082,125 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void mcpToolsRunInATurnAndUnusableServersBecomeAConnectAction() throws Exception {
+        grantCapability("MCP_MANAGE");
+        grantModelManagement();
+        io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+        var required = Map.of("Authorization", "Bearer fixture-mcp-key", "X-Fixture", "static-header-secret");
+        try (var fixture = io.memoryos.api.mcp.McpFixtureServer.start(required)) {
+            String slug = "turn" + (System.nanoTime() % 100000);
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content(mcpServerBody(slug, fixture.url()).toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            UUID serverId = UUID.fromString(created.path("id").asText());
+            mockMvc.perform(post("/api/mcp/servers/" + serverId + "/tools/refresh").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            mockMvc.perform(put("/api/mcp/servers/" + serverId + "/tools/enabled").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                    .andExpect(status().isOk());
+
+            String toolName = "mcp_" + slug + "_search_files";
+            // Assertions inside the mock would fail the whole turn and hide the cause, so record and check after.
+            var prompts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                Prompt prompt = call.getArgument(0);
+                prompts.add(prompt.toString());
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
+                    return Flux.just(response("The files were searched.", "stop", 12));
+                return Flux.just(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
+                        .toolCalls(List.of(new AssistantMessage.ToolCall("mcp-1", "function", toolName,
+                                "{\"query\":\"quarterly report\"}"))).build(),
+                        ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                        ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+            });
+
+            var session = create();
+            var body = Json.mapper().createObjectNode().put("parentMessageId", session.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Find the report.");
+            body.putArray("mcpServerIds").add(serverId.toString());
+            var reply = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> assertEquals("COMPLETED",
+                    jdbc.sql("SELECT coalesce(failure_code, status) FROM chat_message WHERE id=:id")
+                            .param("id", UUID.fromString(reply.path("assistantMessageId").asText())).query(String.class).single()));
+            assertEquals(List.of("search_files({query=quarterly report})"), io.memoryos.api.mcp.McpFixtureServer.calls());
+            assertTrue(prompts.getLast().contains("fixture result for"));
+            // Credentials never travel to the model with the result, and an unusable tool name is never offered.
+            assertFalse(String.join("", prompts).contains("fixture-mcp-key"));
+            assertFalse(String.join("", prompts).contains("static-header-secret"));
+            assertFalse(String.join("", prompts).contains(io.memoryos.api.mcp.McpFixtureServer.LONG_TOOL_NAME));
+            var answer = history(session).get(1);
+            assertEquals("The files were searched.", answer.path("content").asText());
+            assertTrue(answer.path("activity").toString().contains(toolName));
+
+            // A server the actor cannot use is neither offered nor callable, and the turn still answers.
+            io.memoryos.api.mcp.McpFixtureServer.resetCalls();
+            UUID restricted = UUID.randomUUID();
+            jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                    .param("tenant", TENANT).param("id", restricted).param("name", restricted.toString()).update();
+            var restrictedBody = mcpServerBody("locked" + (System.nanoTime() % 100000), fixture.url());
+            restrictedBody.put("tenantWide", false);
+            restrictedBody.putArray("groupIds").add(restricted.toString());
+            var locked = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(restrictedBody.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                assertFalse(call.<Prompt>getArgument(0).toString().contains("mcp_locked"));
+                return Flux.just(response("No MCP tools were available.", "stop", 12));
+            });
+            var lockedSession = create();
+            var lockedBody = Json.mapper().createObjectNode().put("parentMessageId", lockedSession.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Try the locked server.");
+            lockedBody.putArray("mcpServerIds").add(locked.path("id").asText());
+            var lockedReply = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + lockedSession.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(lockedBody.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            awaitOutcome(lockedReply.path("assistantMessageId").asText(), "COMPLETED");
+            assertEquals(List.of(), io.memoryos.api.mcp.McpFixtureServer.calls());
+
+            // Stopping a turn mid-tool ends it and closes the turn's MCP sessions with it.
+            var stopping = new java.util.concurrent.CountDownLatch(1);
+            var released = new java.util.concurrent.CountDownLatch(1);
+            when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+                Prompt prompt = call.getArgument(0);
+                if (prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage))
+                    return Flux.just(response("Unreachable.", "stop", 12));
+                return Flux.<ChatResponse>create(sink -> {
+                    stopping.countDown();
+                    try { released.await(10, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                    sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
+                            .toolCalls(List.of(new AssistantMessage.ToolCall("mcp-stop", "function", toolName,
+                                    "{\"query\":\"late\"}"))).build(),
+                            ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                            ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+                    sink.complete();
+                }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+            });
+            var stopSession = create();
+            var stopBody = Json.mapper().createObjectNode().put("parentMessageId", stopSession.path("rootMessageId").asText())
+                    .put("clientRequestId", UUID.randomUUID().toString()).put("text", "Start then stop.");
+            stopBody.putArray("mcpServerIds").add(serverId.toString());
+            var stopReply = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + stopSession.path("id").asText() + "/messages")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(stopBody.toString()))
+                    .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
+            assertTrue(stopping.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            mockMvc.perform(post("/api/chat/sessions/" + stopSession.path("id").asText() + "/messages/"
+                            + stopReply.path("assistantMessageId").asText() + "/cancel")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isAccepted());
+            released.countDown();
+            awaitOutcome(stopReply.path("assistantMessageId").asText(), "CANCELED");
+            assertEquals(List.of(), io.memoryos.api.mcp.McpFixtureServer.calls());
+        }
+    }
+
+    @Test
     void webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent() throws Exception {
         mockMvc.perform(get("/api/chat/web/connections").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/web").with(authentication(actor))).andExpect(status().isOk());

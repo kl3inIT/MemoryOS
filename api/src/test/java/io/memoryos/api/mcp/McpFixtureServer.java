@@ -24,12 +24,24 @@ public final class McpFixtureServer implements AutoCloseable {
     public static final String LONG_TOOL_NAME = "tool_name_that_cannot_fit_inside_the_model_tool_name_limit";
     private static final String METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
 
+    /** Tool calls the fixture served, so a turn can assert what actually reached the server. */
+    private static final java.util.List<String> CALLS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
     private final Tomcat tomcat;
     private final McpSyncServer server;
     private final String url;
 
     private McpFixtureServer(Tomcat tomcat, McpSyncServer server, String url) {
         this.tomcat = tomcat; this.server = server; this.url = url;
+    }
+
+    /** Snapshot of the calls served since {@link #resetCalls()}, as {@code name(arguments)}. */
+    public static java.util.List<String> calls() {
+        synchronized (CALLS) { return java.util.List.copyOf(CALLS); }
+    }
+
+    public static void resetCalls() {
+        CALLS.clear();
     }
 
     public static McpFixtureServer start(Map<String, String> requiredHeaders) throws Exception {
@@ -80,7 +92,11 @@ public final class McpFixtureServer implements AutoCloseable {
         var tool = McpSchema.Tool.builder().name(name).title(title).description(name + " fixture").inputSchema(schema)
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly).destructiveHint(!readOnly).build()).build();
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
-                .callHandler((exchange, request) -> McpSchema.CallToolResult.builder().addTextContent("ok").build()).build();
+                .callHandler((exchange, request) -> {
+                    CALLS.add(name + "(" + request.arguments() + ")");
+                    return McpSchema.CallToolResult.builder()
+                            .addTextContent("fixture result for " + request.arguments()).build();
+                }).build();
     }
 
     private static final class RequiredHeadersServlet extends HttpServlet {

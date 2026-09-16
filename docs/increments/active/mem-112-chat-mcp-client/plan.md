@@ -71,7 +71,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] One Embabel `Tool.create` per enabled tool with the snapshotted schema; per-turn call limit, per-call timeout and result cap reuse the existing guard.
 - [x] Failures are mapped from MCP error codes, never matched text, and carry no upstream body to the model or the logs.
 - [x] `mcpServerIds` on send, edit and regenerate.
-- [ ] An end-to-end turn against the fixture MCP server, including Stop closing the sessions.
+- [x] An end-to-end turn against the fixture MCP server, including Stop closing the sessions.
 - [ ] Activity rendering for MCP steps and the `auth_required` connect action (with Phase 5).
 
 - [ ] `mcpServerIds` and validation in `ChatTurnService`.
