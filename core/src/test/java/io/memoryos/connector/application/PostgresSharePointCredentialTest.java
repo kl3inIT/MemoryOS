@@ -133,7 +133,7 @@ class PostgresSharePointCredentialTest {
                 SharePointProviderException.Reason.INVALID_CLIENT_SECRET));
         try (var draft = secretDraft("Rejected")) {
             var failure = assertThrows(SharePointException.class, () -> service.create(owner, draft));
-            assertEquals("SOURCE_SHAREPOINT_CREDENTIAL_REJECTED", failure.code());
+            assertEquals("SOURCE_SHAREPOINT_CREDENTIAL_SECRET_REJECTED", failure.code());
         }
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM credentials WHERE credential_kind = 'SHAREPOINT_APP'")
                 .query(Integer.class).single());
@@ -232,7 +232,7 @@ class PostgresSharePointCredentialTest {
                 SharePointProviderException.Failure.AUTHENTICATION,
                 SharePointProviderException.Reason.EXPIRED_CLIENT_SECRET));
         var failure = assertThrows(SharePointException.class, () -> service.test(owner, id));
-        assertEquals("SOURCE_SHAREPOINT_CREDENTIAL_REJECTED", failure.code());
+        assertEquals("SOURCE_SHAREPOINT_CREDENTIAL_SECRET_EXPIRED", failure.code());
         var stored = credentials.lock(tenant, id).orElseThrow();
         assertEquals("NEEDS_UPDATE", stored.status());
         assertFalse(stored.usable());

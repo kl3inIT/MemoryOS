@@ -270,7 +270,7 @@ class SharePointCredentialApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(secretBody("Rejected")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SOURCE_SHAREPOINT_CREDENTIAL_REJECTED"));
+                .andExpect(jsonPath("$.code").value("SOURCE_SHAREPOINT_CREDENTIAL_SECRET_REJECTED"));
     }
 
     @Test
