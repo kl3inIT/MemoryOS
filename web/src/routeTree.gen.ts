@@ -20,6 +20,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
+import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
@@ -92,6 +93,11 @@ const AuthenticatedAdminIdentityProvidersRoute =
     path: '/identity-providers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMcpRoute = AuthenticatedAdminMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminModelsRoute =
   AuthenticatedAdminModelsRouteImport.update({
     id: '/models',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/groups'
     | '/admin/identity-providers'
+    | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/identity-providers'
+    | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/_authenticated/search'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
+    | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/web-search'
@@ -435,6 +447,13 @@ declare module '@tanstack/react-router' {
       path: '/identity-providers'
       fullPath: '/admin/identity-providers'
       preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/mcp': {
+      id: '/_authenticated/admin/mcp'
+      path: '/mcp'
+      fullPath: '/admin/mcp'
+      preLoaderRoute: typeof AuthenticatedAdminMcpRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/models': {
@@ -610,6 +629,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
+  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
@@ -622,6 +642,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
+  AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,

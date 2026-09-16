@@ -61,7 +61,7 @@ class ChatTurnController {
                   @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
                 request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -83,7 +83,7 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
                 userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
@@ -95,20 +95,27 @@ class ChatTurnController {
             @PathVariable UUID userMessageId, @Valid @RequestBody Regenerate request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
                 userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch(), request.image(),
-                Boolean.TRUE.equals(request.deepResearch())));
+                Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
         return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     record Edit(@NotNull UUID clientRequestId, @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
                 @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch) {}
+                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
+                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {}
     record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                      @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch) {}
+                      @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
+                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {}
+
+    private static List<UUID> servers(@Nullable List<UUID> selected) {
+        return selected == null ? List.of() : selected;
+    }
 
     record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
                 @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
                 @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch) {
+                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
+                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {
     }
 
     record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,

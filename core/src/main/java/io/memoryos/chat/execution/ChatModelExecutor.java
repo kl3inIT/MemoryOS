@@ -48,20 +48,22 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
+    private final io.micrometer.core.instrument.MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null);
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
-            io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry) {
+            io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry,
+            io.micrometer.core.instrument.MeterRegistry meters) {
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? io.memoryos.chat.research.ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -76,6 +78,7 @@ public final class ChatModelExecutor {
         this.web = web;
         this.image = image;
         this.imageArtifacts = imageArtifacts;
+        this.meters = meters;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
@@ -234,6 +237,12 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, 4)));
+            }
+            if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
+                var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,
+                        limits.mcpCallTimeout(), limits.mcpCallLimit(), events::accept, activity,
+                        guard::availableContextTokens, selected.policy().tokens(), meters);
+                for (var tool : mcpTools.tools()) runner = runner.withTools(java.util.List.of(tool));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.

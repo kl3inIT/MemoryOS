@@ -135,6 +135,7 @@ function ChatConversation({
   useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
   const model = useChatModelChoice(transport);
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
+  const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
   const [image, setImage] = useState<ImageMode>(transport.image);
   const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
   const applicationSession = useApplicationSession();
@@ -390,6 +391,14 @@ function ChatConversation({
                     onChange: (mode) => {
                       transport.selectImage(mode);
                       setImage(mode);
+                    },
+                  }}
+                  mcp={{
+                    selected: mcpServerIds,
+                    sessionId: session?.id,
+                    onChange: (ids) => {
+                      transport.selectMcpServers(ids);
+                      setMcpServerIds(ids);
                     },
                   }}
                 />
