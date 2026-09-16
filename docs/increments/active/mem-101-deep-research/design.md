@@ -189,6 +189,23 @@ Survival across restart, tools other than internal search, Web/URL reading and a
 | Research input limit is the model window minus the report tokens | Same; the Chat `context-token-limit` and Persona context limit bound only normal answers and history selection | Mirrors Onyx; research prompts carry agent reports that exceed the normal-answer limit |
 | Clarification text streams | Clarification text is emitted once the inference ends | The same inference may instead call `generate_plan`, and text before that call must not become the answer; bounded by the answer token limit |
 
+## UI comparison with Onyx (2026-09-16)
+
+The Onyx renderers at `160f9b143` were read directly: `DeepResearchPlanRenderer.tsx`, `ResearchAgentRenderer.tsx`, `ParallelTimelineTabs.tsx`, `headers/ParallelStreamingHeader.tsx` and `useDeepResearchToggle.ts`. Onyx also renders parallel agents as tabs, so the MemoryOS tab layout matches its shape. These affordances are not implemented here:
+
+| Onyx | MemoryOS today | Note |
+| --- | --- | --- |
+| Tab triggers show the tool icon, the tool name and a per-tab loading state | Plain text "Tác tử {{n}}" | `ParallelTimelineTabs` uses `getToolIcon`/`getToolName` and `isLoading` |
+| Tab list has scroll arrows and an expand/collapse button on the right | `overflow-x-auto` only | Narrow screens have no affordance beyond dragging |
+| A branch icon marks the parallel group row | No marker | The `top-level-branching` event arrives but changes nothing visually |
+| Plan and intermediate report use `ExpandableTextDisplay`: collapsed preview (report `maxLines` 5), expand, streaming state | Plan always full; report in a `<details>` | Long plans and reports push the answer down |
+| Status text pairs per phase ("Generating research plan" then "Generated"), circle then check icon | One fixed step title with running/done state | |
+| COMPACT and HIGHLIGHT render modes show the latest active item as a live preview while collapsed | Collapsed shows only a summary label | Onyx keeps a sense of progress without expanding |
+| `useDeepResearchToggle` resets the toggle when the assistant changes, as well as between existing sessions | Resets per session and reload only | Persona change keeps the toggle on here |
+| Agent duration is not shown in either | `durationMs` is persisted and streamed but never rendered | MEM-100 timeline does show a spoken duration |
+
+No comparison against other assistants (ChatGPT, Claude, Perplexity) has been made; Onyx is the only reference used so far.
+
 ## Prompt fidelity check (2026-09-16)
 
 The Onyx commit `160f9b143` was fetched and every `ResearchPrompts` constant compared with `orchestration_layer.py`, `research_agent.py`, `dr_tool_prompts.py` and `dr_mock_tools.py` by a script (scratchpad `compare_prompts.py`), after applying Java text-block rules, Python line joining, Onyx f-string tool names and the MemoryOS tool renames. Result: 19 shared constants, 17 identical byte for byte; the two agent prompts differ only in the placeholder name (`{MAX_RESEARCH_CYCLES}` against `{max_research_cycles}`). `INTERNAL_SEARCH_GUIDANCE` has no Onyx counterpart under that name.
