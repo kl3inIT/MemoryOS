@@ -24,7 +24,7 @@ Design: [design.md](design.md).
 
 ## Phase 0c — tool guidance (wave 2)
 
-- [ ] Keep Onyx `PYTHON_TOOL_GUIDANCE` and `FILE_REMINDER` wording; add lines only for capabilities added in wave 1, each backed by a reference or measurement. The Java `ChatPrompts` change lands with phase 3.
+- [x] Keep Onyx `PYTHON_TOOL_GUIDANCE` and `FILE_REMINDER` wording; add lines only for capabilities added in wave 1, each backed by a reference or measurement. Landed with phase 3 as `ChatPrompts.RUN_PYTHON_GUIDANCE`, sent only when the tool is registered.
 
 ## Phase 1 — staging runtime
 
@@ -96,18 +96,21 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
 - [x] Chat spec and verification matrix updated.
 - **Bounded, not persisted:** code is capped at 8 000 characters and a run's streamed output at 16 000, so one run cannot exhaust the 128 KiB per-reader replay budget. Neither is committed to `chat_message.activity`, which is allowlisted summaries; a reload keeps the step and the files, not the transcript. Persisting a bounded excerpt is a candidate follow-up.
 
-## Phase 5 — office output quality and self-checks (wave 3)
+## Phase 5 — xlsx formula values
 
-- [ ] LibreOffice headless in the executor with a temporary user profile per run (Anthropic skills `soffice.py` pattern).
-- [ ] Render docx/pptx/pdf pages to images the model can inspect, capped by page count; shared with MEM-111 previews.
-- [ ] xlsx formula recalculation returning error counts and cells (Anthropic skills `recalc.py` pattern).
-- [ ] Office templates and on-demand instructions for pptx, docx, xlsx and charts, verified on realistic Vietnamese prompts.
+Phases 5 and 6 were first written from comparative research into Anthropic Agent Skills and E2B, not from Onyx, which MEM-110 follows. Rescoped on 2026-09-16 against [reference-based design and scope control](../../../conventions.md#reference-based-design-and-scope-control): one verified gap remains, and the rest is recorded below as not planned.
 
-## Phase 6 — structured outputs and state (wave 4)
+- [ ] **Recalculate xlsx formulas before a generated workbook is stored.** `openpyxl` writes the formula string but no cached value, so every computed cell in a workbook `run_python` produces reads as empty until a spreadsheet application opens it. Report the count and the cells that still error.
+  - Verified gap, not an improvement: the Anthropic `xlsx` skill ships `scripts/recalc.py`, which installs a StarBasic macro calling `ThisComponent.calculateAll()` and drives LibreOffice headless, precisely because openpyxl cannot compute values. `scripts/office/soffice.py` exists alongside it to run LibreOffice where a sandbox blocks AF_UNIX sockets (an `LD_PRELOAD` shim), which the executor's own `--network none` sandbox makes relevant.
+  - Cost to weigh before starting: LibreOffice adds roughly 0.5–1 GB to an executor image already at 2.79 GB, while the `interpreter` CI job still has no layer cache and each release adds about 3 GB of layers to the staging host. Decide the image budget first.
 
-- [ ] Capture matplotlib figures and DataFrames as structured results (E2B `chart`/`data` pattern).
-- [ ] Session-scoped stateful execution per Chat with idle TTL and Tenant-checked session ids; update the stateless wording in tool guidance.
-- [ ] Small warm pool of executor containers.
+## Not planned
+
+- **Rendering docx/pptx/pdf pages to images for the model to inspect.** A self-check with a real cost (the LibreOffice image budget above) and no measured failure it would have caught. Revisit only if generated documents are found to be visually broken in a way the model cannot detect from the file itself.
+- **Office templates and on-demand instructions.** Speculative; no request or measurement asks for them. `RUN_PYTHON_GUIDANCE` already names the available libraries and the Vietnamese PDF font requirement.
+- **Capturing matplotlib figures and DataFrames as structured results (the E2B `chart`/`data` pattern).** E2B needs it because it has no artifact path; MemoryOS has one. A figure is already saved, stored as a `chat_file_artifact` and shown below the answer (phase 4), and a table the user should read belongs in `render_gui`, whose closed `Table`/`Row`/`Cell` vocabulary is the single presentation contract. Adding a second structured-table path would duplicate it.
+- **Session-scoped stateful execution.** Onyx `40eb240df` uses the service's session routes only inside `CodingAgentTool`, never for the Chat Python tool, so its Code Interpreter is stateless per call exactly as ours is. `RUN_PYTHON_GUIDANCE` already directs the model to batch multi-step work into one script.
+- **A warm pool of executor containers.** A performance optimization with no measurement showing container start is the bottleneck.
 
 ## Evidence
 

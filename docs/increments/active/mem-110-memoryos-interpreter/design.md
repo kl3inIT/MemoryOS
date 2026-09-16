@@ -124,8 +124,9 @@ In scope, by phase:
 2. Service hardening: JSON logs and a concurrent-execution limit on staging.
 3. Java integration: client with service API key authentication, `run_python` tool in the existing Chat tool loop, file staging with Onyx limits, generated files stored like image artifacts, admin enable/health.
 4. Browser: streamed code and output in the activity timeline, generated file download, and the capability decision (no new capability).
-5. Office output quality and self-checks: LibreOffice rendering of docx/pptx/pdf to images the model inspects, xlsx formula recalculation, templates and on-demand instructions (Anthropic Agent Skills pattern).
-6. Structured outputs and state: captured charts and DataFrames (E2B pattern), session-scoped stateful execution per Chat, a small warm pool.
+5. xlsx formula values: recalculate a generated workbook before it is stored, because `openpyxl` writes formulas without computed values.
+
+Phases 5 and 6 originally carried more, taken from comparative research into Anthropic Agent Skills and E2B rather than from Onyx. They were rescoped on 2026-09-16 to the one verified gap above; [plan.md](plan.md#not-planned) records what is not planned and why. The largest of those, capturing charts and DataFrames as structured results, would have duplicated two contracts MemoryOS already has: generated files as `chat_file_artifact` (phase 4) and `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary for a table the user reads.
 
 Authorization follows Onyx: no new capability. Any user who can chat can use `run_python` once an administrator has enabled a configured, healthy interpreter.
 
