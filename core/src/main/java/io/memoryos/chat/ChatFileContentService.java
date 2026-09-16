@@ -35,8 +35,8 @@ public class ChatFileContentService {
     /** READY attachments among {@code ids} that the owner can read now; unknown or unreadable ids are skipped. */
     public java.util.List<UserFile> readable(ActorId actor, TenantId tenant, java.util.Collection<UUID> ids) {
         if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw ChatException.unavailable();
-        return ids.stream().map(id -> files.owned(tenant, actor, id, false)).flatMap(java.util.Optional::stream)
-                .map(JdbcUserFileRepository.Row::file).filter(file -> file.status() == UserFile.Status.READY).toList();
+        return files.owned(tenant, actor, java.util.Set.copyOf(ids)).stream()
+                .map(JdbcUserFileRepository.Row::file).toList();
     }
     public ObjectContent open(ActorId actor, UUID id) {
         return open(actor, tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable), id);

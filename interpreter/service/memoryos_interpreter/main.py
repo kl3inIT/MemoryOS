@@ -22,7 +22,11 @@ from memoryos_interpreter.app_configs import (
     PYTHON_EXECUTOR_DOCKER_IMAGE,
     PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC,
 )
-from memoryos_interpreter.auth import configured_api_key, require_api_key
+from memoryos_interpreter.auth import (
+    configured_api_key,
+    require_api_key,
+    unauthenticated_allowed,
+)
 from memoryos_interpreter.image_ref import normalize_image_ref
 from memoryos_interpreter.logging_config import setup_logging
 from memoryos_interpreter.models.schemas import HealthResponse
@@ -191,9 +195,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events."""
     # Reads the key file now, so a missing or empty key file fails startup.
     if configured_api_key() is None:
-        logger.warning(
-            "No API_KEY_FILE or API_KEY is set; /v1 routes accept unauthenticated requests"
-        )
+        if not unauthenticated_allowed():
+            raise RuntimeError(
+                "No API_KEY_FILE or API_KEY is set. Set one, or ALLOW_UNAUTHENTICATED=true to "
+                "serve /v1 without authentication."
+            )
+        logger.warning("ALLOW_UNAUTHENTICATED=true; /v1 routes accept unauthenticated requests")
 
     # Startup: Ensure Docker executor image is available before accepting requests
     if EXECUTOR_BACKEND == "docker":

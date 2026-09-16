@@ -1,8 +1,9 @@
 """MemoryOS addition: a shared API key for every ``/v1`` route (see NOTICE.md).
 
-``/health`` stays open for container health checks. When neither ``API_KEY_FILE`` nor ``API_KEY``
-is set the routes stay open, as upstream, so local runs and the CI e2e container need no key;
-startup logs a warning in that case. Staging always mounts the key file.
+``/health`` stays open for container health checks. With neither ``API_KEY_FILE`` nor ``API_KEY``
+set the service refuses to start, so no deployment can serve ``/v1`` unauthenticated by accident.
+``ALLOW_UNAUTHENTICATED=true`` opts out for local runs and the CI e2e container, which is how
+upstream behaves everywhere.
 """
 
 from __future__ import annotations
@@ -28,6 +29,11 @@ def configured_api_key() -> str | None:
             raise ValueError("API_KEY_FILE is empty")
         return key
     return os.environ.get("API_KEY") or None
+
+
+def unauthenticated_allowed() -> bool:
+    """Whether running without a key was opted into explicitly."""
+    return os.environ.get("ALLOW_UNAUTHENTICATED", "").strip().lower() == "true"
 
 
 def require_api_key(

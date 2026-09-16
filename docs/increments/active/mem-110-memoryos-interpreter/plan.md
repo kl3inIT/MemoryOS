@@ -45,7 +45,8 @@ Design: [design.md](design.md).
   - the CPU-time limit is used as a CPU core limit, which the 30 s default makes worse;
   - the Role and RoleBinding lack a namespace;
   - a new `ApiClient` is created per exec and never closed;
-  - WebSocket read loops have no deadline.
+  - WebSocket read loops have no deadline;
+  - the Helm values leave `API_KEY` commented out, so the pod now refuses to start until the chart supplies a key or sets `ALLOW_UNAUTHENTICATED`.
 
 ## Phase 3 — Java integration
 
@@ -80,6 +81,7 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
   - Deleted from the service after download.
 - [x] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
 - [x] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
+- **Deferred:** purging `chat_file_artifact` rows and their stored objects when a Chat session is soft-deleted. `chat_image_artifact` (V57) has the same shape and the same gap, and the download paths already refuse a deleted session, so a purge belongs to one increment covering messages, both artifact tables and their objects.
 - [ ] **Staging acceptance** (after merge; the other phase 3 items are implemented on `mem-110/run-python-tool`).
   - The key file exists before merge.
   - An administrator enables the interpreter.

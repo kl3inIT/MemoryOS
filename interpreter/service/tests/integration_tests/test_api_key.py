@@ -73,8 +73,16 @@ def test_empty_key_file_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         configured_api_key()
 
 
-def test_without_a_key_routes_stay_open() -> None:
-    assert TestClient(create_app()).get("/v1/files").status_code == 200
+def test_startup_fails_without_a_key() -> None:
+    with pytest.raises(RuntimeError, match="ALLOW_UNAUTHENTICATED"), TestClient(create_app()):
+        pass  # pragma: no cover - the context manager raises on enter
+
+
+def test_opting_out_leaves_routes_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALLOW_UNAUTHENTICATED", "true")
+
+    with patch.object(DockerExecutor, "check_health", return_value=HealthCheck(status="ok")):
+        assert TestClient(create_app()).get("/v1/files").status_code == 200
 
 
 def test_expired_uploaded_files_are_removed(tmp_path: Path) -> None:
