@@ -223,7 +223,7 @@ export type McpConnection = {
      */
     oauthClients: Array<McpConnectionClient>;
     enabledToolCount: number;
-    connectedAt: string | null;
+    credentialUpdatedAt: string | null;
     revision: number;
 };
 

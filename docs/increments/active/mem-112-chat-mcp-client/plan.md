@@ -61,7 +61,7 @@ Evidence: [verification.md](verification.md#phase-2b--2026-09-16).
 - [x] Tool refresh of a per-User server uses the administrator's own credential and leaves the status unchanged on an authorization failure.
 - [x] `GET /api/mcp/connections` and the connect, API-key and disconnect routes.
 - [x] Tests: state replay, actor mismatch, changed revisions, wrong issuer, `invalid_grant`, cross-User isolation, Group-restricted access, API-key probe, return addresses.
-- [ ] Tests still missing: a User's end-to-end OAuth connect against the stub authorization server, and the concurrent-refresh race where the loser reuses the winner's token.
+- [x] Tests: a User's end-to-end OAuth connect, the concurrent-refresh race, and access withdrawn while an authorization is pending.
 
 Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 

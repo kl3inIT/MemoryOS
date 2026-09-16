@@ -25,7 +25,7 @@ public record McpConnectionResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Accounts to choose between when connecting")
         List<McpConnectionClientResponse> oauthClients,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long enabledToolCount,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant connectedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant credentialUpdatedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision
 ) {
     @Schema(name = "McpConnectionClient", description = "A labelled OAuth client; endpoints stay server-side")
@@ -37,6 +37,6 @@ public record McpConnectionResponse(
         return new McpConnectionResponse(view.id(), view.slug(), view.name(), view.description(), view.url(),
                 view.authType(), view.authPerformer(), view.status(), view.state(),
                 view.oauthClients().stream().map(client -> new McpConnectionClientResponse(client.id(), client.label())).toList(),
-                view.enabledToolCount(), view.connectedAt(), view.revision());
+                view.enabledToolCount(), view.credentialUpdatedAt(), view.revision());
     }
 }

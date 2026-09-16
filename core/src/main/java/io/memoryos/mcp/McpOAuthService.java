@@ -263,7 +263,7 @@ public class McpOAuthService {
         Exchange exchange = inTransaction(() -> {
             UUID tenant = pending.ownerActorId() == null ? read(actor) : use(actor);
             if (!tenant.equals(pending.tenantId())) throw McpException.conflict();
-            if (pending.ownerActorId() != null && !pending.ownerActorId().equals(actor.value())) throw McpException.conflict();
+            requireOwnership(tenant, pending, actor);
             var loaded = pendingTargets(tenant, pending);
             var client = loaded.client();
             if (issuer != null ? !issuer.equals(client.issuer()) : client.issParameterRequired())
@@ -278,6 +278,7 @@ public class McpOAuthService {
             UUID tenant = owner == null ? write(actor)
                     : authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
             if (!tenant.equals(pending.tenantId())) throw McpException.conflict();
+            requireOwnership(tenant, pending, actor);
             var loaded = pendingTargets(tenant, pending);
             Instant now = Instant.now();
             var credential = (owner == null
@@ -506,6 +507,17 @@ public class McpOAuthService {
 
     private static boolean fresh(@Nullable Instant expiresAt) {
         return expiresAt == null || expiresAt.isAfter(Instant.now().plus(REFRESH_MARGIN));
+    }
+
+    /**
+     * A User completes only their own authorization, and only while they may still use the server: Group
+     * membership can be withdrawn while an authorization is pending without changing any server revision.
+     */
+    private void requireOwnership(UUID tenant, Pending pending, ActorId actor) {
+        UUID owner = pending.ownerActorId();
+        if (owner == null) return;
+        if (!owner.equals(actor.value())) throw McpException.conflict();
+        if (!access.accessible(tenant, pending.serverId(), owner)) throw McpException.notFound();
     }
 
     /** What to revoke for a credential being deleted, or null when nothing usable is stored. */

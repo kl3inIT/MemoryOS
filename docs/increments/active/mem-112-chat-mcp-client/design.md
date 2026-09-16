@@ -228,7 +228,7 @@ Reuses the Phase 2b protocol, callback chain and refresh; only ownership and aut
 
 **User API key.** The header template allows only `{api_key}`, so the dialog has exactly one field. The key is probed before it is stored: the server is listed with the resolved headers, and a rejection returns `MCP_AUTHORIZATION_REQUIRED` with nothing persisted, the `refreshTools` shape.
 
-**Administrator refresh of a per-User server.** Tool refresh uses the administrator's own credential for that server, not a shared one, and an authorization failure there leaves the server status unchanged.
+**Administrator refresh of a per-User server.** Tool refresh uses the administrator's own credential for that server, not a shared one, and an authorization failure there leaves the server status unchanged. A missing own credential surfaces as `MCP_CREDENTIAL_REQUIRED` for an API-key server and as `MCP_AUTHORIZATION_REQUIRED` for an OAuth one; the administration UI reads both as "connect your account first".
 
 **API.** `GET /api/mcp/connections` lists accessible servers with the User's own connection state, enabled tool count and the OAuth client labels (identifier and label only). `POST /api/mcp/connections/{serverId}/authorization`, `PUT /api/mcp/connections/{serverId}/api-key` and `DELETE /api/mcp/connections/{serverId}/connection` own the rest.
 

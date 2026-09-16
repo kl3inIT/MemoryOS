@@ -64,7 +64,8 @@ public class McpConnectionService {
     public record ConnectionView(UUID id, String slug, String name, @Nullable String description, String url,
                                  McpAuthType authType, McpAuthPerformer authPerformer, McpServerStatus status,
                                  McpConnectionState state, List<ClientOption> oauthClients, long enabledToolCount,
-                                 @Nullable Instant connectedAt, long revision) {}
+                                 /** When the User's own credential last changed, including a token refresh. */
+                                 @Nullable Instant credentialUpdatedAt, long revision) {}
 
     /** Servers the User may use, each with their own connection state. */
     @Transactional(readOnly = true)

@@ -9467,7 +9467,7 @@ components:
         enabledToolCount:
           type: integer
           format: int64
-        connectedAt:
+        credentialUpdatedAt:
           type:
           - string
           - "null"
@@ -9478,8 +9478,8 @@ components:
       required:
       - authPerformer
       - authType
-      - connectedAt
       - connectionState
+      - credentialUpdatedAt
       - description
       - enabledToolCount
       - id
