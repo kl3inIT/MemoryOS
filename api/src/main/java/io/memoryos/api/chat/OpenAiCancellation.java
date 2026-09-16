@@ -31,8 +31,17 @@ final class OpenAiCancellation implements AutoCloseable {
     private final HttpClient transport;
     private final OpenAIClientAsync client;
 
-    OpenAiCancellation(String baseUrl, String credential, Duration timeout) {
-        transport = new Transport(Timeout.builder().request(timeout).build());
+    /**
+     * As Onyx's socket read timeout: connect and every read/write gap are bounded, the whole call is not, so a long
+     * streamed answer that keeps producing tokens is never cut. Helper calls still set their own total per request.
+     */
+    static Timeout gap(Duration readTimeout) {
+        return Timeout.builder().connect(readTimeout).read(readTimeout).write(readTimeout).request(Duration.ZERO).build();
+    }
+
+    OpenAiCancellation(String baseUrl, String credential, Duration readTimeout) {
+        var timeout = gap(readTimeout);
+        transport = new Transport(timeout);
         try {
             client = new OpenAIClientAsyncImpl(ClientOptions.builder().httpClient(transport).baseUrl(baseUrl)
                     .apiKey(credential).maxRetries(0).timeout(timeout).build());

@@ -29,6 +29,12 @@ public final class ChatException extends BusinessException {
                 "Chat provider is not configured or available.");
     }
 
+    /** Deep research was requested while the Tenant administrator has turned it off. */
+    public static ChatException researchUnavailable() {
+        return new ChatException("CHAT_RESEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
+                "Deep research is not available.");
+    }
+
     /** Web search was requested but this Tenant has no usable Web connection or a tool-capable model. */
     public static ChatException webUnavailable() {
         return new ChatException("CHAT_WEB_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,

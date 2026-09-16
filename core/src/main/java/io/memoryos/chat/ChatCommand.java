@@ -5,9 +5,13 @@ import java.util.List;
 import java.util.HashSet;
 import org.jspecify.annotations.Nullable;
 
-/** Identity includes the operation and target; retries never append another reply. */
+/** Identity includes the operation, target, Web intent and Deep research mode; retries never append another reply. */
 public record ChatCommand(Operation operation, UUID targetMessageId, UUID requestId,
-                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image) {
+                          String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image,
+                          boolean deepResearch) {
+    public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch, ImageMode image) {
+        this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch, image, false);
+    }
     public ChatCommand(Operation operation, UUID targetMessageId, UUID requestId, String text, @Nullable UUID modelConfigurationId, List<UUID> fileIds, WebSearchMode webSearch) {
         this(operation, targetMessageId, requestId, text, modelConfigurationId, fileIds, webSearch, ImageMode.off);
     }

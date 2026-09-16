@@ -24,7 +24,8 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class})
+@EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class,
+        io.memoryos.chat.research.ResearchProperties.class})
 @EnableScheduling
 class ChatRuntimeConfiguration {
     @Bean
@@ -52,8 +53,11 @@ class ChatRuntimeConfiguration {
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
-                                        io.memoryos.chat.image.ImageArtifactService imageArtifacts) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts);
+                                        io.memoryos.chat.image.ImageArtifactService imageArtifacts,
+                                        io.memoryos.chat.research.ResearchProperties research,
+                                        io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts,
+                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations));
     }
 
     @Bean(destroyMethod = "dispose")
@@ -66,8 +70,12 @@ class ChatRuntimeConfiguration {
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
-                                    io.memoryos.chat.image.ImageConnectionService images) {
-        return new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images);
+                                    io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings,
+                                    io.memoryos.chat.research.ResearchProperties research) {
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research);
+        // Context refresh completes before the web server accepts requests, so no send can race this.
+        service.failOrphanedRuns();
+        return service;
     }
 
     @Bean
