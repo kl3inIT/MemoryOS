@@ -73,11 +73,9 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] `mcpServerIds` on send, edit and regenerate.
 - [x] An end-to-end turn against the fixture MCP server, including Stop closing the sessions.
 - [ ] Activity rendering for MCP steps and the `auth_required` connect action (with Phase 5).
-
-- [ ] `mcpServerIds` and validation in `ChatTurnService`.
-- [ ] Per-turn toolset: `Tool.of` with schema `InputSchema`, client reuse, closed at turn end.
-- [ ] Bounds from measured schemas, cancellation, activity events, metrics.
-- [ ] Integration tests: streamed turn with call, tool error, auth required, timeout, Stop.
+- [ ] Observability: counter and timer per server and tool with outcome, as `WebProviderClient` and `ImageProviderClient` already do. Nothing is recorded today.
+- [ ] Per-turn bounds measured against real Google Drive schemas; the current 10 calls and 60s are placeholders.
+- [ ] Integration coverage for a tool error, an expired credential and a per-call timeout inside a turn; only a successful call and Stop are covered.
 
 ## Phase 5 — web
 
