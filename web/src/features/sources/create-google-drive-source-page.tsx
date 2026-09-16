@@ -63,8 +63,8 @@ import {
   type GoogleDriveOAuthClientInputHandle,
 } from "./google-drive-oauth-client-input";
 import { sourceMutationError } from "./source-errors";
+import { statusPill } from "./source-status-presentation";
 import { GoogleDriveIcon } from "./google-drive-icon";
-import { GoogleDriveConnectionFlow } from "./google-drive-connection-flow";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
 import { SourceGroupPicker } from "./source-group-picker";
@@ -561,14 +561,28 @@ function GoogleDriveSourceSetup() {
             >
               {ui("Connection")}
             </h2>
-            <GoogleDriveConnectionFlow />
-            <dl className="grid gap-x-6 gap-y-1 border-t border-border-subtle pt-4 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
-              <dt className="text-content-muted">{ui("Credential")}</dt>
-              <dd className="min-w-0 break-words text-content-primary">
-                {selected?.name ?? ui("Not selected")}
-                {selected ? ui(" ({{v1}})", { v1: selected.accountEmail }) : ""}
-              </dd>
-            </dl>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3">
+              <span
+                aria-hidden="true"
+                className="grid size-10 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-base [&_svg]:size-5"
+              >
+                <GoogleDriveIcon />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-main-ui-action text-content-primary">{ui("Google Drive")}</p>
+                <p className="truncate text-sm text-content-muted">
+                  {selected
+                    ? ui("{{v1}} ({{v2}})", { v1: selected.name, v2: selected.accountEmail })
+                    : ui("No credential selected")}
+                </p>
+              </div>
+              <StatusBadge
+                tone={connected ? "success" : "warning"}
+                className={statusPill(connected ? "success" : "warning")}
+              >
+                {connected ? ui("Connected") : ui("Not connected")}
+              </StatusBadge>
+            </div>
             {unavailable || !connected ? (
               <p role="alert" className="text-sm text-status-warning-content">
                 {ui(

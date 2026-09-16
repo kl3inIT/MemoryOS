@@ -1084,7 +1084,9 @@ Object.assign(englishUi, {
   "Sync every": "Đồng bộ mỗi",
   Unsupported: "Không hỗ trợ",
   Connection: "Kết nối",
-  "Connection path": "Đường kết nối",
+  "Not connected": "Chưa kết nối",
+  "No credential selected": "Chưa chọn thông tin kết nối",
+  "{{v1}} ({{v2}})": "{{v1}} ({{v2}})",
   "Enter a whole number from 1 to {{v1}}.": "Nhập số nguyên từ 1 đến {{v1}}.",
   "Interval unit": "Đơn vị chu kỳ",
   "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.":
