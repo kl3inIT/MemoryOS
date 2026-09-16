@@ -22,15 +22,16 @@ public final class FileReaderTool {
     private final io.memoryos.chat.ChatFileSearchService search;
     private final io.memoryos.chat.ChatEvidence evidence;
     private final io.memoryos.retrieval.SearchTasks.Scope work;
-    private final java.time.Instant deadline;
+    /** Bounds one storage read or file search on its own; a turn has no total deadline. */
+    private static final java.time.Duration TIMEOUT = java.time.Duration.ofSeconds(60);
 
     public FileReaderTool(ChatFileService files, ActorId actor, TenantId tenant, Set<UUID> allowed,
                           Runnable checkActive, IntSupplier availableTokens, TokenCountEstimator tokens, io.memoryos.chat.ChatFileSearchService search,
-                          io.memoryos.chat.ChatEvidence evidence, io.memoryos.retrieval.SearchTasks.Scope work, java.time.Instant deadline) {
+                          io.memoryos.chat.ChatEvidence evidence, io.memoryos.retrieval.SearchTasks.Scope work) {
         this.files = files; this.actor = actor; this.tenant = tenant; this.allowed = Set.copyOf(allowed);
         this.checkActive = checkActive; this.availableTokens = availableTokens; this.tokens = tokens;
         this.search = search;
-        this.evidence = evidence; this.work = work; this.deadline = deadline;
+        this.evidence = evidence; this.work = work;
     }
 
     @LlmTool(name = "search_files", description = "Search only this turn's attached files, including workspace files. Returns bounded matching passages with file IDs and provenance; an empty result can mean indexing is still pending. Never searches organization Sources.")
@@ -92,9 +93,7 @@ public final class FileReaderTool {
 
     private String bounded(java.util.concurrent.Callable<String> operation) {
         try (var ignored = work.enter()) {
-            var remaining = java.time.Duration.between(java.time.Instant.now(), deadline);
-            if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
-            return io.memoryos.retrieval.SearchTasks.timed(operation, remaining, () -> { work.checkActive(); checkActive.run(); });
+            return io.memoryos.retrieval.SearchTasks.timed(operation, TIMEOUT, () -> { work.checkActive(); checkActive.run(); });
         }
     }
 }

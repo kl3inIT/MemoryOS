@@ -77,10 +77,78 @@ class OpenAiCancellationTest {
         } finally { meters.close(); }
     }
 
+    @Test
+    void streamOutlivesTheReadTimeoutWhileTokensArriveAndFailsOnASilentGap() throws Exception {
+        var meters = new SimpleMeterRegistry();
+        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
+             var executor = Executors.newVirtualThreadPerTaskExecutor();
+             var client = client(adapter, server, Duration.ofSeconds(1))) {
+            server.setSoTimeout(15000);
+            var closed = new CompletableFuture<Integer>();
+            executor.submit(() -> {
+                try (var socket = server.accept()) {
+                    socket.setSoTimeout(15000);
+                    readRequest(socket.getInputStream());
+                    var output = socket.getOutputStream();
+                    output.write(("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                            + "Transfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+                    // Six tokens over three seconds: longer than the one-second read timeout, but never a one-second gap.
+                    for (int index = 0; index < 6; index++) {
+                        byte[] bytes = ("data: {\"id\":\"fixture\",\"object\":\"chat.completion.chunk\",\"created\":1,\"model\":\"fixture\","
+                                + "\"choices\":[{\"index\":0,\"delta\":{\"content\":\"t" + index + "\"},\"finish_reason\":null}]}\n\n")
+                                .getBytes(StandardCharsets.UTF_8);
+                        output.write((Integer.toHexString(bytes.length) + "\r\n").getBytes(StandardCharsets.US_ASCII));
+                        output.write(bytes);
+                        output.write("\r\n".getBytes(StandardCharsets.US_ASCII));
+                        output.flush();
+                        Thread.sleep(500);
+                    }
+                    closed.complete(socket.getInputStream().read());
+                } catch (Throwable failure) {
+                    closed.completeExceptionally(failure);
+                }
+            });
+            var text = new StringBuilder();
+            var failure = new CompletableFuture<Throwable>();
+            long start = System.nanoTime();
+            var stream = client.binding().service().getChatModel().stream(prompt()).subscribe(response -> {
+                if (response.getResult() != null && response.getResult().getOutput().getText() != null)
+                    synchronized (text) { text.append(response.getResult().getOutput().getText()); }
+            }, failure::complete, () -> failure.complete(null));
+            try {
+                assertNotNull(failure.get(15, TimeUnit.SECONDS), "A silent gap must fail the stream");
+                synchronized (text) { assertEquals("t0t1t2t3t4t5", text.toString()); }
+                assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(3)) >= 0);
+                assertEquals(-1, closed.get(10, TimeUnit.SECONDS));
+            } finally { stream.dispose(); }
+        } finally { meters.close(); }
+    }
+
     private static ChatProviderAdapter.Client client(OpenAiChatProviderAdapter adapter, ServerSocket server) {
+        return client(adapter, server, Duration.ofSeconds(30));
+    }
+
+    private static ChatProviderAdapter.Client client(OpenAiChatProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
         return adapter.create(new ChatProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
                 "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
-                        Map.of(), null, ChatTokenizerProfiles.HOSTED), Duration.ofSeconds(30));
+                        Map.of(), null, ChatTokenizerProfiles.HOSTED), readTimeout);
+    }
+
+    private static void readRequest(java.io.InputStream input) throws java.io.IOException {
+        var header = new ByteArrayOutputStream();
+        int state = 0;
+        while (state < 4) {
+            int value = input.read();
+            if (value < 0) throw new IllegalStateException("Incomplete HTTP request");
+            header.write(value);
+            if (header.size() > 16384) throw new IllegalStateException("Oversized HTTP headers");
+            state = value == "\r\n\r\n".charAt(state) ? state + 1 : value == '\r' ? 1 : 0;
+        }
+        int length = header.toString(StandardCharsets.US_ASCII).lines()
+                .filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith("content-length:"))
+                .mapToInt(line -> Integer.parseInt(line.substring(line.indexOf(':') + 1).trim())).findFirst().orElseThrow();
+        assertEquals(length, input.readNBytes(length).length);
     }
 
     private static Prompt prompt() {

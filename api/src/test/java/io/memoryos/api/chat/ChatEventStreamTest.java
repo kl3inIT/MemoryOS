@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.chat.ChatMessage.Status;
+import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import java.util.List;
@@ -29,7 +30,7 @@ import reactor.core.scheduler.Schedulers;
 class ChatEventStreamTest {
     private final UUID assistant = UUID.randomUUID();
     private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(
-            4096, 16384, Duration.ofMinutes(1), 512, Duration.ofMillis(25), 2048,
+            4096, 16384, Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 2048,
             4, 8, 2048, 16, Duration.ofSeconds(15), Duration.ofMinutes(1)));
 
     @Test
@@ -74,6 +75,44 @@ class ChatEventStreamTest {
         assertEquals("web_search", done.toolName());
         assertEquals(42L, done.durationMs());
         assertEquals(assistant + ":4", events.get(3).id());
+    }
+
+    @Test
+    void researchEventsAndNestedStepsKeepTheirPlacementOnTheWire() {
+        var agent = new ChatToolEvent.Call("call_agent", "research_agent");
+        streams.open(assistant);
+        streams.research(assistant, ChatResearchEvent.plan("1. Revenue"));
+        streams.research(assistant, ChatResearchEvent.branching(2));
+        streams.tool(assistant, new ChatToolEvent(agent, ChatToolEvent.Stage.STARTED).tab(1));
+        streams.research(assistant, ChatResearchEvent.agent("call_agent", 1, "Revenue in 2025"));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("call_search", "searchKnowledge"), ChatToolEvent.Stage.STARTED).nested("call_agent"));
+        streams.reasoning(assistant, "Next, costs", "call_agent");
+        streams.research(assistant, ChatResearchEvent.report("call_agent", "Revenue grew [1]."));
+        streams.research(assistant, ChatResearchEvent.citations("call_agent", List.of(new ChatResearchEvent.Citation(1, 2))));
+        streams.finish(assistant, Status.COMPLETED, null);
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+                .collectList().block(Duration.ofSeconds(2));
+        assertNotNull(events);
+        assertEquals(List.of("research-plan", "top-level-branching", "tool", "research-agent-start", "tool", "reasoning",
+                "intermediate-report", "intermediate-report-citations", "outcome"), events.stream().map(ServerSentEvent::event).toList());
+        assertEquals("1. Revenue", assertInstanceOf(ChatEventStream.ResearchPlanEvent.class, events.get(0).data()).text());
+        assertEquals(2, assertInstanceOf(ChatEventStream.TopLevelBranchingEvent.class, events.get(1).data()).branches());
+        var agentStep = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(2).data());
+        assertEquals(1, agentStep.tabIndex());
+        assertNull(agentStep.parentToolCallId());
+        var start = assertInstanceOf(ChatEventStream.ResearchAgentStartEvent.class, events.get(3).data());
+        assertEquals("Revenue in 2025", start.task());
+        assertEquals(1, start.tabIndex());
+        var nested = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(4).data());
+        assertEquals("call_agent", nested.parentToolCallId());
+        assertNull(nested.tabIndex());
+        assertEquals("call_agent", assertInstanceOf(ChatEventStream.ReasoningEvent.class, events.get(5).data()).parentToolCallId());
+        var report = assertInstanceOf(ChatEventStream.IntermediateReportEvent.class, events.get(6).data());
+        assertEquals("call_agent", report.toolCallId());
+        assertEquals("Revenue grew [1].", report.text());
+        assertEquals(List.of(new ChatEventStream.ResearchCitation(1, 2)),
+                assertInstanceOf(ChatEventStream.IntermediateReportCitationsEvent.class, events.get(7).data()).citations());
+        assertEquals(assistant + ":7", events.get(6).id());
     }
 
     @Test

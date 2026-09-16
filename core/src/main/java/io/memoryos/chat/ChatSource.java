@@ -58,12 +58,17 @@ public record ChatSource(int citationId, @Nullable UUID documentId, @Nullable UU
         } else if (documentId != null || generation != null || startOrdinal != 0 || endOrdinal != 0 || !provenance.isEmpty()) {
             throw new IllegalArgumentException("File citations identify a file, not a fabricated document passage");
         }
-        if (citationId < 1 || citationId > 24 || title == null || title.length() > 1024
+        if (citationId < 1 || title == null || title.length() > 1024
                 || startOrdinal < 0 || endOrdinal < startOrdinal || endOrdinal > 9999)
             throw new IllegalArgumentException("Invalid Chat source");
         provenance = List.copyOf(provenance);
         if (web == null && fileId == null && provenance.isEmpty() || provenance.size() > 60 || provenance.stream().anyMatch(p -> p.ordinal() < startOrdinal || p.ordinal() > endOrdinal))
             throw new IllegalArgumentException("Invalid Chat source provenance");
+    }
+    /** The same evidence under another citation number, when a research agent's source is merged into the turn. */
+    public ChatSource withCitationId(int id) {
+        return new ChatSource(id, documentId, generation, title, startOrdinal, endOrdinal, provenance, fileId, fileLocation, web,
+                mediaType, sourceTypes, providerUrl);
     }
     public record FileLocation(@Nullable Integer offset, @Nullable Integer count,
                                @Nullable UUID generation, @Nullable Integer ordinal) {

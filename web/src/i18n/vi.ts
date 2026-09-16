@@ -174,6 +174,8 @@ export const vi = {
       "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
     chatWebUnavailable:
       "Tìm kiếm Web chưa dùng được: chưa có nhà cung cấp Web nào đang bật, hoặc mô hình này không gọi được công cụ.",
+    chatResearchUnavailable:
+      "Deep research đã bị tắt cho tổ chức của bạn. Hãy gửi câu hỏi không dùng Deep research.",
     chatBusy: "Chat đang quá tải. Chờ một chút rồi gửi lại.",
     chatRejected:
       "Câu hỏi bị từ chối trước khi chạy. Hãy hỏi ngắn hơn hoặc chọn mô hình có context window lớn hơn.",

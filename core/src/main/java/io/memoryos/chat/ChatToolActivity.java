@@ -23,15 +23,28 @@ public final class ChatToolActivity implements ToolCallInspector {
     }
 
     @Override public void beforeToolCall(BeforeToolCallContext context) {
-        var call = call(context.getToolCall());
+        begin(context.getToolCall().getId(), context.getToolCall().getName());
+    }
+
+    /** A caller that runs tools itself (deep research) opens the step, so tool evidence and progress share its identity. */
+    public ChatToolEvent.Call begin(@Nullable String id, @Nullable String name) {
+        var call = call(id, name);
         current = call;
         failed = false;
         events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
+        return call;
+    }
+
+    /** Closes a step opened by {@link #begin}. */
+    public void end(ChatToolEvent.Call call, boolean error, long durationMs) {
+        current = null;
+        events.accept(ChatToolEvent.finished(call, failed || error, durationMs));
     }
 
     @Override public void afterToolCall(AfterToolCallContext context) {
         var active = current;
-        var call = active != null && active.name().equals(context.getToolCall().getName()) ? active : call(context.getToolCall());
+        var call = active != null && active.name().equals(context.getToolCall().getName()) ? active
+                : call(context.getToolCall().getId(), context.getToolCall().getName());
         current = null;
         events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs()));
     }
@@ -46,9 +59,10 @@ public final class ChatToolActivity implements ToolCallInspector {
         failed = true;
     }
 
-    private static ChatToolEvent.Call call(com.embabel.chat.ToolCall call) {
-        String id = call.getId() == null || call.getId().isBlank() || call.getId().length() > 256 ? "call-" + UUID.randomUUID() : call.getId();
-        String name = call.getName() == null || !call.getName().matches("[A-Za-z0-9_.-]{1,64}") ? "tool" : call.getName();
+    /** Provider call identity normalized to the event bounds. */
+    public static ChatToolEvent.Call call(@Nullable String callId, @Nullable String callName) {
+        String id = callId == null || callId.isBlank() || callId.length() > 256 ? "call-" + UUID.randomUUID() : callId;
+        String name = callName == null || !callName.matches("[A-Za-z0-9_.-]{1,64}") ? "tool" : callName;
         return new ChatToolEvent.Call(id, name);
     }
 }

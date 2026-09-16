@@ -143,6 +143,28 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
   }
 }
 
+/** A research agent's step, titled from its tool name alone: its history keeps no filters or evidence. */
+export function ChatResearchToolStep({
+  toolName,
+  status,
+  children,
+}: {
+  toolName: string;
+  status: ToolState;
+  children?: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <ActivityStep
+      icon={toolIcon(toolName)}
+      status={status}
+      title={stepTitle(ui, { toolName } as ToolPart, toolProgress(undefined), [], status)}
+    >
+      {children}
+    </ActivityStep>
+  );
+}
+
 function toolIcon(name: string) {
   switch (name) {
     case "searchKnowledge":

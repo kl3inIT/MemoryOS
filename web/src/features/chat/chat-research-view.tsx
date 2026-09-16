@@ -1,0 +1,157 @@
+import { useState } from "react";
+import { TextMessagePartProvider, useAuiState } from "@assistant-ui/react";
+import { Brain, ListChecks, Search } from "lucide-react";
+import {
+  ActivityChips,
+  ActivityGroupContent,
+  ActivityGroupRoot,
+  ActivityGroupTrigger,
+  ActivityStep,
+} from "@/components/assistant-ui/elements/activity-group";
+import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ChatResearchToolStep } from "./chat-activity-view";
+import { mergedReport, type ResearchAgent, type ResearchState } from "./chat-research";
+
+type StepState = "running" | "done" | "failed";
+
+function stateOf(status: ResearchAgent["status"], messageRunning: boolean): StepState {
+  if (status === "COMPLETED") return "done";
+  return status === "RUNNING" && messageRunning ? "running" : "failed";
+}
+
+/**
+ * Deep research on the activity timeline, after the Onyx plan and research agent renderers: the plan, then each
+ * orchestrator cycle with one tab per parallel agent showing its task, own steps and intermediate report.
+ */
+export function ChatResearchView({ research }: { research: ResearchState }) {
+  const ui = useAppTranslation();
+  const running = useAuiState((state) => state.message.status?.type === "running");
+  const answerStarted = useAuiState((state) =>
+    state.message.parts.some((part) => part.type === "text" && part.text.trim().length > 0),
+  );
+  const [manual, setManual] = useState<boolean>();
+  const open = manual ?? (running && !answerStarted);
+  const active = running && !answerStarted;
+  const label = active
+    ? research.agents.length
+      ? ui("Đang nghiên cứu…")
+      : ui("Đang lập kế hoạch nghiên cứu…")
+    : running || research.agents.every((agent) => agent.status === "COMPLETED")
+      ? ui("Đã nghiên cứu")
+      : ui("Đã dừng nghiên cứu");
+  const cycles = new Map<number, ResearchAgent[]>();
+  for (const agent of research.agents)
+    cycles.set(agent.cycle, [...(cycles.get(agent.cycle) ?? []), agent]);
+  const count = research.agents.length + (research.plan ? 1 : 0);
+  return (
+    <ActivityGroupRoot open={open} onOpenChange={setManual}>
+      <ActivityGroupTrigger
+        label={label}
+        active={active}
+        steps={active ? undefined : count === 1 ? ui("1 bước") : ui("{{n}} bước", { n: count })}
+      />
+      <ActivityGroupContent>
+        {research.plan && (
+          <ActivityStep
+            icon={<ListChecks />}
+            status={active && !research.agents.length ? "running" : "done"}
+            title={ui("Kế hoạch nghiên cứu")}
+          >
+            <ResearchMarkdown text={research.plan} running={active && !research.agents.length} />
+          </ActivityStep>
+        )}
+        {[...cycles.entries()].map(([cycle, agents]) => (
+          <li key={cycle} className="min-w-0 text-sm">
+            {agents.length === 1 ? (
+              <AgentPanel agent={agents[0]!} running={running} />
+            ) : (
+              <Tabs defaultValue={agents[0]!.toolCallId}>
+                <TabsList className="max-w-full overflow-x-auto">
+                  {agents.map((agent) => (
+                    <TabsTrigger key={agent.toolCallId} value={agent.toolCallId}>
+                      {ui("Tác tử {{n}}", { n: agent.tabIndex + 1 })}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {agents.map((agent) => (
+                  <TabsContent key={agent.toolCallId} value={agent.toolCallId}>
+                    <AgentPanel agent={agent} running={running} />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
+          </li>
+        ))}
+      </ActivityGroupContent>
+    </ActivityGroupRoot>
+  );
+}
+
+function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean }) {
+  const ui = useAppTranslation();
+  const state = stateOf(agent.status, running);
+  const report = mergedReport(agent);
+  const thoughts = agent.activity.reasoning.map((segment) => segment.text).join("\n\n");
+  return (
+    <div className="mt-2 min-w-0 space-y-2">
+      {agent.task && <p className="text-content-primary [overflow-wrap:anywhere]">{agent.task}</p>}
+      {(agent.activity.steps.length > 0 || thoughts) && (
+        <ol className="flex flex-col gap-2 border-l border-border-subtle pl-3">
+          {agent.activity.steps.map((step) => {
+            const stepState = stateOf(step.status, running && state === "running");
+            return (
+              <ChatResearchToolStep
+                key={step.toolCallId}
+                toolName={step.toolName}
+                status={stepState}
+              >
+                {step.queries.length > 0 && (
+                  <ActivityChips
+                    items={step.queries.map((query) => ({
+                      key: query,
+                      icon: <Search />,
+                      label: query,
+                    }))}
+                    moreLabel={(n) => ui("+{{n}}", { n })}
+                  />
+                )}
+              </ChatResearchToolStep>
+            );
+          })}
+          {thoughts && (
+            <ActivityStep icon={<Brain />} status="done" title={ui("Suy nghĩ")}>
+              <ResearchMarkdown text={thoughts} running={false} />
+            </ActivityStep>
+          )}
+        </ol>
+      )}
+      {report ? (
+        <details className="group/report min-w-0" open={state === "running"}>
+          <summary className="cursor-pointer text-content-muted hover:text-content-primary">
+            {ui("Báo cáo trung gian")}
+          </summary>
+          <div className="mt-1.5">
+            <ResearchMarkdown text={report} running={state === "running"} />
+          </div>
+        </details>
+      ) : (
+        state === "failed" && (
+          <p className="text-content-secondary">{ui("Tác tử nghiên cứu không hoàn thành.")}</p>
+        )
+      )}
+    </div>
+  );
+}
+
+/** Research text is model Markdown, rendered like reasoning with the answer renderer. */
+function ResearchMarkdown({ text, running }: { text: string; running: boolean }) {
+  return (
+    <div className="min-w-0 text-sm [overflow-wrap:anywhere] [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary">
+      <TextMessagePartProvider text={text} isRunning={running}>
+        <MarkdownText />
+      </TextMessagePartProvider>
+    </div>
+  );
+}

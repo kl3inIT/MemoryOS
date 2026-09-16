@@ -28,7 +28,7 @@ public record ChatActivity(List<ActivityStep> steps, List<ReasoningSegment> reas
             new ChatToolEvent.Call(toolCallId, toolName);
             if (position < 0 || textOffset < 0 || status == null || startedAt == null || durationMs != null && durationMs < 0
                     || queries.size() > 8 || queries.stream().anyMatch(q -> q.isBlank() || q.length() > 500)
-                    || documents.size() > 10 || citations.size() > 24 || citations.stream().anyMatch(c -> c < 1))
+                    || documents.size() > 10 || citations.stream().anyMatch(c -> c < 1))
                 throw new IllegalArgumentException("Invalid activity step");
         }
     }
