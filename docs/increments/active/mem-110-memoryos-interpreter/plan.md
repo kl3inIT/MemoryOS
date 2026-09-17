@@ -119,7 +119,7 @@ Phases 5 and 6 were first written from comparative research into Anthropic Agent
 
 The owner is weighing, on 2026-09-17, whether to combine these with existing presentation work rather than drop them:
 
-- **Capturing matplotlib figures and DataFrames as structured results (the E2B `chart`/`data` pattern).** Overlaps `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary and the phase 4 generated-file cards; a combination would keep one presentation contract.
+- **Capturing matplotlib figures as structured results (the E2B `chart` pattern).** Decided 2026-09-17: built in the [interactive charts increment](../chat-interactive-charts/design.md); `render_gui` stays unchanged. DataFrames as structured results remain not planned.
 - **Session-scoped stateful execution.** Onyx `40eb240df` uses the service's session routes only inside `CodingAgentTool`, never for the Chat Python tool.
 - **A warm pool of executor containers.** No measurement yet shows container start is the bottleneck; `recalc-xlsx` adds a cold LibreOffice start of about 10 s per call.
 
