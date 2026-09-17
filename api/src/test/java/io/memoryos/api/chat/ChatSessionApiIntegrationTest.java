@@ -1629,7 +1629,8 @@ class ChatSessionApiIntegrationTest {
             String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
             var configured = createConfiguredModel(createProvider(endpoint, true), "wire-model", 0.6);
             var settings = modelBody("wire-model", 0.6);
-            ((ObjectNode) settings.path("settings")).put("contextWindow", 32768);
+            // Above the 4096 execution max-output-tokens: the answer request takes the model's own limit, as Onyx.
+            ((ObjectNode) settings.path("settings")).put("contextWindow", 32768).put("maxOutputTokens", 6000);
             ((ObjectNode) settings.path("settings").path("capabilities")).put("vision", vision);
             mockMvc.perform(put("/api/chat/models/" + configured.path("id").asText()).param("revision", "1")
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
@@ -1653,7 +1654,7 @@ class ChatSessionApiIntegrationTest {
             assertEquals("Bearer fixture-byok", authorization.get());
             assertEquals("wire-model", captured.get().path("model").asText());
             assertEquals(0.6, captured.get().path("temperature").asDouble());
-            assertEquals(512, captured.get().path("max_tokens").asInt());
+            assertEquals(6000, captured.get().path("max_tokens").asInt());
             assertFalse(captured.get().has("max_completion_tokens"));
             var imageUrls = captured.get().path("messages").findValues("image_url");
             assertEquals(vision ? 1 : 0, imageUrls.size(), captured.get().toString());
