@@ -69,13 +69,17 @@ Every agent user receives the full snapshot, as Onyx. Source names come from a T
 
 ## Prompt shortcuts (Onyx `InputPrompt`)
 
-- Users create, edit, delete and deactivate private shortcuts (unique name). `AGENTS_MANAGE` creates, edits and deletes public shortcuts (Onyx has no public-creation endpoint; this closes that gap). Users hide public shortcuts for themselves.
-- Typing `/` at the start of the composer opens active shortcuts filtered by name; Enter or Tab replaces the draft with the content; the last row opens shortcut settings. The per-user shortcut toggle defaults to enabled in MemoryOS (Onyx defaults off).
+- Users create, edit and delete private shortcuts (unique name). `AGENTS_MANAGE` creates, edits and deletes public shortcuts (Onyx has no public-creation endpoint; this closes that gap). Users hide public shortcuts for themselves. `active` stays in the contract but, as in Onyx, has no UI toggle.
+- Names are free text on one line, including spaces and diacritics (`Tóm tắt hợp đồng`); control characters are rejected. Onyx allows free-text names too; an earlier draft of V71 banned whitespace and is superseded before merge.
+- Typing `/` at the start of the composer opens active, unhidden shortcuts. As in Onyx the whole draft after `/` is the query, so names with spaces match; MemoryOS folds diacritics so `/tom tat` finds `Tóm tắt hợp đồng`. Each row shows the name and the first line of content; choosing one replaces the draft; the last row opens shortcut settings. Onyx offers shortcuts only through `/`, so the composer `+` menu does not list them.
+- Settings and `/admin/agents` edit shortcuts inline as Onyx `SettingsPage`: a name field with a fixed `/` prefix and a three-line content field per shortcut, saved when focus leaves the pair, and a trailing empty pair that creates one. Members see public shortcuts read-only with a hide-for-me toggle. The per-user shortcut toggle defaults to enabled in MemoryOS (Onyx defaults off).
 - Bounds: name ≤ 100, content ≤ 8000, at most 200 private shortcuts per Actor.
 
 ## Pins and discovery
 
-- Pins are an ordered per-Actor list replaced as a whole; inaccessible, duplicate and builtin IDs are dropped. On an Actor's first agent list read, pins are seeded once from featured, public, listed agents ordered by display priority.
+- Pins are an ordered per-Actor list replaced as a whole; inaccessible, duplicate and builtin IDs are dropped. On an Actor's first agent list read, pins are seeded once from featured, public, listed agents ordered by display priority. Starting a chat from the gallery pins the agent (Onyx). The sidebar reorders pins by drag or keyboard and unpins on hover.
+- The administration list orders by display priority then name (featured no longer sorts first there); dragging writes each moved agent's priority as its position. The gallery still shows featured agents first.
+- A copied share link is `/agents?agent={id}` and opens that agent's detail view.
 - Labels: agent users list labels; users with create or edit authority create labels; `AGENTS_MANAGE` renames and deletes.
 - Avatar: an uploaded chat image file (PNG, JPEG, WebP, GIF; ≤ 2 MiB, bounds Onyx lacks) or an icon name from the frontend set; choosing one clears the other.
 
@@ -102,13 +106,15 @@ Errors reuse Chat RFC 9457 problem types. The OpenAPI snapshot and Hey API clien
 
 ## UI
 
-Reuse shadcn primitives and existing Chat components (Mobbin patterns: Langdock gallery, Sana/StackAI editor, Dropbox Dash share dialog, ClickUp/Devin composer chips).
+Composition follows [component reuse](../../../conventions.md#component-and-library-reuse): shadcn primitives, existing Chat components (`ModelSelector` with provider logos, `ChatFilePicker`, source provider icons, `ConfirmDialog`, action notifications) and a small `web/src/components/composites` layer. Visual references are Onyx Opal (kept only under `.tmp` for reference, not vendored) and Mobbin catalogs: Langdock, Lindy, Sana and SchoolAI for the gallery; Langdock, StackAI and Relevance AI for the editor; Perplexity and GitBook for sharing. MemoryOS tokens already match Opal values; the web theme adds only the missing faint, strong, selection and card-gradient tokens.
 
-- `/agents` gallery replaces `/assistants` (redirect): All / Mine / Shared tabs, search, label filter, featured row, cards with avatar, description, owner, visibility, pin.
-- Editor sections: General, Instructions, Knowledge, Actions, Advanced, Sharing.
-- Share dialog, viewer dialog with Start chat, composer agent picker with pinned agents first, sidebar pinned agents.
-- `/admin/agents`: listing, featured, priority, labels, restore, vacant transfer.
-- Settings: prompt shortcuts with the enable toggle; composer `/` menu.
+- **Gallery `/agents`** (`/assistants` redirects): underline tabs All / Mine / Shared, full-width search, a multi-select creator filter and label toggle chips with facet counts (counts reflect search and creator; more than eight labels collapse). Featured agents lead one grid with a badge instead of a sparse section. Cards: topic-tinted icon, two-line description, footer with owner and visibility and "Start chat"; edit, share and more actions appear on hover (always on touch). Create stays visible but disabled with an explanation without `AGENTS_CREATE`.
+- **Editor `/agents/create`, `/agents/{id}/edit`**: a page instead of a dialog. Sections General, Instructions, Knowledge, Tools and Advanced stack with a title and description; a sticky preview shows what colleagues will see. Icons mark list items only (sources with provider icons, tools, attachments, cutoff) and the model picker's provider logo; fields and switches carry none (Mobbin survey). The icon picker opens a topic-tinted grid or an uploaded image; labels are removable chips with search-or-create; each starter prompt has its own field. Save is enabled only with changes; a new agent keeps a browser draft until saved or discarded; leaving an edited agent asks for confirmation. The preview cannot send: running an unsaved configuration has no backend path (ADR 0002).
+- **Detail view**: owner, description, labels, starter prompts that open a new conversation and send immediately, a composer that does the same, and the full configuration snapshot collapsed. The question travels as `/chat/{id}?ask=` and is sent once into the empty conversation, then removed from the URL.
+- **Share dialog**: invite field whose results appear only while typing; people and Groups with avatars and a role menu (View and chat, Edit, Remove access); an owner row with Transfer; an assistant-administrators row; organization-wide access; copy link; Save enabled only with changes.
+- **Sidebar**: pinned agents with drag handle, unpin and an "Explore assistants" link.
+- **`/admin/agents`**: sortable rows (drag or keyboard) with hover actions for listing, transfer and edit, and a star to feature; labels; public shortcuts.
+- Drag and drop uses `@dnd-kit/core` and `@dnd-kit/sortable` (MIT, as Onyx) through `SortableList`.
 - Vietnamese and English strings.
 
 ## Out of scope
