@@ -26,6 +26,8 @@ const SOURCE: SourceSummary = {
   documentCount: 3,
   lastSucceededAt: null,
   errorCode: null,
+  managerActorId: null,
+  managerName: null,
   permissions: {
     edit: true,
     delete: true,

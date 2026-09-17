@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.source.contract.AssignSourceManagerRequest;
 import io.memoryos.api.source.contract.CreateFileSourceRequest;
 import io.memoryos.api.source.contract.RenameSourceRequest;
 import io.memoryos.api.source.contract.UpdateSourceAccessRequest;
@@ -13,6 +14,7 @@ import io.memoryos.api.source.contract.SourceUploadReceiptResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceManagementService;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.objectstorage.ObjectUploadId;
 
@@ -87,6 +89,25 @@ final class SourceController {
             @Valid @RequestBody UpdateSourceAccessRequest request
     ) {
         return SourceSummaryResponse.from(sources.updateSourceAccess(identityContext.actorId(), new SourceId(sourceId), request.access()));
+    }
+
+    @Operation(
+            operationId = "assignSourceManager",
+            summary = "Appoint the group manager responsible for one source",
+            description = "Administrator only. The appointed actor must manage at least one ordinary group and may "
+                    + "then attach the source to those groups."
+    )
+    @PostMapping(value = "/{sourceId}/manager", consumes = MediaType.APPLICATION_JSON_VALUE)
+    SourceSummaryResponse assignSourceManager(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId,
+            @Valid @RequestBody AssignSourceManagerRequest request
+    ) {
+        return SourceSummaryResponse.from(sources.assignSourceManager(
+                identityContext.actorId(),
+                new SourceId(sourceId),
+                request.actorId() == null ? null : new ActorId(request.actorId())
+        ));
     }
 
     @Operation(operationId = "listSources", summary = "List Tenant sources")

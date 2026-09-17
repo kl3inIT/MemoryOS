@@ -93,7 +93,8 @@ class ChatPersistenceIntegrationTest {
                 mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
-                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants)));
+                        RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
+                new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -155,6 +156,33 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4, sessions.history(owner, session.id(), null, 100).size());
         personas.select(owner, session.id(), session.personaId());
         assertTrue(reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Default again").created());
+    }
+
+    @Test
+    void generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession() {
+        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var session = sessions.create(owner, "Images");
+        var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Draw a man");
+        var image = UUID.randomUUID();
+        images.insert(scope, first.assistantMessageId(), image, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/image.png"), "image/png", null, null, null);
+        turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Here he is.");
+        var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Make the shirt red");
+        assertEquals(List.of(image), turns.loadContext(owner, session.id(), second).generatedImages().get(first.assistantMessageId()));
+
+        var edited = UUID.randomUUID();
+        images.insert(scope, second.assistantMessageId(), edited, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/edited.png"), "image/png", null, image, null);
+        assertEquals(image, jdbc.sql("SELECT source_artifact_id FROM chat_image_artifact WHERE id = :id")
+                .param("id", edited).query(UUID.class).single());
+        assertTrue(images.inSession(scope, owner, session.id(), image).isPresent());
+        assertTrue(images.inSession(scope, other, session.id(), image).isEmpty());
+        var elsewhere = sessions.create(owner, "Elsewhere");
+        assertTrue(images.inSession(scope, owner, elsewhere.id(), image).isEmpty());
+        assertThrows(DataIntegrityViolationException.class, () -> images.insert(scope, second.assistantMessageId(), UUID.randomUUID(),
+                UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/both.png"), "image/png", null,
+                image, UUID.randomUUID()));
     }
 
     @Test
@@ -295,7 +323,7 @@ class ChatPersistenceIntegrationTest {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[{\"page\":3}]")));
         var artifact = new ChatArtifact(UUID.randomUUID(), "Allowance", "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"Days\",\"value\":\"12\"}}}");
-        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "searchKnowledge", ChatActivity.StepStatus.COMPLETED,
+        var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "search_knowledge", ChatActivity.StepStatus.COMPLETED,
                 java.time.Instant.parse("2026-09-14T00:00:00Z"), 120L, 0, List.of("leave policy"), null, List.of(), List.of(1))),
                 List.of(new ChatActivity.ReasoningSegment(0, 0, "Checking the HR policy.")));
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
@@ -356,6 +384,81 @@ class ChatPersistenceIntegrationTest {
         assertEquals(ChatMessage.Status.FAILED, sessions.history(owner, session.id(), null, 20).getLast().status());
         assertFalse(turns.finish(session.id(), reserved.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "late", null, null, null, null, null));
+    }
+
+    @Test
+    void startupReconciliationFailsRunningRowsWithLiveLeasesAndLeavesFinishedRows() {
+        var session = sessions.create(owner, "Orphaned");
+        var orphaned = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var other = sessions.create(owner, "Finished");
+        var finished = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
+        assertTrue(turns.finish(other.id(), finished.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
+        // The lease is still live: only startup knows no process owns the row.
+        assertEquals(0, turns.expireRuns());
+        assertTrue(turns.failOrphanedRuns() >= 1);
+        assertEquals(0, turns.failOrphanedRuns());
+        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, session.id(), orphaned.assistantMessageId()));
+        assertEquals("CHAT_INTERRUPTED", jdbc.sql("SELECT failure_code FROM chat_message WHERE id = :id")
+                .param("id", orphaned.assistantMessageId()).query(String.class).single());
+        assertEquals(ChatMessage.Status.COMPLETED, turns.authorizeReply(owner, other.id(), finished.assistantMessageId()));
+        assertFalse(turns.finish(session.id(), orphaned.assistantMessageId(), ChatMessage.Status.COMPLETED, "late"));
+        // The session accepts the next question at once.
+        reserve(session, orphaned.assistantMessageId(), UUID.randomUUID(), "Next question");
+    }
+
+    @Test
+    void answerStoresMoreThanTwentyFourSourcesAndTheColumnKeepsAByteBound() {
+        var session = sessions.create(owner, "Many sources");
+        var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var sources = java.util.stream.IntStream.rangeClosed(1, 30)
+                .mapToObj(index -> new ChatSource(index, null, null, "File " + index, 0, 0, List.of(), UUID.randomUUID())).toList();
+        assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Answer [30]", null, null, null, null, null, sources));
+        assertEquals(30, sessions.history(owner, session.id(), null, 20).getLast().sources().size());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET sources = jsonb_build_array(repeat('x', 1048576)) WHERE id = :id")
+                .param("id", pair.assistantMessageId()).update(), "Stored sources stay bounded to 1 MiB");
+    }
+
+    @Test
+    void researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded() {
+        var session = sessions.create(owner, "Research state");
+        var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var agent = new ChatResearch.Agent("call_revenue", 0, 1, "Revenue in 2025", ChatActivity.StepStatus.COMPLETED, 900L,
+                "Revenue grew [1].", List.of(new ChatResearchEvent.Citation(1, 4)), new ChatActivity(List.of(new ChatActivity.ActivityStep(0,
+                "call_search", "search_knowledge", ChatActivity.StepStatus.COMPLETED, java.time.Instant.parse("2026-09-15T10:00:00Z"), 12L, 0,
+                List.of("revenue"), null, List.of(), List.of())), List.of()));
+        var state = new ChatResearch(true, "1. Revenue", List.of(agent));
+        assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Which fiscal year?", null, null, null, null, null, List.of(), List.of(), ChatActivity.EMPTY, state));
+        var history = sessions.history(owner, session.id(), null, 20);
+        assertEquals(state, history.getLast().research());
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET research_agents = '[{}]'::jsonb WHERE id = :id").param("id", history.getFirst().id()).update(),
+                "Only assistant messages carry research agents");
+        assertEquals(ChatResearch.EMPTY, history.getFirst().research(), "Ordinary messages carry no research state");
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
+                "UPDATE chat_message SET research_plan = repeat('x', 100001) WHERE id = :id")
+                .param("id", pair.assistantMessageId()).update(), "The stored plan stays bounded");
+        assertThrows(IllegalArgumentException.class, () -> new ChatResearch(false, "x".repeat(ChatResearch.MAX_PLAN + 1)));
+    }
+
+    @Test
+    void deepResearchModeIsPartOfCommandIdentity() {
+        var session = sessions.create(owner, "Research identity");
+        var request = UUID.randomUUID();
+        var research = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
+                WebSearchMode.off, ImageMode.off, true);
+        var reserved = turns.reserve(owner, session.id(), research, java.time.Duration.ofMinutes(30), 32000, null);
+        assertTrue(reserved.created());
+        assertTrue(jdbc.sql("SELECT deep_research FROM chat_command WHERE session_id = :session AND request_id = :request")
+                .param("session", session.id()).param("request", request).query(Boolean.class).single());
+        var replay = turns.reserve(owner, session.id(), research, java.time.Duration.ofMinutes(30), 32000, null);
+        assertEquals(reserved.assistantMessageId(), replay.assistantMessageId());
+        var ordinary = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), request, "Question", null, List.of(),
+                WebSearchMode.off, ImageMode.off, false);
+        assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class,
+                () -> turns.reserve(owner, session.id(), ordinary, java.time.Duration.ofMinutes(30), 32000, null)).code());
     }
 
     @Test
@@ -512,14 +615,38 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
-    void deadlineRejectsLateCompletionAndRetainsPartialFailure() {
-        var session = sessions.create(owner, "Deadline");
+    void lapsedButUnreconciledLeaseStillAcceptsTheLiveOutcome() {
+        var session = sessions.create(owner, "Lapsed lease");
         var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        // A slow renewal is not a failure: only reconciliation ends the row, and a live finish proves the process is alive.
         jdbc.sql("UPDATE chat_message SET deadline_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = :id")
                 .param("id", pair.assistantMessageId()).update();
-        assertTrue(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Partial"));
-        assertEquals(ChatMessage.Status.FAILED, sessions.history(owner, session.id(), null, 20).getLast().status());
+        assertTrue(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer"));
+        assertEquals(ChatMessage.Status.COMPLETED, sessions.history(owner, session.id(), null, 20).getLast().status());
         assertFalse(turns.finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late"));
+    }
+
+    @Test
+    void leaseRenewalKeepsRunningRowsAndReconciliationFailsOnlyLapsedLeases() {
+        var session = sessions.create(owner, "Renewed lease");
+        var live = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+        var other = sessions.create(owner, "Lapsed lease");
+        var lapsed = reserve(other, other.rootMessageId(), UUID.randomUUID(), "Question");
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() + interval '2 seconds' WHERE id = :id")
+                .param("id", live.assistantMessageId()).update();
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
+                .param("id", lapsed.assistantMessageId()).update();
+        assertEquals(java.util.Set.of(live.assistantMessageId(), lapsed.assistantMessageId()),
+                turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), java.time.Duration.ofMinutes(30)));
+        assertEquals(0, turns.expireRuns(), "Renewed leases are not reconciled");
+        jdbc.sql("UPDATE chat_message SET deadline_at = clock_timestamp() - interval '10 seconds' WHERE id = :id")
+                .param("id", lapsed.assistantMessageId()).update();
+        assertEquals(1, turns.expireRuns());
+        assertEquals(ChatMessage.Status.RUNNING, turns.authorizeReply(owner, session.id(), live.assistantMessageId()));
+        assertEquals(ChatMessage.Status.FAILED, turns.authorizeReply(owner, other.id(), lapsed.assistantMessageId()));
+        // A reconciled row is not renewed, so its process learns it no longer owns the run.
+        assertEquals(java.util.Set.of(live.assistantMessageId()),
+                turns.renewLeases(List.of(live.assistantMessageId(), lapsed.assistantMessageId()), java.time.Duration.ofMinutes(30)));
     }
 
     @Test

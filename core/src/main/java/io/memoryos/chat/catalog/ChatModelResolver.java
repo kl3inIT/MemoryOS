@@ -40,7 +40,7 @@ public final class ChatModelResolver {
         try {
             return adapter.reportedModels(
                             new ChatProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
-                            limits.deadline())
+                            limits.providerReadTimeout())
                     .stream().filter(name -> !name.isBlank() && name.length() <= 200)
                     .distinct().sorted().limit(500).toList();
         } catch (ChatException expected) { throw expected; }
@@ -61,7 +61,7 @@ public final class ChatModelResolver {
             if (adapter.credentialRequirement() == ChatProviderAdapter.CredentialRequirement.REQUIRED && key.isBlank())
                 throw ChatException.providerUnavailable();
             try {
-                return adapter.create(new ChatProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), limits.deadline());
+                return adapter.create(new ChatProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), limits.providerReadTimeout());
             } catch (ChatException expected) { throw expected; }
             catch (RuntimeException failure) {
                 LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());

@@ -78,7 +78,7 @@ class OpenAiResponsesChatModelTest {
         var evidence = new ChatEvidence();
         var events = new ArrayList<ChatActivityEvent>();
         evidence.publishTo(events::add);
-        var model = turnModel(evidence, events, false, false);
+        var model = turnModel(evidence, events, false);
 
         var responses = model.stream(new Prompt(List.of(new SystemMessage("System"), new UserMessage("What was released?")), options(true))).collectList().block();
 
@@ -91,7 +91,7 @@ class OpenAiResponsesChatModelTest {
         var request = requests.getFirst();
         assertFalse(request.path("store").asBoolean(true));
         assertEquals(List.of("function", "web_search"), types(request.path("tools")));
-        assertEquals("searchKnowledge", request.path("tools").get(0).path("name").asString());
+        assertEquals("search_knowledge", request.path("tools").get(0).path("name").asString());
         assertTrue(request.path("tool_choice").isMissingNode());
         assertEquals("https://example.com/news", evidence.snapshot().getFirst().web().url());
         assertEquals("Release", evidence.snapshot().getFirst().title());
@@ -120,7 +120,7 @@ class OpenAiResponsesChatModelTest {
         var events = new ArrayList<ChatActivityEvent>();
         var responses = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, meters);
         assertFalse(responses.nativeWebSearch());
-        var model = responses.forTurn(new ChatModelTurns.Turn(new ChatEvidence(), events::add, false, false, () -> {}));
+        var model = responses.forTurn(new ChatModelTurns.Turn(new ChatEvidence(), events::add, false, () -> {}));
 
         var output = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block();
 
@@ -137,33 +137,19 @@ class OpenAiResponsesChatModelTest {
         var prompt = new Prompt("Question", options(true));
         when(completions.stream(prompt)).thenReturn(Flux.empty());
         new OpenAiResponsesChatModel(completions, client, true, true, false, meters)
-                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, false, () -> {}))
+                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, () -> {}))
                 .stream(prompt).collectList().block();
         verify(completions).stream(prompt);
         assertTrue(requests.isEmpty());
     }
 
     @Test
-    void summariesTurnKeepsAForcedFunctionToolChoice() {
-        bodies.add(sse(completed(List.of(message("Searched.")))));
-        var model = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, meters)
-                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, false, () -> {}));
-        var forced = options(true).mutate().toolChoice(Map.of("type", "function", "function", Map.of("name", "web_search"))).build();
-
-        model.stream(new Prompt(List.of(new UserMessage("Latest?")), forced)).collectList().block();
-
-        var choice = requests.getFirst().path("tool_choice");
-        assertEquals("function", choice.path("type").asString());
-        assertEquals("web_search", choice.path("name").asString());
-    }
-
-    @Test
     void functionCallContinuationEchoesReasoningAndSendsToolOutput() {
         var reasoning = Map.<String, Object>of("type", "reasoning", "id", "rs_1", "summary", List.of(), "encrypted_content", "opaque-state");
-        var call = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "searchKnowledge", "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");
+        var call = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "search_knowledge", "arguments", "{\"queries\":[\"leave\"]}", "status", "completed");
         bodies.add(sse(completed(List.of(reasoning, call))));
         bodies.add(sse(completed(List.of(message("Twelve days.")))));
-        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false, true);
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
 
         var first = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block().getLast();
         var assistant = first.getResult().getOutput();
@@ -172,7 +158,7 @@ class OpenAiResponsesChatModelTest {
         assertTrue(assistant.getMetadata().containsKey(OpenAiResponsesChatModel.OUTPUT_ITEMS));
         assertEquals("reasoning.encrypted_content", requests.getFirst().path("include").get(0).asString());
 
-        var toolOutput = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "searchKnowledge", "Annual leave is twelve days."))).build();
+        var toolOutput = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "search_knowledge", "Annual leave is twelve days."))).build();
         model.stream(new Prompt(List.of(new UserMessage("Leave?"), assistant, toolOutput), options(true))).collectList().block();
 
         var input = requests.get(1).path("input");
@@ -183,21 +169,9 @@ class OpenAiResponsesChatModelTest {
     }
 
     @Test
-    void requiredModeForcesHostedSearchAndRejectsAnAnswerWithoutSearching() {
-        bodies.add(sse(completed(List.of(message("I did not search.")))));
-        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true, false);
-
-        var failure = assertThrows(IllegalStateException.class,
-                () -> model.stream(new Prompt(List.of(new UserMessage("Latest?")), options(true))).collectList().block());
-
-        assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.getMessage());
-        assertEquals("web_search", requests.getFirst().path("tool_choice").path("type").asString());
-    }
-
-    @Test
     void finalCycleWithoutToolCallbacksOmitsHostedSearch() {
         bodies.add(sse(completed(List.of(message("Final.")))));
-        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false, false);
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false);
 
         model.stream(new Prompt(List.of(new UserMessage("Finish")), options(false))).collectList().block();
 
@@ -208,7 +182,7 @@ class OpenAiResponsesChatModelTest {
     void failedProviderEventBecomesAnIncompleteResponse() {
         bodies.add(sse(event("response.failed", Map.of("sequence_number", 1, "response", Map.of("id", "resp_1", "output", List.of(),
                 "error", Map.of("code", "server_error", "message", "raw provider detail"))))));
-        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false, false);
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), false);
 
         var failure = assertThrows(IllegalStateException.class,
                 () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
@@ -231,14 +205,14 @@ class OpenAiResponsesChatModelTest {
         assertTrue(requests.isEmpty());
     }
 
-    private ChatModel turnModel(ChatEvidence evidence, List<ChatActivityEvent> events, boolean required, boolean reasoning) {
+    private ChatModel turnModel(ChatEvidence evidence, List<ChatActivityEvent> events, boolean reasoning) {
         return new OpenAiResponsesChatModel(mock(ChatModel.class), client, reasoning, meters)
-                .forTurn(new ChatModelTurns.Turn(evidence, events::add, true, required, () -> {}));
+                .forTurn(new ChatModelTurns.Turn(evidence, events::add, true, () -> {}));
     }
 
     private static OpenAiChatOptions options(boolean tools) {
         var callback = mock(ToolCallback.class);
-        when(callback.getToolDefinition()).thenReturn(ToolDefinition.builder().name("searchKnowledge").description("Search documents")
+        when(callback.getToolDefinition()).thenReturn(ToolDefinition.builder().name("search_knowledge").description("Search documents")
                 .inputSchema("{\"type\":\"object\",\"properties\":{\"queries\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}").build());
         return OpenAiChatOptions.builder().model("configured-model").maxCompletionTokens(100)
                 .toolCallbacks(tools ? List.of(callback) : List.of()).build();

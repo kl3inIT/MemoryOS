@@ -98,7 +98,8 @@ public class SourceAccessPolicy {
         if (global) {
             groupScopes.validateGroupIds(authority.tenantId(), groups);
         } else {
-            if (groups.isEmpty()) throw SourceException.invalid("Select at least one group.", "scoped source creation requires groups");
+            // A Source may start with no Group: its recorded manager attaches it later, and until then nobody
+            // reads its content, because restricted reads come from Group membership alone.
             groupScopes.validateManagedGroupIds(authority.tenantId(), actorId, groups);
         }
         return new Creation(authority, access, groups);

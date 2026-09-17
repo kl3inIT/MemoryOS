@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM eclipse-temurin:25-jdk-noble@sha256:d4920d49e0d7163a1a1534601b733c6e1b37bd53b144d68a51f00382410c7257 AS build
+FROM eclipse-temurin:25-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build
 
 ARG INFISICAL_CLI_VERSION=0.43.125
 ADD --checksum=sha256:8c3431afab5097ca7d943585be1580ebc13c28843e7d0c5292fb07d077be0372 \

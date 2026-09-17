@@ -52,7 +52,7 @@ import org.jspecify.annotations.Nullable;
 
 /** One per turn. Embabel owns inference/tool continuation; this tool owns grounded retrieval. */
 public final class SearchTool implements AutoCloseable {
-    private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "searchKnowledge");
+    private static final ChatToolEvent.Call SEARCH_CALL = new ChatToolEvent.Call("search", "search_knowledge");
     private final DocumentSearchService search;
     private final ActorId actor;
     private final PromptRunner selectionRunner;
@@ -69,7 +69,6 @@ public final class SearchTool implements AutoCloseable {
     private final List<Message> history;
     private final String question;
     private @Nullable QueryExpansion queryExpansion;
-    private final Instant deadline;
     private final SearchTimings timings;
     private final Set<UUID> allowedSourceIds;
     private boolean scopeDecisionSettled;
@@ -84,23 +83,23 @@ public final class SearchTool implements AutoCloseable {
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      Instant deadline, SearchTimings timings) {
-        this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, deadline, timings, List.of());
+                      SearchTimings timings) {
+        this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, timings, List.of());
     }
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds) {
+                      SearchTimings timings, List<UUID> allowedSourceIds) {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation,
-                messages, deadline, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence(), new io.memoryos.chat.ChatToolActivity(events));
+                messages, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence(), new io.memoryos.chat.ChatToolActivity(events));
         evidence.publishTo(events);
     }
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      Instant deadline, SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
+                      SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
                       io.memoryos.chat.ChatToolActivity activity) {
         this.evidence = evidence;
         this.activity = activity;
@@ -115,7 +114,6 @@ public final class SearchTool implements AutoCloseable {
         };
         this.availableTokens = availableTokens;
         this.events = event -> { this.checkActive.run(); events.accept(event); };
-        this.deadline = deadline;
         this.timings = timings;
         this.history = messages.stream().filter(m -> !(m instanceof SystemMessage)).toList();
         this.question = history.stream().filter(UserMessage.class::isInstance).map(Message::getContent)
@@ -137,7 +135,7 @@ public final class SearchTool implements AutoCloseable {
     private record SearchCycle(int cycleNumber, List<String> queries, List<SourceType> searchedSources) {}
     private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion) {}
 
-    @LlmTool(description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
+    @LlmTool(name = "search_knowledge", description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
     @SuppressWarnings("unused") // Invoked by the native Embabel method tool, verified through Chat HTTP tests.
     public String searchKnowledge(
             @LlmTool.Param(description = "One to three focused search queries covering the user's question; preserve exact names and resolve references from history") List<String> queries,
@@ -431,7 +429,7 @@ public final class SearchTool implements AutoCloseable {
         if (scope.isEmpty()) return "";
         return "(This internal search covered only: " + scope.stream().map(Enum::name).sorted().collect(Collectors.joining(", "))
                 + ". Queries run: " + (queriesRun.isEmpty() ? "(none)" : String.join("; ", queriesRun))
-                + ". Call searchKnowledge again with different query terms to keep searching.)";
+                + ". Call search_knowledge again with different query terms to keep searching.)";
     }
 
     private SemanticQuery semanticQuery(String fallbackQuery) {
@@ -537,18 +535,15 @@ public final class SearchTool implements AutoCloseable {
 
     private <T> T helper(Stage stage, Function<PromptRunner, T> call) {
         checkActive.run();
-        Duration remaining = Duration.between(Instant.now(), deadline);
-        if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
-        Duration timeout = remaining.compareTo(limits.helperTimeout()) < 0 ? remaining : limits.helperTimeout();
+        // Each helper call has its own total bound, as Onyx's secondary LLM flow timeout.
+        Duration timeout = limits.helperTimeout();
         var runner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withoutThinking().withTimeout(timeout));
         try {
             T result = timings.measure(stage, () -> SearchTasks.timed(() -> call.apply(runner), timeout, checkActive));
             checkActive.run();
-            if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE");
             return result;
         } catch (RuntimeException failure) {
             checkActive.run();
-            if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE");
             throw failure;
         }
     }
@@ -576,7 +571,7 @@ public final class SearchTool implements AutoCloseable {
             else included.removeLast();
         }
         String key = hit.documentId() + ":" + hit.generation() + ":" + included.getFirst().ordinal() + ":" + included.getLast().ordinal();
-        if (tokens.estimate(output + evidenceText(24, hit.title(), included)) > budget) return;
+        if (tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included)) > budget) return;
         checkActive.run();
         var source = evidence.register(key, id -> new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
                 included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()

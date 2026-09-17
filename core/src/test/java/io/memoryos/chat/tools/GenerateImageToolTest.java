@@ -35,7 +35,7 @@ class GenerateImageToolTest {
 
     private GenerateImageTool tool(int maxCalls) {
         return new GenerateImageTool(client, connection, artifacts, tenant, messageId, () -> {},
-                Instant.now().plusSeconds(60), events::add, maxCalls);
+                events::add, maxCalls);
     }
 
     @Test void successEmitsGeneratingThenCompletedAndReturnsArtifactId() throws Exception {

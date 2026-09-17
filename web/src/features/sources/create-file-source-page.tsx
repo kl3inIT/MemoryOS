@@ -99,14 +99,7 @@ export function CreateFileSourcePage() {
   }
 
   async function submit() {
-    if (
-      authority === "none" ||
-      (!sourceId && scoped && groupIds.size === 0) ||
-      controllerRef.current ||
-      blocked ||
-      !file ||
-      !sourceName.trim()
-    )
+    if (authority === "none" || controllerRef.current || blocked || !file || !sourceName.trim())
       return;
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -392,14 +385,7 @@ export function CreateFileSourcePage() {
           <Button
             type="submit"
             pending={busy}
-            disabled={
-              authority === "none" ||
-              (!sourceId && scoped && groupIds.size === 0) ||
-              busy ||
-              blocked ||
-              !file ||
-              !sourceName.trim()
-            }
+            disabled={authority === "none" || busy || blocked || !file || !sourceName.trim()}
           >
             <Upload />
             {uploadAccepted

@@ -148,7 +148,7 @@ function GoogleDriveSourceSetup() {
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
   const selectionError = googleDriveSelectionError(proposal, policy.data);
-  const validSelection = !selectionError && (globalManage || groupIds.size > 0);
+  const validSelection = !selectionError;
   const pendingValidation = Boolean(tracking.operation && !tracking.terminal);
   const frozenProposal =
     pendingValidation || tracking.uncertain || tracking.recovering || tracking.recoveryError;

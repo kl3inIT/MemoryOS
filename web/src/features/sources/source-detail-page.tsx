@@ -59,6 +59,8 @@ import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
 import { HistoryTime, ItemStatus } from "./source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
+import { SourceManagerSection } from "./source-manager-section";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { SourceSectionIcon } from "./source-section-icon";
 import { SourceActionsMenu } from "./source-actions-menu";
 import { SourceFileActions } from "./source-file-actions";
@@ -639,6 +641,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const canManageGroups = can(detail, "edit");
   const canRename = can(detail, "edit");
   const canChangeAccess = can(detail, "publish");
+  const isAdministrator = useGlobalCapability("SYSTEM_ADMIN");
   if (
     (sourceDialog === "name" && !canRename) ||
     (sourceDialog === "access" && !canChangeAccess) ||
@@ -997,6 +1000,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     <SourceGroupsSection
                       sourceId={selectedId}
                       editable={canManageGroups}
+                      restricted={detail.access !== "PUBLIC"}
                       onAuthorityChanged={refreshAuthorityViews}
                     />
                   }
@@ -1146,11 +1150,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <SourceGroupsSection
                     sourceId={selectedId}
                     editable={canManageGroups}
+                    restricted={detail.access !== "PUBLIC"}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
                 </TabsContent>
               </>
             )}
+            {isAdministrator ? (
+              <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+            ) : null}
           </Tabs>
         )}
       </div>

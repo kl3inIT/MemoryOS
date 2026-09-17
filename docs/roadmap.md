@@ -1,6 +1,6 @@
 # MemoryOS roadmap
 
-This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled against live Linear and `main` on 2026-09-14. Repository delivery, deployment and authenticated business acceptance remain separate evidence.
+This roadmap records delivery state at increment granularity. Linear is the execution tracker; this file is the repository-facing state and link map. Last reconciled against live Linear and `main` on 2026-09-15. Repository delivery, deployment and authenticated business acceptance remain separate evidence.
 
 ## Delivered
 
@@ -64,7 +64,15 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | SEP490 diagrams and MCP typography | Vietnamese context and primary business flow diagrams in the editable VPP, Visual Paradigm plugin typography controls, and CI ignoring documentation/tool-only changes; the wider MEM-86 academic work stays in Linear | [Design](increments/completed/sep490-diagram-typography/design.md) · Main commits `7d593f3`/`026a2e5` |
 | SEP490 documentation and diagram tooling | Imported academic templates with recorded SHA-256 and R1–R7 guide, plus Visual Paradigm MCP as an independent Gradle build; MEM-85/MEM-86 deliverables continue in Linear | [Design](increments/completed/sep490-tooling/design.md) · Main commit `3e4e318` |
 | [MEM-97](https://linear.app/memory-os/issue/MEM-97) | Chat image generation through a per-tenant image-provider connection (OpenAI Images and Cloudflare Workers AI adapters), owner-authorized artifact storage and serving, streamed progress and a develop-reveal viewer; the MEM-96 research is folded in | [Design](increments/completed/mem-97-chat-image-generation/design.md) · [Research](increments/completed/mem-96-image-generation-research/design.md) · [PR #161](https://github.com/kl3inIT/MemoryOS/pull/161) |
+| [MEM-109](https://linear.app/memory-os/issue/MEM-109) | Chat image editing: an `edit_image` tool edits an image generated in the session or an attached image through Cloudflare FLUX.2 klein or OpenAI image edits, with server-side mask compositing that keeps unpainted pixels, edit lineage and a brush-mask dialog; live probes rejected SD 1.5 inpainting | [Design](increments/completed/mem-109-chat-image-editing/design.md) · [PR #193](https://github.com/kl3inIT/MemoryOS/pull/193) |
 | [MEM-100](https://linear.app/memory-os/issue/MEM-100) | Persisted tool steps and provider reasoning summaries streamed and replayed in Chat through one tool-neutral activity contract (`tool`/`reasoning` SSE, V59/V60 `chat_message.activity`), rendered with assistant-ui grouped parts in an Onyx-style timeline; live OpenAI reasoning-summary acceptance remains open; Done in Linear | [Design](increments/completed/mem-100-agent-activity-timeline/design.md) · [Plan](increments/completed/mem-100-agent-activity-timeline/plan.md) · PR #160 |
+| Chat source reader | Step between Chat sources, open table-row citations on their PDF page, expand a document citation into the preview dialog with Chat authority, and fall back to a whole PDF read with Sentry reporting and pdf.js image decoders; merged in PR #159. Reading the staging Sentry `pdf-view` event remains a post-deployment follow-up | [Design](increments/completed/chat-source-reader/design.md) · [Plan](increments/completed/chat-source-reader/plan.md) |
+| Staging deployment simplification | CD deploys and verifies runtime health while authenticated business acceptance remains an explicit owner step | [Design](increments/completed/staging-deploy-simplification/design.md) · Main commit `5bebf2f` |
+| Brand splash, loader and direct sign-in | Traced MemoryOS wordmark splash with a CSP-compatible full intro once per tab and a short sheen form on reload, the same short form as the loader for full-page and page-level loads, and signed-out browsers sent to Keycloak after the splash with a redirect-loop guard; merged in PR #157 | [Design](increments/completed/brand-loading-direct-sign-in/design.md) · [Plan](increments/completed/brand-loading-direct-sign-in/plan.md) |
+| Keycloak login theme | `memoryos` login theme over `keycloak.v2`: centered white card with the MemoryOS wordmark, email/password, navy sign-in button and a button per configured identity provider; read-only compose mount and realm selection; verified on local Keycloak 26.7.0 and merged in PR #169. Recreating shared Keycloak and replaying the realm script remain operator steps | [Design](increments/completed/keycloak-login-theme/design.md) · [Plan](increments/completed/keycloak-login-theme/plan.md) |
+| Search connector rail | Connector Source rail with per-connector counts beside Search results, `sourceTypes` request narrowing within readable Sources, and PDF results opening on their pages; merged in PR #164 | [Design](increments/completed/search-connector-rail/design.md) · [Plan](increments/completed/search-connector-rail/plan.md) |
+| CI speedup | PR change-based job selection, template-cloned PostgreSQL fixtures with two core test forks, BuildKit image caches and four browser shards; merged in PR #149 with measured run wall time from 11 m 31 s to 6 m 37 s | [Design](increments/completed/ci-speedup/design.md) · [Plan](increments/completed/ci-speedup/plan.md) |
+| [MEM-108](https://linear.app/memory-os/issue/MEM-108) | One `ProviderCard` on the shadcn `Item` for the Models and Web search pages; Web search keeps its single-column layout, OpenAI-compatible connections show their own brand mark, and OpenRouter/Ollama use simple-icons marks; merged in PR #190 | [Design](increments/completed/provider-card-sync/design.md) · [Plan](increments/completed/provider-card-sync/plan.md) · [PR #190](https://github.com/kl3inIT/MemoryOS/pull/190) |
 
 ## Active
 
@@ -76,14 +84,72 @@ Chat Web search is implemented locally for the external-provider vertical slice,
 | Tasco scanned-PDF OCR | FILE/Drive binary admission is 100 MiB; bounded asynchronous extraction and typed terminal failures are implemented. The sixty-minute remote run completed four reports/240 pages with 93/104 strict sampled cells correct. Full 100 MiB remote admission and financial fidelity remain unaccepted; offline recovery is not promoted. Search and Chat are excluded | [Design](increments/active/tasco-scanned-pdf-ocr/design.md) · [Corpus evidence](tests/ingestion.md#sixty-minute-tasco-corpus--2026-09-11) · [Plan](increments/active/tasco-scanned-pdf-ocr/plan.md) |
 | Google Drive structured ingestion — active MEM-9/MEM-10/MEM-60/MEM-63 | Reusable OAuth credentials, explicit linked approvals, asynchronous selection, native readers, paginated Source views and owned-index history are merged. Live-provider and customer-data acceptance remains active; MEM-76 is Done | [Design](increments/active/google-drive-structured-ingestion/design.md) · [Verification](increments/active/google-drive-structured-ingestion/plan.md#publication-and-main-refresh--2026-09-09) |
 | MEM-58 frontend observability | Optional Sentry Cloud browser error monitoring and trace correlation; rollout configuration and Linear reconciliation remain active | [Design](increments/active/mem-58-frontend-observability/design.md) |
+| [MEM-110 MemoryOS interpreter](https://linear.app/memory-os/issue/MEM-110) | Onyx python-sandbox snapshot vendored as `interpreter/` and renamed to `memoryos-interpreter`; staging runtime, authentication, Java `run_python` tool, browser rendering and office output quality remain open | [Design](increments/active/mem-110-memoryos-interpreter/design.md) · [Plan](increments/active/mem-110-memoryos-interpreter/plan.md) |
+| [MEM-101 deep research](https://linear.app/memory-os/issue/MEM-101) | Onyx `160f9b143` Deep research mode in Chat (clarification, streamed plan, ≤3 parallel research agents, merged-citation report) plus Chat-wide Onyx timing and uncapped citations; implemented with spans, metrics and integration tests in PR #202; visual review, full `clean check` and staging acceptance remain open; restart survival excluded | [Design](increments/active/mem-101-deep-research/design.md) · [Plan](increments/active/mem-101-deep-research/plan.md) |
 | MEM-77 provider/model administration | Backend foundation is merged; catalog administration UI and local OpenAI-compatible provider integration remain active | [Design](increments/active/mem-77-provider-backend/design.md) |
 | [MEM-79 standalone OCR](https://linear.app/memory-os/issue/MEM-79) | Vietnamese/English OCR is deployed in the Jmix team namespace; server access, Worker integration and full indexing acceptance remain open | [Deployment runbook](../infrastructure/deployment/ocr/README.md) · [Design](increments/active/mem-79-rancher-ocr/design.md) · [Plan](increments/active/mem-79-rancher-ocr/plan.md) |
-| Chat source reader | Step between Chat sources, open table-row citations on their PDF page, expand a document citation into the preview dialog with Chat authority, and fall back to a whole PDF read with Sentry reporting and pdf.js image decoders; implemented locally, not merged | [Design](increments/active/chat-source-reader/design.md) · [Plan](increments/active/chat-source-reader/plan.md) |
-| Staging deployment simplification | CD deploys and verifies runtime health while authenticated business acceptance remains an explicit owner step | [Design](increments/active/staging-deploy-simplification/design.md) |
+| Sign-out without the Keycloak logout page | Application sign-out ends the Keycloak session named by the ID token `sid` through the realm admin API, so the browser returns to MemoryOS sign-in without the provider confirmation page; the provider logout page remains the fallback; managed identity providers enable back-channel logout so a brokered (Tasco) session also ends upstream; implemented locally, not merged | [Design](increments/active/logout-without-keycloak-page/design.md) · [Plan](increments/active/logout-without-keycloak-page/plan.md) |
+| Source manager owns Group attachment | Scoped Source authority follows a recorded manager instead of "manages every associated Group": that manager attaches the Source to their own Groups and may start with none, any Group's manager detaches it from their Group, and `SYSTEM_ADMIN` appoints a manager when the previous one loses the role; implemented locally, not merged | [Design](increments/active/source-manager-group-authority/design.md) · [Plan](increments/active/source-manager-group-authority/plan.md) · [ADR 0011](decisions/0011-source-manager-group-attachment-authority.md) |
 | Source Pause/Resume planning | User-approved plan to pause one Source so new SOURCE_SYNC/INGESTION work is blocked, active work drains or cancels safely, and Resume continues from retained state. Implementation has not started; immediate external Docling task cancellation remains a non-goal until parser-side cancellation is proven | [Design](increments/active/source-pause-resume/design.md) · [Plan](increments/active/source-pause-resume/plan.md) |
 | [MEM-90 Google Drive service-account credentials](https://linear.app/memory-os/issue/MEM-90) | Additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing; per-user impersonation, Admin SDK enumeration and per-user resumable traversal. Editable scope retained; immutable-connector and plain-SA models rejected | [Design](increments/active/google-drive-service-account/design.md) · [Plan](increments/active/google-drive-service-account/plan.md) |
-| Brand splash, loader and direct sign-in | Traced MemoryOS wordmark splash with a CSP-compatible full intro once per tab and a short sheen form on reload, the same short form as the loader for full-page and page-level loads, and signed-out browsers sent to Keycloak after the splash with a redirect-loop guard; implemented locally, not merged | [Design](increments/active/brand-loading-direct-sign-in/design.md) · [Plan](increments/active/brand-loading-direct-sign-in/plan.md) |
-| Keycloak login theme | `memoryos` login theme over `keycloak.v2`: centered white card with the MemoryOS wordmark, email/password, navy sign-in button and a button per configured identity provider; read-only compose mount and realm selection; verified on local Keycloak 26.7.0, not deployed | [Design](increments/active/keycloak-login-theme/design.md) · [Plan](increments/active/keycloak-login-theme/plan.md) |
+
+## Timeline
+
+Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/MEM-115)). Linear projects own the live dates, milestones and issue membership; this section records the agreed shape. **Every date is provisional** until the SEP490 lecturer and each project lead confirm it. The project started around 2026-08-24; SEP490 closing is the final milestone, around the week of 2026-12-21.
+
+| Project | Status | Provisional window | Issues |
+| --- | --- | --- | --- |
+| Giai đoạn 1: Nền tảng MemoryOS | Completed | → 2026-09-15 | Delivered foundation listed above |
+| [SEP490: Hồ sơ và bảo vệ đồ án](https://linear.app/memory-os/project/sep490-f571b6150b5f) | In progress, at risk | 2026-08-24 → 2026-12-21 | MEM-85, MEM-86, MEM-115 |
+| Nguồn Google Drive và phân quyền | In progress | → 2026-10 | MEM-60, MEM-9, MEM-10, MEM-63, MEM-88, MEM-89, MEM-90, MEM-104, MEM-105 |
+| Đọc tài liệu scan (OCR) | In progress | → 2026-10 | MEM-79 |
+| Trợ lý AI nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116; candidates MEM-117, MEM-122 |
+| Mô hình AI và chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123 |
+| Bảo mật, quản trị và vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
+| Agent và Skill tùy chỉnh | Planned | 2026-10 → 2026-11 | MEM-119, MEM-120 |
+| Kết nối nguồn dữ liệu mới | Planned | 2026-10 → 2026-11 | MEM-118 (one or two sources before SEP490) |
+| Giọng nói và cuộc họp | Planned | 2026-10 → 2026-12 | MEM-91, MEM-92 |
+| Giao diện và trải nghiệm | Planned | 2026-10 → 2026-11 | MEM-23, MEM-26, MEM-39, MEM-78, MEM-106 |
+| Tích hợp hệ thống ngoài (MCP, API) | Candidate | Not scheduled before SEP490 | MEM-112, MEM-114, MEM-121 |
+
+SEP490 milestones follow the stage order of the [R2 template](academic/sep490/README.md#giai-đoạn-tham-khảo-từ-mẫu-r2): R1/R2 v1.0/R3 v0.9 (2026-09-27, behind the template's week 3), R4 SDS v1.0 with test plan and R3 v1.0 (2026-10-11), three iteration packages (2026-10-25, 2026-11-08, 2026-11-22), verification and validation with R6 (2026-12-06), and R7 with the defense (2026-12-21).
+
+```mermaid
+gantt
+    title MemoryOS provisional timeline (2026-09-15 snapshot)
+    dateFormat YYYY-MM-DD
+    axisFormat %d/%m
+    section SEP490
+    R1 R2 v1.0 R3 v0.9            :crit, s1, 2026-09-15, 2026-09-27
+    R4 SDS R5 plan R3 v1.0        :s2, after s1, 2026-10-11
+    Iteration 1                   :s3, after s2, 2026-10-25
+    Iteration 2                   :s4, after s3, 2026-11-08
+    Iteration 3                   :s5, after s4, 2026-11-22
+    Verification and R6           :s6, after s5, 2026-12-06
+    R7 and defense                :milestone, s7, 2026-12-21, 0d
+    section In progress
+    Nguồn Google Drive và phân quyền :2026-08-24, 2026-10-31
+    Đọc tài liệu scan (OCR)       :2026-09-01, 2026-10-31
+    Trợ lý AI nâng cao            :2026-09-01, 2026-11-30
+    Mô hình AI và chi phí         :2026-09-01, 2026-11-30
+    Bảo mật quản trị và vận hành  :2026-08-24, 2026-12-06
+    section Planned
+    Agent và Skill tùy chỉnh      :2026-10-01, 2026-11-30
+    Kết nối nguồn dữ liệu mới     :2026-10-01, 2026-11-30
+    Giao diện và trải nghiệm      :2026-10-01, 2026-11-30
+    Voice STT batch               :v1, 2026-10-01, 2026-10-31
+    Meeting recording source      :v2, after v1, 2026-11-22
+    Meeting task extraction       :v3, after v2, 2026-12-06
+```
+
+Known blocking relations recorded in Linear:
+
+- MEM-91 speech-to-text blocks MEM-92 meeting task extraction.
+- MEM-110 interpreter blocks MEM-111 artifacts, MEM-120 skills and MEM-122 Craft; MEM-111 also blocks MEM-122.
+- MEM-98 usage recording blocks MEM-123 quotas.
+- MEM-124 API keys and personal access tokens block MEM-114 public MCP server.
+
+Candidates are recorded so they can be prioritized, not as commitments. Promote one into a committed window only with an issue, an active increment and a confirmed owner.
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
@@ -111,7 +177,6 @@ MEM-36 and MEM-68 are Done. MEM-55, MEM-25 and MEM-69 are In Progress with Nhat 
 ## Other tracked work
 
 - [MEM-74](https://linear.app/memory-os/issue/MEM-74), Vietnamese/English UI localization, is Todo with `dathip04`.
-- [MEM-100](https://linear.app/memory-os/issue/MEM-100) (Todo) is the agent activity timeline: persisted step and reasoning parts rendered with assistant-ui grouped parts. [MEM-101](https://linear.app/memory-os/issue/MEM-101) (Backlog) is Deep research and is blocked by MEM-100. MEM-100 is listed under Active; MEM-101 has no increment record yet.
 - [MEM-77](https://linear.app/memory-os/issue/MEM-77) is Todo: the [backend foundation](increments/active/mem-77-provider-backend/design.md) is merged through PR #88; the issue continues catalog administration UI and local OpenAI-compatible provider integration.
 - [MEM-83](https://linear.app/memory-os/issue/MEM-83) is In Review for the latest `vadan.app` presentation work; MEM-82 is Done.
 

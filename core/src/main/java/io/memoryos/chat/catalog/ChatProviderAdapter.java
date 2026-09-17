@@ -17,9 +17,6 @@ public interface ChatProviderAdapter {
      */
     default List<KnownModel> knownModels() { return List.of(); }
 
-    /** Protocol support for forcing a named tool on the first request, not native Web search. */
-    default boolean supportsRequiredToolChoice() { return false; }
-
     /** Whether this protocol can host provider-side Web search at all; per-model activation stays explicit. */
     default boolean nativeWebSearch() { return false; }
 
@@ -37,8 +34,11 @@ public interface ChatProviderAdapter {
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 
-    /** Own all clients created here; disable automatic retries and apply the supplied deadline. */
-    Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout);
+    /**
+     * Own all clients created here and disable automatic retries. {@code readTimeout} bounds connecting and each
+     * read/write gap, never a whole streamed call: a Chat turn has no total deadline.
+     */
+    Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout);
 
     enum CredentialRequirement { REQUIRED, OPTIONAL, NONE }
 

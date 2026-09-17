@@ -43,9 +43,15 @@ export const toolEventSchema = z.object({
     .default(null),
   documents: z.array(readingDocumentSchema).max(10).default([]),
   durationMs: z.number().int().nonnegative().nullable().default(null),
+  /** A deep research agent's own step names its agent call; the agent call carries its tab. */
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+  tabIndex: z.number().int().min(0).max(2).nullable().default(null),
 });
 // Reasoning shares the answer chunking, so one event can exceed a single provider delta.
-export const reasoningEventSchema = z.object({ text: z.string().min(1).max(1_000_000) });
+export const reasoningEventSchema = z.object({
+  text: z.string().min(1).max(1_000_000),
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+});
 
 export const activitySchema = z
   .object({
@@ -61,7 +67,7 @@ export const activitySchema = z
           queries: z.array(z.string().min(1).max(500)).max(8).default([]),
           filters: filtersSchema.nullish(),
           documents: z.array(readingDocumentSchema).max(10).default([]),
-          citations: z.array(z.number().int().min(1).max(24)).max(24).default([]),
+          citations: z.array(z.number().int().min(1)).default([]),
         }),
       )
       .max(32)
@@ -159,7 +165,7 @@ export class ActivityChunks {
       if (!cited.includes(event.source.citationId))
         this.citations = {
           ...this.citations,
-          [event.toolCallId]: [...cited, event.source.citationId].slice(0, 24),
+          [event.toolCallId]: [...cited, event.source.citationId],
         };
       // Hosted search cites after its step completes; a finished part keeps its output and the
       // citations travel in message metadata instead.

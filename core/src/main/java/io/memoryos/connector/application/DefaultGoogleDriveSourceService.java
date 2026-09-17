@@ -24,6 +24,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.connector.persistence.JdbcSourceGroupRepository;
@@ -502,7 +503,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         if (intent.name() != null) {
             var creation = sourceAccess.creation(intent.actorId(), SourceType.GOOGLE_DRIVE, intent.access(), intent.groupIds());
             drive.create(tenant, source, intent.actorId(), intent.name(), new CredentialId(Objects.requireNonNull(intent.credentialId())),
-                    intent.scopeMode(), roots, creation.access());
+                    intent.scopeMode(), roots, creation.access(),
+                    creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId());
             sourceGroups.replace(tenant, source, creation.groupIds());
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {

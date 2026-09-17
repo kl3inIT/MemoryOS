@@ -140,7 +140,12 @@ test("hides owner UI and blocks member administration deep links without request
 test("signs out from the account menu with the same-origin guard", async ({ page }) => {
   let logoutMethod: string | undefined;
   let logoutGuard: string | undefined;
+  let signedOut = false;
   await page.route("**/api/identity/me", async (route) => {
+    if (signedOut) {
+      await route.fulfill({ status: 401 });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -150,6 +155,31 @@ test("signs out from the account menu with the same-origin guard", async ({ page
   await page.route("**/logout", async (route) => {
     logoutMethod = route.request().method();
     logoutGuard = route.request().headers()["x-memoryos-csrf"];
+    signedOut = true;
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Tenant owner" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+
+  // The server ended the provider session, so the reloaded app is signed out and goes straight to sign-in.
+  await expect(page).toHaveURL(/\/login\/oauth2\/code\/memoryos\?/, { timeout: 15_000 });
+  expect(logoutMethod).toBe("POST");
+  expect(logoutGuard).toBe("1");
+});
+
+test("opens the provider logout page when the server could not end the provider session", async ({
+  page,
+}) => {
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OWNER_SESSION),
+    });
+  });
+  await page.route("**/logout", async (route) => {
     await route.fulfill({
       status: 204,
       headers: { "X-MemoryOS-Logout-Location": "/signed-out-test" },
@@ -168,8 +198,6 @@ test("signs out from the account menu with the same-origin guard", async ({ page
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
-  expect(logoutMethod).toBe("POST");
-  expect(logoutGuard).toBe("1");
 });
 
 test("persists the selected dark theme", async ({ page }) => {

@@ -227,17 +227,18 @@ public class JdbcGoogleDriveSourceRepository {
     }
 
     public SourceId create(TenantId tenant, SourceId source, ActorId actor, String name, CredentialId credential, ScopeMode scopeMode,
-            List<Root> roots, SourceAccess access) {
+            List<Root> roots, SourceAccess access, @Nullable ActorId managerActor) {
         UUID connector = UUID.randomUUID();
         jdbc.sql("""
                 INSERT INTO connectors (id, tenant_id, name, connector_type, status)
                 VALUES (:id, :tenant, :name, 'GOOGLE_DRIVE', 'ACTIVE')
                 """).param("id", connector).param("tenant", tenant.value()).param("name", name).update();
         jdbc.sql("""
-                INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id)
-                VALUES (:id, :tenant, :connector, :credential, :access, 'NOT_STARTED', :actor)
+                INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status, created_by_actor_id, manager_actor_id)
+                VALUES (:id, :tenant, :connector, :credential, :access, 'NOT_STARTED', :actor, :managerActor)
                 """).param("id", source.value()).param("tenant", tenant.value()).param("access", access.name())
-                .param("connector", connector).param("credential", credential.value()).param("actor", actor.value()).update();
+                .param("connector", connector).param("credential", credential.value()).param("actor", actor.value())
+                .param("managerActor", managerActor == null ? null : managerActor.value()).update();
         initialize(tenant, source, scopeMode);
         insertRoots(tenant, source, roots);
         return source;
