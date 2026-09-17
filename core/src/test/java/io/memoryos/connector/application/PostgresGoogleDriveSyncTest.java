@@ -120,10 +120,10 @@ class PostgresGoogleDriveSyncTest {
                 .param("tenant", tenant.value()).param("actor", scheduleOwner.value()).update();
         authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         sources = new JdbcSourceRepository(jdbc, event -> { });
-        var pair = tx.execute(_ -> sources.createFileSource(tenant, scheduleOwner, "Drive", io.memoryos.connector.SourceAccess.RESTRICTED, scheduleOwner));
+        var pair = tx.execute(_ -> sources.createFileSource(tenant, scheduleOwner, "Drive", io.memoryos.connector.SourceAccess.PRIVATE, scheduleOwner));
         source = Objects.requireNonNull(pair).sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
-        jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE id=:id").param("id", source.value()).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
         items = new JdbcSourceItemRepository(jdbc);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         roots = new JdbcGoogleDriveSourceRepository(jdbc);

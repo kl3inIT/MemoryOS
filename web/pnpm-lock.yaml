@@ -35,6 +35,15 @@ importers:
       '@fontsource-variable/hanken-grotesk':
         specifier: 5.3.0
         version: 5.3.0
+      '@iconify-icons/simple-icons':
+        specifier: ^2.0.3
+        version: 2.0.3
+      '@iconify-icons/vscode-icons':
+        specifier: ^2.0.4
+        version: 2.0.4
+      '@iconify/react':
+        specifier: ^6.0.2
+        version: 6.0.2(react@19.3.0)
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
@@ -599,6 +608,20 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
+
+  '@iconify-icons/simple-icons@2.0.3':
+    resolution: {integrity: sha512-dD0hLlAnjm5Aw4/crbbEfHzU+0JUd0PLsfZIo4AwDae07kBFM+Gx3WK8YTJahhdEzmHn2/SSRggI9DdVcCyHwg==}
+
+  '@iconify-icons/vscode-icons@2.0.4':
+    resolution: {integrity: sha512-B5LxcCGRKScbGC8+3S2ehdiPJJv9c7xCUzjvobrMcLpPn+CXo8h25wS3ivajNQKYpwp8G/mh/gZBk2BEJmrSOw==}
+
+  '@iconify/react@6.0.2':
+    resolution: {integrity: sha512-SMmC2sactfpJD427WJEDN6PMyznTFMhByK9yLW0gOTtnjzzbsi/Ke/XqsumsavFPwNiXs8jSiYeZTmLCLwO+Fg==}
+    peerDependencies:
+      react: '>=16'
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -5411,6 +5434,21 @@ snapshots:
   '@hono/node-server@2.1.1(hono@4.13.7)':
     dependencies:
       hono: 4.13.7
+
+  '@iconify-icons/simple-icons@2.0.3':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-icons/vscode-icons@2.0.4':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/react@6.0.2(react@19.3.0)':
+    dependencies:
+      '@iconify/types': 2.0.0
+      react: 19.3.0
+
+  '@iconify/types@2.0.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

@@ -55,7 +55,8 @@ final class GoogleDriveSourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody CreateGoogleDriveSourceRequest body) {
         var receipt = sources.create(identity.actorId(), body.requestId(), body.name(), new CredentialId(body.credentialId()),
-                body.scopeMode(), body.links(), body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList());
+                body.scopeMode(), body.links(), body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList(),
+                body.access());
         return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
                 .body(GoogleDriveSelectionReceiptResponse.from(receipt));
     }

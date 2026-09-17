@@ -358,6 +358,11 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty())
                 .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("status", "FAILED", "SUCCEEDED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.totalItems").value(3));
         mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(member)))
                 .andExpect(status().isForbidden());
     }
@@ -697,7 +702,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
                 .andExpect(jsonPath("$.syncIntervalMinutes").value(17)).andExpect(jsonPath("$.scheduleRevision").value(2));
         mockMvc.perform(get("/api/sources/{id}/google-drive", other).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(5))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(30))
                 .andExpect(jsonPath("$.scheduleRevision").value(1));
         googleAuthorizations.disconnect(owner.getPrincipal().actorId(), credential, 1);
         org.mockito.Mockito.clearInvocations(googleProvider);
@@ -756,7 +761,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":15}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(5))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.syncIntervalMinutes").value(30))
                 .andExpect(jsonPath("$.scheduleRevision").value(1));
     }
 
@@ -1165,9 +1170,9 @@ class SourceApiIntegrationTest {
         var other = new io.memoryos.iam.group.GroupId(otherGroupId);
         UUID managerActorId = manager.getPrincipal().actorId().value();
         String sharedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Shared source",
-                List.of(managed, other), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                List.of(managed, other), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         String onlySourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Only source",
-                List.of(managed), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                List.of(managed), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
 
         // Both associations answer to this Group's manager, whatever authority they hold over the Sources.
         mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
@@ -1236,9 +1241,9 @@ class SourceApiIntegrationTest {
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
         String managedSourceId = sourceManagement.createFileSource(manager.getPrincipal().actorId(),
                 "Manager source", List.of(new io.memoryos.iam.group.GroupId(managedGroupId)),
-                io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         String hiddenSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
-                "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.RESTRICTED).id().value().toString();
+                "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         ApiUpload managedUpload = uploadAndFinalize(
                 manager,
                 managedSourceId,
@@ -1321,7 +1326,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Unattached manager create\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.access").value("RESTRICTED"))
+                .andExpect(jsonPath("$.access").value("PRIVATE"))
                 .andExpect(jsonPath("$.managerActorId").value(manager.getPrincipal().actorId().value().toString()));
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(manager))
@@ -1344,7 +1349,15 @@ class SourceApiIntegrationTest {
                         .with(authentication(manager)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Scoped private\",\"groupIds\":[\"%s\"]}".formatted(managedGroupId)))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("RESTRICTED"));
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.access").value("PRIVATE"));
+        mockMvc.perform(post("/api/sources/file")
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"File sync\",\"access\":\"SYNC\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        mockMvc.perform(post("/api/sources/{sourceId}/access", managedSourceId)
+                        .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"access\":\"SYNC\"}"))
+                .andExpect(status().isConflict());
 
         // Other tests share this Tenant and add their own "Scoped" Groups, so search for this one by its unique name.
         mockMvc.perform(get("/api/sources/group-options").param("search", managedGroupId.toString())

@@ -56,7 +56,10 @@ test("scoped setup uses credential actions and requires managed groups before pr
     .fill("https://drive.google.com/file/d/file-a/view");
   // A Source may start with no Group; its recorded manager attaches it when ready.
   await expect(page.getByRole("button", { name: "Create Source", exact: true })).toBeEnabled();
-  await page.getByRole("checkbox", { name: /Managed team/ }).check();
+  await page.getByRole("button", { name: "Access groups" }).click();
+  await page.getByRole("option", { name: "Managed team" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Remove Managed team" })).toBeVisible();
   const submitted = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&

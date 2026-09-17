@@ -163,7 +163,7 @@ After the gate, the consumer read API gained its first test: `readByDocument` re
 
 ## Live Google sharing evidence — 2026-09-14
 
-Local runtime from this branch: API, Worker and Vite web on a fresh Arconia PostgreSQL at V55 (V62 after the 2026-09-15 renumbering, V70 after the 2026-09-16 renumbering), connected through the real Google OAuth flow with the user's own account and `drive.readonly`. The Source used Specific scope on a user-owned fixture folder of twelve small files (text, CSV, DOCX, XLSX, PPTX, PDF). The user made every sharing change on that folder in Google Drive. After each change, Sync now was triggered in the Orca browser, and the database and inspector API were read. E-mail addresses were compared in SQL and never printed or recorded.
+Local runtime from this branch: API, Worker and Vite web on a fresh Arconia PostgreSQL at V55 (V62 after the 2026-09-15 renumbering, V70 after the 2026-09-16 renumbering, V76 after the 2026-09-17 post-merge renumbering), connected through the real Google OAuth flow with the user's own account and `drive.readonly`. The Source used Specific scope on a user-owned fixture folder of twelve small files (text, CSV, DOCX, XLSX, PPTX, PDF). The user made every sharing change on that folder in Google Drive. After each change, Sync now was triggered in the Orca browser, and the database and inspector API were read. E-mail addresses were compared in SQL and never printed or recorded.
 
 At baseline the folder held an owner and two direct writers. Every file carried the same three entries with `permissionDetails[0].inherited = true` and no `inheritedFrom`, which is the My Drive behaviour the spec warns about. One writer's folder permission was then changed:
 
@@ -206,7 +206,7 @@ The inspector tab, panel, its 68 panel-only translations, both ACL endpoints and
 
 ## Redundant content version removal — 2026-09-14
 
-[MEM-104](https://linear.app/memory-os/issue/MEM-104): same-content re-synchronization already refreshes the current version's `provider_version` in place, so `google_drive_membership.content_provider_version` and the `unchanged()` fallback that read it were redundant. V69 (then V61) no longer adds the column; `observe` has one four-argument form, `unchanged()` matches the current version's provider version exactly and `releaseConfirmed` compares it with `m.provider_version`. The migration is unreleased, so it was edited in place; a local database that already applied the earlier version must be recreated (Flyway checksum).
+[MEM-104](https://linear.app/memory-os/issue/MEM-104): same-content re-synchronization already refreshes the current version's `provider_version` in place, so `google_drive_membership.content_provider_version` and the `unchanged()` fallback that read it were redundant. V75 (then V69, V61) no longer adds the column; `observe` has one four-argument form, `unchanged()` matches the current version's provider version exactly and `releaseConfirmed` compares it with `m.provider_version`. The migration is unreleased, so it was edited in place; a local database that already applied the earlier version must be recreated (Flyway checksum).
 
 - `:core:compileTestJava`, `:api:compileTestJava` and `:worker:compileTestJava` passed.
 - `PostgresGoogleDriveSyncTest` 46/46 (including unchanged, same-content and lost-access paths), `PostgresSourceRunHistoryTest` 13/13 and `PostgresGoogleDriveAclRepositoryTest` 19/19 passed.
@@ -216,3 +216,7 @@ The inspector tab, panel, its 68 panel-only translations, both ACL endpoints and
 Merged `origin/main` at `83c61b8d` with no conflicts. Main had grown to V68, so the branch migrations moved to V69 (ACL snapshots) and V70 (run error messages); a local database that applied the intermediate branch V61/V62 fails Flyway validation and must be recreated. No deployed environment applied them.
 
 Focused gate on the merge commit: `PostgresGoogleDriveSyncTest` 46/46, `PostgresSourceRunHistoryTest` 13/13, `PostgresGoogleDriveAclRepositoryTest` 19/19 and `RestGoogleDriveProviderTest` 22/22 passed without skips; `:api:compileTestJava` and `:worker:compileTestJava` passed. The full `clean check` and `pnpm check` gates were last run on the 2026-09-15 merge commit `634d3388`; CI runs them on the pull request.
+
+## Post-merge renumbering — 2026-09-17
+
+After PR #151 merged, main carried duplicate versions: MEM-88's V69/V70 collided with MEM-112's `V69__mcp_client`/`V70__mcp_oauth_client_protocol`, failing every Flyway validation on main CI (run 35202612849). The MEM-88/105 migrations moved to V75 (ACL snapshots), V76 (run error messages), V77 (source access modes) and V78 (default sync interval) on the MEM-105/106 landing PR #218. A local database that applied V69-V72 from these branches fails Flyway validation and must be recreated; no deployed environment applied them.

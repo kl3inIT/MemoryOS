@@ -6,9 +6,23 @@ import { BookOpen, ChevronDown, ChevronRight, Files, ListFilter, Settings } from
 import { useMemo, useState, type ReactNode } from "react";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import {
   Table,
@@ -21,8 +35,15 @@ import {
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { listSourcesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { findSourceProvider } from "./source-provider-catalog";
+import {
+  findSourceProvider,
+  sourceProviders,
+  type SourceProvider,
+} from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+
+/** Radix selects reject an empty option value, so "any" stands for an unset filter. */
+const anyFilterValue = "any";
 
 export function SourcesPage() {
   const ui = useAppTranslation();
@@ -68,21 +89,73 @@ export function SourcesPage() {
           </Button>
         </div>
       ) : sources.length === 0 ? (
-        <div className="py-14 text-center">
-          <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-            <Files className="size-5" aria-hidden="true" />
-          </span>
-          <h2 className="mt-4 font-heading-h3 text-content-primary">{ui("No sources yet")}</h2>
-          {canCreate ? (
-            <Button asChild size="sm" className="mt-4">
-              <Link to="/admin/sources/new">{ui("Add source")}</Link>
-            </Button>
-          ) : null}
-        </div>
+        <SourcesEmpty canCreate={canCreate} />
       ) : (
         <SourceList sources={sources} />
       )}
     </SettingsLayout>
+  );
+}
+
+/** The action that starts each provider's setup, in the words of the first step. */
+const emptyProviderActions: Record<SourceProvider["type"], string> = {
+  GOOGLE_DRIVE: "Connect Google Drive",
+  FILE: "Upload files",
+};
+
+/**
+ * The first run follows Fabric's "Let's add our first connection": the providers that can be
+ * connected, one sentence on what they are for, and an action for each.
+ */
+function SourcesEmpty({ canCreate }: { canCreate: boolean }) {
+  const ui = useAppTranslation();
+
+  return (
+    <Empty className="min-h-80 border border-dashed border-border-default bg-surface-base">
+      <EmptyHeader>
+        <EmptyMedia className="flex-row gap-3">
+          {sourceProviders.map((provider) => {
+            const ProviderIcon = provider.icon;
+            return (
+              <span
+                key={provider.type}
+                className="grid size-12 place-items-center rounded-2xl border border-border-subtle bg-surface-raised shadow-xs"
+              >
+                <ProviderIcon className="size-6" aria-hidden="true" />
+              </span>
+            );
+          })}
+        </EmptyMedia>
+        <EmptyTitle>{ui("No sources yet")}</EmptyTitle>
+        <EmptyDescription>
+          {ui(
+            "Connect Google Drive or upload files. MemoryOS keeps them indexed, so Search and Chat can cite them.",
+          )}
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="max-w-none flex-row flex-wrap justify-center">
+        {canCreate ? (
+          sourceProviders.map((provider) => {
+            const ProviderIcon = provider.icon;
+            return (
+              <Button
+                key={provider.type}
+                asChild
+                size="sm"
+                prominence={provider.type === "GOOGLE_DRIVE" ? "primary" : "secondary"}
+              >
+                <Link to={provider.setupPath}>
+                  <ProviderIcon className="size-4" aria-hidden="true" />
+                  {ui(emptyProviderActions[provider.type])}
+                </Link>
+              </Button>
+            );
+          })
+        ) : (
+          <EmptyDescription>{ui("Ask a workspace manager to add a source.")}</EmptyDescription>
+        )}
+      </EmptyContent>
+    </Empty>
   );
 }
 
@@ -161,40 +234,53 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Status")}
             <Select
-              size="sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              value={statusFilter || anyFilterValue}
+              onValueChange={(next) => setStatusFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All statuses")}</option>
-              <option value="NOT_STARTED">{ui("Scheduled")}</option>
-              <option value="INDEXING">{ui("Indexing")}</option>
-              <option value="ACTIVE">{ui("Active")}</option>
-              <option value="FAILED">{ui("Failed")}</option>
-              <option value="DELETING">{ui("Deleting")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All statuses")}</SelectItem>
+                <SelectItem value="NOT_STARTED">{ui("Scheduled")}</SelectItem>
+                <SelectItem value="INDEXING">{ui("Indexing")}</SelectItem>
+                <SelectItem value="ACTIVE">{ui("Active")}</SelectItem>
+                <SelectItem value="FAILED">{ui("Failed")}</SelectItem>
+                <SelectItem value="DELETING">{ui("Deleting")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Provider")}
             <Select
-              size="sm"
-              value={providerFilter}
-              onChange={(event) => setProviderFilter(event.target.value)}
+              value={providerFilter || anyFilterValue}
+              onValueChange={(next) => setProviderFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All providers")}</option>
-              <option value="FILE">{ui("File")}</option>
-              <option value="GOOGLE_DRIVE">{ui("Google Drive")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All providers")}</SelectItem>
+                <SelectItem value="FILE">{ui("File")}</SelectItem>
+                <SelectItem value="GOOGLE_DRIVE">{ui("Google Drive")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <label className="grid gap-1.5 font-secondary-action text-content-secondary">
             {ui("Access")}
             <Select
-              size="sm"
-              value={accessFilter}
-              onChange={(event) => setAccessFilter(event.target.value)}
+              value={accessFilter || anyFilterValue}
+              onValueChange={(next) => setAccessFilter(next === anyFilterValue ? "" : next)}
             >
-              <option value="">{ui("All access")}</option>
-              <option value="PUBLIC">{ui("Workspace members")}</option>
-              <option value="RESTRICTED">{ui("Restricted")}</option>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={anyFilterValue}>{ui("All access")}</SelectItem>
+                <SelectItem value="PUBLIC">{ui("Workspace members")}</SelectItem>
+                <SelectItem value="PRIVATE">{ui("Private")}</SelectItem>
+                <SelectItem value="SYNC">{ui("Auto Sync")}</SelectItem>
+              </SelectContent>
             </Select>
           </label>
           <Button
@@ -213,7 +299,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
       ) : null}
 
       <div
-        className="relative overflow-x-auto rounded-lg"
+        className="relative overflow-x-auto"
         tabIndex={0}
         role="region"
         aria-label={ui("Connected sources table")}
@@ -277,7 +363,8 @@ function SourceGroupBody({
   const workspaceAccessCount = group.sources.filter((source) => source.access === "PUBLIC").length;
 
   return (
-    <TableBody>
+    // TableBody clears the last row's border; a group's last Source row closes its frame.
+    <TableBody className="[&_tr:last-child]:border-x [&_tr:last-child]:border-b">
       <TableRow aria-hidden="true">
         <TableCell colSpan={6} className="h-4 p-0" />
       </TableRow>

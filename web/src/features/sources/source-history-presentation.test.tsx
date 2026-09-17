@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { historyDuration, runHasNoChanges } from "./source-history";
+import { historyDuration, historyRelativeTime, runHasNoChanges } from "./source-history";
 import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
 import { SourceRunHistory } from "./source-run-history";
 
@@ -90,11 +91,11 @@ function showHistory(items: SourceRun[], runErrors: SourceRunError[] = []) {
 describe("Source execution and current-file history", () => {
   it("shows unchanged source runs with real per-run counters rather than new-document or corpus totals", () => {
     showHistory([run]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.getByText("No changes")).toBeInTheDocument();
     expect(list.getByText("30 sec")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
-    const detail = within(screen.getByRole("complementary", { name: "Run details" }));
+    const detail = within(screen.getByRole("dialog", { name: "Run details" }));
     expect(detail.getByText("Checked").nextElementSibling).toHaveTextContent(/^3$/);
     expect(detail.getByText("Indexed").nextElementSibling).toHaveTextContent(/^0$/);
     expect(detail.getByText("Unchanged").nextElementSibling).toHaveTextContent(/^3$/);
@@ -110,10 +111,10 @@ describe("Source execution and current-file history", () => {
       counts: { ...run.counts, scanned: null, published: null, unchanged: null },
     };
     showHistory([legacy]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.queryByText("No changes")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
-    const detail = within(screen.getByRole("complementary", { name: "Run details" }));
+    const detail = within(screen.getByRole("dialog", { name: "Run details" }));
     expect(detail.getByText("Checked").nextElementSibling).toHaveTextContent(/^Unknown$/);
     expect(detail.getByText("Indexed").nextElementSibling).toHaveTextContent(/^Unknown$/);
     expect(detail.getByText("Unchanged").nextElementSibling).toHaveTextContent(/^Unknown$/);
@@ -128,10 +129,66 @@ describe("Source execution and current-file history", () => {
       counts: { ...run.counts, acquired: 1, indexingPending: 1 },
     };
     showHistory([pending]);
-    const list = within(screen.getByRole("list", { name: /indexing attempts/i }));
+    const list = within(screen.getByRole("table", { name: /indexing attempts/i }));
     expect(list.getByText("In progress")).toBeInTheDocument();
     expect(list.queryByText("No changes")).not.toBeInTheDocument();
     expect(list.queryByText("Completed", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("returns focus to the control that opened the run Sheet", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    const opener = screen.getByRole("button", { name: /^View details for run started/ });
+    await user.click(opener);
+    await screen.findByRole("dialog", { name: "Run details" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("filters runs by several statuses through the API and clears the filter", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    const statusesOf = () =>
+      vi
+        .mocked(fetch)
+        .mock.calls.map(([request]) =>
+          new URL((request as Request).url).searchParams.getAll("status").join(","),
+        );
+
+    await user.click(screen.getByRole("button", { name: /^Status$/ }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Failed" }));
+    // The menu stays open, so a second status is one more click.
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Completed" }));
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.getByRole("button", { name: /^Status:\s*Completed, Failed/ }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(statusesOf()).toContain("SUCCEEDED,FAILED"));
+
+    await user.click(screen.getByRole("button", { name: "Clear status filter" }));
+    expect(screen.getByRole("button", { name: /^Status$/ })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Clear status filter" })).not.toBeInTheDocument();
+    await waitFor(() => expect(statusesOf().at(-1)).toBe(""));
+  });
+
+  it("opens a run from its row with its trigger, stages and file counts", async () => {
+    const user = userEvent.setup();
+    showHistory([run]);
+    await user.click(screen.getByText("Manual"));
+    const detail = within(await screen.findByRole("dialog", { name: "Run details" }));
+    expect(detail.getByText("Trigger").nextElementSibling).toHaveTextContent("Manual");
+    expect(detail.getByText("Read content").parentElement).toHaveTextContent(/30 sec\s*Completed/);
+    expect(detail.getByText("Index content").parentElement).toHaveTextContent("Not required");
+    expect(detail.queryByText("Removed")).not.toBeInTheDocument();
+  });
+
+  it("words recent times relatively and leaves older or future ones absolute", () => {
+    const now = Date.parse("2026-09-09T09:06:30Z");
+    expect(historyRelativeTime("2026-09-09T09:00:00Z", now)).toBe("6 minutes ago");
+    expect(historyRelativeTime("2026-09-09T09:06:40Z", now)).toBe("now");
+    expect(historyRelativeTime("2026-09-01T09:00:00Z", now)).toBeNull();
+    expect(historyRelativeTime("2026-09-09T09:30:00Z", now)).toBeNull();
   });
 
   it("preserves failures and refuses no-change claims when prior work or unknown outcomes remain", () => {

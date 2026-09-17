@@ -1,18 +1,27 @@
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
+import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, KeyRound, Pencil, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Tabs } from "radix-ui";
+import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   useApplicationSession,
@@ -54,12 +63,31 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
+import { SourceHint } from "./source-hint";
 import { SourceSummaryCard } from "./source-summary-card";
+import {
+  formatSyncInterval,
+  maxSyncIntervalValue,
+  splitSyncInterval,
+  syncIntervalMinutes,
+  syncIntervalUnitName,
+  syncIntervalUnits,
+  type SyncIntervalUnit,
+} from "./sync-interval";
 import { can } from "@/lib/resource-permissions";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
-  minutes: string;
+  value: string;
+  unit: SyncIntervalUnit;
 };
+
+function intervalDraftOf({
+  syncIntervalMinutes: minutes,
+  scheduleRevision,
+}: GetGoogleDriveConfigurationResponse): IntervalDraft {
+  const { value, unit } = splitSyncInterval(minutes);
+  return { value: String(value), unit, scheduleRevision };
+}
 type DriveAction =
   | "sync"
   | "authorize"
@@ -67,7 +95,6 @@ type DriveAction =
   | "save-interval"
   | "reload-interval"
   | "pause";
-const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
   source,
@@ -171,14 +198,14 @@ export function GoogleDrivePanel({
   const hasSelectionChanges = editingSelection;
 
   const editingInterval = intervalDraft !== null;
-  const intervalMinutes = Number(intervalDraft?.minutes);
+  const intervalMinutes = intervalDraft
+    ? syncIntervalMinutes(intervalDraft.value, intervalDraft.unit)
+    : null;
   const intervalValidation =
-    intervalDraft &&
-    (!/^\d+$/.test(intervalDraft.minutes) ||
-      !Number.isInteger(intervalMinutes) ||
-      intervalMinutes < 1 ||
-      intervalMinutes > MAX_SYNC_INTERVAL_MINUTES)
-      ? "Enter a whole number of minutes from 1 to 2147483647."
+    intervalDraft && intervalMinutes === null
+      ? appText("Enter a whole number from 1 to {{v1}}.", {
+          v1: maxSyncIntervalValue(intervalDraft.unit).toLocaleString(uiLocale()),
+        })
       : null;
   const intervalConflicted =
     intervalRevisionConflict ||
@@ -437,7 +464,7 @@ export function GoogleDrivePanel({
   }
 
   async function saveInterval(signal: AbortSignal) {
-    if (!intervalDraft || intervalValidation || intervalConflicted || stale) return;
+    if (!intervalDraft || intervalMinutes === null || intervalConflicted || stale) return;
     const saved = await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
       headers: { ...sameOriginMutationHeaders, "If-Match": `"${intervalDraft.scheduleRevision}"` },
@@ -452,9 +479,8 @@ export function GoogleDrivePanel({
     notify({
       tone: "success",
       title: "Automatic interval saved",
-      description: appText("Synchronizes every {{v1}} {{v2}}. Current work is unchanged.", {
-        v1: saved.syncIntervalMinutes,
-        v2: appText(saved.syncIntervalMinutes === 1 ? "minute" : "minutes"),
+      description: appText("Synchronizes every {{v1}}. Current work is unchanged.", {
+        v1: formatSyncInterval(saved.syncIntervalMinutes),
       }),
     });
     await refresh();
@@ -484,10 +510,7 @@ export function GoogleDrivePanel({
     const { data: saved } = await configurationQuery.refetch({ throwOnError: true });
     signal.throwIfAborted();
     if (!saved) return;
-    setIntervalDraft({
-      minutes: String(saved.syncIntervalMinutes),
-      scheduleRevision: saved.scheduleRevision,
-    });
+    setIntervalDraft(intervalDraftOf(saved));
     setIntervalRevisionConflict(false);
     notify({
       tone: "info",
@@ -662,10 +685,10 @@ export function GoogleDrivePanel({
   if (!configuration) {
     return (
       <>
-        <SourceSummaryCard source={source}>
+        <SourceSummaryCard source={source} className="mt-6">
           <div>
-            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-            <dd className="mt-2 text-content-muted">
+            <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+            <dd className="mt-1 flex min-h-8 items-center text-content-muted">
               {configurationQuery.isPending ? ui("Loading…") : ui("Unavailable")}
             </dd>
           </div>
@@ -691,187 +714,221 @@ export function GoogleDrivePanel({
           )}
         </div>
         {navigation}
-        <Tabs.Content value="content">{content}</Tabs.Content>
-        <Tabs.Content value="settings">{settings}</Tabs.Content>
+        <TabsContent value="content">{content}</TabsContent>
+        <TabsContent value="settings">{settings}</TabsContent>
       </>
     );
   }
 
   return (
     <section aria-label={ui("Google Drive configuration")} className="mt-6 space-y-5">
-      <div className="rounded-xl border border-border-subtle bg-surface-raised px-4 pb-4 sm:px-5 [&>dl]:my-0 [&>dl]:rounded-none [&>dl]:border-0 [&>dl]:px-0">
-        <SourceSummaryCard source={source}>
-          <div className="min-w-0" aria-live="polite">
-            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-            <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
-              <div className="flex flex-wrap items-center gap-2">
-                <span>
-                  {configuration.syncIntervalMinutes}{" "}
-                  {configuration.syncIntervalMinutes === 1 ? ui("minute") : ui("minutes")}
-                </span>
-                {canSchedule && !editingInterval ? (
+      <SourceSummaryCard
+        source={source}
+        header={
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
+                <HelpPopover label={ui("Synchronization")}>
+                  <p>
+                    {ui(
+                      "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
+                    )}
+                  </p>
+                </HelpPopover>
+              </div>
+              <div className="flex items-center gap-2">
+                <SourceHint hint={ui("Refresh status")}>
                   <IconButton
-                    ref={intervalEditButton}
-                    size="sm"
-                    aria-label={ui("Edit interval")}
-                    prominence="tertiary"
-                    disabled={controlsDisabled}
-                    onClick={() => {
-                      setIntervalDraft({
-                        minutes: String(configuration.syncIntervalMinutes),
-                        scheduleRevision: configuration.scheduleRevision,
-                      });
-                      setIntervalError(null);
-                    }}
+                    aria-label={ui("Refresh status")}
+                    disabled={disabled || busy}
+                    pending={configurationQuery.isFetching}
+                    onClick={() => void refreshStatus()}
                   >
-                    <Pencil aria-hidden="true" />
+                    <RefreshCw aria-hidden="true" />
                   </IconButton>
+                </SourceHint>
+                {connected && canSynchronize ? (
+                  <Button
+                    disabled={
+                      controlsDisabled ||
+                      hasSelectionChanges ||
+                      configuration.pendingWork ||
+                      source.pendingWork
+                    }
+                    pending={activeAction === "sync" || observingSynchronization}
+                    onClick={() => run("sync", sync)}
+                  >
+                    <RefreshCw /> {ui("Synchronize now")}
+                  </Button>
                 ) : null}
               </div>
-              {canSchedule && intervalDraft ? (
-                <form
-                  className="space-y-3"
-                  noValidate
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!controlsDisabled && !intervalConflicted && !intervalValidation)
-                      runInterval("save-interval", saveInterval);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && !busy) {
-                      event.preventDefault();
-                      cancelInterval();
-                    }
+            </div>
+            {configuration.errorCode ? (
+              <p className="mt-2 text-sm text-status-danger-content">
+                {ui(sourceStatusMessage(configuration.errorCode))}
+              </p>
+            ) : null}
+          </>
+        }
+      >
+        <div className="min-w-0" aria-live="polite">
+          <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+          <dd className="mt-1 min-w-0 space-y-3 text-content-primary">
+            <div className="flex min-h-8 flex-wrap items-center gap-2">
+              {canPause ? (
+                <Switch
+                  checked={!configuration.syncPaused}
+                  disabled={controlsDisabled}
+                  aria-label={ui("Automatic synchronization")}
+                  onCheckedChange={() => run("pause", togglePause)}
+                />
+              ) : null}
+              <span>
+                {ui("Every {{v1}}", {
+                  v1: formatSyncInterval(configuration.syncIntervalMinutes),
+                })}
+              </span>
+              {configuration.syncPaused ? (
+                <StatusBadge tone="neutral" size="sm">
+                  {ui("Paused")}
+                </StatusBadge>
+              ) : null}
+              {canSchedule && !editingInterval ? (
+                <IconButton
+                  ref={intervalEditButton}
+                  size="sm"
+                  aria-label={ui("Edit interval")}
+                  prominence="tertiary"
+                  disabled={controlsDisabled}
+                  onClick={() => {
+                    setIntervalDraft(intervalDraftOf(configuration));
+                    setIntervalError(null);
                   }}
                 >
-                  <label className="block space-y-1">
-                    <span>{ui("Interval in minutes")}</span>
+                  <Pencil aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </div>
+            {canSchedule && intervalDraft ? (
+              <form
+                className="space-y-3"
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!controlsDisabled && !intervalConflicted && !intervalValidation)
+                    runInterval("save-interval", saveInterval);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && !busy) {
+                    event.preventDefault();
+                    cancelInterval();
+                  }
+                }}
+              >
+                <div className="space-y-2">
+                  <span
+                    id={`sync-interval-label-${source.id}`}
+                    className="block text-sm font-medium text-content-primary"
+                  >
+                    {ui("Sync every")}
+                  </span>
+                  <div className="flex items-center gap-2">
                     <Input
                       ref={intervalInput}
                       type="number"
                       inputMode="numeric"
                       min={1}
-                      max={MAX_SYNC_INTERVAL_MINUTES}
+                      max={maxSyncIntervalValue(intervalDraft.unit)}
                       step={1}
                       required
-                      value={intervalDraft.minutes}
+                      value={intervalDraft.value}
                       disabled={controlsDisabled}
+                      aria-labelledby={`sync-interval-label-${source.id}`}
                       aria-invalid={Boolean(intervalValidation)}
                       aria-describedby={
                         intervalValidation ? `sync-interval-error-${source.id}` : undefined
                       }
+                      className="w-24"
                       onChange={(event) => {
-                        setIntervalDraft({ ...intervalDraft, minutes: event.target.value });
+                        setIntervalDraft({ ...intervalDraft, value: event.target.value });
                         setIntervalError(null);
                       }}
                     />
-                  </label>
-                  {intervalValidation ? (
-                    <p
-                      id={`sync-interval-error-${source.id}`}
-                      role="alert"
-                      className="text-status-danger-content"
+                    <Select
+                      value={intervalDraft.unit}
+                      disabled={controlsDisabled}
+                      onValueChange={(next) => {
+                        const unit = syncIntervalUnits.find((entry) => entry === next);
+                        if (!unit) return;
+                        setIntervalDraft({ ...intervalDraft, unit });
+                        setIntervalError(null);
+                      }}
                     >
-                      {ui(intervalValidation)}
-                    </p>
-                  ) : null}
-                  {intervalConflicted ? (
-                    <p role="alert" className="text-status-warning-content">
-                      {ui(
-                        "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.",
-                      )}
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="submit"
-                      disabled={
-                        controlsDisabled || intervalConflicted || Boolean(intervalValidation)
-                      }
-                      pending={activeAction === "save-interval"}
-                    >
-                      {ui("Save interval")}
-                    </Button>
-                    <Button prominence="tertiary" disabled={busy} onClick={cancelInterval}>
-                      {ui("Cancel")}
-                    </Button>
-                    {intervalConflicted ? (
-                      <Button
-                        prominence="secondary"
-                        disabled={disabled || busy || !canSchedule}
-                        pending={activeAction === "reload-interval"}
-                        onClick={() => runInterval("reload-interval", reloadInterval)}
+                      <SelectTrigger
+                        aria-label={ui("Interval unit")}
+                        className="h-(--control-height-md) min-w-28"
                       >
-                        {ui("Reload saved interval")}
-                      </Button>
-                    ) : null}
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {syncIntervalUnits.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {syncIntervalUnitName(unit, Number(intervalDraft.value) || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </form>
-              ) : null}
-              {intervalError ? (
-                <p role="alert" className="text-status-danger-content">
-                  {ui(intervalError)}
-                </p>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
-            <dd className="mt-2 text-content-primary">
-              {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
-            </dd>
-          </div>
-        </SourceSummaryCard>
-        <div className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <SourceSectionIcon icon={RefreshCw} />
-            <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
-            <HelpPopover label={ui("Synchronization")}>
-              <p>
-                {ui(
-                  "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
-                )}
+                </div>
+                {intervalValidation ? (
+                  <p
+                    id={`sync-interval-error-${source.id}`}
+                    role="alert"
+                    className="text-status-danger-content"
+                  >
+                    {ui(intervalValidation)}
+                  </p>
+                ) : null}
+                {intervalConflicted ? (
+                  <p role="alert" className="text-status-warning-content">
+                    {ui(
+                      "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.",
+                    )}
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="submit"
+                    disabled={controlsDisabled || intervalConflicted || Boolean(intervalValidation)}
+                    pending={activeAction === "save-interval"}
+                  >
+                    {ui("Save interval")}
+                  </Button>
+                  <Button prominence="tertiary" disabled={busy} onClick={cancelInterval}>
+                    {ui("Cancel")}
+                  </Button>
+                  {intervalConflicted ? (
+                    <Button
+                      prominence="secondary"
+                      disabled={disabled || busy || !canSchedule}
+                      pending={activeAction === "reload-interval"}
+                      onClick={() => runInterval("reload-interval", reloadInterval)}
+                    >
+                      {ui("Reload saved interval")}
+                    </Button>
+                  ) : null}
+                </div>
+              </form>
+            ) : null}
+            {intervalError ? (
+              <p role="alert" className="text-status-danger-content">
+                {ui(intervalError)}
               </p>
-            </HelpPopover>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              prominence="tertiary"
-              disabled={disabled || busy}
-              pending={configurationQuery.isFetching}
-              onClick={() => void refreshStatus()}
-            >
-              <RefreshCw /> {ui("Refresh status")}
-            </Button>
-            {canPause ? (
-              <Button
-                prominence="secondary"
-                disabled={controlsDisabled}
-                pending={activeAction === "pause"}
-                onClick={() => run("pause", togglePause)}
-              >
-                {configuration.syncPaused
-                  ? ui("Resume automatic sync")
-                  : ui("Pause automatic sync")}
-              </Button>
             ) : null}
-            {connected && canSynchronize ? (
-              <Button
-                disabled={
-                  controlsDisabled ||
-                  hasSelectionChanges ||
-                  configuration.pendingWork ||
-                  source.pendingWork
-                }
-                pending={activeAction === "sync" || observingSynchronization}
-                onClick={() => run("sync", sync)}
-              >
-                <RefreshCw /> {ui("Synchronize now")}
-              </Button>
-            ) : null}
-          </div>
+          </dd>
         </div>
-      </div>
+      </SourceSummaryCard>
       {stale ? (
         <p role="alert" className="text-sm text-status-danger-content">
           {ui(
@@ -884,11 +941,6 @@ export function GoogleDrivePanel({
           {ui(error)}
         </p>
       ) : null}
-      {configuration.errorCode ? (
-        <p className="text-sm text-status-danger-content">
-          {ui(sourceStatusMessage(configuration.errorCode))}
-        </p>
-      ) : null}
       {!connected ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
           {ui(
@@ -897,7 +949,7 @@ export function GoogleDrivePanel({
         </p>
       ) : null}
       {navigation}
-      <Tabs.Content
+      <TabsContent
         value="settings"
         forceMount
         hidden={activeSection !== "settings"}
@@ -922,12 +974,12 @@ export function GoogleDrivePanel({
                 {configuration.accountEmail}
               </span>
               <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-                <span className="group-open:hidden">
+                <span className="group-data-[state=open]:hidden">
                   {canReauthorize || canRevoke ? ui("Manage connection") : ui("Connection details")}
                 </span>
-                <span className="hidden group-open:inline">{ui("Close")}</span>
+                <span className="hidden group-data-[state=open]:inline">{ui("Close")}</span>
                 <ChevronDown
-                  className="size-4 group-open:rotate-180 motion-safe:transition-transform"
+                  className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
                   aria-hidden="true"
                 />
               </span>
@@ -1057,8 +1109,8 @@ export function GoogleDrivePanel({
           </Collapsible>
         </section>
         {settings}
-      </Tabs.Content>
-      <Tabs.Content
+      </TabsContent>
+      <TabsContent
         value="content"
         forceMount
         hidden={activeSection !== "content"}
@@ -1095,7 +1147,7 @@ export function GoogleDrivePanel({
           </section>
         )}
         {content}
-      </Tabs.Content>
+      </TabsContent>
     </section>
   );
 }
