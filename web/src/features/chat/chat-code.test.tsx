@@ -57,14 +57,14 @@ describe("files run_python generated", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("opens the file in the side panel from its name", () => {
+  it("opens the file in the preview modal from its name", () => {
     const opened: unknown[] = [];
     render(
       <ChatPanelContext.Provider
         value={{
           panelId: "panel",
           open: () => {},
-          openFile: (selected) => opened.push(selected),
+          previewFile: (selected) => opened.push(selected),
           openArtifact: () => {},
           close: () => {},
         }}
@@ -74,9 +74,11 @@ describe("files run_python generated", () => {
     );
 
     const preview = screen.getByRole("button", { name: `Xem trước ${file.filename}` });
-    expect(preview).toHaveAttribute("aria-expanded", "false");
+    expect(preview).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(preview);
-    expect(opened).toEqual([{ id: file.id, filename: file.filename, generated: file }]);
+    expect(opened).toEqual([
+      { source: "generated", id: file.id, filename: file.filename, mediaType: file.mediaType },
+    ]);
   });
 
   it("keeps only well-formed files from a reloaded conversation", () => {

@@ -8718,6 +8718,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
+        \ cut at a row boundary"
+      operationId: previewChatFileSpreadsheet
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/passages:
     get:
       tags:
@@ -14317,15 +14373,6 @@ components:
         totalCharacters:
           type: integer
           format: int32
-    ChatFilePolicyResponse:
-      type: object
-      properties:
-        maxSizeBytes:
-          type: integer
-          format: int64
-        deploymentCeilingBytes:
-          type: integer
-          format: int64
     ChatSpreadsheetPreview:
       type: object
       properties:
@@ -14342,6 +14389,15 @@ components:
           type: string
         truncated:
           type: boolean
+    ChatFilePolicyResponse:
+      type: object
+      properties:
+        maxSizeBytes:
+          type: integer
+          format: int64
+        deploymentCeilingBytes:
+          type: integer
+          format: int64
     ApiProblem:
       type: object
       additionalProperties: false

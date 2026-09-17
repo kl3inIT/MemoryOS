@@ -64,6 +64,16 @@ class ChatFileController {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(search.read(identity.actorId(), fileId, generation, from));
     }
 
+    @GetMapping("/{fileId}/preview")
+    @Operation(operationId="previewChatFileSpreadsheet", summary="Read an owner-private xlsx attachment as CSV text per sheet, each cut at a row boundary")
+    @ApiResponse(responseCode="200",description="Sheets in workbook order",content=@Content(mediaType=MediaType.APPLICATION_JSON_VALUE, schema=@Schema(implementation=ChatFileArtifactController.SpreadsheetPreviewResponse.class)))
+    ResponseEntity<ChatFileArtifactController.SpreadsheetPreviewResponse> preview(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID fileId) {
+        var sheets = content.spreadsheet(identity.actorId(), fileId).stream()
+                .map(sheet -> new ChatFileArtifactController.SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(new ChatFileArtifactController.SpreadsheetPreviewResponse(sheets));
+    }
+
     @GetMapping(value="/{fileId}/content", produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @Operation(operationId="downloadChatFile", summary="Download an owner-private original file without inline execution")
     @ApiResponse(responseCode="200",description="Original file bytes",content=@Content(mediaType=MediaType.APPLICATION_OCTET_STREAM_VALUE, schema=@Schema(type="string",format="binary")))

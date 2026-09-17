@@ -1736,11 +1736,6 @@ export type ChatFileTextResponse = {
     totalCharacters?: number;
 };
 
-export type ChatFilePolicyResponse = {
-    maxSizeBytes?: number;
-    deploymentCeilingBytes?: number;
-};
-
 export type ChatSpreadsheetPreview = {
     sheets?: Array<ChatSpreadsheetSheet>;
 };
@@ -1749,6 +1744,11 @@ export type ChatSpreadsheetSheet = {
     name?: string;
     csv?: string;
     truncated?: boolean;
+};
+
+export type ChatFilePolicyResponse = {
+    maxSizeBytes?: number;
+    deploymentCeilingBytes?: number;
 };
 
 export type ApiProblem = {
@@ -8460,6 +8460,53 @@ export type ReadChatFileTextResponses = {
 };
 
 export type ReadChatFileTextResponse = ReadChatFileTextResponses[keyof ReadChatFileTextResponses];
+
+export type PreviewChatFileSpreadsheetData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/preview';
+};
+
+export type PreviewChatFileSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileSpreadsheetError = PreviewChatFileSpreadsheetErrors[keyof PreviewChatFileSpreadsheetErrors];
+
+export type PreviewChatFileSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileSpreadsheetResponse = PreviewChatFileSpreadsheetResponses[keyof PreviewChatFileSpreadsheetResponses];
 
 export type ReadChatFilePassagesData = {
     body?: never;

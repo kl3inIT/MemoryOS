@@ -5,8 +5,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
 import { ChatFileReader } from "./chat-file-reader";
-import type { GeneratedFile } from "./chat-code";
-import { ChatGeneratedFilePreview } from "./chat-generated-file-preview";
 import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
@@ -73,7 +71,6 @@ function subscribeWidth(notify: () => void) {
 export function ChatSourcePanel({
   id,
   sources,
-  file,
   artifact,
   citationId,
   onSelect,
@@ -82,7 +79,6 @@ export function ChatSourcePanel({
 }: {
   id: string;
   sources: ChatSource[];
-  file?: { id: string; filename: string; generated?: GeneratedFile };
   artifact?: ChatArtifact;
   citationId?: number;
   onSelect: (citationId?: number) => void;
@@ -115,7 +111,7 @@ export function ChatSourcePanel({
         return;
     }
     titleRef.current?.focus({ preventScroll: true });
-  }, [citationId, file?.id, artifact?.id, wide]);
+  }, [citationId, artifact?.id, wide]);
 
   useEffect(() => {
     if (!wide || expanded) return undefined;
@@ -162,8 +158,6 @@ export function ChatSourcePanel({
         >
           {artifact ? (
             <span title={artifact.title}>{artifact.title}</span>
-          ) : file ? (
-            <span title={file.filename}>{file.filename}</span>
           ) : selected?.web ? (
             ui("Nội dung trang Web")
           ) : selected ? (
@@ -172,7 +166,7 @@ export function ChatSourcePanel({
             t("sourcesCount", { total: format(sources.length) })
           )}
         </h2>
-        {selected && !artifact && !file && sources.length > 1 ? (
+        {selected && !artifact && sources.length > 1 ? (
           <div className="flex shrink-0 items-center gap-0.5">
             <span className="px-1 font-secondary-body whitespace-nowrap tabular-nums text-content-muted">
               {t("sourcePosition", { index: format(index + 1), total: format(sources.length) })}
@@ -197,7 +191,7 @@ export function ChatSourcePanel({
             </IconButton>
           </div>
         ) : null}
-        {wide && documentCitation && !artifact && !file ? (
+        {wide && documentCitation && !artifact ? (
           <IconButton
             ref={expandRef}
             prominence="internal"
@@ -211,9 +205,7 @@ export function ChatSourcePanel({
         <IconButton
           prominence="internal"
           size="sm"
-          aria-label={
-            artifact ? rendererText("closeArtifact") : file ? t("closeFile") : t("closeSources")
-          }
+          aria-label={artifact ? rendererText("closeArtifact") : t("closeSources")}
           onClick={onClose}
         >
           <X />
@@ -222,14 +214,6 @@ export function ChatSourcePanel({
       {artifact ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
           <ChatArtifactView artifact={artifact} />
-        </div>
-      ) : file ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-          {file.generated ? (
-            <ChatGeneratedFilePreview key={file.id} file={file.generated} />
-          ) : (
-            <ChatFileReader key={file.id} fileId={file.id} />
-          )}
         </div>
       ) : selected?.web ? (
         <>
@@ -307,7 +291,7 @@ export function ChatSourcePanel({
   return wide ? (
     <aside
       id={id}
-      aria-label={artifact ? rendererText("artifact") : file ? t("content") : t("sources")}
+      aria-label={artifact ? rendererText("artifact") : t("sources")}
       className="flex h-full min-h-0 w-100 max-w-[44%] shrink-0 flex-col border-l border-border-default bg-surface-base"
     >
       {content}
@@ -333,13 +317,11 @@ export function ChatSourcePanel({
           <Dialog.Title className="sr-only">
             {artifact
               ? artifact.title
-              : file
-                ? file.filename
-                : selected?.web
-                  ? ui("Nội dung trang Web: {{title}}", { title: selected.title })
-                  : selected
-                    ? t("documentTitle", { title: selected.title })
-                    : t("sources")}
+              : selected?.web
+                ? ui("Nội dung trang Web: {{title}}", { title: selected.title })
+                : selected
+                  ? t("documentTitle", { title: selected.title })
+                  : t("sources")}
           </Dialog.Title>
           {content}
         </Dialog.Content>

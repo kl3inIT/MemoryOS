@@ -46,21 +46,20 @@ for (const [label, viewport, colorScheme] of [
     await page.emulateMedia({ colorScheme });
     await openFiles(page);
     await shot(page, `${label}-cards`);
-    const close = () =>
-      page
-        .getByRole("button", { name: /Đóng/ })
-        .first()
-        .click();
+    const close = () => page.getByRole("button", { name: "Đóng xem trước" }).click();
 
     await preview(page, "Doanh thu Q3 2026 theo khu vực.xlsx");
     await expect(page.getByRole("tab", { name: "Doanh thu Q3" })).toBeVisible();
     await expect(
       page.getByRole("cell", { name: "Khai trương chi nhánh mới, tăng ca cuối tuần" }).first(),
     ).toBeVisible();
-    await expect(page.getByText("40 dòng · 12 cột")).toBeVisible();
+    await expect(page.getByText("3 trang tính").first()).toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: "Doanh thu Q3 2026 theo khu vực.xlsx" }),
+    ).toBeVisible();
     await shot(page, `${label}-xlsx`);
     await page.getByRole("tab", { name: "Chi phí vận hành và khấu hao tài sản cố định" }).click();
-    await expect(page.getByText(/bản xem trước bị cắt bớt/)).toBeVisible();
+    await expect(page.getByText("Bản xem trước bị cắt bớt")).toBeVisible();
     await shot(page, `${label}-xlsx-sheet2`);
     await page.getByRole("tab", { name: "Ghi chú" }).click();
     await expect(page.getByText("Trang tính trống")).toBeVisible();

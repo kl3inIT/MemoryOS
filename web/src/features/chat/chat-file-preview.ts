@@ -16,18 +16,44 @@ export type PreviewKind =
 /** Text-like previews read at most this many bytes. */
 export const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
+/** Code and data files by extension, as Onyx getCodeLanguage/getDataLanguage; the value is the Shiki language. */
 const CODE_LANGUAGES: Record<string, string> = {
   py: "python",
+  ipynb: "json",
   js: "javascript",
+  jsx: "jsx",
+  mjs: "javascript",
   ts: "typescript",
+  tsx: "tsx",
+  java: "java",
+  kt: "kotlin",
+  go: "go",
+  rs: "rust",
+  rb: "ruby",
+  php: "php",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  swift: "swift",
+  scala: "scala",
+  r: "r",
   sql: "sql",
   sh: "bash",
+  bash: "bash",
+  ps1: "powershell",
   html: "html",
   css: "css",
+  scss: "scss",
   json: "json",
   yaml: "yaml",
   yml: "yaml",
+  toml: "toml",
   xml: "xml",
+  ini: "ini",
+  dockerfile: "dockerfile",
 };
 
 function extension(filename: string): string {
@@ -37,27 +63,42 @@ function extension(filename: string): string {
 
 export function previewKind(filename: string, mediaType: string): PreviewKind {
   const ext = extension(filename);
+  const type = mediaType.split(";")[0]!.trim().toLowerCase();
   if (CODE_LANGUAGES[ext]) return "code";
-  if (["image/png", "image/jpeg", "image/webp"].includes(mediaType)) return "image";
-  if (mediaType === "application/pdf") return "pdf";
-  if (mediaType.startsWith("text/csv") || ext === "csv") return "csv";
-  if (mediaType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    return "xlsx";
-  if (mediaType === "text/markdown" || ext === "md") return "markdown";
-  if (ext === "doc") return "doc";
+  if (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(type)) return "image";
+  if (type === "application/pdf") return "pdf";
+  if (type === "text/csv" || ext === "csv") return "csv";
   if (
-    mediaType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    ext === "xlsx"
+  )
+    return "xlsx";
+  if (type === "text/markdown" || ext === "md") return "markdown";
+  if (ext === "doc" || type === "application/msword") return "doc";
+  if (
+    type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     ext === "docx"
   )
     return "docx";
-  if (mediaType.startsWith("text/") || ext === "txt" || ext === "log") return "text";
+  if (type.startsWith("text/") || ["txt", "log", "conf", "tsv"].includes(ext)) return "text";
   return "unsupported";
 }
 
-/** Shiki language for a code or data preview. */
+/** Shiki language for a code, markdown or text preview. */
 export function codeLanguage(filename: string, kind: PreviewKind): string {
   if (kind === "markdown") return "markdown";
   return CODE_LANGUAGES[extension(filename)] ?? "text";
+}
+
+/** Onyx variant sizes: documents, tables and images take the screen; code, text and downloads a large window. */
+export function previewSize(kind: PreviewKind): "full" | "large" | "tall" {
+  if (kind === "code" || kind === "text") return "large";
+  if (kind === "unsupported" || kind === "doc") return "tall";
+  return "full";
+}
+
+export function lineCount(text: string): number {
+  return text ? text.split("\n").length : 0;
 }
 
 /**

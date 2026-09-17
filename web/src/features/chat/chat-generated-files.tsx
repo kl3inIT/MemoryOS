@@ -38,15 +38,17 @@ export function ChatGeneratedFiles() {
                   type="button"
                   data-slot="file-preview"
                   aria-label={ui("Xem trước {{file}}", { file: file.filename })}
-                  aria-expanded={panel.fileId === file.id}
-                  aria-controls={panel.fileId === file.id ? panel.panelId : undefined}
+                  aria-haspopup="dialog"
                   onClick={(event) =>
-                    panel.fileId === file.id
-                      ? panel.close()
-                      : panel.openFile(
-                          { id: file.id, filename: file.filename, generated: file },
-                          event.currentTarget,
-                        )
+                    panel.previewFile(
+                      {
+                        source: "generated",
+                        id: file.id,
+                        filename: file.filename,
+                        mediaType: file.mediaType,
+                      },
+                      event.currentTarget,
+                    )
                   }
                   className="min-w-0 rounded-sm text-left hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
                 >
