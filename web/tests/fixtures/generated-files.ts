@@ -174,9 +174,10 @@ export async function handleGeneratedFile(
   path: string,
   response: ServerResponse,
 ): Promise<boolean> {
-  const match = /^\/api\/chat\/file-artifacts\/([0-9a-f-]{36})\/(content|preview|chart)$/.exec(
-    path,
-  );
+  const match =
+    /^\/api\/chat\/file-artifacts\/([0-9a-f-]{36})\/(content|preview|chart|pdf-preview)$/.exec(
+      path,
+    );
   if (!match) return false;
   const fixture = generatedFixtures.find((item) => item.id === match[1]);
   const send = (status: number, data: unknown) => {
@@ -184,7 +185,14 @@ export async function handleGeneratedFile(
     response.end(JSON.stringify(data));
   };
   if (!fixture) send(404, {});
-  else if (match[2] === "chart") {
+  else if (match[2] === "pdf-preview") {
+    // The interpreter's LibreOffice conversion, stood in for by a real PDF.
+    if (fixture.filename.endsWith(".pptx")) {
+      const pdf = await readFile(new URL("tai-chinh-q3.pdf", directory));
+      response.writeHead(200, { "content-type": "application/pdf", "content-length": pdf.length });
+      response.end(pdf);
+    } else send(400, {});
+  } else if (match[2] === "chart") {
     if (fixture.chart) send(200, fixture.chart);
     else send(404, {});
   } else if (match[2] === "preview") {

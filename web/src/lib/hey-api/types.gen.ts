@@ -8693,6 +8693,53 @@ export type PreviewChatFileArtifactSpreadsheetResponses = {
 
 export type PreviewChatFileArtifactSpreadsheetResponse = PreviewChatFileArtifactSpreadsheetResponses[keyof PreviewChatFileArtifactSpreadsheetResponses];
 
+export type GetChatFileArtifactPdfPreviewData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/pdf-preview';
+};
+
+export type GetChatFileArtifactPdfPreviewErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The interpreter is busy
+     */
+    429: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactPdfPreviewError = GetChatFileArtifactPdfPreviewErrors[keyof GetChatFileArtifactPdfPreviewErrors];
+
+export type GetChatFileArtifactPdfPreviewResponses = {
+    /**
+     * PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileArtifactPdfPreviewResponse = GetChatFileArtifactPdfPreviewResponses[keyof GetChatFileArtifactPdfPreviewResponses];
+
 export type GetChatFileArtifactData = {
     body?: never;
     path: {

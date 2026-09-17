@@ -94,9 +94,9 @@ for (const [label, viewport, colorScheme] of [
     await close();
 
     await preview(page, "Trình chiếu quý 3.pptx");
-    await expect(
-      page.getByText("Chưa xem trước được loại tệp này. Hãy tải tệp xuống để mở."),
-    ).toBeVisible();
+    await expect(page.getByText("Bản xem trước PDF của trình chiếu")).toBeVisible();
+    await expect(page.locator(".react-pdf__Page").first()).toBeVisible();
+    await page.waitForTimeout(800);
     await shot(page, `${label}-pptx`);
   });
 }

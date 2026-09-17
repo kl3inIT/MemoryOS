@@ -135,6 +135,8 @@ export const vietnameseUi: Record<string, string> = {
   "Đã tạo {{count}} tệp": "Files created: {{count}}",
   "Không có output": "No output",
   "Xem trước {{file}}": "Preview {{file}}",
+  "Đang tạo bản xem trước trình chiếu…": "Creating the presentation preview…",
+  "Bản xem trước PDF của trình chiếu": "PDF preview of the presentation",
   "Đóng xem trước": "Close preview",
   "Không xem trước được tệp. Bạn vẫn có thể tải tệp xuống.":
     "This file could not be previewed. You can still download it.",

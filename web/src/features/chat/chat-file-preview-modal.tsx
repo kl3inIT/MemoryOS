@@ -22,6 +22,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   downloadChatFile,
   getChatFileArtifact,
+  getChatFileArtifactPdfPreview,
   previewChatFileArtifactSpreadsheet,
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
@@ -99,7 +100,7 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
 type Loaded =
   | { kind: "xlsx"; sheets: Sheets }
   | { kind: "text" | "code" | "markdown" | "csv"; text: string; truncated: boolean; bytes: number }
-  | { kind: "image" | "pdf" | "docx"; blob: Blob }
+  | { kind: "image" | "pdf" | "docx"; blob: Blob; converted?: boolean }
   | { kind: "doc" | "unsupported" };
 
 /**
@@ -109,13 +110,27 @@ type Loaded =
 async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded> {
   const known = previewKind(target.filename, target.mediaType ?? "application/octet-stream");
   if (known === "xlsx") return { kind: "xlsx", sheets: await readSheets(target, signal) };
+  if (known === "pptx") {
+    // Onyx Craft converts decks with LibreOffice in its sandbox; the API converts in the interpreter executor
+    // and caches the PDF, which the pdf.js reader shows. Attachments are not converted.
+    if (target.source !== "generated") return { kind: "unsupported" };
+    const { data } = await getChatFileArtifactPdfPreview({
+      path: { artifactId: target.id },
+      parseAs: "blob",
+      signal,
+      throwOnError: true,
+    });
+    if (!(data instanceof Blob)) throw new Error("Invalid preview");
+    return { kind: "pdf", blob: data.slice(0, data.size, "application/pdf"), converted: true };
+  }
   if (known === "doc" || (known === "unsupported" && target.mediaType)) return { kind: known };
   const blob = await readBlob(target, signal);
   const stored =
     target.mediaType ?? (blob.type && blob.type !== "application/octet-stream" ? blob.type : "");
   const kind = previewKind(target.filename, stored || "application/octet-stream");
   if (kind === "xlsx") return { kind, sheets: await readSheets(target, signal) };
-  if (kind === "doc" || kind === "unsupported") return { kind };
+  if (kind === "doc" || kind === "unsupported" || kind === "pptx")
+    return { kind: kind === "pptx" ? "unsupported" : kind };
   if (kind === "image" || kind === "pdf" || kind === "docx") {
     // The attachment route serves octet-stream under nosniff; give the viewer the stored type.
     return { kind, blob: stored && blob.type !== stored ? blob.slice(0, blob.size, stored) : blob };
@@ -206,8 +221,16 @@ export function ChatFilePreviewModal({
           <div className="relative flex min-h-0 flex-1 flex-col bg-surface-subtle">
             {loaded.isPending ? (
               <div className="flex flex-1 items-center justify-center" role="status">
-                <Loader2 className="size-8 animate-spin text-content-muted" aria-hidden />
-                <span className="sr-only">{ui("Đang đọc tệp…")}</span>
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="size-8 animate-spin text-content-muted" aria-hidden />
+                  {guessed === "pptx" && target.source === "generated" ? (
+                    <span className="text-sm text-content-secondary">
+                      {ui("Đang tạo bản xem trước trình chiếu…")}
+                    </span>
+                  ) : (
+                    <span className="sr-only">{ui("Đang đọc tệp…")}</span>
+                  )}
+                </div>
               </div>
             ) : loaded.isError ? (
               <Unavailable
@@ -299,6 +322,8 @@ function describe(
         description: ui("{{count}} trang tính", { count: loaded.sheets.length }),
         footer: ui("{{count}} trang tính", { count: loaded.sheets.length }),
       };
+    case "pdf":
+      return loaded.converted ? { description: ui("Bản xem trước PDF của trình chiếu") } : {};
     case "docx":
       return docx
         ? { description: ui("{{count}} từ", { count: docx.words }), copy: docx.text }

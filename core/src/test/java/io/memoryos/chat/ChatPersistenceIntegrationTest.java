@@ -207,6 +207,10 @@ class ChatPersistenceIntegrationTest {
         assertTrue(interpreter.ownedChart(scope, owner, file).orElseThrow().contains("\"type\": \"pie\""));
         assertTrue(interpreter.ownedChart(scope, other, file).isEmpty());
         assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId())).get(reply.assistantMessageId()).getFirst().chart());
+        // A converted presentation preview (V73) is recorded once; a concurrent second conversion is refused.
+        assertTrue(interpreter.attachPreview(scope, file, UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("p/1"), 10));
+        assertFalse(interpreter.attachPreview(scope, file, UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("p/2"), 10));
+        assertEquals("p/1", interpreter.ownedArtifact(scope, owner, file).orElseThrow().previewKey().value());
         assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> interpreter.insertArtifact(scope,
                 reply.assistantMessageId(), UUID.randomUUID(), UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/x.png"), "x.png", "image/png", 3, "[1]"));

@@ -8996,6 +8996,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/pdf-preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read a PDF rendering of an owner-private generated presentation, converted\
+        \ in the interpreter on first request"
+      operationId: getChatFileArtifactPdfPreview
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "429":
+          description: The interpreter is busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/file-artifacts/{artifactId}/content:
     get:
       tags:

@@ -171,3 +171,35 @@ saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(
 def test_runs_without_pyplot_leave_no_chart_directory() -> None:
     payload = _execute(TestClient(create_app()), "print('xin chào')")
     assert not any(str(entry["path"]).startswith(".memoryos-charts") for entry in payload["files"])  # type: ignore[union-attr]
+
+
+def test_pptx_to_pdf_converts_a_vietnamese_deck_and_refuses_other_files() -> None:
+    client = TestClient(create_app())
+    code = """
+import json, subprocess
+from pptx import Presentation
+deck = Presentation()
+for number in range(3):
+    slide = deck.slides.add_slide(deck.slide_layouts[1])
+    slide.shapes.title.text = f'Doanh thu quý 3 — slide {number + 1}'
+    slide.placeholders[1].text = 'Miền Bắc tăng 22,1% • Hà Nội, Đà Nẵng'
+deck.save('báo cáo.pptx')
+convert = ['pptx-to-pdf', 'báo cáo.pptx', 'preview.pdf']
+done = subprocess.run(convert, capture_output=True, text=True)
+text = subprocess.run(['pdftotext', 'preview.pdf', '-'], capture_output=True, text=True).stdout
+refused = subprocess.run(['pptx-to-pdf', 'notes.txt', 'x.pdf'], capture_output=True, text=True)
+result = {'code': done.returncode, 'report': json.loads(done.stdout), 'text': text,
+          'refused': refused.returncode, 'refusal': json.loads(refused.stdout)}
+print(json.dumps(result, ensure_ascii=False))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 90000})
+    assert response.status_code == 200
+    result = json.loads(str(response.json()["stdout"]))
+
+    assert result["code"] == 0
+    assert result["report"] == {"converted": True, "pages": 3}
+    assert "Doanh thu quý 3 — slide 2" in result["text"]
+    assert "Miền Bắc tăng 22,1%" in result["text"]
+    assert result["refused"] == 1
+    assert result["refusal"] == {"converted": False, "error": "only .pptx files are supported"}

@@ -16,7 +16,8 @@ describe("generated file preview", () => {
     expect(previewKind("báo cáo.docx", docx)).toBe("docx");
     expect(previewKind("cũ.doc", "application/msword")).toBe("doc");
     expect(previewKind("notes.txt", "text/plain")).toBe("text");
-    expect(previewKind("slides.pptx", "application/vnd.ms-powerpoint")).toBe("unsupported");
+    expect(previewKind("slides.pptx", "application/vnd.ms-powerpoint")).toBe("pptx");
+    expect(previewKind("slides.ppt", "application/vnd.ms-powerpoint")).toBe("unsupported");
   });
 
   it("reads quoted CSV cells with commas, doubled quotes and line breaks", () => {

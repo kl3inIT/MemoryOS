@@ -11,6 +11,7 @@ export type PreviewKind =
   | "docx"
   | "doc"
   | "text"
+  | "pptx"
   | "unsupported";
 
 /** Text-like previews read at most this many bytes. */
@@ -81,6 +82,11 @@ export function previewKind(filename: string, mediaType: string): PreviewKind {
   )
     return "docx";
   if (type.startsWith("text/") || ["txt", "log", "conf", "tsv"].includes(ext)) return "text";
+  if (
+    type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    ext === "pptx"
+  )
+    return "pptx";
   return "unsupported";
 }
 
@@ -92,6 +98,7 @@ export function codeLanguage(filename: string, kind: PreviewKind): string {
 
 /** Onyx variant sizes: documents, tables and images take the screen; code, text and downloads a large window. */
 export function previewSize(kind: PreviewKind): "full" | "large" | "tall" {
+  // A presentation is shown as its PDF rendering.
   if (kind === "code" || kind === "text") return "large";
   if (kind === "unsupported" || kind === "doc") return "tall";
   return "full";

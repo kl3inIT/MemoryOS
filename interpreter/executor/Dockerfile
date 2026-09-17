@@ -27,6 +27,7 @@ RUN apt-get update \
         fonts-liberation \
         fonts-noto-core \
         libreoffice-calc-nogui \
+        libreoffice-impress-nogui \
         poppler-utils \
         qpdf \
         sqlite3 \
@@ -67,3 +68,6 @@ RUN mkdir -p /opt/matplotlib \
 # recalc-xlsx: formula values for workbooks written with openpyxl or xlsxwriter (LibreOffice Calc, installed above).
 COPY recalc_xlsx.py /usr/local/bin/recalc-xlsx
 RUN chmod 0755 /usr/local/bin/recalc-xlsx
+# pptx-to-pdf: the Chat preview of generated presentations (MEM-111, LibreOffice Impress, installed above).
+COPY pptx_to_pdf.py /usr/local/bin/pptx-to-pdf
+RUN chmod 0755 /usr/local/bin/pptx-to-pdf

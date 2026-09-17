@@ -78,6 +78,7 @@ class OpenApiContractTest {
             "/api/chat/file-artifacts/{artifactId}/content",
             "/api/chat/file-artifacts/{artifactId}/preview",
             "/api/chat/file-artifacts/{artifactId}/chart",
+            "/api/chat/file-artifacts/{artifactId}/pdf-preview",
             "/api/chat/interpreter",
             "/api/chat/interpreter/health",
             "/api/chat/model-default",
