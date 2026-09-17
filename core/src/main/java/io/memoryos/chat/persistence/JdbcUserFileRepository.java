@@ -36,6 +36,31 @@ public class JdbcUserFileRepository {
                 .query((row, ignored) -> map(row)).optional();
     }
 
+    /**
+     * The owner, or anyone who can use a non-deleted agent that attaches the file or shows it as its avatar (Onyx
+     * re-syncs agent files to sharees). Agent managers get no extra file authority here.
+     */
+    private static final String READABLE = """
+            (f.owner_actor_id=:actor OR EXISTS (SELECT 1 FROM persona p WHERE p.tenant_id=f.tenant_id AND p.deleted_at IS NULL
+                AND (p.file_ids @> jsonb_build_array(f.id::text) OR p.avatar_file_id=f.id) AND %s))
+            """.formatted(AgentAccessSql.USES.replace(":agentsManage", "FALSE"));
+
+    public Optional<Row> readable(TenantId tenant, ActorId actor, UUID id, boolean lock) {
+        return jdbc.sql("SELECT f.* FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id=:id AND " + READABLE
+                        + (lock ? " FOR SHARE OF f" : ""))
+                .param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .query((row, ignored) -> map(row)).optional();
+    }
+
+    /** The READY files among {@code ids} that the actor owns, in one query; unknown ids are absent. */
+    public List<Row> owned(TenantId tenant, ActorId actor, java.util.Set<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.sql("SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor"
+                        + " AND id IN (:ids) AND status='READY'")
+                .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
+                .query((row, ignored) -> map(row)).list();
+    }
+
     public List<UserFile> recent(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
                 SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
@@ -51,8 +76,8 @@ public class JdbcUserFileRepository {
         return jdbc.sql("""
                 SELECT o.* FROM chat_user_file f JOIN object_uploads u ON u.tenant_id=f.tenant_id AND u.id=f.upload_id
                 JOIN stored_objects o ON o.tenant_id=u.tenant_id AND o.id=u.stored_object_id
-                WHERE f.tenant_id=:tenant AND f.owner_actor_id=:actor AND f.id=:id AND f.status='READY' AND u.status='ADOPTED'
-                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                WHERE f.tenant_id=:tenant AND f.id=:id AND f.status='READY' AND u.status='ADOPTED' AND
+                """ + READABLE).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query((row, ignored) -> new io.memoryos.objectstorage.StoredObjectReference(
                         new io.memoryos.objectstorage.StoredObjectId(row.getObject("id", UUID.class)),
                         new io.memoryos.objectstorage.ObjectKey(row.getString("object_key")), row.getString("filename"),
@@ -63,7 +88,7 @@ public class JdbcUserFileRepository {
     public java.util.Map<UUID, UUID> documents(TenantId tenant, ActorId actor, java.util.Set<UUID> ids) {
         if (ids.isEmpty()) return java.util.Map.of();
         var result = new java.util.LinkedHashMap<UUID, UUID>();
-        jdbc.sql("SELECT id,document_id FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor AND id IN (:ids) AND status='READY' AND document_id IS NOT NULL")
+        jdbc.sql("SELECT f.id,f.document_id FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id IN (:ids) AND f.status='READY' AND f.document_id IS NOT NULL AND " + READABLE)
                 .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
                 .query((row, ignored) -> { result.put(row.getObject("id", UUID.class), row.getObject("document_id", UUID.class)); return true; }).list();
         return java.util.Map.copyOf(result);
@@ -72,9 +97,9 @@ public class JdbcUserFileRepository {
     public Optional<TextWindow> plaintext(TenantId tenant, ActorId actor, UUID id, int offset, int count) {
         return jdbc.sql("""
                 SELECT substring(plaintext FROM :start FOR :count) AS text, length(plaintext) AS total
-                FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor AND id=:id
-                    AND status='READY' AND plaintext IS NOT NULL
-                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id=:id
+                    AND f.status='READY' AND f.plaintext IS NOT NULL AND
+                """ + READABLE).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .param("start", offset + 1).param("count", count)
                 .query((row, ignored) -> new TextWindow(row.getString("text"), offset, row.getInt("total"))).optional();
     }
@@ -128,9 +153,9 @@ public class JdbcUserFileRepository {
 
     public boolean usedByWorkspace(TenantId tenant, UUID id) {
         return jdbc.sql("""
-                SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL AND file_ids @> CAST(:file AS jsonb))
+                SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL AND (file_ids @> CAST(:file AS jsonb) OR avatar_file_id=:id))
                     OR EXISTS(SELECT 1 FROM chat_project WHERE tenant_id=:tenant AND file_ids @> CAST(:file AS jsonb))
-                """).param("tenant", tenant.value()).param("file", "[\"" + id + "\"]").query(Boolean.class).single();
+                """).param("tenant", tenant.value()).param("file", "[\"" + id + "\"]").param("id", id).query(Boolean.class).single();
     }
 
     private static Row map(ResultSet row) throws SQLException {

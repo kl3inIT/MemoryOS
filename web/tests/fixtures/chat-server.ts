@@ -1,5 +1,6 @@
 import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
+import { generatedFileMessages, handleGeneratedFile } from "./generated-files.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
 
@@ -92,6 +93,7 @@ function seedResearch(value: Session) {
     files: [],
     images: [],
     activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
     research: { clarification: false, plan: null, agents: [] },
   };
   const assistant: ChatMessage = {
@@ -110,6 +112,7 @@ function seedResearch(value: Session) {
     files: [],
     images: [],
     activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
     research: {
       clarification: false,
       plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
@@ -155,12 +158,99 @@ function seedResearch(value: Session) {
   value.allMessages.set(assistant.id, assistant);
 }
 
+/** A saved answer that used a connected MCP server, then was refused by it for authorization. */
+function seedMcp(value: Session) {
+  const now = new Date().toISOString();
+  const userId = randomUUID();
+  const assistantId = randomUUID();
+  const base = { textOffset: 0, queries: [], documents: [], citations: [] };
+  const user: ChatMessage = {
+    id: userId,
+    sessionId: value.session.id,
+    parentMessageId: value.session.rootMessageId,
+    latestChildMessageId: assistantId,
+    role: "USER",
+    content: "Tìm báo cáo doanh thu quý 3 trên Drive và tóm tắt giúp tôi.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    generatedFiles: [],
+    activity: { steps: [], reasoning: [] },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  const assistant: ChatMessage = {
+    id: assistantId,
+    sessionId: value.session.id,
+    parentMessageId: userId,
+    latestChildMessageId: null,
+    role: "ASSISTANT",
+    content:
+      "Tôi tìm thấy **Báo cáo doanh thu Q3 2026** trên Drive, nhưng Google Drive đã từ chối khi tôi mở nội dung tệp. Bạn kết nối lại Google Drive rồi hỏi lại để tôi tóm tắt.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    generatedFiles: [],
+    activity: {
+      steps: [
+        {
+          ...base,
+          position: 0,
+          toolCallId: "mcp-1",
+          toolName: "mcp_drive_search_files",
+          status: "COMPLETED",
+          startedAt: now,
+          durationMs: 1800,
+        },
+        {
+          ...base,
+          position: 1,
+          toolCallId: "mcp-2",
+          toolName: "mcp_drive_read_file_content",
+          status: "FAILED",
+          startedAt: now,
+          durationMs: 420,
+          failure: "AUTHORIZATION_REQUIRED",
+        },
+      ],
+      reasoning: [],
+    },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  value.messages.push(user, assistant);
+  value.allMessages.set(user.id, user);
+  value.allMessages.set(assistant.id, assistant);
+}
+
+// Like the real backend, every conversation starts with the builtin agent, which allows every tool.
+const builtinPersonaId = "00000000-0000-4000-8000-00000000b017";
+const builtinPersona = {
+  id: builtinPersonaId,
+  builtin: true,
+  permissions: {},
+  revision: 0,
+  name: "MemoryOS",
+  description: "",
+  instructions: "",
+  starterPrompts: [],
+  sourceIds: [],
+  tools: ["search", "web_search", "image_generation", "code_interpreter"],
+  mcpServers: [],
+};
+
 function create(title = "Browser conversation", mode = "normal"): Session {
   const now = new Date().toISOString();
   const session = {
     id: randomUUID(),
     rootMessageId: randomUUID(),
-    personaId: randomUUID(),
+    personaId: builtinPersonaId,
     projectId: null,
     title,
     createdAt: now,
@@ -179,6 +269,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
   };
   sessions.set(session.id, value);
   if (mode === "research") seedResearch(value);
+  if (mode === "mcp") seedMcp(value);
   return value;
 }
 function emit(run: Run, event: string, data: object) {
@@ -212,17 +303,42 @@ export async function handleChatFixture(
     json(response, fixtureModels);
     return true;
   }
-  if (["/api/chat/personas", "/api/chat/personas/sources"].includes(url.pathname)) {
+  if (url.pathname === "/api/chat/personas" && request.method === "GET") {
+    json(response, [builtinPersona]);
+    return true;
+  }
+  if (
+    [
+      "/api/chat/personas/sources",
+      "/api/chat/persona-pins",
+      "/api/chat/persona-labels",
+      "/api/chat/prompt-shortcuts",
+    ].includes(url.pathname) &&
+    request.method === "GET"
+  ) {
     json(response, []);
+    return true;
+  }
+  if (url.pathname === "/api/chat/prompt-shortcuts/preferences") {
+    json(response, { enabled: true });
     return true;
   }
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {
     const input = await body(request);
     const value = create(input.title, input.mode);
+    if (input.mode === "files")
+      for (const message of await generatedFileMessages(
+        value.session.id,
+        value.session.rootMessageId,
+      )) {
+        value.messages.push(message);
+        value.allMessages.set(message.id, message);
+      }
     json(response, value.session);
     return true;
   }
   if (!url.pathname.startsWith("/api/chat/")) return false;
+  if (await handleGeneratedFile(url.pathname, response)) return true;
   const segments = url.pathname.split("/");
   if (segments[3] === "projects") {
     const project = projects.get(segments[4]!);
@@ -484,6 +600,7 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "USER",
@@ -501,6 +618,7 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
         research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "ASSISTANT",

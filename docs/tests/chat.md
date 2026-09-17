@@ -92,8 +92,9 @@ Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/M
 | Empty final text fails; late execution cannot overwrite the DB winner or emit false completion | `ChatSessionApiIntegrationTest.emptyFinalAnswerFailsInsteadOfSavingFalseCompletion`, `lateCompletionCannotOverwriteReconciledLeaseOutcome`; terminal frames are read over the real random-port HTTP server, not MockMvc's asynchronously mutated response |
 | Per-turn provider binding preserves native converter/metadata and isolates accounting across two runs | `ChatModelBindingTest`; `ChatSessionApiIntegrationTest.alternateNativeBindingUsesSameExecutorWithIsolatedPerTurnAccounting`; fixture is not certification of another provider |
 | Terminal SSE waits for DB success, retry publishes the authoritative status | `ChatTurnServiceTest.terminalEventWaitsForCommitAndUsesDatabaseWinner` |
-| Replay/live sequence, Unicode chunks, completed-first eviction by held bytes, refresh-on-write TTL and completed retention, missing prefix and bounded reader/buffer admission | `StreamBufferWriterTest` |
-| Flux disconnect/timeout releases reader, writer continues, slow reader with no demand resets | `ChatEventStreamTest` |
+| Redis replay against the staging Redis image: replay/live sequence from another process, `0-n` entry IDs, refresh-on-write and completed TTL, every event payload round trip, missing prefix gap, reply ended without outcome, heartbeat liveness checks, revoked reader, truncation past the reply bound, acknowledgement of entries Redis already holds, a paused Redis that queues and retries, an unreachable Redis that resets the reader, cursor/reader limits and deletion | `StreamBufferWriterTest` (Testcontainers Redis) |
+| Flux disconnect/timeout releases reader, writer continues, reader with no demand catches up to the outcome | `ChatEventStreamTest` (Testcontainers Redis) |
+| SSE replay from Redis over real HTTP, foreign actor denied, deleted replay of a finished reply resets to history | `ChatSessionApiIntegrationTest.replayIsServedFromRedisOnlyToTheOwnerAndAFinishedReplyWithoutReplayResetsToHistory`; Redis from Arconia dev services |
 | SSE owner checks, cursor validation, serialization and committed outcome replay | `ChatSessionApiIntegrationTest.sseReplaysCommittedOutcomeAndChecksOwnerAndCursor`; rejection assertions use MockMvc, while full/resumed SSE and buffering headers use the real HTTP server with the existing signed-token fixture |
 | Real HTTP through pinned product Nginx: text before terminal, disconnect/reconnect, local Stop/partial and one model execution | `ChatSessionApiIntegrationTest.nginxHttpDisconnectReconnectAndStopUseIndependentExecution`; JWT/JWKS and model transport are fixtures, Spring MVC/native execution/PostgreSQL/proxy are real |
 | Generated required/nullable contracts and API surface | `OpenApiContractTest`; frontend generated-client drift/type checks |
@@ -238,6 +239,28 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Earlier generated images are named on their answers, even an answer without text | `ChatTurnSetupTest` |
 | Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
 | `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
+| `run_python` guidance keeps the Onyx text plus the executor lines (including `recalc-xlsx`) and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
+| The executor recalculates openpyxl and stale xlsxwriter formula values in place, keeps formulas and charts, reports error cells and refuses `.xlsm`, through the service and a real Docker executor | `interpreter/service/tests/integration_tests/test_office_stack.py::test_recalc_xlsx_fills_formula_values_and_reports_errors` |
+| `run_python` stages attachments in the Onyx order, file cap, byte budget and notice; reuses uploads in a turn; stores, links and deletes generated files; reports oversized files; truncates output; returns exit -1 with the exception text; sanitizes and de-duplicates names as Onyx; stages searched source files after the attachments through citation authority; uses the fixed per-call timeout | `RunPythonToolTest` |
+| `search_knowledge` records the stored original behind a hit and prefixes its evidence with the Onyx `FILE_ASSOCIATED_GUIDANCE` | `SearchToolTest.aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx` |
+| Sandbox names follow Onyx `sandbox_filename_for_document`; only readable originals are recorded and a newer generation replaces the older | `SandboxDocumentsTest` |
+| Sandbox originals keep readable files up to 64 MiB of any media type and recheck the stored object on open; the batch query applies the source reader's read scope | `DocumentOriginalServiceTest.sandboxOriginalsKeepReadableBoundedFilesOfAnyTypeAndRecheckOnOpen`, `SourceOriginalPdfQueryTest` |
+| The interpreter client caches health for 30 seconds, reports Onyx health errors, sends `X-Api-Key`, streams multipart uploads, parses execution results and types busy responses | `InterpreterClientTest` |
+| Opt-in, against a real interpreter (`MEMORYOS_INTERPRETER_LIVE_URL`, `MEMORYOS_INTERPRETER_LIVE_API_KEY`): a streamed upload with a Vietnamese file name, execution over it, download of the generated file and delete | `InterpreterServiceLiveTest` |
+| Assistant markdown keeps the relative generated-file link and image URL and drops `javascript:` links | `markdown-text.test.tsx` |
+| An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text | `chat-answer-links.test.tsx` |
+| The interpreter client reports streamed output as it arrives and returns the final result; a service error, a stream that ends without a result, a listener that stops reading and an unterminated oversized frame all fail | `InterpreterClientTest` |
+| `run_python` publishes the code, output bounded to its budget and the generated files to the timeline; a timeout or non-zero exit is a failed step that keeps its files, and a failed call shows its error on stderr before the failed stage | `RunPythonToolTest` |
+| An xlsx preview is quoted CSV per sheet in workbook order with cached formula values, cut at a row boundary past its budget; a non-workbook is rejected | `SpreadsheetPreviewTest` |
+| Captured figures become PNG artifacts with bounded chart data apart from the model's files, listed in the model result without data, and every service copy is deleted; chart data is an object with a type and at most 256 KiB | `RunPythonToolTest.capturedFiguresBecomeChartsApartFromTheModelsFilesAndServiceCopiesAreDeleted`, `RunPythonToolTest.chartDataMustBeABoundedObjectWithAType` |
+| Chart data (V72) is served only to the owner and flagged on generated files | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The executor captures open figures as chart JSON and PNG at exit and leaves nothing for runs without pyplot | `interpreter/service/tests/integration_tests/test_office_stack.py::test_open_figures_are_captured_as_chart_data_and_png_at_exit` |
+| The browser accepts line, bar, pie and drawable superchart data, merges series, and falls back to the PNG otherwise; charts draw interactively and toggle to the PNG | `chat-chart.test.ts`, `tests/e2e/chat-generated-file-preview.spec.ts` |
+| A generated presentation converts in the executor on first preview, caches its PDF once, serves the cache without the interpreter, rejects failed or non-PDF output, reports an unavailable or busy interpreter and deletes every service copy | `PresentationPreviewServiceTest`, `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The executor converts a Vietnamese pptx to PDF and refuses other files | `interpreter/service/tests/integration_tests/test_office_stack.py::test_pptx_to_pdf_converts_a_vietnamese_deck_and_refuses_other_files` |
+| Generated file previews pick the Onyx variant order, parse quoted CSV and keep only safe links in docx output; cards, answer file links and attachment chips open the centered preview modal, which previews attachments by their stored type and returns focus on close | `chat-file-preview.test.ts`, `chat-code.test.tsx`, `chat-answer-links.test.tsx`, `chat-file-reader.test.tsx`, `tests/e2e/chat-generated-file-preview.spec.ts` |
+| Generated files download from an authorized path, survive a reload and state their size; the step shows the code, stdout, stderr, the file count and the no-output note in both languages | `chat-code.test.tsx` |
+| The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V71) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
 
 ## Deep research (MEM-101)
@@ -248,12 +271,54 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Stop during an agent's retrieval interrupts it, runs no report and persists the plan and the agent as failed | `ChatSessionApiIntegrationTest.stopDuringResearchAgentSearchInterruptsItSkipsTheReportAndPersistsThePlanAndFailedAgent` |
 | Setting readable by members, changed with `MODELS_MANAGE` and revision, research commands rejected while off | `ChatSessionApiIntegrationTest.deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff` |
 | Clarification flag, plan and agent tree stored with the terminal outcome, bounded, assistant rows only | `ChatPersistenceIntegrationTest.researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded` (real PostgreSQL); `ChatResearchRecorderTest` |
+| A rejected reasoning effort is retried once with an accepted value, whether the provider demands `none` or lists its supported values, and the accepted value is reused; unrelated rejections and started streams are not retried | `OpenAiReasoningFallbackTest` |
 | Research guard prompts unchanged, shared admission ledger, required tool choice only with tools | `ChatModelGuardTest`, `OpenAiChatRequestPolicyTest.requiredToolChoiceAppliesOnlyToRequestsWithTools` |
 | Citation marker parsing and renumbering, language section, prompt helpers | `ResearchExecutorTest` |
 | Research events chunk per agent and keep wire placement; nested events stay out of the top-level activity | `StreamBufferWriterTest.researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder`, `ChatEventStreamTest.researchEventsAndNestedStepsKeepTheirPlacementOnTheWire`, `ChatActivityRecorderTest` |
 | Phase spans and timers with bounded outcomes, agent spans parented across threads, counters | `ResearchTelemetryTest` |
 | Live data part routing and history restore in the browser transport | `chat-transport.test.ts` |
+| An incomplete Responses stream keeps its text, ends with finish reason `length` and does not run a cut-off tool call; the answer request takes the model's catalog output limit above the execution reserve | `OpenAiResponsesChatModelTest.anIncompleteResponseEndsLikeOnyxWithItsTextAndWithoutTheCutOffToolCall`, `ChatSessionApiIntegrationTest.configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` |
+| A model served by `api.openai.com` streams every turn and connection validation through the Responses API with reasoning summaries (not for effort `none`), required and named tool choices and parallel tool calls; compatible gateways keep Chat Completions | `OpenAiResponsesChatModelTest`, `OpenAiChatProviderAdapterTest` |
+| A long reply stream resumes past repeated disconnects until the outcome; heartbeat-only connections reconnect without history polling or a recovering state; failed connections back off and show recovery; offline waits for `online` | `chat-transport.test.ts` |
 | Saved research restored in the browser: answer first, collapsed header with step and source counts, plan, cycle labels, agent tabs with durations, intermediate report on demand; composer toggle off by default | `chat-research.spec.ts` (Playwright, fixture backend); `chat-research-view.test.tsx` (render unit) |
 | Real provider run (opt-in `MEMORYOS_DR_LIVE=true` with `SPRING_AI_OPENAI_API_KEY`) | `ResearchExecutorLiveTest`: gpt-5-mini, plan, agent cycles, merged citations, usage from every guard |
 
 Open: visual review of the research timeline, staging acceptance with the real corpus.
+
+## MCP tools
+
+| Behaviour | Evidence |
+| --- | --- |
+| Administration seals secrets, refreshes the tool snapshot and fences every write by revision | `ChatSessionApiIntegrationTest.mcpAdministrationSealsSecretsRefreshesToolsAndFencesRevisions` |
+| A per-User server is Group-scoped; a User's API key is listed against the server before it is stored, a rejected key writes nothing, and two Users hold separate credentials | `ChatSessionApiIntegrationTest.mcpUserConnectionsAreGroupScopedProbedAndIsolatedPerUser` |
+| Discovery, DCR, per-organization clients, `iss` validation, PKCE with `resource`, refresh races and disconnect-with-revocation | `ChatSessionApiIntegrationTest.mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects` |
+| Protected-resource metadata from the challenge or either well-known URL, the spec's authorization-server probing order, `S256` required, redirects never followed, and the root document permitted to name the origin | `McpOAuthProtocolTest` (9) |
+| The browser session binds state and the PKCE verifier; the callback completes once, maps failures to outcome codes without upstream detail, and returns a connecting User to their own chat | `McpOAuthCallbackTest` (5); `McpReturnPathTest` (2) |
+| A turn calls MCP tools with unchanged arguments, never exposes a credential in a prompt, omits a tool whose model-facing name cannot fit, ignores a server the actor may not use, and closes its sessions on Stop | `ChatSessionApiIntegrationTest.mcpToolsRunInATurnAndUnusableServersBecomeAConnectAction` |
+| A tool error, a per-call timeout and a rejected credential each reach the model as a category, with no upstream body, and none of them ends the turn | `ChatSessionApiIntegrationTest.mcpToolFailuresReachTheModelAsCategoriesWithoutStoppingTheTurn` |
+| Every failure category is reported without upstream text; the per-turn call limit is checked before arguments are parsed; one result is capped against the remaining context; `memoryos.chat.mcp.call` carries exactly `{server, tool, outcome}` | `McpToolsTest` (10) |
+| Slug, header template, API key, scopes, parameters, model tool names and tool snapshots are validated at the capability boundary | `McpServerRulesTest` (7) |
+| The composer offers a connected server, replaces the switch with Connect when the User must act, asks which account only when several exist, and disables a server with no enabled tools | `chat-mcp-options.test.tsx` (5) |
+| Administration screens list servers, tools and OAuth applications; discovery is offered only in auto-discovery mode; a pasted application posts its secret in the token request; rare row actions sit in one menu at phone width | `mcp-oauth-clients.test.tsx` (7); `mcp-administration.spec.ts` (9, with screenshots) |
+| A failed MCP step records only an actionable category, on the stream and in bounded history; a direct call opens and closes its own step | `McpToolsTest` (10); `ChatActivityRecorderTest.keepsTheFailureCategoryOfAFailedStepAndRejectsItOnAnyOther` |
+| The timeline names the MCP tool and server, offers Connect for the person's own rejected credential, sends a shared one to an administrator, and restores the category from stream and history | `chat-mcp-step.test.tsx` (8); `mcp-administration.spec.ts` (saved answer) |
+
+Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/verification.md).
+
+## Custom agents and prompt shortcuts (MEM-119)
+
+| Contract | Evidence |
+| --- | --- |
+| Use, edit, public, Group manager and transfer authority; vacancy; Source intersection | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` (PostgreSQL) |
+| Featured public agents seed pins once; labels managed with `AGENTS_MANAGE`; transactional display order; `code_interpreter` in the turn options | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| A Group-owned agent shared directly appears under Shared | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` |
+| `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
+| A requested window ending before the knowledge cutoff searches nothing | `SearchToolTest.knowledgeCutoffIsALowerBoundThatRequestsCannotWiden` |
+| Private shortcuts unique per owner, free-text names with spaces and diacritics, control characters rejected, public shortcuts managed and hideable | `ChatPersistenceIntegrationTest.promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable` |
+| Agent capabilities, registry and schema | `IamCapabilityTest`, `DefaultGroupServiceAuthorizationTest`, `GroupSchemaIntegrityTest` |
+| Gallery tabs, search, label facet chips, creator filter, featured badge, disabled create for members, desktop and mobile | `agents.spec.ts` (Playwright, mocked routes) |
+| Editor page: create with icon, task prompt, starter fields, source picker, cutoff and tools; browser draft survives reload; edit saves only changes and guards leaving | `agents.spec.ts` |
+| Share dialog: results only while typing, Save disabled until changed, Group role and organization access payload | `agents.spec.ts` |
+| Detail view: configuration snapshot for a use-only reader, share link `/agents?agent=`, starter prompt opens a new conversation and sends once | `agents.spec.ts` (fixture chat server) |
+| Sidebar pins reorder by keyboard and unpin; administration features an agent | `agents.spec.ts` |
+| Shortcuts: inline create on blur, public shortcuts read-only, `/tom tat` diacritic-insensitive match replaces the draft | `agents.spec.ts` |

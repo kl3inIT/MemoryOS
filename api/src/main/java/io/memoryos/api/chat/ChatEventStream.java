@@ -77,7 +77,9 @@ final class ChatEventStream {
                      @Schema(requiredMode = REQUIRED) List<ChatToolEvent.ReadingDocument> documents,
                      @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId,
-                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex) {}
+                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"},
+                             description = "Why a FAILED step failed when the person can act on it; a category only.") ChatToolEvent.@Nullable Failure failure) {}
 
     record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED) long sequence,
@@ -86,6 +88,15 @@ final class ChatEventStream {
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable UUID id,
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String mediaType,
                       @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
+
+    record CodeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
+                     @Schema(requiredMode = REQUIRED) long sequence,
+                     @Schema(requiredMode = REQUIRED) String toolCallId,
+                     @Schema(requiredMode = REQUIRED) io.memoryos.chat.ChatCodeEvent.Stage stage,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String code,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String output,
+                     @Schema(requiredMode = REQUIRED) List<io.memoryos.chat.ChatCodeEvent.GeneratedFile> files,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"stdout", "stderr"}) @Nullable String stream) {}
 
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
@@ -132,12 +143,17 @@ final class ChatEventStream {
                 var tool = Objects.requireNonNull(event.tool());
                 yield new ToolEvent(event.assistantMessageId(), event.sequence(), tool.toolCallId(), tool.toolName(), tool.stage(),
                         tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs(),
-                        tool.parentToolCallId(), tool.tabIndex());
+                        tool.parentToolCallId(), tool.tabIndex(), tool.failure());
             }
             case "image" -> {
                 var image = Objects.requireNonNull(event.image());
                 yield new ImageEvent(event.assistantMessageId(), event.sequence(), image.toolCallId(), image.stage(),
                         image.artifactId(), image.mediaType(), image.revisedPrompt());
+            }
+            case "code" -> {
+                var run = Objects.requireNonNull(event.code());
+                yield new CodeEvent(event.assistantMessageId(), event.sequence(), run.toolCallId(), run.stage(),
+                        run.code(), run.output(), run.files(), run.stream());
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };

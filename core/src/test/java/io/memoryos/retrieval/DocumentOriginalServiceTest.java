@@ -85,6 +85,29 @@ class DocumentOriginalServiceTest {
     }
 
     @Test
+    void sandboxOriginalsKeepReadableBoundedFilesOfAnyTypeAndRecheckOnOpen() throws Exception {
+        UUID hidden = UUID.randomUUID(), large = UUID.randomUUID();
+        var sheet = new StoredObjectReference(new StoredObjectId(UUID.randomUUID()), new ObjectKey("raw/tenant/sheet"),
+                "sales.xlsx", new ObjectMetadata(4, "application/vnd.ms-excel", new ContentSha256("d".repeat(64))));
+        when(access.canRead(actor, new DocumentId(hidden))).thenReturn(false);
+        when(access.canRead(actor, new DocumentId(large))).thenReturn(true);
+        when(sources.originals(tenant, actor, java.util.Set.of(document, large))).thenReturn(java.util.Map.of(
+                document, sheet, large, reference(DocumentOriginalService.MAX_BYTES + 1)));
+
+        assertEquals(java.util.Map.of(document, sheet),
+                service.citationOriginals(actor, java.util.List.of(document, hidden, large)));
+
+        // A non-PDF original has no magic to check; the stored size is still verified on open.
+        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, sheet));
+        when(storage.inspect(sheet.key())).thenReturn(sheet.metadata());
+        byte[] bytes = {1, 2, 3, 4};
+        when(storage.open(sheet.key())).thenReturn(content(sheet.metadata(), bytes, new AtomicBoolean()));
+        try (var original = service.citationOriginal(actor, document, generation)) {
+            assertArrayEquals(bytes, original.inputStream().readAllBytes());
+        }
+    }
+
+    @Test
     void searchRequiresSearchReadBeforeAndAfterOpening() {
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), PDF, new AtomicBoolean()));
         service.searchPdf(actor, document, generation, null).close();

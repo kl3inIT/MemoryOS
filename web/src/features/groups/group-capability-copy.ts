@@ -7,6 +7,20 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
       label: "Manage models",
       description: "Configure Chat providers, credentials, models and access within the Tenant.",
     },
+    AGENTS_CREATE: {
+      label: "Create agents",
+      description: "Create custom Chat agents and share the agents they own or edit.",
+    },
+    AGENTS_MANAGE: {
+      label: "Manage agents",
+      description:
+        "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.",
+    },
+    MCP_MANAGE: {
+      label: "Manage MCP servers",
+      description:
+        "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.",
+    },
     SYSTEM_ADMIN: {
       label: "Administrator access",
       description:

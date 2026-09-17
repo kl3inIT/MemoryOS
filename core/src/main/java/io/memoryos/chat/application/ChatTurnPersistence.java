@@ -55,6 +55,18 @@ public class ChatTurnPersistence {
         this.imageArtifacts = imageArtifacts;
     }
 
+    /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
+    @Transactional(readOnly = true)
+    public JdbcChatRepository.Persona agent(ActorId actor, UUID session) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        return chats.persona(session, false, agentsManage(actor));
+    }
+
+    private boolean agentsManage(ActorId actor) {
+        return authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE);
+    }
+
     /** Capability gate checked once per command or stream entry, before ownership and the session lock. */
     @Transactional(readOnly = true)
     public void require(ActorId actor, IamCapability capability) {
@@ -130,7 +142,7 @@ public class ChatTurnPersistence {
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
         // Initialization is insert-only: editor-owned settings must survive every send.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        var settings = chats.persona(sessionId, true);
+        var settings = chats.persona(sessionId, true, agentsManage(actor));
         if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
             throw ChatException.conflict();
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
@@ -140,7 +152,7 @@ public class ChatTurnPersistence {
         else {
             var binding = selection.binding().forOptions(settings.options());
             instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
-                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor));
+                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor), settings.datetimeAware());
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
@@ -216,7 +228,7 @@ public class ChatTurnPersistence {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
         if (reservation.context() != null) return reservation.context();
-        var persona = chats.persona(sessionId, false);
+        var persona = chats.persona(sessionId, false, agentsManage(actor));
         return context(actor, tenant, sessionId, reservation.userMessageId(), persona, persona.instructions());
     }
 

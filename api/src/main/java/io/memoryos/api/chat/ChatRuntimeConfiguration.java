@@ -54,10 +54,14 @@ class ChatRuntimeConfiguration {
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
                                         io.memoryos.chat.image.ImageArtifactService imageArtifacts,
+                                        io.memoryos.chat.interpreter.InterpreterClient interpreter,
+                                        io.memoryos.chat.interpreter.InterpreterService interpreterSettings,
+                                        io.memoryos.retrieval.DocumentOriginalService originals,
                                         io.memoryos.chat.research.ResearchProperties research,
                                         io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts,
-                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations));
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
+                web, image, imageArtifacts, interpreter, interpreterSettings, originals,
+                research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations), meters);
     }
 
     @Bean(destroyMethod = "dispose")
@@ -71,16 +75,17 @@ class ChatRuntimeConfiguration {
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
                                     io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings,
-                                    io.memoryos.chat.research.ResearchProperties research) {
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research);
+                                    io.memoryos.chat.research.ResearchProperties research,
+                                    io.memoryos.mcp.McpTurnService mcp) {
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research, mcp);
         // Context refresh completes before the web server accepts requests, so no send can race this.
         service.failOrphanedRuns();
         return service;
     }
 
     @Bean
-    StreamBufferWriter chatStreamBuffer(ChatStreamProperties properties) {
-        return new StreamBufferWriter(properties);
+    StreamBufferWriter chatStreamBuffer(org.springframework.data.redis.core.StringRedisTemplate redis, ChatStreamProperties properties) {
+        return new StreamBufferWriter(redis, properties);
     }
 
     @Bean(destroyMethod = "dispose")

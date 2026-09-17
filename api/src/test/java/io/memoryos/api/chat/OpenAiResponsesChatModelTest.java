@@ -111,10 +111,11 @@ class OpenAiResponsesChatModelTest {
                         "part", Map.of("type", "summary_text", "text", ""))),
                 event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 0,
                         "delta", "Checking the policy.", "sequence_number", 2)),
-                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1, "sequence_number", 3,
+                // Staging (2026-09-17): a new reasoning item restarts summary_index at 0, and its heading was glued on.
+                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_2", "output_index", 0, "summary_index", 0, "sequence_number", 3,
                         "part", Map.of("type", "summary_text", "text", ""))),
-                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1,
-                        "delta", "Answering.", "sequence_number", 4)),
+                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_2", "output_index", 0, "summary_index", 0,
+                        "delta", "**Answering**", "sequence_number", 4)),
                 event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 1, "content_index", 0, "delta", "Twelve days.", "sequence_number", 5, "logprobs", List.of())),
                 completed(List.of(message("Twelve days.")))));
         var events = new ArrayList<ChatActivityEvent>();
@@ -125,10 +126,52 @@ class OpenAiResponsesChatModelTest {
         var output = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block();
 
         assertEquals("Twelve days.", text(output));
-        assertEquals("Checking the policy.\n\nAnswering.", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
+        // Each part starts on its own paragraph, including the first, which follows the previous inference's reasoning.
+        assertEquals("\n\nChecking the policy.\n\n**Answering**", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
         var request = requests.getFirst();
         assertEquals("auto", request.path("reasoning").path("summary").asString());
         assertEquals(List.of("function"), types(request.path("tools")));
+    }
+
+    @Test
+    void anOpenAiServedModelStreamsEveryTurnWithSummariesAndTheRequiredToolChoice() {
+        // Staging (2026-09-17): research agents on Chat Completions reasoned silently past the 60 s read gap.
+        bodies.add(sse(completed(List.of(message("Planned.")))));
+        bodies.add(sse(completed(List.of(message("Done.")))));
+        var model = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, true, meters)
+                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, () -> {}));
+
+        model.stream(new Prompt(List.of(new UserMessage("Research")), options(true).mutate()
+                .reasoningEffort("high").toolChoice("required").parallelToolCalls(true).build())).collectList().block();
+        model.stream(new Prompt(List.of(new UserMessage("Report")), options(false).mutate().reasoningEffort("none").build())).collectList().block();
+
+        var research = requests.getFirst();
+        assertEquals("high", research.path("reasoning").path("effort").asString());
+        assertEquals("auto", research.path("reasoning").path("summary").asString());
+        assertEquals("required", research.path("tool_choice").asString());
+        assertTrue(research.path("parallel_tool_calls").asBoolean(false));
+        // Onyx omits reasoning when it is off; a summary would have nothing to summarize.
+        var report = requests.get(1);
+        assertEquals("none", report.path("reasoning").path("effort").asString());
+        assertTrue(report.path("reasoning").path("summary").isMissingNode());
+        assertTrue(report.path("tool_choice").isMissingNode());
+
+        // Connection validation streams without a turn and must probe the same route.
+        bodies.add(sse(completed(List.of(message("OK.")))));
+        new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, true, meters)
+                .stream(new Prompt(List.of(new UserMessage("Reply OK.")), options(true).mutate().toolChoice("none").build())).collectList().block();
+        assertEquals("none", requests.get(2).path("tool_choice").asString());
+    }
+
+    @Test
+    void chatCompletionsToolChoicesMapToTheResponsesShape() {
+        assertNull(OpenAiResponsesChatModel.toolChoice(null));
+        assertEquals("required", OpenAiResponsesChatModel.toolChoice("required"));
+        assertEquals("none", OpenAiResponsesChatModel.toolChoice("none"));
+        var named = Map.of("type", "function", "name", "generate_report");
+        assertEquals(named, OpenAiResponsesChatModel.toolChoice(Map.of("type", "function", "function", Map.of("name", "generate_report"))));
+        assertEquals(named, OpenAiResponsesChatModel.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"generate_report\"}}"));
+        assertThrows(IllegalArgumentException.class, () -> OpenAiResponsesChatModel.toolChoice("sometimes"));
     }
 
     @Test
@@ -188,6 +231,28 @@ class OpenAiResponsesChatModelTest {
                 () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
 
         assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.getMessage());
+    }
+
+    @Test
+    void anIncompleteResponseEndsLikeOnyxWithItsTextAndWithoutTheCutOffToolCall() {
+        var cut = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "search_knowledge",
+                "arguments", "{\"queries\":[\"le", "status", "incomplete");
+        bodies.add(sse(
+                event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 0, "content_index", 0,
+                        "sequence_number", 1, "delta", "Doanh thu quý 3", "logprobs", List.of())),
+                event("response.incomplete", Map.of("sequence_number", 2, "response", Map.of("id", "resp_1", "object", "response",
+                        "status", "incomplete", "incomplete_details", Map.of("reason", "max_output_tokens"),
+                        "output", List.of(message("Doanh thu quý 3"), cut),
+                        "usage", Map.of("input_tokens", 10, "output_tokens", 4096, "total_tokens", 4106,
+                                "input_tokens_details", Map.of("cached_tokens", 0), "output_tokens_details", Map.of("reasoning_tokens", 3900)))))));
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
+
+        var responses = model.stream(new Prompt(List.of(new UserMessage("Báo cáo")), options(true))).collectList().block();
+
+        assertEquals("Doanh thu quý 3", text(responses));
+        var last = responses.getLast().getResult();
+        assertEquals("length", last.getMetadata().getFinishReason());
+        assertTrue(last.getOutput().getToolCalls().isEmpty());
     }
 
     @Test

@@ -92,6 +92,592 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}:
+    get:
+      tags:
+      - MCP
+      summary: Read one MCP server with secrets redacted; requires MCP_MANAGE
+      operationId: getMcpServer
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpServerView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - MCP
+      summary: "Replace server settings at the expected revision; changing URL, authentication\
+        \ type or performer removes stored credentials"
+      operationId: updateMcpServer
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpServerInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved MCP server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpServerView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Delete an MCP server with its tools and credentials at the expected
+        revision
+      operationId: deleteMcpServer
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: MCP server deleted with its tools and credentials
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/{toolId}/enabled:
+    put:
+      tags:
+      - MCP
+      summary: Enable or disable one tool at the expected revision
+      operationId: setMcpServerToolEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolEnablement"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/enabled:
+    put:
+      tags:
+      - MCP
+      summary: Enable every exposable tool or disable every tool
+      operationId: setAllMcpServerToolsEnabled
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpToolEnablement"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients/{clientId}:
+    put:
+      tags:
+      - MCP
+      summary: Replace a pre-registered OAuth client at the expected revision
+      operationId: updateMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthClientInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved OAuth client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - MCP
+      summary: Delete an OAuth client and the connections made with it
+      operationId: deleteMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: OAuth client and its connections deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/connections/{serverId}/api-key:
+    put:
+      tags:
+      - MCP
+      summary: Store the User's own API key after listing the server with it
+      operationId: saveMcpConnectionApiKey
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpConnectionApiKeyInput"
+        required: true
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Stored connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/identity/me/language:
     put:
       tags:
@@ -1187,6 +1773,405 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/prompt-shortcuts/{shortcutId}:
+    put:
+      tags:
+      - Chat
+      summary: Update a private prompt shortcut with an expected revision
+      operationId: updateChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete a private prompt shortcut
+      operationId: deleteChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/{shortcutId}/hidden:
+    put:
+      tags:
+      - Chat
+      summary: Hide or show a public prompt shortcut for the actor
+      operationId: hideChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HiddenRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/public/{shortcutId}:
+    put:
+      tags:
+      - Chat
+      summary: Update a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: updatePublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: deletePublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/preferences:
+    get:
+      tags:
+      - Chat
+      summary: Read whether the actor uses prompt shortcuts
+      operationId: getChatPromptShortcutPreferences
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcutPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Enable or disable prompt shortcuts for the actor
+      operationId: setChatPromptShortcutPreferences
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcutPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/projects/{projectId}:
     get:
       tags:
@@ -1366,7 +2351,7 @@ paths:
     get:
       tags:
       - Chat
-      summary: Read an authorized assistant
+      summary: Read the full snapshot of a usable agent
       operationId: getChatPersona
       parameters:
       - name: personaId
@@ -1414,7 +2399,7 @@ paths:
     put:
       tags:
       - Chat
-      summary: Update assistant settings with an expected revision
+      summary: Update agent settings with an expected revision
       operationId: updateChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -1482,7 +2467,7 @@ paths:
     delete:
       tags:
       - Chat
-      summary: Delete a private assistant while retaining conversation history
+      summary: Delete an agent while retaining conversation history
       operationId: deleteChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -1534,6 +2519,75 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/sharing:
+    put:
+      tags:
+      - Chat
+      summary: "Replace people and Group shares and, for owners, Tenant-wide visibility"
+      operationId: shareChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -1666,6 +2720,345 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PersonaModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/listing:
+    put:
+      tags:
+      - Chat
+      summary: "Set listed, featured and display priority; requires AGENTS_MANAGE"
+      operationId: setChatPersonaListing
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-pins:
+    get:
+      tags:
+      - Chat
+      summary: List the actor's pinned agents in order
+      operationId: listChatPersonaPins
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Replace the actor's ordered pinned agents
+      operationId: replaceChatPersonaPins
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-order:
+    put:
+      tags:
+      - Chat
+      summary: Set display priorities from one ordered list; requires AGENTS_MANAGE
+      operationId: reorderChatPersonas
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Order saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-labels/{labelId}:
+    put:
+      tags:
+      - Chat
+      summary: Rename an agent label; requires AGENTS_MANAGE
+      operationId: renameChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: labelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRef"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete an agent label; requires AGENTS_MANAGE
+      operationId: deleteChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: labelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -1929,6 +3322,116 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Default"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/interpreter:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Read whether Code Interpreter is configured and enabled for the Tenant
+      operationId: getChatInterpreterSettings
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Interpreter
+      summary: Enable or disable Code Interpreter for the Tenant
+      operationId: updateChatInterpreterSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpreterSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Code Interpreter setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterSettingsResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2736,6 +4239,598 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SearchPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers:
+    get:
+      tags:
+      - MCP
+      summary: List Tenant MCP servers with secrets redacted; requires MCP_MANAGE
+      operationId: listMcpServers
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tenant MCP servers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpServerView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - MCP
+      summary: Register a remote Streamable HTTP MCP server; requires MCP_MANAGE
+      operationId: createMcpServer
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpServerInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpServerView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/tools/refresh:
+    post:
+      tags:
+      - MCP
+      summary: Explicitly list tools from the server with the administrator credential
+        and replace the snapshot
+      operationId: refreshMcpServerTools
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Refreshed tool snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpToolRefresh"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/discovery:
+    post:
+      tags:
+      - MCP
+      summary: Explicitly discover the server's authorization servers; nothing is
+        saved
+      operationId: discoverMcpServerOAuth
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Discovered authorization servers for review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthDiscovery"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients:
+    get:
+      tags:
+      - MCP
+      summary: List the server's labelled OAuth clients; requires MCP_MANAGE
+      operationId: listMcpServerOAuthClients
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: OAuth clients with secrets redacted
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - MCP
+      summary: "Add a pre-registered OAuth client, e.g. one organization's Internal\
+        \ app"
+      operationId: createMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthClientInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/clients/registrations:
+    post:
+      tags:
+      - MCP
+      summary: Register with a discovered authorization server by DCR or the client
+        metadata document
+      operationId: registerMcpServerOAuthClient
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthRegistration"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthClientView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/authorization:
+    post:
+      tags:
+      - MCP
+      summary: Start the administrator's OAuth connection for a shared-connection
+        server
+      operationId: startMcpServerOAuthAuthorization
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpOAuthAuthorizationInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Authorization URL for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthAuthorization"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/connections/{serverId}/authorization:
+    post:
+      tags:
+      - MCP
+      summary: Start the User's own OAuth connection and return to the originating
+        page
+      operationId: startMcpConnectionAuthorization
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpConnectionAuthorizationInput"
+        required: true
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Authorization URL for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpOAuthAuthorization"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -4291,6 +6386,213 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/prompt-shortcuts:
+    get:
+      tags:
+      - Chat
+      summary: List the actor's own and public prompt shortcuts
+      operationId: listChatPromptShortcuts
+      parameters:
+      - name: includeHidden
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create a private prompt shortcut
+      operationId: createChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/public:
+    get:
+      tags:
+      - Chat
+      summary: List public prompt shortcuts; requires AGENTS_MANAGE
+      operationId: listPublicChatPromptShortcuts
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: createPublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/projects:
     get:
       tags:
@@ -4537,9 +6839,31 @@ paths:
     get:
       tags:
       - Chat
-      summary: List the default and actor-owned assistants
+      summary: "List usable agents: all listed, the actor's own, or shared with the\
+        \ actor"
       operationId: listChatPersonas
       parameters:
+      - name: view
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ALL
+          enum:
+          - ALL
+          - MINE
+          - SHARED
+      - name: labelId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
       - name: offset
         in: query
         required: false
@@ -4595,7 +6919,7 @@ paths:
     post:
       tags:
       - Chat
-      summary: Create a private assistant
+      summary: Create a private agent; requires AGENTS_CREATE
       operationId: createChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -4645,6 +6969,232 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/restore:
+    post:
+      tags:
+      - Chat
+      summary: Restore a deleted agent; requires AGENTS_MANAGE
+      operationId: restoreChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/owner:
+    post:
+      tags:
+      - Chat
+      summary: Transfer agent ownership to an active member or a Group
+      operationId: transferChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-labels:
+    get:
+      tags:
+      - Chat
+      summary: List agent labels
+      operationId: listChatPersonaLabels
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRef"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create an agent label
+      operationId: createChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRef"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5642,6 +8192,191 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}/tools:
+    get:
+      tags:
+      - MCP
+      summary: List the stored tool snapshot; requires MCP_MANAGE
+      operationId: listMcpServerTools
+      parameters:
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Tool snapshot
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpToolView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/group-options:
+    get:
+      tags:
+      - MCP
+      summary: List Groups available for MCP server access; requires MCP_MANAGE
+      operationId: listMcpGroupOptions
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid MCP configuration or tool snapshot
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or tool not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Stale revision, duplicate slug, missing credential or server\
+            \ authorization required"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Groups available for MCP server access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGroupPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/connections:
+    get:
+      tags:
+      - MCP
+      summary: List the MCP servers available to the signed-in User with their own
+        connection state
+      operationId: listMcpConnections
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: MCP servers this User may use
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/McpConnection"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/invitations/current:
     get:
       tags:
@@ -6195,6 +8930,7 @@ paths:
                 - $ref: "#/components/schemas/ToolEvent"
                 - $ref: "#/components/schemas/ReasoningEvent"
                 - $ref: "#/components/schemas/ImageEvent"
+                - $ref: "#/components/schemas/CodeEvent"
                 - $ref: "#/components/schemas/ResearchPlanEvent"
                 - $ref: "#/components/schemas/TopLevelBranchingEvent"
                 - $ref: "#/components/schemas/ResearchAgentStartEvent"
@@ -6483,7 +9219,7 @@ paths:
     get:
       tags:
       - Chat
-      summary: List models available to this actor and assistant
+      summary: List models available to this actor and agent
       operationId: listChatPersonaModels
       parameters:
       - name: personaId
@@ -6530,11 +9266,73 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/personas/{personaId}/avatar:
+    get:
+      tags:
+      - Chat
+      summary: Read the avatar image of a usable agent
+      operationId: getChatPersonaAvatar
+      parameters:
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Avatar image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/personas/sources:
     get:
       tags:
       - Chat
-      summary: List sources eligible for assistant search
+      summary: List sources eligible for agent search
       operationId: listChatPersonaSources
       parameters:
       - name: offset
@@ -6586,6 +9384,127 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SourceOption"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/administration:
+    get:
+      tags:
+      - Chat
+      summary: "List every agent including unlisted, vacant and deleted ones; requires\
+        \ AGENTS_MANAGE"
+      operationId: listChatPersonasForAdministration
+      parameters:
+      - name: includeDeleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-share-options:
+    get:
+      tags:
+      - Chat
+      summary: Search active members and ordinary Groups to share an agent with
+      operationId: listChatPersonaShareOptions
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentShareOptions"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6714,6 +9633,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatPersonaPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/interpreter/health:
+    get:
+      tags:
+      - Chat Interpreter
+      summary: Check the Code Interpreter service without the cache
+      operationId: getChatInterpreterHealth
+      responses:
+        "400":
+          description: Invalid Code Interpreter setting
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Tenant unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Code Interpreter setting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Code Interpreter is not configured
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Live Code Interpreter service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpreterHealthResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7198,6 +10165,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
+        \ cut at a row boundary"
+      operationId: previewChatFileSpreadsheet
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/passages:
     get:
       tags:
@@ -7370,6 +10393,213 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private generated xlsx as CSV text per sheet, each cut\
+        \ at a row boundary"
+      operationId: previewChatFileArtifactSpreadsheet
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/pdf-preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read a PDF rendering of an owner-private generated presentation, converted\
+        \ in the interpreter on first request"
+      operationId: getChatFileArtifactPdfPreview
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "429":
+          description: The interpreter is busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Read an owner-private file generated by Code Interpreter
+      operationId: getChatFileArtifact
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Generated file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/chart:
+    get:
+      tags:
+      - Chat
+      summary: Read the chart data captured from the figure behind an owner-private
+        generated PNG
+      operationId: getChatFileArtifactChart
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Chart in the E2B chart model (type, title, elements, axes)"
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/documents/{documentId}:
     get:
       tags:
@@ -7491,6 +10721,127 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/mcp/servers/{serverId}/oauth/connection:
+    delete:
+      tags:
+      - MCP
+      summary: Remove the shared OAuth connection and revoke it at the authorization
+        server
+      operationId: disconnectMcpServerOAuth
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid OAuth configuration or unusable authorization-server
+            metadata
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "MCP management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server or OAuth client not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate label
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Authorization server, redirect URI or encryption key unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Shared connection removed and revoked best effort
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/mcp/connections/{serverId}/connection:
+    delete:
+      tags:
+      - MCP
+      summary: Remove the User's own credential and revoke an OAuth connection
+      operationId: disconnectMcpConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: serverId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: "Unusable API key, return address or server configuration"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: "Chat use, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: MCP server not available to this User
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Server configuration changed, or the credential was rejected"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: MCP server or credential encryption key unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Connection removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}:
     delete:
       tags:
@@ -7518,6 +10869,59 @@ paths:
         schema:
           type: string
       responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/sharing/me:
+    delete:
+      tags:
+      - Chat
+      summary: Remove the actor's direct share of an agent
+      operationId: leaveChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
         "204":
           description: No Content
       security:
@@ -7749,6 +11153,456 @@ components:
       required:
       - operation
       - sourceId
+    McpHeaderTemplateChange:
+      type: object
+      description: "Header values may contain secrets and are never returned; API-key\
+        \ servers place {api_key}"
+      properties:
+        action:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        values:
+          type:
+          - object
+          - "null"
+          additionalProperties:
+            type: string
+      required:
+      - action
+    McpSecretChange:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        value:
+          type:
+          - string
+          - "null"
+          maxLength: 8192
+      required:
+      - action
+    McpServerInput:
+      type: object
+      properties:
+        slug:
+          type: string
+          description: Immutable; model-facing tool names are mcp_<slug>_<tool>
+          pattern: "^[a-z0-9]{1,16}$"
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type:
+          - string
+          - "null"
+          maxLength: 2000
+        url:
+          type: string
+          description: Streamable HTTP endpoint
+          maxLength: 2048
+        authType:
+          type: string
+          enum:
+          - NONE
+          - API_TOKEN
+          - OAUTH
+        authPerformer:
+          type: string
+          enum:
+          - ADMIN
+          - PER_USER
+        oauthProviderMode:
+          type:
+          - string
+          - "null"
+          enum:
+          - AUTO_DISCOVERY
+          - KNOWN_PROVIDER
+        oauthScopes:
+          type: array
+          items:
+            type: string
+        oauthAdditionalParameters:
+          type: object
+          additionalProperties:
+            type: string
+        headers:
+          $ref: "#/components/schemas/McpHeaderTemplateChange"
+        sharedApiKey:
+          $ref: "#/components/schemas/McpSecretChange"
+        tenantWide:
+          type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+      required:
+      - authPerformer
+      - authType
+      - groupIds
+      - headers
+      - name
+      - oauthAdditionalParameters
+      - oauthScopes
+      - sharedApiKey
+      - slug
+      - tenantWide
+      - url
+    McpServerView:
+      type: object
+      description: Header values and credentials are never returned
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type:
+          - string
+          - "null"
+        url:
+          type: string
+        authType:
+          type: string
+          enum:
+          - NONE
+          - API_TOKEN
+          - OAUTH
+        authPerformer:
+          type: string
+          enum:
+          - ADMIN
+          - PER_USER
+        oauthProviderMode:
+          type:
+          - string
+          - "null"
+          enum:
+          - AUTO_DISCOVERY
+          - KNOWN_PROVIDER
+        oauthScopes:
+          type: array
+          items:
+            type: string
+        oauthAdditionalParameters:
+          type: object
+          additionalProperties:
+            type: string
+        headerNames:
+          type: array
+          items:
+            type: string
+        sharedCredentialConfigured:
+          type: boolean
+        tenantWide:
+          type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        status:
+          type: string
+          enum:
+          - CREATED
+          - AWAITING_AUTH
+          - FETCHING_TOOLS
+          - CONNECTED
+          - DISCONNECTED
+        lastRefreshedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        toolCount:
+          type: integer
+          format: int64
+        enabledToolCount:
+          type: integer
+          format: int64
+        revision:
+          type: integer
+          format: int64
+      required:
+      - authPerformer
+      - authType
+      - description
+      - enabledToolCount
+      - groupIds
+      - headerNames
+      - id
+      - lastRefreshedAt
+      - name
+      - oauthAdditionalParameters
+      - oauthProviderMode
+      - oauthScopes
+      - revision
+      - sharedCredentialConfigured
+      - slug
+      - status
+      - tenantWide
+      - toolCount
+      - url
+    McpToolEnablement:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
+    McpToolView:
+      type: object
+      description: Annotation hints come from the server and are not enforced guarantees
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        modelName:
+          type: string
+          description: Empty when the tool is not exposable
+        title:
+          type:
+          - string
+          - "null"
+        description:
+          type: string
+        readOnlyHint:
+          type:
+          - boolean
+          - "null"
+        destructiveHint:
+          type:
+          - boolean
+          - "null"
+        enabled:
+          type: boolean
+        exposable:
+          type: boolean
+        snapshotAt:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+      required:
+      - description
+      - destructiveHint
+      - enabled
+      - exposable
+      - id
+      - modelName
+      - name
+      - readOnlyHint
+      - revision
+      - snapshotAt
+      - title
+    McpOAuthClientInput:
+      type: object
+      description: A pre-registered OAuth client; the secret is write-only
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        issuer:
+          type: string
+          maxLength: 2048
+        clientId:
+          type: string
+          maxLength: 2048
+        clientSecret:
+          $ref: "#/components/schemas/McpSecretChange"
+        tokenEndpointAuthMethod:
+          type: string
+          enum:
+          - NONE
+          - CLIENT_SECRET_BASIC
+          - CLIENT_SECRET_POST
+        authorizationEndpoint:
+          type: string
+          maxLength: 2048
+        tokenEndpoint:
+          type: string
+          maxLength: 2048
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+          maxLength: 2048
+        issParameterRequired:
+          type: boolean
+      required:
+      - authorizationEndpoint
+      - clientId
+      - clientSecret
+      - issParameterRequired
+      - issuer
+      - label
+      - tokenEndpoint
+      - tokenEndpointAuthMethod
+    McpOAuthClientView:
+      type: object
+      description: Client secrets and registration tokens are never returned
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        source:
+          type: string
+          enum:
+          - ADMIN
+          - REGISTERED
+          - METADATA_DOCUMENT
+        issuer:
+          type: string
+        clientId:
+          type: string
+        clientSecretConfigured:
+          type: boolean
+        tokenEndpointAuthMethod:
+          type: string
+          enum:
+          - NONE
+          - CLIENT_SECRET_BASIC
+          - CLIENT_SECRET_POST
+        authorizationEndpoint:
+          type: string
+        tokenEndpoint:
+          type: string
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+        issParameterRequired:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - authorizationEndpoint
+      - clientId
+      - clientSecretConfigured
+      - id
+      - issParameterRequired
+      - issuer
+      - label
+      - revision
+      - revocationEndpoint
+      - source
+      - tokenEndpoint
+      - tokenEndpointAuthMethod
+    McpConnectionApiKeyInput:
+      type: object
+      description: The User's own API key; write-only
+      properties:
+        apiKey:
+          type: string
+          maxLength: 8192
+      required:
+      - apiKey
+    McpConnection:
+      type: object
+      description: "An MCP server the signed-in User may use, with their own connection\
+        \ state"
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type:
+          - string
+          - "null"
+        url:
+          type: string
+        authType:
+          type: string
+          enum:
+          - NONE
+          - API_TOKEN
+          - OAUTH
+        authPerformer:
+          type: string
+          enum:
+          - ADMIN
+          - PER_USER
+        status:
+          type: string
+          enum:
+          - CREATED
+          - AWAITING_AUTH
+          - FETCHING_TOOLS
+          - CONNECTED
+          - DISCONNECTED
+        connectionState:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - SHARED
+          - NOT_CONNECTED
+          - CONNECTED
+          - REAUTH_REQUIRED
+        oauthClients:
+          type: array
+          description: Accounts to choose between when connecting
+          items:
+            $ref: "#/components/schemas/McpConnectionClient"
+        enabledToolCount:
+          type: integer
+          format: int64
+        credentialUpdatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+      required:
+      - authPerformer
+      - authType
+      - connectionState
+      - credentialUpdatedAt
+      - description
+      - enabledToolCount
+      - id
+      - name
+      - oauthClients
+      - revision
+      - slug
+      - status
+      - url
+    McpConnectionClient:
+      type: object
+      description: A labelled OAuth client; endpoints stay server-side
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+      required:
+      - id
+      - label
     LanguagePreference:
       type: object
       additionalProperties: false
@@ -8138,6 +11992,49 @@ components:
       - name
       - personaIds
       - revision
+    ShortcutInput:
+      type: object
+      properties:
+        name:
+          type: string
+        content:
+          type: string
+        active:
+          type: boolean
+    PromptShortcut:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        content:
+          type: string
+        active:
+          type: boolean
+        isPublic:
+          type: boolean
+        hidden:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+    HiddenRequest:
+      type: object
+      properties:
+        hidden:
+          type: boolean
+    PreferencesRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+    PromptShortcutPreferences:
+      type: object
+      properties:
+        enabled:
+          type: boolean
     ProjectInput:
       type: object
       properties:
@@ -8184,6 +12081,8 @@ components:
           type: string
         instructions:
           type: string
+        taskPrompt:
+          type: string
         starterPrompts:
           type: array
           items:
@@ -8193,8 +12092,16 @@ components:
           items:
             type: string
             format: uuid
-        searchEnabled:
-          type: boolean
+        tools:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
         modelConfigurationId:
           oneOf:
           - type: string
@@ -8215,12 +12122,92 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
+        avatarFileId:
+          type: string
+          format: uuid
+        labelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        replaceBaseSystemPrompt:
+          type: boolean
+        datetimeAware:
+          type: boolean
+        knowledgeCutoff:
+          type: string
+          format: date-time
+    AgentGroupShare:
+      type: object
+      properties:
+        group:
+          $ref: "#/components/schemas/AgentRef"
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    AgentOwner:
+      type: object
+      properties:
+        actor:
+          $ref: "#/components/schemas/AgentPerson"
+        group:
+          $ref: "#/components/schemas/AgentRef"
+    AgentPerson:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+    AgentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentSourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentUserShare:
+      type: object
+      properties:
+        person:
+          $ref: "#/components/schemas/AgentPerson"
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
     PersonaPermissions:
       type: object
       properties:
         edit:
           type: boolean
+        share:
+          type: boolean
+        setPublic:
+          type: boolean
         delete:
+          type: boolean
+        transfer:
+          type: boolean
+        leave:
+          type: boolean
+        manage:
           type: boolean
     PersonaView:
       type: object
@@ -8241,6 +12228,8 @@ components:
           type: string
         instructions:
           type: string
+        taskPrompt:
+          type: string
         starterPrompts:
           type: array
           items:
@@ -8250,8 +12239,19 @@ components:
           items:
             type: string
             format: uuid
-        searchEnabled:
-          type: boolean
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentSourceRef"
+        tools:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        mcpServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
         modelConfigurationId:
           oneOf:
           - type: string
@@ -8272,6 +12272,92 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
+        hasAvatar:
+          type: boolean
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
+        owner:
+          $ref: "#/components/schemas/AgentOwner"
+        vacant:
+          type: boolean
+        userShares:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentUserShare"
+        groupShares:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentGroupShare"
+        isPublic:
+          type: boolean
+        publicPermission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+        listed:
+          type: boolean
+        featured:
+          type: boolean
+        displayPriority:
+          type: integer
+          format: int32
+        replaceBaseSystemPrompt:
+          type: boolean
+        datetimeAware:
+          type: boolean
+        knowledgeCutoff:
+          type: string
+          format: date-time
+        pinned:
+          type: boolean
+        deletedAt:
+          type: string
+          format: date-time
+    GroupShareInput:
+      type: object
+      properties:
+        groupId:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    SharingInput:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserShareInput"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupShareInput"
+        isPublic:
+          type: boolean
+        publicPermission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    UserShareInput:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
     PersonaModel:
       type: object
       properties:
@@ -8290,6 +12376,29 @@ components:
       - modelConfigurationId
       - personaId
       - revision
+    ListingInput:
+      type: object
+      properties:
+        listed:
+          type: boolean
+        featured:
+          type: boolean
+        displayPriority:
+          type: integer
+          format: int32
+    PinsRequest:
+      type: object
+      properties:
+        personaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    LabelRequest:
+      type: object
+      properties:
+        name:
+          type: string
     CapabilitiesInput:
       type: object
       properties:
@@ -8464,6 +12573,33 @@ components:
           format: int64
       required:
       - modelConfigurationId
+      - revision
+    InterpreterSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - revision
+    InterpreterSettingsResponse:
+      type: object
+      properties:
+        configured:
+          type: boolean
+          description: Whether this deployment has a Code Interpreter service
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - configured
+      - enabled
       - revision
     ImageSelectionRequest:
       type: object
@@ -9095,6 +13231,121 @@ components:
       required:
       - count
       - type
+    McpToolRefresh:
+      type: object
+      properties:
+        server:
+          $ref: "#/components/schemas/McpServerView"
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpToolView"
+      required:
+      - server
+      - tools
+    McpOAuthAuthorizationServer:
+      type: object
+      properties:
+        issuer:
+          type: string
+        authorizationEndpoint:
+          type: string
+        tokenEndpoint:
+          type: string
+        registrationEndpoint:
+          type:
+          - string
+          - "null"
+        revocationEndpoint:
+          type:
+          - string
+          - "null"
+        issParameterSupported:
+          type: boolean
+        registrationAvailable:
+          type: boolean
+        metadataDocumentAvailable:
+          type: boolean
+      required:
+      - authorizationEndpoint
+      - issParameterSupported
+      - issuer
+      - metadataDocumentAvailable
+      - registrationAvailable
+      - registrationEndpoint
+      - revocationEndpoint
+      - tokenEndpoint
+    McpOAuthDiscovery:
+      type: object
+      description: Review only; saving a client or scopes is a separate action
+      properties:
+        resource:
+          type: string
+        suggestedScopes:
+          type: array
+          items:
+            type: string
+        authorizationServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/McpOAuthAuthorizationServer"
+      required:
+      - authorizationServers
+      - resource
+      - suggestedScopes
+    McpOAuthRegistration:
+      type: object
+      description: Source REGISTERED uses DCR; METADATA_DOCUMENT uses the MemoryOS
+        client metadata document
+      properties:
+        label:
+          type: string
+          maxLength: 100
+        issuer:
+          type: string
+          description: An issuer from the discovery review
+        source:
+          type: string
+          enum:
+          - ADMIN
+          - REGISTERED
+          - METADATA_DOCUMENT
+      required:
+      - issuer
+      - label
+      - source
+    McpOAuthAuthorizationInput:
+      type: object
+      properties:
+        oauthClientId:
+          type: string
+          format: uuid
+          description: The labelled OAuth client to connect with
+      required:
+      - oauthClientId
+    McpOAuthAuthorization:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: Navigate the browser here
+      required:
+      - authorizationUrl
+    McpConnectionAuthorizationInput:
+      type: object
+      properties:
+        oauthClientId:
+          type: string
+          format: uuid
+          description: The account to connect with
+        returnPath:
+          type:
+          - string
+          - "null"
+          description: "Relative MemoryOS page to return to, such as /chat/{sessionId}"
+          maxLength: 512
+      required:
+      - oauthClientId
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -9306,6 +13557,9 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -9369,6 +13623,9 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -9474,6 +13731,13 @@ components:
         deepResearch:
           type: boolean
           description: Run Deep research; absent means false. Part of request identity.
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
       - parentMessageId
@@ -9518,6 +13782,13 @@ components:
         deepResearch:
           type: boolean
           description: Run Deep research; absent means false. Part of request identity.
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
     Edit:
@@ -9554,6 +13825,13 @@ components:
         deepResearch:
           type: boolean
           description: Run Deep research; absent means false. Part of request identity.
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 8
+          minItems: 0
       required:
       - clientRequestId
       - text
@@ -9582,6 +13860,15 @@ components:
           minLength: 0
       required:
       - title
+    TransferInput:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
     ChatModelValidationResult:
       type: object
       properties:
@@ -10496,6 +14783,54 @@ components:
       - passages
       - title
       - totalChunks
+    ChatGroupOption:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        systemKey:
+          type:
+          - string
+          - "null"
+      required:
+      - id
+      - name
+      - systemKey
+    ChatGroupPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatGroupOption"
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalItems
+      - totalPages
     InvitationPage:
       type: object
       additionalProperties: false
@@ -10577,6 +14912,9 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -10598,6 +14936,9 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         authorizationVersion:
           type: integer
           format: int64
@@ -10779,6 +15120,9 @@ components:
           - SOURCES_MANAGE
           - SOURCES_DELETE
           - MODELS_MANAGE
+          - MCP_MANAGE
+          - AGENTS_CREATE
+          - AGENTS_MANAGE
         label:
           type: string
         description:
@@ -10804,6 +15148,9 @@ components:
             - SOURCES_MANAGE
             - SOURCES_DELETE
             - MODELS_MANAGE
+            - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
       required:
       - description
       - editable
@@ -10945,6 +15292,12 @@ components:
           items:
             type: integer
             format: int32
+        failure:
+          type: string
+          enum:
+          - AUTHORIZATION_REQUIRED
+          - TIMEOUT
+          - UNAVAILABLE
     ChatActivity:
       type: object
       properties:
@@ -11038,6 +15391,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImageRef"
+        generatedFiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFileRef"
         research:
           $ref: "#/components/schemas/ChatMessageResearch"
       required:
@@ -11047,6 +15404,7 @@ components:
       - createdAt
       - files
       - finishedAt
+      - generatedFiles
       - id
       - images
       - latestChildMessageId
@@ -11195,6 +15553,28 @@ components:
         ordinal:
           type: integer
           format: int32
+    GeneratedFileRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        chart:
+          type: boolean
+          description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
+      required:
+      - chart
+      - filename
+      - id
+      - mediaType
+      - sizeBytes
     ImageRef:
       type: object
       properties:
@@ -11400,10 +15780,21 @@ components:
           - integer
           - "null"
           format: int32
+        failure:
+          type:
+          - string
+          - "null"
+          description: Why a FAILED step failed when the person can act on it; a category
+            only.
+          enum:
+          - AUTHORIZATION_REQUIRED
+          - TIMEOUT
+          - UNAVAILABLE
       required:
       - assistantMessageId
       - documents
       - durationMs
+      - failure
       - parentToolCallId
       - search
       - sequence
@@ -11470,6 +15861,67 @@ components:
       - sequence
       - stage
       - toolCallId
+    CodeEvent:
+      type: object
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int64
+        toolCallId:
+          type: string
+        stage:
+          type: string
+          enum:
+          - RUNNING
+          - OUTPUT
+          - COMPLETED
+          - FAILED
+        code:
+          type:
+          - string
+          - "null"
+        output:
+          type:
+          - string
+          - "null"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFile"
+        stream:
+          type:
+          - string
+          - "null"
+          enum:
+          - stdout
+          - stderr
+      required:
+      - assistantMessageId
+      - code
+      - files
+      - output
+      - sequence
+      - stage
+      - stream
+      - toolCallId
+    GeneratedFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        chart:
+          type: boolean
     ResearchPlanEvent:
       type: object
       properties:
@@ -11736,6 +16188,17 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+    AgentShareOptions:
+      type: object
+      properties:
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentPerson"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
     ChatPersona:
       type: object
       properties:
@@ -11761,6 +16224,19 @@ components:
       required:
       - items
       - nextCursor
+    InterpreterHealthResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        error:
+          type: string
+        version:
+          type: string
+      required:
+      - connected
+      - error
+      - version
     ImageAvailabilityResponse:
       type: object
       properties:
@@ -11775,54 +16251,6 @@ components:
           type: string
       required:
       - available
-    ChatGroupOption:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        systemKey:
-          type:
-          - string
-          - "null"
-      required:
-      - id
-      - name
-      - systemKey
-    ChatGroupPage:
-      type: object
-      additionalProperties: false
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ChatGroupOption"
-        page:
-          type: integer
-          format: int32
-          minimum: 0
-        size:
-          type: integer
-          format: int32
-          maximum: 100
-          minimum: 1
-        totalItems:
-          type: integer
-          format: int64
-          minimum: 0
-        totalPages:
-          type: integer
-          format: int64
-          minimum: 0
-      required:
-      - items
-      - page
-      - size
-      - totalItems
-      - totalPages
     ChatFileTextResponse:
       type: object
       properties:
@@ -11837,6 +16265,22 @@ components:
         totalCharacters:
           type: integer
           format: int32
+    ChatSpreadsheetPreview:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSpreadsheetSheet"
+    ChatSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
     ChatFilePolicyResponse:
       type: object
       properties:

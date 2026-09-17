@@ -102,7 +102,9 @@ class GroupSchemaIntegrityTest {
                         : groupId.equals(GroupEntity.BASIC_ID)
                                 ? capability == IamCapability.SYSTEM_BASIC
                                 : Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
-                                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE).contains(capability);
+                                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE,
+                                        IamCapability.MCP_MANAGE, IamCapability.AGENTS_CREATE,
+                                        IamCapability.AGENTS_MANAGE).contains(capability);
                 Runnable insert = () -> jdbc.sql("""
                                 INSERT INTO iam_group_capability_grants (tenant_id, group_id, capability)
                                 VALUES (:tenantId, :groupId, :capability)

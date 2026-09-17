@@ -39,10 +39,51 @@ class OpenAiReasoningFallbackTest {
         assertEquals(List.of("medium"), efforts());
     }
 
+    @Test void anUnsupportedEffortIsRetriedWithTheCheapestValueTheModelLists() {
+        // Staging hit this on gpt-5.6-sol: every research agent inference asks for the helper effort "minimal".
+        String rejection = "Unsupported value: 'reasoning_effort' does not support 'minimal' with this model. "
+                + "Supported values are: 'none', 'low', 'medium', 'high', and 'xhigh'.";
+        var fallback = new OpenAiReasoningFallback(model(prompt -> sent.size() == 1
+                ? Flux.error(new IllegalStateException(new RuntimeException(rejection)))
+                : Flux.just(response())));
+        assertEquals("OK", fallback.stream(prompt("minimal")).blockLast().getResult().getOutput().getText());
+        assertEquals(List.of("minimal", "none"), efforts());
+    }
+
+    @Test void aModelThatStillListsMinimalKeepsTheCheapestReasoningRatherThanNone() {
+        String rejection = "Unsupported value: 'reasoning_effort' does not support 'xhigh' with this model. "
+                + "Supported values are: 'minimal', 'low' and 'medium'.";
+        var fallback = new OpenAiReasoningFallback(model(prompt -> sent.size() == 1
+                ? Flux.error(new IllegalStateException(rejection))
+                : Flux.just(response())));
+        assertEquals("OK", fallback.stream(prompt("xhigh")).blockLast().getResult().getOutput().getText());
+        assertEquals(List.of("xhigh", "minimal"), efforts());
+    }
+
+    @Test void aRejectionThatNamesNoSupportedValueIsNotRetried() {
+        var fallback = new OpenAiReasoningFallback(model(prompt ->
+                Flux.error(new IllegalStateException("Unsupported value: 'reasoning_effort' does not support 'minimal'."))));
+        assertThrows(IllegalStateException.class, () -> fallback.stream(prompt("minimal")).blockLast());
+        assertEquals(List.of("minimal"), efforts());
+    }
+
     @Test void aRequestAlreadySentWithoutReasoningIsNotRetried() {
         var fallback = new OpenAiReasoningFallback(model(prompt -> Flux.error(new IllegalStateException(REJECTION))));
         assertThrows(IllegalStateException.class, () -> fallback.stream(prompt("none")).blockLast());
         assertEquals(List.of("none"), efforts());
+    }
+
+    @Test void theAcceptedEffortIsReusedSoLaterRequestsSkipTheRejection() {
+        // Research issues one helper inference per agent cycle; repeating the refused effort would cost a round trip each time.
+        String rejection = "Unsupported value: 'reasoning_effort' does not support 'minimal' with this model. "
+                + "Supported values are: 'none', 'low', 'medium'.";
+        var fallback = new OpenAiReasoningFallback(model(prompt ->
+                "minimal".equals(((OpenAiChatOptions) prompt.getOptions()).getReasoningEffort())
+                        ? Flux.error(new IllegalStateException(rejection))
+                        : Flux.just(response())));
+        assertEquals("OK", fallback.stream(prompt("minimal")).blockLast().getResult().getOutput().getText());
+        assertEquals("OK", fallback.stream(prompt("minimal")).blockLast().getResult().getOutput().getText());
+        assertEquals(List.of("minimal", "none", "none"), efforts());
     }
 
     private List<String> efforts() {

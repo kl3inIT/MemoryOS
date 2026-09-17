@@ -120,15 +120,17 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         try {
             var async = asyncClient(connection.baseUrl(), connection.credential(), readTimeout);
             try {
-                // Hosted Web search and displayable reasoning summaries are Responses API features.
+                // As Onyx, a model served by OpenAI itself always streams through the Responses API with reasoning
+                // summaries; an OpenAI-compatible endpoint opts in with hosted Web search or configured summaries.
+                boolean openAi = servedByOpenAi(connection.baseUrl());
                 boolean hostedSearch = supportsNativeWebSearch(settings);
-                boolean summaries = "auto".equals(settings.options().get("reasoningSummary"));
-                var model = hostedSearch || summaries
+                boolean summaries = openAi || "auto".equals(settings.options().get("reasoningSummary"));
+                var model = openAi || hostedSearch || summaries
                         ? async.decorateNative(view -> new OpenAiResponsesChatModel(
                                 OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(view)
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
-                                view, settings.capabilities().reasoning(), hostedSearch, summaries, meters))
+                                view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters))
                         // Only the Chat Completions route carries the tools-with-reasoning constraint.
                         : new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
                                 .openAiClient(sync).openAiClientAsync(view)
@@ -167,6 +169,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
                 OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
                 settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools);
+    }
+
+    /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */
+    static boolean servedByOpenAi(String baseUrl) {
+        try { return "api.openai.com".equalsIgnoreCase(java.net.URI.create(baseUrl).getHost()); }
+        catch (IllegalArgumentException invalid) { return false; }
     }
 
     static OpenAiCancellation asyncClient(String baseUrl, String credential, Duration readTimeout) {

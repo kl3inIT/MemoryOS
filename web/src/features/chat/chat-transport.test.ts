@@ -43,6 +43,7 @@ const row: ChatMessage = {
   activity: { steps: [], reasoning: [] },
   research: { clarification: false, plan: null, agents: [] },
   images: [],
+  generatedFiles: [],
   id: runId,
   sessionId: session.id,
   parentMessageId: userId,
@@ -155,6 +156,17 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(new URL(reads[0]!.url).searchParams.get("after")).toBe(userId);
     expect(new URL(reads[0]!.url).searchParams.get("limit")).toBe("1");
     expect(toUiMessages([{ ...row, artifacts }])[0]?.metadata?.artifacts).toEqual(artifacts);
+    // Files run_python generated survive a reload.
+    const generated = {
+      id: "6f1d2c3a-9b4e-4f77-8a21-5c0e7b8d9a10",
+      filename: "báo cáo.xlsx",
+      mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      sizeBytes: 12_698,
+      chart: false,
+    };
+    expect(
+      toUiMessages([{ ...row, generatedFiles: [generated] }])[0]?.metadata?.generatedFiles,
+    ).toEqual([generated]);
   });
 
   it("streams one server-executed tool part whose input carries progress and fails it on Stop", async () => {
@@ -266,6 +278,8 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
           sources: [fixtureSource],
           artifacts: [],
           images: [],
+          codeRuns: {},
+          generatedFiles: [],
           imageGenerating: false,
           serverStatus: "CANCELED",
         },
@@ -610,6 +624,88 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       expect(chunks.at(-1)?.type).toBe("finish");
     },
   );
+
+  it("resumes a research-length stream past three disconnects while it keeps producing events", async () => {
+    // Deep research runs for minutes and each connection is capped, so only a silent stream may fall back to history.
+    let call = 0;
+    const fetch = fixture(() => {
+      call += 1;
+      return call <= 5
+        ? sse(packet(call, "text-delta", { text: `part ${call} ` }))
+        : sse(packet(6, "outcome", { status: "COMPLETED", failureCode: null }));
+    });
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "text-delta")).toHaveLength(5);
+    expect(chunks.at(-1)?.type).toBe("finish");
+    expect(
+      fetch.mock.calls.filter(([input, init]) =>
+        new URL(new Request(input, init).url).pathname.endsWith("/events"),
+      ),
+    ).toHaveLength(6);
+  });
+
+  it("keeps resuming connections that deliver nothing until the outcome, without polling history or showing recovery", async () => {
+    // A research agent can work for minutes without an event; the server ends every live stream with an outcome or a reset.
+    let call = 0;
+    const fetch = fixture(() => {
+      call += 1;
+      return call <= 4 ? sse(": heartbeat\n\n") : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const states: string[] = [];
+    transport.callbacks.state = (state) => states.push(state);
+    const chunks = await collect(await send(transport));
+    expect(chunks.at(-1)?.type).toBe("finish");
+    const requests = fetch.mock.calls.map(([input, init]) => new Request(input, init));
+    expect(
+      requests.filter((request) => new URL(request.url).pathname.endsWith("/events")),
+    ).toHaveLength(5);
+    expect(
+      requests.filter(
+        (request) =>
+          request.method === "GET" && new URL(request.url).pathname.endsWith("/messages"),
+      ),
+    ).toHaveLength(0);
+    expect(states).not.toContain("recovering");
+  });
+
+  it("backs off failed connections, shows recovery and returns to streaming on the next event", async () => {
+    let call = 0;
+    fixture(() => {
+      call += 1;
+      return call <= 2 ? json({}, 503) : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const states: string[] = [];
+    transport.callbacks.state = (state) => states.push(state);
+    const chunks = await collect(await send(transport));
+    expect(chunks.at(-1)?.type).toBe("finish");
+    expect(call).toBe(3);
+    expect(states.slice(states.indexOf("recovering"))).toEqual([
+      "recovering",
+      "recovering",
+      "streaming",
+      "ready",
+    ]);
+  });
+
+  it("waits for the browser to come back online before reconnecting", async () => {
+    let call = 0;
+    const onLine = vi.spyOn(globalThis.navigator, "onLine", "get").mockReturnValue(false);
+    fixture(() => {
+      call += 1;
+      return call === 1 ? json({}, 503) : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const collected = send(transport).then(collect);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    expect(call).toBe(1);
+    onLine.mockReturnValue(true);
+    globalThis.dispatchEvent(new Event("online"));
+    expect((await collected).at(-1)?.type).toBe("finish");
+    expect(call).toBe(2);
+    onLine.mockRestore();
+  });
 
   it("keeps a failed partial reply and never emits finish", async () => {
     fixture(() => sse(delta + terminal("FAILED")));

@@ -27,11 +27,15 @@ export function ChatFilePart(props: Pick<FileMessagePartProps, "data" | "filenam
   return (
     <button
       type="button"
-      aria-expanded={panel.fileId === fileId}
-      aria-controls={panel.fileId === fileId ? panel.panelId : undefined}
+      aria-haspopup="dialog"
       onClick={(event) =>
-        panel.openFile(
-          { id: fileId, filename: props.filename ?? t("attachment") },
+        panel.previewFile(
+          {
+            source: "attachment",
+            id: fileId,
+            filename: props.filename ?? t("attachment"),
+            mediaType: props.mimeType,
+          },
           event.currentTarget,
         )
       }

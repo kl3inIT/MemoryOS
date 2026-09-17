@@ -31,6 +31,7 @@ final class ChatActivityRecorder {
         final int textOffset;
         ChatActivity.StepStatus status = ChatActivity.StepStatus.RUNNING;
         @Nullable Long durationMs;
+        ChatToolEvent.@Nullable Failure failure;
         List<String> queries = List.of();
         @Nullable SearchFilters filters;
         List<ChatToolEvent.ReadingDocument> documents = List.of();
@@ -82,6 +83,7 @@ final class ChatActivityRecorder {
                 if (step.status == ChatActivity.StepStatus.RUNNING) {
                     step.status = event.stage() == ChatToolEvent.Stage.FAILED ? ChatActivity.StepStatus.FAILED : ChatActivity.StepStatus.COMPLETED;
                     step.durationMs = event.durationMs() != null ? event.durationMs() : step.elapsed();
+                    step.failure = event.failure();
                 }
             }
             default -> { }
@@ -133,7 +135,7 @@ final class ChatActivityRecorder {
     private static ChatActivity build(List<Step> steps, boolean details, List<Segment> reasoning) {
         return new ChatActivity(steps.stream().map(step -> new ChatActivity.ActivityStep(step.position, step.call.id(), step.call.name(),
                         step.status, step.startedAt, step.durationMs, step.textOffset, details ? step.queries : List.of(),
-                        details ? step.filters : null, details ? step.documents : List.of(), details ? List.copyOf(step.citations) : List.of())).toList(),
+                        details ? step.filters : null, details ? step.documents : List.of(), details ? List.copyOf(step.citations) : List.of(), step.failure)).toList(),
                 reasoning.stream().map(segment -> new ChatActivity.ReasoningSegment(segment.position(), segment.textOffset(), segment.text().toString())).toList());
     }
 

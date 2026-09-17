@@ -46,6 +46,7 @@ create_base64_secret "$INSPECTION_DIRECTORY/minio-console-oidc-client-secret.txt
 
 create_hex_secret "$REDIS_DIRECTORY/admin-password.txt" 32
 create_hex_secret "$REDIS_DIRECTORY/worker-password.txt" 32
+create_hex_secret "$REDIS_DIRECTORY/api-password.txt" 32
 create_hex_secret "$REDIS_DIRECTORY/inspector-password.txt" 32
 
 TLS_COUNT=0

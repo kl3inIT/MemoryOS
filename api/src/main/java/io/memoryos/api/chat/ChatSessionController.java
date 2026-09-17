@@ -49,9 +49,11 @@ class ChatSessionController {
     private final ChatSessionService sessions;
     private final ChatWorkspaceService workspace;
     private final ImageArtifactService images;
+    private final io.memoryos.chat.interpreter.InterpreterService interpreter;
 
-    ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images) {
-        this.sessions = sessions; this.workspace = workspace; this.images = images;
+    ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
+            io.memoryos.chat.interpreter.InterpreterService interpreter) {
+        this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
     }
 
     @PostMapping
@@ -96,11 +98,15 @@ class ChatSessionController {
             @PathVariable UUID sessionId, @RequestParam(required = false) @Nullable UUID after,
             @RequestParam(defaultValue = "50") int limit) {
         var messages = sessions.history(identity.actorId(), sessionId, after, limit);
-        var byMessage = images.forMessages(identity.actorId(), messages.stream()
-                .filter(message -> message.role() == ChatMessage.Role.ASSISTANT).map(ChatMessage::id).toList());
+        var assistantIds = messages.stream()
+                .filter(message -> message.role() == ChatMessage.Role.ASSISTANT).map(ChatMessage::id).toList();
+        var byMessage = images.forMessages(identity.actorId(), assistantIds);
+        var filesByMessage = interpreter.forMessages(identity.actorId(), assistantIds);
         return messages.stream().map(message -> ChatMessageResponse.from(message,
                 byMessage.getOrDefault(message.id(), List.of()).stream()
-                        .map(artifact -> new ChatMessageResponse.ImageRef(artifact.id(), artifact.mediaType(), artifact.revisedPrompt())).toList())).toList();
+                        .map(artifact -> new ChatMessageResponse.ImageRef(artifact.id(), artifact.mediaType(), artifact.revisedPrompt())).toList(),
+                filesByMessage.getOrDefault(message.id(), List.of()).stream()
+                        .map(file -> new ChatMessageResponse.GeneratedFileRef(file.id(), file.filename(), file.mediaType(), file.sizeBytes(), file.chart())).toList())).toList();
     }
 
     record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}

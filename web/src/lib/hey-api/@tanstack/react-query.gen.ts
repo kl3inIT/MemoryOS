@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activateUser, addGroupMembers, assignGroupManager, assignSourceManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatProject, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createProjectChatSession, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatProject, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteSource, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatModelDefault, getChatPersona, getChatProject, getChatSession, getChatSettings, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSource, getSourceOperation, getSourceRun, initiateChatFileUpload, initiateSourceUpload, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaModels, listChatPersonas, listChatPersonaSources, listChatProjects, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listProjectChatSessions, listReportedProviderModels, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, regenerateChatMessage, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeGroupSource, removeSourceItem, renameChatSession, renameGroup, renameSource, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatSettings, saveChatWebConnection, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setChatFeedback, setChatModelDefault, setChatSharing, setCurrentIdentityLanguage, setPersonaModel, startGoogleDriveAuthorization, synchronizeGoogleDriveSource, testChatImageConnection, testChatWebConnection, updateChatModel, updateChatPersona, updateChatProject, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
-import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, AssignSourceManagerData, AssignSourceManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteSourceData, DeleteSourceResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSettingsData, GetChatSettingsError, GetChatSettingsResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveGroupSourceData, RemoveGroupSourceResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSourceData, RenameSourceResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatSettingsData, SaveChatSettingsError, SaveChatSettingsResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
+import { activateUser, addGroupMembers, assignGroupManager, assignSourceManager, cancelChatMessage, configureChatSession, createChatModel, createChatPersona, createChatPersonaLabel, createChatProject, createChatPromptShortcut, createChatProvider, createChatSession, createFileSource, createGoogleDriveSource, createGroup, createIdentityProvider, createInvitation, createMcpServer, createMcpServerOAuthClient, createProjectChatSession, createPublicChatPromptShortcut, deactivateUser, deleteChatFile, deleteChatModel, deleteChatPersona, deleteChatPersonaLabel, deleteChatProject, deleteChatPromptShortcut, deleteChatProvider, deleteChatSession, deleteGoogleDriveCredential, deleteGroup, deleteIdentityProvider, deleteMcpServer, deleteMcpServerOAuthClient, deletePublicChatPromptShortcut, deleteSource, disconnectMcpConnection, disconnectMcpServerOAuth, discoverGoogleDriveLinkedDocuments, discoverIdentityProvider, discoverMcpServerOAuth, downloadChatFile, editChatMessage, finalizeChatFileUpload, finalizeSourceUpload, generateChatTitle, getChatBranches, getChatFeedback, getChatFile, getChatFileArtifact, getChatFileArtifactChart, getChatFileArtifactPdfPreview, getChatFilePolicy, getChatHistory, getChatImageArtifact, getChatImageAvailability, getChatInterpreterHealth, getChatInterpreterSettings, getChatModelDefault, getChatPersona, getChatPersonaAvatar, getChatProject, getChatPromptShortcutPreferences, getChatSession, getChatSettings, getChatSharing, getChatWebAvailability, getCurrentIdentity, getCurrentInvitation, getGoogleDriveConfiguration, getGoogleDriveSelection, getGoogleDriveSelectionDraft, getGoogleDriveSelectionPolicy, getGoogleDriveSelectionRequest, getGoogleDriveSelectionTree, getGroup, getMcpServer, getPersonaModel, getSearchDocument, getSharedChatHistory, getSharedChatSession, getSource, getSourceOperation, getSourceRun, hideChatPromptShortcut, initiateChatFileUpload, initiateSourceUpload, leaveChatPersona, listAvailableChatModels, listChatFiles, listChatGroupOptions, listChatImageConnections, listChatModelPersonas, listChatPersonaLabels, listChatPersonaModels, listChatPersonaPins, listChatPersonas, listChatPersonasForAdministration, listChatPersonaShareOptions, listChatPersonaSources, listChatProjects, listChatPromptShortcuts, listChatProviderAdapters, listChatProviders, listChatSessions, listChatWebConnections, listConfiguredChatModels, listGoogleDriveCredentials, listGroupCandidates, listGroupCapabilities, listGroupMembers, listGroups, listGroupSources, listIdentityProviders, listInvitations, listMcpConnections, listMcpGroupOptions, listMcpServerOAuthClients, listMcpServers, listMcpServerTools, listProjectChatSessions, listPublicChatPromptShortcuts, listReportedProviderModels, listSourceGroupOptions, listSourceGroups, listSourceIndexAttempts, listSourceItems, listSourceRunErrors, listSourceRuns, listSources, listUsers, moveChatProject, type Options, previewChatFileArtifactSpreadsheet, previewChatFileSpreadsheet, readChatDocumentOriginal, readChatDocumentPassages, readChatFilePassages, readChatFileText, readSearchDocumentOriginal, refreshMcpServerTools, regenerateChatMessage, registerMcpServerOAuthClient, reindexSourceItem, removeChatFeedback, removeGroupManager, removeGroupMember, removeGroupSource, removeSourceItem, renameChatPersonaLabel, renameChatSession, renameGroup, renameSource, reorderChatPersonas, replaceChatPersonaPins, replaceGoogleDriveRoots, replaceGroupCapabilities, replaceUserGroups, restoreChatPersona, retryChatFile, revokeGoogleDriveCredential, revokeInvitation, rotateInvitation, saveChatImageConnection, saveChatSettings, saveChatWebConnection, saveMcpConnectionApiKey, searchChatSessions, searchDocuments, selectChatBranch, selectChatImageProvider, selectChatPersona, selectChatWebProvider, sendChatMessage, setAllMcpServerToolsEnabled, setChatFeedback, setChatModelDefault, setChatPersonaListing, setChatPromptShortcutPreferences, setChatSharing, setCurrentIdentityLanguage, setMcpServerToolEnabled, setPersonaModel, shareChatPersona, startGoogleDriveAuthorization, startMcpConnectionAuthorization, startMcpServerOAuthAuthorization, synchronizeGoogleDriveSource, testChatImageConnection, testChatWebConnection, transferChatPersona, updateChatInterpreterSettings, updateChatModel, updateChatPersona, updateChatProject, updateChatPromptShortcut, updateChatProvider, updateGoogleDrivePause, updateGoogleDriveSchedule, updateIdentityProvider, updateMcpServer, updateMcpServerOAuthClient, updatePublicChatPromptShortcut, updateSourceAccess, updateSourceGroups, validateChatModel } from '../sdk.gen';
+import type { ActivateUserData, ActivateUserError, ActivateUserResponse, AddGroupMembersData, AddGroupMembersResponse, AssignGroupManagerData, AssignGroupManagerResponse, AssignSourceManagerData, AssignSourceManagerResponse, CancelChatMessageData, CancelChatMessageError, CancelChatMessageResponse, ConfigureChatSessionData, ConfigureChatSessionError, ConfigureChatSessionResponse, CreateChatModelData, CreateChatModelError, CreateChatModelResponse, CreateChatPersonaData, CreateChatPersonaError, CreateChatPersonaLabelData, CreateChatPersonaLabelError, CreateChatPersonaLabelResponse, CreateChatPersonaResponse, CreateChatProjectData, CreateChatProjectError, CreateChatProjectResponse, CreateChatPromptShortcutData, CreateChatPromptShortcutError, CreateChatPromptShortcutResponse, CreateChatProviderData, CreateChatProviderError, CreateChatProviderResponse, CreateChatSessionData, CreateChatSessionError, CreateChatSessionResponse, CreateFileSourceData, CreateFileSourceResponse, CreateGoogleDriveSourceData, CreateGoogleDriveSourceResponse, CreateGroupData, CreateGroupResponse, CreateIdentityProviderData, CreateIdentityProviderError, CreateIdentityProviderResponse, CreateInvitationData, CreateInvitationError, CreateInvitationResponse, CreateMcpServerData, CreateMcpServerError, CreateMcpServerOAuthClientData, CreateMcpServerOAuthClientError, CreateMcpServerOAuthClientResponse, CreateMcpServerResponse, CreateProjectChatSessionData, CreateProjectChatSessionError, CreateProjectChatSessionResponse, CreatePublicChatPromptShortcutData, CreatePublicChatPromptShortcutError, CreatePublicChatPromptShortcutResponse, DeactivateUserData, DeactivateUserError, DeactivateUserResponse, DeleteChatFileData, DeleteChatFileError, DeleteChatFileResponse, DeleteChatModelData, DeleteChatModelError, DeleteChatModelResponse, DeleteChatPersonaData, DeleteChatPersonaError, DeleteChatPersonaLabelData, DeleteChatPersonaLabelError, DeleteChatPersonaLabelResponse, DeleteChatPersonaResponse, DeleteChatProjectData, DeleteChatProjectError, DeleteChatProjectResponse, DeleteChatPromptShortcutData, DeleteChatPromptShortcutError, DeleteChatPromptShortcutResponse, DeleteChatProviderData, DeleteChatProviderError, DeleteChatProviderResponse, DeleteChatSessionData, DeleteChatSessionError, DeleteChatSessionResponse, DeleteGoogleDriveCredentialData, DeleteGoogleDriveCredentialResponse, DeleteGroupData, DeleteGroupError, DeleteGroupResponse, DeleteIdentityProviderData, DeleteIdentityProviderError, DeleteIdentityProviderResponse, DeleteMcpServerData, DeleteMcpServerError, DeleteMcpServerOAuthClientData, DeleteMcpServerOAuthClientError, DeleteMcpServerOAuthClientResponse, DeleteMcpServerResponse, DeletePublicChatPromptShortcutData, DeletePublicChatPromptShortcutError, DeletePublicChatPromptShortcutResponse, DeleteSourceData, DeleteSourceResponse, DisconnectMcpConnectionData, DisconnectMcpConnectionError, DisconnectMcpConnectionResponse, DisconnectMcpServerOAuthData, DisconnectMcpServerOAuthError, DisconnectMcpServerOAuthResponse, DiscoverGoogleDriveLinkedDocumentsData, DiscoverGoogleDriveLinkedDocumentsResponse, DiscoverIdentityProviderData, DiscoverIdentityProviderError, DiscoverIdentityProviderResponse, DiscoverMcpServerOAuthData, DiscoverMcpServerOAuthError, DiscoverMcpServerOAuthResponse, DownloadChatFileData, DownloadChatFileError, DownloadChatFileResponse, EditChatMessageData, EditChatMessageError, EditChatMessageResponse, FinalizeChatFileUploadData, FinalizeChatFileUploadError, FinalizeChatFileUploadResponse, FinalizeSourceUploadData, FinalizeSourceUploadResponse, GenerateChatTitleData, GenerateChatTitleError, GenerateChatTitleResponse, GetChatBranchesData, GetChatBranchesError, GetChatBranchesResponse, GetChatFeedbackData, GetChatFeedbackError, GetChatFeedbackResponse, GetChatFileArtifactChartData, GetChatFileArtifactChartError, GetChatFileArtifactChartResponse, GetChatFileArtifactData, GetChatFileArtifactError, GetChatFileArtifactPdfPreviewData, GetChatFileArtifactPdfPreviewError, GetChatFileArtifactPdfPreviewResponse, GetChatFileArtifactResponse, GetChatFileData, GetChatFileError, GetChatFilePolicyData, GetChatFilePolicyError, GetChatFilePolicyResponse, GetChatFileResponse, GetChatHistoryData, GetChatHistoryError, GetChatHistoryResponse, GetChatImageArtifactData, GetChatImageArtifactError, GetChatImageArtifactResponse, GetChatImageAvailabilityData, GetChatImageAvailabilityError, GetChatImageAvailabilityResponse, GetChatInterpreterHealthData, GetChatInterpreterHealthError, GetChatInterpreterHealthResponse, GetChatInterpreterSettingsData, GetChatInterpreterSettingsError, GetChatInterpreterSettingsResponse, GetChatModelDefaultData, GetChatModelDefaultError, GetChatModelDefaultResponse, GetChatPersonaAvatarData, GetChatPersonaAvatarError, GetChatPersonaAvatarResponse, GetChatPersonaData, GetChatPersonaError, GetChatPersonaResponse, GetChatProjectData, GetChatProjectError, GetChatProjectResponse, GetChatPromptShortcutPreferencesData, GetChatPromptShortcutPreferencesError, GetChatPromptShortcutPreferencesResponse, GetChatSessionData, GetChatSessionError, GetChatSessionResponse, GetChatSettingsData, GetChatSettingsError, GetChatSettingsResponse, GetChatSharingData, GetChatSharingError, GetChatSharingResponse, GetChatWebAvailabilityData, GetChatWebAvailabilityError, GetChatWebAvailabilityResponse, GetCurrentIdentityData, GetCurrentIdentityResponse, GetCurrentInvitationData, GetCurrentInvitationError, GetCurrentInvitationResponse, GetGoogleDriveConfigurationData, GetGoogleDriveConfigurationResponse, GetGoogleDriveSelectionData, GetGoogleDriveSelectionDraftData, GetGoogleDriveSelectionDraftResponse, GetGoogleDriveSelectionPolicyData, GetGoogleDriveSelectionPolicyResponse, GetGoogleDriveSelectionRequestData, GetGoogleDriveSelectionRequestResponse, GetGoogleDriveSelectionResponse, GetGoogleDriveSelectionTreeData, GetGoogleDriveSelectionTreeResponse, GetGroupData, GetGroupResponse, GetMcpServerData, GetMcpServerError, GetMcpServerResponse, GetPersonaModelData, GetPersonaModelError, GetPersonaModelResponse, GetSearchDocumentData, GetSearchDocumentResponse, GetSharedChatHistoryData, GetSharedChatHistoryError, GetSharedChatHistoryResponse, GetSharedChatSessionData, GetSharedChatSessionError, GetSharedChatSessionResponse, GetSourceData, GetSourceOperationData, GetSourceOperationResponse, GetSourceResponse, GetSourceRunData, GetSourceRunResponse, HideChatPromptShortcutData, HideChatPromptShortcutError, HideChatPromptShortcutResponse, InitiateChatFileUploadData, InitiateChatFileUploadError, InitiateChatFileUploadResponse, InitiateSourceUploadData, InitiateSourceUploadResponse, LeaveChatPersonaData, LeaveChatPersonaError, LeaveChatPersonaResponse, ListAvailableChatModelsData, ListAvailableChatModelsError, ListAvailableChatModelsResponse, ListChatFilesData, ListChatFilesError, ListChatFilesResponse, ListChatGroupOptionsData, ListChatGroupOptionsError, ListChatGroupOptionsResponse, ListChatImageConnectionsData, ListChatImageConnectionsError, ListChatImageConnectionsResponse, ListChatModelPersonasData, ListChatModelPersonasError, ListChatModelPersonasResponse, ListChatPersonaLabelsData, ListChatPersonaLabelsError, ListChatPersonaLabelsResponse, ListChatPersonaModelsData, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ListChatPersonaPinsData, ListChatPersonaPinsError, ListChatPersonaPinsResponse, ListChatPersonasData, ListChatPersonasError, ListChatPersonasForAdministrationData, ListChatPersonasForAdministrationError, ListChatPersonasForAdministrationResponse, ListChatPersonaShareOptionsData, ListChatPersonaShareOptionsError, ListChatPersonaShareOptionsResponse, ListChatPersonaSourcesData, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ListChatPersonasResponse, ListChatProjectsData, ListChatProjectsError, ListChatProjectsResponse, ListChatPromptShortcutsData, ListChatPromptShortcutsError, ListChatPromptShortcutsResponse, ListChatProviderAdaptersData, ListChatProviderAdaptersError, ListChatProviderAdaptersResponse, ListChatProvidersData, ListChatProvidersError, ListChatProvidersResponse, ListChatSessionsData, ListChatSessionsError, ListChatSessionsResponse, ListChatWebConnectionsData, ListChatWebConnectionsError, ListChatWebConnectionsResponse, ListConfiguredChatModelsData, ListConfiguredChatModelsError, ListConfiguredChatModelsResponse, ListGoogleDriveCredentialsData, ListGoogleDriveCredentialsResponse, ListGroupCandidatesData, ListGroupCandidatesResponse, ListGroupCapabilitiesData, ListGroupCapabilitiesResponse, ListGroupMembersData, ListGroupMembersResponse, ListGroupsData, ListGroupsError, ListGroupSourcesData, ListGroupSourcesResponse, ListGroupsResponse, ListIdentityProvidersData, ListIdentityProvidersError, ListIdentityProvidersResponse, ListInvitationsData, ListInvitationsError, ListInvitationsResponse, ListMcpConnectionsData, ListMcpConnectionsError, ListMcpConnectionsResponse, ListMcpGroupOptionsData, ListMcpGroupOptionsError, ListMcpGroupOptionsResponse, ListMcpServerOAuthClientsData, ListMcpServerOAuthClientsError, ListMcpServerOAuthClientsResponse, ListMcpServersData, ListMcpServersError, ListMcpServersResponse, ListMcpServerToolsData, ListMcpServerToolsError, ListMcpServerToolsResponse, ListProjectChatSessionsData, ListProjectChatSessionsError, ListProjectChatSessionsResponse, ListPublicChatPromptShortcutsData, ListPublicChatPromptShortcutsError, ListPublicChatPromptShortcutsResponse, ListReportedProviderModelsData, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ListSourceGroupOptionsData, ListSourceGroupOptionsResponse, ListSourceGroupsData, ListSourceGroupsResponse, ListSourceIndexAttemptsData, ListSourceIndexAttemptsResponse, ListSourceItemsData, ListSourceItemsResponse, ListSourceRunErrorsData, ListSourceRunErrorsResponse, ListSourceRunsData, ListSourceRunsResponse, ListSourcesData, ListSourcesResponse, ListUsersData, ListUsersError, ListUsersResponse, MoveChatProjectData, MoveChatProjectError, MoveChatProjectResponse, PreviewChatFileArtifactSpreadsheetData, PreviewChatFileArtifactSpreadsheetError, PreviewChatFileArtifactSpreadsheetResponse, PreviewChatFileSpreadsheetData, PreviewChatFileSpreadsheetError, PreviewChatFileSpreadsheetResponse, ReadChatDocumentOriginalData, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReadChatDocumentPassagesData, ReadChatDocumentPassagesError, ReadChatDocumentPassagesResponse, ReadChatFilePassagesData, ReadChatFilePassagesError, ReadChatFilePassagesResponse, ReadChatFileTextData, ReadChatFileTextError, ReadChatFileTextResponse, ReadSearchDocumentOriginalData, ReadSearchDocumentOriginalResponse, RefreshMcpServerToolsData, RefreshMcpServerToolsError, RefreshMcpServerToolsResponse, RegenerateChatMessageData, RegenerateChatMessageError, RegenerateChatMessageResponse, RegisterMcpServerOAuthClientData, RegisterMcpServerOAuthClientError, RegisterMcpServerOAuthClientResponse, ReindexSourceItemData, ReindexSourceItemResponse, RemoveChatFeedbackData, RemoveChatFeedbackError, RemoveChatFeedbackResponse, RemoveGroupManagerData, RemoveGroupManagerResponse, RemoveGroupMemberData, RemoveGroupMemberError, RemoveGroupMemberResponse, RemoveGroupSourceData, RemoveGroupSourceResponse, RemoveSourceItemData, RemoveSourceItemResponse, RenameChatPersonaLabelData, RenameChatPersonaLabelError, RenameChatPersonaLabelResponse, RenameChatSessionData, RenameChatSessionError, RenameChatSessionResponse, RenameGroupData, RenameGroupResponse, RenameSourceData, RenameSourceResponse, ReorderChatPersonasData, ReorderChatPersonasError, ReorderChatPersonasResponse, ReplaceChatPersonaPinsData, ReplaceChatPersonaPinsError, ReplaceChatPersonaPinsResponse, ReplaceGoogleDriveRootsData, ReplaceGoogleDriveRootsResponse, ReplaceGroupCapabilitiesData, ReplaceGroupCapabilitiesResponse, ReplaceUserGroupsData, ReplaceUserGroupsError, ReplaceUserGroupsResponse, RestoreChatPersonaData, RestoreChatPersonaError, RestoreChatPersonaResponse, RetryChatFileData, RetryChatFileError, RetryChatFileResponse, RevokeGoogleDriveCredentialData, RevokeGoogleDriveCredentialResponse, RevokeInvitationData, RevokeInvitationError, RevokeInvitationResponse, RotateInvitationData, RotateInvitationError, RotateInvitationResponse, SaveChatImageConnectionData, SaveChatImageConnectionError, SaveChatImageConnectionResponse, SaveChatSettingsData, SaveChatSettingsError, SaveChatSettingsResponse, SaveChatWebConnectionData, SaveChatWebConnectionError, SaveChatWebConnectionResponse, SaveMcpConnectionApiKeyData, SaveMcpConnectionApiKeyError, SaveMcpConnectionApiKeyResponse, SearchChatSessionsData, SearchChatSessionsError, SearchChatSessionsResponse, SearchDocumentsData, SearchDocumentsResponse, SelectChatBranchData, SelectChatBranchError, SelectChatBranchResponse, SelectChatImageProviderData, SelectChatImageProviderError, SelectChatImageProviderResponse, SelectChatPersonaData, SelectChatPersonaError, SelectChatPersonaResponse, SelectChatWebProviderData, SelectChatWebProviderError, SelectChatWebProviderResponse, SendChatMessageData, SendChatMessageError, SendChatMessageResponse, SetAllMcpServerToolsEnabledData, SetAllMcpServerToolsEnabledError, SetAllMcpServerToolsEnabledResponse, SetChatFeedbackData, SetChatFeedbackError, SetChatFeedbackResponse, SetChatModelDefaultData, SetChatModelDefaultError, SetChatModelDefaultResponse, SetChatPersonaListingData, SetChatPersonaListingError, SetChatPersonaListingResponse, SetChatPromptShortcutPreferencesData, SetChatPromptShortcutPreferencesError, SetChatPromptShortcutPreferencesResponse, SetChatSharingData, SetChatSharingError, SetChatSharingResponse, SetCurrentIdentityLanguageData, SetCurrentIdentityLanguageResponse, SetMcpServerToolEnabledData, SetMcpServerToolEnabledError, SetMcpServerToolEnabledResponse, SetPersonaModelData, SetPersonaModelError, SetPersonaModelResponse, ShareChatPersonaData, ShareChatPersonaError, ShareChatPersonaResponse, StartGoogleDriveAuthorizationData, StartGoogleDriveAuthorizationResponse, StartMcpConnectionAuthorizationData, StartMcpConnectionAuthorizationError, StartMcpConnectionAuthorizationResponse, StartMcpServerOAuthAuthorizationData, StartMcpServerOAuthAuthorizationError, StartMcpServerOAuthAuthorizationResponse, SynchronizeGoogleDriveSourceData, SynchronizeGoogleDriveSourceResponse, TestChatImageConnectionData, TestChatImageConnectionError, TestChatImageConnectionResponse, TestChatWebConnectionData, TestChatWebConnectionError, TestChatWebConnectionResponse, TransferChatPersonaData, TransferChatPersonaError, TransferChatPersonaResponse, UpdateChatInterpreterSettingsData, UpdateChatInterpreterSettingsError, UpdateChatInterpreterSettingsResponse, UpdateChatModelData, UpdateChatModelError, UpdateChatModelResponse, UpdateChatPersonaData, UpdateChatPersonaError, UpdateChatPersonaResponse, UpdateChatProjectData, UpdateChatProjectError, UpdateChatProjectResponse, UpdateChatPromptShortcutData, UpdateChatPromptShortcutError, UpdateChatPromptShortcutResponse, UpdateChatProviderData, UpdateChatProviderError, UpdateChatProviderResponse, UpdateGoogleDrivePauseData, UpdateGoogleDrivePauseResponse, UpdateGoogleDriveScheduleData, UpdateGoogleDriveScheduleResponse, UpdateIdentityProviderData, UpdateIdentityProviderError, UpdateIdentityProviderResponse, UpdateMcpServerData, UpdateMcpServerError, UpdateMcpServerOAuthClientData, UpdateMcpServerOAuthClientError, UpdateMcpServerOAuthClientResponse, UpdateMcpServerResponse, UpdatePublicChatPromptShortcutData, UpdatePublicChatPromptShortcutError, UpdatePublicChatPromptShortcutResponse, UpdateSourceAccessData, UpdateSourceAccessResponse, UpdateSourceGroupsData, UpdateSourceGroupsResponse, ValidateChatModelData, ValidateChatModelError, ValidateChatModelResponse } from '../types.gen';
 
 /**
  * Update the automatic Google Drive sync interval
@@ -30,6 +30,176 @@ export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<Replac
     const mutationOptions: UseMutationOptions<ReplaceGoogleDriveRootsResponse, DefaultError, Options<ReplaceGoogleDriveRootsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await replaceGoogleDriveRoots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an MCP server with its tools and credentials at the expected revision
+ */
+export const deleteMcpServerMutation = (options?: Partial<Options<DeleteMcpServerData>>): UseMutationOptions<DeleteMcpServerResponse, DeleteMcpServerError, Options<DeleteMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<DeleteMcpServerResponse, DeleteMcpServerError, Options<DeleteMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
+};
+
+export const getMcpServerQueryKey = (options: Options<GetMcpServerData>) => createQueryKey('getMcpServer', options);
+
+/**
+ * Read one MCP server with secrets redacted; requires MCP_MANAGE
+ */
+export const getMcpServerOptions = (options: Options<GetMcpServerData>) => queryOptions<GetMcpServerResponse, GetMcpServerError, GetMcpServerResponse, ReturnType<typeof getMcpServerQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMcpServer({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMcpServerQueryKey(options)
+});
+
+/**
+ * Replace server settings at the expected revision; changing URL, authentication type or performer removes stored credentials
+ */
+export const updateMcpServerMutation = (options?: Partial<Options<UpdateMcpServerData>>): UseMutationOptions<UpdateMcpServerResponse, UpdateMcpServerError, Options<UpdateMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<UpdateMcpServerResponse, UpdateMcpServerError, Options<UpdateMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Enable or disable one tool at the expected revision
+ */
+export const setMcpServerToolEnabledMutation = (options?: Partial<Options<SetMcpServerToolEnabledData>>): UseMutationOptions<SetMcpServerToolEnabledResponse, SetMcpServerToolEnabledError, Options<SetMcpServerToolEnabledData>> => {
+    const mutationOptions: UseMutationOptions<SetMcpServerToolEnabledResponse, SetMcpServerToolEnabledError, Options<SetMcpServerToolEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMcpServerToolEnabled({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Enable every exposable tool or disable every tool
+ */
+export const setAllMcpServerToolsEnabledMutation = (options?: Partial<Options<SetAllMcpServerToolsEnabledData>>): UseMutationOptions<SetAllMcpServerToolsEnabledResponse, SetAllMcpServerToolsEnabledError, Options<SetAllMcpServerToolsEnabledData>> => {
+    const mutationOptions: UseMutationOptions<SetAllMcpServerToolsEnabledResponse, SetAllMcpServerToolsEnabledError, Options<SetAllMcpServerToolsEnabledData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setAllMcpServerToolsEnabled({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an OAuth client and the connections made with it
+ */
+export const deleteMcpServerOAuthClientMutation = (options?: Partial<Options<DeleteMcpServerOAuthClientData>>): UseMutationOptions<DeleteMcpServerOAuthClientResponse, DeleteMcpServerOAuthClientError, Options<DeleteMcpServerOAuthClientData>> => {
+    const mutationOptions: UseMutationOptions<DeleteMcpServerOAuthClientResponse, DeleteMcpServerOAuthClientError, Options<DeleteMcpServerOAuthClientData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteMcpServerOAuthClient({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace a pre-registered OAuth client at the expected revision
+ */
+export const updateMcpServerOAuthClientMutation = (options?: Partial<Options<UpdateMcpServerOAuthClientData>>): UseMutationOptions<UpdateMcpServerOAuthClientResponse, UpdateMcpServerOAuthClientError, Options<UpdateMcpServerOAuthClientData>> => {
+    const mutationOptions: UseMutationOptions<UpdateMcpServerOAuthClientResponse, UpdateMcpServerOAuthClientError, Options<UpdateMcpServerOAuthClientData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateMcpServerOAuthClient({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Store the User's own API key after listing the server with it
+ */
+export const saveMcpConnectionApiKeyMutation = (options?: Partial<Options<SaveMcpConnectionApiKeyData>>): UseMutationOptions<SaveMcpConnectionApiKeyResponse, SaveMcpConnectionApiKeyError, Options<SaveMcpConnectionApiKeyData>> => {
+    const mutationOptions: UseMutationOptions<SaveMcpConnectionApiKeyResponse, SaveMcpConnectionApiKeyError, Options<SaveMcpConnectionApiKeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveMcpConnectionApiKey({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -125,39 +295,6 @@ export const saveChatWebConnectionMutation = (options?: Partial<Options<SaveChat
         }
     };
     return mutationOptions;
-};
-
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
 };
 
 export const getChatSettingsQueryKey = (options?: Options<GetChatSettingsData>) => createQueryKey('getChatSettings', options);
@@ -401,6 +538,126 @@ export const updateChatProviderMutation = (options?: Partial<Options<UpdateChatP
 };
 
 /**
+ * Delete a private prompt shortcut
+ */
+export const deleteChatPromptShortcutMutation = (options?: Partial<Options<DeleteChatPromptShortcutData>>): UseMutationOptions<DeleteChatPromptShortcutResponse, DeleteChatPromptShortcutError, Options<DeleteChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<DeleteChatPromptShortcutResponse, DeleteChatPromptShortcutError, Options<DeleteChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a private prompt shortcut with an expected revision
+ */
+export const updateChatPromptShortcutMutation = (options?: Partial<Options<UpdateChatPromptShortcutData>>): UseMutationOptions<UpdateChatPromptShortcutResponse, UpdateChatPromptShortcutError, Options<UpdateChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChatPromptShortcutResponse, UpdateChatPromptShortcutError, Options<UpdateChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Hide or show a public prompt shortcut for the actor
+ */
+export const hideChatPromptShortcutMutation = (options?: Partial<Options<HideChatPromptShortcutData>>): UseMutationOptions<HideChatPromptShortcutResponse, HideChatPromptShortcutError, Options<HideChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<HideChatPromptShortcutResponse, HideChatPromptShortcutError, Options<HideChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await hideChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a public prompt shortcut; requires AGENTS_MANAGE
+ */
+export const deletePublicChatPromptShortcutMutation = (options?: Partial<Options<DeletePublicChatPromptShortcutData>>): UseMutationOptions<DeletePublicChatPromptShortcutResponse, DeletePublicChatPromptShortcutError, Options<DeletePublicChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<DeletePublicChatPromptShortcutResponse, DeletePublicChatPromptShortcutError, Options<DeletePublicChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePublicChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a public prompt shortcut; requires AGENTS_MANAGE
+ */
+export const updatePublicChatPromptShortcutMutation = (options?: Partial<Options<UpdatePublicChatPromptShortcutData>>): UseMutationOptions<UpdatePublicChatPromptShortcutResponse, UpdatePublicChatPromptShortcutError, Options<UpdatePublicChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<UpdatePublicChatPromptShortcutResponse, UpdatePublicChatPromptShortcutError, Options<UpdatePublicChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updatePublicChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatPromptShortcutPreferencesQueryKey = (options?: Options<GetChatPromptShortcutPreferencesData>) => createQueryKey('getChatPromptShortcutPreferences', options);
+
+/**
+ * Read whether the actor uses prompt shortcuts
+ */
+export const getChatPromptShortcutPreferencesOptions = (options?: Options<GetChatPromptShortcutPreferencesData>) => queryOptions<GetChatPromptShortcutPreferencesResponse, GetChatPromptShortcutPreferencesError, GetChatPromptShortcutPreferencesResponse, ReturnType<typeof getChatPromptShortcutPreferencesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatPromptShortcutPreferences({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatPromptShortcutPreferencesQueryKey(options)
+});
+
+/**
+ * Enable or disable prompt shortcuts for the actor
+ */
+export const setChatPromptShortcutPreferencesMutation = (options?: Partial<Options<SetChatPromptShortcutPreferencesData>>): UseMutationOptions<SetChatPromptShortcutPreferencesResponse, SetChatPromptShortcutPreferencesError, Options<SetChatPromptShortcutPreferencesData>> => {
+    const mutationOptions: UseMutationOptions<SetChatPromptShortcutPreferencesResponse, SetChatPromptShortcutPreferencesError, Options<SetChatPromptShortcutPreferencesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setChatPromptShortcutPreferences({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Delete a project and retain its conversations
  */
 export const deleteChatProjectMutation = (options?: Partial<Options<DeleteChatProjectData>>): UseMutationOptions<DeleteChatProjectResponse, DeleteChatProjectError, Options<DeleteChatProjectData>> => {
@@ -453,7 +710,7 @@ export const updateChatProjectMutation = (options?: Partial<Options<UpdateChatPr
 };
 
 /**
- * Delete a private assistant while retaining conversation history
+ * Delete an agent while retaining conversation history
  */
 export const deleteChatPersonaMutation = (options?: Partial<Options<DeleteChatPersonaData>>): UseMutationOptions<DeleteChatPersonaResponse, DeleteChatPersonaError, Options<DeleteChatPersonaData>> => {
     const mutationOptions: UseMutationOptions<DeleteChatPersonaResponse, DeleteChatPersonaError, Options<DeleteChatPersonaData>> = {
@@ -472,7 +729,7 @@ export const deleteChatPersonaMutation = (options?: Partial<Options<DeleteChatPe
 export const getChatPersonaQueryKey = (options: Options<GetChatPersonaData>) => createQueryKey('getChatPersona', options);
 
 /**
- * Read an authorized assistant
+ * Read the full snapshot of a usable agent
  */
 export const getChatPersonaOptions = (options: Options<GetChatPersonaData>) => queryOptions<GetChatPersonaResponse, GetChatPersonaError, GetChatPersonaResponse, ReturnType<typeof getChatPersonaQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -488,12 +745,29 @@ export const getChatPersonaOptions = (options: Options<GetChatPersonaData>) => q
 });
 
 /**
- * Update assistant settings with an expected revision
+ * Update agent settings with an expected revision
  */
 export const updateChatPersonaMutation = (options?: Partial<Options<UpdateChatPersonaData>>): UseMutationOptions<UpdateChatPersonaResponse, UpdateChatPersonaError, Options<UpdateChatPersonaData>> => {
     const mutationOptions: UseMutationOptions<UpdateChatPersonaResponse, UpdateChatPersonaError, Options<UpdateChatPersonaData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateChatPersona({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace people and Group shares and, for owners, Tenant-wide visibility
+ */
+export const shareChatPersonaMutation = (options?: Partial<Options<ShareChatPersonaData>>): UseMutationOptions<ShareChatPersonaResponse, ShareChatPersonaError, Options<ShareChatPersonaData>> => {
+    const mutationOptions: UseMutationOptions<ShareChatPersonaResponse, ShareChatPersonaError, Options<ShareChatPersonaData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shareChatPersona({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -529,6 +803,109 @@ export const setPersonaModelMutation = (options?: Partial<Options<SetPersonaMode
     const mutationOptions: UseMutationOptions<SetPersonaModelResponse, SetPersonaModelError, Options<SetPersonaModelData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await setPersonaModel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Set listed, featured and display priority; requires AGENTS_MANAGE
+ */
+export const setChatPersonaListingMutation = (options?: Partial<Options<SetChatPersonaListingData>>): UseMutationOptions<SetChatPersonaListingResponse, SetChatPersonaListingError, Options<SetChatPersonaListingData>> => {
+    const mutationOptions: UseMutationOptions<SetChatPersonaListingResponse, SetChatPersonaListingError, Options<SetChatPersonaListingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setChatPersonaListing({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listChatPersonaPinsQueryKey = (options?: Options<ListChatPersonaPinsData>) => createQueryKey('listChatPersonaPins', options);
+
+/**
+ * List the actor's pinned agents in order
+ */
+export const listChatPersonaPinsOptions = (options?: Options<ListChatPersonaPinsData>) => queryOptions<ListChatPersonaPinsResponse, ListChatPersonaPinsError, ListChatPersonaPinsResponse, ReturnType<typeof listChatPersonaPinsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatPersonaPins({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatPersonaPinsQueryKey(options)
+});
+
+/**
+ * Replace the actor's ordered pinned agents
+ */
+export const replaceChatPersonaPinsMutation = (options?: Partial<Options<ReplaceChatPersonaPinsData>>): UseMutationOptions<ReplaceChatPersonaPinsResponse, ReplaceChatPersonaPinsError, Options<ReplaceChatPersonaPinsData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceChatPersonaPinsResponse, ReplaceChatPersonaPinsError, Options<ReplaceChatPersonaPinsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceChatPersonaPins({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Set display priorities from one ordered list; requires AGENTS_MANAGE
+ */
+export const reorderChatPersonasMutation = (options?: Partial<Options<ReorderChatPersonasData>>): UseMutationOptions<ReorderChatPersonasResponse, ReorderChatPersonasError, Options<ReorderChatPersonasData>> => {
+    const mutationOptions: UseMutationOptions<ReorderChatPersonasResponse, ReorderChatPersonasError, Options<ReorderChatPersonasData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reorderChatPersonas({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete an agent label; requires AGENTS_MANAGE
+ */
+export const deleteChatPersonaLabelMutation = (options?: Partial<Options<DeleteChatPersonaLabelData>>): UseMutationOptions<DeleteChatPersonaLabelResponse, DeleteChatPersonaLabelError, Options<DeleteChatPersonaLabelData>> => {
+    const mutationOptions: UseMutationOptions<DeleteChatPersonaLabelResponse, DeleteChatPersonaLabelError, Options<DeleteChatPersonaLabelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteChatPersonaLabel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Rename an agent label; requires AGENTS_MANAGE
+ */
+export const renameChatPersonaLabelMutation = (options?: Partial<Options<RenameChatPersonaLabelData>>): UseMutationOptions<RenameChatPersonaLabelResponse, RenameChatPersonaLabelError, Options<RenameChatPersonaLabelData>> => {
+    const mutationOptions: UseMutationOptions<RenameChatPersonaLabelResponse, RenameChatPersonaLabelError, Options<RenameChatPersonaLabelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameChatPersonaLabel({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -598,6 +975,41 @@ export const setChatModelDefaultMutation = (options?: Partial<Options<SetChatMod
     const mutationOptions: UseMutationOptions<SetChatModelDefaultResponse, SetChatModelDefaultError, Options<SetChatModelDefaultData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await setChatModelDefault({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getChatInterpreterSettingsQueryKey = (options?: Options<GetChatInterpreterSettingsData>) => createQueryKey('getChatInterpreterSettings', options);
+
+/**
+ * Read whether Code Interpreter is configured and enabled for the Tenant
+ */
+export const getChatInterpreterSettingsOptions = (options?: Options<GetChatInterpreterSettingsData>) => queryOptions<GetChatInterpreterSettingsResponse, GetChatInterpreterSettingsError, GetChatInterpreterSettingsResponse, ReturnType<typeof getChatInterpreterSettingsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatInterpreterSettings({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatInterpreterSettingsQueryKey(options)
+});
+
+/**
+ * Enable or disable Code Interpreter for the Tenant
+ */
+export const updateChatInterpreterSettingsMutation = (options?: Partial<Options<UpdateChatInterpreterSettingsData>>): UseMutationOptions<UpdateChatInterpreterSettingsResponse, UpdateChatInterpreterSettingsError, Options<UpdateChatInterpreterSettingsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateChatInterpreterSettingsResponse, UpdateChatInterpreterSettingsError, Options<UpdateChatInterpreterSettingsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateChatInterpreterSettings({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -958,6 +1370,161 @@ export const searchDocumentsMutation = (options?: Partial<Options<SearchDocument
     const mutationOptions: UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await searchDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMcpServersQueryKey = (options?: Options<ListMcpServersData>) => createQueryKey('listMcpServers', options);
+
+/**
+ * List Tenant MCP servers with secrets redacted; requires MCP_MANAGE
+ */
+export const listMcpServersOptions = (options?: Options<ListMcpServersData>) => queryOptions<ListMcpServersResponse, ListMcpServersError, ListMcpServersResponse, ReturnType<typeof listMcpServersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpServers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpServersQueryKey(options)
+});
+
+/**
+ * Register a remote Streamable HTTP MCP server; requires MCP_MANAGE
+ */
+export const createMcpServerMutation = (options?: Partial<Options<CreateMcpServerData>>): UseMutationOptions<CreateMcpServerResponse, CreateMcpServerError, Options<CreateMcpServerData>> => {
+    const mutationOptions: UseMutationOptions<CreateMcpServerResponse, CreateMcpServerError, Options<CreateMcpServerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createMcpServer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Explicitly list tools from the server with the administrator credential and replace the snapshot
+ */
+export const refreshMcpServerToolsMutation = (options?: Partial<Options<RefreshMcpServerToolsData>>): UseMutationOptions<RefreshMcpServerToolsResponse, RefreshMcpServerToolsError, Options<RefreshMcpServerToolsData>> => {
+    const mutationOptions: UseMutationOptions<RefreshMcpServerToolsResponse, RefreshMcpServerToolsError, Options<RefreshMcpServerToolsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await refreshMcpServerTools({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Explicitly discover the server's authorization servers; nothing is saved
+ */
+export const discoverMcpServerOAuthMutation = (options?: Partial<Options<DiscoverMcpServerOAuthData>>): UseMutationOptions<DiscoverMcpServerOAuthResponse, DiscoverMcpServerOAuthError, Options<DiscoverMcpServerOAuthData>> => {
+    const mutationOptions: UseMutationOptions<DiscoverMcpServerOAuthResponse, DiscoverMcpServerOAuthError, Options<DiscoverMcpServerOAuthData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discoverMcpServerOAuth({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listMcpServerOAuthClientsQueryKey = (options: Options<ListMcpServerOAuthClientsData>) => createQueryKey('listMcpServerOAuthClients', options);
+
+/**
+ * List the server's labelled OAuth clients; requires MCP_MANAGE
+ */
+export const listMcpServerOAuthClientsOptions = (options: Options<ListMcpServerOAuthClientsData>) => queryOptions<ListMcpServerOAuthClientsResponse, ListMcpServerOAuthClientsError, ListMcpServerOAuthClientsResponse, ReturnType<typeof listMcpServerOAuthClientsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpServerOAuthClients({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpServerOAuthClientsQueryKey(options)
+});
+
+/**
+ * Add a pre-registered OAuth client, e.g. one organization's Internal app
+ */
+export const createMcpServerOAuthClientMutation = (options?: Partial<Options<CreateMcpServerOAuthClientData>>): UseMutationOptions<CreateMcpServerOAuthClientResponse, CreateMcpServerOAuthClientError, Options<CreateMcpServerOAuthClientData>> => {
+    const mutationOptions: UseMutationOptions<CreateMcpServerOAuthClientResponse, CreateMcpServerOAuthClientError, Options<CreateMcpServerOAuthClientData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createMcpServerOAuthClient({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Register with a discovered authorization server by DCR or the client metadata document
+ */
+export const registerMcpServerOAuthClientMutation = (options?: Partial<Options<RegisterMcpServerOAuthClientData>>): UseMutationOptions<RegisterMcpServerOAuthClientResponse, RegisterMcpServerOAuthClientError, Options<RegisterMcpServerOAuthClientData>> => {
+    const mutationOptions: UseMutationOptions<RegisterMcpServerOAuthClientResponse, RegisterMcpServerOAuthClientError, Options<RegisterMcpServerOAuthClientData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await registerMcpServerOAuthClient({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start the administrator's OAuth connection for a shared-connection server
+ */
+export const startMcpServerOAuthAuthorizationMutation = (options?: Partial<Options<StartMcpServerOAuthAuthorizationData>>): UseMutationOptions<StartMcpServerOAuthAuthorizationResponse, StartMcpServerOAuthAuthorizationError, Options<StartMcpServerOAuthAuthorizationData>> => {
+    const mutationOptions: UseMutationOptions<StartMcpServerOAuthAuthorizationResponse, StartMcpServerOAuthAuthorizationError, Options<StartMcpServerOAuthAuthorizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startMcpServerOAuthAuthorization({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start the User's own OAuth connection and return to the originating page
+ */
+export const startMcpConnectionAuthorizationMutation = (options?: Partial<Options<StartMcpConnectionAuthorizationData>>): UseMutationOptions<StartMcpConnectionAuthorizationResponse, StartMcpConnectionAuthorizationError, Options<StartMcpConnectionAuthorizationData>> => {
+    const mutationOptions: UseMutationOptions<StartMcpConnectionAuthorizationResponse, StartMcpConnectionAuthorizationError, Options<StartMcpConnectionAuthorizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startMcpConnectionAuthorization({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1701,6 +2268,76 @@ export const createChatModelMutation = (options?: Partial<Options<CreateChatMode
     return mutationOptions;
 };
 
+export const listChatPromptShortcutsQueryKey = (options?: Options<ListChatPromptShortcutsData>) => createQueryKey('listChatPromptShortcuts', options);
+
+/**
+ * List the actor's own and public prompt shortcuts
+ */
+export const listChatPromptShortcutsOptions = (options?: Options<ListChatPromptShortcutsData>) => queryOptions<ListChatPromptShortcutsResponse, ListChatPromptShortcutsError, ListChatPromptShortcutsResponse, ReturnType<typeof listChatPromptShortcutsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatPromptShortcuts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatPromptShortcutsQueryKey(options)
+});
+
+/**
+ * Create a private prompt shortcut
+ */
+export const createChatPromptShortcutMutation = (options?: Partial<Options<CreateChatPromptShortcutData>>): UseMutationOptions<CreateChatPromptShortcutResponse, CreateChatPromptShortcutError, Options<CreateChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<CreateChatPromptShortcutResponse, CreateChatPromptShortcutError, Options<CreateChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPublicChatPromptShortcutsQueryKey = (options?: Options<ListPublicChatPromptShortcutsData>) => createQueryKey('listPublicChatPromptShortcuts', options);
+
+/**
+ * List public prompt shortcuts; requires AGENTS_MANAGE
+ */
+export const listPublicChatPromptShortcutsOptions = (options?: Options<ListPublicChatPromptShortcutsData>) => queryOptions<ListPublicChatPromptShortcutsResponse, ListPublicChatPromptShortcutsError, ListPublicChatPromptShortcutsResponse, ReturnType<typeof listPublicChatPromptShortcutsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPublicChatPromptShortcuts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPublicChatPromptShortcutsQueryKey(options)
+});
+
+/**
+ * Create a public prompt shortcut; requires AGENTS_MANAGE
+ */
+export const createPublicChatPromptShortcutMutation = (options?: Partial<Options<CreatePublicChatPromptShortcutData>>): UseMutationOptions<CreatePublicChatPromptShortcutResponse, CreatePublicChatPromptShortcutError, Options<CreatePublicChatPromptShortcutData>> => {
+    const mutationOptions: UseMutationOptions<CreatePublicChatPromptShortcutResponse, CreatePublicChatPromptShortcutError, Options<CreatePublicChatPromptShortcutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPublicChatPromptShortcut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listChatProjectsQueryKey = (options?: Options<ListChatProjectsData>) => createQueryKey('listChatProjects', options);
 
 /**
@@ -1834,7 +2471,7 @@ export const createProjectChatSessionMutation = (options?: Partial<Options<Creat
 export const listChatPersonasQueryKey = (options?: Options<ListChatPersonasData>) => createQueryKey('listChatPersonas', options);
 
 /**
- * List the default and actor-owned assistants
+ * List usable agents: all listed, the actor's own, or shared with the actor
  */
 export const listChatPersonasOptions = (options?: Options<ListChatPersonasData>) => queryOptions<ListChatPersonasResponse, ListChatPersonasError, ListChatPersonasResponse, ReturnType<typeof listChatPersonasQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1852,7 +2489,7 @@ export const listChatPersonasOptions = (options?: Options<ListChatPersonasData>)
 export const listChatPersonasInfiniteQueryKey = (options?: Options<ListChatPersonasData>): QueryKey<Options<ListChatPersonasData>> => createQueryKey('listChatPersonas', options, true);
 
 /**
- * List the default and actor-owned assistants
+ * List usable agents: all listed, the actor's own, or shared with the actor
  */
 export const listChatPersonasInfiniteOptions = (options?: Options<ListChatPersonasData>) => {
     const opts = infiniteQueryOptions<ListChatPersonasResponse, ListChatPersonasError, InfiniteData<ListChatPersonasResponse>, QueryKey<Options<ListChatPersonasData>>, number | Pick<QueryKey<Options<ListChatPersonasData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -1880,12 +2517,81 @@ export const listChatPersonasInfiniteOptions = (options?: Options<ListChatPerson
 };
 
 /**
- * Create a private assistant
+ * Create a private agent; requires AGENTS_CREATE
  */
 export const createChatPersonaMutation = (options?: Partial<Options<CreateChatPersonaData>>): UseMutationOptions<CreateChatPersonaResponse, CreateChatPersonaError, Options<CreateChatPersonaData>> => {
     const mutationOptions: UseMutationOptions<CreateChatPersonaResponse, CreateChatPersonaError, Options<CreateChatPersonaData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createChatPersona({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Restore a deleted agent; requires AGENTS_MANAGE
+ */
+export const restoreChatPersonaMutation = (options?: Partial<Options<RestoreChatPersonaData>>): UseMutationOptions<RestoreChatPersonaResponse, RestoreChatPersonaError, Options<RestoreChatPersonaData>> => {
+    const mutationOptions: UseMutationOptions<RestoreChatPersonaResponse, RestoreChatPersonaError, Options<RestoreChatPersonaData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreChatPersona({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Transfer agent ownership to an active member or a Group
+ */
+export const transferChatPersonaMutation = (options?: Partial<Options<TransferChatPersonaData>>): UseMutationOptions<TransferChatPersonaResponse, TransferChatPersonaError, Options<TransferChatPersonaData>> => {
+    const mutationOptions: UseMutationOptions<TransferChatPersonaResponse, TransferChatPersonaError, Options<TransferChatPersonaData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await transferChatPersona({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listChatPersonaLabelsQueryKey = (options?: Options<ListChatPersonaLabelsData>) => createQueryKey('listChatPersonaLabels', options);
+
+/**
+ * List agent labels
+ */
+export const listChatPersonaLabelsOptions = (options?: Options<ListChatPersonaLabelsData>) => queryOptions<ListChatPersonaLabelsResponse, ListChatPersonaLabelsError, ListChatPersonaLabelsResponse, ReturnType<typeof listChatPersonaLabelsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatPersonaLabels({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatPersonaLabelsQueryKey(options)
+});
+
+/**
+ * Create an agent label
+ */
+export const createChatPersonaLabelMutation = (options?: Partial<Options<CreateChatPersonaLabelData>>): UseMutationOptions<CreateChatPersonaLabelResponse, CreateChatPersonaLabelError, Options<CreateChatPersonaLabelData>> => {
+    const mutationOptions: UseMutationOptions<CreateChatPersonaLabelResponse, CreateChatPersonaLabelError, Options<CreateChatPersonaLabelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createChatPersonaLabel({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -2545,6 +3251,90 @@ export const readSearchDocumentOriginalOptions = (options: Options<ReadSearchDoc
     queryKey: readSearchDocumentOriginalQueryKey(options)
 });
 
+export const listMcpServerToolsQueryKey = (options: Options<ListMcpServerToolsData>) => createQueryKey('listMcpServerTools', options);
+
+/**
+ * List the stored tool snapshot; requires MCP_MANAGE
+ */
+export const listMcpServerToolsOptions = (options: Options<ListMcpServerToolsData>) => queryOptions<ListMcpServerToolsResponse, ListMcpServerToolsError, ListMcpServerToolsResponse, ReturnType<typeof listMcpServerToolsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpServerTools({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpServerToolsQueryKey(options)
+});
+
+export const listMcpGroupOptionsQueryKey = (options?: Options<ListMcpGroupOptionsData>) => createQueryKey('listMcpGroupOptions', options);
+
+/**
+ * List Groups available for MCP server access; requires MCP_MANAGE
+ */
+export const listMcpGroupOptionsOptions = (options?: Options<ListMcpGroupOptionsData>) => queryOptions<ListMcpGroupOptionsResponse, ListMcpGroupOptionsError, ListMcpGroupOptionsResponse, ReturnType<typeof listMcpGroupOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpGroupOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpGroupOptionsQueryKey(options)
+});
+
+export const listMcpGroupOptionsInfiniteQueryKey = (options?: Options<ListMcpGroupOptionsData>): QueryKey<Options<ListMcpGroupOptionsData>> => createQueryKey('listMcpGroupOptions', options, true);
+
+/**
+ * List Groups available for MCP server access; requires MCP_MANAGE
+ */
+export const listMcpGroupOptionsInfiniteOptions = (options?: Options<ListMcpGroupOptionsData>) => {
+    const opts = infiniteQueryOptions<ListMcpGroupOptionsResponse, ListMcpGroupOptionsError, InfiniteData<ListMcpGroupOptionsResponse>, QueryKey<Options<ListMcpGroupOptionsData>>, number | Pick<QueryKey<Options<ListMcpGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListMcpGroupOptionsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    page: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listMcpGroupOptions({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listMcpGroupOptionsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listMcpConnectionsQueryKey = (options?: Options<ListMcpConnectionsData>) => createQueryKey('listMcpConnections', options);
+
+/**
+ * List the MCP servers available to the signed-in User with their own connection state
+ */
+export const listMcpConnectionsOptions = (options?: Options<ListMcpConnectionsData>) => queryOptions<ListMcpConnectionsResponse, ListMcpConnectionsError, ListMcpConnectionsResponse, ReturnType<typeof listMcpConnectionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMcpConnections({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMcpConnectionsQueryKey(options)
+});
+
 export const getCurrentInvitationQueryKey = (options?: Options<GetCurrentInvitationData>) => createQueryKey('getCurrentInvitation', options);
 
 /**
@@ -2963,7 +3753,7 @@ export const listChatProviderAdaptersOptions = (options?: Options<ListChatProvid
 export const listChatPersonaModelsQueryKey = (options: Options<ListChatPersonaModelsData>) => createQueryKey('listChatPersonaModels', options);
 
 /**
- * List models available to this actor and assistant
+ * List models available to this actor and agent
  */
 export const listChatPersonaModelsOptions = (options: Options<ListChatPersonaModelsData>) => queryOptions<ListChatPersonaModelsResponse, ListChatPersonaModelsError, ListChatPersonaModelsResponse, ReturnType<typeof listChatPersonaModelsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -2978,10 +3768,28 @@ export const listChatPersonaModelsOptions = (options: Options<ListChatPersonaMod
     queryKey: listChatPersonaModelsQueryKey(options)
 });
 
+export const getChatPersonaAvatarQueryKey = (options: Options<GetChatPersonaAvatarData>) => createQueryKey('getChatPersonaAvatar', options);
+
+/**
+ * Read the avatar image of a usable agent
+ */
+export const getChatPersonaAvatarOptions = (options: Options<GetChatPersonaAvatarData>) => queryOptions<GetChatPersonaAvatarResponse, GetChatPersonaAvatarError, GetChatPersonaAvatarResponse, ReturnType<typeof getChatPersonaAvatarQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatPersonaAvatar({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatPersonaAvatarQueryKey(options)
+});
+
 export const listChatPersonaSourcesQueryKey = (options?: Options<ListChatPersonaSourcesData>) => createQueryKey('listChatPersonaSources', options);
 
 /**
- * List sources eligible for assistant search
+ * List sources eligible for agent search
  */
 export const listChatPersonaSourcesOptions = (options?: Options<ListChatPersonaSourcesData>) => queryOptions<ListChatPersonaSourcesResponse, ListChatPersonaSourcesError, ListChatPersonaSourcesResponse, ReturnType<typeof listChatPersonaSourcesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -2999,7 +3807,7 @@ export const listChatPersonaSourcesOptions = (options?: Options<ListChatPersonaS
 export const listChatPersonaSourcesInfiniteQueryKey = (options?: Options<ListChatPersonaSourcesData>): QueryKey<Options<ListChatPersonaSourcesData>> => createQueryKey('listChatPersonaSources', options, true);
 
 /**
- * List sources eligible for assistant search
+ * List sources eligible for agent search
  */
 export const listChatPersonaSourcesInfiniteOptions = (options?: Options<ListChatPersonaSourcesData>) => {
     const opts = infiniteQueryOptions<ListChatPersonaSourcesResponse, ListChatPersonaSourcesError, InfiniteData<ListChatPersonaSourcesResponse>, QueryKey<Options<ListChatPersonaSourcesData>>, number | Pick<QueryKey<Options<ListChatPersonaSourcesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -3025,6 +3833,72 @@ export const listChatPersonaSourcesInfiniteOptions = (options?: Options<ListChat
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const listChatPersonasForAdministrationQueryKey = (options?: Options<ListChatPersonasForAdministrationData>) => createQueryKey('listChatPersonasForAdministration', options);
+
+/**
+ * List every agent including unlisted, vacant and deleted ones; requires AGENTS_MANAGE
+ */
+export const listChatPersonasForAdministrationOptions = (options?: Options<ListChatPersonasForAdministrationData>) => queryOptions<ListChatPersonasForAdministrationResponse, ListChatPersonasForAdministrationError, ListChatPersonasForAdministrationResponse, ReturnType<typeof listChatPersonasForAdministrationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatPersonasForAdministration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatPersonasForAdministrationQueryKey(options)
+});
+
+export const listChatPersonasForAdministrationInfiniteQueryKey = (options?: Options<ListChatPersonasForAdministrationData>): QueryKey<Options<ListChatPersonasForAdministrationData>> => createQueryKey('listChatPersonasForAdministration', options, true);
+
+/**
+ * List every agent including unlisted, vacant and deleted ones; requires AGENTS_MANAGE
+ */
+export const listChatPersonasForAdministrationInfiniteOptions = (options?: Options<ListChatPersonasForAdministrationData>) => {
+    const opts = infiniteQueryOptions<ListChatPersonasForAdministrationResponse, ListChatPersonasForAdministrationError, InfiniteData<ListChatPersonasForAdministrationResponse>, QueryKey<Options<ListChatPersonasForAdministrationData>>, number | Pick<QueryKey<Options<ListChatPersonasForAdministrationData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListChatPersonasForAdministrationData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listChatPersonasForAdministration({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listChatPersonasForAdministrationInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listChatPersonaShareOptionsQueryKey = (options?: Options<ListChatPersonaShareOptionsData>) => createQueryKey('listChatPersonaShareOptions', options);
+
+/**
+ * Search active members and ordinary Groups to share an agent with
+ */
+export const listChatPersonaShareOptionsOptions = (options?: Options<ListChatPersonaShareOptionsData>) => queryOptions<ListChatPersonaShareOptionsResponse, ListChatPersonaShareOptionsError, ListChatPersonaShareOptionsResponse, ReturnType<typeof listChatPersonaShareOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listChatPersonaShareOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listChatPersonaShareOptionsQueryKey(options)
+});
 
 export const listAvailableChatModelsQueryKey = (options?: Options<ListAvailableChatModelsData>) => createQueryKey('listAvailableChatModels', options);
 
@@ -3091,6 +3965,24 @@ export const listChatModelPersonasInfiniteOptions = (options?: Options<ListChatM
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const getChatInterpreterHealthQueryKey = (options?: Options<GetChatInterpreterHealthData>) => createQueryKey('getChatInterpreterHealth', options);
+
+/**
+ * Check the Code Interpreter service without the cache
+ */
+export const getChatInterpreterHealthOptions = (options?: Options<GetChatInterpreterHealthData>) => queryOptions<GetChatInterpreterHealthResponse, GetChatInterpreterHealthError, GetChatInterpreterHealthResponse, ReturnType<typeof getChatInterpreterHealthQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatInterpreterHealth({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatInterpreterHealthQueryKey(options)
+});
 
 export const getChatImageAvailabilityQueryKey = (options?: Options<GetChatImageAvailabilityData>) => createQueryKey('getChatImageAvailability', options);
 
@@ -3325,6 +4217,24 @@ export const readChatFileTextInfiniteOptions = (options: Options<ReadChatFileTex
     return opts as Omit<typeof opts, 'initialData'>;
 };
 
+export const previewChatFileSpreadsheetQueryKey = (options: Options<PreviewChatFileSpreadsheetData>) => createQueryKey('previewChatFileSpreadsheet', options);
+
+/**
+ * Read an owner-private xlsx attachment as CSV text per sheet, each cut at a row boundary
+ */
+export const previewChatFileSpreadsheetOptions = (options: Options<PreviewChatFileSpreadsheetData>) => queryOptions<PreviewChatFileSpreadsheetResponse, PreviewChatFileSpreadsheetError, PreviewChatFileSpreadsheetResponse, ReturnType<typeof previewChatFileSpreadsheetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await previewChatFileSpreadsheet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: previewChatFileSpreadsheetQueryKey(options)
+});
+
 export const readChatFilePassagesQueryKey = (options: Options<ReadChatFilePassagesData>) => createQueryKey('readChatFilePassages', options);
 
 /**
@@ -3379,6 +4289,78 @@ export const getChatFilePolicyOptions = (options?: Options<GetChatFilePolicyData
     queryKey: getChatFilePolicyQueryKey(options)
 });
 
+export const previewChatFileArtifactSpreadsheetQueryKey = (options: Options<PreviewChatFileArtifactSpreadsheetData>) => createQueryKey('previewChatFileArtifactSpreadsheet', options);
+
+/**
+ * Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary
+ */
+export const previewChatFileArtifactSpreadsheetOptions = (options: Options<PreviewChatFileArtifactSpreadsheetData>) => queryOptions<PreviewChatFileArtifactSpreadsheetResponse, PreviewChatFileArtifactSpreadsheetError, PreviewChatFileArtifactSpreadsheetResponse, ReturnType<typeof previewChatFileArtifactSpreadsheetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await previewChatFileArtifactSpreadsheet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: previewChatFileArtifactSpreadsheetQueryKey(options)
+});
+
+export const getChatFileArtifactPdfPreviewQueryKey = (options: Options<GetChatFileArtifactPdfPreviewData>) => createQueryKey('getChatFileArtifactPdfPreview', options);
+
+/**
+ * Read a PDF rendering of an owner-private generated presentation, converted in the interpreter on first request
+ */
+export const getChatFileArtifactPdfPreviewOptions = (options: Options<GetChatFileArtifactPdfPreviewData>) => queryOptions<GetChatFileArtifactPdfPreviewResponse, GetChatFileArtifactPdfPreviewError, GetChatFileArtifactPdfPreviewResponse, ReturnType<typeof getChatFileArtifactPdfPreviewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatFileArtifactPdfPreview({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatFileArtifactPdfPreviewQueryKey(options)
+});
+
+export const getChatFileArtifactQueryKey = (options: Options<GetChatFileArtifactData>) => createQueryKey('getChatFileArtifact', options);
+
+/**
+ * Read an owner-private file generated by Code Interpreter
+ */
+export const getChatFileArtifactOptions = (options: Options<GetChatFileArtifactData>) => queryOptions<GetChatFileArtifactResponse, GetChatFileArtifactError, GetChatFileArtifactResponse, ReturnType<typeof getChatFileArtifactQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatFileArtifact({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatFileArtifactQueryKey(options)
+});
+
+export const getChatFileArtifactChartQueryKey = (options: Options<GetChatFileArtifactChartData>) => createQueryKey('getChatFileArtifactChart', options);
+
+/**
+ * Read the chart data captured from the figure behind an owner-private generated PNG
+ */
+export const getChatFileArtifactChartOptions = (options: Options<GetChatFileArtifactChartData>) => queryOptions<GetChatFileArtifactChartResponse, GetChatFileArtifactChartError, GetChatFileArtifactChartResponse, ReturnType<typeof getChatFileArtifactChartQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getChatFileArtifactChart({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getChatFileArtifactChartQueryKey(options)
+});
+
 export const readChatDocumentPassagesQueryKey = (options: Options<ReadChatDocumentPassagesData>) => createQueryKey('readChatDocumentPassages', options);
 
 /**
@@ -3416,12 +4398,63 @@ export const readChatDocumentOriginalOptions = (options: Options<ReadChatDocumen
 });
 
 /**
+ * Remove the shared OAuth connection and revoke it at the authorization server
+ */
+export const disconnectMcpServerOAuthMutation = (options?: Partial<Options<DisconnectMcpServerOAuthData>>): UseMutationOptions<DisconnectMcpServerOAuthResponse, DisconnectMcpServerOAuthError, Options<DisconnectMcpServerOAuthData>> => {
+    const mutationOptions: UseMutationOptions<DisconnectMcpServerOAuthResponse, DisconnectMcpServerOAuthError, Options<DisconnectMcpServerOAuthData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await disconnectMcpServerOAuth({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove the User's own credential and revoke an OAuth connection
+ */
+export const disconnectMcpConnectionMutation = (options?: Partial<Options<DisconnectMcpConnectionData>>): UseMutationOptions<DisconnectMcpConnectionResponse, DisconnectMcpConnectionError, Options<DisconnectMcpConnectionData>> => {
+    const mutationOptions: UseMutationOptions<DisconnectMcpConnectionResponse, DisconnectMcpConnectionError, Options<DisconnectMcpConnectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await disconnectMcpConnection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Delete an unused Google Drive credential with a revision precondition
  */
 export const deleteGoogleDriveCredentialMutation = (options?: Partial<Options<DeleteGoogleDriveCredentialData>>): UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> => {
     const mutationOptions: UseMutationOptions<DeleteGoogleDriveCredentialResponse, DefaultError, Options<DeleteGoogleDriveCredentialData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await deleteGoogleDriveCredential({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove the actor's direct share of an agent
+ */
+export const leaveChatPersonaMutation = (options?: Partial<Options<LeaveChatPersonaData>>): UseMutationOptions<LeaveChatPersonaResponse, LeaveChatPersonaError, Options<LeaveChatPersonaData>> => {
+    const mutationOptions: UseMutationOptions<LeaveChatPersonaResponse, LeaveChatPersonaError, Options<LeaveChatPersonaData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await leaveChatPersona({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

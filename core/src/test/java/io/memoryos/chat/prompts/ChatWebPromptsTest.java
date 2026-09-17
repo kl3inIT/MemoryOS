@@ -43,6 +43,18 @@ class ChatWebPromptsTest {
         }).toList();
         return new Prompt(messages, OpenAiChatOptions.builder().toolCallbacks(callbacks).build());
     }
+    @Test void agentTaskPromptIsTheFinalReminderAndDateAwarenessIsOptional() {
+        var guided = ChatPrompts.forInference(prompt(Set.of(), null), false, false, true, "Always answer with the KPI month.");
+        var last = guided.getInstructions().getLast().getText();
+        assertTrue(last.startsWith("<system-reminder>"));
+        assertTrue(last.contains("Always answer with the KPI month."));
+        var now = java.time.Instant.parse("2026-09-17T00:00:00Z");
+        assertTrue(ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, true).contains("2026-09-17T00:00:00Z"));
+        var unaware = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, false);
+        assertFalse(unaware.contains("CURRENT_DATETIME"));
+        assertFalse(unaware.contains("The current date is"));
+    }
+
     @Test void webOnlyDoesNotAdvertiseInternalSearchAndPreservesOriginalPrompt() {
         var original = prompt(Set.of("web_search", "open_url"), null);
         var guided = ChatPrompts.forInference(original, false, false);
@@ -91,11 +103,21 @@ class ChatWebPromptsTest {
         assertFalse(attachments.contains("web_search"));
         assertEquals(1, headings(attachments));
         String all = ChatPrompts.forInference(prompt(Set.of("search_knowledge", "web_search", "open_url",
-                "search_files", "read_file", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
+                "search_files", "read_file", "run_python", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
         for (String block : List.of("## search_knowledge", "## web_search", "## open_url",
-                "## search_files and read_file", "## generate_image", "## edit_image", "## render_gui"))
+                "## search_files and read_file", "## run_python", "## generate_image", "## edit_image", "## render_gui"))
             assertTrue(all.contains(block), block);
         assertEquals(1, headings(all));
+    }
+
+    @Test void runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool() {
+        String with = ChatPrompts.forInference(prompt(Set.of("run_python"), null), false, false).toString();
+        assertTrue(with.contains("## run_python"));
+        assertTrue(with.contains("each call to this tool runs in a fresh, stateless sandbox"));
+        assertTrue(with.contains("CPU time is limited to 30 seconds per run."));
+        assertTrue(with.contains("run `recalc-xlsx` via subprocess"));
+        assertEquals(1, headings(with));
+        assertFalse(ChatPrompts.forInference(prompt(Set.of("read_file"), null), false, false).toString().contains("run_python"));
     }
 
     private static int headings(String text) {

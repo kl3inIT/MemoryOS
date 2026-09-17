@@ -66,6 +66,12 @@ class SourceOriginalPdfQueryTest {
             jdbc.sql("UPDATE documents SET media_type='text/plain' WHERE tenant_id=:tenant AND id=:id")
                     .param("tenant", tenant.value()).param("id", document).update();
             assertTrue(repository.originalPdf(tenant, reader, document).isEmpty());
+
+            // The sandbox batch serves the same readable original whatever its media type.
+            assertEquals("handbook.pdf", repository.originals(tenant, reader, java.util.Set.of(document), false)
+                    .get(document).filename());
+            assertTrue(repository.originals(tenant, reader, java.util.Set.of(document), true).isEmpty());
+            assertTrue(repository.originals(tenant, stranger, java.util.Set.of(document), false).isEmpty());
         }
     }
 

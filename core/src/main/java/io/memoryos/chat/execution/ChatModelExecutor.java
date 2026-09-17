@@ -48,20 +48,31 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings;
+    private final io.memoryos.retrieval.@Nullable DocumentOriginalService originals;
+    private final io.micrometer.core.instrument.MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null);
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
-            io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry) {
+            io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
+            io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
+            io.memoryos.retrieval.@Nullable DocumentOriginalService originals,
+            io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry,
+            io.micrometer.core.instrument.MeterRegistry meters) {
+        this.interpreter = interpreter;
+        this.interpreterSettings = interpreterSettings;
+        this.originals = originals;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? io.memoryos.chat.research.ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -76,12 +87,18 @@ public final class ChatModelExecutor {
         this.web = web;
         this.image = image;
         this.imageArtifacts = imageArtifacts;
+        this.meters = meters;
     }
 
     public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
 
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
+
+    /** {@code run_python} needs a tool-calling model and an agent whose tool policy includes the code interpreter. */
+    static boolean pythonAllowed(boolean toolCalling, io.memoryos.chat.ChatTurnOptions options) {
+        return toolCalling && options.codeInterpreter();
+    }
 
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
@@ -129,7 +146,8 @@ public final class ChatModelExecutor {
             selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new com.embabel.chat.UserMessage(agent.task())),
-                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity());
+                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity())
+                    .knowledgeCutoff(setup.options().knowledgeCutoff());
             tools.addAll(Tool.fromInstance(searchTool));
         }
         if (setup.webSearch() != io.memoryos.chat.WebSearchMode.off && web != null && setup.webAccess().search() != null) {
@@ -147,19 +165,24 @@ public final class ChatModelExecutor {
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
-            Consumer<ChatImageEvent> imageEvents, Consumer<CompletableFuture<Void>> onDrained) {
+            Consumer<ChatImageEvent> imageEvents, Consumer<io.memoryos.chat.ChatCodeEvent> codeEvents,
+            Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
-        int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
+        // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
+        // reasoning tokens count toward it, so a small deployment cap cut long tool calls off mid-stream.
+        // max-output-tokens still reserves room for the answer when the input budget is computed.
+        int maxOutput = selected.maxOutputTokens();
+        int outputReserve = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
                 && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
         if (delegate instanceof ChatModelTurns turns)
             delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
-        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
+        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - outputReserve);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
@@ -167,6 +190,7 @@ public final class ChatModelExecutor {
         guard.executionScheduler(scheduler);
         guard.outputLimit(maxOutput);
         guard.synchronousLimit(searchLimits.helperCallLimit());
+        guard.taskPrompt(setup.options().taskPrompt());
         var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new java.util.concurrent.CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
@@ -215,12 +239,20 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
+            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
+            // The session agent must also allow the tool (Onyx per-agent tools).
+            boolean python = pythonAllowed(selected.toolCalling(), setup.options()) && interpreter != null && interpreterSettings != null
+                    && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
+            // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
+            var sandbox = python && originals != null ? new io.memoryos.chat.tools.SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity)
+                        .knowledgeCutoff(setup.options().knowledgeCutoff());
+                if (sandbox != null) searchTool.withSandbox(sandbox);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
@@ -234,6 +266,17 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, 4)));
+            }
+            if (python) {
+                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
+                        fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
+                        activity, codeEvents).withSandbox(sandbox)));
+            }
+            if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
+                var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,
+                        limits.mcpCallTimeout(), limits.mcpCallLimit(), events::accept, activity,
+                        guard::availableContextTokens, selected.policy().tokens(), meters);
+                for (var tool : mcpTools.tools()) runner = runner.withTools(java.util.List.of(tool));
             }
             if (selected.toolCalling()) runner = runner.withToolCallInspectors(activity);
             // No total bound, as Onyx: the provider read gap, Stop and the lease reconciler end a stalled turn.
