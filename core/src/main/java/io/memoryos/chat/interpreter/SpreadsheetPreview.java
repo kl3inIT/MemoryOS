@@ -36,7 +36,21 @@ public final class SpreadsheetPreview {
     }
 
     static List<Sheet> parse(InputStream xlsx, int maxChars) throws IOException {
-        try (var workbook = OPCPackage.open(xlsx)) {
+        // As Onyx, read from a temporary file: opening a file inflates each part on demand, where opening a stream
+        // would inflate the whole package into the heap first.
+        var file = java.nio.file.Files.createTempFile("memoryos-xlsx-preview", ".xlsx");
+        try {
+            try (var out = java.nio.file.Files.newOutputStream(file)) { xlsx.transferTo(out); }
+            return parse(file, maxChars);
+        } finally {
+            java.nio.file.Files.deleteIfExists(file);
+        }
+    }
+
+    private static List<Sheet> parse(java.nio.file.Path file, int maxChars) throws IOException {
+        OPCPackage workbook = null;
+        try {
+            workbook = OPCPackage.open(file.toFile(), org.apache.poi.openxml4j.opc.PackageAccess.READ);
             var reader = new XSSFReader(workbook);
             var strings = new ReadOnlySharedStringsTable(workbook);
             var styles = reader.getStylesTable();
@@ -60,6 +74,9 @@ public final class SpreadsheetPreview {
         } catch (OpenXML4JException | SAXException | ParserConfigurationException | org.apache.poi.ooxml.POIXMLException
                 | org.apache.poi.UnsupportedFileFormatException | org.apache.poi.util.RecordFormatException failed) {
             throw new IOException("Not a readable xlsx workbook", failed);
+        } finally {
+            // close() would try to save a read-only package; revert releases it.
+            if (workbook != null) workbook.revert();
         }
     }
 

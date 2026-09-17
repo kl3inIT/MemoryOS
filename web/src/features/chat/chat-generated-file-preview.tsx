@@ -258,6 +258,8 @@ function DocxPreview({ file }: { file: GeneratedFile }) {
         await renderAsync(data, renderedBody, renderedStyles, {
           className: "docx",
           inWrapper: false,
+          // Reflow to the side panel instead of a physical page width that would scroll sideways.
+          ignoreWidth: true,
           breakPages: true,
           useBase64URL: true,
           renderHeaders: true,
