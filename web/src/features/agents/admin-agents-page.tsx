@@ -1,7 +1,11 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Pencil, Trash2 } from "lucide-react";
+import { Bot, Eye, EyeOff, GripVertical, Pencil, Star, Trash2, UserRoundCog } from "lucide-react";
+import { hoverReveal } from "@/components/composites/hover-reveal";
+import { SortableList, type SortableHandle } from "@/components/composites/sortable-list";
+import { useActionNotifications } from "@/components/ui/action-notifications";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,15 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useNavigate } from "@tanstack/react-router";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -39,7 +35,6 @@ import {
   type Persona,
 } from "@/features/chat/chat-workspace-api";
 import { AgentAvatar } from "./agent-avatar";
-import { AgentEditor } from "./agent-editor";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 import { PublicPromptShortcuts } from "./prompt-shortcuts";
 
@@ -47,11 +42,11 @@ import { PublicPromptShortcuts } from "./prompt-shortcuts";
 export function AdminAgentsPage() {
   const ui = useAppTranslation();
   const cache = useQueryClient();
+  const navigate = useNavigate();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [includeDeleted, setIncludeDeleted] = useState(false);
-  const [editing, setEditing] = useState<Persona>();
   const [transferring, setTransferring] = useState<Persona>();
-  const [listing, setListing] = useState<Persona>();
+  const notify = useActionNotifications();
   const [error, setError] = useState<string>();
   const agents = useQuery({
     queryKey: ["chat-personas", "administration", actorId, authorizationVersion, includeDeleted],
@@ -83,6 +78,58 @@ export function AdminAgentsPage() {
     }
   }
 
+  async function listing(agent: Persona, change: { listed?: boolean; featured?: boolean }) {
+    setError(undefined);
+    try {
+      await setChatPersonaListing({
+        path: { personaId: agent.id },
+        query: { revision: agent.revision },
+        body: {
+          listed: change.listed ?? agent.listed,
+          featured: change.featured ?? agent.featured,
+          displayPriority: agent.displayPriority ?? undefined,
+        },
+        headers: sameOriginMutationHeaders,
+        signal: AbortSignal.timeout(30000),
+        throwOnError: true,
+      });
+      if (change.featured !== undefined)
+        notify({
+          title: change.featured
+            ? ui("Đã đặt {{v1}} nổi bật", { v1: agent.name })
+            : ui("Đã bỏ nổi bật {{v1}}", { v1: agent.name }),
+          tone: "success",
+        });
+      await refresh();
+    } catch (cause) {
+      setError(chatActionError(cause));
+    }
+  }
+
+  // Dragging writes each moved agent's display priority as its position (Onyx admin agent ordering).
+  async function reorder(next: Persona[]) {
+    const key = ["chat-personas", "administration", actorId, authorizationVersion, includeDeleted];
+    const previous = agents.data;
+    cache.setQueryData(key, next);
+    setError(undefined);
+    try {
+      for (const [index, agent] of next.entries())
+        if (!agent.builtin && !agent.deletedAt && agent.displayPriority !== index)
+          await setChatPersonaListing({
+            path: { personaId: agent.id },
+            query: { revision: agent.revision },
+            body: { listed: agent.listed, featured: agent.featured, displayPriority: index },
+            headers: sameOriginMutationHeaders,
+            signal: AbortSignal.timeout(30000),
+            throwOnError: true,
+          });
+    } catch (cause) {
+      cache.setQueryData(key, previous);
+      setError(chatActionError(cause));
+    }
+    await refresh();
+  }
+
   return (
     <SettingsLayout wide>
       <PageHeader
@@ -110,179 +157,56 @@ export function AdminAgentsPage() {
         )}
         {agents.isPending && <p role="status">{ui("Đang tải trợ lý…")}</p>}
         {agents.data && (
-          <div className="overflow-x-auto rounded-xl border border-border-default">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{ui("Trợ lý")}</TableHead>
-                  <TableHead>{ui("Chủ sở hữu")}</TableHead>
-                  <TableHead>{ui("Truy cập")}</TableHead>
-                  <TableHead>{ui("Hiển thị")}</TableHead>
-                  <TableHead className="text-right">{ui("Thao tác")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agents.data.map((agent) => {
-                  const visibility = agentVisibility(agent);
-                  return (
-                    <TableRow key={agent.id}>
-                      <TableCell>
-                        <div className="flex min-w-48 items-center gap-2">
-                          <AgentAvatar agent={agent} size="sm" />
-                          <span className="truncate font-medium">{agent.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {agent.builtin ? (
-                          ui("MemoryOS")
-                        ) : agent.vacant ? (
-                          <Badge variant="destructive">{ui("Chưa có chủ sở hữu")}</Badge>
-                        ) : (
-                          (agent.owner.group?.name ?? personLabel(agent.owner.actor))
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {visibility === "public"
-                          ? ui("Công khai")
-                          : visibility === "shared"
-                            ? ui("Đã chia sẻ")
-                            : ui("Riêng tư")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {agent.deletedAt && <Badge variant="destructive">{ui("Đã xóa")}</Badge>}
-                          {agent.featured && <Badge>{ui("Nổi bật")}</Badge>}
-                          {!agent.listed && <Badge variant="outline">{ui("Ẩn")}</Badge>}
-                          {agent.displayPriority != null && (
-                            <Badge variant="secondary">
-                              {ui("Thứ tự {{v1}}", { v1: agent.displayPriority })}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {agent.deletedAt ? (
-                            <Button
-                              size="sm"
-                              prominence="secondary"
-                              onClick={() => void restore(agent)}
-                            >
-                              {ui("Khôi phục")}
-                            </Button>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                prominence="internal"
-                                onClick={() => setEditing(agent)}
-                              >
-                                {ui("Sửa")}
-                              </Button>
-                              {!agent.builtin && (
-                                <Button
-                                  size="sm"
-                                  prominence="internal"
-                                  onClick={() => setListing(agent)}
-                                >
-                                  {ui("Hiển thị")}
-                                </Button>
-                              )}
-                              {agent.permissions.transfer && (
-                                <Button
-                                  size="sm"
-                                  prominence="internal"
-                                  onClick={() => setTransferring(agent)}
-                                >
-                                  {ui("Chuyển chủ sở hữu")}
-                                </Button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-raised">
+            <div className="min-w-[48rem]">
+              <div className="grid grid-cols-[1.5rem_minmax(12rem,2fr)_minmax(8rem,1fr)_7rem_8rem_12rem] items-center gap-3 border-b border-border-subtle px-3 py-2 font-secondary-action text-content-muted">
+                <span />
+                <span>{ui("Trợ lý")}</span>
+                <span>{ui("Chủ sở hữu")}</span>
+                <span>{ui("Truy cập")}</span>
+                <span>{ui("Hiển thị")}</span>
+                <span className="text-right">{ui("Thao tác")}</span>
+              </div>
+              <ul aria-label={ui("Tất cả trợ lý")}>
+                <SortableList
+                  items={agents.data}
+                  getId={(agent) => agent.id}
+                  onReorder={(next) => void reorder(next)}
+                >
+                  {(agent, handle) => (
+                    <AdminAgentRow
+                      key={agent.id}
+                      agent={agent}
+                      handle={handle}
+                      sortable={!includeDeleted && !agent.builtin && !agent.deletedAt}
+                      onEdit={() =>
+                        void navigate({
+                          to: "/agents/$agentId/edit",
+                          params: { agentId: agent.id },
+                        })
+                      }
+                      onTransfer={() => setTransferring(agent)}
+                      onRestore={() => void restore(agent)}
+                      onListing={(change) => void listing(agent, change)}
+                    />
+                  )}
+                </SortableList>
+              </ul>
+            </div>
           </div>
+        )}
+        {agents.data && !includeDeleted && (
+          <p className="font-secondary-body text-content-muted">
+            {ui("Kéo để đổi thứ tự hiển thị trong thư viện. Trợ lý nổi bật luôn đứng đầu.")}
+          </p>
         )}
       </section>
       <AgentLabels />
       <PublicPromptShortcuts />
-      {editing && <AgentEditor agent={editing} onClose={() => setEditing(undefined)} />}
       {transferring && (
         <AgentTransferDialog agent={transferring} onClose={() => setTransferring(undefined)} />
       )}
-      {listing && (
-        <ListingDialog agent={listing} onClose={() => setListing(undefined)} onSaved={refresh} />
-      )}
     </SettingsLayout>
-  );
-}
-
-function ListingDialog({
-  agent,
-  onClose,
-  onSaved,
-}: {
-  agent: Persona;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const [listed, setListed] = useState(agent.listed);
-  const [featured, setFeatured] = useState(agent.featured);
-  const [priority, setPriority] = useState(agent.displayPriority?.toString() ?? "");
-  return (
-    <ChatDialog
-      open
-      onOpenChange={(open) => !open && onClose()}
-      title={ui("Hiển thị {{v1}}", { v1: agent.name })}
-      description={ui(
-        "Trợ lý nổi bật, công khai và đang hiển thị được ghim sẵn cho người dùng mới. Trợ lý bị ẩn vẫn mở được bằng liên kết.",
-      )}
-      onSubmit={async () => {
-        await setChatPersonaListing({
-          path: { personaId: agent.id },
-          query: { revision: agent.revision },
-          body: { listed, featured, displayPriority: priority ? Number(priority) : undefined },
-          headers: sameOriginMutationHeaders,
-          signal: AbortSignal.timeout(30000),
-          throwOnError: true,
-        });
-        await onSaved();
-      }}
-    >
-      <div className="space-y-4">
-        <label className="flex items-center justify-between gap-4">
-          {ui("Hiển thị trong thư viện")}
-          <Switch
-            checked={listed}
-            onCheckedChange={setListed}
-            aria-label={ui("Hiển thị trong thư viện")}
-          />
-        </label>
-        <label className="flex items-center justify-between gap-4">
-          {ui("Nổi bật")}
-          <Switch checked={featured} onCheckedChange={setFeatured} aria-label={ui("Nổi bật")} />
-        </label>
-        <label className="block space-y-1">
-          <span>{ui("Thứ tự hiển thị")}</span>
-          <Input
-            type="number"
-            min={0}
-            max={100000}
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          />
-          <span className="block text-xs text-content-muted">
-            {ui("Số nhỏ hiện trước. Bỏ trống để xếp theo tên.")}
-          </span>
-        </label>
-      </div>
-    </ChatDialog>
   );
 }
 
@@ -386,5 +310,146 @@ function AgentLabels() {
         }}
       />
     </section>
+  );
+}
+
+function AdminAgentRow({
+  agent,
+  handle: { setNodeRef, setHandleRef, style, attributes, dragging },
+  sortable,
+  onEdit,
+  onTransfer,
+  onRestore,
+  onListing,
+}: {
+  agent: Persona;
+  handle: SortableHandle;
+  sortable: boolean;
+  onEdit: () => void;
+  onTransfer: () => void;
+  onRestore: () => void;
+  onListing: (change: { listed?: boolean; featured?: boolean }) => void;
+}) {
+  const ui = useAppTranslation();
+  const visibility = agentVisibility(agent);
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group grid grid-cols-[1.5rem_minmax(12rem,2fr)_minmax(8rem,1fr)_7rem_8rem_12rem] items-center gap-3 border-b border-border-subtle px-3 py-2 last:border-b-0 hover:bg-surface-base",
+        dragging && "relative z-10 bg-surface-raised shadow-hover",
+      )}
+    >
+      {sortable ? (
+        <button
+          ref={setHandleRef}
+          type="button"
+          aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: agent.name })}
+          className={cn(
+            "grid size-6 cursor-grab place-items-center rounded text-content-muted outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring/40 active:cursor-grabbing",
+            hoverReveal,
+          )}
+          {...attributes}
+        >
+          <GripVertical aria-hidden="true" className="size-4" />
+        </button>
+      ) : (
+        <span />
+      )}
+      <div className="flex min-w-0 items-center gap-2.5">
+        <AgentAvatar agent={agent} size="sm" />
+        <span className="truncate font-main-ui-action text-content-primary">{agent.name}</span>
+      </div>
+      <div className="min-w-0 truncate font-main-ui-body text-content-secondary">
+        {agent.builtin ? (
+          ui("MemoryOS")
+        ) : agent.vacant ? (
+          <Badge variant="destructive">{ui("Chưa có chủ sở hữu")}</Badge>
+        ) : (
+          (agent.owner.group?.name ?? personLabel(agent.owner.actor))
+        )}
+      </div>
+      <span className="font-main-ui-body text-content-secondary">
+        {visibility === "public"
+          ? ui("Công khai")
+          : visibility === "shared"
+            ? ui("Đã chia sẻ")
+            : ui("Riêng tư")}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {agent.deletedAt ? (
+          <Badge variant="destructive">{ui("Đã xóa")}</Badge>
+        ) : agent.listed ? (
+          <span className="font-main-ui-body text-content-secondary">{ui("Trong thư viện")}</span>
+        ) : (
+          <Badge variant="outline">{ui("Ẩn")}</Badge>
+        )}
+      </div>
+      <div className="flex items-center justify-end gap-0.5">
+        {agent.deletedAt ? (
+          <Button size="sm" prominence="secondary" onClick={onRestore}>
+            {ui("Khôi phục")}
+          </Button>
+        ) : (
+          <>
+            <div className={cn("flex items-center gap-0.5", hoverReveal)}>
+              {!agent.builtin && (
+                <IconButton
+                  size="sm"
+                  prominence="tertiary"
+                  aria-label={
+                    agent.listed
+                      ? ui("Ẩn {{v1}} khỏi thư viện", { v1: agent.name })
+                      : ui("Hiện {{v1}} trong thư viện", { v1: agent.name })
+                  }
+                  title={agent.listed ? ui("Ẩn khỏi thư viện") : ui("Hiện trong thư viện")}
+                  onClick={() => onListing({ listed: !agent.listed })}
+                >
+                  {agent.listed ? <EyeOff /> : <Eye />}
+                </IconButton>
+              )}
+              {agent.permissions.transfer && (
+                <IconButton
+                  size="sm"
+                  prominence="tertiary"
+                  aria-label={ui("Chuyển chủ sở hữu {{v1}}", { v1: agent.name })}
+                  title={ui("Chuyển chủ sở hữu")}
+                  onClick={onTransfer}
+                >
+                  <UserRoundCog />
+                </IconButton>
+              )}
+              <IconButton
+                size="sm"
+                prominence="tertiary"
+                aria-label={ui("Sửa {{v1}}", { v1: agent.name })}
+                title={ui("Sửa trợ lý")}
+                onClick={onEdit}
+              >
+                <Pencil />
+              </IconButton>
+            </div>
+            {!agent.builtin && (
+              <IconButton
+                size="sm"
+                prominence="tertiary"
+                aria-pressed={agent.featured}
+                aria-label={
+                  agent.featured
+                    ? ui("Bỏ nổi bật {{v1}}", { v1: agent.name })
+                    : ui("Đặt {{v1}} nổi bật", { v1: agent.name })
+                }
+                title={agent.featured ? ui("Bỏ nổi bật") : ui("Đặt nổi bật")}
+                className={agent.featured ? "text-status-warning-content" : hoverReveal}
+                onClick={() => onListing({ featured: !agent.featured })}
+              >
+                <Star className={agent.featured ? "fill-current" : undefined} />
+              </IconButton>
+            )}
+          </>
+        )}
+      </div>
+    </li>
   );
 }

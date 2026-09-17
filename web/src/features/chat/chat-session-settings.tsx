@@ -1,5 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,8 @@ export function ChatSessionSettings({
   );
 }
 
+const askedSessions = new Set<string>();
+
 export function ChatStarterPrompts({
   personaId,
   disabled,
@@ -155,6 +158,18 @@ export function ChatStarterPrompts({
   const persona = personaId
     ? personas.data?.find((p) => p.id === personaId)
     : personas.data?.find((p) => p.builtin);
+  const navigate = useNavigate();
+  const { sessionId } = useParams({ strict: false });
+  const { ask } = useSearch({ strict: false });
+  // A question asked from an agent's detail view is sent once into the new, still empty conversation.
+  useEffect(() => {
+    if (!ask || !sessionId || disabled || askedSessions.has(sessionId)) return;
+    askedSessions.add(sessionId);
+    const composer = aui.thread.composer();
+    composer.setText(ask);
+    composer.send();
+    void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
+  }, [ask, sessionId, disabled, aui, navigate]);
   return (
     <div className="mt-5 flex flex-wrap justify-center gap-2">
       {persona?.starterPrompts.map((text, index) => (

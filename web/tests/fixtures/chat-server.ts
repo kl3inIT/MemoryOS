@@ -212,8 +212,20 @@ export async function handleChatFixture(
     json(response, fixtureModels);
     return true;
   }
-  if (["/api/chat/personas", "/api/chat/personas/sources"].includes(url.pathname)) {
+  if (
+    [
+      "/api/chat/personas",
+      "/api/chat/personas/sources",
+      "/api/chat/persona-pins",
+      "/api/chat/persona-labels",
+      "/api/chat/prompt-shortcuts",
+    ].includes(url.pathname)
+  ) {
     json(response, []);
+    return true;
+  }
+  if (url.pathname === "/api/chat/prompt-shortcuts/preferences") {
+    json(response, { enabled: true });
     return true;
   }
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {

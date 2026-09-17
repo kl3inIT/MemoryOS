@@ -26,6 +26,7 @@ import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
+import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
@@ -36,6 +37,7 @@ import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
 import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
+import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_authenticated.agents_.$agentId.edit'
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
@@ -128,6 +130,12 @@ const AuthenticatedAdminWebSearchRoute =
     path: '/web-search',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAgentsCreateRoute =
+  AuthenticatedAgentsCreateRouteImport.update({
+    id: '/agents_/create',
+    path: '/agents/create',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
@@ -188,6 +196,12 @@ const AuthenticatedAdminSourcesNewRoute =
     path: '/sources/new',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAgentsAgentIdEditRoute =
+  AuthenticatedAgentsAgentIdEditRouteImport.update({
+    id: '/agents_/$agentId/edit',
+    path: '/agents/$agentId/edit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewIndexRoute =
   AuthenticatedAdminSourcesNewIndexRouteImport.update({
     id: '/',
@@ -222,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -232,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -250,6 +266,7 @@ export interface FileRoutesByTo {
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -259,6 +276,7 @@ export interface FileRoutesByTo {
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -281,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
@@ -292,6 +311,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -314,6 +334,7 @@ export interface FileRouteTypes {
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
+    | '/agents/create'
     | '/settings/general'
     | '/shared/$sessionId'
     | '/admin/'
@@ -324,6 +345,7 @@ export interface FileRouteTypes {
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
+    | '/agents/$agentId/edit'
     | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -342,6 +364,7 @@ export interface FileRouteTypes {
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
+    | '/agents/create'
     | '/settings/general'
     | '/shared/$sessionId'
     | '/admin'
@@ -351,6 +374,7 @@ export interface FileRouteTypes {
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
+    | '/agents/$agentId/edit'
     | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -372,6 +396,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/web-search'
+    | '/_authenticated/agents_/create'
     | '/_authenticated/settings/general'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
@@ -383,6 +408,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
+    | '/_authenticated/agents_/$agentId/edit'
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
@@ -516,6 +542,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminWebSearchRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/agents_/create': {
+      id: '/_authenticated/agents_/create'
+      path: '/agents/create'
+      fullPath: '/agents/create'
+      preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
@@ -585,6 +618,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/sources/new'
       preLoaderRoute: typeof AuthenticatedAdminSourcesNewRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/agents_/$agentId/edit': {
+      id: '/_authenticated/agents_/$agentId/edit'
+      path: '/agents/$agentId/edit'
+      fullPath: '/agents/$agentId/edit'
+      preLoaderRoute: typeof AuthenticatedAgentsAgentIdEditRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/sources/new/': {
       id: '/_authenticated/admin/sources/new/'
@@ -703,9 +743,11 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
+  AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -714,9 +756,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
+  AuthenticatedAgentsCreateRoute: AuthenticatedAgentsCreateRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedAgentsAgentIdEditRoute: AuthenticatedAgentsAgentIdEditRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

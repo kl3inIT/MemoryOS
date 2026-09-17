@@ -20,14 +20,15 @@ export type AgentTool = (typeof agentTools)[number];
 export const personaSchema = z.object({
   id: z.string().uuid(),
   builtin: z.boolean(),
+  // Fail closed: an absent permission hint hides the control.
   permissions: z.object({
-    edit: z.boolean(),
-    share: z.boolean(),
-    setPublic: z.boolean(),
-    delete: z.boolean(),
-    transfer: z.boolean(),
-    leave: z.boolean(),
-    manage: z.boolean(),
+    edit: z.boolean().default(false),
+    share: z.boolean().default(false),
+    setPublic: z.boolean().default(false),
+    delete: z.boolean().default(false),
+    transfer: z.boolean().default(false),
+    leave: z.boolean().default(false),
+    manage: z.boolean().default(false),
   }),
   revision: z.number().int(),
   name: z.string(),
