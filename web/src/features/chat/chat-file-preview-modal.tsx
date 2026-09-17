@@ -27,9 +27,10 @@ import {
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import { fileArtifactUrl, fileSize } from "./chat-code";
+import { fileSize } from "./chat-code";
 import {
   codeLanguage,
+  downloadUrl,
   lineCount,
   MAX_TEXT_PREVIEW_BYTES,
   parseCsv,
@@ -37,16 +38,8 @@ import {
   previewSize,
   sanitizeDocxHtml,
   type PreviewKind,
+  type PreviewTarget,
 } from "./chat-file-preview";
-
-/** A chat file to preview: a file run_python generated or an attachment, each read through its owner route. */
-export type PreviewTarget = {
-  source: "generated" | "attachment";
-  id: string;
-  filename: string;
-  /** The stored type when known; a link in an answer only knows the name. */
-  mediaType?: string;
-};
 
 const spreadsheetSchema = z.object({
   sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
@@ -55,12 +48,6 @@ type Sheets = z.infer<typeof spreadsheetSchema>["sheets"];
 
 /** Rows past this count are not rendered; the download holds the whole file. */
 const MAX_TABLE_ROWS = 1000;
-
-export function downloadUrl(target: PreviewTarget): string {
-  return target.source === "generated"
-    ? fileArtifactUrl(target.id)
-    : `/api/chat/files/${encodeURIComponent(target.id)}/content`;
-}
 
 async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blob> {
   const { data } =
@@ -642,3 +629,5 @@ function DocxPreview({
     </>
   );
 }
+
+export type { PreviewTarget };

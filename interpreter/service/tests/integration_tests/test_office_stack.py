@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
@@ -132,6 +133,10 @@ print(json.dumps({
     }
 
 
+def _files(payload: dict[str, object]) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], payload["files"])
+
+
 def test_open_figures_are_captured_as_chart_data_and_png_at_exit() -> None:
     client = TestClient(create_app())
     code = """
@@ -144,7 +149,7 @@ saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(
 """.strip()
 
     payload = _execute(client, code)
-    files = {entry["path"]: entry for entry in payload["files"]}  # type: ignore[union-attr]
+    files = {entry["path"]: entry for entry in _files(payload)}
     assert {"mine.png", ".memoryos-charts/chart-1.png", ".memoryos-charts/chart-2.png"} <= set(
         files
     )
@@ -153,7 +158,7 @@ saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(
     def read(path: str) -> bytes:
         response = client.get(f"/v1/files/{files[path]['file_id']}")
         assert response.status_code == 200
-        return response.content
+        return bytes(response.content)
 
     line = json.loads(read(".memoryos-charts/chart-1.json"))
     assert line["type"] == "line"
@@ -170,7 +175,7 @@ saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(
 
 def test_runs_without_pyplot_leave_no_chart_directory() -> None:
     payload = _execute(TestClient(create_app()), "print('xin chào')")
-    assert not any(str(entry["path"]).startswith(".memoryos-charts") for entry in payload["files"])  # type: ignore[union-attr]
+    assert not any(str(entry["path"]).startswith(".memoryos-charts") for entry in _files(payload))
 
 
 def test_pptx_to_pdf_converts_a_vietnamese_deck_and_refuses_other_files() -> None:

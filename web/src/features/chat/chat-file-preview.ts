@@ -1,4 +1,20 @@
 import DOMPurify from "dompurify";
+import { fileArtifactUrl } from "./chat-code";
+
+/** A chat file to preview: a file run_python generated or an attachment, each read through its owner route. */
+export type PreviewTarget = {
+  source: "generated" | "attachment";
+  id: string;
+  filename: string;
+  /** The stored type when known; a link in an answer only knows the name. */
+  mediaType?: string;
+};
+
+export function downloadUrl(target: PreviewTarget): string {
+  return target.source === "generated"
+    ? fileArtifactUrl(target.id)
+    : `/api/chat/files/${encodeURIComponent(target.id)}/content`;
+}
 
 /** The first matching preview, in the Onyx PreviewModal variant order; anything else downloads. */
 export type PreviewKind =
@@ -96,9 +112,8 @@ export function codeLanguage(filename: string, kind: PreviewKind): string {
   return CODE_LANGUAGES[extension(filename)] ?? "text";
 }
 
-/** Onyx variant sizes: documents, tables and images take the screen; code, text and downloads a large window. */
+/** Onyx variant sizes: documents, tables and images (and a presentation's PDF) take the screen; code and text a large window. */
 export function previewSize(kind: PreviewKind): "full" | "large" | "tall" {
-  // A presentation is shown as its PDF rendering.
   if (kind === "code" || kind === "text") return "large";
   if (kind === "unsupported" || kind === "doc") return "tall";
   return "full";
