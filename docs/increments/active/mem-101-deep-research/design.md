@@ -53,7 +53,7 @@ Paths: `backend/onyx/deep_research/dr_loop.py`, `deep_research/dr_mock_tools.py`
 - One `ChatAdmissionLedger` per turn is shared by every research guard, so parallel agents reserve against one token/cost allowance; Embabel stays the usage and cost ledger.
 - Output limits: each phase sets the guard output reservation and the streamer `max_tokens` to the Onyx value capped by the model's configured maximum output (the OpenAI request policy already clamps). A model with a lower maximum output writes a shorter final report instead of being rejected; this cap is recorded as a departure.
 - `finish_reason=length` with tool calls stays `CHAT_INCOMPLETE_RESPONSE` (reachable at the 1,024-token orchestrator limit). Onyx fails the same way when truncated tool arguments do not parse.
-- Gap: the OpenAI Responses route (hosted Web search or reasoning summaries) sends no `tool_choice`; required tool choice there belongs to the `think_tool` streaming decision.
+- Closed (2026-09-17): the OpenAI Responses route sends `tool_choice` and `parallel_tool_calls`, and every model served by `api.openai.com` streams through it, as Onyx. Staging showed why: `gpt-5.6-terra` on Chat Completions reasoned silently past the 60 s read gap, so three agents and the final report failed with `InterruptedIOException: timeout`.
 - Clarification is skipped when the previous assistant message has `is_clarification`. Research mode is rejected for Project chats and for models whose context window is below 50,000 tokens.
 
 ### Research agents
@@ -124,6 +124,7 @@ Decision to take in implementation, per the conventions' departure record:
 | Requirement | Onyx streams `think_tool` reasoning live for non-reasoning models. |
 | Proposed | Route research inferences on Responses-capable OpenAI connections through `OpenAiResponsesChatModel`; map `functionCallArgumentsDelta` of `think_tool` items to `ChatReasoningDelta` with the Onyx JSON-prefix stripping; add `tool_choice` to Responses requests (currently absent). |
 | Cost | Responses routing independent of `webSearch`/`reasoningSummary`, plus fixture tests. OpenAI-compatible endpoints without Responses keep the baseline. |
+| Status (2026-09-17) | Routing and `tool_choice` are implemented for models served by OpenAI; mapping `think_tool` argument deltas to live reasoning is still open. |
 | Simpler baseline | Paragraph at cycle end. Reasoning models are unaffected because they use MEM-100 reasoning summaries. |
 
 ### Limits

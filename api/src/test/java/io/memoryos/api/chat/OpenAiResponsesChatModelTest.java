@@ -132,6 +132,47 @@ class OpenAiResponsesChatModelTest {
     }
 
     @Test
+    void anOpenAiServedModelStreamsEveryTurnWithSummariesAndTheRequiredToolChoice() {
+        // Staging (2026-09-17): research agents on Chat Completions reasoned silently past the 60 s read gap.
+        bodies.add(sse(completed(List.of(message("Planned.")))));
+        bodies.add(sse(completed(List.of(message("Done.")))));
+        var model = new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, true, meters)
+                .forTurn(new ChatModelTurns.Turn(new ChatEvidence(), ignored -> {}, false, () -> {}));
+
+        model.stream(new Prompt(List.of(new UserMessage("Research")), options(true).mutate()
+                .reasoningEffort("high").toolChoice("required").parallelToolCalls(true).build())).collectList().block();
+        model.stream(new Prompt(List.of(new UserMessage("Report")), options(false).mutate().reasoningEffort("none").build())).collectList().block();
+
+        var research = requests.getFirst();
+        assertEquals("high", research.path("reasoning").path("effort").asString());
+        assertEquals("auto", research.path("reasoning").path("summary").asString());
+        assertEquals("required", research.path("tool_choice").asString());
+        assertTrue(research.path("parallel_tool_calls").asBoolean(false));
+        // Onyx omits reasoning when it is off; a summary would have nothing to summarize.
+        var report = requests.get(1);
+        assertEquals("none", report.path("reasoning").path("effort").asString());
+        assertTrue(report.path("reasoning").path("summary").isMissingNode());
+        assertTrue(report.path("tool_choice").isMissingNode());
+
+        // Connection validation streams without a turn and must probe the same route.
+        bodies.add(sse(completed(List.of(message("OK.")))));
+        new OpenAiResponsesChatModel(mock(ChatModel.class), client, true, false, true, true, meters)
+                .stream(new Prompt(List.of(new UserMessage("Reply OK.")), options(true).mutate().toolChoice("none").build())).collectList().block();
+        assertEquals("none", requests.get(2).path("tool_choice").asString());
+    }
+
+    @Test
+    void chatCompletionsToolChoicesMapToTheResponsesShape() {
+        assertNull(OpenAiResponsesChatModel.toolChoice(null));
+        assertEquals("required", OpenAiResponsesChatModel.toolChoice("required"));
+        assertEquals("none", OpenAiResponsesChatModel.toolChoice("none"));
+        var named = Map.of("type", "function", "name", "generate_report");
+        assertEquals(named, OpenAiResponsesChatModel.toolChoice(Map.of("type", "function", "function", Map.of("name", "generate_report"))));
+        assertEquals(named, OpenAiResponsesChatModel.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"generate_report\"}}"));
+        assertThrows(IllegalArgumentException.class, () -> OpenAiResponsesChatModel.toolChoice("sometimes"));
+    }
+
+    @Test
     void turnWithoutWebOrSummariesUsesTheChatCompletionsDelegate() {
         var completions = mock(ChatModel.class);
         var prompt = new Prompt("Question", options(true));
