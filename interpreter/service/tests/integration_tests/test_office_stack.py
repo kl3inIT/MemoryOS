@@ -198,7 +198,7 @@ result = {'code': done.returncode, 'report': json.loads(done.stdout), 'text': te
 print(json.dumps(result, ensure_ascii=False))
 """.strip()
 
-    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 90000})
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
     assert response.status_code == 200
     result = json.loads(str(response.json()["stdout"]))
 

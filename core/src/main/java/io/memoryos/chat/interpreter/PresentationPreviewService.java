@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PresentationPreviewService {
-    static final int TIMEOUT_MS = 90_000;
+    /** The service caps timeout_ms at MAX_EXEC_TIMEOUT_MS (60 s); pptx-to-pdf itself stops LibreOffice at 45 s. */
+    static final int TIMEOUT_MS = 60_000;
     static final String DECK = "deck.pptx";
     static final String PDF = "preview.pdf";
     static final String CODE = """
