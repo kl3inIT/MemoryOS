@@ -777,7 +777,7 @@ export const deleteSource = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
- * Update FILE source access
+ * Update Source access; SYNC requires a Google Drive source
  */
 export const updateSourceAccess = <ThrowOnError extends boolean = false>(options: Options<UpdateSourceAccessData, ThrowOnError>): RequestResult<UpdateSourceAccessResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceAccessResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

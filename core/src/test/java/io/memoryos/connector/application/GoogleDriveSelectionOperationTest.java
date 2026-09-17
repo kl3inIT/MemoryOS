@@ -340,7 +340,7 @@ public class GoogleDriveSelectionOperationTest {
             return links;
         }
         public SelectionReceipt create(UUID request,List<String> links) {
-            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links,List.of());
+            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links,List.of(),null);
         }
         public void discoverApproval(SourceId source,String id) {
             files.put(id,file(id,false,List.of("ancestor0")));

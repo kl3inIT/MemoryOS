@@ -336,6 +336,22 @@ The ACL inspector tab and its HTTP endpoints were removed on 2026-09-14 ([MEM-88
 The final backend `clean check` passed: 713 scenarios, 705 passed and 8 explicitly skipped. `pnpm check` passed all generated-contract, i18n, lint, formatting, type, 176 unit-test and route/build checks. The existing Source action-feedback, Google Drive setup and FILE setup Playwright suites passed all 21 scenarios.
 
 A separate real Chromium session against the local Vite surface used controlled API responses to exercise four Source tabs, retained stale ACL after failure, no observation, failed-only and successful-empty detail, 27-entry permission pagination, six run errors over two cursor pages, Escape/focus restoration and 390px layouts. Desktop and mobile screenshots were visually inspected; mobile ACL actions stay within the page. No fake provider state was persisted. Real API/worker readiness and the normal local Keycloak login path were checked separately; this is not a claim that the UI fixture ran a real Google synchronization. See the [increment evidence](../increments/active/mem-88-google-drive-acl-sync/verification.md#approved-interface-verification).
+
+## MEM-105 Source access modes
+
+| Contract | Retained check |
+| --- | --- |
+| V63 renames RESTRICTED to PRIVATE, accepts only PUBLIC/PRIVATE/SYNC and adds nullable creation-intent access | `SourceAccessModesMigrationTest.renamesRestrictedToPrivateAndAcceptsOnlyTheThreeModes` |
+| Defaults follow Source type and authority; SYNC needs Google Drive; PUBLIC needs global authority | `SourceAccessPolicyTest.defaultsFollowTheSourceTypeAndAuthority`, `autoSyncNeedsGoogleDriveAndPublicNeedsGlobalAuthority` |
+| Drive creation defaults to Auto Sync and keeps a requested mode through the validation intent | `GoogleDriveCredentialAuthorityTest.driveCreationDefaultsToAutoSyncAndKeepsTheRequestedMode` |
+| FILE rejects SYNC at creation (400) and on change (409); global managers switch a Drive Source among all three modes; scoped managers cannot change modes | `SourceApiIntegrationTest.enforcesScopedSourceHttpSurfacesAndImmediateAssociationRevocation`, `PostgresSourceLifecycleTest.publicAndPartiallyManagedSourcesAreReadOnlyButGlobalAuthorityCanEdit` |
+| Every Google permission interpretation, unobserved and failed-only files; index-time tokens equal the recheck for every reader; SYNC Sources are listed for every member while metadata stays per-document | `SourceSyncAccessTest.autoSyncFollowsEachInterpretedGooglePermissionAndIndexesTheSameDecision` |
+| Last successful grants survive a later failure and revision changes; modes switch enforcement; a public FILE origin admits everyone without exposing the SYNC origin; deselection removes the grants | `SourceSyncAccessTest.lastSuccessfulGrantsHoldWhileTheFileStaysInTheSourceAndModesSwitchEnforcement` |
+| PUBLIC Google Drive Sources are readable and in scope | `SourceSearchMetadataMigrationTest.privateSourcesRequireCurrentGroupMembershipRegardlessOfManagementOrCreationAuthority` |
+| A permission change on a SYNC Source queues in-place `ACCESS` refreshes for the listed Documents only | `SearchIndexWorkIntegrationTest.autoSyncPermissionChangeRefreshesTheChangedDocumentsOfASyncSourceOnly` |
+
+Reader-token identity rules are in the [identity matrix](identity.md). The final gate and live evidence are in the [MEM-105 verification record](../increments/active/mem-105-source-access-modes/verification.md).
+
 ## Source deep-configuration authority — 2026-09-12
 
 - Existing Google roots/approval/discovery and FILE visibility backend guards remain global-only. The credential gap was closed: an existing OAuth app cannot be supplied/replaced with scoped authority, and callback/client lookup plus completion reject a changed app after loss of global authority. Same saved-app reconnect preserves scoped ownership and all-attached-Source checks. The public preparation/response shapes are unchanged; credential actions add global-only `replace_oauth_client`.

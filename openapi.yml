@@ -2613,7 +2613,7 @@ paths:
     post:
       tags:
       - Sources
-      summary: Update FILE source access
+      summary: Update Source access; SYNC requires a Google Drive source
       operationId: updateSourceAccess
       parameters:
       - name: X-MemoryOS-CSRF
@@ -8734,6 +8734,10 @@ components:
           type: string
         access:
           type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
         status:
           type: string
         pendingWork:
@@ -8826,7 +8830,8 @@ components:
           type: string
           enum:
           - PUBLIC
-          - RESTRICTED
+          - PRIVATE
+          - SYNC
       required:
       - access
     CreateGoogleDriveSourceRequest:
@@ -8869,6 +8874,16 @@ components:
             format: uuid
           maxItems: 100
           minItems: 0
+        access:
+          type:
+          - string
+          - "null"
+          description: "PUBLIC, PRIVATE or SYNC; defaults to SYNC. PUBLIC requires\
+            \ global Source management."
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
       required:
       - credentialId
       - links
@@ -8898,9 +8913,11 @@ components:
           type:
           - string
           - "null"
+          description: PUBLIC or PRIVATE; SYNC requires a Google Drive source.
           enum:
           - PUBLIC
-          - RESTRICTED
+          - PRIVATE
+          - SYNC
       required:
       - name
     SearchRequest:

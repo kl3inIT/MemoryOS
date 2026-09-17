@@ -102,7 +102,7 @@ class SearchAuthorizationCostMeasurementTest {
             String report = """
                     # Search authorization cost (real PostgreSQL)
 
-                    Corpus: %d documents, %d Sources (half PUBLIC files, half RESTRICTED Drive with Group grants), %d Groups, actor in 5 Groups.
+                    Corpus: %d documents, %d Sources (half PUBLIC files, half PRIVATE Drive with Group grants), %d Groups, actor in 5 Groups.
                     Warm-up %d, measured %d sequential iterations per row, one connection pool of 4.
 
                     | Operation | p50 ms | p95 ms | mean ms |
@@ -173,7 +173,7 @@ class SearchAuthorizationCostMeasurementTest {
                 INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status)
                 SELECT md5('src'||n)::uuid, :tenant, md5('src'||n)::uuid,
                     CASE WHEN n<=:sources/2 THEN md5('file-credential')::uuid ELSE md5('src'||n)::uuid END,
-                    CASE WHEN n<=:sources/2 THEN 'PUBLIC' ELSE 'RESTRICTED' END, 'ACTIVE'
+                    CASE WHEN n<=:sources/2 THEN 'PUBLIC' ELSE 'PRIVATE' END, 'ACTIVE'
                 FROM generate_series(1,:sources) n""",
                 """
                 INSERT INTO source_group_grants(tenant_id,connector_credential_pair_id,group_id)

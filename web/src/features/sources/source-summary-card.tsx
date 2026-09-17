@@ -5,6 +5,13 @@ import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
 
+/** Who reads a Google Drive Source depends on its mode; a Public badge needs no explanation. */
+const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
+  PRIVATE:
+    "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
+  SYNC: "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
+};
+
 export function SourceSummaryCard({
   source,
   children,
@@ -13,6 +20,8 @@ export function SourceSummaryCard({
   children?: ReactNode;
 }) {
   const ui = useAppTranslation();
+  const accessHelp =
+    source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined;
 
   return (
     <dl
@@ -33,13 +42,7 @@ export function SourceSummaryCard({
         <dd className="mt-2">
           <SourceAccessBadge access={source.access} />
         </dd>
-        {source.type === "GOOGLE_DRIVE" ? (
-          <dd className="mt-2 text-xs text-content-muted">
-            {ui(
-              "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
-            )}
-          </dd>
-        ) : null}
+        {accessHelp ? <dd className="mt-2 text-xs text-content-muted">{ui(accessHelp)}</dd> : null}
       </div>
       <div>
         <dt className="text-content-muted">{ui("Documents indexed")}</dt>

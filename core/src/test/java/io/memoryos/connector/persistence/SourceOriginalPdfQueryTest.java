@@ -57,8 +57,8 @@ class SourceOriginalPdfQueryTest {
                     .param("tenant", tenant.value()).param("id", source).update();
             assertTrue(repository.originalPdf(tenant, reader, document).isPresent());
 
-            // Restricted Sources require a Group grant; non-PDF Documents have no original view.
-            jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE tenant_id=:tenant AND id=:id")
+            // Private Sources require a Group grant; non-PDF Documents have no original view.
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE tenant_id=:tenant AND id=:id")
                     .param("tenant", tenant.value()).param("id", source).update();
             assertTrue(repository.originalPdf(tenant, reader, document).isEmpty());
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE tenant_id=:tenant AND id=:id")

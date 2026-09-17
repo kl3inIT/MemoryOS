@@ -493,12 +493,21 @@ export const englishUi: Record<string, string> = {
   None: "Không có",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
-  "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.":
-    "Với nguồn Tệp và Google Drive giới hạn, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Quyền từng tệp trên Google Drive không được đồng bộ.",
-  "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.":
-    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ nguồn Tệp và Google Drive giới hạn. Quyền từng tệp trên Google Drive không được đồng bộ. Quyền quản lý nguồn toàn tổ chức không cấp quyền đọc tài liệu giới hạn nếu không có tư cách thành viên nhóm.",
-  "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.":
-    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập. Quyền từng tệp trên Google không được đồng bộ.",
+  "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.":
+    "Với Nguồn riêng tư, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn.",
+  "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.":
+    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ Nguồn riêng tư. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn; quyền từng tệp trên Google Drive quyết định ai được đọc. Quyền quản lý Nguồn toàn Tenant không cấp quyền đọc tài liệu riêng tư nếu không là thành viên nhóm.",
+  "Group associations are optional for global Source managers.":
+    "Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
+  "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
+  "Auto Sync · people who can open each file in Google Drive":
+    "Tự động đồng bộ · những người mở được từng tệp trên Google Drive",
+  "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.":
+    "Người đọc cần có quyền với từng tệp trên Google Drive và email đăng nhập đã xác minh trùng khớp. Nhóm chỉ quyết định ai quản lý Nguồn này.",
+  "Members of the selected MemoryOS groups can search and read imported Drive documents.":
+    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập.",
+  "Everyone in this Tenant can search and read imported Drive documents.":
+    "Mọi người trong Tenant này được tìm kiếm và đọc tài liệu Drive đã nhập.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -521,6 +530,8 @@ export const englishUi: Record<string, string> = {
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
   "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
     "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",
+  "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.":
+    "Mọi người trong Tenant này đọc được tài liệu công khai; thành viên nhóm liên kết đọc được tài liệu riêng tư. Tài liệu tự động đồng bộ chỉ đọc được bởi những người mở được tệp trên Google Drive, đối chiếu theo email đăng nhập đã xác minh.",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
   "Automatic synchronization": "Đồng bộ tự động",
@@ -1390,9 +1401,13 @@ Object.assign(englishUi, {
   "Source setup": "Thiết lập nguồn",
   "Available to workspace members, not the public Internet.":
     "Khả dụng với thành viên không gian làm việc, không công khai trên Internet.",
-  "Restricted source access.": "Quyền truy cập nguồn bị giới hạn.",
+  "Only members of the associated groups can read this Source.":
+    "Chỉ thành viên các nhóm liên kết mới đọc được Nguồn này.",
+  "Readers need access to each file in Google Drive.":
+    "Người đọc cần có quyền với từng tệp trên Google Drive.",
   "Workspace members": "Thành viên không gian làm việc",
-  Restricted: "Giới hạn",
+  Private: "Riêng tư",
+  "Auto Sync": "Tự động đồng bộ",
   "Source summary": "Tóm tắt nguồn",
   "Source status": "Trạng thái nguồn",
   Access: "Truy cập",
