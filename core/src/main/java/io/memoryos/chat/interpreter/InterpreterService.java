@@ -79,6 +79,12 @@ public class InterpreterService {
     }
 
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes) {
+        return store(tenant, messageId, filename, mediaType, bytes, null);
+    }
+
+    /** Persists a generated file with optional chart data (a JSON object) captured from its figure. */
+    public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes,
+                      @org.jspecify.annotations.Nullable String chart) {
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
         boolean adopted = false;
@@ -86,13 +92,19 @@ public class InterpreterService {
             tx.executeWithoutResult(ignored -> {
                 writes.adopt(tenant, staged);
                 repository.insertArtifact(tenant, messageId, id, staged.object().id().value(), staged.object().key(),
-                        filename, mediaType, bytes.length);
+                        filename, mediaType, bytes.length, chart);
             });
             adopted = true;
             return id;
         } finally {
             if (!adopted) writes.discard(tenant, staged); // Never leave an unreferenced adopted object.
         }
+    }
+
+    /** Chart data of an owner-private generated file, as JSON text. */
+    public String chart(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return repository.ownedChart(tenant, actor, id).orElseThrow(ChatException::unavailable);
     }
 
     static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

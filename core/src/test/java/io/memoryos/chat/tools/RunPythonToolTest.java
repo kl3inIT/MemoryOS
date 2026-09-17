@@ -186,6 +186,48 @@ class RunPythonToolTest {
         verify(client).delete("11111111-1111-1111-1111-111111111111");
     }
 
+    @Test void capturedFiguresBecomeChartsApartFromTheModelsFilesAndServiceCopiesAreDeleted() throws Exception {
+        var chart = UUID.randomUUID();
+        var plain = UUID.randomUUID();
+        String line = "{\"type\":\"line\",\"title\":\"Doanh thu quý 3\",\"elements\":[]}";
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
+                new InterpreterClient.WorkspaceFile(".memoryos-charts", "directory", null),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-1.png", "file", "png-1"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-1.json", "file", "json-1"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-2.png", "file", "png-2"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-2.json", "file", "json-2"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/other.txt", "file", "other")));
+        when(client.download("png-1")).thenReturn(new byte[]{1});
+        when(client.download("json-1")).thenReturn(line.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(client.download("png-2")).thenReturn(new byte[]{2});
+        // Not a chart object: the PNG is kept without chart data.
+        when(client.download("json-2")).thenReturn("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(artifacts.store(tenant, messageId, "Doanh thu quý 3.png", "image/png", new byte[]{1}, line)).thenReturn(chart);
+        when(artifacts.store(tenant, messageId, "chart-2.png", "image/png", new byte[]{2}, null)).thenReturn(plain);
+
+        var reply = tool().runPython("plt.plot([1, 2])");
+
+        var json = result(reply);
+        assertEquals(0, json.path("generated_files").size());
+        assertFalse(reply.contains(RunPythonTool.FILE_REMINDER));
+        assertEquals("line", json.path("charts").get(0).path("type").asString());
+        assertEquals("Doanh thu quý 3", json.path("charts").get(0).path("title").asString());
+        assertEquals("/api/chat/file-artifacts/" + chart + "/content", json.path("charts").get(0).path("file_link").asString());
+        assertEquals("image", json.path("charts").get(1).path("type").asString());
+        assertFalse(reply.contains("elements"));
+        for (var id : List.of("png-1", "json-1", "png-2", "json-2", "other")) verify(client).delete(id);
+        var terminal = published.getLast();
+        assertEquals(List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(chart, "Doanh thu quý 3.png", "image/png", 1, true),
+                new io.memoryos.chat.ChatCodeEvent.GeneratedFile(plain, "chart-2.png", "image/png", 1, false)), terminal.files());
+    }
+
+    @Test void chartDataMustBeABoundedObjectWithAType() {
+        assertEquals("{\"type\":\"pie\"}", RunPythonTool.chartJson("{\"type\": \"pie\"}".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson("{\"title\":\"x\"}".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson("not json".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson(new byte[RunPythonTool.MAX_CHART_JSON_BYTES + 1]));
+    }
+
     @Test void oversizedGeneratedFilesAreReportedAndStillDeleted() throws Exception {
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
                 new InterpreterClient.WorkspaceFile("big.csv", "file", "22222222-2222-2222-2222-222222222222")));

@@ -21,7 +21,11 @@ public record ChatCodeEvent(String toolCallId, Stage stage, @Nullable String cod
     public enum Stage { RUNNING, OUTPUT, COMPLETED, FAILED }
 
     /** A file {@code run_python} produced, served at {@code /api/chat/file-artifacts/{id}/content}. */
-    public record GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes) {
+    public record GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes, boolean chart) {
+        public GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes) {
+            this(id, filename, mediaType, sizeBytes, false);
+        }
+
         public GeneratedFile {
             if (id == null || filename == null || filename.isBlank() || filename.length() > 200
                     || mediaType == null || mediaType.isBlank() || mediaType.length() > 100 || sizeBytes < 0)

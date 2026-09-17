@@ -8990,6 +8990,56 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/chart:
+    get:
+      tags:
+      - Chat
+      summary: Read the chart data captured from the figure behind an owner-private
+        generated PNG
+      operationId: getChatFileArtifactChart
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Chart in the E2B chart model (type, title, elements, axes)"
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/documents/{documentId}:
     get:
       tags:
@@ -13579,7 +13629,11 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
+          description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
       required:
+      - chart
       - filename
       - id
       - mediaType
@@ -13929,6 +13983,8 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
     ResearchPlanEvent:
       type: object
       properties:

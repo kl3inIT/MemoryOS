@@ -38,6 +38,10 @@ public final class RunPythonTool {
     /** Onyx runs each call with a fixed timeout; a MemoryOS turn has no total deadline of its own. */
     static final int DEFAULT_TIMEOUT_MS = 60_000;
     static final int FILENAME_LIMIT = 200;
+    /** Written by the executor's memoryos_charts capture: chart-{n}.png and, when recognised, chart-{n}.json. */
+    static final String CHART_DIR = ".memoryos-charts/";
+    static final int MAX_CHART_JSON_BYTES = 256 * 1024;
+    private static final Pattern CHART_FILE = Pattern.compile("chart-(\\d{1,2})\\.(png|json)");
     static final String MISSING_CODE = "The python tool requires a 'code' parameter containing the Python code to execute. "
             + "Please provide like: {\"code\": \"print('Hello, world!')\"}";
     static final String FILE_REMINDER = """
@@ -136,8 +140,17 @@ public final class RunPythonTool {
             var generated = new ArrayList<Map<String, String>>();
             var produced = new ArrayList<io.memoryos.chat.ChatCodeEvent.GeneratedFile>();
             var tooLarge = new ArrayList<String>();
+            var charts = new ArrayList<Map<String, String>>();
+            var chartFiles = new java.util.TreeMap<Integer, Map<String, String>>();
             for (var file : execution.files()) {
                 if (!"file".equals(file.kind()) || file.fileId() == null) continue;
+                if (file.path().startsWith(CHART_DIR)) {
+                    var match = CHART_FILE.matcher(file.path().substring(CHART_DIR.length()));
+                    if (match.matches()) chartFiles.computeIfAbsent(Integer.valueOf(match.group(1)), n -> new HashMap<>())
+                            .put(match.group(2), file.fileId());
+                    else delete(file.fileId());
+                    continue;
+                }
                 active.run();
                 String name = safeName(file.path().substring(file.path().lastIndexOf('/') + 1));
                 try {
@@ -157,13 +170,42 @@ public final class RunPythonTool {
                     delete(file.fileId());
                 }
             }
+            for (var chart : chartFiles.entrySet()) {
+                active.run();
+                String png = chart.getValue().get("png");
+                String json = chart.getValue().get("json");
+                try {
+                    if (png == null) continue;
+                    String data = json == null ? null : chartJson(client.download(json));
+                    active.run();
+                    byte[] bytes = client.download(png);
+                    active.run();
+                    var parsed = data == null ? null : JSON.readTree(data);
+                    String title = parsed == null || !parsed.path("title").isString() ? "" : parsed.path("title").asString();
+                    String name = safeName((title.isBlank() ? "chart-" + chart.getKey() : title) + ".png");
+                    UUID id = artifacts.store(tenant, messageId, name, "image/png", bytes, data);
+                    var entry = new LinkedHashMap<String, String>();
+                    entry.put("title", title.isBlank() ? null : title);
+                    entry.put("type", parsed == null ? "image" : parsed.path("type").asString("unknown"));
+                    entry.put("file_link", "/api/chat/file-artifacts/" + id + "/content");
+                    charts.add(entry);
+                    if (produced.size() < MAX_STAGED_FILES)
+                        produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, "image/png", bytes.length, data != null));
+                } catch (IOException | RuntimeException failure) {
+                    active.run();
+                    LOG.warn("Code Interpreter could not store a captured chart ({})", failure.getClass().getSimpleName());
+                } finally {
+                    if (png != null) delete(png);
+                    if (json != null) delete(json);
+                }
+            }
             if (!tooLarge.isEmpty())
                 notice = join(notice, tooLarge.size() + " generated file(s) larger than " + InterpreterClient.MAX_DOWNLOAD_BYTES
                         + " bytes were not returned: " + String.join(", ", tooLarge) + ".");
             String stderr = truncate(execution.stderr());
             Integer exit = execution.exitCode();
             String result = json(truncate(execution.stdout()), stderr, exit, execution.timedOut(), generated,
-                    exit != null && exit == 0 ? null : stderr, notice);
+                    exit != null && exit == 0 ? null : stderr, notice, charts);
             // A timeout or a non-zero exit is a failed run in the timeline, even though the tool still
             // answers the model; the files it managed to produce stay on the event.
             boolean unsuccessful = execution.timedOut() || exit == null || exit != 0;
@@ -181,7 +223,7 @@ public final class RunPythonTool {
             publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, io.memoryos.chat.ChatCodeEvent.STDERR, shown));
             publish(io.memoryos.chat.ChatCodeEvent::failed);
             LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
-            return json("", error, -1, false, List.of(), error, notice);
+            return json("", error, -1, false, List.of(), error, notice, List.of());
         }
     }
 
@@ -293,6 +335,17 @@ public final class RunPythonTool {
         return base.length() <= limit ? base : base.substring(0, limit);
     }
 
+    /** Chart data is kept only as a bounded JSON object; anything else leaves the PNG without chart data. */
+    static @Nullable String chartJson(byte[] bytes) {
+        if (bytes.length > MAX_CHART_JSON_BYTES) return null;
+        try {
+            var node = JSON.readTree(bytes);
+            return node != null && node.isObject() && node.path("type").isString() ? JSON.writeValueAsString(node) : null;
+        } catch (RuntimeException invalid) {
+            return null;
+        }
+    }
+
     static String truncate(String text) {
         if (text.length() <= MAX_OUTPUT_CHARACTERS) return text;
         return text.substring(0, MAX_OUTPUT_CHARACTERS)
@@ -306,7 +359,8 @@ public final class RunPythonTool {
     }
 
     private static String json(String stdout, String stderr, @Nullable Integer exitCode, boolean timedOut,
-                               List<Map<String, String>> generated, @Nullable String error, @Nullable String notice) {
+                               List<Map<String, String>> generated, @Nullable String error, @Nullable String notice,
+                               List<Map<String, String>> charts) {
         var result = new LinkedHashMap<String, Object>();
         result.put("type", "python_execution");
         result.put("stdout", stdout);
@@ -316,6 +370,8 @@ public final class RunPythonTool {
         result.put("generated_files", generated);
         result.put("error", error);
         result.put("staging_notice", notice);
+        // Figures left open are captured as charts the user sees interactively; their data stays out of the context.
+        if (!charts.isEmpty()) result.put("charts", charts);
         return JSON.writeValueAsString(result);
     }
 }

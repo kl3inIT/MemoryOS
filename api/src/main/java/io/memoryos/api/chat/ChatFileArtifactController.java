@@ -44,6 +44,21 @@ class ChatFileArtifactController {
     @Schema(name = "ChatSpreadsheetSheet")
     record SheetResponse(String name, String csv, boolean truncated) {}
 
+    @GetMapping(value = "/{artifactId}/chart", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "getChatFileArtifactChart",
+            summary = "Read the chart data captured from the figure behind an owner-private generated PNG")
+    @ApiResponse(responseCode = "200", description = "Chart in the E2B chart model (type, title, elements, axes)",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(type = "object")))
+    void chart(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
+        byte[] body = files.chart(identity.actorId(), artifactId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setContentLength(body.length);
+        response.getOutputStream().write(body);
+    }
+
     @GetMapping("/{artifactId}/preview")
     @Operation(operationId = "previewChatFileArtifactSpreadsheet",
             summary = "Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary")

@@ -17,3 +17,14 @@ if "MPLCONFIGDIR" not in os.environ and os.path.isdir(_BUILT):
         os.environ["MPLCONFIGDIR"] = _RUNTIME
     except OSError:
         pass
+
+
+# Figures a run leaves open become chart data plus PNG at exit (memoryos_charts.capture).
+try:
+    import atexit
+
+    from memoryos_charts.capture import capture_open_figures
+
+    atexit.register(capture_open_figures)
+except ImportError:
+    pass

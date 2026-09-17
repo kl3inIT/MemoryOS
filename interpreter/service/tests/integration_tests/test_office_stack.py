@@ -130,3 +130,44 @@ print(json.dumps({
         "recalculated": False,
         "error": "run separately: same file name as another argument",
     }
+
+
+def test_open_figures_are_captured_as_chart_data_and_png_at_exit() -> None:
+    client = TestClient(create_app())
+    code = """
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.plot(['T1', 'T2', 'T3'], [120, 150, 90], label='Doanh thu')
+ax.set_title('Doanh thu quý 3'); ax.set_ylabel('Tỷ đồng (₫)')
+plt.figure(); plt.pie([40, 60], labels=['Hà Nội', 'Đà Nẵng'])
+saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(saved)
+""".strip()
+
+    payload = _execute(client, code)
+    files = {entry["path"]: entry for entry in payload["files"]}  # type: ignore[union-attr]
+    assert {"mine.png", ".memoryos-charts/chart-1.png", ".memoryos-charts/chart-2.png"} <= set(
+        files
+    )
+    assert ".memoryos-charts/chart-3.png" not in files  # a closed figure is not captured
+
+    def read(path: str) -> bytes:
+        response = client.get(f"/v1/files/{files[path]['file_id']}")
+        assert response.status_code == 200
+        return response.content
+
+    line = json.loads(read(".memoryos-charts/chart-1.json"))
+    assert line["type"] == "line"
+    assert line["title"] == "Doanh thu quý 3"
+    assert line["y_unit"] == "₫"
+    assert line["elements"] == [
+        {"label": "Doanh thu", "points": [["T1", 120.0], ["T2", 150.0], ["T3", 90.0]]}
+    ]
+    pie = json.loads(read(".memoryos-charts/chart-2.json"))
+    assert pie["type"] == "pie"
+    assert [element["label"] for element in pie["elements"]] == ["Hà Nội", "Đà Nẵng"]
+    assert read(".memoryos-charts/chart-1.png").startswith(b"\x89PNG")
+
+
+def test_runs_without_pyplot_leave_no_chart_directory() -> None:
+    payload = _execute(TestClient(create_app()), "print('xin chào')")
+    assert not any(str(entry["path"]).startswith(".memoryos-charts") for entry in payload["files"])  # type: ignore[union-attr]

@@ -58,6 +58,8 @@ ENV LANG=C.UTF-8 \
     MPLBACKEND=Agg \
     XDG_CACHE_HOME=/tmp/.cache
 COPY sitecustomize.py /opt/executor-venv/lib/python3.11/site-packages/sitecustomize.py
+# Chart extraction owned by MemoryOS, started from E2B's MIT e2b-charts (see NOTICE.md).
+COPY memoryos_charts /opt/executor-venv/lib/python3.11/site-packages/memoryos_charts
 RUN mkdir -p /opt/matplotlib \
     && MPLCONFIGDIR=/opt/matplotlib python -c "import matplotlib.font_manager as fm; fm.fontManager.findfont('DejaVu Sans')" \
     && chmod -R a+rX /opt/matplotlib

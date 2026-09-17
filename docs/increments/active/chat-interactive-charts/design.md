@@ -15,25 +15,20 @@ A chart `run_python` draws with matplotlib reaches the user only if the model sa
 
 ## Decisions
 
-1. **Capture without Jupyter.** The MemoryOS executor runs a plain Python process, not a kernel, so there is no display hook. The executor's `sitecustomize.py` registers an `atexit` handler that, for each still-open matplotlib figure (at most 10), writes `chart-{n}.png` and, when `e2b-charts` recognises it, `chart-{n}.json` into a reserved workspace directory. A figure the model closed or saved and closed is not captured twice. A capture failure is written to stderr and never changes the exit code.
-2. **Transport.** The service reports the reserved directory's entries as a new `charts` list in the execution result (`{png_file_id, json}`), not as generated files, so they do not count against or appear among the model's files. The JSON is bounded (256 KiB per chart); larger or invalid JSON keeps only the PNG.
-3. **Model result.** The tool JSON gains `charts: [{title, type}]` so the model can refer to them; the data points are not sent to the model.
-4. **Persistence.** The PNG is adopted as a `chat_file_artifact` like other generated files; the chart JSON is stored on the same row (new nullable column, bounded) and returned with `generatedFiles` as `chart`. No new table.
-5. **Stream and history.** `ChatCodeEvent` terminal stages carry the files with their `chart`; a reloaded conversation keeps them.
-6. **Rendering.** The browser renders `line`, `scatter`, `bar`, `pie` and `box_and_whisker` with the repo's shadcn chart component (Recharts), in a card below the answer with an Interactive/Static toggle; `superchart` renders its subcharts; `unknown`, invalid JSON and dates encoded as numbers fall back to the PNG. The PNG stays the download.
+1. **Capture without Jupyter.** The MemoryOS executor runs a plain Python process, not a kernel, so there is no display hook. `sitecustomize.py` registers an `atexit` handler (`memoryos_charts.capture`) that, only when the run imported `matplotlib.pyplot`, saves each still-open figure (at most 10) as `.memoryos-charts/chart-{n}.png` and, when the axes are recognised, `chart-{n}.json` (at most 256 KiB). A figure the code closed is not captured; a figure the code saved and left open is captured too, as in E2B. A capture failure is written to stderr and never changes the exit code.
+2. **Owned extraction code.** `e2b-charts` 1.0.0 requires numpy 2 while the executor pins numpy 1.26, and it only uses `numpy.datetime64`, so its source is copied into `interpreter/executor/memoryos_charts` under its MIT license and owned by MemoryOS from then on (owner request 2026-09-17). Verified with the executor's matplotlib 3.10.9, numpy 1.26.4 and pydantic 2.11.9.
+3. **Transport.** The service is unchanged: the reserved directory comes back in the workspace snapshot like any file. `RunPythonTool` keeps `.memoryos-charts/` entries apart from the model's files, stores each PNG as a `chat_file_artifact` with its chart JSON (validated as an object with a `type`), and deletes every service copy.
+4. **Model result.** The tool JSON gains `charts: [{title, type, file_link}]` (`type` is `image` when there is no chart data); the data points stay out of the model context.
+5. **Persistence and reads.** V72 adds a nullable, bounded `chart jsonb` column. Generated files on history and on `code` events carry only `chart: true|false`, because a chart can be 256 KiB and the replay buffer is bounded; the browser reads the data from `GET /api/chat/file-artifacts/{id}/chart` with the content route's owner authorization.
+6. **Rendering.** The browser renders `line`, `scatter`, `bar`, `pie` and `box_and_whisker` with the repo's shadcn chart component (Recharts), in a card below the answer with an Interactive/Static toggle; `superchart` renders its subcharts; `unknown`, invalid data and dates encoded as numbers fall back to the PNG. The PNG stays the download.
 7. **Validation.** The web schema validates the chart with zod and bounds elements (1 000 points per series, 20 series) before rendering.
 
 ## Security and limits
 
 - Chart JSON is data only; labels render as text. No HTML, SVG or script from the sandbox reaches the DOM.
-- `e2b-charts` is pinned in the executor lockfile; the executor stays network-less.
+- The extraction code is part of the image; the executor stays network-less.
 - The capture adds at most 10 PNG renders at exit; the per-call timeout still bounds the run.
 
 ## Out of scope
 
 Plotly or other libraries, DataFrame tables as structured results (the answer can use `render_gui`), editing a chart, charts from `render_gui`.
-
-## Open questions to verify during implementation
-
-- Whether the service's workspace snapshot includes a hidden directory; otherwise the reserved directory needs a non-hidden name that the service excludes from `files`.
-- `e2b-charts` compatibility with the pinned matplotlib 3.10.
