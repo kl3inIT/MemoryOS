@@ -2201,6 +2201,8 @@ Object.assign(englishUi, {
     "Mỗi nguồn phải luôn liên kết với ít nhất một nhóm.",
   "Check the source name or uploaded file and try again.":
     "Kiểm tra tên nguồn hoặc tệp tải lên rồi thử lại.",
+  "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.":
+    "Thành viên này chưa quản lý nhóm nào nên không thể phụ trách nguồn. Hãy gán họ làm quản lý nhóm trước.",
   "The automatic interval could not be updated. Try again.":
     "Không cập nhật được chu kỳ tự động. Hãy thử lại.",
   "Linked documents could not be discovered. Your saved discovery and selection draft are unchanged. Try again.":
