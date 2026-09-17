@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.httpclient5)
     implementation(libs.jsoup)
     implementation(libs.pdfbox)
+    implementation(libs.poi.ooxml)
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.security.crypto)

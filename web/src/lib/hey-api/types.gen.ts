@@ -8588,6 +8588,40 @@ export type GetChatFilePolicyResponses = {
 
 export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
 
+export type PreviewChatFileArtifactSpreadsheetData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/preview';
+};
+
+export type PreviewChatFileArtifactSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileArtifactSpreadsheetError = PreviewChatFileArtifactSpreadsheetErrors[keyof PreviewChatFileArtifactSpreadsheetErrors];
+
 export type GetChatFileArtifactData = {
     body?: never;
     path: {

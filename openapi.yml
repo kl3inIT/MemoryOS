@@ -8890,6 +8890,50 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private generated xlsx as CSV text per sheet, each cut\
+        \ at a row boundary"
+      operationId: previewChatFileArtifactSpreadsheet
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/file-artifacts/{artifactId}/content:
     get:
       tags:

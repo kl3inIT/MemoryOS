@@ -95,6 +95,19 @@ public class InterpreterService {
         }
     }
 
+    static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    /** Onyx {@code fetch_chat_file(parsed=true)}: an owner-private generated xlsx as CSV text per sheet. */
+    public java.util.List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+        var served = open(actor, id);
+        try (var content = served.content()) {
+            if (!XLSX.equals(served.mediaType())) throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
+            return SpreadsheetPreview.parse(content.inputStream());
+        } catch (java.io.IOException failed) {
+            throw ChatException.invalid("The workbook cannot be previewed");
+        }
+    }
+
     /** Opens an owner-private generated file; the caller must close the returned content. */
     public Served open(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
