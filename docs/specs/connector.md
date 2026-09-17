@@ -193,7 +193,7 @@ A Source that is indexing other items keeps its retrieval-eligible Documents rea
 
 ## Source access modes
 
-Each Pair stores one `SourceAccess` ([MEM-105](../increments/active/mem-105-source-access-modes/design.md)); V77 renamed RESTRICTED to PRIVATE.
+Each Pair stores one `SourceAccess` ([MEM-105](../increments/completed/mem-105-source-access-modes/design.md)); V77 renamed RESTRICTED to PRIVATE.
 
 | Mode | Value | Source types | A reader sees a Document when |
 | --- | --- | --- | --- |
@@ -310,4 +310,4 @@ Context changes do not publish `GoogleDriveAclChanged`; lifecycle changes act th
 
 ACL refresh does not require OCR. If provider version is unchanged, no content acquisition occurs. A sharing-only change that advances the provider version while bytes and filename stay identical follows the re-synchronization rule above: the current version's provider version is refreshed in place and its extraction reused, so the ACL snapshot updates without a new version, index attempt or re-extraction, and later observations of that version avoid repeated downloads. A changed file requires normal acquisition/indexing. Byte-identical comparison does not claim semantic deduplication of native snapshot envelopes.
 
-The [active increment](../increments/active/mem-88-google-drive-acl-sync/design.md) records the Onyx comparison, and the [verification record](../increments/active/mem-88-google-drive-acl-sync/verification.md) distinguishes real read-only Google evidence from controlled sharing/revocation fixtures.
+The [active increment](../increments/completed/mem-88-google-drive-acl-sync/design.md) records the Onyx comparison, and the [verification record](../increments/completed/mem-88-google-drive-acl-sync/verification.md) distinguishes real read-only Google evidence from controlled sharing/revocation fixtures.

@@ -4,7 +4,7 @@ Status: Accepted, implementation started 2026-09-15.
 
 ## Context
 
-Auto Sync Google Drive Sources ([MEM-105](../increments/active/mem-105-source-access-modes/design.md)) enforce the per-file permissions collected by MEM-88. Google grants name people by email address or domain, so enforcement must know which Google identities a MemoryOS reader holds. The [identity contract](../specs/identity.md) resolves readers only by exact `(issuer, subject)` and treats email as a profile observation that never links, admits or provisions an identity. MemoryOS has no reader-side Google linking or Directory group sync, and the connected Drive account is an ingestion credential, not a reader.
+Auto Sync Google Drive Sources ([MEM-105](../increments/completed/mem-105-source-access-modes/design.md)) enforce the per-file permissions collected by MEM-88. Google grants name people by email address or domain, so enforcement must know which Google identities a MemoryOS reader holds. The [identity contract](../specs/identity.md) resolves readers only by exact `(issuer, subject)` and treats email as a profile observation that never links, admits or provisions an identity. MemoryOS has no reader-side Google linking or Directory group sync, and the connected Drive account is an ingestion credential, not a reader.
 
 ## Decision
 
