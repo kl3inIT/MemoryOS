@@ -3,6 +3,10 @@ arconia:
     services:
       postgresql:
         port: 55432
+      # One Redis container for the API and the worker in development.
+      redis:
+        port: 56379
+        shared: true
 
 logging:
   level:
