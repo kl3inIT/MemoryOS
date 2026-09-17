@@ -115,6 +115,8 @@ const statusMessages: Record<string, string> = {
     "Output storage is misconfigured. Ask an administrator to correct the storage configuration.",
   SOURCE_PUBLICATION_INTERNAL:
     "Extracted content could not be published. Retry the affected file after checking the Source status.",
+  SOURCE_MANAGER_NOT_ELIGIBLE:
+    "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
 };
 
 function sourceStatusMessage(code: string) {
