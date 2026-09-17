@@ -1,10 +1,10 @@
 # Implementation plan
 
-One pull request on `kl3inIT/mem-119-custom-agents`, committed in compiling slices. Onyx reference: `D:\MemoryOS\.tmp\onyx` (not in this worktree). If `main` adds migrations past V70 before merge, renumber V71.
+One pull request on `kl3inIT/mem-119-custom-agents`, committed in compiling slices. Onyx reference: `D:\MemoryOS\.tmp\onyx` (not in this worktree). `main` added V71 (interpreter), so this increment uses V72; renumber again if `main` adds V72 first.
 
 ## 1. Authority and schema
 
-- [x] V71: persona columns, owner Group (`ON DELETE SET NULL`), shares, labels, tools, MCP attachments, pins, preferences, prompt shortcuts; backfills; capability check constraint; `authorization_version` bump.
+- [x] V72: persona columns, owner Group (`ON DELETE SET NULL`), shares, labels, tools, MCP attachments, pins, preferences, prompt shortcuts; backfills; capability check constraint; `authorization_version` bump.
 - [x] `IamCapability.AGENTS_CREATE`/`AGENTS_MANAGE` (ordinary, implication), `DefaultGroupService` registry, `GroupProjectionRepository` (2 lists), `IamAuthorizationRepository`, web capability copy and icon, application session context.
 - [x] Capability, migration and schema tests (`IamCapabilityTest`, `GroupSchemaIntegrityTest`, `DefaultGroupServiceAuthorizationTest`, `PostgresIamAuthorizationTest`).
 

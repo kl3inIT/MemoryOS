@@ -149,7 +149,7 @@ class ModelCatalogConstraintsTest {
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", tenant).param("actor", actor.value()).update();
-        // Raw SQL: the repository writes V71 agent tables that do not exist at the V53 baseline.
+        // Raw SQL: the repository writes V72 agent tables that do not exist at the V53 baseline.
         UUID persona = UUID.randomUUID();
         jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Builtin','Preserved instructions','hosted')")
                 .param("id", persona).param("tenant", tenant).update();

@@ -39,7 +39,7 @@ A non-builtin agent is **vacant** when it has no owner Group and its owner Actor
 
 All use/edit checks come from one SQL predicate in `JdbcAgentAccessRepository`, reused by list queries, `usablePersona`, turn resolution and catalog persona reads. Share Groups must be ordinary Groups (V48 trigger pattern).
 
-## Data model (V71)
+## Data model (V72)
 
 `persona` columns: `is_public` (default false), `public_permission` (`VIEWER`/`EDITOR`), `is_listed` (default true), `is_featured`, `display_priority`, `icon_name`, `avatar_file_id` (chat user file, image), `task_prompt` (≤32000), `replace_base_system_prompt`, `datetime_aware` (default true), `knowledge_cutoff` (timestamptz), `owner_group_id`; `search_enabled` is replaced by tools. V36 `ck_persona_owner` becomes: builtin has no owner; custom has at most one of Actor/Group owner.
 
@@ -70,7 +70,7 @@ Every agent user receives the full snapshot, as Onyx. Source names come from a T
 ## Prompt shortcuts (Onyx `InputPrompt`)
 
 - Users create, edit and delete private shortcuts (unique name). `AGENTS_MANAGE` creates, edits and deletes public shortcuts (Onyx has no public-creation endpoint; this closes that gap). Users hide public shortcuts for themselves. `active` stays in the contract but, as in Onyx, has no UI toggle.
-- Names are free text on one line, including spaces and diacritics (`Tóm tắt hợp đồng`); control characters are rejected. Onyx allows free-text names too; an earlier draft of V71 banned whitespace and is superseded before merge.
+- Names are free text on one line, including spaces and diacritics (`Tóm tắt hợp đồng`); control characters are rejected. Onyx allows free-text names too; an earlier draft of this migration banned whitespace and is superseded before merge.
 - Typing `/` at the start of the composer opens active, unhidden shortcuts. As in Onyx the whole draft after `/` is the query, so names with spaces match; MemoryOS folds diacritics so `/tom tat` finds `Tóm tắt hợp đồng`. Each row shows the name and the first line of content; choosing one replaces the draft; the last row opens shortcut settings. Onyx offers shortcuts only through `/`, so the composer `+` menu does not list them.
 - Settings and `/admin/agents` edit shortcuts inline as Onyx `SettingsPage`: a name field with a fixed `/` prefix and a three-line content field per shortcut, saved when focus leaves the pair, and a trailing empty pair that creates one. Members see public shortcuts read-only with a hide-for-me toggle. The per-user shortcut toggle defaults to enabled in MemoryOS (Onyx defaults off).
 - Bounds: name ≤ 100, content ≤ 8000, at most 200 private shortcuts per Actor.
