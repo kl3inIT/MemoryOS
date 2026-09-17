@@ -2195,6 +2195,12 @@ Object.assign(englishUi, {
   "Manage models": "Quản lý mô hình",
   "Configure Chat providers, credentials, models and access within the Tenant.":
     "Cấu hình nhà cung cấp Chat, thông tin xác thực, mô hình và quyền truy cập trong tổ chức.",
+  "Create agents": "Tạo trợ lý",
+  "Create custom Chat agents and share the agents they own or edit.":
+    "Tạo trợ lý Chat tùy chỉnh và chia sẻ các trợ lý mình sở hữu hoặc được sửa.",
+  "Manage agents": "Quản lý trợ lý",
+  "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
+    "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
