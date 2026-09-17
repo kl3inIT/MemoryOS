@@ -49,7 +49,7 @@ Tables (Tenant-qualified FKs):
 
 - `persona_user_share(tenant_id, persona_id, actor_id, permission)`, `persona_group_share(tenant_id, persona_id, group_id, permission)`.
 - `persona_label(tenant_id, id, name)` unique per Tenant; `persona_label_assignment`.
-- `persona_tool(tenant_id, persona_id, tool_key)` with keys `search`, `web_search` (web_search and open_url), `image_generation` (generate_image, edit_image); `persona_mcp_server(tenant_id, persona_id, server_id)`. Backfill: `search` when `search_enabled`, `web_search` and `image_generation` for every existing agent, all Tenant MCP servers for existing custom agents. The builtin agent has all tool keys and no MCP rows, which means every MCP server the actor can access; custom agents must attach servers registered later (Onyx per-persona tool attachment).
+- `persona_tool(tenant_id, persona_id, tool_key)` with keys `search`, `web_search` (web_search and open_url), `image_generation` (generate_image, edit_image), `code_interpreter` (`run_python`, MEM-110); `persona_mcp_server(tenant_id, persona_id, server_id)`. Backfill: `search` when `search_enabled`, `web_search`, `image_generation` and `code_interpreter` for every existing agent, all Tenant MCP servers for existing custom agents. The builtin agent has all tool keys and no MCP rows, which means every MCP server the actor can access; custom agents must attach servers registered later (Onyx per-persona tool attachment).
 - `actor_pinned_persona(tenant_id, actor_id, persona_id, position)` plus `actor_agent_preferences(tenant_id, actor_id, pins_seeded, shortcuts_enabled)`.
 - `prompt_shortcut(tenant_id, id, owner_actor_id null for public, name, content, active)` with unique name per owner and among public; `prompt_shortcut_hidden(tenant_id, shortcut_id, actor_id)`.
 
@@ -57,7 +57,7 @@ Tables (Tenant-qualified FKs):
 
 - **Prompt (adapted from Onyx `llm_loop.py`)**: MemoryOS keeps the agent instructions inside the system message instead of Onyx's separate user message before the last question. Builtin unchanged (base prompt plus Project instructions). Custom agent: base system prompt, then the agent instructions; with `replace_base_system_prompt` the instructions are the only system prompt. `datetime_aware` fills `{{CURRENT_DATETIME}}` and adds the date when absent; otherwise the placeholder is removed. `task_prompt` is sent as the final `<system-reminder>` user message of every inference, together with citation and last-cycle reminders.
 - **Knowledge**: Source intersection unchanged; `knowledge_cutoff` is a lower bound on document update time in `SearchTool` filters, never earlier than a requested filter.
-- **Tools**: `ChatTurnService.sendLocked` reads the session agent's tool policy under agent use authority before the Web, image and MCP checks; admission rechecks the persona revision. The server rejects a command whose Web, image or MCP selection the agent does not allow (`webUnavailable`/`providerUnavailable`); `search_knowledge` is registered only with the `search` tool. MCP selection must be a subset of the agent's MCP servers. The composer only offers allowed tools.
+- **Tools**: `run_python` is registered only when the agent allows `code_interpreter` and the interpreter is available. Until the session agent is known the web client sends no tools and disables Send. `ChatTurnService.sendLocked` reads the session agent's tool policy under agent use authority before the Web, image and MCP checks; admission rechecks the persona revision. The server rejects a command whose Web, image or MCP selection the agent does not allow (`webUnavailable`/`providerUnavailable`); `search_knowledge` is registered only with the `search` tool. MCP selection must be a subset of the agent's MCP servers. The composer only offers allowed tools.
 - **Agent files**: files attached by an editor are admitted for any agent user during a turn; they remain unreadable through the file API, except the avatar image served by the agent avatar endpoint.
 - **Model (Onyx `can_user_access_llm_provider`)**: a provider restricted to agents is usable only through those agents; a public provider is usable by all; a provider with Groups requires a Group (or `MODELS_MANAGE`); a non-public provider without Groups but with agents is usable by anyone using a listed agent (`ModelCatalogService.available` gains that clause). The Tenant default provider still requires a public provider without agent restriction. If the agent default is inaccessible, selection falls back to the Tenant default. MemoryOS does not reproduce Onyx clearing the agent default during a read.
 - **Concurrency**: agent mutations lock the persona row (`PESSIMISTIC_WRITE`) and check revision; turn resolution keeps `FOR SHARE OF p`. `lockOwner` still serializes one actor's own sessions.
@@ -78,7 +78,7 @@ Every agent user receives the full snapshot, as Onyx. Source names come from a T
 ## Pins and discovery
 
 - Pins are an ordered per-Actor list replaced as a whole; inaccessible, duplicate and builtin IDs are dropped. On an Actor's first agent list read, pins are seeded once from featured, public, listed agents ordered by display priority. Starting a chat from the gallery pins the agent (Onyx). The sidebar reorders pins by drag or keyboard and unpins on hover.
-- The administration list orders by display priority then name (featured no longer sorts first there); dragging writes each moved agent's priority as its position. The gallery still shows featured agents first.
+- The administration list loads every page and orders by display priority then name (featured no longer sorts first there); dragging saves the whole order through `PUT /api/chat/persona-order`. Pin changes run one at a time on the latest server list. The gallery still shows featured agents first.
 - A copied share link is `/agents?agent={id}` and opens that agent's detail view.
 - Labels: agent users list labels; users with create or edit authority create labels; `AGENTS_MANAGE` renames and deletes.
 - Avatar: an uploaded chat image file (PNG, JPEG, WebP, GIF; ≤ 2 MiB, bounds Onyx lacks) or an icon name from the frontend set; choosing one clears the other.
@@ -94,6 +94,7 @@ Existing `/api/chat/personas` CRUD keeps its paths with the extended body. Addit
 | `DELETE /api/chat/personas/{id}/sharing/me` | leave |
 | `POST /api/chat/personas/{id}/owner?revision` | transfer to Actor or Group |
 | `PUT /api/chat/personas/{id}/listing?revision` | listed, featured, priority |
+| `PUT /api/chat/persona-order` | `AGENTS_MANAGE`: display priorities from one ordered list in one transaction (rows lock in id order) |
 | `POST /api/chat/personas/{id}/restore` | undelete |
 | `GET /api/chat/personas/admin` | all agents including unlisted, deleted and vacant |
 | `PUT/DELETE /api/chat/personas/{id}/avatar`, `GET /api/chat/personas/{id}/avatar` | set or clear the uploaded image (edit authority); read the image with agent use authority |

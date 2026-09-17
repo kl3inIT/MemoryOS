@@ -109,6 +109,21 @@ export function AgentIconPicker({
   const ui = useAppTranslation();
   const [error, setError] = useState<string>();
   const usesImage = hasAvatar || !!avatarFileId;
+  const iconNames: Record<string, string> = {
+    bot: ui("Trợ lý"),
+    chart: ui("Biểu đồ"),
+    finance: ui("Tài chính"),
+    calculator: ui("Máy tính"),
+    people: ui("Nhân sự"),
+    legal: ui("Pháp chế"),
+    document: ui("Tài liệu"),
+    book: ui("Sổ tay"),
+    briefcase: ui("Công việc"),
+    search: ui("Tìm kiếm"),
+    idea: ui("Ý tưởng"),
+    shield: ui("An toàn"),
+    chat: ui("Hỏi đáp"),
+  };
   return (
     <div className="flex flex-col items-start gap-1">
       <Popover>
@@ -145,7 +160,7 @@ export function AgentIconPicker({
                   type="button"
                   role="radio"
                   aria-checked={checked}
-                  aria-label={key}
+                  aria-label={iconNames[key] ?? ui("Biểu tượng")}
                   onClick={() => onIcon(key)}
                   className={cn(
                     "grid size-9 place-items-center rounded-lg outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-focus-ring/40",

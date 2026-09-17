@@ -167,6 +167,8 @@ export function ChatStarterPrompts({
     askedSessions.add(sessionId);
     const composer = aui.thread.composer();
     composer.setText(ask);
+    // send() appends the question to the thread at once; from here the thread's own error and retry handle it, and
+    // dropping `ask` keeps a reload from sending it twice.
     composer.send();
     void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
   }, [ask, sessionId, disabled, aui, navigate]);

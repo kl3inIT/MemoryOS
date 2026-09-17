@@ -54,7 +54,6 @@ export function AgentPrincipalPicker({
           })
         ).data,
       ),
-    placeholderData: (previous) => previous,
   });
   const people = options.data?.people.filter((person) => !exclude.has(person.actorId)) ?? [];
   const groupRows = groups
@@ -82,8 +81,15 @@ export function AgentPrincipalPicker({
               {ui("Không tải được danh sách người và Group.")}
             </p>
           )}
-          {options.isSuccess && <CommandEmpty>{ui("Không tìm thấy kết quả")}</CommandEmpty>}
-          {people.length > 0 && (
+          {options.isFetching && (
+            <p role="status" className="px-3 py-3 font-secondary-body text-content-muted">
+              {ui("Đang tìm…")}
+            </p>
+          )}
+          {options.isSuccess && !options.isFetching && (
+            <CommandEmpty>{ui("Không tìm thấy kết quả")}</CommandEmpty>
+          )}
+          {!options.isFetching && people.length > 0 && (
             <CommandGroup heading={ui("Người")}>
               {people.map((person) => (
                 <CommandItem
@@ -102,7 +108,7 @@ export function AgentPrincipalPicker({
               ))}
             </CommandGroup>
           )}
-          {groupRows.length > 0 && (
+          {!options.isFetching && groupRows.length > 0 && (
             <CommandGroup heading={ui("Group")}>
               {groupRows.map((group) => (
                 <CommandItem

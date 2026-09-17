@@ -85,7 +85,7 @@ function useShortcuts(includeHidden: boolean) {
 function useComposerShortcuts() {
   const preferences = useShortcutPreferences();
   const shortcuts = useShortcuts(false);
-  const enabled = preferences.data?.enabled !== false;
+  const enabled = preferences.data?.enabled === true;
   const items = useMemo(
     () => (shortcuts.data ?? []).filter((shortcut) => shortcut.active && !shortcut.hidden),
     [shortcuts.data],
@@ -323,11 +323,7 @@ function EditableShortcuts({ shortcuts, scope }: { shortcuts: Shortcut[]; scope:
   return (
     <div className="flex flex-col gap-4">
       {shortcuts.map((shortcut) => (
-        <ShortcutFields
-          key={`${shortcut.id}-${shortcut.revision}`}
-          shortcut={shortcut}
-          scope={scope}
-        />
+        <ShortcutFields key={shortcut.id} shortcut={shortcut} scope={scope} />
       ))}
       <ShortcutFields
         key={`new-${draftKey}`}
@@ -417,12 +413,18 @@ function ShortcutFields({
   const [error, setError] = useState<string>();
   const [removing, setRemoving] = useState(false);
   const saving = useRef(false);
+  // A blur during a save is replayed after it finishes, with the server's newer revision.
+  const again = useRef(false);
   const empty = !name.trim() && !content.trim();
 
   async function commit() {
     const trimmed = name.trim();
     const unchanged = shortcut && trimmed === shortcut.name && content === shortcut.content;
-    if (saving.current || unchanged || (!shortcut && empty)) return;
+    if (saving.current) {
+      again.current = true;
+      return;
+    }
+    if (unchanged || (!shortcut && empty)) return;
     if (!trimmed || !content.trim()) {
       setError(ui("Cần cả tên và nội dung."));
       return;
@@ -457,6 +459,10 @@ function ShortcutFields({
       setError(chatActionError(cause));
     } finally {
       saving.current = false;
+    }
+    if (again.current) {
+      again.current = false;
+      if (shortcut) void commit();
     }
   }
 

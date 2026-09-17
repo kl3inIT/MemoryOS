@@ -21,6 +21,7 @@ import {
   listChatPersonaLabels,
   listChatPersonasForAdministration,
   renameChatPersonaLabel,
+  reorderChatPersonas,
   restoreChatPersona,
   setChatPersonaListing,
 } from "@/lib/hey-api/sdk.gen";
@@ -38,6 +39,15 @@ import { AgentAvatar } from "./agent-avatar";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 import { PublicPromptShortcuts } from "./prompt-shortcuts";
 
+async function allAdministrationPages<T>(load: (offset: number) => Promise<T[]>) {
+  const items: T[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await load(offset);
+    items.push(...page);
+    if (page.length < 100) return items;
+  }
+}
+
 /** Agent administration for AGENTS_MANAGE: listing, featuring, restore, vacant owners, labels, public shortcuts. */
 export function AdminAgentsPage() {
   const ui = useAppTranslation();
@@ -51,14 +61,16 @@ export function AdminAgentsPage() {
   const agents = useQuery({
     queryKey: ["chat-personas", "administration", actorId, authorizationVersion, includeDeleted],
     queryFn: async ({ signal }) =>
-      personaSchema.array().parse(
-        (
-          await listChatPersonasForAdministration({
-            query: { includeDeleted, limit: 100 },
-            signal,
-            throwOnError: true,
-          })
-        ).data,
+      allAdministrationPages(async (offset) =>
+        personaSchema.array().parse(
+          (
+            await listChatPersonasForAdministration({
+              query: { includeDeleted, offset, limit: 100 },
+              signal,
+              throwOnError: true,
+            })
+          ).data,
+        ),
       ),
   });
   const refresh = () => cache.invalidateQueries({ queryKey: ["chat-personas"] });
@@ -113,16 +125,17 @@ export function AdminAgentsPage() {
     cache.setQueryData(key, next);
     setError(undefined);
     try {
-      for (const [index, agent] of next.entries())
-        if (!agent.builtin && !agent.deletedAt && agent.displayPriority !== index)
-          await setChatPersonaListing({
-            path: { personaId: agent.id },
-            query: { revision: agent.revision },
-            body: { listed: agent.listed, featured: agent.featured, displayPriority: index },
-            headers: sameOriginMutationHeaders,
-            signal: AbortSignal.timeout(30000),
-            throwOnError: true,
-          });
+      // One request writes the whole order in a server transaction; a failure changes nothing.
+      await reorderChatPersonas({
+        body: {
+          personaIds: next
+            .filter((agent) => !agent.builtin && !agent.deletedAt)
+            .map((agent) => agent.id),
+        },
+        headers: sameOriginMutationHeaders,
+        signal: AbortSignal.timeout(30000),
+        throwOnError: true,
+      });
     } catch (cause) {
       cache.setQueryData(key, previous);
       setError(chatActionError(cause));

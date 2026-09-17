@@ -185,6 +185,7 @@ function ChatConversation({
     (persona?.tools.includes("search") === true ||
       (persona?.tools.includes("web_search") !== false &&
         webAvailability.data?.searchAvailable === true));
+  // Until the session agent is known, no tool is sent: a command must never carry a tool the agent forbids.
   const allowedTools = useMemo(
     () =>
       persona
@@ -193,7 +194,7 @@ function ChatConversation({
             image: persona.tools.includes("image_generation"),
             mcpServerIds: persona.builtin ? null : persona.mcpServers.map((server) => server.id),
           }
-        : undefined,
+        : { web: false, image: false, mcpServerIds: [] },
     [persona],
   );
   // The server rejects tools the agent does not allow; the transport drops them and the composer hides them.
@@ -312,7 +313,7 @@ function ChatConversation({
                       clientRequestId,
                       modelConfigurationId: model.choice.id,
                       fileIds,
-                      webSearch,
+                      webSearch: shownWebSearch,
                       deepResearch: researchAvailable && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
@@ -328,7 +329,7 @@ function ChatConversation({
                     body: {
                       clientRequestId,
                       modelConfigurationId: modelConfigurationId ?? model.choice.id,
-                      webSearch,
+                      webSearch: shownWebSearch,
                       deepResearch: researchAvailable && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
@@ -378,6 +379,7 @@ function ChatConversation({
               </p>
             )}
             <ChatThread
+              sendDisabled={!persona}
               welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
               afterComposer={
                 project && !session ? <ProjectConversationList projectId={project.id} /> : undefined

@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList } from "@/components/composites/sortable-list";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -25,7 +24,8 @@ import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { chatSessionsKey, newChatSession } from "./chat-api";
-import { listChatPersonaPins, replaceChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
 import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
@@ -170,6 +170,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
   const [pending, setPending] = useState<string>();
   const [error, setError] = useState<string>();
   const pinsKey = ["chat-persona-pins", actorId, authorizationVersion];
+  const updatePins = usePinUpdates();
   const pins = useQuery({
     queryKey: pinsKey,
     queryFn: async ({ signal }) =>
@@ -177,21 +178,14 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
   });
   if (!pins.data?.length) return null;
 
-  async function savePins(next: Persona[]) {
-    const previous = pins.data;
+  async function savePins(next: Persona[], change: (current: string[]) => string[]) {
     setError(undefined);
     cache.setQueryData(pinsKey, next);
     try {
-      await replaceChatPersonaPins({
-        body: { personaIds: next.map((agent) => agent.id) },
-        headers: sameOriginMutationHeaders,
-        signal: AbortSignal.timeout(30000),
-        throwOnError: true,
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-personas"] });
+      await updatePins(change);
     } catch (cause) {
-      cache.setQueryData(pinsKey, previous);
       setError(chatActionError(cause));
+      await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
     }
   }
 
@@ -219,7 +213,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
         <SortableList
           items={pins.data}
           getId={(agent) => agent.id}
-          onReorder={(next) => void savePins(next)}
+          onReorder={(next) => void savePins(next, () => next.map((agent) => agent.id))}
         >
           {(agent, handle) => (
             <li
@@ -256,7 +250,12 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
                 prominence="internal"
                 aria-label={ui("Bỏ ghim {{v1}}", { v1: agent.name })}
                 className={cn("absolute right-0.5", hoverReveal)}
-                onClick={() => void savePins(pins.data.filter((item) => item.id !== agent.id))}
+                onClick={() =>
+                  void savePins(
+                    pins.data.filter((item) => item.id !== agent.id),
+                    (current) => current.filter((id) => id !== agent.id),
+                  )
+                }
               >
                 <PinOff />
               </IconButton>

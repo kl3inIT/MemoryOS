@@ -65,6 +65,7 @@ export function ChatThread({
   welcome,
   afterComposer,
   readOnly = false,
+  sendDisabled = false,
 }: {
   /** Left of the composer toolbar: the `+` menu for files and tools. */
   composerMenu?: ReactNode;
@@ -81,6 +82,8 @@ export function ChatThread({
   welcome?: ReactNode;
   afterComposer?: ReactNode;
   readOnly?: boolean;
+  /** Blocks Send while the conversation's agent and its tool policy are still unknown. */
+  sendDisabled?: boolean;
 }) {
   const ui = useAppTranslation();
 
@@ -181,7 +184,7 @@ export function ChatThread({
                       <div className="flex min-w-0 items-center gap-1">
                         {modelPicker}
                         <AuiIf condition={(state) => !state.thread.isRunning}>
-                          <ChatComposerSend asChild>
+                          <ChatComposerSend asChild disabled={sendDisabled}>
                             <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
                               <ArrowUp />
                             </IconButton>

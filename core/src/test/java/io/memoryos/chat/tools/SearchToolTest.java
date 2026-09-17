@@ -45,6 +45,8 @@ class SearchToolTest {
         var before = new io.memoryos.retrieval.SearchFilters.Interval(null, java.time.Instant.parse("2025-06-01T00:00:00Z"));
         var empty = SearchTool.floor(before, floor);
         org.junit.jupiter.api.Assertions.assertEquals(empty.from(), empty.to());
+        org.junit.jupiter.api.Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
+        org.junit.jupiter.api.Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
         org.junit.jupiter.api.Assertions.assertNull(SearchTool.floor(null, null));
     }
 

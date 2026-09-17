@@ -34,8 +34,6 @@ import {
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
-import { replaceChatPersonaPins } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
 import { chatActionError } from "@/features/chat/chat-action-utils";
@@ -51,6 +49,7 @@ import { AgentAvatar } from "./agent-avatar";
 import { AgentShareDialog } from "./agent-share-dialog";
 import { AgentViewer } from "./agent-viewer";
 import { AgentActions } from "./agent-actions";
+import { usePinUpdates } from "./agent-pins";
 
 const agentsKey = ["chat-personas"] as const;
 
@@ -105,6 +104,11 @@ export function AgentsPage() {
   const labelChips = [...labelCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label))
     .map(([value, entry]) => ({ value, label: entry.label, count: entry.count }));
+  // The selected label stays visible (with no matches) so it can always be cleared.
+  const selectedLabel =
+    labelId && agents.flatMap((agent) => agent.labels).find((label) => label.id === labelId);
+  if (selectedLabel && !labelChips.some((chip) => chip.value === labelId))
+    labelChips.unshift({ value: selectedLabel.id, label: selectedLabel.name, count: 0 });
   const owners = [...new Set(agents.map(ownerName))].sort((a, b) => a.localeCompare(b));
 
   const visible = agents.filter(
@@ -117,18 +121,7 @@ export function AgentsPage() {
   // Featured agents lead the catalog instead of forming a sparse section of their own.
   const ordered = [...visible].sort((a, b) => Number(b.featured) - Number(a.featured));
 
-  async function savePins(ids: string[]) {
-    await replaceChatPersonaPins({
-      body: { personaIds: ids },
-      headers: sameOriginMutationHeaders,
-      signal: AbortSignal.timeout(30000),
-      throwOnError: true,
-    });
-    await cache.invalidateQueries({ queryKey: agentsKey });
-    await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
-  }
-
-  const pinnedIds = () => agents.filter((agent) => agent.pinned).map((agent) => agent.id);
+  const updatePins = usePinUpdates();
 
   async function start(agent: Persona, ask?: string) {
     if (pending) return;
@@ -136,7 +129,10 @@ export function AgentsPage() {
     setError(undefined);
     try {
       // As Onyx: starting a chat with an agent pins it to the sidebar.
-      if (!agent.pinned && !agent.builtin) await savePins([...pinnedIds(), agent.id]);
+      if (!agent.pinned && !agent.builtin)
+        await updatePins((current) =>
+          current.includes(agent.id) ? current : [...current, agent.id],
+        );
       const session = await newChatSession(agent.name, AbortSignal.timeout(30000), agent.id);
       await cache.invalidateQueries({ queryKey: chatSessionsKey });
       await navigate({
@@ -154,8 +150,13 @@ export function AgentsPage() {
   async function togglePin(agent: Persona) {
     setError(undefined);
     try {
-      const pinned = pinnedIds();
-      await savePins(agent.pinned ? pinned.filter((id) => id !== agent.id) : [...pinned, agent.id]);
+      await updatePins((current) =>
+        agent.pinned
+          ? current.filter((id) => id !== agent.id)
+          : current.includes(agent.id)
+            ? current
+            : [...current, agent.id],
+      );
     } catch (cause) {
       setError(chatActionError(cause));
     }

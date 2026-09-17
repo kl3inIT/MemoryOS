@@ -129,6 +129,13 @@ class ChatPersonaController {
             @RequestParam long revision, @RequestBody ListingInput request) {
         return personas.listing(identity.actorId(), personaId, revision, request);
     }
+    @PutMapping("/persona-order")
+    @Operation(operationId = "reorderChatPersonas", summary = "Set display priorities from one ordered list; requires AGENTS_MANAGE")
+    @ApiResponse(responseCode = "204", description = "Order saved")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    void reorder(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody PinsRequest request) {
+        personas.reorder(identity.actorId(), request.personaIds());
+    }
     @GetMapping(value = "/personas/{personaId}/avatar", produces = {"image/png", "image/jpeg", "image/webp", "image/gif"})
     @Operation(operationId = "getChatPersonaAvatar", summary = "Read the avatar image of a usable agent")
     @ApiResponse(responseCode = "200", description = "Avatar image bytes", content = @Content(schema = @Schema(type = "string", format = "binary")))

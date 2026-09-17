@@ -309,7 +309,10 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | Contract | Evidence |
 | --- | --- |
 | Use, edit, public, Group manager and transfer authority; vacancy; Source intersection | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` (PostgreSQL) |
-| Featured public agents seed pins once; labels managed with `AGENTS_MANAGE` | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| Featured public agents seed pins once; labels managed with `AGENTS_MANAGE`; transactional display order; `code_interpreter` in the turn options | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| A Group-owned agent shared directly appears under Shared | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` |
+| `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
+| A requested window ending before the knowledge cutoff searches nothing | `SearchToolTest.knowledgeCutoffIsALowerBoundThatRequestsCannotWiden` |
 | Private shortcuts unique per owner, free-text names with spaces and diacritics, control characters rejected, public shortcuts managed and hideable | `ChatPersistenceIntegrationTest.promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable` |
 | Agent capabilities, registry and schema | `IamCapabilityTest`, `DefaultGroupServiceAuthorizationTest`, `GroupSchemaIntegrityTest` |
 | Gallery tabs, search, label facet chips, creator filter, featured badge, disabled create for members, desktop and mobile | `agents.spec.ts` (Playwright, mocked routes) |

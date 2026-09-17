@@ -75,7 +75,7 @@ CREATE TABLE persona_label_assignment (
 CREATE TABLE persona_tool (
     tenant_id UUID NOT NULL,
     persona_id UUID NOT NULL,
-    tool_key VARCHAR(32) NOT NULL CHECK (tool_key IN ('search', 'web_search', 'image_generation')),
+    tool_key VARCHAR(32) NOT NULL CHECK (tool_key IN ('search', 'web_search', 'image_generation', 'code_interpreter')),
     PRIMARY KEY (tenant_id, persona_id, tool_key),
     FOREIGN KEY (tenant_id, persona_id) REFERENCES persona (tenant_id, id) ON DELETE CASCADE
 );
@@ -93,7 +93,7 @@ CREATE TABLE persona_mcp_server (
 INSERT INTO persona_tool (tenant_id, persona_id, tool_key)
 SELECT tenant_id, id, 'search' FROM persona WHERE search_enabled;
 INSERT INTO persona_tool (tenant_id, persona_id, tool_key)
-SELECT tenant_id, id, tool FROM persona CROSS JOIN (VALUES ('web_search'), ('image_generation')) AS tools (tool);
+SELECT tenant_id, id, tool FROM persona CROSS JOIN (VALUES ('web_search'), ('image_generation'), ('code_interpreter')) AS tools (tool);
 INSERT INTO persona_mcp_server (tenant_id, persona_id, server_id)
 SELECT p.tenant_id, p.id, s.id FROM persona p JOIN mcp_server s ON s.tenant_id = p.tenant_id
 WHERE p.builtin_key IS NULL;

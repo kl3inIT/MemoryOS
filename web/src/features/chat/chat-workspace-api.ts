@@ -14,7 +14,7 @@ const personSchema = z.object({
   email: z.string().nullish(),
 });
 const permissionSchema = z.enum(["VIEWER", "EDITOR"]);
-export const agentTools = ["search", "web_search", "image_generation"] as const;
+export const agentTools = ["search", "web_search", "image_generation", "code_interpreter"] as const;
 export type AgentTool = (typeof agentTools)[number];
 
 export const personaSchema = z.object({

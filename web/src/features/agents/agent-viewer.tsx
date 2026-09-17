@@ -10,6 +10,7 @@ import {
   Library,
   Pencil,
   Plug,
+  SquareTerminal,
   X,
 } from "lucide-react";
 import { PersonAvatar } from "@/components/composites/person-avatar";
@@ -24,6 +25,7 @@ const toolIcons: Record<string, typeof Globe> = {
   search: FileSearch,
   web_search: Globe,
   image_generation: ImagePlus,
+  code_interpreter: SquareTerminal,
 };
 
 /**
@@ -50,6 +52,7 @@ export function AgentViewer({
     search: ui("Tìm tài liệu nội bộ"),
     web_search: ui("Tìm kiếm Web"),
     image_generation: ui("Tạo ảnh"),
+    code_interpreter: ui("Chạy Python"),
   };
   const owner = agent.builtin
     ? ui("MemoryOS")

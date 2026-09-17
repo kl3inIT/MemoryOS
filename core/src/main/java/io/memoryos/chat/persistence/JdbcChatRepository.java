@@ -259,7 +259,8 @@ public class JdbcChatRepository {
                     return new Persona(row.getString("instructions"), row.getString("model"),
                             new ChatTurnOptions(tools.contains("search"), personaSources(id),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
-                                    cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt")),
+                                    cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
+                                    tools.contains("code_interpreter")),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"));

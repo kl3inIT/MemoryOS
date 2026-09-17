@@ -828,6 +828,9 @@ class ChatPersistenceIntegrationTest {
         assertTrue(vacant.permissions().transfer(), "Agent managers transfer vacant agents");
         var adopted = personas.transfer(owner, agent.id(), vacant.revision(), new ChatPersonaService.TransferInput(null, editors));
         assertEquals(editors, adopted.owner().group().id());
+        // A direct sharee outside the owner Group sees a Group-owned agent under Shared.
+        assertTrue(personas.list(creator, JdbcAgentRepository.View.SHARED, null, null, 0, 30).stream()
+                .anyMatch(view -> view.id().equals(agent.id())));
         assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "AgentOwner Group members own the agent");
         personas.delete(groupEditor, agent.id(), personas.get(groupEditor, agent.id()).revision());
         assertThrows(ChatException.class, () -> personas.get(groupEditor, agent.id()));
@@ -852,6 +855,10 @@ class ChatPersistenceIntegrationTest {
         assertEquals(List.of(agent.id()), personas.pins(reader).stream().map(ChatPersonaService.PersonaView::id).toList());
         personas.replacePins(reader, List.of());
         assertTrue(personas.pins(reader).isEmpty(), "Seeding runs once per Actor");
+        assertThrows(ChatException.class, () -> personas.reorder(creator, List.of(agent.id())));
+        assertThrows(ChatException.class, () -> personas.reorder(owner, List.of(agent.id(), agent.id())));
+        personas.reorder(owner, List.of(agent.id()));
+        assertEquals(0, personas.get(owner, agent.id()).displayPriority());
 
         var session = sessions.create(reader, "Finance chat");
         personas.select(reader, session.id(), agent.id());
@@ -859,6 +866,7 @@ class ChatPersistenceIntegrationTest {
         assertEquals("Always cite the report month.", settings.options().taskPrompt());
         assertEquals(java.time.Instant.parse("2026-01-01T00:00:00Z"), settings.options().knowledgeCutoff());
         assertEquals(Set.of("search"), settings.tools());
+        assertFalse(settings.options().codeInterpreter(), "run_python follows the agent tool policy");
         assertEquals(List.of(), settings.mcpServerIds());
         assertFalse(settings.datetimeAware());
     }

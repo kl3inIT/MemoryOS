@@ -4203,6 +4203,53 @@ export type ReplaceChatPersonaPinsResponses = {
 
 export type ReplaceChatPersonaPinsResponse = ReplaceChatPersonaPinsResponses[keyof ReplaceChatPersonaPinsResponses];
 
+export type ReorderChatPersonasData = {
+    body: PinsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-order';
+};
+
+export type ReorderChatPersonasErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatPersonasError = ReorderChatPersonasErrors[keyof ReorderChatPersonasErrors];
+
+export type ReorderChatPersonasResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatPersonasResponse = ReorderChatPersonasResponses[keyof ReorderChatPersonasResponses];
+
 export type DeleteChatPersonaLabelData = {
     body?: never;
     headers: {

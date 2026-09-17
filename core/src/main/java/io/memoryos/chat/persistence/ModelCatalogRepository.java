@@ -145,8 +145,8 @@ public class ModelCatalogRepository {
     public void setPersonaModel(UUID tenant, UUID actor, boolean agentsManage, UUID persona, @Nullable UUID model, long revision) {
         requireChanged(jdbc.sql("""
                 UPDATE persona p SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1
-                WHERE p.tenant_id=:tenant AND p.id=:persona AND p.model_revision=:revision AND p.deleted_at IS NULL AND
-                """ + AgentAccessSql.USES).param("tenant", tenant).param("persona", persona)
+                WHERE p.tenant_id=:tenant AND p.id=:persona AND p.model_revision=:revision AND p.deleted_at IS NULL
+                  AND (p.builtin_key IS NOT NULL OR """ + AgentAccessSql.EDITS + ")").param("tenant", tenant).param("persona", persona)
                 .param("actor", actor).param("agentsManage", agentsManage)
                 .param("model", model, Types.OTHER).param("revision", revision).update());
     }

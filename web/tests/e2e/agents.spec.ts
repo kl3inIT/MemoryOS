@@ -71,6 +71,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     created: undefined as unknown,
     updated: undefined as unknown,
     pins: undefined as unknown,
+    deleted: undefined as string | undefined,
     listings: [] as { id: string; body: unknown }[],
   };
   await page.route("**/api/identity/me", (route) =>
@@ -116,7 +117,14 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     const detail = /\/api\/chat\/personas\/([0-9a-f-]{36})$/.exec(path)?.[1];
     if (detail && request.method() === "GET")
       return route.fulfill({ json: state.agents.find((item) => item.id === detail) });
+    if (detail && request.method() === "DELETE") {
+      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
+      state.deleted = detail;
+      state.agents = state.agents.filter((item) => item.id !== detail);
+      return route.fulfill({ status: 204 });
+    }
     if (detail && request.method() === "PUT") {
+      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
       state.updated = request.postDataJSON();
       return route.fulfill({ json: state.agents.find((item) => item.id === detail) });
     }
@@ -361,7 +369,7 @@ test("creates an agent on its own page and shares it with a Group and the organi
   await page.getByLabel("Tên trợ lý", { exact: true }).fill("Pháp chế hợp đồng");
   await page.getByLabel("Mô tả").fill("Rà soát điều khoản theo mẫu hợp đồng đã ban hành.");
   await page.getByRole("button", { name: "Đổi biểu tượng" }).click();
-  await page.getByRole("radio", { name: "legal" }).click();
+  await page.getByRole("radio", { name: "Pháp chế" }).click();
   await page.keyboard.press("Escape");
   await page.getByLabel("Nhắc việc mỗi lượt").fill("Luôn trích số hiệu mẫu hợp đồng.");
   await page.getByLabel("Câu hỏi gợi ý 1").fill("Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?");
@@ -388,7 +396,7 @@ test("creates an agent on its own page and shares it with a Group and the organi
     taskPrompt: "Luôn trích số hiệu mẫu hợp đồng.",
     starterPrompts: ["Điều khoản phạt vi phạm trong mẫu HĐ-02 là gì?"],
     sourceIds: [sources[1]!.id],
-    tools: ["search", "web_search"],
+    tools: ["search", "web_search", "code_interpreter"],
     knowledgeCutoff: "2026-01-01T00:00:00Z",
   });
 
@@ -427,6 +435,12 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   await expect(save).toBeDisabled();
   await page.getByLabel("Mô tả").fill("Giải đáp chính sách lương và nghỉ phép năm 2026.");
   await expect(save).toBeEnabled();
+  const addStarter = page.getByRole("button", { name: "Thêm câu gợi ý" });
+  for (let index = 1; index < 8; index++) await addStarter.click();
+  await expect(page.getByLabel(/^Câu hỏi gợi ý \d$/)).toHaveCount(8);
+  await expect(addStarter).toBeDisabled();
+  await page.getByLabel("Câu hỏi gợi ý 1", { exact: true }).fill("Chế độ nghỉ phép năm 2026?");
+  await page.getByLabel("Max output (token)").fill("2048");
 
   await page.getByRole("link", { name: "Trợ lý", exact: true }).first().click();
   const guard = page.getByRole("alertdialog", { name: "Bỏ thay đổi chưa lưu?" });
@@ -439,7 +453,16 @@ test("edits an agent on its own page, saving only changes and guarding unsaved e
   expect(state.updated).toMatchObject({
     name: "Chính sách nhân sự",
     description: "Giải đáp chính sách lương và nghỉ phép năm 2026.",
+    starterPrompts: ["Chế độ nghỉ phép năm 2026?"],
+    outputTokenLimit: 2048,
   });
+
+  const card = page.getByRole("article").filter({ hasText: "Chính sách nhân sự" });
+  await card.hover();
+  await card.getByRole("button", { name: "Thao tác khác cho Chính sách nhân sự" }).click();
+  await page.getByRole("menuitem", { name: "Xóa trợ lý" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Xóa trợ lý" }).click();
+  await expect.poll(() => state.deleted).toBe(hr);
 });
 
 test("manages prompt shortcuts inline and inserts them from /", async ({ page }) => {

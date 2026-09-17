@@ -2894,6 +2894,59 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/persona-order:
+    put:
+      tags:
+      - Chat
+      summary: Set display priorities from one ordered list; requires AGENTS_MANAGE
+      operationId: reorderChatPersonas
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Order saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/persona-labels/{labelId}:
     put:
       tags:

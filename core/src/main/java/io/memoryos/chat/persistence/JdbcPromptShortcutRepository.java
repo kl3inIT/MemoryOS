@@ -69,15 +69,25 @@ public class JdbcPromptShortcutRepository {
                 .param("tenant", tenant).param("owner", owner).query(Integer.class).single();
     }
 
-    public void insert(UUID tenant, @Nullable UUID owner, UUID id, String name, String content, boolean active) {
-        jdbc.sql("""
+    /** Inserts unless the name is taken under a concurrent writer; the unique indexes decide. */
+    public boolean insert(UUID tenant, @Nullable UUID owner, UUID id, String name, String content, boolean active) {
+        return jdbc.sql("""
                         INSERT INTO prompt_shortcut (tenant_id, id, owner_actor_id, name, content, active)
                         VALUES (:tenant, :id, :owner, :name, :content, :active)
+                        ON CONFLICT DO NOTHING
                         """).param("tenant", tenant).param("id", id).param("owner", owner, java.sql.Types.OTHER)
-                .param("name", name).param("content", content).param("active", active).update();
+                .param("name", name).param("content", content).param("active", active).update() == 1;
     }
 
     public void update(UUID tenant, UUID id, String name, String content, boolean active) {
+        try {
+            updateRow(tenant, id, name, content, active);
+        } catch (org.springframework.dao.DuplicateKeyException taken) {
+            throw io.memoryos.chat.ChatException.conflict();
+        }
+    }
+
+    private void updateRow(UUID tenant, UUID id, String name, String content, boolean active) {
         jdbc.sql("""
                         UPDATE prompt_shortcut SET name = :name, content = :content, active = :active, revision = revision + 1
                         WHERE tenant_id = :tenant AND id = :id

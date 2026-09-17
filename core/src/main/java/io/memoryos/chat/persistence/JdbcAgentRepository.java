@@ -53,7 +53,7 @@ public class JdbcAgentRepository {
     /** Usable, non-deleted agents; non-owners only see listed agents, as Onyx. */
     public List<UUID> list(UUID tenant, UUID actor, boolean agentsManage, View view, @Nullable UUID label, @Nullable String query,
                            int offset, int limit) {
-        String mine = "(p.builtin_key IS NULL AND (p.owner_actor_id = :actor OR EXISTS (SELECT 1 FROM iam_group_memberships m "
+        String mine = "(p.builtin_key IS NULL AND (COALESCE(p.owner_actor_id = :actor, FALSE) OR EXISTS (SELECT 1 FROM iam_group_memberships m "
                 + "WHERE m.tenant_id = p.tenant_id AND m.group_id = p.owner_group_id AND m.actor_id = :actor)))";
         String scope = switch (view) {
             case ALL -> AgentAccessSql.USES + " AND (p.is_listed OR " + mine + ")";

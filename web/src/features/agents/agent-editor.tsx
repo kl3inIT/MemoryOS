@@ -12,6 +12,7 @@ import {
   ImagePlus,
   Paperclip,
   Plug,
+  SquareTerminal,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import {
@@ -65,7 +66,12 @@ import {
   maxStarterPrompts,
 } from "./agent-editor-fields";
 
-const toolIcons = { search: FileSearch, web_search: Globe, image_generation: ImagePlus };
+const toolIcons = {
+  search: FileSearch,
+  web_search: Globe,
+  image_generation: ImagePlus,
+  code_interpreter: SquareTerminal,
+};
 const autoModel = "__auto__";
 
 const formSchema = z.object({
@@ -230,6 +236,12 @@ function AgentEditor({ agent }: { agent?: Persona }) {
     image_generation: {
       label: ui("Tạo ảnh"),
       hint: ui("Tạo và chỉnh sửa ảnh khi người dùng yêu cầu."),
+    },
+    code_interpreter: {
+      label: ui("Chạy Python"),
+      hint: ui(
+        "Tính toán, xử lý tệp và vẽ biểu đồ bằng Python khi quản trị viên bật Code Interpreter.",
+      ),
     },
   };
   const mcpOptions = [

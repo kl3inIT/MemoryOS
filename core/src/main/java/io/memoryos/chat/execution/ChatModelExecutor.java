@@ -95,6 +95,11 @@ public final class ChatModelExecutor {
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
 
+    /** {@code run_python} needs a tool-calling model and an agent whose tool policy includes the code interpreter. */
+    static boolean pythonAllowed(boolean toolCalling, io.memoryos.chat.ChatTurnOptions options) {
+        return toolCalling && options.codeInterpreter();
+    }
+
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         var context = contexts.getObject();
@@ -231,8 +236,9 @@ public final class ChatModelExecutor {
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
             // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
-            boolean python = selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
-                    && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
+            // The session agent must also allow the tool (Onyx per-agent tools).
+            boolean python = pythonAllowed(selected.toolCalling(), setup.options()) && interpreter != null && interpreterSettings != null
+                    && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
             var sandbox = python && originals != null ? new io.memoryos.chat.tools.SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searchEnabled()) {

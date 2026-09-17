@@ -60,7 +60,8 @@ public class ChatPromptShortcutService {
             throw ChatException.invalid("Use at most " + MAX_PRIVATE + " prompt shortcuts.");
         if (shortcuts.nameTaken(tenant.value(), owner, name, null)) throw ChatException.conflict();
         var id = UUID.randomUUID();
-        shortcuts.insert(tenant.value(), owner, id, name, content, input.active() == null || input.active());
+        if (!shortcuts.insert(tenant.value(), owner, id, name, content, input.active() == null || input.active()))
+            throw ChatException.conflict();
         return shortcuts.locked(tenant.value(), owner, id).orElseThrow();
     }
 

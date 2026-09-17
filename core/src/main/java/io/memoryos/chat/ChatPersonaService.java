@@ -45,7 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ChatPersonaService {
-    public static final Set<String> TOOLS = Set.of("search", "web_search", "image_generation");
+    public static final Set<String> TOOLS = Set.of("search", "web_search", "image_generation", "code_interpreter");
     private static final Set<String> AVATAR_TYPES = Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
     private static final long AVATAR_MAX_BYTES = 2L * 1024 * 1024;
     private static final int MAX_SHARES = 200;
@@ -274,6 +274,30 @@ public class ChatPersonaService {
         entity.listing(input.listed(), input.featured(), input.displayPriority());
         settings.flush();
         return views(tenant, actor, true, List.of(id)).getFirst();
+    }
+
+    /**
+     * Writes display priorities from one ordered list in a single transaction, so a drag never leaves a partial order.
+     * Rows lock in id order; the builtin and deleted agents are rejected.
+     */
+    @Transactional
+    public void reorder(ActorId actor, List<UUID> ordered) {
+        var tenant = write(actor);
+        requireManage(actor);
+        if (ordered == null || ordered.size() > 1000 || ordered.stream().anyMatch(Objects::isNull)
+                || new HashSet<>(ordered).size() != ordered.size())
+            throw ChatException.invalid("Order at most 1000 distinct agents.");
+        var entities = new HashMap<UUID, PersonaEntity>();
+        for (var id : ordered.stream().sorted().toList()) {
+            var entity = locked(tenant, id);
+            if (entity.builtin() || entity.deleted()) throw ChatException.unavailable();
+            entities.put(id, entity);
+        }
+        for (int index = 0; index < ordered.size(); index++) {
+            var entity = entities.get(ordered.get(index));
+            if (!Objects.equals(entity.displayPriority(), index)) entity.listing(entity.listed(), entity.featured(), index);
+        }
+        settings.flush();
     }
 
     @Transactional(readOnly = true)
