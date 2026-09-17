@@ -293,81 +293,6 @@ function finish(state: Session, run: Run, status: "COMPLETED" | "CANCELED" | "FA
   run.listeners.clear();
 }
 
-// TEMPORARY BENCH (not to be committed)
-function benchContent(): { reasoning: string; answer: string } {
-  const reasoning = Array.from(
-    { length: 14 },
-    (_, i) =>
-      `**Bước ${i + 1}: Phân tích dữ liệu**\n\nMình cần đọc file doanh thu, tổng hợp theo miền Bắc, Trung, Nam và so sánh quý 2 với quý 3 trước khi viết báo cáo.`,
-  ).join("\n\n");
-  const section = (i: number) =>
-    `## ${i}. Doanh thu miền ${["Bắc", "Trung", "Nam"][i % 3]}\n\n` +
-    `Doanh thu quý 3 đạt **${(4.1 + i * 0.37).toFixed(2)} tỷ ₫**, tăng ${(8 + i).toFixed(1)}% so với quý 2 nhờ kênh bán lẻ tại Hà Nội và Hải Phòng [1]. Xem [báo cáo gốc](https://example.com/bao-cao).\n\n` +
-    `| Tháng | Cửa hàng (₫) | Trực tuyến (₫) | Tổng (₫) |\n|---|---:|---:|---:|\n` +
-    [7, 8, 9]
-      .map((m) => `| ${m}/2026 | ${(1200 + i * 31 + m).toLocaleString("vi-VN")}.000.000 | ${(560 + i * 17).toLocaleString("vi-VN")}.000.000 | ${(1760 + i * 48).toLocaleString("vi-VN")}.000.000 |`)
-      .join("\n") +
-    `\n\n- Tỷ trọng kênh trực tuyến tăng đều qua các tháng.\n- Chi phí vận hành giảm ${(2 + i / 3).toFixed(1)}%.\n\n` +
-    "```python\nimport pandas as pd\ndf = pd.read_excel('doanh-thu-2026-theo-mien.xlsx')\n" +
-    `q3 = df[df['Tháng'].isin(['07/2026','08/2026','09/2026'])]\nprint(q3.groupby('Miền')['Doanh thu (₫)'].sum())  # phần ${i}\n` +
-    "```\n\n";
-  return { reasoning, answer: Array.from({ length: 12 }, (_, i) => section(i + 1)).join("") };
-}
-function benchStream(state: Session, run: Run) {
-  const { reasoning, answer } = benchContent();
-  const poll = state.mode.includes("poll");
-  const tokens: Array<[string, string]> = [];
-  for (let i = 0; i < reasoning.length; i += 4) tokens.push(["reasoning", reasoning.slice(i, i + 4)]);
-  for (let i = 0; i < answer.length; i += 4) tokens.push(["text-delta", answer.slice(i, i + 4)]);
-  let sent = 0;
-  let pending = "";
-  let pendingType = "reasoning";
-  const quiet = (event: string, data: object) => {
-    const sequence = run.packets.length + 1;
-    run.packets.push(
-      `id: ${run.id}:${sequence}\nevent: ${event}\ndata: ${JSON.stringify({ assistantMessageId: run.id, sequence, ...data })}\n\n`,
-    );
-  };
-  const deliver = () => {
-    for (const packet of run.packets.slice(sent)) for (const l of run.listeners) l.write(packet);
-    sent = run.packets.length;
-  };
-  const chunk = () => {
-    if (!pending) return;
-    quiet(pendingType, { text: pending });
-    pending = "";
-    if (!poll) deliver();
-  };
-  let index = 0;
-  const tokenTimer = setInterval(() => {
-    const token = tokens[index++];
-    if (!token) return;
-    if (token[0] !== pendingType) {
-      chunk();
-      pendingType = token[0];
-    }
-    pending += token[1];
-  }, 20);
-  const flushTimer = setInterval(chunk, 25);
-  const pollTimer = poll ? setInterval(deliver, 200) : undefined;
-  const done = setInterval(() => {
-    if (index < tokens.length) return;
-    clearInterval(tokenTimer);
-    clearInterval(flushTimer);
-    chunk();
-    if (pollTimer) clearInterval(pollTimer);
-    deliver();
-    clearInterval(done);
-    state.messages.at(-1)!.content = answer;
-    state.messages.at(-1)!.sources = [fixtureSource];
-    state.messages.at(-1)!.activity = { steps: [], reasoning: [{ position: 0, textOffset: 0, text: reasoning }] };
-    setTimeout(() => {
-      finish(state, run, "COMPLETED");
-      sent = run.packets.length;
-    }, 250);
-  }, 50);
-}
-
 /** Test-only HTTP fixture: real incremental streams; no claims about model/IAM acceptance. */
 export async function handleChatFixture(
   request: IncomingMessage,
@@ -731,10 +656,6 @@ export async function handleChatFixture(
       },
       202,
     );
-    if (state.mode.startsWith("bench")) {
-      benchStream(state, run);
-      return true;
-    }
     const grounded = state.mode.startsWith("grounded");
     if (state.mode === "grounded-progress")
       emit(run, "reasoning", { text: "Checking the latest HR policy before answering." });
