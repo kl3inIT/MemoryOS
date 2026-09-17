@@ -111,10 +111,11 @@ class OpenAiResponsesChatModelTest {
                         "part", Map.of("type", "summary_text", "text", ""))),
                 event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 0,
                         "delta", "Checking the policy.", "sequence_number", 2)),
-                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1, "sequence_number", 3,
+                // Staging (2026-09-17): a new reasoning item restarts summary_index at 0, and its heading was glued on.
+                event("response.reasoning_summary_part.added", Map.of("item_id", "rs_2", "output_index", 0, "summary_index", 0, "sequence_number", 3,
                         "part", Map.of("type", "summary_text", "text", ""))),
-                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_1", "output_index", 0, "summary_index", 1,
-                        "delta", "Answering.", "sequence_number", 4)),
+                event("response.reasoning_summary_text.delta", Map.of("item_id", "rs_2", "output_index", 0, "summary_index", 0,
+                        "delta", "**Answering**", "sequence_number", 4)),
                 event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 1, "content_index", 0, "delta", "Twelve days.", "sequence_number", 5, "logprobs", List.of())),
                 completed(List.of(message("Twelve days.")))));
         var events = new ArrayList<ChatActivityEvent>();
@@ -125,7 +126,8 @@ class OpenAiResponsesChatModelTest {
         var output = model.stream(new Prompt(List.of(new UserMessage("Leave?")), options(true))).collectList().block();
 
         assertEquals("Twelve days.", text(output));
-        assertEquals("Checking the policy.\n\nAnswering.", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
+        // Each part starts on its own paragraph, including the first, which follows the previous inference's reasoning.
+        assertEquals("\n\nChecking the policy.\n\n**Answering**", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
         var request = requests.getFirst();
         assertEquals("auto", request.path("reasoning").path("summary").asString());
         assertEquals(List.of("function"), types(request.path("tools")));
