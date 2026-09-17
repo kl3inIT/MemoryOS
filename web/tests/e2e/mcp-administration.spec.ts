@@ -25,7 +25,7 @@ const servers: ListMcpServersResponse = [
     slug: "drive",
     name: "Google Drive",
     description: "Tìm và đọc tài liệu trên Drive của tổ chức.",
-    url: "https://drivemcp.googleapis.com/mcp",
+    url: "https://drivemcp.googleapis.com/mcp/v1",
     authType: "OAUTH",
     authPerformer: "PER_USER",
     oauthProviderMode: "AUTO_DISCOVERY",
@@ -156,7 +156,7 @@ const connections: ListMcpConnectionsResponse = [
     slug: "drive",
     name: "Google Drive",
     description: null,
-    url: "https://drivemcp.googleapis.com/mcp",
+    url: "https://drivemcp.googleapis.com/mcp/v1",
     authType: "OAUTH",
     authPerformer: "PER_USER",
     status: "CONNECTED",
@@ -267,6 +267,24 @@ for (const theme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Công cụ MCP" }).click();
       await expect(page.getByRole("switch", { name: "Google Drive" })).toBeVisible();
       await page.screenshot({ path: `${OUTPUT}/mem112-mcp-composer-${theme}-${width}.png` });
+
+      await page.goto("/admin/mcp");
+      await page.getByRole("button", { name: "Thao tác với Google Drive" }).click();
+      await expect(page.getByRole("menuitem", { name: "Xoá máy chủ" })).toBeVisible();
+      await page.screenshot({ path: `${OUTPUT}/mem112-mcp-menu-${theme}-${width}.png` });
+      await page.keyboard.press("Escape");
+
+      const session = await (
+        await page.request.post("/api/chat/test-fixture", {
+          data: { title: "Doanh thu quý 3", mode: "mcp" },
+        })
+      ).json();
+      await page.goto(`/chat/${session.id}`);
+      await expect(page.getByRole("button", { name: "Kết nối" })).toBeVisible();
+      await page.screenshot({
+        path: `${OUTPUT}/mem112-mcp-timeline-${theme}-${width}.png`,
+        fullPage: true,
+      });
     });
   }
 }
@@ -326,4 +344,43 @@ test("The composer lists MCP servers with their own connection state", async ({ 
   await expect(page.getByRole("switch", { name: "Jira Cloud" })).toHaveCount(0);
   await expect(page.getByText("Cần kết nối lại")).toBeVisible();
   await page.screenshot({ path: "test-results/mcp-composer.png" });
+});
+
+test("A saved answer names MCP steps and offers Connect where the server refused", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await stub(page);
+  const session = await (
+    await page.request.post("/api/chat/test-fixture", {
+      data: { title: "Doanh thu quý 3", mode: "mcp" },
+    })
+  ).json();
+  await page.goto(`/chat/${session.id}`);
+
+  // The group opens by itself because one of its steps needs the person to reconnect.
+  await expect(page.getByText("Đã dùng search_files trên Google Drive")).toBeVisible();
+  await expect(page.getByText("Đã dùng read_file_content trên Google Drive")).toBeVisible();
+  await expect(
+    page.getByText("Google Drive từ chối kết nối của bạn. Kết nối lại để tiếp tục."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kết nối" })).toBeVisible();
+});
+
+test("Rare server actions sit in one menu so the row fits a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stub(page);
+  await page.goto("/admin/mcp");
+  await expect(page.getByRole("heading", { name: "Máy chủ MCP", level: 1 })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const refresh = page.getByRole("button", { name: "Lấy công cụ" }).first();
+  const menu = page.getByRole("button", { name: "Thao tác với Google Drive" });
+  // Every visible action of the row shares one line.
+  expect((await refresh.boundingBox())!.y).toBe((await menu.boundingBox())!.y);
+
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Xoá máy chủ" }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
 });

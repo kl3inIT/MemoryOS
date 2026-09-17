@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { DropdownMenu } from "radix-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
-import { Blocks, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Blocks, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
@@ -166,7 +168,7 @@ export function McpServersPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
                   <Button
                     prominence="secondary"
                     size="sm"
@@ -183,18 +185,39 @@ export function McpServersPage() {
                   >
                     {ui(opened === server.id ? "Ẩn công cụ" : "Xem công cụ")}
                   </Button>
-                  <Button prominence="secondary" size="sm" onClick={() => setEditing(server)}>
-                    {ui("Sửa")}
-                  </Button>
-                  <Button
-                    prominence="secondary"
-                    tone="danger"
-                    size="sm"
-                    aria-label={ui("Xoá máy chủ")}
-                    onClick={() => setRemoving(server)}
-                  >
-                    <Trash2 />
-                  </Button>
+                  {/* Rare actions share one menu, so the row stays on one line at phone width. */}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <IconButton
+                        size="sm"
+                        prominence="internal"
+                        aria-label={ui("Thao tác với {{name}}", { name: server.name })}
+                      >
+                        <MoreHorizontal />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        align="end"
+                        sideOffset={5}
+                        className="z-50 min-w-44 rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
+                      >
+                        <DropdownMenu.Item
+                          className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken"
+                          onSelect={() => setEditing(server)}
+                        >
+                          <Pencil className="size-4" /> {ui("Sửa")}
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator className="my-1 border-t border-border-subtle" />
+                        <DropdownMenu.Item
+                          className="flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm text-status-danger-content outline-none data-[highlighted]:bg-surface-sunken"
+                          onSelect={() => setRemoving(server)}
+                        >
+                          <Trash2 className="size-4" /> {ui("Xoá máy chủ")}
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
                 </div>
               </div>
               {opened === server.id ? (

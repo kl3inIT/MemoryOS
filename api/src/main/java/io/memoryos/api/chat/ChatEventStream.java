@@ -77,7 +77,9 @@ final class ChatEventStream {
                      @Schema(requiredMode = REQUIRED) List<ChatToolEvent.ReadingDocument> documents,
                      @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId,
-                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex) {}
+                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"},
+                             description = "Why a FAILED step failed when the person can act on it; a category only.") ChatToolEvent.@Nullable Failure failure) {}
 
     record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
                       @Schema(requiredMode = REQUIRED) long sequence,
@@ -140,7 +142,7 @@ final class ChatEventStream {
                 var tool = Objects.requireNonNull(event.tool());
                 yield new ToolEvent(event.assistantMessageId(), event.sequence(), tool.toolCallId(), tool.toolName(), tool.stage(),
                         tool.source() == null ? null : ChatSourceResponse.from(tool.source()), tool.search(), tool.documents(), tool.durationMs(),
-                        tool.parentToolCallId(), tool.tabIndex());
+                        tool.parentToolCallId(), tool.tabIndex(), tool.failure());
             }
             case "image" -> {
                 var image = Objects.requireNonNull(event.image());
