@@ -107,6 +107,14 @@ Phases 5 and 6 were first written from comparative research into Anthropic Agent
   - Measured in the executor sandbox (`--network none`, `--pids-limit 64`, non-root, read-only root, 64 MiB `/tmp`, 1 GiB, 30 s CPU): image 2.79 → 3.26 GB (+470 MB); two workbooks in 13.6 s (one LibreOffice start); values 300, `#DIV/0!` and 60 from a stale xlsxwriter cache; formulas, the bar chart, bold/colour fonts, fill, the `₫` number format, column width, freeze pane, merged cells, data validation and a cross-sheet reference to a Vietnamese sheet name all survive; the profile is 0.2 MB.
   - Cost accepted with the change: each release adds about 0.5 GB more to the staging host, and the `interpreter` CI job still has no layer cache.
 
+## Phase 5b — Onyx parity gaps (owner-requested 2026-09-17)
+
+- [x] **Raw errors.** A failed call returns `exit_code` -1 with the exception text in `stderr` and `error`, as Onyx `str(e)`; HTTP errors carry up to 2 KiB of the body. The timeline shows it on stderr.
+- [x] **stdout/stderr split.** `ChatCodeEvent.stream` names the channel of each output delta; the step renders highlighted code, separate output and error sections, the file count and a no-output note, as Onyx `PythonToolRenderer`. Generated files use the assistant-ui `File` element.
+- [x] **File names.** Onyx `_safe_code_interpreter_filename` and `_dedupe_code_interpreter_filename`.
+- [x] **Searched source files.** `search_knowledge` records the originals behind its hits and prefixes their evidence with `FILE_ASSOCIATED_GUIDANCE`; the next `run_python` stages them after the attachments.
+- Evidence (local): `RunPythonToolTest`, `InterpreterClientTest`, `StreamBufferWriterTest`, `SearchToolTest`, `SandboxDocumentsTest`, `DocumentOriginalServiceTest`, `SourceOriginalPdfQueryTest` and the 112 web chat tests pass; CI on PR #211 pending.
+
 ## Owner consideration
 
 The owner is weighing, on 2026-09-17, whether to combine these with existing presentation work rather than drop them:
