@@ -64,7 +64,8 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
     <StreamdownTextPrimitive
       remarkPlugins={plugins}
       rehypePlugins={rehypePlugins}
-      containerClassName="aui-md"
+      // Streamdown spaces its top-level blocks; a code header and its body are two siblings of one block.
+      containerClassName="aui-md [&_.aui-code-header-root+*]:!mt-0"
       components={markdownComponents as StreamdownTextComponents}
       componentsByLanguage={languageRenderers}
       controls={false}
