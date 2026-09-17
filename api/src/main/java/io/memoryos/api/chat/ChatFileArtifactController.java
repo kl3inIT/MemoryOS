@@ -47,6 +47,8 @@ class ChatFileArtifactController {
     @GetMapping("/{artifactId}/preview")
     @Operation(operationId = "previewChatFileArtifactSpreadsheet",
             summary = "Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary")
+    @ApiResponse(responseCode = "200", description = "Sheets in workbook order",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = SpreadsheetPreviewResponse.class)))
     SpreadsheetPreviewResponse preview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID artifactId, HttpServletResponse response) {
         var sheets = files.spreadsheet(identity.actorId(), artifactId).stream()

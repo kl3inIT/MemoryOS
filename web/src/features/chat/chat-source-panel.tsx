@@ -5,6 +5,8 @@ import { IconButton } from "@/components/ui/icon-button";
 import { DocumentPreviewContent } from "@/features/search/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
 import { ChatFileReader } from "./chat-file-reader";
+import type { GeneratedFile } from "./chat-code";
+import { ChatGeneratedFilePreview } from "./chat-generated-file-preview";
 import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
@@ -80,7 +82,7 @@ export function ChatSourcePanel({
 }: {
   id: string;
   sources: ChatSource[];
-  file?: { id: string; filename: string };
+  file?: { id: string; filename: string; generated?: GeneratedFile };
   artifact?: ChatArtifact;
   citationId?: number;
   onSelect: (citationId?: number) => void;
@@ -223,7 +225,11 @@ export function ChatSourcePanel({
         </div>
       ) : file ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-          <ChatFileReader key={file.id} fileId={file.id} />
+          {file.generated ? (
+            <ChatGeneratedFilePreview key={file.id} file={file.generated} />
+          ) : (
+            <ChatFileReader key={file.id} fileId={file.id} />
+          )}
         </div>
       ) : selected?.web ? (
         <>

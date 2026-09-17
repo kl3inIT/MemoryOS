@@ -21,6 +21,7 @@ import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
+import type { GeneratedFile } from "./chat-code";
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
@@ -33,7 +34,7 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<{
     messageId?: string;
     citationId?: number;
-    file?: { id: string; filename: string };
+    file?: { id: string; filename: string; generated?: GeneratedFile };
     artifactId?: string;
   }>();
   const returnFocusRef = useRef<HTMLElement>(null);

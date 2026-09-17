@@ -1,8 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { AssistantRuntimeProvider, ThreadPrimitive, useLocalRuntime } from "@assistant-ui/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n";
 import { ChatGeneratedFiles } from "./chat-generated-files";
+import { ChatPanelContext } from "./chat-panel-context";
 import { fileSize, parseGeneratedFiles } from "./chat-code";
 
 const file = {
@@ -54,6 +55,28 @@ describe("files run_python generated", () => {
     cleanup();
     render(<Thread custom={{}} />);
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("opens the file in the side panel from its name", () => {
+    const opened: unknown[] = [];
+    render(
+      <ChatPanelContext.Provider
+        value={{
+          panelId: "panel",
+          open: () => {},
+          openFile: (selected) => opened.push(selected),
+          openArtifact: () => {},
+          close: () => {},
+        }}
+      >
+        <Thread custom={{ generatedFiles: [file] }} />
+      </ChatPanelContext.Provider>,
+    );
+
+    const preview = screen.getByRole("button", { name: `Xem trước ${file.filename}` });
+    expect(preview).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(preview);
+    expect(opened).toEqual([{ id: file.id, filename: file.filename, generated: file }]);
   });
 
   it("keeps only well-formed files from a reloaded conversation", () => {

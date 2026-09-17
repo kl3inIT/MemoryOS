@@ -8931,6 +8931,12 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "401":
           description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14264,6 +14270,22 @@ components:
         deploymentCeilingBytes:
           type: integer
           format: int64
+    ChatSpreadsheetPreview:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSpreadsheetSheet"
+    ChatSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
     ApiProblem:
       type: object
       additionalProperties: false

@@ -1,4 +1,5 @@
 import { useAuiState } from "@assistant-ui/react";
+import { useChatFilePanel } from "./chat-panel-context";
 import { DownloadIcon } from "lucide-react";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { uiLocale } from "@/i18n/format";
@@ -13,6 +14,7 @@ const emptyFiles: GeneratedFile[] = [];
  */
 export function ChatGeneratedFiles() {
   const ui = useAppTranslation();
+  const panel = useChatFilePanel();
   const files = useAuiState(
     (state) =>
       (state.message.metadata.custom.generatedFiles as GeneratedFile[] | undefined) ?? emptyFiles,
@@ -25,7 +27,24 @@ export function ChatGeneratedFiles() {
           <FileDisplay.Root className="max-w-full">
             <FileDisplay.Icon mimeType={file.mediaType} />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <FileDisplay.Name title={file.filename}>{file.filename}</FileDisplay.Name>
+              <button
+                type="button"
+                data-slot="file-preview"
+                aria-label={ui("Xem trước {{file}}", { file: file.filename })}
+                aria-expanded={panel.fileId === file.id}
+                aria-controls={panel.fileId === file.id ? panel.panelId : undefined}
+                onClick={(event) =>
+                  panel.fileId === file.id
+                    ? panel.close()
+                    : panel.openFile(
+                        { id: file.id, filename: file.filename, generated: file },
+                        event.currentTarget,
+                      )
+                }
+                className="min-w-0 rounded-sm text-left hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+              >
+                <FileDisplay.Name title={file.filename}>{file.filename}</FileDisplay.Name>
+              </button>
               <span className="text-xs text-muted-foreground">
                 {fileSize(file.sizeBytes, uiLocale())}
               </span>

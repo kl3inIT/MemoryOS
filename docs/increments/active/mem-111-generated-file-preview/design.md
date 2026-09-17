@@ -19,15 +19,15 @@ Onyx `40eb240df`:
 
 ## Decisions
 
-1. **Where.** A preview dialog opens from each generated-file card (the name becomes a button; download stays). It uses the existing shadcn `Dialog` and the assistant-ui `File` element already used by the card.
+1. **Where.** The file name on each generated-file card opens the preview in the existing Chat side panel that already reads attachments and `render_gui` artifacts (a right drawer on narrow screens); download stays on the card and in the panel. Onyx uses a modal; MemoryOS reuses its panel so one file surface keeps focus return and Escape handling.
 2. **Variants, in the Onyx order.**
    - image (PNG/JPEG/WebP): the served content URL.
    - pdf: the existing pdf.js `DocumentPdfView` from Search instead of an iframe, because the content route serves PDFs as attachments under `nosniff` and MemoryOS already ships the reader.
    - csv: parsed in the browser with a quote-aware parser (Onyx splits on commas, which breaks quoted cells; departure) into the shadcn `Table`, with row and column counts.
    - xlsx: the new preview route below, one tab per sheet, each rendered as the csv variant.
-   - markdown: the existing `MarkdownText` renderer, with links limited as in answers.
+   - markdown: highlighted source. The answer `MarkdownText` renderer needs a message part, and rendering model-written markdown outside an answer would need its own link policy; departure from Onyx's rendered markdown.
    - docx: `docx-preview` plus DOMPurify with the Onyx allowlist; `.doc` shows the Onyx legacy message.
-   - text, json and code: the existing Shiki `HighlightedCode`, JSON pretty-printed, with copy.
+   - text, json and code: the existing Shiki `HighlightedCode`, JSON pretty-printed.
    - anything else: the unsupported state with the download action (pptx too until step 5 lands).
 3. **Spreadsheet preview route.** `GET /api/chat/file-artifacts/{id}/preview` with the content route's owner authorization returns `{sheets: [{name, csv, truncated}]}` for xlsx only (other types 400). Parsing uses Apache POI's streaming `XSSFReader` (already used by the connector), writes CSV with quoting, stops a sheet at 500 000 characters at a row boundary, and bounds the workbook by the 25 MiB artifact size and POI's zip-bomb ratio. Formula cells show their cached values, which `recalc-xlsx` fills.
 4. **Text size.** Text-like variants read at most 1 MiB and say the preview is truncated; Onyx reads the whole file.
@@ -36,7 +36,7 @@ Onyx `40eb240df`:
 ## Security
 
 - All bytes come from the owner-authorized artifact routes; no new public URL.
-- docx HTML is sanitized after rendering; styles are restricted to library `<style>` elements; no HTML or SVG from a generated file is inserted unsanitized. SVG is not previewed inline.
+- docx is rendered into detached elements; only its DOMPurify-sanitized HTML is attached, and only library `<style>` elements are moved into the page; no HTML or SVG from a generated file is inserted unsanitized. SVG is not previewed inline.
 - The spreadsheet parser never evaluates formulas and runs with bounded input.
 
 ## Out of scope

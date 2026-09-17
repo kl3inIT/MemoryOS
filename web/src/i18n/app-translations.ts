@@ -131,10 +131,22 @@ export const vietnameseUi: Record<string, string> = {
   "Kết quả": "Output",
   "Chạy Python không thành công": "Running Python did not finish",
   "Tải {{file}}": "Download {{file}}",
-  "Lỗi": "Error",
+  Lỗi: "Error",
   "Đã tạo {{count}} tệp": "Files created: {{count}}",
   "Không có output": "No output",
   "Xem trước {{file}}": "Preview {{file}}",
+  "Tải xuống": "Download",
+  "Không xem trước được tệp .doc cũ. Hãy tải tệp xuống để mở.":
+    "Legacy .doc files cannot be previewed. Download the file to open it.",
+  "Chưa xem trước được loại tệp này. Hãy tải tệp xuống để mở.":
+    "This file type cannot be previewed yet. Download the file to open it.",
+  "Không xem trước được tệp": "File preview unavailable",
+  "Tệp có thể đã bị xóa hoặc không đọc được. Bạn vẫn có thể thử tải xuống.":
+    "The file may have been deleted or cannot be read. You can still try downloading it.",
+  "Chỉ hiển thị 1 MB đầu của tệp.": "Showing only the first 1 MB of the file.",
+  "Trang tính trống": "Empty sheet",
+  "{{rows}} dòng · {{columns}} cột": "{{rows}} rows · {{columns}} columns",
+  "Bản xem trước bị cắt bớt": "Preview truncated",
   "Công cụ": "Tools",
   OAuth: "OAuth",
   "Ai đăng nhập": "Who signs in",

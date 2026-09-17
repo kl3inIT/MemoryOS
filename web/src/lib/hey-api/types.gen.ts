@@ -1736,6 +1736,16 @@ export type ChatFilePolicyResponse = {
     deploymentCeilingBytes?: number;
 };
 
+export type ChatSpreadsheetPreview = {
+    sheets?: Array<ChatSpreadsheetSheet>;
+};
+
+export type ChatSpreadsheetSheet = {
+    name?: string;
+    csv?: string;
+    truncated?: boolean;
+};
+
 export type ApiProblem = {
     /**
      * Stable problem type for capability failures; omitted means RFC 9457 `about:blank`.
@@ -8621,6 +8631,15 @@ export type PreviewChatFileArtifactSpreadsheetErrors = {
 };
 
 export type PreviewChatFileArtifactSpreadsheetError = PreviewChatFileArtifactSpreadsheetErrors[keyof PreviewChatFileArtifactSpreadsheetErrors];
+
+export type PreviewChatFileArtifactSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileArtifactSpreadsheetResponse = PreviewChatFileArtifactSpreadsheetResponses[keyof PreviewChatFileArtifactSpreadsheetResponses];
 
 export type GetChatFileArtifactData = {
     body?: never;
