@@ -1321,7 +1321,7 @@ class SourceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Unattached manager create\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.access").value("RESTRICTED"))
+                .andExpect(jsonPath("$.access").value("PRIVATE"))
                 .andExpect(jsonPath("$.managerActorId").value(manager.getPrincipal().actorId().value().toString()));
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(manager))
