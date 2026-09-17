@@ -120,9 +120,7 @@ export function ChatComposerMenu({
               {allowed?.web !== false && (
                 <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
               )}
-              {allowed?.image !== false && image && (
-                <ChatImageToggle {...image} onDone={close} />
-              )}
+              {allowed?.image !== false && image && <ChatImageToggle {...image} onDone={close} />}
               <ChatMcpToggle
                 selected={mcp.selected}
                 available={
