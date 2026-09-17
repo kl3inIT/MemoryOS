@@ -71,6 +71,7 @@ class OpenApiContractTest {
             "/api/chat/images/connections",
             "/api/chat/images/connections/{provider}",
             "/api/chat/images/connections/{provider}/test",
+            "/api/chat/images/providers",
             "/api/chat/images/selection",
             "/api/chat/image-artifacts/{artifactId}/content",
             "/api/chat/model-default",

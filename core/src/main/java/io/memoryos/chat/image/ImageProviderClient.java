@@ -7,6 +7,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -16,8 +17,9 @@ import tools.jackson.databind.ObjectMapper;
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
 public final class ImageProviderClient {
-    /** Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109. */
-    static final String CLOUDFLARE_EDIT_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
+    /** Instruction editing that keeps unchanged content (MEM-109); declared once in the image model catalog. */
+    static final String CLOUDFLARE_EDIT_MODEL = Objects.requireNonNull(ImageProvider.CLOUDFLARE_WORKERS_AI.editModel()).modelName();
+    private static final String OPENAI_ENDPOINT = Objects.requireNonNull(ImageProvider.OPENAI_IMAGE.defaultEndpoint());
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ImageHttp http;
     private final ImageConnectionService connections;
@@ -41,7 +43,7 @@ public final class ImageProviderClient {
         String key = connections.key(connection);
         String base = connection.endpoint().replaceAll("/+$", "");
         return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAi(base.isEmpty() ? "https://api.openai.com/v1" : base, key, connection.model(), prompt, size);
+            case OPENAI_IMAGE -> openAi(base.isEmpty() ? OPENAI_ENDPOINT : base, key, connection.model(), prompt, size);
             case CLOUDFLARE_WORKERS_AI -> cloudflare(base, key, connection.model(), prompt);
         };
     }
@@ -50,7 +52,7 @@ public final class ImageProviderClient {
         var auth = Map.of("Authorization", "Bearer " + connections.key(connection));
         String base = connection.endpoint().replaceAll("/+$", "");
         return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAiEdit(base.isEmpty() ? "https://api.openai.com/v1" : base, auth, connection.model(), prompt, image);
+            case OPENAI_IMAGE -> openAiEdit(base.isEmpty() ? OPENAI_ENDPOINT : base, auth, connection.model(), prompt, image);
             case CLOUDFLARE_WORKERS_AI -> cloudflareEdit(base, auth, prompt, image);
         };
     }

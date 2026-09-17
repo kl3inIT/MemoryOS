@@ -1324,6 +1324,24 @@ export type ImageAvailabilityResponse = {
     model?: string;
 };
 
+export type ImageKnownModelResponse = {
+    modelName: string;
+    displayName: string;
+    outputMediaType: string;
+    sizes: Array<string>;
+    edit: boolean;
+    deprecated: boolean;
+};
+
+export type ImageProviderResponse = {
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    credentialRequired: boolean;
+    defaultEndpoint?: string;
+    endpointRequired: boolean;
+    editModel?: ImageKnownModelResponse;
+    knownModels: Array<ImageKnownModelResponse>;
+};
+
 export type ChatGroupOption = {
     id: string;
     name: string;
@@ -6413,6 +6431,51 @@ export type GetChatImageAvailabilityResponses = {
 };
 
 export type GetChatImageAvailabilityResponse = GetChatImageAvailabilityResponses[keyof GetChatImageAvailabilityResponses];
+
+export type ListChatImageProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/images/providers';
+};
+
+export type ListChatImageProvidersErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatImageProvidersError = ListChatImageProvidersErrors[keyof ListChatImageProvidersErrors];
+
+export type ListChatImageProvidersResponses = {
+    /**
+     * Installed image providers
+     */
+    200: Array<ImageProviderResponse>;
+};
+
+export type ListChatImageProvidersResponse = ListChatImageProvidersResponses[keyof ListChatImageProvidersResponses];
 
 export type ListChatImageConnectionsData = {
     body?: never;
