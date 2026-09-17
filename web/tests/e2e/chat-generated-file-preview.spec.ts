@@ -101,3 +101,31 @@ for (const [label, viewport, colorScheme] of [
     await shot(page, `${label}-pptx`);
   });
 }
+
+test("draws captured charts interactively with the PNG as the static view", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openFiles(page);
+  const line = page
+    .locator("[data-slot=generated-chart]")
+    .filter({ hasText: "Doanh thu theo tháng" });
+  await line.scrollIntoViewIfNeeded();
+  await expect(line.locator(".recharts-line")).toHaveCount(3);
+  await expect(line.getByText("Miền Trung")).toBeVisible();
+  const pie = page
+    .locator("[data-slot=generated-chart]")
+    .filter({ hasText: "Tỷ trọng doanh thu quý 3" });
+  await expect(pie.locator(".recharts-pie-sector")).toHaveCount(3);
+  await page.waitForTimeout(600);
+  await line.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await line.screenshot(shots ? { path: `${shots}/chart-line.png` } : {});
+  await pie.evaluate((element) => element.scrollIntoView({ block: "start" }));
+  await page.waitForTimeout(300);
+  await pie.screenshot(shots ? { path: `${shots}/chart-pie.png` } : {});
+  await line.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await line.hover({ position: { x: 300, y: 160 } });
+  await page.waitForTimeout(300);
+  await line.screenshot(shots ? { path: `${shots}/chart-line-hover.png` } : {});
+  await line.getByRole("tab", { name: "Ảnh tĩnh" }).click();
+  await expect(line.getByRole("img", { name: "Doanh thu theo tháng" })).toBeVisible();
+  await shot(page, "chart-page");
+});

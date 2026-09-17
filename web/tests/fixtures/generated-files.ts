@@ -5,7 +5,7 @@ import type { ChatMessage } from "../../src/lib/hey-api/types.gen.ts";
 const directory = new URL("./generated-files/", import.meta.url);
 const xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-type Fixture = { id: string; filename: string; mediaType: string } & (
+type Fixture = { id: string; filename: string; mediaType: string; chart?: unknown } & (
   | { text: string }
   | { file: string }
   | { sizeBytes: number }
@@ -73,6 +73,60 @@ export const generatedFixtures: Fixture[] = [
     mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     sizeBytes: 96_210,
   },
+  {
+    id: "0b7c7f64-1d0a-4a4e-9c35-2f6f3c1a0008",
+    filename: "Doanh thu theo tháng.png",
+    mediaType: "image/png",
+    file: "bieu-do-doanh-thu.png",
+    chart: {
+      type: "line",
+      title: "Doanh thu theo tháng",
+      x_label: "Tháng",
+      y_label: "Tỷ đồng (₫)",
+      y_unit: "₫",
+      elements: [
+        {
+          label: "Miền Bắc",
+          points: [
+            ["T7", 1.62],
+            ["T8", 1.75],
+            ["T9", 1.74],
+          ],
+        },
+        {
+          label: "Miền Trung",
+          points: [
+            ["T7", 0.71],
+            ["T8", 0.78],
+            ["T9", 0.82],
+          ],
+        },
+        {
+          label: "Miền Nam",
+          points: [
+            ["T7", 1.58],
+            ["T8", 1.71],
+            ["T9", 1.76],
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "0b7c7f64-1d0a-4a4e-9c35-2f6f3c1a0009",
+    filename: "Tỷ trọng doanh thu.png",
+    mediaType: "image/png",
+    file: "bieu-do-doanh-thu.png",
+    chart: {
+      type: "pie",
+      title: "Tỷ trọng doanh thu quý 3",
+      elements: [
+        { label: "Miền Bắc", angle: 147.7, radius: 1 },
+        { label: "Miền Trung", angle: 66.6, radius: 1 },
+        { label: "Miền Nam", angle: 145.7, radius: 1 },
+      ],
+    },
+  },
 ];
 
 const money = (value: number) => `"${value.toLocaleString("vi-VN")}.000.000"`;
@@ -120,7 +174,9 @@ export async function handleGeneratedFile(
   path: string,
   response: ServerResponse,
 ): Promise<boolean> {
-  const match = /^\/api\/chat\/file-artifacts\/([0-9a-f-]{36})\/(content|preview)$/.exec(path);
+  const match = /^\/api\/chat\/file-artifacts\/([0-9a-f-]{36})\/(content|preview|chart)$/.exec(
+    path,
+  );
   if (!match) return false;
   const fixture = generatedFixtures.find((item) => item.id === match[1]);
   const send = (status: number, data: unknown) => {
@@ -128,7 +184,10 @@ export async function handleGeneratedFile(
     response.end(JSON.stringify(data));
   };
   if (!fixture) send(404, {});
-  else if (match[2] === "preview") {
+  else if (match[2] === "chart") {
+    if (fixture.chart) send(200, fixture.chart);
+    else send(404, {});
+  } else if (match[2] === "preview") {
     if (fixture.mediaType === xlsx) send(200, spreadsheet);
     else send(400, {});
   } else {
@@ -158,6 +217,7 @@ export async function generatedFileMessages(
       filename: fixture.filename,
       mediaType: fixture.mediaType,
       sizeBytes: "sizeBytes" in fixture ? fixture.sizeBytes : (await bytes(fixture)).length,
+      chart: fixture.chart !== undefined,
     })),
   );
   const common = {
@@ -190,7 +250,7 @@ export async function generatedFileMessages(
       role: "ASSISTANT",
       content:
         "Tôi đã phân tích doanh thu quý 3 và tạo các tệp dưới đây. Doanh thu cả quý đạt **12,48 tỷ ₫**, tăng 18,4% so với cùng kỳ.",
-      generatedFiles: files.map((file) => ({ ...file, chart: false })),
+      generatedFiles: files,
     },
   ];
 }

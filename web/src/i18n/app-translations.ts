@@ -135,6 +135,9 @@ export const vietnameseUi: Record<string, string> = {
   "Đã tạo {{count}} tệp": "Files created: {{count}}",
   "Không có output": "No output",
   "Xem trước {{file}}": "Preview {{file}}",
+  "Kiểu hiển thị biểu đồ": "Chart view",
+  "Tương tác": "Interactive",
+  "Ảnh tĩnh": "Static image",
   "Tải xuống": "Download",
   "Không xem trước được tệp .doc cũ. Hãy tải tệp xuống để mở.":
     "Legacy .doc files cannot be previewed. Download the file to open it.",
