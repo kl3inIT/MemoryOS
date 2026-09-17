@@ -351,6 +351,8 @@ export const vietnameseUi: Record<string, string> = {
     "Configure the provider Chat uses to generate and edit images.",
   "Không tải được cài đặt tạo ảnh.": "Could not load image generation settings.",
   "Nhà cung cấp": "Providers",
+  "Thêm nhà cung cấp": "Add provider",
+  "Tài liệu nhà cung cấp": "Provider documentation",
   "Chọn một nhà cung cấp để bật tạo ảnh trong Chat.":
     "Select a provider to enable image generation in Chat.",
   "Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.":
@@ -749,6 +751,14 @@ export const vietnameseUi: Record<string, string> = {
   "Không tạo được vùng tô. Hãy thử lại.": "Could not prepare the painted area. Try again.",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
+  "Chưa có nhà cung cấp tạo ảnh — thêm mô hình trong Quản trị › Tạo ảnh.":
+    "No image provider yet — add a model under Admin › Image generation.",
+  "Tạo ảnh chưa được bật. Liên hệ quản trị viên để thêm mô hình tạo ảnh.":
+    "Image generation is not enabled. Contact an administrator to add an image model.",
+  "Tạo và sửa ảnh chất lượng cao với mô hình gpt-image.":
+    "Create and edit high-quality images with gpt-image models.",
+  "Tạo ảnh FLUX nhanh trên mạng toàn cầu của Cloudflare.":
+    "Generate FLUX images quickly on Cloudflare's global network.",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",

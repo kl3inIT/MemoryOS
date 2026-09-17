@@ -416,17 +416,15 @@ function ChatConversation({
                         }
                       : undefined
                   }
-                  image={
-                    imageAvailability.data?.available === true
-                      ? {
-                          value: shownImage,
-                          onChange: (mode) => {
-                            transport.selectImage(mode);
-                            setImage(mode);
-                          },
-                        }
-                      : undefined
-                  }
+                  image={{
+                    available: imageAvailability.data?.available === true,
+                    // A stale "auto" preference must not show the enabled pill while no provider is usable.
+                    value: imageAvailability.data?.available === true ? shownImage : "off",
+                    onChange: (mode) => {
+                      transport.selectImage(mode);
+                      setImage(mode);
+                    },
+                  }}
                   mcp={{
                     selected: shownMcpServerIds,
                     sessionId: session?.id,

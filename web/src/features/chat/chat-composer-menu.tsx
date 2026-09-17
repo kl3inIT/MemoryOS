@@ -43,10 +43,11 @@ export function ChatComposerMenu({
     sessionId?: string;
     modelId?: string;
   };
-  /** Present only while an image provider connection is usable. */
+  /** The image row always renders; `available: false` disables it with a setup hint. */
   image?: {
     value: ImageMode;
     onChange: (mode: ImageMode) => void;
+    available?: boolean;
   };
   mcp: {
     selected: string[];
