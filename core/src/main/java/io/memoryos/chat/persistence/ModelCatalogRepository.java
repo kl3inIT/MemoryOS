@@ -42,19 +42,19 @@ public class ModelCatalogRepository {
     public record PersonaModel(UUID personaId, @Nullable UUID modelConfigurationId, long revision) {}
     public record PersonaSummary(UUID id, String name) {}
 
-    public boolean personaExists(UUID tenant, UUID actor, UUID persona) {
-        return jdbc.sql("""
-                SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND id=:id
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor))
-                """).param("tenant", tenant).param("actor", actor).param("id", persona).query(Boolean.class).single();
+    /** Agents the model administrator can use (Onyx lists personas the administrator may see). */
+    public boolean personaExists(UUID tenant, UUID actor, UUID persona, boolean agentsManage) {
+        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM persona p WHERE p.tenant_id=:tenant AND p.id=:id AND p.deleted_at IS NULL AND "
+                        + AgentAccessSql.USES + ")")
+                .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage).param("id", persona)
+                .query(Boolean.class).single();
     }
 
-    public List<PersonaSummary> personas(UUID tenant, UUID actor, @Nullable UUID after, int limit) {
-        return jdbc.sql("""
-                SELECT id, name FROM persona WHERE tenant_id=:tenant
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
-                """ + (after == null ? "" : " AND id > :after") + " ORDER BY id LIMIT :limit")
-                .param("tenant", tenant).param("actor", actor).param("after", after, Types.OTHER).param("limit", limit)
+    public List<PersonaSummary> personas(UUID tenant, UUID actor, boolean agentsManage, @Nullable UUID after, int limit) {
+        return jdbc.sql("SELECT p.id, p.name FROM persona p WHERE p.tenant_id=:tenant AND p.deleted_at IS NULL AND " + AgentAccessSql.USES
+                        + (after == null ? "" : " AND p.id > :after") + " ORDER BY p.id LIMIT :limit")
+                .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage)
+                .param("after", after, Types.OTHER).param("limit", limit)
                 .query((row, number) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
     }
 
@@ -135,20 +135,19 @@ public class ModelCatalogRepository {
         if (entity.revision() != revision) throw ChatException.conflict();
         entity.select(model); defaults.flush();
     }
-    public PersonaModel personaModel(UUID tenant, UUID actor, UUID persona) {
-        return jdbc.sql("""
-                SELECT id, model_configuration_id, model_revision FROM persona WHERE tenant_id=:tenant AND id=:id
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
-                """).param("tenant", tenant).param("actor", actor).param("id", persona)
+    public PersonaModel personaModel(UUID tenant, UUID actor, boolean agentsManage, UUID persona) {
+        return jdbc.sql("SELECT p.id, p.model_configuration_id, p.model_revision FROM persona p WHERE p.tenant_id=:tenant AND p.id=:id "
+                        + "AND p.deleted_at IS NULL AND " + AgentAccessSql.USES)
+                .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage).param("id", persona)
                 .query((r, ignored) -> new PersonaModel(r.getObject(1, UUID.class), r.getObject(2, UUID.class), r.getLong(3)))
                 .optional().orElseThrow(ChatException::unavailable);
     }
-    public void setPersonaModel(UUID tenant, UUID actor, UUID persona, @Nullable UUID model, long revision) {
+    public void setPersonaModel(UUID tenant, UUID actor, boolean agentsManage, UUID persona, @Nullable UUID model, long revision) {
         requireChanged(jdbc.sql("""
-                UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1
-                WHERE tenant_id=:tenant AND id=:persona AND model_revision=:revision
-                    AND deleted_at IS NULL AND (builtin_key IS NOT NULL OR owner_actor_id=:actor)
-                """).param("tenant", tenant).param("actor", actor).param("persona", persona)
+                UPDATE persona p SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1
+                WHERE p.tenant_id=:tenant AND p.id=:persona AND p.model_revision=:revision AND p.deleted_at IS NULL
+                  AND (p.builtin_key IS NOT NULL OR """ + AgentAccessSql.EDITS + ")").param("tenant", tenant).param("persona", persona)
+                .param("actor", actor).param("agentsManage", agentsManage)
                 .param("model", model, Types.OTHER).param("revision", revision).update());
     }
     public void deleteModel(UUID tenant, UUID model, long revision) {

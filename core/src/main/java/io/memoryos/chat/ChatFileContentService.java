@@ -41,15 +41,28 @@ public class ChatFileContentService {
     public ObjectContent open(ActorId actor, UUID id) {
         return open(actor, tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable), id);
     }
-    public byte[] image(ActorId actor, TenantId tenant, UUID id) {
+    /** Onyx {@code fetch_chat_file(parsed=true)} for an attachment: an owner-private xlsx as CSV text per sheet. */
+    public java.util.List<io.memoryos.chat.interpreter.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var file = files.owned(tenant, actor, id, false).orElseThrow(ChatException::unavailable).file();
+        if (!"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(file.mediaType()))
+            throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
+        try (var input = open(actor, tenant, id)) {
+            return io.memoryos.chat.interpreter.SpreadsheetPreview.parse(input.inputStream());
+        } catch (java.io.IOException failed) {
+            throw ChatException.invalid("The workbook cannot be previewed");
+        }
+    }
+
+    public byte[] image(ActorId actor, TenantId tenant, UUID id) {
+        var file = files.readable(tenant, actor, id, false).orElseThrow(ChatException::unavailable).file();
         if (!java.util.Set.of("image/png", "image/jpeg", "image/webp").contains(file.mediaType()) || file.sizeBytes() > 20971520)
             throw ChatException.invalid("Image is unavailable or exceeds the vision limit.");
         try (var input = open(actor, tenant, id)) {
             var bytes = input.inputStream().readNBytes(Math.toIntExact(file.sizeBytes()) + 1);
             if (bytes.length != file.sizeBytes()) throw ChatException.unavailable();
             if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
-                    || files.owned(tenant, actor, id, false).filter(row -> row.file().status() == UserFile.Status.READY).isEmpty())
+                    || files.readable(tenant, actor, id, false).filter(row -> row.file().status() == UserFile.Status.READY).isEmpty())
                 throw ChatException.unavailable();
             return bytes;
         } catch (java.io.IOException failed) { throw ChatException.unavailable(); }

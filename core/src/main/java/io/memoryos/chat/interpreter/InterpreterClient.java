@@ -30,7 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * memoryos-interpreter REST client, following the Onyx 40eb240df {@code code_interpreter_client.py} endpoints and
- * timeouts. Service response bodies and the API key never reach the model or the UI.
+ * timeouts. As in Onyx, failure text (including a bounded error response body) reaches the model; the API key never does.
  */
 @Component
 public class InterpreterClient implements AutoCloseable {
@@ -39,6 +39,7 @@ public class InterpreterClient implements AutoCloseable {
     private static final int JSON_LIMIT = 8 * 1024 * 1024;
     /** Guard on accumulated stdout/stderr; the service caps its own output well below this. */
     private static final int MAX_STREAM_CHARACTERS = 4 * 1024 * 1024;
+    private static final int ERROR_BODY_BYTES = 2048;
     private static final long HEALTH_CACHE_NANOS = TimeUnit.SECONDS.toNanos(30);
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -57,7 +58,7 @@ public class InterpreterClient implements AutoCloseable {
 
     /** All execution slots are in use (HTTP 429). */
     public static final class BusyException extends IOException {
-        BusyException() { super("Interpreter busy"); }
+        BusyException(String detail) { super(detail); }
     }
     /** A generated file is larger than {@link #MAX_DOWNLOAD_BYTES}. */
     public static final class TooLargeException extends IOException {
@@ -119,7 +120,7 @@ public class InterpreterClient implements AutoCloseable {
         request.setEntity(MultipartEntityBuilder.create().setMode(HttpMultipartMode.EXTENDED)
                 .addPart("file", new InputStreamBody(content, ContentType.parse(mediaType), filename)).build());
         return send(request, response -> {
-            requireSuccess(response.status());
+            requireSuccess(response.status(), response.body());
             return text(JSON.readTree(response.body()).path("file_id"), "file_id");
         });
     }
@@ -129,7 +130,7 @@ public class InterpreterClient implements AutoCloseable {
         var request = request("POST", "/v1/execute", timeoutMs / 1000 + 10);
         request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
         return send(request, response -> {
-            requireSuccess(response.status());
+            requireSuccess(response.status(), response.body());
             var json = JSON.readTree(response.body());
             var workspace = new ArrayList<WorkspaceFile>();
             for (var file : json.path("files")) {
@@ -158,7 +159,7 @@ public class InterpreterClient implements AutoCloseable {
         var request = request("POST", "/v1/execute/stream", timeoutMs / 1000L + 10);
         request.setEntity(new StringEntity(JSON.writeValueAsString(body(code, timeoutMs, files)), ContentType.APPLICATION_JSON));
         return client.execute(request, response -> {
-            requireSuccess(response.getCode());
+            requireSuccess(response.getCode(), response.getEntity());
             var entity = response.getEntity();
             if (entity == null) throw new IOException("Interpreter returned no stream");
             try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
@@ -196,7 +197,7 @@ public class InterpreterClient implements AutoCloseable {
                     target.append(chunk);
                     listener.output(stream, chunk);
                 }
-                case "error" -> throw new IOException("Interpreter stream failed");
+                case "error" -> throw new IOException("Code interpreter error: " + json.path("message").asString(""));
                 case "result" -> {
                     var workspace = new ArrayList<WorkspaceFile>();
                     for (var file : json.path("files")) {
@@ -211,7 +212,7 @@ public class InterpreterClient implements AutoCloseable {
                 default -> { } // A newer service may add events; the terminal result still decides the outcome.
             }
         }
-        throw new IOException("Interpreter stream ended without a result");
+        throw new IOException("Code interpreter stream ended without a result event");
     }
 
     /**
@@ -241,7 +242,7 @@ public class InterpreterClient implements AutoCloseable {
     public byte[] download(String fileId) throws IOException {
         var request = request("GET", "/v1/files/" + pathSegment(fileId), 30);
         return client.execute(request, response -> {
-            requireSuccess(response.getCode());
+            requireSuccess(response.getCode(), response.getEntity());
             var entity = response.getEntity();
             if (entity == null) return new byte[0];
             if (entity.getContentLength() > MAX_DOWNLOAD_BYTES) { request.cancel(); throw new TooLargeException(); }
@@ -255,7 +256,7 @@ public class InterpreterClient implements AutoCloseable {
 
     public void delete(String fileId) throws IOException {
         send(request("DELETE", "/v1/files/" + pathSegment(fileId), 10), response -> {
-            if (response.status() != 404) requireSuccess(response.status());
+            if (response.status() != 404) requireSuccess(response.status(), response.body());
             return null;
         });
     }
@@ -284,9 +285,21 @@ public class InterpreterClient implements AutoCloseable {
         });
     }
 
-    private static void requireSuccess(int status) throws IOException {
-        if (status == 429) throw new BusyException();
-        if (status < 200 || status >= 300) throw new IOException("Interpreter returned HTTP " + status);
+    /** Onyx surfaces the HTTP error text as it is; the service's response body is kept, bounded. */
+    private static void requireSuccess(int status, byte[] body) throws IOException {
+        if (status >= 200 && status < 300) return;
+        String detail = "Code interpreter returned HTTP " + status;
+        String text = new String(body, 0, Math.min(body.length, ERROR_BODY_BYTES), StandardCharsets.UTF_8).strip();
+        if (!text.isEmpty()) detail += ": " + text;
+        if (status == 429) throw new BusyException(detail);
+        throw new IOException(detail);
+    }
+
+    private static void requireSuccess(int status, org.apache.hc.core5.http.@Nullable HttpEntity entity) throws IOException {
+        if (status >= 200 && status < 300) return;
+        byte[] body = new byte[0];
+        if (entity != null) try (var stream = entity.getContent()) { body = stream.readNBytes(ERROR_BODY_BYTES); }
+        requireSuccess(status, body);
     }
 
     private static String text(JsonNode node, String name) throws IOException {

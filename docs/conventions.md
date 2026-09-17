@@ -140,6 +140,11 @@ Domain Story and Consumer
 - A necessary, maintained dependency is acceptable when it enables real reuse and its compatibility, license, bundle and maintenance costs are reasonable. Do not replace library logic merely to avoid adding a package. Pin the dependency and verify its actual consumer; avoid unrelated upgrades.
 - Reuse does not transfer application authority to the library. MemoryOS still owns backend authorization, persistence and business lifecycle. A component dependency does not by itself justify a new global store or duplication of state already owned by the runtime or query cache.
 
+### Composites
+
+- `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. They carry no data fetching or authorization.
+- Hover-revealed actions stay reachable: they appear on `focus-within` and are always visible on devices without hover.
+
 ## shadcn/ui registry
 
 - `web/components.json` registers shadcn/ui (`radix-nova` style, Lucide icons, `@/components/ui` alias). Every shared browser control comes from that registry; feature code never hand-rolls a control the registry ships.

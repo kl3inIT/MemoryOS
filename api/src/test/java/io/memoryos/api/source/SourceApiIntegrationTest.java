@@ -1350,7 +1350,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/group-options").param("search", managedGroupId.toString())
                         .with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].id").value(managedGroupId.toString()));
+                .andExpect(jsonPath("$.items[?(@.id == '%s')]".formatted(managedGroupId)).exists());
         mockMvc.perform(post("/api/sources/{sourceId}/groups", managedSourceId)
                         .with(authentication(manager))
                         .header("X-MemoryOS-CSRF", "1")

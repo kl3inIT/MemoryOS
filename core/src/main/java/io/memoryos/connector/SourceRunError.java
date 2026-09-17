@@ -7,5 +7,8 @@ import org.jspecify.annotations.Nullable;
 public record SourceRunError(
         UUID id, UUID runId, @Nullable UUID operationId, @Nullable UUID itemId,
         @Nullable String fileId, @Nullable String fileName, SourceRunErrorStage stage,
-        String code, Instant occurredAt
+        String code, Instant occurredAt,
+        @Nullable String errorMessage, @Nullable String errorDetail,
+        @Nullable SourceItemStatus currentItemStatus, @Nullable String currentItemErrorCode,
+        @Nullable Instant currentItemLastIndexedAt
 ) {}

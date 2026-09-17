@@ -136,6 +136,7 @@ public final class ChatPrompts {
             Also preinstalled: statsmodels, sympy, pyarrow, xlrd (legacy .xls), xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pdf2image, markitdown, beautifulsoup4, jinja2, markdown, tabulate, chardet and charset-normalizer. Packages cannot be installed; use only what is available.
             If a text file's encoding is unknown, detect it with charset-normalizer before decoding.
             Command-line tools are available via subprocess: pdftotext and pdftoppm, qpdf, sqlite3, zip and unzip.
+            A workbook saved by openpyxl has no computed formula values (xlsxwriter stores 0) until it is recalculated, so readers other than Excel show empty cells. After saving an .xlsx that contains formulas, run `recalc-xlsx` via subprocess with all such files in one call; it recalculates them in place with LibreOffice, keeps formulas, formatting and charts, takes about 15 seconds, and prints one JSON line per file whose `errors` lists cells such as `Sheet!B6: #DIV/0!` to fix.
             Vietnamese and other Latin, Greek and Cyrillic text renders in matplotlib's default font, but the built-in PDF fonts (Helvetica, Times) cannot render it. Register a TTF font first, e.g. `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` with fpdf2 `add_font` or reportlab `TTFont`.
             Memory is limited to about 1 GiB; process large files in chunks.
             CPU time is limited to 30 seconds per run. A run killed by the memory or CPU limit exits with code 137 and no error message.
@@ -195,19 +196,29 @@ public final class ChatPrompts {
     }
 
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
-        return instructions.replace("{{CURRENT_DATETIME}}", now.toString())
-                + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
+        return resolve(instructions, searchEnabled, now, true);
+    }
+
+    /** Onyx {@code datetime_aware}: fill the date placeholder when aware; otherwise drop the date sentence. */
+    static String resolve(String instructions, boolean searchEnabled, Instant now, boolean datetimeAware) {
+        String dated = datetimeAware ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
+                : instructions.replace("The current date is {{CURRENT_DATETIME}}.\n", "").replace("{{CURRENT_DATETIME}}", "");
+        return dated + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
     }
 
     /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
     public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage) {
+        return resolve(instructions, searchEnabled, now, uiLanguage, true);
+    }
+
+    public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage, boolean datetimeAware) {
         String language = "vi".equals(uiLanguage)
                 ? "Prefer replying in Vietnamese. If the user explicitly requests another language, use that language."
                 : "Reply in the language the user writes in, unless they explicitly request another language.";
         String base = instructions.startsWith(DEFAULT_SYSTEM)
                 ? instructions.replace("Reply in the language the user writes in, unless they explicitly request another language.", language)
                 : "# Account language preference\n" + language + "\n\n" + instructions;
-        return resolve(base, searchEnabled, now);
+        return resolve(base, searchEnabled, now, datetimeAware);
     }
 
     /** Per-inference reminders stay in the model request, not in the saved user transcript. */
@@ -216,14 +227,21 @@ public final class ChatPrompts {
     }
 
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter) {
+        return forInference(original, hasEvidence, lastCycle, siteFilter, "");
+    }
+
+    /** The agent task prompt leads the final reminder of every inference (Onyx {@code llm_loop.py} reminder). */
+    public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle, boolean siteFilter, String taskPrompt) {
+        boolean task = taskPrompt != null && !taskPrompt.isBlank();
         var tools = lastCycle ? Set.<String>of() : availableTools(original);
         String guidance = toolGuidance(tools, siteFilter);
         boolean openPages = !lastCycle && tools.contains("open_url") && justSearchedWeb(original);
-        if (!hasEvidence && !lastCycle && !openPages && guidance.isEmpty()) return original;
+        if (!hasEvidence && !lastCycle && !openPages && !task && guidance.isEmpty()) return original;
         var messages = new ArrayList<>(original.getInstructions());
         if (!guidance.isEmpty()) messages.addFirst(new SystemMessage(guidance));
-        if (!hasEvidence && !lastCycle && !openPages) return new Prompt(messages, original.getOptions());
+        if (!hasEvidence && !lastCycle && !openPages && !task) return new Prompt(messages, original.getOptions());
         var reminder = new StringBuilder("<system-reminder>\n");
+        if (task) reminder.append(taskPrompt.strip()).append('\n');
         if (openPages) reminder.append(OPEN_URL_REMINDER);
         if (hasEvidence) reminder.append(CITATION_GUIDANCE).append("Remember to provide inline citations for the supplied evidence.\n");
         if (lastCycle) reminder.append("""

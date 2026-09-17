@@ -35,6 +35,7 @@ export function ChatComposerMenu({
   mcp,
   research,
   disabled,
+  allowed,
 }: {
   web: {
     value: WebSearchMode;
@@ -58,6 +59,8 @@ export function ChatComposerMenu({
     onChange: (enabled: boolean) => void;
   };
   disabled: boolean;
+  /** Tools the conversation's agent allows (Onyx per-agent tools); absent means all. */
+  allowed?: { web: boolean; image: boolean; mcpServerIds: string[] | null };
 }) {
   const ui = useAppTranslation();
   const files = useComposerFileSelection();
@@ -114,11 +117,20 @@ export function ChatComposerMenu({
                 <ChevronRight aria-hidden="true" />
               </button>
               <div role="separator" className="my-1 border-t border-border-subtle" />
-              <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
-              {image && <ChatImageToggle {...image} onDone={close} />}
+              {allowed?.web !== false && (
+                <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
+              )}
+              {allowed?.image !== false && image && (
+                <ChatImageToggle {...image} onDone={close} />
+              )}
               <ChatMcpToggle
                 selected={mcp.selected}
-                available={mcpConnections.data?.length ?? 0}
+                available={
+                  mcpConnections.data?.filter(
+                    (connection) =>
+                      !allowed?.mcpServerIds || allowed.mcpServerIds.includes(connection.id),
+                  ).length ?? 0
+                }
                 onOpen={() => setView("mcp")}
               />
             </div>
@@ -159,6 +171,7 @@ export function ChatComposerMenu({
               selected={mcp.selected}
               onChange={mcp.onChange}
               sessionId={mcp.sessionId}
+              allowedIds={allowed?.mcpServerIds}
               onBack={() => setView("root")}
             />
           )}

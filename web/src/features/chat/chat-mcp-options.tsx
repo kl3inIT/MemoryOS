@@ -48,14 +48,22 @@ export function ChatMcpServers({
   onChange,
   onBack,
   sessionId,
+  allowedIds,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
   onBack: () => void;
   sessionId?: string;
+  /** Servers attached to the conversation's agent; null means every server the User may use. */
+  allowedIds?: string[] | null;
 }) {
   const ui = useAppTranslation();
-  const list = useMcpConnections();
+  const connections = useMcpConnections();
+  const list = {
+    data: connections.data?.filter(
+      (connection) => !allowedIds || allowedIds.includes(connection.id),
+    ),
+  };
   const [apiKeyFor, setApiKeyFor] = useState<McpConnection | null>(null);
 
   return (

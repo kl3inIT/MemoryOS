@@ -243,15 +243,27 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Earlier generated images are named on their answers, even an answer without text | `ChatTurnSetupTest` |
 | Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
 | `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
-| `run_python` guidance keeps the Onyx text plus the executor lines and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
-| `run_python` stages attachments in the Onyx order, file cap, byte budget and notice; reuses uploads in a turn; stores, links and deletes generated files; reports oversized files; truncates output; returns exit -1 without service details; uses the fixed per-call timeout | `RunPythonToolTest` |
+| `run_python` guidance keeps the Onyx text plus the executor lines (including `recalc-xlsx`) and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
+| The executor recalculates openpyxl and stale xlsxwriter formula values in place, keeps formulas and charts, reports error cells and refuses `.xlsm`, through the service and a real Docker executor | `interpreter/service/tests/integration_tests/test_office_stack.py::test_recalc_xlsx_fills_formula_values_and_reports_errors` |
+| `run_python` stages attachments in the Onyx order, file cap, byte budget and notice; reuses uploads in a turn; stores, links and deletes generated files; reports oversized files; truncates output; returns exit -1 with the exception text; sanitizes and de-duplicates names as Onyx; stages searched source files after the attachments through citation authority; uses the fixed per-call timeout | `RunPythonToolTest` |
+| `search_knowledge` records the stored original behind a hit and prefixes its evidence with the Onyx `FILE_ASSOCIATED_GUIDANCE` | `SearchToolTest.aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx` |
+| Sandbox names follow Onyx `sandbox_filename_for_document`; only readable originals are recorded and a newer generation replaces the older | `SandboxDocumentsTest` |
+| Sandbox originals keep readable files up to 64 MiB of any media type and recheck the stored object on open; the batch query applies the source reader's read scope | `DocumentOriginalServiceTest.sandboxOriginalsKeepReadableBoundedFilesOfAnyTypeAndRecheckOnOpen`, `SourceOriginalPdfQueryTest` |
 | The interpreter client caches health for 30 seconds, reports Onyx health errors, sends `X-Api-Key`, streams multipart uploads, parses execution results and types busy responses | `InterpreterClientTest` |
 | Opt-in, against a real interpreter (`MEMORYOS_INTERPRETER_LIVE_URL`, `MEMORYOS_INTERPRETER_LIVE_API_KEY`): a streamed upload with a Vietnamese file name, execution over it, download of the generated file and delete | `InterpreterServiceLiveTest` |
 | Assistant markdown keeps the relative generated-file link and image URL and drops `javascript:` links | `markdown-text.test.tsx` |
 | An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text | `chat-answer-links.test.tsx` |
 | The interpreter client reports streamed output as it arrives and returns the final result; a service error, a stream that ends without a result, a listener that stops reading and an unterminated oversized frame all fail | `InterpreterClientTest` |
-| `run_python` publishes the code, output bounded to its budget and the generated files to the timeline; a timeout or non-zero exit is a failed step that keeps its files, and a failure carries no service detail | `RunPythonToolTest` |
-| Generated files download from an authorized path, survive a reload and state their size; the step shows the code, the output and a failure in both languages | `chat-code.test.tsx` |
+| `run_python` publishes the code, output bounded to its budget and the generated files to the timeline; a timeout or non-zero exit is a failed step that keeps its files, and a failed call shows its error on stderr before the failed stage | `RunPythonToolTest` |
+| An xlsx preview is quoted CSV per sheet in workbook order with cached formula values, cut at a row boundary past its budget; a non-workbook is rejected | `SpreadsheetPreviewTest` |
+| Captured figures become PNG artifacts with bounded chart data apart from the model's files, listed in the model result without data, and every service copy is deleted; chart data is an object with a type and at most 256 KiB | `RunPythonToolTest.capturedFiguresBecomeChartsApartFromTheModelsFilesAndServiceCopiesAreDeleted`, `RunPythonToolTest.chartDataMustBeABoundedObjectWithAType` |
+| Chart data (V72) is served only to the owner and flagged on generated files | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The executor captures open figures as chart JSON and PNG at exit and leaves nothing for runs without pyplot | `interpreter/service/tests/integration_tests/test_office_stack.py::test_open_figures_are_captured_as_chart_data_and_png_at_exit` |
+| The browser accepts line, bar, pie and drawable superchart data, merges series, and falls back to the PNG otherwise; charts draw interactively and toggle to the PNG | `chat-chart.test.ts`, `tests/e2e/chat-generated-file-preview.spec.ts` |
+| A generated presentation converts in the executor on first preview, caches its PDF once, serves the cache without the interpreter, rejects failed or non-PDF output, reports an unavailable or busy interpreter and deletes every service copy | `PresentationPreviewServiceTest`, `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
+| The executor converts a Vietnamese pptx to PDF and refuses other files | `interpreter/service/tests/integration_tests/test_office_stack.py::test_pptx_to_pdf_converts_a_vietnamese_deck_and_refuses_other_files` |
+| Generated file previews pick the Onyx variant order, parse quoted CSV and keep only safe links in docx output; cards, answer file links and attachment chips open the centered preview modal, which previews attachments by their stored type and returns focus on close | `chat-file-preview.test.ts`, `chat-code.test.tsx`, `chat-answer-links.test.tsx`, `chat-file-reader.test.tsx`, `tests/e2e/chat-generated-file-preview.spec.ts` |
+| Generated files download from an authorized path, survive a reload and state their size; the step shows the code, stdout, stderr, the file count and the no-output note in both languages | `chat-code.test.tsx` |
 | The Tenant setting revises on every save, and generated files are served only to the owner in the same Tenant (V71) | `ChatPersistenceIntegrationTest.interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner` |
 | The edit action appears only where the conversation can edit; the dialog needs an instruction and the image's natural size and hands over a mask named after the image; mask geometry and rendering | `image-generation.test.tsx`; `chat-image-edit.test.tsx`; `chat-image-mask.test.ts` |
 
@@ -269,6 +281,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Research events chunk per agent and keep wire placement; nested events stay out of the top-level activity | `StreamBufferWriterTest.researchDeltasChunkPerAgentAndOtherResearchEventsFlushInOrder`, `ChatEventStreamTest.researchEventsAndNestedStepsKeepTheirPlacementOnTheWire`, `ChatActivityRecorderTest` |
 | Phase spans and timers with bounded outcomes, agent spans parented across threads, counters | `ResearchTelemetryTest` |
 | Live data part routing and history restore in the browser transport | `chat-transport.test.ts` |
+| An incomplete Responses stream keeps its text, ends with finish reason `length` and does not run a cut-off tool call; the answer request takes the model's catalog output limit above the execution reserve | `OpenAiResponsesChatModelTest.anIncompleteResponseEndsLikeOnyxWithItsTextAndWithoutTheCutOffToolCall`, `ChatSessionApiIntegrationTest.configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` |
 | A model served by `api.openai.com` streams every turn and connection validation through the Responses API with reasoning summaries (not for effort `none`), required and named tool choices and parallel tool calls; compatible gateways keep Chat Completions | `OpenAiResponsesChatModelTest`, `OpenAiChatProviderAdapterTest` |
 | A long reply stream resumes past repeated disconnects until the outcome; heartbeat-only connections reconnect without history polling or a recovering state; failed connections back off and show recovery; offline waits for `online` | `chat-transport.test.ts` |
 | Saved research restored in the browser: answer first, collapsed header with step and source counts, plan, cycle labels, agent tabs with durations, intermediate report on demand; composer toggle off by default | `chat-research.spec.ts` (Playwright, fixture backend); `chat-research-view.test.tsx` (render unit) |
@@ -295,3 +308,21 @@ Open: visual review of the research timeline, staging acceptance with the real c
 | The timeline names the MCP tool and server, offers Connect for the person's own rejected credential, sends a shared one to an administrator, and restores the category from stream and history | `chat-mcp-step.test.tsx` (8); `mcp-administration.spec.ts` (saved answer) |
 
 Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/verification.md).
+
+## Custom agents and prompt shortcuts (MEM-119)
+
+| Contract | Evidence |
+| --- | --- |
+| Use, edit, public, Group manager and transfer authority; vacancy; Source intersection | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` (PostgreSQL) |
+| Featured public agents seed pins once; labels managed with `AGENTS_MANAGE`; transactional display order; `code_interpreter` in the turn options | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| A Group-owned agent shared directly appears under Shared | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` |
+| `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
+| A requested window ending before the knowledge cutoff searches nothing | `SearchToolTest.knowledgeCutoffIsALowerBoundThatRequestsCannotWiden` |
+| Private shortcuts unique per owner, free-text names with spaces and diacritics, control characters rejected, public shortcuts managed and hideable | `ChatPersistenceIntegrationTest.promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable` |
+| Agent capabilities, registry and schema | `IamCapabilityTest`, `DefaultGroupServiceAuthorizationTest`, `GroupSchemaIntegrityTest` |
+| Gallery tabs, search, label facet chips, creator filter, featured badge, disabled create for members, desktop and mobile | `agents.spec.ts` (Playwright, mocked routes) |
+| Editor page: create with icon, task prompt, starter fields, source picker, cutoff and tools; browser draft survives reload; edit saves only changes and guards leaving | `agents.spec.ts` |
+| Share dialog: results only while typing, Save disabled until changed, Group role and organization access payload | `agents.spec.ts` |
+| Detail view: configuration snapshot for a use-only reader, share link `/agents?agent=`, starter prompt opens a new conversation and sends once | `agents.spec.ts` (fixture chat server) |
+| Sidebar pins reorder by keyboard and unpin; administration features an agent | `agents.spec.ts` |
+| Shortcuts: inline create on blur, public shortcuts read-only, `/tom tat` diacritic-insensitive match replaces the draft | `agents.spec.ts` |

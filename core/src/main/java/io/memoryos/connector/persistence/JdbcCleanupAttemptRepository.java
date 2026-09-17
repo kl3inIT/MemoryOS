@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -43,7 +44,7 @@ public class JdbcCleanupAttemptRepository {
     }
 
 
-    public boolean retry(CleanupWork work, String errorCode, int maxAttempts, Duration backoff) {
+    public boolean retry(CleanupWork work, String errorCode, @Nullable String errorMessage, @Nullable String errorDetail, int maxAttempts, Duration backoff) {
         return WorkLeases.retry(
                 jdbcClient,
                 "connector_cleanup_attempts",
@@ -51,6 +52,8 @@ public class JdbcCleanupAttemptRepository {
                 work.operationId().value(),
                 work.claimToken(),
                 errorCode,
+                errorMessage,
+                errorDetail,
                 maxAttempts,
                 backoff
         ) != WorkLeases.RetryOutcome.STALE;
@@ -179,10 +182,12 @@ public class JdbcCleanupAttemptRepository {
                 .update();
     }
 
-    public boolean complete(CleanupWork work, String status, String errorCode) {
+    public boolean complete(CleanupWork work, String status, String errorCode,
+            @Nullable String errorMessage, @Nullable String errorDetail) {
         int updated = jdbcClient.sql("""
                         UPDATE connector_cleanup_attempts
                         SET status = :status, error_code = :errorCode,
+                            error_message = :errorMessage, error_detail = :errorDetail,
                             completed_at = CURRENT_TIMESTAMP,
                             claim_token = NULL, lease_expires_at = NULL
                         WHERE tenant_id = :tenantId
@@ -192,6 +197,8 @@ public class JdbcCleanupAttemptRepository {
                         """)
                 .param("status", status)
                 .param("errorCode", errorCode)
+                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
+                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
                 .param("tenantId", work.tenantId().value())
                 .param("id", work.operationId().value())
                 .param("token", work.claimToken())

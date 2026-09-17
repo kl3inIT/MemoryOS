@@ -39,6 +39,7 @@ The Onyx baseline is checkout `40eb240df` together with the service repository [
 | Libraries and CLI tools | Onyx executor list; no CLI tools | Add statsmodels, pyarrow, xlrd, chardet, tabulate, jinja2, markdown, beautifulsoup4, markitdown, pdf2image, sympy; poppler-utils, qpdf, sqlite3, unzip/zip | Legacy `.xls`, CSV encodings, statistics, markdown tables and PDF rendering; the same items ship in Anthropic, AWS AgentCore, LibreChat or E2B images | Larger image and lockfile | Onyx list only |
 | Image size | Includes `nvidia-nccl-cu12` pulled by xgboost | uv override removes the CUDA NCCL wheel | About −380 MB; executors have no GPU | xgboost GPU training unavailable (never was without a GPU) | Keep the wheel |
 | Execution limits | 256 MB memory, 5 s CPU, 60 s wall | 1024 MB, 30 s CPU, 60 s wall (service defaults and Helm values) | Measured 2026-09-15: a 320 MB DataFrame is killed with exit 137 at 256 MB; peers default to 512 MiB–5 GiB | More host memory per concurrent run | Upstream limits |
+| Spreadsheet formula values | No LibreOffice; openpyxl workbooks keep formulas without values | `libreoffice-calc-nogui` and `recalc-xlsx`, run by the model after saving a workbook (phase 5) | Measured 2026-09-16: a staging `=SUM` read back as `None`; after `recalc-xlsx`, values, errors, charts and formatting are correct | +470 MB image (3.26 GB); about 10 s LibreOffice start per call | Leave values empty until a spreadsheet application opens the file |
 
 Behaviour of the service, executor and Helm chart is otherwise unchanged in phase 0.
 
@@ -94,7 +95,7 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
 
    Unlike Web search and image generation, an unavailable interpreter omits the tool instead of failing the turn. `ChatPrompts` adds the guidance only when the tool is registered.
 3. **Running code.** When the model calls `run_python(code)`, the tool:
-   - selects this turn's attachments (`ChatTurnSetup.fileIds`) in the Onyx order (files named in the code first, then newest) within 25 files and 100 MiB, with Onyx file-name sanitizing and de-duplication;
+   - selects this turn's attachments (`ChatTurnSetup.fileIds`), followed by the source files `search_knowledge` found this turn (Onyx `build_python_chat_files_from_search_docs`, `llm_loop.py`), in the Onyx order (files named in the code first, then newest) within 25 files and 100 MiB, with Onyx file-name sanitizing and de-duplication;
    - uploads them with `POST /v1/files`, streaming from object storage, and reuses uploads within the turn by file name and the stored SHA-256, so no attachment is buffered in the API heap;
    - calls **`POST /v1/execute`** with a fixed `timeout_ms` of 60 000 and an HTTP timeout 10 seconds longer, as in Onyx. The first draft derived the timeout from the turn deadline; MEM-101 removed the turn deadline (`ChatTurnService.maintain`: "A turn has no total deadline"), so there is nothing to subtract from and the Onyx per-call timeout stands on its own. Stop and the tool-cycle limit bound a turn.
 
@@ -105,11 +106,12 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
 5. **Generated files.** Each workspace file up to 25 MiB is downloaded with `GET /v1/files/{id}`, staged and adopted into object storage as a `chat_file_artifact` (V71) row on the assistant message, and deleted from the interpreter. Larger files are reported as skipped. Uploaded inputs stay on the service until its file TTL (`FILE_TTL_SEC`, 900 seconds on staging), as in Onyx; phase 3 adds the missing expiry loop to the service. Files are served owner-authorized at `GET /api/chat/file-artifacts/{id}/content`: `inline` for PNG, JPEG and WebP, `attachment` otherwise, with `nosniff` and `no-store`.
 6. **Model result.** The Onyx JSON: `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files: [{filename, file_link}], error, staging_notice}`.
    - `stdout` and `stderr` are truncated to 50 000 characters with the Onyx suffix.
-   - `exit_code` is -1 when the service cannot be reached or rejects the call.
+   - `exit_code` is -1 when the service cannot be reached or rejects the call, with the exception text in `stderr` and `error` as Onyx (`str(e)`). The first draft returned a generic error; the owner chose the Onyx behaviour on 2026-09-17.
    - `file_link` is the relative MemoryOS URL above, so the model never sees interpreter file IDs or URLs.
    - MemoryOS has no reminder message, so the Onyx `FILE_REMINDER` text follows the JSON in the tool result when files were generated.
-7. **Browser.** Phase 3 adds the administration page and a timeline label. Phase 4 adds the code and output in the step and download cards for generated files below the answer, and makes the model's markdown link to the artifact path clickable.
-8. **Administration and runtime.**
+7. **Searched source files.** When `run_python` is registered, `SearchTool` records the stored original behind each hit through `DocumentOriginalService.citationOriginals` (the Chat source reader's authority, any media type, 64 MiB) and prefixes that hit's evidence with Onyx `FILE_ASSOCIATED_GUIDANCE`. Departures: a title without an extension takes the stored file's extension, so the model can tell the file type; Onyx keeps the sanitized title's extension as it is, possibly none. Opening the file for upload rechecks authority, the generation's stored object and its size.
+8. **Browser.** Phase 3 adds the administration page and a timeline label. Phase 4 adds the code and output in the step and download cards for generated files below the answer, and makes the model's markdown link to the artifact path clickable.
+9. **Administration and runtime.**
    - `/api/chat/interpreter`: `GET` and `PUT` the Tenant setting, and `GET /health` returns the uncached `{connected, error, version}` (Onyx `server/manage/code_interpreter/api.py`), all with `MODELS_MANAGE`.
    - The interpreter requires `X-Api-Key` on every `/v1` route (a MemoryOS addition). The API sends the same key.
    - Both containers read one host file mounted as the Compose secret `interpreter_api_key`. The API reads `MEMORYOS_INTERPRETER_API_KEY_FILE` through its launcher; there is no Infisical entry.
@@ -126,7 +128,7 @@ In scope, by phase:
 4. Browser: streamed code and output in the activity timeline, generated file download, and the capability decision (no new capability).
 5. xlsx formula values: recalculate a generated workbook before it is stored, because `openpyxl` writes formulas without computed values.
 
-Phases 5 and 6 originally carried more, taken from comparative research into Anthropic Agent Skills and E2B rather than from Onyx. They were rescoped on 2026-09-16 to the one verified gap above; [plan.md](plan.md#not-planned) records what is not planned and why. The largest of those, capturing charts and DataFrames as structured results, would have duplicated two contracts MemoryOS already has: generated files as `chat_file_artifact` (phase 4) and `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary for a table the user reads.
+Phases 5 and 6 originally carried more, taken from comparative research into Anthropic Agent Skills and E2B rather than from Onyx. They were rescoped on 2026-09-16 to the one verified gap above; [plan.md](plan.md#not-planned) records what is not planned and what the owner is still considering. The largest of those, capturing charts and DataFrames as structured results, would have duplicated two contracts MemoryOS already has: generated files as `chat_file_artifact` (phase 4) and `render_gui`'s closed `Table`/`Row`/`Cell` vocabulary for a table the user reads.
 
 Authorization follows Onyx: no new capability. Any user who can chat can use `run_python` once an administrator has enabled a configured, healthy interpreter.
 

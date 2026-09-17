@@ -149,6 +149,7 @@ public class JdbcSourceItemRepository {
         }
     }
 
+    /** Same-content re-synchronization refreshes the current version's provider version in place (see sameContent). */
     public java.util.Optional<ItemVersion> unchanged(
             io.memoryos.connector.ConnectorSyncPort.Work work, String fileId, String providerVersion) {
         return jdbcClient.sql("""

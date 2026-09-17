@@ -48,6 +48,9 @@ public final class ChatModelGuard implements ChatModel {
     private boolean researchPrompts;
     private UnaryOperator<Prompt> toolChoice = UnaryOperator.identity();
     public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
+    private String taskPrompt = "";
+    /** Agent task prompt repeated as the final reminder of every inference (Onyx {@code task_prompt}). */
+    public void taskPrompt(String value) { taskPrompt = value == null ? "" : value; }
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
@@ -187,7 +190,7 @@ public final class ChatModelGuard implements ChatModel {
         int cycle = calls.get() + 1;
         if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
         boolean lastCycle = cycle == cycles && !researchPrompts;
-        var guided = researchPrompts ? original : ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter);
+        var guided = researchPrompts ? original : ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, taskPrompt);
         var request = policy.options().apply(toolChoice.apply(lastCycle ? finalRequest.apply(guided) : guided));
         int input = policy.inputTokens(request, inputLimit);
         var reservation = reserve(input);

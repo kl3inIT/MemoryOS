@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
       canManageModels,
       canManageProviders,
       canManageMcp,
+      canManageAgents,
     } = useAdminAccess();
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
+    const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
@@ -50,7 +52,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                   ? "interpreter"
                   : mcpSelected
                     ? "mcp"
-                    : "sources";
+                    : agentsSelected
+                      ? "agents"
+                      : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -62,7 +66,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
               ? canManageModels
               : page === "mcp"
                 ? canManageMcp
-                : canReadSources;
+                : page === "agents"
+                  ? canManageAgents
+                  : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -89,7 +95,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                         ? "Code Interpreter"
                         : page === "mcp"
                           ? "Máy chủ MCP"
-                          : "Sources",
+                          : page === "agents"
+                            ? "Quản lý trợ lý"
+                            : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

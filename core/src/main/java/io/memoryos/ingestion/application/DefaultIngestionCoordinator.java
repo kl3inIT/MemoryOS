@@ -168,7 +168,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .addKeyValue("stage", failureStage)
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Extraction failed");
-            if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name())) {
+            if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name(),
+                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception))) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
                     .log("Ignored stale typed extraction failure");
             }
@@ -184,6 +185,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             if (!indexingPort.retry(
                     work,
                     errorCode,
+                    exception.getMessage(),
+                    io.memoryos.FailureEvidence.detail(exception),
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
@@ -239,6 +242,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
             if (!cleanupPort.retry(
                     work,
                     "SOURCE_CLEANUP_INTERNAL",
+                    exception.getMessage(),
+                    io.memoryos.FailureEvidence.detail(exception),
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
@@ -260,6 +265,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .log("Cleanup processing lease renewal failed; the next interval will retry");
         }
     }
+
 
     private static final class StaleIndexClaimException extends RuntimeException {
     }

@@ -2,6 +2,7 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CircleCheck, CircleHelp, CircleX, Clock3, LoaderCircle, Trash2 } from "lucide-react";
 import { runHasNoChanges, runIsActive } from "./source-history";
 
 export function HistoryTime({ value }: { value: string | null }) {
@@ -78,17 +79,10 @@ const attemptStatusLabels: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
-const searchIndexStatusLabels: Record<string, string> = {
-  READY: "Ready",
-  FAILED: "Failed",
-  INDEXING: "Indexing",
-  WAITING: "Waiting",
-};
-
 export function ItemStatus({
   item,
 }: {
-  item: Pick<SourceItem, "status" | "searchStatus"> & {
+  item: Pick<SourceItem, "status"> & {
     latestAttempt?: SourceItem["latestAttempt"] | null;
   };
 }) {
@@ -106,20 +100,43 @@ export function ItemStatus({
       : Object.hasOwn(itemStatusLabels, item.status)
         ? itemStatusLabels[item.status]
         : "Unknown";
+  const tone =
+    item.status === "INDEXED"
+      ? "success"
+      : item.status === "FAILED"
+        ? "danger"
+        : item.status === "PENDING"
+          ? "info"
+          : "neutral";
+  const Icon =
+    item.status === "INDEXED"
+      ? CircleCheck
+      : item.status === "FAILED"
+        ? CircleX
+        : item.status === "DELETING"
+          ? Trash2
+          : item.status === "PENDING"
+            ? attemptStatus === "IN_PROGRESS"
+              ? LoaderCircle
+              : Clock3
+            : CircleHelp;
   return (
     <>
-      <span>{ui(label)}</span>
+      <StatusBadge
+        tone={tone}
+        className="gap-1.5 rounded-full border border-current/30 px-2.5 py-1"
+      >
+        <Icon
+          aria-hidden="true"
+          className={`size-3.5 shrink-0 ${item.status === "PENDING" && attemptStatus === "IN_PROGRESS" ? "motion-safe:animate-spin" : ""}`}
+        />
+        {ui(label)}
+      </StatusBadge>
       {item.latestAttempt && attemptLabel !== label ? (
         <p className="mt-1 font-secondary-body text-content-muted">
           {ui("Latest attempt:")} {ui(attemptLabel)}
         </p>
       ) : null}
-      <p className="mt-1 font-secondary-body text-content-muted">
-        {ui("Search index:")}{" "}
-        {Object.hasOwn(searchIndexStatusLabels, item.searchStatus)
-          ? ui(searchIndexStatusLabels[item.searchStatus])
-          : ui("Unknown")}
-      </p>
     </>
   );
 }

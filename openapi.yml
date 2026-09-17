@@ -1773,6 +1773,405 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/prompt-shortcuts/{shortcutId}:
+    put:
+      tags:
+      - Chat
+      summary: Update a private prompt shortcut with an expected revision
+      operationId: updateChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete a private prompt shortcut
+      operationId: deleteChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/{shortcutId}/hidden:
+    put:
+      tags:
+      - Chat
+      summary: Hide or show a public prompt shortcut for the actor
+      operationId: hideChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HiddenRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/public/{shortcutId}:
+    put:
+      tags:
+      - Chat
+      summary: Update a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: updatePublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: deletePublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: shortcutId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/preferences:
+    get:
+      tags:
+      - Chat
+      summary: Read whether the actor uses prompt shortcuts
+      operationId: getChatPromptShortcutPreferences
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcutPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Enable or disable prompt shortcuts for the actor
+      operationId: setChatPromptShortcutPreferences
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcutPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/projects/{projectId}:
     get:
       tags:
@@ -1952,7 +2351,7 @@ paths:
     get:
       tags:
       - Chat
-      summary: Read an authorized assistant
+      summary: Read the full snapshot of a usable agent
       operationId: getChatPersona
       parameters:
       - name: personaId
@@ -2000,7 +2399,7 @@ paths:
     put:
       tags:
       - Chat
-      summary: Update assistant settings with an expected revision
+      summary: Update agent settings with an expected revision
       operationId: updateChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -2068,7 +2467,7 @@ paths:
     delete:
       tags:
       - Chat
-      summary: Delete a private assistant while retaining conversation history
+      summary: Delete an agent while retaining conversation history
       operationId: deleteChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -2120,6 +2519,75 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/sharing:
+    put:
+      tags:
+      - Chat
+      summary: "Replace people and Group shares and, for owners, Tenant-wide visibility"
+      operationId: shareChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2252,6 +2720,345 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PersonaModel"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/listing:
+    put:
+      tags:
+      - Chat
+      summary: "Set listed, featured and display priority; requires AGENTS_MANAGE"
+      operationId: setChatPersonaListing
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-pins:
+    get:
+      tags:
+      - Chat
+      summary: List the actor's pinned agents in order
+      operationId: listChatPersonaPins
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Replace the actor's ordered pinned agents
+      operationId: replaceChatPersonaPins
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-order:
+    put:
+      tags:
+      - Chat
+      summary: Set display priorities from one ordered list; requires AGENTS_MANAGE
+      operationId: reorderChatPersonas
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Order saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-labels/{labelId}:
+    put:
+      tags:
+      - Chat
+      summary: Rename an agent label; requires AGENTS_MANAGE
+      operationId: renameChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: labelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRef"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: Delete an agent label; requires AGENTS_MANAGE
+      operationId: deleteChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: labelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5579,6 +6386,213 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/prompt-shortcuts:
+    get:
+      tags:
+      - Chat
+      summary: List the actor's own and public prompt shortcuts
+      operationId: listChatPromptShortcuts
+      parameters:
+      - name: includeHidden
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create a private prompt shortcut
+      operationId: createChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/prompt-shortcuts/public:
+    get:
+      tags:
+      - Chat
+      summary: List public prompt shortcuts; requires AGENTS_MANAGE
+      operationId: listPublicChatPromptShortcuts
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create a public prompt shortcut; requires AGENTS_MANAGE
+      operationId: createPublicChatPromptShortcut
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortcutInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Name is taken or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptShortcut"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/projects:
     get:
       tags:
@@ -5825,9 +6839,31 @@ paths:
     get:
       tags:
       - Chat
-      summary: List the default and actor-owned assistants
+      summary: "List usable agents: all listed, the actor's own, or shared with the\
+        \ actor"
       operationId: listChatPersonas
       parameters:
+      - name: view
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ALL
+          enum:
+          - ALL
+          - MINE
+          - SHARED
+      - name: labelId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
       - name: offset
         in: query
         required: false
@@ -5883,7 +6919,7 @@ paths:
     post:
       tags:
       - Chat
-      summary: Create a private assistant
+      summary: Create a private agent; requires AGENTS_CREATE
       operationId: createChatPersona
       parameters:
       - name: X-MemoryOS-CSRF
@@ -5933,6 +6969,232 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/restore:
+    post:
+      tags:
+      - Chat
+      summary: Restore a deleted agent; requires AGENTS_MANAGE
+      operationId: restoreChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/owner:
+    post:
+      tags:
+      - Chat
+      summary: Transfer agent ownership to an active member or a Group
+      operationId: transferChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-labels:
+    get:
+      tags:
+      - Chat
+      summary: List agent labels
+      operationId: listChatPersonaLabels
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRef"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Create an agent label
+      operationId: createChatPersonaLabel
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRef"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7955,7 +9217,7 @@ paths:
     get:
       tags:
       - Chat
-      summary: List models available to this actor and assistant
+      summary: List models available to this actor and agent
       operationId: listChatPersonaModels
       parameters:
       - name: personaId
@@ -8002,11 +9264,73 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/personas/{personaId}/avatar:
+    get:
+      tags:
+      - Chat
+      summary: Read the avatar image of a usable agent
+      operationId: getChatPersonaAvatar
+      parameters:
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Avatar image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/personas/sources:
     get:
       tags:
       - Chat
-      summary: List sources eligible for assistant search
+      summary: List sources eligible for agent search
       operationId: listChatPersonaSources
       parameters:
       - name: offset
@@ -8058,6 +9382,127 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SourceOption"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/administration:
+    get:
+      tags:
+      - Chat
+      summary: "List every agent including unlisted, vacant and deleted ones; requires\
+        \ AGENTS_MANAGE"
+      operationId: listChatPersonasForAdministration
+      parameters:
+      - name: includeDeleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonaView"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/persona-share-options:
+    get:
+      tags:
+      - Chat
+      summary: Search active members and ordinary Groups to share an agent with
+      operationId: listChatPersonaShareOptions
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentShareOptions"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -8768,6 +10213,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
+        \ cut at a row boundary"
+      operationId: previewChatFileSpreadsheet
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/passages:
     get:
       tags:
@@ -8940,6 +10441,113 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private generated xlsx as CSV text per sheet, each cut\
+        \ at a row boundary"
+      operationId: previewChatFileArtifactSpreadsheet
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/pdf-preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read a PDF rendering of an owner-private generated presentation, converted\
+        \ in the interpreter on first request"
+      operationId: getChatFileArtifactPdfPreview
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "429":
+          description: The interpreter is busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/file-artifacts/{artifactId}/content:
     get:
       tags:
@@ -8987,6 +10595,56 @@ paths:
               schema:
                 type: string
                 format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/chart:
+    get:
+      tags:
+      - Chat
+      summary: Read the chart data captured from the figure behind an owner-private
+        generated PNG
+      operationId: getChatFileArtifactChart
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Chart in the E2B chart model (type, title, elements, axes)"
+          content:
+            application/json:
+              schema:
+                type: object
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9259,6 +10917,59 @@ paths:
         schema:
           type: string
       responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/personas/{personaId}/sharing/me:
+    delete:
+      tags:
+      - Chat
+      summary: Remove the actor's direct share of an agent
+      operationId: leaveChatPersona
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: personaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
         "204":
           description: No Content
       security:
@@ -10329,6 +12040,49 @@ components:
       - name
       - personaIds
       - revision
+    ShortcutInput:
+      type: object
+      properties:
+        name:
+          type: string
+        content:
+          type: string
+        active:
+          type: boolean
+    PromptShortcut:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        content:
+          type: string
+        active:
+          type: boolean
+        isPublic:
+          type: boolean
+        hidden:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+    HiddenRequest:
+      type: object
+      properties:
+        hidden:
+          type: boolean
+    PreferencesRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+    PromptShortcutPreferences:
+      type: object
+      properties:
+        enabled:
+          type: boolean
     ProjectInput:
       type: object
       properties:
@@ -10375,6 +12129,8 @@ components:
           type: string
         instructions:
           type: string
+        taskPrompt:
+          type: string
         starterPrompts:
           type: array
           items:
@@ -10384,8 +12140,16 @@ components:
           items:
             type: string
             format: uuid
-        searchEnabled:
-          type: boolean
+        tools:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        mcpServerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
         modelConfigurationId:
           oneOf:
           - type: string
@@ -10406,12 +12170,92 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
+        avatarFileId:
+          type: string
+          format: uuid
+        labelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        replaceBaseSystemPrompt:
+          type: boolean
+        datetimeAware:
+          type: boolean
+        knowledgeCutoff:
+          type: string
+          format: date-time
+    AgentGroupShare:
+      type: object
+      properties:
+        group:
+          $ref: "#/components/schemas/AgentRef"
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    AgentOwner:
+      type: object
+      properties:
+        actor:
+          $ref: "#/components/schemas/AgentPerson"
+        group:
+          $ref: "#/components/schemas/AgentRef"
+    AgentPerson:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+    AgentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentSourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentUserShare:
+      type: object
+      properties:
+        person:
+          $ref: "#/components/schemas/AgentPerson"
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
     PersonaPermissions:
       type: object
       properties:
         edit:
           type: boolean
+        share:
+          type: boolean
+        setPublic:
+          type: boolean
         delete:
+          type: boolean
+        transfer:
+          type: boolean
+        leave:
+          type: boolean
+        manage:
           type: boolean
     PersonaView:
       type: object
@@ -10432,6 +12276,8 @@ components:
           type: string
         instructions:
           type: string
+        taskPrompt:
+          type: string
         starterPrompts:
           type: array
           items:
@@ -10441,8 +12287,19 @@ components:
           items:
             type: string
             format: uuid
-        searchEnabled:
-          type: boolean
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentSourceRef"
+        tools:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        mcpServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
         modelConfigurationId:
           oneOf:
           - type: string
@@ -10463,6 +12320,92 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
+        hasAvatar:
+          type: boolean
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
+        owner:
+          $ref: "#/components/schemas/AgentOwner"
+        vacant:
+          type: boolean
+        userShares:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentUserShare"
+        groupShares:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentGroupShare"
+        isPublic:
+          type: boolean
+        publicPermission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+        listed:
+          type: boolean
+        featured:
+          type: boolean
+        displayPriority:
+          type: integer
+          format: int32
+        replaceBaseSystemPrompt:
+          type: boolean
+        datetimeAware:
+          type: boolean
+        knowledgeCutoff:
+          type: string
+          format: date-time
+        pinned:
+          type: boolean
+        deletedAt:
+          type: string
+          format: date-time
+    GroupShareInput:
+      type: object
+      properties:
+        groupId:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    SharingInput:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserShareInput"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupShareInput"
+        isPublic:
+          type: boolean
+        publicPermission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
+    UserShareInput:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
     PersonaModel:
       type: object
       properties:
@@ -10481,6 +12424,29 @@ components:
       - modelConfigurationId
       - personaId
       - revision
+    ListingInput:
+      type: object
+      properties:
+        listed:
+          type: boolean
+        featured:
+          type: boolean
+        displayPriority:
+          type: integer
+          format: int32
+    PinsRequest:
+      type: object
+      properties:
+        personaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    LabelRequest:
+      type: object
+      properties:
+        name:
+          type: string
     CapabilitiesInput:
       type: object
       properties:
@@ -11623,6 +13589,8 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -11687,6 +13655,8 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -11921,6 +13891,15 @@ components:
           minLength: 0
       required:
       - title
+    TransferInput:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
     ChatModelValidationResult:
       type: object
       properties:
@@ -12434,8 +14413,39 @@ components:
         occurredAt:
           type: string
           format: date-time
+        errorMessage:
+          type:
+          - string
+          - "null"
+        errorDetail:
+          type:
+          - string
+          - "null"
+        currentItemStatus:
+          type:
+          - string
+          - "null"
+          enum:
+          - PENDING
+          - INDEXED
+          - FAILED
+          - DELETING
+        currentItemErrorCode:
+          type:
+          - string
+          - "null"
+        currentItemLastIndexedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
       required:
       - code
+      - currentItemErrorCode
+      - currentItemLastIndexedAt
+      - currentItemStatus
+      - errorDetail
+      - errorMessage
       - fileId
       - fileName
       - id
@@ -12934,6 +14944,8 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -12956,6 +14968,8 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
         authorizationVersion:
           type: integer
           format: int64
@@ -13138,6 +15152,8 @@ components:
           - SOURCES_DELETE
           - MODELS_MANAGE
           - MCP_MANAGE
+          - AGENTS_CREATE
+          - AGENTS_MANAGE
         label:
           type: string
         description:
@@ -13164,6 +15180,8 @@ components:
             - SOURCES_DELETE
             - MODELS_MANAGE
             - MCP_MANAGE
+            - AGENTS_CREATE
+            - AGENTS_MANAGE
       required:
       - description
       - editable
@@ -13579,7 +15597,11 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
+          description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
       required:
+      - chart
       - filename
       - id
       - mediaType
@@ -13900,6 +15922,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GeneratedFile"
+        stream:
+          type:
+          - string
+          - "null"
+          enum:
+          - stdout
+          - stderr
       required:
       - assistantMessageId
       - code
@@ -13907,6 +15936,7 @@ components:
       - output
       - sequence
       - stage
+      - stream
       - toolCallId
     GeneratedFile:
       type: object
@@ -13921,6 +15951,8 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
     ResearchPlanEvent:
       type: object
       properties:
@@ -14187,6 +16219,17 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
+    AgentShareOptions:
+      type: object
+      properties:
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentPerson"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRef"
     ChatPersona:
       type: object
       properties:
@@ -14302,6 +16345,22 @@ components:
         totalCharacters:
           type: integer
           format: int32
+    ChatSpreadsheetPreview:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSpreadsheetSheet"
+    ChatSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
     ChatFilePolicyResponse:
       type: object
       properties:

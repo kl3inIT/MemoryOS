@@ -25,6 +25,7 @@ import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
 import type { CodeRun } from "./chat-code";
+import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
 import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "./chat-evidence";
 import { parseMcpToolName } from "./chat-mcp-connections";
@@ -132,6 +133,7 @@ function stepTitle(
     case "edit_image":
       return running ? ui("Đang sửa ảnh…") : ui("Đã sửa ảnh");
     case "run_python":
+      if (state === "failed") return ui("Chạy Python không thành công");
       return running ? ui("Đang chạy Python…") : ui("Đã chạy Python");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
@@ -223,21 +225,41 @@ function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state: ToolSt
       (aui.message.metadata.custom.codeRuns as Record<string, CodeRun> | undefined)?.[toolCallId],
   );
   if (!run?.code) return null;
+  // Onyx PythonToolRenderer: code, then Output, then Error, the generated file count, and a no-output note.
   return (
     <div className="space-y-2 text-xs">
-      <p>{ui("Mã đã chạy")}</p>
-      <pre className="max-h-64 overflow-auto rounded-lg border border-border-subtle bg-surface-sunken p-2.5 font-mono text-[11px] leading-relaxed">
-        <code>{run.code}</code>
-      </pre>
-      {run.output && (
-        <>
-          <p>{state === "running" ? ui("Kết quả đang chạy") : ui("Kết quả")}</p>
-          <pre className="max-h-64 overflow-auto rounded-lg border border-border-subtle bg-surface-subtle p-2.5 font-mono text-[11px] leading-relaxed text-content-secondary">
-            <code>{run.output}</code>
+      <div className="text-[12px] [&_pre]:max-h-64 [&_pre]:rounded-lg! [&_pre]:border-t!">
+        <HighlightedCode code={run.code.trim()} language="python" />
+      </div>
+      {run.stdout && (
+        <section aria-label={ui("Kết quả")} className="rounded-lg bg-surface-subtle p-2.5">
+          <p className="mb-1 font-medium text-content-muted">
+            {state === "running" ? ui("Kết quả đang chạy") : ui("Kết quả")}
+          </p>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-content-primary">
+            {run.stdout}
           </pre>
-        </>
+        </section>
       )}
-      {run.status === "failed" && <p role="status">{ui("Chạy Python không thành công")}</p>}
+      {run.stderr && (
+        <section
+          aria-label={ui("Lỗi")}
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5"
+        >
+          <p className="mb-1 font-medium text-destructive">{ui("Lỗi")}</p>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-destructive">
+            {run.stderr}
+          </pre>
+        </section>
+      )}
+      {run.files.length > 0 && (
+        <p className="text-content-muted">
+          {ui("Đã tạo {{count}} tệp", { count: run.files.length })}
+        </p>
+      )}
+      {run.status !== "running" && !run.stdout && !run.stderr && (
+        <p className="text-content-muted">{ui("Không có output")}</p>
+      )}
     </div>
   );
 }
@@ -310,7 +332,8 @@ export function ChatReasoningStep({ running }: { running: boolean }) {
     <ActivityStep
       icon={<Brain />}
       status={running ? "running" : "done"}
-      title={running ? ui("Đang suy nghĩ…") : ui("Suy nghĩ")}
+      // The group header already says "Thinking…" while it runs; the step spinner shows it is live.
+      title={ui("Suy nghĩ")}
     >
       <div className="text-sm [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-muted">
         <MarkdownText />

@@ -106,6 +106,32 @@ class RunPythonToolTest {
         assertFalse(reply.contains(RunPythonTool.FILE_REMINDER));
     }
 
+    @Test void searchedSourceFilesAreStagedAfterTheChatFilesThroughCitationAuthority() throws Exception {
+        attach("notes.csv", 10, 5);
+        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
+        UUID document = UUID.randomUUID(), generation = UUID.randomUUID();
+        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+        when(originals.citationOriginals(eq(actor), any())).thenReturn(java.util.Map.of(document,
+                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/r"),
+                        "report.xlsx", new ObjectMetadata(20, "application/vnd.ms-excel", new ContentSha256("c".repeat(64))))));
+        var closed = new java.util.concurrent.atomic.AtomicBoolean();
+        when(originals.citationOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
+                .OriginalPdf(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
+        var sandbox = new SandboxDocuments(originals, actor);
+        sandbox.register(List.of(new io.memoryos.retrieval.SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
+                Instant.EPOCH, .5)));
+        String name = "Report_" + stored.value() + ".xlsx";
+        when(client.upload(eq(name), eq("application/vnd.ms-excel"), any())).thenReturn("svc-report");
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
+
+        tool().withSandbox(sandbox).runPython("print(1)");
+
+        assertEquals(List.of(new InterpreterClient.StagedFile("notes.csv", "svc-notes.csv"),
+                new InterpreterClient.StagedFile(name, "svc-report")), staged());
+        verify(originals).citationOriginal(actor, document, generation);
+        assertTrue(closed.get());
+    }
+
     @Test void referencedFilesWinTheFileCapAndTheNoticeNamesTheLimit() throws Exception {
         var referenced = attach("budget.xlsx", 10, 100);
         for (int i = 0; i < RunPythonTool.MAX_STAGED_FILES; i++) attach("f" + i + ".csv", 10, 50 - i);
@@ -160,6 +186,48 @@ class RunPythonToolTest {
         verify(client).delete("11111111-1111-1111-1111-111111111111");
     }
 
+    @Test void capturedFiguresBecomeChartsApartFromTheModelsFilesAndServiceCopiesAreDeleted() throws Exception {
+        var chart = UUID.randomUUID();
+        var plain = UUID.randomUUID();
+        String line = "{\"type\":\"line\",\"title\":\"Doanh thu quý 3\",\"elements\":[]}";
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
+                new InterpreterClient.WorkspaceFile(".memoryos-charts", "directory", null),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-1.png", "file", "png-1"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-1.json", "file", "json-1"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-2.png", "file", "png-2"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/chart-2.json", "file", "json-2"),
+                new InterpreterClient.WorkspaceFile(".memoryos-charts/other.txt", "file", "other")));
+        when(client.download("png-1")).thenReturn(new byte[]{1});
+        when(client.download("json-1")).thenReturn(line.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(client.download("png-2")).thenReturn(new byte[]{2});
+        // Not a chart object: the PNG is kept without chart data.
+        when(client.download("json-2")).thenReturn("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(artifacts.store(tenant, messageId, "Doanh thu quý 3.png", "image/png", new byte[]{1}, line)).thenReturn(chart);
+        when(artifacts.store(tenant, messageId, "chart-2.png", "image/png", new byte[]{2}, null)).thenReturn(plain);
+
+        var reply = tool().runPython("plt.plot([1, 2])");
+
+        var json = result(reply);
+        assertEquals(0, json.path("generated_files").size());
+        assertFalse(reply.contains(RunPythonTool.FILE_REMINDER));
+        assertEquals("line", json.path("charts").get(0).path("type").asString());
+        assertEquals("Doanh thu quý 3", json.path("charts").get(0).path("title").asString());
+        assertEquals("/api/chat/file-artifacts/" + chart + "/content", json.path("charts").get(0).path("file_link").asString());
+        assertEquals("image", json.path("charts").get(1).path("type").asString());
+        assertFalse(reply.contains("elements"));
+        for (var id : List.of("png-1", "json-1", "png-2", "json-2", "other")) verify(client).delete(id);
+        var terminal = published.getLast();
+        assertEquals(List.of(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(chart, "Doanh thu quý 3.png", "image/png", 1, true),
+                new io.memoryos.chat.ChatCodeEvent.GeneratedFile(plain, "chart-2.png", "image/png", 1, false)), terminal.files());
+    }
+
+    @Test void chartDataMustBeABoundedObjectWithAType() {
+        assertEquals("{\"type\":\"pie\"}", RunPythonTool.chartJson("{\"type\": \"pie\"}".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson("{\"title\":\"x\"}".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson("not json".getBytes()));
+        assertEquals(null, RunPythonTool.chartJson(new byte[RunPythonTool.MAX_CHART_JSON_BYTES + 1]));
+    }
+
     @Test void oversizedGeneratedFilesAreReportedAndStillDeleted() throws Exception {
         when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok("",
                 new InterpreterClient.WorkspaceFile("big.csv", "file", "22222222-2222-2222-2222-222222222222")));
@@ -183,15 +251,16 @@ class RunPythonToolTest {
         assertTrue(json.path("stdout").asString().endsWith("\n... [output truncated, 7 characters omitted]"));
     }
 
-    @Test void anUnreachableServiceReturnsExitMinusOneWithoutDetails() throws Exception {
-        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
+    @Test void aServiceFailureReturnsExitMinusOneWithTheExceptionTextLikeOnyx() throws Exception {
+        when(client.executeStream(anyString(), anyInt(), anyList(), any()))
+                .thenThrow(new IOException("Code interpreter returned HTTP 503: executor image missing"));
 
         var reply = tool().runPython("print(1)");
 
         var json = result(reply);
         assertEquals(-1, json.path("exit_code").asInt());
-        assertEquals("Code interpreter is unavailable.", json.path("error").asString());
-        assertFalse(reply.contains("secret"));
+        assertEquals("Code interpreter returned HTTP 503: executor image missing", json.path("error").asString());
+        assertEquals("Code interpreter returned HTTP 503: executor image missing", json.path("stderr").asString());
         verify(activity).fail();
     }
 
@@ -225,6 +294,7 @@ class RunPythonToolTest {
         assertEquals("plt.savefig('chart.png')", published.getFirst().code());
         var streamed = published.stream().filter(event -> event.stage() == io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT).toList();
         assertEquals("first\n", streamed.getFirst().output());
+        assertEquals(List.of("stdout", "stderr"), streamed.stream().map(io.memoryos.chat.ChatCodeEvent::stream).toList());
         assertEquals(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS,
                 streamed.stream().mapToInt(event -> event.output().length()).sum());
         var completed = published.getLast();
@@ -254,20 +324,35 @@ class RunPythonToolTest {
         assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
     }
 
-    @Test void aFailedRunTellsTheTimelineWithoutServiceDetail() throws Exception {
-        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
+    @Test void aFailedRunShowsTheErrorOnStderrBeforeTheFailedStage() throws Exception {
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("Code interpreter error: boom"));
 
         tool().runPython("print(1)");
 
+        var error = published.get(published.size() - 2);
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT, error.stage());
+        assertEquals("stderr", error.stream());
+        assertEquals("Code interpreter error: boom", error.output());
         assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
-        assertTrue(published.stream().noneMatch(event -> String.valueOf(event.output()).contains("secret")));
     }
 
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {
         assertEquals("a_b_c.csv", RunPythonTool.safeName("a/b:c.csv"));
         assertEquals("file", RunPythonTool.safeName(" .. "));
+        // Python " ..csv".strip().strip(".") is "csv", which has no extension.
+        assertEquals("csv", RunPythonTool.safeName(" ..csv"));
+        assertEquals("report", RunPythonTool.safeName("  .report.  "));
+        // A long name keeps its extension, as Onyx trims the base only.
+        String longName = RunPythonTool.safeName("b".repeat(300) + ".xlsx");
+        assertEquals(RunPythonTool.FILENAME_LIMIT, longName.length());
+        assertTrue(longName.endsWith(".xlsx"));
         var used = new HashSet<String>();
-        assertEquals("data.csv", RunPythonTool.dedupe("data.csv", used));
-        assertEquals("data_1.csv", RunPythonTool.dedupe("data.csv", used));
+        assertEquals("data.csv", RunPythonTool.dedupe("data.csv", "id1", used));
+        assertEquals("data_id2.csv", RunPythonTool.dedupe("data.csv", "id2", used));
+        String dedupedLong = RunPythonTool.dedupe(longName, "4f0c2d1e-0000-4000-8000-000000000001", used);
+        String repeatedLong = RunPythonTool.dedupe(longName, "4f0c2d1e-0000-4000-8000-000000000002", used);
+        assertEquals(longName, dedupedLong);
+        assertEquals(RunPythonTool.FILENAME_LIMIT, repeatedLong.length());
+        assertTrue(repeatedLong.endsWith("_4f0c2d1e-0000-4000-8000-000000000002.xlsx"));
     }
 }

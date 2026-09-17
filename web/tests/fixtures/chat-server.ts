@@ -1,5 +1,6 @@
 import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
+import { generatedFileMessages, handleGeneratedFile } from "./generated-files.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
 
@@ -228,12 +229,28 @@ function seedMcp(value: Session) {
   value.allMessages.set(assistant.id, assistant);
 }
 
+// Like the real backend, every conversation starts with the builtin agent, which allows every tool.
+const builtinPersonaId = "00000000-0000-4000-8000-00000000b017";
+const builtinPersona = {
+  id: builtinPersonaId,
+  builtin: true,
+  permissions: {},
+  revision: 0,
+  name: "MemoryOS",
+  description: "",
+  instructions: "",
+  starterPrompts: [],
+  sourceIds: [],
+  tools: ["search", "web_search", "image_generation", "code_interpreter"],
+  mcpServers: [],
+};
+
 function create(title = "Browser conversation", mode = "normal"): Session {
   const now = new Date().toISOString();
   const session = {
     id: randomUUID(),
     rootMessageId: randomUUID(),
-    personaId: randomUUID(),
+    personaId: builtinPersonaId,
     projectId: null,
     title,
     createdAt: now,
@@ -286,17 +303,42 @@ export async function handleChatFixture(
     json(response, fixtureModels);
     return true;
   }
-  if (["/api/chat/personas", "/api/chat/personas/sources"].includes(url.pathname)) {
+  if (url.pathname === "/api/chat/personas" && request.method === "GET") {
+    json(response, [builtinPersona]);
+    return true;
+  }
+  if (
+    [
+      "/api/chat/personas/sources",
+      "/api/chat/persona-pins",
+      "/api/chat/persona-labels",
+      "/api/chat/prompt-shortcuts",
+    ].includes(url.pathname) &&
+    request.method === "GET"
+  ) {
     json(response, []);
+    return true;
+  }
+  if (url.pathname === "/api/chat/prompt-shortcuts/preferences") {
+    json(response, { enabled: true });
     return true;
   }
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {
     const input = await body(request);
     const value = create(input.title, input.mode);
+    if (input.mode === "files")
+      for (const message of await generatedFileMessages(
+        value.session.id,
+        value.session.rootMessageId,
+      )) {
+        value.messages.push(message);
+        value.allMessages.set(message.id, message);
+      }
     json(response, value.session);
     return true;
   }
   if (!url.pathname.startsWith("/api/chat/")) return false;
+  if (await handleGeneratedFile(url.pathname, response)) return true;
   const segments = url.pathname.split("/");
   if (segments[3] === "projects") {
     const project = projects.get(segments[4]!);

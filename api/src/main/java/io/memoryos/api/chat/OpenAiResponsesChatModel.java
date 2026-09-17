@@ -54,6 +54,7 @@ import reactor.core.publisher.FluxSink;
  */
 @org.jspecify.annotations.NullMarked
 final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
     static final String OUTPUT_ITEMS = "memoryos.openai.responses.output";
     private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
     private final ChatModel completions;
@@ -227,6 +228,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
+        private boolean separate;
 
         StreamState(Turn turn, FluxSink<ChatResponse> sink) {
             this.turn = turn;
@@ -238,13 +240,24 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             event.outputTextDelta().ifPresent(delta -> {
                 if (!delta.delta().isEmpty()) sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(delta.delta()).build()))));
             });
-            event.reasoningSummaryPartAdded().ifPresent(part -> { if (part.summaryIndex() > 0) turn.events().accept(new ChatReasoningDelta("\n\n")); });
+            // Every summary part opens with a bold heading. Parts of a new reasoning item or of the next inference
+            // join the same timeline reasoning, so each part is separated, as Onyx's summary newline patch does.
+            event.reasoningSummaryPartAdded().ifPresent(part -> separate = true);
             event.reasoningSummaryTextDelta().ifPresent(delta -> reason(delta.delta()));
             event.webSearchCallInProgress().ifPresent(progress -> start(progress.itemId()));
             event.webSearchCallSearching().ifPresent(progress -> start(progress.itemId()));
             event.outputItemDone().ifPresent(done -> done(done.item()));
             event.completed().ifPresent(completed -> complete(completed.response()));
-            if (event.failed().isPresent() || event.incomplete().isPresent() || event.error().isPresent())
+            // Onyx (LiteLLM) ends an incomplete response as a normal stream with finish_reason "length" and keeps what
+            // was produced; only a failed response or an error event fails the turn.
+            event.incomplete().ifPresent(incomplete -> {
+                var response = incomplete.response();
+                String reason = response.incompleteDetails().flatMap(details -> details.reason())
+                        .map(value -> value.asString()).orElse("unknown");
+                LOG.warn("OpenAI response {} ended incomplete: {}", response.id(), reason);
+                finish(response, "max_output_tokens".equals(reason) ? "length" : reason);
+            });
+            if (event.failed().isPresent() || event.error().isPresent())
                 throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
         }
 
@@ -253,6 +266,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }
 
         private void reason(String text) {
+            if (text.isEmpty()) return;
+            if (separate) {
+                separate = false;
+                // Markdown ignores the leading blank line of the first part.
+                turn.events().accept(new ChatReasoningDelta("\n\n"));
+            }
             for (int offset = 0; offset < text.length(); ) {
                 int end = Math.min(text.length(), offset + 4000);
                 if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) end--;
@@ -303,11 +322,19 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }
 
         private void complete(com.openai.models.responses.Response response) {
+            finish(response, null);
+        }
+
+        /** {@code incompleteReason} is null for a completed response; an incomplete one never runs a cut-off tool call. */
+        private void finish(com.openai.models.responses.Response response, @Nullable String incompleteReason) {
             var mapper = ObjectMappers.jsonMapper();
             var calls = new ArrayList<AssistantMessage.ToolCall>();
             var echoed = new ArrayList<>();
             for (var item : response.output()) {
-                item.functionCall().ifPresent(call -> calls.add(new AssistantMessage.ToolCall(call.callId(), "function", call.name(), call.arguments())));
+                item.functionCall().ifPresent(call -> {
+                    if (incompleteReason == null || call.status().map(status -> status.asString()).filter("completed"::equals).isPresent())
+                        calls.add(new AssistantMessage.ToolCall(call.callId(), "function", call.name(), call.arguments()));
+                });
                 echoed.add(mapper.convertValue(item, Map.class));
             }
             var properties = new LinkedHashMap<String, Object>();
@@ -317,7 +344,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             var output = AssistantMessage.builder().content("").toolCalls(calls).properties(properties).build();
             finished = true;
             sink.next(new ChatResponse(List.of(new Generation(output, ChatGenerationMetadata.builder()
-                    .finishReason(calls.isEmpty() ? "stop" : "tool_calls").build())),
+                    .finishReason(!calls.isEmpty() ? "tool_calls" : incompleteReason != null ? incompleteReason : "stop").build())),
                     ChatResponseMetadata.builder().id(response.id()).usage(usage).build()));
             sink.complete();
         }

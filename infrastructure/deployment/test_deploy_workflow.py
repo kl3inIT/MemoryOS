@@ -95,6 +95,9 @@ class StagingDeploymentContractTest(unittest.TestCase):
         api = compose.split("\n  api:\n", 1)[1].split("\n  worker:\n", 1)[0]
         self.assertIn("API_KEY_FILE: /run/secrets/interpreter_api_key", interpreter)
         self.assertIn("- interpreter_api_key", interpreter)
+        # A 0600 operator-owned key is unreadable to capability-dropped root without DAC_OVERRIDE; the first
+        # staging rollout of the key failed with PermissionError until the file was widened by hand.
+        self.assertRegex(interpreter, r"cap_add:\n\s+- DAC_OVERRIDE")
         self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
         self.assertIn("- interpreter_api_key", api)
         launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")

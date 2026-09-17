@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -28,21 +29,27 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoCloseable {
     private static final String FILE_FIELDS = "id,name,mimeType,version,md5Checksum,modifiedTime,trashed,parents,driveId,shortcutDetails(targetId)";
+    private static final String PERMISSION_FIELDS = "id,type,role,emailAddress,domain,expirationTime,allowFileDiscovery,deleted,pendingOwner,permissionDetails(permissionType,role,inheritedFrom,inherited),view,inheritedPermissionsDisabled";
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     private final GoogleDriveProviderProperties properties;
     private final ObjectMapper mapper;
+    private final ObjectReader reader;
     private final HttpClient client;
 
     public RestGoogleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
         this.properties = properties;
         this.mapper = mapper;
+        reader = mapper.reader().with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY,
+                DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         // Invalid Google configuration fails open() rather than preventing unrelated FILE startup.
         Duration connect = properties.connectTimeout();
         if (connect.isNegative() || connect.isZero() || connect.compareTo(Duration.ofSeconds(30)) > 0) connect = Duration.ofSeconds(3);
@@ -60,7 +67,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form)).build();
-            JsonNode response = json(exchange(request, new Budget(), 65_536, true));
+            JsonNode response = json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
             String bearer = required(response, "access_token");
             if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
             String rotated = optional(response, "refresh_token");
@@ -103,6 +110,34 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         private FileMetadata metadata(String id, Budget budget) {
             return parseFile(get(properties.driveApiBaseUrl(), "/files/" + fileId(id)
                     + "?supportsAllDrives=true&fields=" + encode(FILE_FIELDS), budget));
+        }
+
+        @Override public List<Permission> permissions(String id) {
+            String path = "/files/" + fileId(id) + "/permissions?supportsAllDrives=true"
+                    + "&pageSize=" + Math.min(properties.pageSize(), 100)
+                    + "&fields=" + encode("nextPageToken,permissions(" + PERMISSION_FIELDS + ")");
+            Budget budget = new Budget();
+            List<Permission> permissions = new ArrayList<>();
+            var permissionIds = new HashSet<String>();
+            var pageTokens = new HashSet<String>();
+            String next = null;
+            do {
+                JsonNode response = get(properties.driveApiBaseUrl(), path
+                        + (next == null ? "" : "&pageToken=" + encode(next)), budget, ACCESS_DENIED);
+                JsonNode entries = response.path("permissions");
+                if (!entries.isArray()) throw failure(MALFORMED);
+                if (entries.size() > Math.min(properties.pageSize(), 100)) throw failure(LIMIT_EXCEEDED);
+                for (JsonNode entry : entries) {
+                    budget.check();
+                    Permission permission = parsePermission(entry);
+                    if (!permissionIds.add(permission.id())) throw failure(INCONSISTENT);
+                    permissions.add(permission);
+                }
+                next = optionalText(response, "nextPageToken");
+                if (next != null && !pageTokens.add(token(next))) throw failure(INCONSISTENT);
+            } while (next != null);
+            budget.check();
+            return List.copyOf(permissions);
         }
 
         @Override public AcquiredContent acquire(FileMetadata file) {
@@ -224,26 +259,33 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             return bytes;
         }
 
-        private JsonNode get(URI base, String path, Budget budget) {
-            byte[] bytes = request(base, path, budget, properties.maxSnapshotBytes());
+        private JsonNode get(URI base, String path, Budget budget) { return get(base, path, budget, NOT_FOUND); }
+
+        private JsonNode get(URI base, String path, Budget budget, GoogleDriveProviderException.Failure forbidden) {
+            byte[] bytes = request(base, path, budget, properties.maxSnapshotBytes(), forbidden);
             budget.nativeBytes += bytes.length;
             if (budget.nativeBytes > properties.maxSnapshotBytes()) throw failure(LIMIT_EXCEEDED);
             return json(bytes);
         }
 
         private byte[] request(URI base, String path, Budget budget, int limit) {
+            return request(base, path, budget, limit, NOT_FOUND);
+        }
+
+        private byte[] request(URI base, String path, Budget budget, int limit, GoogleDriveProviderException.Failure forbidden) {
             if (bearer == null) throw failure(AUTHENTICATION);
             URI uri = URI.create(base.toString().replaceAll("/+$", "") + path);
             HttpRequest request = HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + bearer)
                     .header("Accept", "application/json").GET().build();
-            return exchange(request, budget, limit, false);
+            return exchange(request, budget, limit, false, forbidden);
         }
 
         @Override public byte @Nullable [] rotatedRefreshToken() { return rotated == null ? null : rotated.clone(); }
         @Override public void close() { bearer = null; if (rotated != null) Arrays.fill(rotated, (byte) 0); }
     }
 
-    private byte[] exchange(HttpRequest request, Budget budget, int limit, boolean oauth) {
+    private byte[] exchange(HttpRequest request, Budget budget, int limit, boolean oauth,
+            GoogleDriveProviderException.Failure forbidden) {
         budget.request();
         long timeout = Math.min(properties.requestTimeout().toNanos(), budget.remaining());
         CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, info ->
@@ -252,7 +294,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             HttpResponse<byte[]> response = future.get(timeout, TimeUnit.NANOSECONDS);
             budget.check();
             int status = response.statusCode();
-            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth);
+            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth, forbidden);
             return response.body();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -267,16 +309,23 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         }
     }
 
-    private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth) {
+    /** {@code forbidden} is what a 403 without a scope or quota reason means for the calling request. */
+    private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth,
+            GoogleDriveProviderException.Failure forbidden) {
         String reason = "";
+        boolean missingScope = false;
         try {
             JsonNode error = mapper.readTree(body).path("error");
             reason = oauth ? error.asString("") : error.path("errors").path(0).path("reason").asString("");
+            for (JsonNode detail : error.path("details"))
+                missingScope |= "ACCESS_TOKEN_SCOPE_INSUFFICIENT".equals(detail.path("reason").asString(""));
         } catch (RuntimeException ignored) { /* Only status classification is available for invalid error bodies. */ }
         if (oauth && List.of("invalid_grant", "invalid_client", "unauthorized_client").contains(reason)) return failure(AUTHENTICATION);
         if (status == 401) return failure(AUTHENTICATION);
         if (status == 429 || List.of("rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded").contains(reason)) return failure(QUOTA);
-        if (status == 403 || status == 404 || status == 410) return failure(NOT_FOUND);
+        if (status == 403 && (missingScope || "insufficientPermissions".equals(reason))) return failure(SCOPE_INSUFFICIENT);
+        if (status == 403) return failure(forbidden);
+        if (status == 404 || status == 410) return failure(NOT_FOUND);
         return failure(status >= 500 || status == 408 ? UNAVAILABLE : MALFORMED);
     }
 
@@ -293,6 +342,46 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                     parents, optional(node, "driveId"), optional(node.path("shortcutDetails"), "targetId"));
             return file;
         } catch (java.time.DateTimeException exception) { throw failure(MALFORMED); }
+    }
+
+    private Permission parsePermission(JsonNode node) {
+        if (!node.isObject()) throw failure(MALFORMED);
+        List<PermissionDetail> details = new ArrayList<>();
+        for (JsonNode detail : array(node, "permissionDetails")) {
+            if (!detail.isObject()) throw failure(MALFORMED);
+            details.add(new PermissionDetail(optionalText(detail, "permissionType"), optionalText(detail, "role"),
+                    optionalText(detail, "inheritedFrom"), optionalBoolean(detail, "inherited")));
+        }
+        String expiration = optionalText(node, "expirationTime");
+        try {
+            return new Permission(requiredText(node, "id"), requiredText(node, "type"), requiredText(node, "role"),
+                    optionalText(node, "emailAddress"), optionalText(node, "domain"),
+                    expiration == null ? null : Instant.parse(expiration), optionalBoolean(node, "allowFileDiscovery"),
+                    optionalBoolean(node, "deleted"), optionalBoolean(node, "pendingOwner"), details,
+                    optionalText(node, "view"), optionalBoolean(node, "inheritedPermissionsDisabled"));
+        } catch (java.time.DateTimeException exception) { throw failure(MALFORMED); }
+    }
+
+    private static String requiredText(JsonNode node, String field) {
+        String value = optionalText(node, field);
+        if (value == null || value.isBlank()) throw failure(MALFORMED);
+        return value;
+    }
+
+    private static @Nullable String optionalText(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        if (value.isMissingNode() || value.isNull()) return null;
+        if (!value.isString()) throw failure(MALFORMED);
+        String text = value.asString();
+        if (text.length() > 16_384) throw failure(LIMIT_EXCEEDED);
+        return text;
+    }
+
+    private static @Nullable Boolean optionalBoolean(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        if (value.isMissingNode() || value.isNull()) return null;
+        if (!value.isBoolean()) throw failure(MALFORMED);
+        return value.asBoolean();
     }
 
     private static void supported(FileMetadata file) {
@@ -317,7 +406,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
 
     private JsonNode json(byte[] bytes) {
         try {
-            JsonNode node = mapper.readTree(bytes);
+            JsonNode node = reader.readTree(bytes);
             if (node == null || !node.isObject()) throw failure(MALFORMED);
             return node;
         } catch (tools.jackson.core.JacksonException exception) { throw failure(MALFORMED); }

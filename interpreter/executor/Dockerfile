@@ -26,6 +26,8 @@ RUN apt-get update \
         fonts-dejavu-core \
         fonts-liberation \
         fonts-noto-core \
+        libreoffice-calc-nogui \
+        libreoffice-impress-nogui \
         poppler-utils \
         qpdf \
         sqlite3 \
@@ -57,6 +59,15 @@ ENV LANG=C.UTF-8 \
     MPLBACKEND=Agg \
     XDG_CACHE_HOME=/tmp/.cache
 COPY sitecustomize.py /opt/executor-venv/lib/python3.11/site-packages/sitecustomize.py
+# Chart extraction owned by MemoryOS, started from E2B's MIT e2b-charts (see NOTICE.md).
+COPY memoryos_charts /opt/executor-venv/lib/python3.11/site-packages/memoryos_charts
 RUN mkdir -p /opt/matplotlib \
     && MPLCONFIGDIR=/opt/matplotlib python -c "import matplotlib.font_manager as fm; fm.fontManager.findfont('DejaVu Sans')" \
     && chmod -R a+rX /opt/matplotlib
+
+# recalc-xlsx: formula values for workbooks written with openpyxl or xlsxwriter (LibreOffice Calc, installed above).
+COPY recalc_xlsx.py /usr/local/bin/recalc-xlsx
+RUN chmod 0755 /usr/local/bin/recalc-xlsx
+# pptx-to-pdf: the Chat preview of generated presentations (MEM-111, LibreOffice Impress, installed above).
+COPY pptx_to_pdf.py /usr/local/bin/pptx-to-pdf
+RUN chmod 0755 /usr/local/bin/pptx-to-pdf

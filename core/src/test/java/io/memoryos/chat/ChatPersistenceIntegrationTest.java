@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
+import io.memoryos.chat.persistence.JdbcAgentRepository;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.TestDatabase;
@@ -72,6 +74,8 @@ class ChatPersistenceIntegrationTest {
     private ChatProjectService projects;
     private ChatCollaborationService collaboration;
     private UUID sourceId;
+    private IamAuthorization authorization;
+    private ChatPromptShortcutService shortcuts;
 
     @BeforeEach
     void setup() throws Exception {
@@ -83,7 +87,7 @@ class ChatPersistenceIntegrationTest {
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
                 TenantAccessResolver.class, jpa.transactionManager());
         var repository = new JdbcChatRepository(jdbc);
-        var authorization = mock(IamAuthorization.class);
+        authorization = mock(IamAuthorization.class);
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
                 ChatSessionService.class, jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
@@ -101,7 +105,7 @@ class ChatPersistenceIntegrationTest {
         tenant = tenant();
         owner = member(tenant);
         other = member(tenant);
-        when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE));
+        when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE, IamCapability.AGENTS_MANAGE, IamCapability.AGENTS_CREATE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
         var models = mock(ModelCatalogService.class);
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
@@ -110,8 +114,12 @@ class ChatPersistenceIntegrationTest {
         var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                new PersonaProperties(), models, sources, fileService), ChatPersonaService.class);
+                new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc), new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
+                new PersonaProperties(), models, sources, fileService, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
+                mock(ChatFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
+        shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
+                new io.memoryos.chat.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
         collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
@@ -135,8 +143,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> projects.update(owner, project.id(), project.revision(), new ChatProjectService.ProjectInput("Stale", "", "")));
         assertFalse(turns.loadContext(owner, session.id(), first).instructions().contains("CHANGED PROJECT"));
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
-        var assistant = personas.create(owner, new ChatPersonaService.PersonaInput("Private", "", "", List.of("A starter"),
-                List.of(sourceId), false, null, 8000, 1000));
+        var assistant = personas.create(owner, input("Private", List.of("A starter"), List.of(sourceId), false, 8000, 1000, null));
         assertThrows(ChatException.class, () -> personas.get(other, assistant.id()));
         personas.select(owner, session.id(), assistant.id());
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Continue");
@@ -197,11 +204,23 @@ class ChatPersistenceIntegrationTest {
         var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a chart");
         var file = UUID.randomUUID();
         interpreter.insertArtifact(scope, reply.assistantMessageId(), file, UUID.randomUUID(),
-                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/chart.png"), "chart.png", "image/png", 3);
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/chart.png"), "chart.png", "image/png", 3,
+                "{\"type\":\"pie\",\"title\":\"Doanh thu\",\"elements\":[]}");
         var owned = interpreter.ownedArtifact(scope, owner, file).orElseThrow();
         assertEquals("chart.png", owned.filename());
         assertEquals("image/png", owned.mediaType());
         assertTrue(interpreter.ownedArtifact(scope, other, file).isEmpty());
+        // Chart data (V72) is served only to the owner and flagged on the message's files.
+        assertTrue(interpreter.ownedChart(scope, owner, file).orElseThrow().contains("\"type\": \"pie\""));
+        assertTrue(interpreter.ownedChart(scope, other, file).isEmpty());
+        assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId())).get(reply.assistantMessageId()).getFirst().chart());
+        // A converted presentation preview (V73) is recorded once; a concurrent second conversion is refused.
+        assertTrue(interpreter.attachPreview(scope, file, UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("p/1"), 10));
+        assertFalse(interpreter.attachPreview(scope, file, UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("p/2"), 10));
+        assertEquals("p/1", interpreter.ownedArtifact(scope, owner, file).orElseThrow().previewKey().value());
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> interpreter.insertArtifact(scope,
+                reply.assistantMessageId(), UUID.randomUUID(), UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/x.png"), "x.png", "image/png", 3, "[1]"));
         assertTrue(interpreter.ownedArtifact(new TenantId(UUID.randomUUID()), owner, file).isEmpty());
     }
 
@@ -679,7 +698,7 @@ class ChatPersistenceIntegrationTest {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var reader = executor.submit(() -> tx.execute(_ -> {
                 repository.lockOwner(new TenantId(tenant), other);
-                var snapshot = repository.persona(session.id(), true);
+                var snapshot = repository.persona(session.id(), true, false);
                 locked.countDown();
                 try {
                     if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("timeout");
@@ -687,14 +706,13 @@ class ChatPersistenceIntegrationTest {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException(ex);
                 }
-                assertEquals(snapshot, repository.persona(session.id(), true));
+                assertEquals(snapshot, repository.persona(session.id(), true, false));
                 return snapshot;
             }));
             try {
                 assertTrue(locked.await(10, TimeUnit.SECONDS));
                 var writer = executor.submit(() -> personas.update(owner, before.id(), before.revision(),
-                        new ChatPersonaService.PersonaInput(before.name(), "", "Updated builtin", List.of(), List.of(sourceId),
-                                false, null, null, null)));
+                        input(before.name(), "Updated builtin", List.of(), List.of(sourceId), false, null, null, null)));
                 try {
                     assertThrows(java.util.concurrent.TimeoutException.class, () -> writer.get(200, TimeUnit.MILLISECONDS));
                 } finally {
@@ -702,7 +720,7 @@ class ChatPersistenceIntegrationTest {
                 }
                 writer.get(10, TimeUnit.SECONDS);
                 var snapshot = reader.get(10, TimeUnit.SECONDS);
-                var after = tx.execute(_ -> repository.persona(session.id(), true));
+                var after = tx.execute(_ -> repository.persona(session.id(), true, false));
                 assertNotNull(snapshot);
                 assertNotNull(after);
                 assertNotEquals(snapshot.revision(), after.revision());
@@ -742,6 +760,146 @@ class ChatPersistenceIntegrationTest {
             var denied = assertThrows(java.util.concurrent.ExecutionException.class, () -> writer.get(10, TimeUnit.SECONDS));
             assertInstanceOf(ChatException.class, denied.getCause());
         }
+    }
+
+    @Test
+    void agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules() {
+        var creator = member(tenant); var viewer = member(tenant); var groupEditor = member(tenant);
+        var stranger = member(tenant); var manager = member(tenant);
+        for (var actor : List.of(viewer, groupEditor, stranger, manager))
+            when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
+        assertThrows(ChatException.class, () -> personas.create(stranger, input("Denied", List.of(), List.of(), true, null, null, List.of())));
+        var agent = personas.create(creator, input("KPI", List.of("Xếp loại tháng 8"), List.of(sourceId), true, null, null, List.of()));
+        assertTrue(agent.permissions().edit()); assertTrue(agent.permissions().setPublic()); assertTrue(agent.permissions().delete());
+        assertThrows(ChatException.class, () -> personas.get(stranger, agent.id()));
+
+        UUID editors = group("Ban điều hành", Map.of(groupEditor, false, manager, true));
+        var shared = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
+                List.of(new ChatPersonaService.UserShareInput(viewer.value(), JdbcAgentRepository.Permission.VIEWER)),
+                List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), null, null));
+        assertTrue(shared.revision() > agent.revision(), "Relation-only changes advance the revision");
+        assertThrows(ChatException.class, () -> personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), null, null)));
+
+        var viewed = personas.get(viewer, agent.id());
+        assertFalse(viewed.permissions().edit()); assertTrue(viewed.permissions().leave());
+        assertEquals(List.of(sourceId), viewed.sourceIds(), "Viewers receive the full Onyx snapshot");
+        assertEquals(1, viewed.groupShares().size());
+        assertThrows(ChatException.class, () -> personas.update(viewer, agent.id(), shared.revision(),
+                input("Viewer edit", List.of(), List.of(), true, null, null, null)));
+
+        var edited = personas.update(groupEditor, agent.id(), shared.revision(), input("KPI tháng", List.of(), List.of(sourceId), true, null, null, null));
+        assertEquals("KPI tháng", edited.name());
+        // A non-owner editor cannot change Tenant-wide visibility; the rest of the share replacement applies.
+        var editorShare = personas.share(groupEditor, agent.id(), edited.revision(), new ChatPersonaService.SharingInput(
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), true,
+                JdbcAgentRepository.Permission.EDITOR));
+        assertFalse(editorShare.isPublic());
+        assertThrows(ChatException.class, () -> personas.get(viewer, agent.id()));
+        // The Group manager edits a private agent whose share Groups they all manage.
+        assertTrue(personas.get(manager, agent.id()).permissions().edit());
+
+        var published = personas.share(creator, agent.id(), editorShare.revision(), new ChatPersonaService.SharingInput(
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.VIEWER)), true,
+                JdbcAgentRepository.Permission.VIEWER));
+        assertTrue(published.isPublic());
+        assertFalse(personas.get(stranger, agent.id()).permissions().edit());
+        assertFalse(personas.get(manager, agent.id()).permissions().edit(), "Managers only edit private agents");
+        var strangerSession = sessions.create(stranger, "Public agent");
+        personas.select(stranger, strangerSession.id(), agent.id());
+        assertEquals(List.of(sourceId), tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)).options().sourceIds());
+        assertTrue(personas.list(stranger, JdbcAgentRepository.View.SHARED, null, "kpi", 0, 30).stream().anyMatch(view -> view.id().equals(agent.id())));
+
+        var privateAgain = personas.share(creator, agent.id(), published.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), false, null));
+        assertThrows(ChatException.class, () -> tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)),
+                "Revoked use fails the next admission");
+
+        var transferred = personas.transfer(creator, agent.id(), privateAgain.revision(), new ChatPersonaService.TransferInput(viewer.value(), null));
+        assertEquals(viewer.value(), transferred.owner().actor().actorId());
+        assertTrue(transferred.userShares().stream().anyMatch(share -> share.person().actorId().equals(creator.value())
+                && share.permission() == JdbcAgentRepository.Permission.EDITOR), "The previous owner keeps editing access");
+        assertTrue(personas.get(creator, agent.id()).permissions().edit());
+        assertFalse(personas.get(creator, agent.id()).permissions().delete());
+
+        jdbc.sql("UPDATE tenant_memberships SET status='INACTIVE' WHERE tenant_id=:tenant AND actor_id=:actor")
+                .param("tenant", tenant).param("actor", viewer.value()).update();
+        var vacant = personas.get(owner, agent.id());
+        assertTrue(vacant.vacant());
+        assertTrue(vacant.permissions().transfer(), "Agent managers transfer vacant agents");
+        var adopted = personas.transfer(owner, agent.id(), vacant.revision(), new ChatPersonaService.TransferInput(null, editors));
+        assertEquals(editors, adopted.owner().group().id());
+        // A direct sharee outside the owner Group sees a Group-owned agent under Shared.
+        assertTrue(personas.list(creator, JdbcAgentRepository.View.SHARED, null, null, 0, 30).stream()
+                .anyMatch(view -> view.id().equals(agent.id())));
+        assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "AgentOwner Group members own the agent");
+        personas.delete(groupEditor, agent.id(), personas.get(groupEditor, agent.id()).revision());
+        assertThrows(ChatException.class, () -> personas.get(groupEditor, agent.id()));
+        assertTrue(personas.restore(owner, agent.id()).deletedAt() == null);
+    }
+
+    @Test
+    void featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged() {
+        var creator = member(tenant); var reader = member(tenant);
+        when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
+        when(authorization.effectiveCapabilities(reader)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        var label = personas.createLabel(reader, "Tài chính");
+        assertThrows(ChatException.class, () -> personas.createLabel(creator, "tài chính"));
+        assertThrows(ChatException.class, () -> personas.renameLabel(reader, label.id(), "Finance"));
+        var agent = personas.create(creator, new ChatPersonaService.PersonaInput("Finance", "", "", "Always cite the report month.",
+                List.of(), List.of(), Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),
+                false, false, java.time.Instant.parse("2026-01-01T00:00:00Z")));
+        assertEquals(List.of(label), agent.labels());
+        var published = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), true, null));
+        assertThrows(ChatException.class, () -> personas.listing(creator, agent.id(), published.revision(), new ChatPersonaService.ListingInput(true, true, 1)));
+        personas.listing(owner, agent.id(), published.revision(), new ChatPersonaService.ListingInput(true, true, 1));
+        assertEquals(List.of(agent.id()), personas.pins(reader).stream().map(ChatPersonaService.PersonaView::id).toList());
+        personas.replacePins(reader, List.of());
+        assertTrue(personas.pins(reader).isEmpty(), "Seeding runs once per Actor");
+        assertThrows(ChatException.class, () -> personas.reorder(creator, List.of(agent.id())));
+        assertThrows(ChatException.class, () -> personas.reorder(owner, List.of(agent.id(), agent.id())));
+        personas.reorder(owner, List.of(agent.id()));
+        assertEquals(0, personas.get(owner, agent.id()).displayPriority());
+
+        var session = sessions.create(reader, "Finance chat");
+        personas.select(reader, session.id(), agent.id());
+        var settings = tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(session.id(), false, false));
+        assertEquals("Always cite the report month.", settings.options().taskPrompt());
+        assertEquals(java.time.Instant.parse("2026-01-01T00:00:00Z"), settings.options().knowledgeCutoff());
+        assertEquals(Set.of("search"), settings.tools());
+        assertFalse(settings.options().codeInterpreter(), "run_python follows the agent tool policy");
+        assertEquals(List.of(), settings.mcpServerIds());
+        assertFalse(settings.datetimeAware());
+    }
+
+    @Test
+    void promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable() {
+        var member = member(tenant);
+        when(authorization.effectiveCapabilities(member)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        var own = shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("tomtat", "Tóm tắt báo cáo này", null), false);
+        assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("TomTat", "x", null), false));
+        assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("tóm\ntắt", "x", null), false));
+        var spaced = shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput(" Tóm tắt hợp đồng ", "Tóm tắt điều khoản chính", null), false);
+        assertEquals("Tóm tắt hợp đồng", spaced.name());
+        shortcuts.delete(member, spaced.id(), false);
+        assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("kpi", "x", null), true));
+        var shared = shortcuts.create(owner, new ChatPromptShortcutService.ShortcutInput("kpi", "Xếp loại KPI tháng này", null), true);
+        assertThrows(ChatException.class, () -> shortcuts.update(other, own.id(), own.revision(),
+                new ChatPromptShortcutService.ShortcutInput("tomtat", "Changed", null), false));
+        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
+        shortcuts.hide(member, shared.id(), true);
+        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
+        assertTrue(shortcuts.list(member, true).stream().anyMatch(JdbcPromptShortcutRepository.PromptShortcut::hidden));
+        assertTrue(shortcuts.preferences(member).enabled());
+        assertFalse(shortcuts.preferences(member, false).enabled());
+    }
+
+    private UUID group(String name, Map<ActorId, Boolean> members) {
+        UUID id = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)").param("tenant", tenant).param("id", id).param("name", name).update();
+        members.forEach((actor, manager) -> jdbc.sql("""
+                        INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id,is_manager) VALUES (:tenant,:group,:actor,:manager)
+                        """).param("tenant", tenant).param("group", id).param("actor", actor.value()).param("manager", manager).update());
+        return id;
     }
 
     private ChatTurnPersistence.Reservation reserve(ChatSession session, UUID parent, UUID request, String text) {
@@ -792,20 +950,30 @@ class ChatPersistenceIntegrationTest {
         var reloaded = turns.loadContext(owner, session.id(), new ChatTurnPersistence.Reservation(first.userMessageId(), first.assistantMessageId(), false));
         assertEquals(List.of(file), reloaded.workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Project answer");
-        var persona = personas.create(owner, new ChatPersonaService.PersonaInput("No files", "", "", List.of(),
-                List.of(), false, null, null, null, List.of()));
+        var persona = personas.create(owner, input("No files", List.of(), List.of(), false, null, null, List.of()));
         personas.select(owner, session.id(), persona.id());
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Custom assistant");
         assertNotNull(second.context());
         assertTrue(second.context().workspaceFiles().isEmpty());
         turns.finish(session.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "No project files");
-        var settings = new ChatPersonaService.PersonaInput("With files", "", "", List.of(), List.of(), false, null, null, null, List.of(file));
+        var settings = input("With files", List.of(), List.of(), false, null, null, List.of(file));
         personas.update(owner, persona.id(), persona.revision(), settings);
         assertThrows(ChatException.class, () -> personas.update(owner, persona.id(), persona.revision(), settings));
         var third = reserve(session, second.assistantMessageId(), UUID.randomUUID(), "Read custom files");
         assertNotNull(third.context());
         assertEquals(List.of(file), third.context().workspaceFiles().stream().map(ChatFileDescriptor::id).toList());
         assertTrue(second.context().workspaceFiles().isEmpty());
+    }
+
+    private static ChatPersonaService.PersonaInput input(String name, List<String> starters, List<UUID> sources, boolean search,
+            Integer context, Integer output, List<UUID> files) {
+        return input(name, "", starters, sources, search, context, output, files);
+    }
+
+    private static ChatPersonaService.PersonaInput input(String name, String instructions, List<String> starters, List<UUID> sources,
+            boolean search, Integer context, Integer output, List<UUID> files) {
+        return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources,
+                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null);
     }
 
     private UUID readyFile(ActorId actor) {

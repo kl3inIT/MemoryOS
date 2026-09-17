@@ -49,12 +49,13 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
             return files.complete(work, canonical) ? Outcome.COMPLETED : Outcome.SKIPPED;
         } catch (ExtractionException exception) {
             if (lost.get()) return Outcome.SKIPPED;
-            files.failed(work, "FILE_EXTRACTION_" + exception.failure().name());
+            files.failed(work, "FILE_EXTRACTION_" + exception.failure().name(),
+                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception));
             return Outcome.FAILED;
         } catch (Exception exception) {
             if (lost.get()) return Outcome.SKIPPED;
             // Provider messages may contain file data; expose only a stable failure code.
-            files.failed(work, "FILE_PROCESSING_FAILED");
+            files.failed(work, "FILE_PROCESSING_FAILED", null, io.memoryos.FailureEvidence.detail(exception));
             return Outcome.FAILED;
         } finally {
             renewal.cancel(false);

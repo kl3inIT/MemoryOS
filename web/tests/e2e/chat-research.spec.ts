@@ -20,7 +20,7 @@ const persona = {
   starterPrompts: [],
   sourceIds: [],
   fileIds: [],
-  searchEnabled: true,
+  tools: ["search", "web_search", "image_generation"],
 };
 
 /** A saved Deep research answer restored from history: plan, cycles, agent tabs and intermediate reports. */
