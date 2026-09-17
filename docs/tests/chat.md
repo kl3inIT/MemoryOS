@@ -303,3 +303,21 @@ Open: visual review of the research timeline, staging acceptance with the real c
 | The timeline names the MCP tool and server, offers Connect for the person's own rejected credential, sends a shared one to an administrator, and restores the category from stream and history | `chat-mcp-step.test.tsx` (8); `mcp-administration.spec.ts` (saved answer) |
 
 Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/verification.md).
+
+## Custom agents and prompt shortcuts (MEM-119)
+
+| Contract | Evidence |
+| --- | --- |
+| Use, edit, public, Group manager and transfer authority; vacancy; Source intersection | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` (PostgreSQL) |
+| Featured public agents seed pins once; labels managed with `AGENTS_MANAGE`; transactional display order; `code_interpreter` in the turn options | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| A Group-owned agent shared directly appears under Shared | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` |
+| `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
+| A requested window ending before the knowledge cutoff searches nothing | `SearchToolTest.knowledgeCutoffIsALowerBoundThatRequestsCannotWiden` |
+| Private shortcuts unique per owner, free-text names with spaces and diacritics, control characters rejected, public shortcuts managed and hideable | `ChatPersistenceIntegrationTest.promptShortcutsArePrivateUniqueAndPublicOnesAreManagedAndHideable` |
+| Agent capabilities, registry and schema | `IamCapabilityTest`, `DefaultGroupServiceAuthorizationTest`, `GroupSchemaIntegrityTest` |
+| Gallery tabs, search, label facet chips, creator filter, featured badge, disabled create for members, desktop and mobile | `agents.spec.ts` (Playwright, mocked routes) |
+| Editor page: create with icon, task prompt, starter fields, source picker, cutoff and tools; browser draft survives reload; edit saves only changes and guards leaving | `agents.spec.ts` |
+| Share dialog: results only while typing, Save disabled until changed, Group role and organization access payload | `agents.spec.ts` |
+| Detail view: configuration snapshot for a use-only reader, share link `/agents?agent=`, starter prompt opens a new conversation and sends once | `agents.spec.ts` (fixture chat server) |
+| Sidebar pins reorder by keyboard and unpin; administration features an agent | `agents.spec.ts` |
+| Shortcuts: inline create on blur, public shortcuts read-only, `/tom tat` diacritic-insensitive match replaces the draft | `agents.spec.ts` |

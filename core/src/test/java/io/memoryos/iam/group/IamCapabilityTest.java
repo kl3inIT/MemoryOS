@@ -22,9 +22,17 @@ class IamCapabilityTest {
         }
         assertEquals(
                 Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
-                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE),
+                        IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE,
+                        IamCapability.AGENTS_CREATE, IamCapability.AGENTS_MANAGE),
                 ordinaryGrants
         );
+    }
+
+    @Test
+    void agentManagementImpliesAgentCreationOnly() {
+        assertEquals(Set.of(IamCapability.AGENTS_MANAGE, IamCapability.AGENTS_CREATE),
+                IamCapability.expand(Set.of(IamCapability.AGENTS_MANAGE)));
+        assertEquals(Set.of(IamCapability.AGENTS_CREATE), IamCapability.expand(Set.of(IamCapability.AGENTS_CREATE)));
     }
 
     @Test

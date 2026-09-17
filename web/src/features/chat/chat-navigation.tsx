@@ -1,8 +1,20 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, Folder, ChevronDown, ChevronRight, FileSearch, Plus } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  Bot,
+  Compass,
+  Folder,
+  ChevronDown,
+  ChevronRight,
+  FileSearch,
+  GripVertical,
+  PinOff,
+  Plus,
+} from "lucide-react";
+import { hoverReveal } from "@/components/composites/hover-reveal";
+import { SortableList } from "@/components/composites/sortable-list";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -11,10 +23,19 @@ import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/element
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { chatSessionsKey } from "./chat-api";
+import { chatSessionsKey, newChatSession } from "./chat-api";
+import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { usePinUpdates } from "@/features/agents/agent-pins";
+import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
 import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
-import { loadProjects, moveConversation, type Project } from "./chat-workspace-api";
+import {
+  loadProjects,
+  moveConversation,
+  personaSchema,
+  type Persona,
+  type Project,
+} from "./chat-workspace-api";
 import { chatActionError } from "./chat-action-utils";
 import { useChatThreads, useOptionalChatThreads } from "./chat-threads-context";
 import { sessionFromThread } from "./chat-thread-list-adapter";
@@ -60,10 +81,10 @@ export function ChatNavigation({
         {ui("Search documents")}
       </SidebarTab>
       <SidebarTab
-        to="/assistants"
+        to="/agents"
         icon={<Bot className="size-4" />}
         collapsed={collapsed}
-        selected={pathname === "/assistants"}
+        selected={pathname === "/agents"}
         onClick={onNavigate}
       >
         {ui("Trợ lý")}
@@ -80,6 +101,7 @@ export function ChatNavigation({
         </SidebarTab>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <PinnedAgents onNavigate={onNavigate} />
           <div className="mb-2 flex items-center justify-between px-2">
             <Link
               to="/projects"
@@ -136,6 +158,125 @@ export function ChatNavigation({
         />
       )}
     </div>
+  );
+}
+
+/** Pinned agents start a new conversation with that agent; drag to reorder, unpin on hover (Onyx sidebar pins). */
+function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
+  const ui = useAppTranslation();
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const cache = useQueryClient();
+  const navigate = useNavigate();
+  const [pending, setPending] = useState<string>();
+  const [error, setError] = useState<string>();
+  const pinsKey = ["chat-persona-pins", actorId, authorizationVersion];
+  const updatePins = usePinUpdates();
+  const pins = useQuery({
+    queryKey: pinsKey,
+    queryFn: async ({ signal }) =>
+      personaSchema.array().parse((await listChatPersonaPins({ signal, throwOnError: true })).data),
+  });
+  if (!pins.data?.length) return null;
+
+  async function savePins(next: Persona[], change: (current: string[]) => string[]) {
+    setError(undefined);
+    cache.setQueryData(pinsKey, next);
+    try {
+      await updatePins(change);
+    } catch (cause) {
+      setError(chatActionError(cause));
+      await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
+    }
+  }
+
+  async function start(agent: Persona) {
+    setPending(agent.id);
+    setError(undefined);
+    try {
+      const session = await newChatSession(agent.name, AbortSignal.timeout(30000), agent.id);
+      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+      await navigate({ to: "/chat/$sessionId", params: { sessionId: session.id } });
+      onNavigate?.();
+    } catch (cause) {
+      setError(chatActionError(cause));
+    } finally {
+      setPending(undefined);
+    }
+  }
+
+  return (
+    <section aria-labelledby="pinned-agents" className="mb-4">
+      <h2 id="pinned-agents" className="px-2 pb-1 text-sm font-medium text-content-secondary">
+        {ui("Trợ lý đã ghim")}
+      </h2>
+      <ul>
+        <SortableList
+          items={pins.data}
+          getId={(agent) => agent.id}
+          onReorder={(next) => void savePins(next, () => next.map((agent) => agent.id))}
+        >
+          {(agent, handle) => (
+            <li
+              ref={handle.setNodeRef}
+              style={handle.style}
+              className={cn(
+                "group relative flex items-center rounded-lg hover:bg-surface-subtle",
+                handle.dragging && "z-10 bg-surface-raised shadow-hover",
+              )}
+            >
+              <button
+                ref={handle.setHandleRef}
+                type="button"
+                aria-label={ui("Kéo để sắp xếp {{v1}}", { v1: agent.name })}
+                className={cn(
+                  "grid h-8 w-4 shrink-0 cursor-grab place-items-center text-content-muted outline-none focus-visible:opacity-100 active:cursor-grabbing",
+                  hoverReveal,
+                )}
+                {...handle.attributes}
+              >
+                <GripVertical aria-hidden="true" className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={pending !== undefined}
+                className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-8 text-left text-sm disabled:opacity-60"
+                onClick={() => void start(agent)}
+              >
+                <AgentAvatar agent={agent} size="sm" />
+                <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+              </button>
+              <IconButton
+                size="sm"
+                prominence="internal"
+                aria-label={ui("Bỏ ghim {{v1}}", { v1: agent.name })}
+                className={cn("absolute right-0.5", hoverReveal)}
+                onClick={() =>
+                  void savePins(
+                    pins.data.filter((item) => item.id !== agent.id),
+                    (current) => current.filter((id) => id !== agent.id),
+                  )
+                }
+              >
+                <PinOff />
+              </IconButton>
+            </li>
+          )}
+        </SortableList>
+      </ul>
+      <Link
+        to="/agents"
+        onClick={onNavigate}
+        className="mt-0.5 flex h-8 items-center gap-2 rounded-lg px-2 pl-6 text-sm text-content-muted outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Compass aria-hidden="true" className="size-4" />
+        {ui("Khám phá trợ lý")}
+      </Link>
+      {error && (
+        <p role="alert" className="px-2 text-xs text-status-danger-content">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 

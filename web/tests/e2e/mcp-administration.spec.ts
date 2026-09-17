@@ -212,12 +212,27 @@ async function stub(page: import("@playwright/test").Page) {
   await page.route("**/api/mcp/group-options*", (route) =>
     route.fulfill({ json: { items: [], page: 0, size: 25, totalItems: 0, totalPages: 0 } }),
   );
-  for (const path of [
-    "**/api/chat/sessions?*",
-    "**/api/chat/projects?*",
-    "**/api/chat/personas?*",
-    "**/api/chat/models",
-  ]) {
+  // The backend always lists the builtin agent; the composer offers tools only once the agent is known.
+  await page.route("**/api/chat/personas?*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "00000000-0000-4000-8000-00000000b017",
+          builtin: true,
+          permissions: {},
+          revision: 0,
+          name: "MemoryOS",
+          description: "",
+          instructions: "",
+          starterPrompts: [],
+          sourceIds: [],
+          tools: ["search", "web_search", "image_generation", "code_interpreter"],
+          mcpServers: [],
+        },
+      ],
+    }),
+  );
+  for (const path of ["**/api/chat/sessions?*", "**/api/chat/projects?*", "**/api/chat/models"]) {
     await page.route(path, (route) => route.fulfill({ json: [] }));
   }
 }

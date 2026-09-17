@@ -55,14 +55,14 @@ public class ChatFileContentService {
     }
 
     public byte[] image(ActorId actor, TenantId tenant, UUID id) {
-        var file = files.owned(tenant, actor, id, false).orElseThrow(ChatException::unavailable).file();
+        var file = files.readable(tenant, actor, id, false).orElseThrow(ChatException::unavailable).file();
         if (!java.util.Set.of("image/png", "image/jpeg", "image/webp").contains(file.mediaType()) || file.sizeBytes() > 20971520)
             throw ChatException.invalid("Image is unavailable or exceeds the vision limit.");
         try (var input = open(actor, tenant, id)) {
             var bytes = input.inputStream().readNBytes(Math.toIntExact(file.sizeBytes()) + 1);
             if (bytes.length != file.sizeBytes()) throw ChatException.unavailable();
             if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()
-                    || files.owned(tenant, actor, id, false).filter(row -> row.file().status() == UserFile.Status.READY).isEmpty())
+                    || files.readable(tenant, actor, id, false).filter(row -> row.file().status() == UserFile.Status.READY).isEmpty())
                 throw ChatException.unavailable();
             return bytes;
         } catch (java.io.IOException failed) { throw ChatException.unavailable(); }

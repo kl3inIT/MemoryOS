@@ -1,4 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ChatPromptShortcutPopover } from "@/features/agents/prompt-shortcuts";
 import {
   ActionBarPrimitive,
   AuiIf,
@@ -64,6 +65,7 @@ export function ChatThread({
   welcome,
   afterComposer,
   readOnly = false,
+  sendDisabled = false,
 }: {
   /** Left of the composer toolbar: the `+` menu for files and tools. */
   composerMenu?: ReactNode;
@@ -80,6 +82,8 @@ export function ChatThread({
   welcome?: ReactNode;
   afterComposer?: ReactNode;
   readOnly?: boolean;
+  /** Blocks Send while the conversation's agent and its tool policy are still unknown. */
+  sendDisabled?: boolean;
 }) {
   const ui = useAppTranslation();
 
@@ -153,51 +157,54 @@ export function ChatThread({
                   action={{ label: t("check"), pending: checking, onClick: () => void onCheck() }}
                 />
               ) : null}
-              <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
-                <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
-                  <ChatComposerDraft />
-                  <ChatComposerQuote />
-                  <ComposerAttachments />
-                  <ComposerPrimitive.Input
-                    aria-label={ui("Câu hỏi")}
-                    placeholder={ui("Nhập câu hỏi…")}
-                    rows={1}
-                    maxLength={32000}
-                    className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
-                  />
-                  <AuiIf condition={(state) => state.composer.attachments.length > 20}>
-                    <p role="alert" className="text-sm">
-                      {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
-                    </p>
-                  </AuiIf>
-                  <div
-                    data-testid="chat-composer-actions"
-                    className="flex flex-nowrap items-center justify-between gap-2"
-                  >
-                    {composerMenu ?? <span />}
-                    <div className="flex min-w-0 items-center gap-1">
-                      {modelPicker}
-                      <AuiIf condition={(state) => !state.thread.isRunning}>
-                        <ChatComposerSend asChild>
-                          <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
-                            <ArrowUp />
+              <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+                <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
+                  <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                    <ChatComposerDraft />
+                    <ChatComposerQuote />
+                    <ComposerAttachments />
+                    <ComposerPrimitive.Input
+                      aria-label={ui("Câu hỏi")}
+                      placeholder={ui("Nhập câu hỏi…")}
+                      rows={1}
+                      maxLength={32000}
+                      className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
+                    />
+                    <ChatPromptShortcutPopover />
+                    <AuiIf condition={(state) => state.composer.attachments.length > 20}>
+                      <p role="alert" className="text-sm">
+                        {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
+                      </p>
+                    </AuiIf>
+                    <div
+                      data-testid="chat-composer-actions"
+                      className="flex flex-nowrap items-center justify-between gap-2"
+                    >
+                      {composerMenu ?? <span />}
+                      <div className="flex min-w-0 items-center gap-1">
+                        {modelPicker}
+                        <AuiIf condition={(state) => !state.thread.isRunning}>
+                          <ChatComposerSend asChild disabled={sendDisabled}>
+                            <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
+                              <ArrowUp />
+                            </IconButton>
+                          </ChatComposerSend>
+                        </AuiIf>
+                        <AuiIf condition={(state) => state.thread.isRunning}>
+                          <IconButton
+                            aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
+                            prominence="secondary"
+                            disabled={stopping}
+                            onClick={onStop}
+                          >
+                            <Square />
                           </IconButton>
-                        </ChatComposerSend>
-                      </AuiIf>
-                      <AuiIf condition={(state) => state.thread.isRunning}>
-                        <IconButton
-                          aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
-                          prominence="secondary"
-                          disabled={stopping}
-                          onClick={onStop}
-                        >
-                          <Square />
-                        </IconButton>
-                      </AuiIf>
+                        </AuiIf>
+                      </div>
                     </div>
-                  </div>
-                </ChatComposerRoot>
-              </ComposerPrimitive.AttachmentDropzone>
+                  </ChatComposerRoot>
+                </ComposerPrimitive.AttachmentDropzone>
+              </ComposerPrimitive.Unstable_TriggerPopoverRoot>
             </ThreadPrimitive.ViewportFooter>
           )}
           {isEmpty && afterComposer && (

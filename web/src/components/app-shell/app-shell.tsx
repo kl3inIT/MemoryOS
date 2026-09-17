@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Blocks,
+  Bot,
   Globe,
   KeyRound,
   Menu,
@@ -37,7 +38,8 @@ export type AdminPage =
   | "interpreter"
   | "providers"
   | "models"
-  | "mcp";
+  | "mcp"
+  | "agents";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -123,6 +125,7 @@ function SidebarContents({
     canManageModels,
     canManageProviders,
     canManageMcp,
+    canManageAgents,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -232,6 +235,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Code Interpreter")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageAgents ? (
+              <SidebarSection title={ui("Trợ lý")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/agents"
+                  icon={<Bot className="size-4" />}
+                  selected={adminPage === "agents"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Quản lý trợ lý")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

@@ -900,11 +900,12 @@ class ChatSessionApiIntegrationTest {
         });
         try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
             String ownerToken = token(actor), readerToken = token(other);
+            grantCapability("AGENTS_CREATE");
             var project = workspaceRequest(http, ownerToken, "POST", "/api/chat/projects",
                     "{\"name\":\"Work\",\"description\":\"\",\"instructions\":\"PROJECT INSTRUCTIONS\"}", 201);
             var persona = workspaceRequest(http, ownerToken, "POST", "/api/chat/personas", """
                     {"name":"Personal","description":"","instructions":"ASSISTANT INSTRUCTIONS",
-                     "starterPrompts":["Start here"],"sourceIds":[],"searchEnabled":false,
+                     "starterPrompts":["Start here"],"sourceIds":[],"tools":[],
                      "contextTokenLimit":8000,"outputTokenLimit":1000}
                     """, 201);
             String projectId = project.path("id").asText(), personaId = persona.path("id").asText();

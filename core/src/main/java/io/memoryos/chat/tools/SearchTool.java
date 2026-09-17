@@ -95,6 +95,29 @@ public final class SearchTool implements AutoCloseable {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, timings, List.of());
     }
 
+    private io.memoryos.retrieval.SearchFilters.@org.jspecify.annotations.Nullable Interval knowledgeFloor;
+
+    /** Onyx {@code search_start_date}: an agent never searches documents updated before its cutoff. */
+    public SearchTool knowledgeCutoff(java.time.@org.jspecify.annotations.Nullable Instant cutoff) {
+        knowledgeFloor = cutoff == null ? null : new SearchFilters.Interval(cutoff, null);
+        return this;
+    }
+
+    /** True when a requested update window ends before the agent's cutoff, so no document can match. */
+    static boolean beforeFloor(SearchFilters.@org.jspecify.annotations.Nullable Interval requested,
+            SearchFilters.@org.jspecify.annotations.Nullable Interval floor) {
+        return floor != null && requested != null && requested.to() != null && requested.to().isBefore(floor.from());
+    }
+
+    static SearchFilters.@org.jspecify.annotations.Nullable Interval floor(SearchFilters.@org.jspecify.annotations.Nullable Interval requested,
+            SearchFilters.@org.jspecify.annotations.Nullable Interval floor) {
+        if (floor == null) return requested;
+        if (requested == null) return floor;
+        var from = requested.from() == null || requested.from().isBefore(floor.from()) ? floor.from() : requested.from();
+        var to = requested.to();
+        return to != null && to.isBefore(from) ? new SearchFilters.Interval(from, from) : new SearchFilters.Interval(from, to);
+    }
+
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
@@ -141,7 +164,7 @@ public final class SearchTool implements AutoCloseable {
     public enum Expansion { NOT_RELEVANT, MAIN_SECTION_ONLY, INCLUDE_ADJACENT_SECTIONS, FULL_DOCUMENT }
     private record QueryExpansion(String semantic, List<String> keywords) {}
     private record SearchCycle(int cycleNumber, List<String> queries, List<SourceType> searchedSources) {}
-    private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion) {}
+    private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion, boolean beforeCutoff) {}
 
     @LlmTool(name = "search_knowledge", description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
     @SuppressWarnings("unused") // Invoked by the native Embabel method tool, verified through Chat HTTP tests.
@@ -181,6 +204,7 @@ public final class SearchTool implements AutoCloseable {
             events.accept(new ChatToolEvent(call(),
                     new ChatToolEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters)));
             scopeNote = scopeNote(filters.sources(), requests.values().stream().map(SearchQuery::text).distinct().toList());
+            if (preparation.beforeCutoff()) return "No authorized evidence found. Do not invent an organization-specific answer.";
             var result = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
             checkActive.run();
             if (result.hits().isEmpty()) return "No authorized evidence found. Do not invent an organization-specific answer.";
@@ -319,14 +343,15 @@ public final class SearchTool implements AutoCloseable {
         }
         queryExpansion = new QueryExpansion(semantic, keywords);
         var resolved = plan.isEmpty() ? explicit.sources() : plan;
+        var requestedUpdated = SearchFilters.intersect(explicit.updated(), timeFilters.updated());
         var filters = new SearchFilters(resolved, SearchFilters.intersect(explicit.created(), timeFilters.created()),
-                SearchFilters.intersect(explicit.updated(), timeFilters.updated()));
+                floor(requestedUpdated, knowledgeFloor));
         // The source-agnostic expansion is used on the first cycle and whenever the scope reaches a not-yet-searched source.
         var searched = new HashSet<SourceType>();
         searchCycles.forEach(cycle -> searched.addAll(cycle.searchedSources()));
         boolean reuseExpansion = searchCycles.isEmpty() || resolved.stream().anyMatch(source -> !searched.contains(source));
         searchCycles.add(new SearchCycle(searchCycles.size() + 1, List.copyOf(queries), resolved.stream().sorted().toList()));
-        return new Preparation(queryExpansion, filters, reuseExpansion);
+        return new Preparation(queryExpansion, filters, reuseExpansion, beforeFloor(requestedUpdated, knowledgeFloor));
     }
 
     private SourceChoice sourceChoice(List<String> queries, Set<SourceType> candidates) {

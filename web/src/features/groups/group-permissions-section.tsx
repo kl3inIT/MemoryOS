@@ -1,6 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { capabilityCopy } from "./group-capability-copy";
 import {
+  Bot,
   ChevronsDownUp,
   ChevronsUpDown,
   Cpu,
@@ -27,6 +28,8 @@ const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>>
   SOURCES_MANAGE: FolderCog,
   MODELS_MANAGE: Cpu,
   MCP_MANAGE: Plug,
+  AGENTS_CREATE: Bot,
+  AGENTS_MANAGE: Bot,
 };
 
 function permissionSection(id: CapabilityId) {

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ActionNotifications } from "@/components/ui/action-notifications";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
@@ -20,9 +21,11 @@ function mount() {
   const client = createMemoryOsQueryClient();
   render(
     <QueryClientProvider client={client}>
-      <ApplicationSessionBoundary>
-        <GeneralSettingsPage />
-      </ApplicationSessionBoundary>
+      <ActionNotifications>
+        <ApplicationSessionBoundary>
+          <GeneralSettingsPage />
+        </ApplicationSessionBoundary>
+      </ActionNotifications>
     </QueryClientProvider>,
   );
   return client;

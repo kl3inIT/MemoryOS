@@ -14,6 +14,7 @@
   --shadow-xs: var(--elevation-1);
   --shadow-sm: var(--elevation-1);
   --shadow-md: var(--elevation-2);
+  --shadow-hover: var(--elevation-hover);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -39,12 +40,14 @@
   --color-surface-raised: var(--surface-raised);
   --color-surface-subtle: var(--surface-subtle);
   --color-surface-sunken: var(--surface-sunken);
+  --color-surface-strong: var(--surface-strong);
   --color-surface-overlay: var(--surface-overlay);
   --color-surface-scrim: var(--surface-scrim);
   --color-content-primary: var(--content-primary);
   --color-content-secondary: var(--content-secondary);
   --color-content-muted: var(--content-muted);
   --color-content-disabled: var(--content-disabled);
+  --color-content-faint: var(--content-faint);
   --color-content-inverse: var(--content-inverse);
   --color-border-subtle: var(--border-subtle);
   --color-border-default: var(--border-default);
@@ -61,6 +64,9 @@
   --color-action-ghost-hover: var(--action-ghost-hover);
   --color-action-ghost-active: var(--action-ghost-active);
   --color-focus-ring: var(--focus-ring);
+  --color-action-selection: var(--action-selection);
+  --color-action-selection-hover: var(--action-selection-hover);
+  --color-action-selection-surface: var(--action-selection-surface);
 
   --color-status-danger-surface: var(--status-danger-surface);
   --color-status-danger-content: var(--status-danger-content);
@@ -155,3 +161,10 @@
   font-weight: 600;
   line-height: 0.75rem;
 }
+
+@utility surface-card {
+  background: var(--surface-card-gradient);
+}
+
+/* Touch devices cannot hover: keep hover-revealed controls visible (`opacity-0 group-hover:opacity-100 no-hover:opacity-100`). */
+@custom-variant no-hover (@media (hover: none));

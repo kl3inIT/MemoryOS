@@ -383,6 +383,34 @@ export type ProviderView = {
     revision: number;
 };
 
+export type ShortcutInput = {
+    name?: string;
+    content?: string;
+    active?: boolean;
+};
+
+export type PromptShortcut = {
+    id?: string;
+    name?: string;
+    content?: string;
+    active?: boolean;
+    isPublic?: boolean;
+    hidden?: boolean;
+    revision?: number;
+};
+
+export type HiddenRequest = {
+    hidden?: boolean;
+};
+
+export type PreferencesRequest = {
+    enabled?: boolean;
+};
+
+export type PromptShortcutPreferences = {
+    enabled?: boolean;
+};
+
 export type ProjectInput = {
     name?: string;
     description?: string;
@@ -404,18 +432,62 @@ export type PersonaInput = {
     name?: string;
     description?: string;
     instructions?: string;
+    taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
-    searchEnabled?: boolean;
+    tools?: Array<string>;
+    mcpServerIds?: Array<string>;
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
+    iconName?: string;
+    avatarFileId?: string;
+    labelIds?: Array<string>;
+    replaceBaseSystemPrompt?: boolean;
+    datetimeAware?: boolean;
+    knowledgeCutoff?: string;
+};
+
+export type AgentGroupShare = {
+    group?: AgentRef;
+    permission?: 'VIEWER' | 'EDITOR';
+};
+
+export type AgentOwner = {
+    actor?: AgentPerson;
+    group?: AgentRef;
+};
+
+export type AgentPerson = {
+    actorId?: string;
+    name?: string;
+    email?: string;
+};
+
+export type AgentRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentSourceRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentUserShare = {
+    person?: AgentPerson;
+    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type PersonaPermissions = {
     edit?: boolean;
+    share?: boolean;
+    setPublic?: boolean;
     delete?: boolean;
+    transfer?: boolean;
+    leave?: boolean;
+    manage?: boolean;
 };
 
 export type PersonaView = {
@@ -426,19 +498,70 @@ export type PersonaView = {
     name?: string;
     description?: string;
     instructions?: string;
+    taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
-    searchEnabled?: boolean;
+    sources?: Array<AgentSourceRef>;
+    tools?: Array<string>;
+    mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
+    iconName?: string;
+    hasAvatar?: boolean;
+    labels?: Array<AgentRef>;
+    owner?: AgentOwner;
+    vacant?: boolean;
+    userShares?: Array<AgentUserShare>;
+    groupShares?: Array<AgentGroupShare>;
+    isPublic?: boolean;
+    publicPermission?: 'VIEWER' | 'EDITOR';
+    listed?: boolean;
+    featured?: boolean;
+    displayPriority?: number;
+    replaceBaseSystemPrompt?: boolean;
+    datetimeAware?: boolean;
+    knowledgeCutoff?: string;
+    pinned?: boolean;
+    deletedAt?: string;
+};
+
+export type GroupShareInput = {
+    groupId?: string;
+    permission?: 'VIEWER' | 'EDITOR';
+};
+
+export type SharingInput = {
+    users?: Array<UserShareInput>;
+    groups?: Array<GroupShareInput>;
+    isPublic?: boolean;
+    publicPermission?: 'VIEWER' | 'EDITOR';
+};
+
+export type UserShareInput = {
+    actorId?: string;
+    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type PersonaModel = {
     personaId: string;
     modelConfigurationId: string | null;
     revision: number;
+};
+
+export type ListingInput = {
+    listed?: boolean;
+    featured?: boolean;
+    displayPriority?: number;
+};
+
+export type PinsRequest = {
+    personaIds?: Array<string>;
+};
+
+export type LabelRequest = {
+    name?: string;
 };
 
 export type CapabilitiesInput = {
@@ -879,7 +1002,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     permissions: GroupPermissions;
 };
 
@@ -894,7 +1017,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -977,6 +1100,11 @@ export type Cancellation = {
 
 export type ProjectConversation = {
     title: string;
+};
+
+export type TransferInput = {
+    actorId?: string;
+    groupId?: string;
 };
 
 export type ChatModelValidationResult = {
@@ -1275,11 +1403,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -1340,11 +1468,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -1705,6 +1833,11 @@ export type SourceOption = {
     id?: string;
     name?: string;
     type?: 'FILE' | 'GOOGLE_DRIVE';
+};
+
+export type AgentShareOptions = {
+    people?: Array<AgentPerson>;
+    groups?: Array<AgentRef>;
 };
 
 export type ChatPersona = {
@@ -3150,6 +3283,343 @@ export type UpdateChatProviderResponses = {
 
 export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof UpdateChatProviderResponses];
 
+export type DeleteChatPromptShortcutData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/{shortcutId}';
+};
+
+export type DeleteChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatPromptShortcutError = DeleteChatPromptShortcutErrors[keyof DeleteChatPromptShortcutErrors];
+
+export type DeleteChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatPromptShortcutResponse = DeleteChatPromptShortcutResponses[keyof DeleteChatPromptShortcutResponses];
+
+export type UpdateChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/prompt-shortcuts/{shortcutId}';
+};
+
+export type UpdateChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateChatPromptShortcutError = UpdateChatPromptShortcutErrors[keyof UpdateChatPromptShortcutErrors];
+
+export type UpdateChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcut;
+};
+
+export type UpdateChatPromptShortcutResponse = UpdateChatPromptShortcutResponses[keyof UpdateChatPromptShortcutResponses];
+
+export type HideChatPromptShortcutData = {
+    body: HiddenRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/{shortcutId}/hidden';
+};
+
+export type HideChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type HideChatPromptShortcutError = HideChatPromptShortcutErrors[keyof HideChatPromptShortcutErrors];
+
+export type HideChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type HideChatPromptShortcutResponse = HideChatPromptShortcutResponses[keyof HideChatPromptShortcutResponses];
+
+export type DeletePublicChatPromptShortcutData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public/{shortcutId}';
+};
+
+export type DeletePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeletePublicChatPromptShortcutError = DeletePublicChatPromptShortcutErrors[keyof DeletePublicChatPromptShortcutErrors];
+
+export type DeletePublicChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeletePublicChatPromptShortcutResponse = DeletePublicChatPromptShortcutResponses[keyof DeletePublicChatPromptShortcutResponses];
+
+export type UpdatePublicChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/prompt-shortcuts/public/{shortcutId}';
+};
+
+export type UpdatePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdatePublicChatPromptShortcutError = UpdatePublicChatPromptShortcutErrors[keyof UpdatePublicChatPromptShortcutErrors];
+
+export type UpdatePublicChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcut;
+};
+
+export type UpdatePublicChatPromptShortcutResponse = UpdatePublicChatPromptShortcutResponses[keyof UpdatePublicChatPromptShortcutResponses];
+
+export type GetChatPromptShortcutPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/preferences';
+};
+
+export type GetChatPromptShortcutPreferencesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatPromptShortcutPreferencesError = GetChatPromptShortcutPreferencesErrors[keyof GetChatPromptShortcutPreferencesErrors];
+
+export type GetChatPromptShortcutPreferencesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcutPreferences;
+};
+
+export type GetChatPromptShortcutPreferencesResponse = GetChatPromptShortcutPreferencesResponses[keyof GetChatPromptShortcutPreferencesResponses];
+
+export type SetChatPromptShortcutPreferencesData = {
+    body: PreferencesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/preferences';
+};
+
+export type SetChatPromptShortcutPreferencesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatPromptShortcutPreferencesError = SetChatPromptShortcutPreferencesErrors[keyof SetChatPromptShortcutPreferencesErrors];
+
+export type SetChatPromptShortcutPreferencesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcutPreferences;
+};
+
+export type SetChatPromptShortcutPreferencesResponse = SetChatPromptShortcutPreferencesResponses[keyof SetChatPromptShortcutPreferencesResponses];
+
 export type DeleteChatProjectData = {
     body?: never;
     headers: {
@@ -3440,6 +3910,57 @@ export type UpdateChatPersonaResponses = {
 
 export type UpdateChatPersonaResponse = UpdateChatPersonaResponses[keyof UpdateChatPersonaResponses];
 
+export type ShareChatPersonaData = {
+    body: SharingInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/sharing';
+};
+
+export type ShareChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ShareChatPersonaError = ShareChatPersonaErrors[keyof ShareChatPersonaErrors];
+
+export type ShareChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type ShareChatPersonaResponse = ShareChatPersonaResponses[keyof ShareChatPersonaResponses];
+
 export type GetPersonaModelData = {
     body?: never;
     path: {
@@ -3542,6 +4063,290 @@ export type SetPersonaModelResponses = {
 };
 
 export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaModelResponses];
+
+export type SetChatPersonaListingData = {
+    body: ListingInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/listing';
+};
+
+export type SetChatPersonaListingErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatPersonaListingError = SetChatPersonaListingErrors[keyof SetChatPersonaListingErrors];
+
+export type SetChatPersonaListingResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type SetChatPersonaListingResponse = SetChatPersonaListingResponses[keyof SetChatPersonaListingResponses];
+
+export type ListChatPersonaPinsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-pins';
+};
+
+export type ListChatPersonaPinsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaPinsError = ListChatPersonaPinsErrors[keyof ListChatPersonaPinsErrors];
+
+export type ListChatPersonaPinsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ListChatPersonaPinsResponse = ListChatPersonaPinsResponses[keyof ListChatPersonaPinsResponses];
+
+export type ReplaceChatPersonaPinsData = {
+    body: PinsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-pins';
+};
+
+export type ReplaceChatPersonaPinsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceChatPersonaPinsError = ReplaceChatPersonaPinsErrors[keyof ReplaceChatPersonaPinsErrors];
+
+export type ReplaceChatPersonaPinsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ReplaceChatPersonaPinsResponse = ReplaceChatPersonaPinsResponses[keyof ReplaceChatPersonaPinsResponses];
+
+export type ReorderChatPersonasData = {
+    body: PinsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-order';
+};
+
+export type ReorderChatPersonasErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatPersonasError = ReorderChatPersonasErrors[keyof ReorderChatPersonasErrors];
+
+export type ReorderChatPersonasResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatPersonasResponse = ReorderChatPersonasResponses[keyof ReorderChatPersonasResponses];
+
+export type DeleteChatPersonaLabelData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        labelId: string;
+    };
+    query?: never;
+    url: '/api/chat/persona-labels/{labelId}';
+};
+
+export type DeleteChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatPersonaLabelError = DeleteChatPersonaLabelErrors[keyof DeleteChatPersonaLabelErrors];
+
+export type DeleteChatPersonaLabelResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatPersonaLabelResponse = DeleteChatPersonaLabelResponses[keyof DeleteChatPersonaLabelResponses];
+
+export type RenameChatPersonaLabelData = {
+    body: LabelRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        labelId: string;
+    };
+    query?: never;
+    url: '/api/chat/persona-labels/{labelId}';
+};
+
+export type RenameChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RenameChatPersonaLabelError = RenameChatPersonaLabelErrors[keyof RenameChatPersonaLabelErrors];
+
+export type RenameChatPersonaLabelResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: AgentRef;
+};
+
+export type RenameChatPersonaLabelResponse = RenameChatPersonaLabelResponses[keyof RenameChatPersonaLabelResponses];
 
 export type DeleteChatModelData = {
     body?: never;
@@ -6099,6 +6904,184 @@ export type CreateChatModelResponses = {
 
 export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatModelResponses];
 
+export type ListChatPromptShortcutsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeHidden?: boolean;
+    };
+    url: '/api/chat/prompt-shortcuts';
+};
+
+export type ListChatPromptShortcutsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPromptShortcutsError = ListChatPromptShortcutsErrors[keyof ListChatPromptShortcutsErrors];
+
+export type ListChatPromptShortcutsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PromptShortcut>;
+};
+
+export type ListChatPromptShortcutsResponse = ListChatPromptShortcutsResponses[keyof ListChatPromptShortcutsResponses];
+
+export type CreateChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts';
+};
+
+export type CreateChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatPromptShortcutError = CreateChatPromptShortcutErrors[keyof CreateChatPromptShortcutErrors];
+
+export type CreateChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PromptShortcut;
+};
+
+export type CreateChatPromptShortcutResponse = CreateChatPromptShortcutResponses[keyof CreateChatPromptShortcutResponses];
+
+export type ListPublicChatPromptShortcutsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public';
+};
+
+export type ListPublicChatPromptShortcutsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListPublicChatPromptShortcutsError = ListPublicChatPromptShortcutsErrors[keyof ListPublicChatPromptShortcutsErrors];
+
+export type ListPublicChatPromptShortcutsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PromptShortcut>;
+};
+
+export type ListPublicChatPromptShortcutsResponse = ListPublicChatPromptShortcutsResponses[keyof ListPublicChatPromptShortcutsResponses];
+
+export type CreatePublicChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public';
+};
+
+export type CreatePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreatePublicChatPromptShortcutError = CreatePublicChatPromptShortcutErrors[keyof CreatePublicChatPromptShortcutErrors];
+
+export type CreatePublicChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PromptShortcut;
+};
+
+export type CreatePublicChatPromptShortcutResponse = CreatePublicChatPromptShortcutResponses[keyof CreatePublicChatPromptShortcutResponses];
+
 export type ListChatProjectsData = {
     body?: never;
     path?: never;
@@ -6289,6 +7272,9 @@ export type ListChatPersonasData = {
     body?: never;
     path?: never;
     query?: {
+        view?: 'ALL' | 'MINE' | 'SHARED';
+        labelId?: string;
+        q?: string;
         offset?: number;
         limit?: number;
     };
@@ -6375,6 +7361,194 @@ export type CreateChatPersonaResponses = {
 };
 
 export type CreateChatPersonaResponse = CreateChatPersonaResponses[keyof CreateChatPersonaResponses];
+
+export type RestoreChatPersonaData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/restore';
+};
+
+export type RestoreChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RestoreChatPersonaError = RestoreChatPersonaErrors[keyof RestoreChatPersonaErrors];
+
+export type RestoreChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type RestoreChatPersonaResponse = RestoreChatPersonaResponses[keyof RestoreChatPersonaResponses];
+
+export type TransferChatPersonaData = {
+    body: TransferInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/owner';
+};
+
+export type TransferChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type TransferChatPersonaError = TransferChatPersonaErrors[keyof TransferChatPersonaErrors];
+
+export type TransferChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type TransferChatPersonaResponse = TransferChatPersonaResponses[keyof TransferChatPersonaResponses];
+
+export type ListChatPersonaLabelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-labels';
+};
+
+export type ListChatPersonaLabelsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaLabelsError = ListChatPersonaLabelsErrors[keyof ListChatPersonaLabelsErrors];
+
+export type ListChatPersonaLabelsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<AgentRef>;
+};
+
+export type ListChatPersonaLabelsResponse = ListChatPersonaLabelsResponses[keyof ListChatPersonaLabelsResponses];
+
+export type CreateChatPersonaLabelData = {
+    body: LabelRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-labels';
+};
+
+export type CreateChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatPersonaLabelError = CreateChatPersonaLabelErrors[keyof CreateChatPersonaLabelErrors];
+
+export type CreateChatPersonaLabelResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: AgentRef;
+};
+
+export type CreateChatPersonaLabelResponse = CreateChatPersonaLabelResponses[keyof CreateChatPersonaLabelResponses];
 
 export type ValidateChatModelData = {
     body?: never;
@@ -7894,6 +9068,49 @@ export type ListChatPersonaModelsResponses = {
 
 export type ListChatPersonaModelsResponse = ListChatPersonaModelsResponses[keyof ListChatPersonaModelsResponses];
 
+export type GetChatPersonaAvatarData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/avatar';
+};
+
+export type GetChatPersonaAvatarErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatPersonaAvatarError = GetChatPersonaAvatarErrors[keyof GetChatPersonaAvatarErrors];
+
+export type GetChatPersonaAvatarResponses = {
+    /**
+     * Avatar image bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatPersonaAvatarResponse = GetChatPersonaAvatarResponses[keyof GetChatPersonaAvatarResponses];
+
 export type ListChatPersonaSourcesData = {
     body?: never;
     path?: never;
@@ -7937,6 +9154,95 @@ export type ListChatPersonaSourcesResponses = {
 };
 
 export type ListChatPersonaSourcesResponse = ListChatPersonaSourcesResponses[keyof ListChatPersonaSourcesResponses];
+
+export type ListChatPersonasForAdministrationData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeDeleted?: boolean;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/personas/administration';
+};
+
+export type ListChatPersonasForAdministrationErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonasForAdministrationError = ListChatPersonasForAdministrationErrors[keyof ListChatPersonasForAdministrationErrors];
+
+export type ListChatPersonasForAdministrationResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ListChatPersonasForAdministrationResponse = ListChatPersonasForAdministrationResponses[keyof ListChatPersonasForAdministrationResponses];
+
+export type ListChatPersonaShareOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        limit?: number;
+    };
+    url: '/api/chat/persona-share-options';
+};
+
+export type ListChatPersonaShareOptionsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaShareOptionsError = ListChatPersonaShareOptionsErrors[keyof ListChatPersonaShareOptionsErrors];
+
+export type ListChatPersonaShareOptionsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: AgentShareOptions;
+};
+
+export type ListChatPersonaShareOptionsResponse = ListChatPersonaShareOptionsResponses[keyof ListChatPersonaShareOptionsResponses];
 
 export type ListAvailableChatModelsData = {
     body?: never;
@@ -9055,3 +10361,52 @@ export type DeleteGoogleDriveCredentialResponses = {
 };
 
 export type DeleteGoogleDriveCredentialResponse = DeleteGoogleDriveCredentialResponses[keyof DeleteGoogleDriveCredentialResponses];
+
+export type LeaveChatPersonaData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/sharing/me';
+};
+
+export type LeaveChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type LeaveChatPersonaError = LeaveChatPersonaErrors[keyof LeaveChatPersonaErrors];
+
+export type LeaveChatPersonaResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChatPersonaResponses];

@@ -35,6 +35,21 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import reactor.core.publisher.Mono;
 
 class SearchToolTest {
+    @org.junit.jupiter.api.Test
+    void knowledgeCutoffIsALowerBoundThatRequestsCannotWiden() {
+        var cutoff = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        var floor = new io.memoryos.retrieval.SearchFilters.Interval(cutoff, null);
+        org.junit.jupiter.api.Assertions.assertEquals(floor, SearchTool.floor(null, floor));
+        var earlier = new io.memoryos.retrieval.SearchFilters.Interval(java.time.Instant.parse("2025-01-01T00:00:00Z"), null);
+        org.junit.jupiter.api.Assertions.assertEquals(cutoff, SearchTool.floor(earlier, floor).from());
+        var before = new io.memoryos.retrieval.SearchFilters.Interval(null, java.time.Instant.parse("2025-06-01T00:00:00Z"));
+        var empty = SearchTool.floor(before, floor);
+        org.junit.jupiter.api.Assertions.assertEquals(empty.from(), empty.to());
+        org.junit.jupiter.api.Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
+        org.junit.jupiter.api.Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
+        org.junit.jupiter.api.Assertions.assertNull(SearchTool.floor(null, null));
+    }
+
     private final DocumentSearchService search = mock(DocumentSearchService.class);
     private final PromptRunner runner = mock(PromptRunner.class);
     private final List<ChatToolEvent> events = new ArrayList<>();

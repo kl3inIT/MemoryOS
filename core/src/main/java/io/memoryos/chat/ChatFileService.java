@@ -89,7 +89,8 @@ public class ChatFileService {
     public List<ChatFileDescriptor> admit(TenantId tenant, ActorId actor, List<UUID> ids) {
         if (ids.size() > 20 || ids.stream().anyMatch(Objects::isNull) || ids.stream().distinct().count() != ids.size()) throw ChatException.invalid("Use at most 20 unique files.");
         return ids.stream().map(id -> {
-            var file = owned(tenant, actor, id, true).file();
+            // Agent users may admit files attached to an agent they can use.
+            var file = files.readable(tenant, actor, id, true).orElseThrow(ChatException::unavailable).file();
             if (file.status() != UserFile.Status.READY) throw ChatException.conflict();
             return ChatFileDescriptor.from(file);
         }).toList();

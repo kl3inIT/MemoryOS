@@ -33,6 +33,7 @@ export function useAdminAccess() {
   const canManageModels = useGlobalCapability("MODELS_MANAGE");
   const canManageProviders = useGlobalCapability("SYSTEM_ADMIN");
   const canManageMcp = useGlobalCapability("MCP_MANAGE");
+  const canManageAgents = useGlobalCapability("AGENTS_MANAGE");
   return {
     canManageUsers,
     canReadGroups,
@@ -40,13 +41,15 @@ export function useAdminAccess() {
     canManageModels,
     canManageProviders,
     canManageMcp,
+    canManageAgents,
     canAccessAdmin:
       canManageUsers ||
       canReadGroups ||
       canReadSources ||
       canManageModels ||
       canManageProviders ||
-      canManageMcp,
+      canManageMcp ||
+      canManageAgents,
     adminEntryPath: canReadSources
       ? "/admin"
       : canReadGroups
@@ -57,6 +60,8 @@ export function useAdminAccess() {
             ? "/admin/identity-providers"
             : canManageModels
               ? "/admin/models"
-              : "/admin/mcp",
+              : canManageMcp
+                ? "/admin/mcp"
+                : "/admin/agents",
   } as const;
 }
