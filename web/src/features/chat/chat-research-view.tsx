@@ -89,7 +89,8 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
               <AgentPanel agent={agents[0]!} running={running} />
             ) : (
               <Tabs defaultValue={agents[0]!.toolCallId}>
-                <TabsList className="max-w-full overflow-x-auto">
+                {/* Scrolling sideways must not add a vertical scrollbar to the fixed-height tab row. */}
+                <TabsList className="max-w-full overflow-x-auto overflow-y-hidden">
                   {agents.map((agent) => (
                     <TabsTrigger key={agent.toolCallId} value={agent.toolCallId}>
                       <span className="flex items-center gap-1.5">

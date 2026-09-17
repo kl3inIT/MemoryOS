@@ -227,6 +227,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
+        private boolean separate;
 
         StreamState(Turn turn, FluxSink<ChatResponse> sink) {
             this.turn = turn;
@@ -238,7 +239,9 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             event.outputTextDelta().ifPresent(delta -> {
                 if (!delta.delta().isEmpty()) sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(delta.delta()).build()))));
             });
-            event.reasoningSummaryPartAdded().ifPresent(part -> { if (part.summaryIndex() > 0) turn.events().accept(new ChatReasoningDelta("\n\n")); });
+            // Every summary part opens with a bold heading. Parts of a new reasoning item or of the next inference
+            // join the same timeline reasoning, so each part is separated, as Onyx's summary newline patch does.
+            event.reasoningSummaryPartAdded().ifPresent(part -> separate = true);
             event.reasoningSummaryTextDelta().ifPresent(delta -> reason(delta.delta()));
             event.webSearchCallInProgress().ifPresent(progress -> start(progress.itemId()));
             event.webSearchCallSearching().ifPresent(progress -> start(progress.itemId()));
@@ -253,6 +256,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }
 
         private void reason(String text) {
+            if (text.isEmpty()) return;
+            if (separate) {
+                separate = false;
+                // Markdown ignores the leading blank line of the first part.
+                turn.events().accept(new ChatReasoningDelta("\n\n"));
+            }
             for (int offset = 0; offset < text.length(); ) {
                 int end = Math.min(text.length(), offset + 4000);
                 if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) end--;

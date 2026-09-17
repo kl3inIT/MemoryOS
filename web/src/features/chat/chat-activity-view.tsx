@@ -310,7 +310,8 @@ export function ChatReasoningStep({ running }: { running: boolean }) {
     <ActivityStep
       icon={<Brain />}
       status={running ? "running" : "done"}
-      title={running ? ui("Đang suy nghĩ…") : ui("Suy nghĩ")}
+      // The group header already says "Thinking…" while it runs; the step spinner shows it is live.
+      title={ui("Suy nghĩ")}
     >
       <div className="text-sm [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-muted">
         <MarkdownText />
