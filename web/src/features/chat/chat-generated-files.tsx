@@ -1,13 +1,16 @@
 import { useAuiState } from "@assistant-ui/react";
-import { Download } from "lucide-react";
+import { DownloadIcon } from "lucide-react";
+import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { fileArtifactUrl, fileSize, type GeneratedFile } from "./chat-code";
 
 const emptyFiles: GeneratedFile[] = [];
 
-/** Download cards for the files run_python produced, below the answer like generated images. */
+/**
+ * The files run_python produced, below the answer, composed from the assistant-ui File element. Its own download
+ * part accepts only absolute URLs, so the authorized same-origin artifact link is rendered here.
+ */
 export function ChatGeneratedFiles() {
   const ui = useAppTranslation();
   const files = useAuiState(
@@ -16,25 +19,29 @@ export function ChatGeneratedFiles() {
   );
   if (!files.length) return null;
   return (
-    <div className="mt-3 flex flex-wrap gap-2" data-slot="generated-files">
+    <ul className="mt-3 flex flex-wrap gap-2" data-slot="generated-files">
       {files.map((file) => (
-        <a
-          key={file.id}
-          href={fileArtifactUrl(file.id)}
-          download={file.filename}
-          className="flex max-w-full items-center gap-2 rounded-xl border border-border-subtle bg-surface-subtle px-3 py-2 text-sm transition-colors hover:bg-surface-sunken"
-          aria-label={ui("Tải {{file}}", { file: file.filename })}
-        >
-          <DocumentSourceIcon size="xs" mediaType={file.mediaType} />
-          <span className="min-w-0 flex-1 truncate" title={file.filename}>
-            {file.filename}
-          </span>
-          <span className="shrink-0 text-xs text-content-muted">
-            {fileSize(file.sizeBytes, uiLocale())}
-          </span>
-          <Download className="size-4 shrink-0 text-content-muted" aria-hidden />
-        </a>
+        <li key={file.id} className="max-w-full">
+          <FileDisplay.Root className="max-w-full">
+            <FileDisplay.Icon mimeType={file.mediaType} />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <FileDisplay.Name title={file.filename}>{file.filename}</FileDisplay.Name>
+              <span className="text-xs text-muted-foreground">
+                {fileSize(file.sizeBytes, uiLocale())}
+              </span>
+            </div>
+            <a
+              data-slot="file-download"
+              href={fileArtifactUrl(file.id)}
+              download={file.filename}
+              aria-label={ui("Tải {{file}}", { file: file.filename })}
+              className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <DownloadIcon className="size-4" aria-hidden />
+            </a>
+          </FileDisplay.Root>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

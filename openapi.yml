@@ -13850,6 +13850,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GeneratedFile"
+        stream:
+          type:
+          - string
+          - "null"
+          enum:
+          - stdout
+          - stderr
       required:
       - assistantMessageId
       - code
@@ -13857,6 +13864,7 @@ components:
       - output
       - sequence
       - stage
+      - stream
       - toolCallId
     GeneratedFile:
       type: object

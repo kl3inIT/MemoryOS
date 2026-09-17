@@ -16,7 +16,8 @@ export type GeneratedFile = z.infer<typeof generatedFileSchema>;
 /** One run_python call as the timeline knows it, keyed by tool call id. */
 export type CodeRun = {
   code: string;
-  output: string;
+  stdout: string;
+  stderr: string;
   files: GeneratedFile[];
   status: "running" | "done" | "failed";
 };

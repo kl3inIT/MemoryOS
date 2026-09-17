@@ -1590,6 +1590,7 @@ export type CodeEvent = {
     code: string | null;
     output: string | null;
     files: Array<GeneratedFile>;
+    stream: 'stdout' | 'stderr';
 };
 
 export type GeneratedFile = {

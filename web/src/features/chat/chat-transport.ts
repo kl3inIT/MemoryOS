@@ -60,6 +60,7 @@ const codeSchema = eventSchema.extend({
   stage: z.enum(["RUNNING", "OUTPUT", "COMPLETED", "FAILED"]),
   code: z.string().max(MAX_CODE_CHARACTERS).nullish(),
   output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
+  stream: z.enum(["stdout", "stderr"]).nullish(),
   files: z.array(generatedFileSchema).max(25).default([]),
 });
 const imageSchema = eventSchema.extend({
@@ -475,17 +476,23 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               const run = codeSchema.parse(data);
               const previous = codeRuns[run.toolCallId] ?? {
                 code: "",
-                output: "",
+                stdout: "",
+                stderr: "",
                 files: [],
                 status: "running" as const,
               };
+              const delta = run.stage === "OUTPUT" ? (run.output ?? "") : "";
+              const onStderr = run.stream === "stderr";
               codeRuns = {
                 ...codeRuns,
                 [run.toolCallId]: {
                   code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
-                  output:
-                    run.stage === "OUTPUT" ? previous.output + (run.output ?? "") : previous.output,
-                  files: run.stage === "COMPLETED" ? run.files : previous.files,
+                  stdout: onStderr ? previous.stdout : previous.stdout + delta,
+                  stderr: onStderr ? previous.stderr + delta : previous.stderr,
+                  files:
+                    run.stage === "COMPLETED" || run.stage === "FAILED"
+                      ? run.files
+                      : previous.files,
                   status:
                     run.stage === "COMPLETED"
                       ? "done"
@@ -494,7 +501,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                         : "running",
                 },
               };
-              if (run.stage === "COMPLETED" && run.files.length)
+              if ((run.stage === "COMPLETED" || run.stage === "FAILED") && run.files.length)
                 generatedFiles = [
                   ...generatedFiles.filter((file) => !run.files.some((one) => one.id === file.id)),
                   ...run.files,
