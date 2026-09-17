@@ -37,6 +37,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
 - [Sign-out without the Keycloak logout page](docs/increments/active/logout-without-keycloak-page/design.md) owns ending the Keycloak session by its `sid` through the admin API during application sign-out, with the provider logout page as fallback, and upstream (Tasco) logout through Keycloak back-channel logout on managed identity providers.
 - [MEM-109 — Chat image editing](docs/increments/active/mem-109-chat-image-editing/design.md) owns editing attached and previously generated images in Chat with FLUX.2 klein and server-side mask compositing.
+- [MEM-113 — Image model catalog and administration](docs/increments/active/mem-113-image-model-catalog/design.md) owns the backend-declared image model catalog, the `/admin/image-generation` page and the `generate_image` `size`→`shape` change; image editing behavior (MEM-109) is excluded.
 
 Delivered increments are under [completed](docs/increments/completed/); replaced research drafts are under [superseded](docs/increments/superseded/). The [roadmap](docs/roadmap.md) distinguishes the completed MEM-75 selected batch from the wider dependency issue, which remains open.
 
