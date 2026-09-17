@@ -34,8 +34,11 @@ public interface ChatProviderAdapter {
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);
 
-    /** Own all clients created here; disable automatic retries and apply the supplied deadline. */
-    Client create(Connection connection, String modelName, ModelSettings settings, Duration timeout);
+    /**
+     * Own all clients created here and disable automatic retries. {@code readTimeout} bounds connecting and each
+     * read/write gap, never a whole streamed call: a Chat turn has no total deadline.
+     */
+    Client create(Connection connection, String modelName, ModelSettings settings, Duration readTimeout);
 
     enum CredentialRequirement { REQUIRED, OPTIONAL, NONE }
 

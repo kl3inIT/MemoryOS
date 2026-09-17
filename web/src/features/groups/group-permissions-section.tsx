@@ -6,6 +6,7 @@ import {
   Cpu,
   FileSearch,
   FolderCog,
+  Plug,
   ShieldCheck,
   UserCog,
   Users,
@@ -25,6 +26,7 @@ const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>>
   GROUPS_MANAGE: Users,
   SOURCES_MANAGE: FolderCog,
   MODELS_MANAGE: Cpu,
+  MCP_MANAGE: Plug,
 };
 
 function permissionSection(id: CapabilityId) {

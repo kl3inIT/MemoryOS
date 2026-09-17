@@ -30,8 +30,11 @@ import { ChatComposerDraft, ChatComposerRoot, ChatComposerSend } from "./chat-co
 import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatImages } from "./chat-images";
+import { ChatGeneratedFiles } from "./chat-generated-files";
 import { ChatMessageTiming } from "./chat-message-timing";
 import { ChatActivityGroup, ChatReasoningStep, ChatToolStep } from "./chat-activity-view";
+import { ChatResearchView } from "./chat-research-view";
+import type { ResearchState } from "./chat-research";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 
 const activityGroups = groupPartByType({
@@ -257,6 +260,10 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                     <MarkdownText remarkPlugins={answerPlugins} components={answerComponents} />
                   </div>
                 ) : null;
+              case "data":
+                return part.name === "research" ? (
+                  <ChatResearchView research={part.data as ResearchState} />
+                ) : null;
               case "indicator":
                 return (
                   <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />
@@ -268,6 +275,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         </MessagePrimitive.GroupedParts>
         <ChatArtifactCards />
         <ChatImages />
+        <ChatGeneratedFiles />
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}

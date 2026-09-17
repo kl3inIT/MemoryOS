@@ -15,7 +15,7 @@ const providerUrlSchema = z
 
 const documentSourceSchema = z
   .object({
-    citationId: z.number().int().min(1).max(24),
+    citationId: z.number().int().min(1),
     documentId: z.string().uuid(),
     generation: z.string().uuid(),
     fileId: z.null().optional(),
@@ -44,7 +44,7 @@ const documentSourceSchema = z
   );
 export const sourceSchema = z.union([
   z.object({
-    citationId: z.number().int().min(1).max(24),
+    citationId: z.number().int().min(1),
     title: z.string().max(1024),
     documentId: z.null(),
     generation: z.null(),
@@ -73,7 +73,7 @@ export const sourceSchema = z.union([
   }),
   documentSourceSchema,
   z.object({
-    citationId: z.number().int().min(1).max(24),
+    citationId: z.number().int().min(1),
     fileId: z.string().uuid(),
     web: z.null().optional(),
     fileLocation: z
@@ -104,7 +104,8 @@ export const sourceSchema = z.union([
   }),
 ]);
 export type ChatSource = z.infer<typeof sourceSchema>;
-export const sourcesSchema = z.array(sourceSchema).max(24);
+// No citation count cap, as Onyx; the server bounds stored bytes.
+export const sourcesSchema = z.array(sourceSchema);
 /** Transform prose only; code and existing links keep their original meaning. */
 export function remarkCitations() {
   return (tree: Root) => {
@@ -113,9 +114,9 @@ export function remarkCitations() {
         if (node.type === "text") {
           const parts: RootContent[] = [];
           let offset = 0;
-          for (const match of node.value.matchAll(/\[(\d{1,2})\]/g)) {
+          for (const match of node.value.matchAll(/\[(\d{1,5})\]/g)) {
             const id = Number(match[1]);
-            if (id < 1 || id > 24) continue;
+            if (id < 1) continue;
             if (match.index > offset)
               parts.push({ type: "text", value: node.value.slice(offset, match.index) });
             parts.push({

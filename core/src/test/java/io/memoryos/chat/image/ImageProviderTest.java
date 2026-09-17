@@ -24,7 +24,7 @@ class ImageProviderTest {
     void cloudflareEditsUseTheFixedKleinModelWhileOpenAiEditsUseTheConfiguredModel() {
         var klein = ImageProvider.CLOUDFLARE_WORKERS_AI.editModel();
         assertNotNull(klein);
-        assertEquals("@cf/black-forest-labs/flux-2-klein-4b", klein.modelName());
+        assertEquals("@cf/black-forest-labs/flux-2-klein-9b", klein.modelName());
         assertEquals(klein.modelName(), ImageProviderClient.CLOUDFLARE_EDIT_MODEL);
         assertTrue(ImageProvider.CLOUDFLARE_WORKERS_AI.knownModels().stream().noneMatch(ImageProvider.KnownModel::edit));
         assertNull(ImageProvider.OPENAI_IMAGE.editModel());

@@ -28,6 +28,8 @@ const stageSchema = z.enum([
   "COMPLETED",
   "FAILED",
 ]);
+/** Why a failed step failed when the person can act on it; a category only, never upstream text. */
+const failureSchema = z.enum(["AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"]);
 
 export const toolEventSchema = z.object({
   toolCallId: z.string().min(1).max(256),
@@ -43,9 +45,16 @@ export const toolEventSchema = z.object({
     .default(null),
   documents: z.array(readingDocumentSchema).max(10).default([]),
   durationMs: z.number().int().nonnegative().nullable().default(null),
+  /** A deep research agent's own step names its agent call; the agent call carries its tab. */
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+  tabIndex: z.number().int().min(0).max(2).nullable().default(null),
+  failure: failureSchema.nullable().default(null),
 });
 // Reasoning shares the answer chunking, so one event can exceed a single provider delta.
-export const reasoningEventSchema = z.object({ text: z.string().min(1).max(1_000_000) });
+export const reasoningEventSchema = z.object({
+  text: z.string().min(1).max(1_000_000),
+  parentToolCallId: z.string().min(1).max(256).nullable().default(null),
+});
 
 export const activitySchema = z
   .object({
@@ -61,7 +70,8 @@ export const activitySchema = z
           queries: z.array(z.string().min(1).max(500)).max(8).default([]),
           filters: filtersSchema.nullish(),
           documents: z.array(readingDocumentSchema).max(10).default([]),
-          citations: z.array(z.number().int().min(1).max(24)).max(24).default([]),
+          citations: z.array(z.number().int().min(1)).default([]),
+          failure: failureSchema.nullish(),
         }),
       )
       .max(32)
@@ -90,6 +100,7 @@ export type ToolProgress = {
   documents: z.infer<typeof readingDocumentSchema>[];
   citations: number[];
   durationMs: number | null;
+  failure: z.infer<typeof failureSchema> | null;
 };
 export const toolProgressSchema = z.object({
   stage: stageSchema.catch("STARTED"),
@@ -98,6 +109,7 @@ export const toolProgressSchema = z.object({
   documents: z.array(readingDocumentSchema).catch([]),
   citations: z.array(z.number().int()).catch([]),
   durationMs: z.number().nullable().catch(null),
+  failure: failureSchema.nullable().catch(null),
 });
 /** Non-sensitive marker; the UI shows its own localized failure copy. */
 export const TOOL_FAILED = "TOOL_FAILED";
@@ -109,6 +121,7 @@ const emptyProgress = (): ToolProgress => ({
   documents: [],
   citations: [],
   durationMs: null,
+  failure: null,
 });
 
 /**
@@ -159,7 +172,7 @@ export class ActivityChunks {
       if (!cited.includes(event.source.citationId))
         this.citations = {
           ...this.citations,
-          [event.toolCallId]: [...cited, event.source.citationId].slice(0, 24),
+          [event.toolCallId]: [...cited, event.source.citationId],
         };
       // Hosted search cites after its step completes; a finished part keeps its output and the
       // citations travel in message metadata instead.
@@ -187,6 +200,7 @@ export class ActivityChunks {
       ...(event.search && { queries: event.search.queries, filters: event.search.filters }),
       ...(event.documents.length > 0 && { documents: event.documents }),
       ...(event.durationMs !== null && { durationMs: event.durationMs }),
+      ...(event.failure !== null && { failure: event.failure }),
     };
     chunks.push(this.input(event.toolCallId, tool));
     if (event.stage === "COMPLETED" || event.stage === "FAILED")
@@ -284,6 +298,7 @@ export function historyParts(content: string, activity: ChatActivity): Part[] {
         documents: step.documents,
         citations: step.citations,
         durationMs: step.durationMs ?? null,
+        failure: step.failure ?? null,
       };
       const base = {
         type: "dynamic-tool",

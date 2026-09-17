@@ -57,6 +57,49 @@ class StagingDeploymentContractTest(unittest.TestCase):
         self.assertIn("exit 1", rollback)
         self.assertNotIn("pg_restore", rollback)
 
+    def test_interpreter_images_join_the_release_contract(self):
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("name: candidate-interpreter", CI_WORKFLOW)
+        self.assertIn("docker load --input candidate/interpreter.tar", publish)
+        self.assertIn("for component in api worker web interpreter interpreter-executor; do", publish)
+        # Compose rejects a hyphen in an environment key.
+        self.assertIn("key=${component//-/_}", publish)
+        self.assertIn("images=(api worker web interpreter interpreter-executor)", SCRIPT)
+        self.assertIn('[[ $(wc -l < "$tx/images.env") == 6 ]]', SCRIPT)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
+        self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
+        self.assertLess(deploy.index("docker pull --quiet"), deploy.index('> "$state/pending"'))
+        # A runtime accepted before the interpreter joined the release has no interpreter container.
+        self.assertIn('has_interpreter "$state/current.env"', deploy)
+        self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+
+    def test_interpreter_is_reachable_only_on_the_internal_network(self):
+        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
+        service = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        self.assertNotIn("ports:", service)
+        self.assertIn("memoryos-internal:", service)
+        for network in ("shared-infra", "proxy", "memoryos-telemetry"):
+            self.assertNotIn(network, service)
+        self.assertIn("PYTHON_EXECUTOR_DOCKER_NETWORK: none", service)
+
+    def test_missing_secret_files_stop_the_deployment_before_reservation(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Compose config accepts a missing secret file; rollout would fail after the reservation.
+        self.assertIn("'.secrets // {} | .[].file // empty'", deploy)
+        self.assertLess(deploy.index("'.secrets // {} | .[].file // empty'"), deploy.index('> "$state/pending"'))
+
+    def test_interpreter_and_api_share_one_key_secret(self):
+        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
+        interpreter = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        api = compose.split("\n  api:\n", 1)[1].split("\n  worker:\n", 1)[0]
+        self.assertIn("API_KEY_FILE: /run/secrets/interpreter_api_key", interpreter)
+        self.assertIn("- interpreter_api_key", interpreter)
+        self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
+        self.assertIn("- interpreter_api_key", api)
+        launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
+        self.assertIn('MEMORYOS_INTERPRETER_API_KEY=$(cat "$MEMORYOS_INTERPRETER_API_KEY_FILE")', launcher)
+
 
 if __name__ == "__main__":
     unittest.main()

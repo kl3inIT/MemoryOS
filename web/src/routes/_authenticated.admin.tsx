@@ -8,8 +8,14 @@ import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-r
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {
     const ui = useAppTranslation();
-    const { canManageUsers, canReadGroups, canReadSources, canManageModels, canManageProviders } =
-      useAdminAccess();
+    const {
+      canManageUsers,
+      canReadGroups,
+      canReadSources,
+      canManageModels,
+      canManageProviders,
+      canManageMcp,
+    } = useAdminAccess();
     const matchRoute = useMatchRoute();
     const sourceSetupStep = matchRoute({
       to: "/admin/sources/new/google-drive",
@@ -26,6 +32,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
+    const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
+    const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
@@ -38,7 +46,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
               ? "web"
               : imageGenerationSelected
                 ? "images"
-                : "sources";
+                : interpreterSelected
+                  ? "interpreter"
+                  : mcpSelected
+                    ? "mcp"
+                    : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -46,9 +58,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "providers"
             ? canManageProviders
-            : page === "models" || page === "web" || page === "images"
+            : page === "models" || page === "web" || page === "images" || page === "interpreter"
               ? canManageModels
-              : canReadSources;
+              : page === "mcp"
+                ? canManageMcp
+                : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -71,7 +85,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
                     ? "Tìm kiếm Web"
                     : page === "images"
                       ? "Tạo ảnh"
-                      : "Sources",
+                      : page === "interpreter"
+                        ? "Code Interpreter"
+                        : page === "mcp"
+                          ? "Máy chủ MCP"
+                          : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

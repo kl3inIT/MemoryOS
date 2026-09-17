@@ -14,9 +14,9 @@ public enum ImageProvider {
             new KnownModel("gpt-image-2", "GPT Image 2", "image/png", KnownModel.GPT_IMAGE_SIZES, true, false),
             new KnownModel("gpt-image-1.5", "GPT Image 1.5", "image/png", KnownModel.GPT_IMAGE_SIZES, true, false),
             new KnownModel("gpt-image-1", "GPT Image 1", "image/png", KnownModel.GPT_IMAGE_SIZES, true, false))),
-    /** Generation uses the configured model; every edit uses FLUX.2 [klein] (MEM-109). */
+    /** Generation uses the configured model; every edit uses FLUX.2 [klein] 9B (MEM-109). */
     CLOUDFLARE_WORKERS_AI(null, true,
-            new KnownModel("@cf/black-forest-labs/flux-2-klein-4b", "FLUX.2 klein 4B", "image/jpeg", List.of(), true, false),
+            new KnownModel("@cf/black-forest-labs/flux-2-klein-9b", "FLUX.2 klein 9B", "image/jpeg", List.of(), true, false),
             List.of(new KnownModel("@cf/black-forest-labs/flux-1-schnell", "FLUX.1 schnell", "image/jpeg", List.of(), false, false)));
 
     private final @Nullable String defaultEndpoint;

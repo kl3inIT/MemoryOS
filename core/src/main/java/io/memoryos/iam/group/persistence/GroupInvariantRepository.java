@@ -180,6 +180,14 @@ public class GroupInvariantRepository {
                 .list());
     }
 
+    public boolean managesAnyOrdinaryGroup(TenantId tenantId, ActorId actorId) {
+        return jdbcClient.sql("SELECT EXISTS (" + MANAGED_GROUPS + ")")
+                .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .query(Boolean.class)
+                .single();
+    }
+
     public boolean isManagedBy(TenantId tenantId, ActorId actorId, GroupId groupId) {
         return jdbcClient.sql("SELECT EXISTS (" + MANAGED_GROUPS + " AND group_record.id = :groupId)")
                 .param("tenantId", tenantId.value())

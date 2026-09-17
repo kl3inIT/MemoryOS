@@ -35,6 +35,16 @@ export const vietnameseUi: Record<string, string> = {
   "Đã tạo thẻ trình bày": "Created a visual card",
   "Đang dùng công cụ…": "Using a tool…",
   "Đã dùng công cụ": "Used a tool",
+  "Đang dùng {{tool}}…": "Using {{tool}}…",
+  "Thao tác với {{name}}": "Actions for {{name}}",
+  "Đang dùng {{tool}} trên {{server}}…": "Using {{tool}} on {{server}}…",
+  "Đã dùng {{tool}} trên {{server}}": "Used {{tool}} on {{server}}",
+  "{{server}} từ chối kết nối của bạn. Kết nối lại để tiếp tục.":
+    "{{server}} rejected your connection. Reconnect to continue.",
+  "{{server}} từ chối kết nối dùng chung. Quản trị viên cần kết nối lại.":
+    "{{server}} rejected the shared connection. An administrator needs to reconnect it.",
+  "{{server}} không phản hồi kịp.": "{{server}} did not respond in time.",
+  "Không liên lạc được với {{server}}.": "Could not reach {{server}}.",
   "{{step}} · không hoàn tất": "{{step}} · not completed",
   "Truy vấn tìm kiếm": "Search queries",
   "Tài liệu đã đọc": "Documents read",
@@ -101,6 +111,144 @@ export const vietnameseUi: Record<string, string> = {
   "Tự động dùng Web": "Use Web automatically",
   "Bắt buộc tìm trên Web": "Require Web search",
   "Tìm kiếm Web": "Web search",
+  "Code Interpreter": "Code Interpreter",
+  "Cho phép trợ lý chạy Python trong sandbox để phân tích dữ liệu và tạo tệp.":
+    "Let the assistant run Python in a sandbox to analyze data and create files.",
+  "Không tải được cài đặt Code Interpreter.": "Couldn't load Code Interpreter settings.",
+  "Máy chủ này chưa cấu hình dịch vụ Code Interpreter.":
+    "This deployment has no Code Interpreter service configured.",
+  "Bật Code Interpreter": "Enable Code Interpreter",
+  "Mô hình hỗ trợ công cụ sẽ có công cụ run_python khi dịch vụ hoạt động.":
+    "Models that support tools get the run_python tool while the service is healthy.",
+  "Đang kiểm tra dịch vụ…": "Checking the service…",
+  "Dịch vụ hoạt động (phiên bản {{version}})": "Service healthy (version {{version}})",
+  "Dịch vụ không hoạt động": "Service unavailable",
+  "Kiểm tra lại": "Check again",
+  "Đang chạy Python…": "Running Python…",
+  "Đã chạy Python": "Ran Python",
+  "Mã đã chạy": "Code that ran",
+  "Kết quả đang chạy": "Output so far",
+  "Kết quả": "Output",
+  "Chạy Python không thành công": "Running Python did not finish",
+  "Tải {{file}}": "Download {{file}}",
+  "Công cụ": "Tools",
+  OAuth: "OAuth",
+  "Ai đăng nhập": "Who signs in",
+  "Mỗi người tự kết nối: công cụ chạy bằng quyền của chính người hỏi. Một kết nối dùng chung: mọi người dùng chung một tài khoản do bạn kết nối.":
+    "Each person connects: tools run with the asking person's own permissions. One shared connection: everyone uses the single account you connect.",
+  "Lấy thông tin OAuth thế nào": "How to obtain the OAuth settings",
+  "Địa chỉ callback": "Callback URL",
+  "Đăng ký đúng địa chỉ này trong ứng dụng OAuth của mỗi tổ chức.":
+    "Register exactly this URL in each organization's OAuth application.",
+  Chép: "Copy",
+  "Đã chép": "Copied",
+  "Ứng dụng OAuth": "OAuth applications",
+  "Dò máy chủ OAuth": "Discover the authorization server",
+  "Nhập ứng dụng": "Enter an application",
+  "Nhập ứng dụng OAuth": "Enter an OAuth application",
+  "Mỗi tổ chức dùng ứng dụng OAuth riêng. Khi kết nối, người dùng chọn theo nhãn bạn đặt ở đây.":
+    "Each organization uses its own OAuth application. When connecting, people choose by the label you set here.",
+  "Chưa có ứng dụng OAuth nào. Người dùng chưa kết nối được máy chủ này.":
+    "No OAuth applications yet, so nobody can connect this server.",
+  "Nhập tay": "Entered by hand",
+  "Tự đăng ký": "Self-registered",
+  "Tài liệu ứng dụng": "Client metadata document",
+  "Đã lưu bí mật": "Secret stored",
+  "Ngắt kết nối dùng chung": "Disconnect the shared connection",
+  "Kết quả dò": "Discovery result",
+  "Nhãn cho ứng dụng này": "Label for this application",
+  "Ví dụ: Tasco Miền Bắc": "Example: Tasco North",
+  "Tự đăng ký (DCR)": "Self-register (DCR)",
+  "Dùng tài liệu ứng dụng": "Use the metadata document",
+  "Máy chủ này không tự đăng ký được. Hãy nhập ứng dụng thủ công.":
+    "This server cannot self-register. Enter the application by hand.",
+  "Dùng cho một tổ chức. Bí mật được mã hoá và không hiện lại.":
+    "For one organization. The secret is encrypted and never shown again.",
+  Nhãn: "Label",
+  Issuer: "Issuer",
+  "Điểm cuối cấp quyền": "Authorization endpoint",
+  "Điểm cuối lấy token": "Token endpoint",
+  "Điểm cuối thu hồi": "Revocation endpoint",
+  "Công cụ MCP": "MCP tools",
+  "Chưa có máy chủ MCP nào dành cho bạn.": "No MCP servers are available to you yet.",
+  "{{count}} công cụ": "{{count}} tools",
+  "Chờ quản trị viên": "Waiting on an administrator",
+  "Kết nối {{name}}": "Connect {{name}}",
+  "Khoá được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.":
+    "The key is tried against the server before it is stored, and only you can use it.",
+  "Máy chủ từ chối khoá này. Khoá chưa được lưu.":
+    "The server rejected this key. Nothing was stored.",
+  Tên: "Name",
+  Xoá: "Delete",
+  "Ví dụ: Google Drive": "Example: Google Drive",
+  "Ví dụ: drive": "Example: drive",
+  "Máy chủ MCP": "MCP servers",
+  Connectors: "Connectors",
+  "Thêm máy chủ": "Add server",
+  "Thêm máy chủ MCP": "Add MCP server",
+  "Sửa máy chủ MCP": "Edit MCP server",
+  "MemoryOS gọi máy chủ này qua Streamable HTTP.":
+    "MemoryOS calls this server over Streamable HTTP.",
+  "Máy chủ MCP cung cấp công cụ cho Chat. Chúng là bên thứ ba: chỉ thêm máy chủ mà tổ chức của bạn tin tưởng.":
+    "MCP servers give Chat its tools. They are third parties: add only servers your organization trusts.",
+  "Chưa có máy chủ MCP nào. Thêm một máy chủ để Chat dùng công cụ của nó.":
+    "No MCP servers yet. Add one so Chat can use its tools.",
+  "Mã ngắn": "Short code",
+  "Không đổi được: tên công cụ gửi cho mô hình đã dùng mã này.":
+    "Immutable: the model-facing tool names already use this code.",
+  "1-16 ký tự a-z hoặc 0-9. Công cụ sẽ có tên mcp_<mã>_<công cụ>.":
+    "1-16 characters of a-z or 0-9. Tools are named mcp_<code>_<tool>.",
+  "Địa chỉ máy chủ": "Server URL",
+  "Đổi địa chỉ sẽ xoá thông tin đăng nhập đã lưu và danh sách công cụ.":
+    "Changing the URL removes the stored credentials and the tool list.",
+  "Cách đăng nhập": "Authentication",
+  "Khoá API": "API key",
+  "Không cần": "None",
+  "Đổi cách đăng nhập sẽ xoá thông tin đăng nhập đã lưu.":
+    "Changing the authentication type removes the stored credentials.",
+  "Mỗi người tự kết nối": "Each person connects",
+  "Một kết nối dùng chung": "One shared connection",
+  "Tự dò máy chủ OAuth": "Discover the authorization server",
+  "Tự nhập điểm cuối": "Enter the endpoints",
+  "Khoá API dùng chung": "Shared API key",
+  "Để trống để giữ khoá đã lưu": "Leave empty to keep the stored key",
+  "Ai dùng được": "Who can use it",
+  "Cả tổ chức": "Whole organization",
+  "Chọn nhóm": "Selected Groups",
+  "Chưa có nhóm nào.": "No Groups yet.",
+  "Tôi hiểu máy chủ MCP là bên thứ ba: công cụ của nó có thể đọc và thay đổi dữ liệu, và kết quả trả về là dữ liệu không đáng tin.":
+    "I understand an MCP server is a third party: its tools can read and change data, and its results are untrusted data.",
+  Huỷ: "Cancel",
+  "Lấy công cụ": "Fetch tools",
+  "Xem công cụ": "Show tools",
+  "Ẩn công cụ": "Hide tools",
+  Sửa: "Edit",
+  "Xoá máy chủ": "Delete server",
+  "Xoá máy chủ MCP?": "Delete this MCP server?",
+  "Công cụ và mọi thông tin đăng nhập đã lưu của máy chủ này sẽ bị xoá. Không hoàn tác được.":
+    "Its tools and every stored credential are removed. This cannot be undone.",
+  "Đang xoá": "Deleting",
+  "{{enabled}}/{{total}} công cụ đang bật": "{{enabled}}/{{total}} tools enabled",
+  "Bật tất cả": "Enable all",
+  "Tắt tất cả": "Disable all",
+  "Có thể thay đổi dữ liệu": "Can change data",
+  "Tên quá dài": "Name too long",
+  "Chưa lấy được công cụ nào. Bấm “Lấy công cụ” sau khi máy chủ đã kết nối.":
+    "No tools fetched yet. Use Fetch tools once the server is connected.",
+  "Cần kết nối": "Needs connecting",
+  "Đang lấy công cụ": "Fetching tools",
+  "Mất kết nối": "Disconnected",
+  "Chưa lấy công cụ": "Not fetched",
+  "Dùng kết nối chung": "Uses the shared connection",
+  "Chưa kết nối": "Not connected",
+  "Không cần đăng nhập": "No sign-in needed",
+  "Đã kết nối máy chủ MCP.": "The MCP server is connected.",
+  "Bạn đã huỷ việc cấp quyền.": "You cancelled the authorization.",
+  "Máy chủ cấp quyền không khớp cấu hình đã lưu.":
+    "The authorization server does not match the saved configuration.",
+  "Cấu hình đã đổi khi đang cấp quyền. Hãy thử lại.":
+    "The configuration changed while authorizing. Try again.",
+  "Cấp quyền không thành công.": "Authorization failed.",
   "Mô hình": "Models",
   "Tìm kiếm và đọc trang Web": "Search and read the Web",
   "Chưa kết nối công cụ tìm kiếm.": "No search engine connected.",
@@ -136,6 +284,24 @@ export const vietnameseUi: Record<string, string> = {
   "Kiểm tra kết nối thành công": "Connection test succeeded",
   "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
   "Tìm kiếm của nhà cung cấp mô hình": "Model provider search",
+  "Deep Research": "Deep Research",
+  "Bật Deep Research": "Enable Deep Research",
+  "Deep research": "Deep research",
+  "Kế hoạch nghiên cứu": "Research plan",
+  "Đang lập kế hoạch nghiên cứu…": "Planning research…",
+  "Đang nghiên cứu…": "Researching…",
+  "Đã nghiên cứu": "Researched",
+  "Đã dừng nghiên cứu": "Research stopped",
+  "Tác tử {{n}}": "Agent {{n}}",
+  "Chu kỳ {{n}}": "Cycle {{n}}",
+  "1 nguồn": "1 source",
+  "{{n}} nguồn": "{{n}} sources",
+  "Đã chạy {{duration}}": "Ran for {{duration}}",
+  "Báo cáo trung gian": "Intermediate report",
+  "Tác tử nghiên cứu không hoàn thành.": "The research agent didn’t finish.",
+  "Không tải được cài đặt Chat.": "Couldn’t load Chat settings.",
+  "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.":
+    "Agentic research system that works across the web and connected sources. Uses significantly more tokens per query.",
   "Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.":
     "No models on search-capable providers yet.",
   "Địa chỉ tùy chỉnh (để trống dùng mặc định)": "Custom address (leave blank for default)",
@@ -239,6 +405,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xem thêm hội thoại": "Load more conversations",
   "{{v1}} dự án {{v2}}": "{{v1}} project {{v2}}",
   "Thu gọn": "Collapse",
+  "Xem thêm": "Show more",
   "Mở rộng": "Expand",
   "Đang chuyển hội thoại…": "Moving conversation…",
   "Không tải được hội thoại.": "Could not load the conversation.",
@@ -416,22 +583,15 @@ export const englishUi: Record<string, string> = {
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
   "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
   "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
-  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
   "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
   Required: "Bắt buộc",
   None: "Không có",
-  "Select at least one managed group. New Sources are private.":
-    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
   "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.":
     "Với nguồn Tệp và Google Drive giới hạn, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Quyền từng tệp trên Google Drive không được đồng bộ.",
   "Group members can search and read imported documents from restricted File and Google Drive Sources. Google Drive file permissions are not synchronized. Global Source management does not grant access to restricted documents without group membership.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ nguồn Tệp và Google Drive giới hạn. Quyền từng tệp trên Google Drive không được đồng bộ. Quyền quản lý nguồn toàn tổ chức không cấp quyền đọc tài liệu giới hạn nếu không có tư cách thành viên nhóm.",
-  "Private Source. Group associations are optional for global Source managers.":
-    "Nguồn riêng tư. Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
-  "Private Source. Select at least one group you manage.":
-    "Nguồn riêng tư. Chọn ít nhất một nhóm bạn quản lý.",
   "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.":
     "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập. Quyền từng tệp trên Google không được đồng bộ.",
   "Connection details": "Chi tiết kết nối",
@@ -467,8 +627,10 @@ export const englishUi: Record<string, string> = {
   "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
   "Current work and manual synchronization are unchanged.":
     "Công việc hiện tại và đồng bộ thủ công không thay đổi.",
-  "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.":
-    "Chỉ chọn các nhóm thông thường mà bạn có thể quản lý. Người quản lý Nguồn theo phạm vi phải duy trì ít nhất một liên kết nhóm.",
+  "Select only ordinary groups you manage. Groups managed by someone else stay as they are.":
+    "Chỉ chọn các nhóm thông thường mà bạn quản lý. Nhóm do người khác quản lý được giữ nguyên.",
+  "This Source belongs to no group yet, so nobody can search or read its documents. Associate it with a group to make it usable.":
+    "Nguồn này chưa thuộc nhóm nào nên chưa ai tìm hay đọc được tài liệu của nó. Hãy liên kết nguồn với một nhóm để dùng được.",
   "Built-in admin group with full access to manage all permissions.":
     "Nhóm quản trị tích hợp có toàn quyền quản lý mọi quyền truy cập.",
   "Default group for all users with basic permissions.":
@@ -495,8 +657,27 @@ export const englishUi: Record<string, string> = {
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
   "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.":
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
-  "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
-    "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
+  "This Source is being deleted.": "Nguồn này đang được xóa.",
+  "Responsible group manager": "Người quản lý nhóm phụ trách",
+  "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.":
+    "Người phụ trách liên kết nguồn này với các nhóm họ quản lý và giữ quyền cấu hình nội dung. Nếu không có ai phụ trách, chỉ quản trị viên làm được việc đó.",
+  "No responsible manager. Administrators only.":
+    "Chưa có người phụ trách. Chỉ quản trị viên thao tác được.",
+  "Responsible manager: {{v1}}": "Người phụ trách: {{v1}}",
+  "No members match your search.": "Không có thành viên nào khớp với tìm kiếm.",
+  Responsible: "Đang phụ trách",
+  "Make responsible": "Giao phụ trách",
+  "Remove responsible manager": "Bỏ người phụ trách",
+  "Appoint a responsible manager": "Chỉ định người phụ trách",
+  "Change responsible manager": "Đổi người phụ trách",
+  "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.":
+    "Chọn các nhóm bạn quản lý, hoặc để trống. Nguồn mới ở chế độ riêng tư và chưa đến được với ai cho tới khi thuộc một nhóm.",
+  "Private Source. Group associations are optional and can be added later.":
+    "Nguồn riêng tư. Liên kết nhóm là tùy chọn và có thể thêm sau.",
+  "You can no longer change one of these Sources for this group. Refresh and try again.":
+    "Bạn không còn quyền thay đổi một trong các nguồn này cho nhóm. Làm mới rồi thử lại.",
+  "Sources with a lock are being deleted and can't be removed from this group.":
+    "Các nguồn có biểu tượng khóa đang được xóa nên không gỡ khỏi nhóm này được.",
   "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",
@@ -1906,6 +2087,9 @@ Object.assign(englishUi, {
   "Manage models": "Quản lý mô hình",
   "Configure Chat providers, credentials, models and access within the Tenant.":
     "Cấu hình nhà cung cấp Chat, thông tin xác thực, mô hình và quyền truy cập trong tổ chức.",
+  "Manage MCP servers": "Quản lý máy chủ MCP",
+  "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
+    "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
   "IAM administration": "Quản trị danh tính và quyền truy cập",
   "Full identity, user, group, and Source administration.":
     "Toàn quyền quản trị danh tính, người dùng, nhóm và nguồn dữ liệu.",

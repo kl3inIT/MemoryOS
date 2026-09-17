@@ -1,6 +1,16 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useAuiState, type EnrichedPartState } from "@assistant-ui/react";
-import { Brain, FileText, Globe, ImageIcon, LayoutDashboard, Search, Wrench } from "lucide-react";
+import {
+  Blocks,
+  Brain,
+  FileText,
+  Globe,
+  ImageIcon,
+  LayoutDashboard,
+  Search,
+  SquareTerminal,
+  Wrench,
+} from "lucide-react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -14,10 +24,19 @@ import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { DocumentSourceIcon } from "@/features/search/document-source-icon";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
+import type { CodeRun } from "./chat-code";
+import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "./chat-evidence";
+import { parseMcpToolName } from "./chat-mcp-connections";
+import { ChatMcpToolStep } from "./chat-mcp-step";
 
 type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
 type ToolState = "running" | "done" | "failed";
+/** Internal search was renamed to snake case; answers saved before that still carry the old name. */
+function isInternalSearch(name: string) {
+  return name === "search_knowledge" || name === "searchKnowledge";
+}
+
 type Translate = ReturnType<typeof useAppTranslation>;
 const emptySources: ChatSource[] = [];
 
@@ -32,6 +51,7 @@ function toolProgress(args: unknown): ToolProgress {
         documents: [],
         citations: [],
         durationMs: null,
+        failure: null,
       };
 }
 
@@ -85,7 +105,8 @@ function stepTitle(
 ) {
   const running = state === "running";
   switch (part.toolName) {
-    case "searchKnowledge": {
+    case "searchKnowledge":
+    case "search_knowledge": {
       const scope = searchScope(ui, progress.filters);
       if (scope)
         return running
@@ -110,6 +131,8 @@ function stepTitle(
       return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
     case "edit_image":
       return running ? ui("Đang sửa ảnh…") : ui("Đã sửa ảnh");
+    case "run_python":
+      return running ? ui("Đang chạy Python…") : ui("Đã chạy Python");
     default:
       return running ? ui("Đang dùng công cụ…") : ui("Đã dùng công cụ");
   }
@@ -118,7 +141,7 @@ function stepTitle(
 /** The group header names the live phase while the assistant works. */
 function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
   const stage = toolProgress(tool.args).stage;
-  if (tool.toolName === "searchKnowledge") {
+  if (isInternalSearch(tool.toolName)) {
     if (stage === "SELECTING") return ui("Đang chọn đoạn liên quan…");
     if (stage === "EXPANDING" || stage === "SOURCE") return ui("Đang đọc ngữ cảnh tài liệu…");
     return ui("Đang tìm trong tài liệu…");
@@ -138,14 +161,41 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
       return ui("Đang tạo ảnh…");
     case "edit_image":
       return ui("Đang sửa ảnh…");
-    default:
-      return ui("Đang dùng công cụ…");
+    case "run_python":
+      return ui("Đang chạy Python…");
+    default: {
+      const mcp = parseMcpToolName(tool.toolName);
+      return mcp ? ui("Đang dùng {{tool}}…", { tool: mcp.tool }) : ui("Đang dùng công cụ…");
+    }
   }
+}
+
+/** A research agent's step, titled from its tool name alone: its history keeps no filters or evidence. */
+export function ChatResearchToolStep({
+  toolName,
+  status,
+  children,
+}: {
+  toolName: string;
+  status: ToolState;
+  children?: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <ActivityStep
+      icon={toolIcon(toolName)}
+      status={status}
+      title={stepTitle(ui, { toolName } as ToolPart, toolProgress(undefined), [], status)}
+    >
+      {children}
+    </ActivityStep>
+  );
 }
 
 function toolIcon(name: string) {
   switch (name) {
     case "searchKnowledge":
+    case "search_knowledge":
       return <Search />;
     case "web_search":
     case "open_url":
@@ -158,21 +208,38 @@ function toolIcon(name: string) {
     case "generate_image":
     case "edit_image":
       return <ImageIcon />;
+    case "run_python":
+      return <SquareTerminal />;
     default:
-      return <Wrench />;
+      return parseMcpToolName(name) ? <Blocks /> : <Wrench />;
   }
 }
 
-/** Spoken duration for the collapsed header, e.g. "14 giây" / "14 seconds". */
-function spokenDuration(ms: number) {
-  const seconds = Math.max(1, Math.round(ms / 1000));
-  const format = (value: number, unit: "second" | "minute") =>
-    new Intl.NumberFormat(uiLocale(), { style: "unit", unit, unitDisplay: "long" }).format(value);
-  if (seconds < 60) return format(seconds, "second");
-  const rest = seconds % 60;
-  return [format(Math.floor(seconds / 60), "minute"), rest ? format(rest, "second") : ""]
-    .filter(Boolean)
-    .join(" ");
+/** The code run_python executed and the output it produced, streamed while it runs. */
+function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state: ToolState }) {
+  const ui = useAppTranslation();
+  const run = useAuiState(
+    (aui) =>
+      (aui.message.metadata.custom.codeRuns as Record<string, CodeRun> | undefined)?.[toolCallId],
+  );
+  if (!run?.code) return null;
+  return (
+    <div className="space-y-2 text-xs">
+      <p>{ui("Mã đã chạy")}</p>
+      <pre className="max-h-64 overflow-auto rounded-lg border border-border-subtle bg-surface-sunken p-2.5 font-mono text-[11px] leading-relaxed">
+        <code>{run.code}</code>
+      </pre>
+      {run.output && (
+        <>
+          <p>{state === "running" ? ui("Kết quả đang chạy") : ui("Kết quả")}</p>
+          <pre className="max-h-64 overflow-auto rounded-lg border border-border-subtle bg-surface-subtle p-2.5 font-mono text-[11px] leading-relaxed text-content-secondary">
+            <code>{run.output}</code>
+          </pre>
+        </>
+      )}
+      {run.status === "failed" && <p role="status">{ui("Chạy Python không thành công")}</p>}
+    </div>
+  );
 }
 
 /** One disclosure for adjacent reasoning and tool steps; open while working, collapsed once the answer starts. */
@@ -199,7 +266,13 @@ export function ChatActivityGroup({
     [parts, indices],
   );
   const tools = group.flatMap((part) => (part.type === "tool-call" ? [part] : []));
-  const open = manual ?? (running && !answerStarted);
+  // A step the person must act on (reconnect) stays visible after the answer, instead of hiding its action.
+  const actionable = tools.some(
+    (tool) =>
+      toolState(tool, running) === "failed" &&
+      toolProgress(tool.args).failure === "AUTHORIZATION_REQUIRED",
+  );
+  const open = manual ?? ((running && !answerStarted) || actionable);
   const stopped = useAuiState(
     (state) =>
       state.message.status?.type === "incomplete" ||
@@ -269,10 +342,12 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
     const source = sources.find((candidate) => candidate.citationId === id);
     return source ? [source] : [];
   });
-  const searching = ["searchKnowledge", "web_search", "search_files"].includes(part.toolName);
+  const searching = ["search_knowledge", "searchKnowledge", "web_search", "search_files"].includes(
+    part.toolName,
+  );
   // Reading candidates while searching; the evidence the step actually returned once it finished.
   const reading =
-    part.toolName === "searchKnowledge" && progress.documents.length > 0 && state === "running"
+    isInternalSearch(part.toolName) && progress.documents.length > 0 && state === "running"
       ? progress.documents.map((document) => ({
           key: `${document.documentId}:${document.startOrdinal}`,
           icon: <FileText />,
@@ -294,6 +369,9 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
             label: source.web ? hostname(source.web.url) : source.title,
             title: source.title,
           }));
+  const mcp = parseMcpToolName(part.toolName);
+  if (mcp)
+    return <ChatMcpToolStep slug={mcp.slug} tool={mcp.tool} progress={progress} state={state} />;
   const queries = progress.queries.map((query) => ({ key: query, icon: <Search />, label: query }));
   const noResults = searching && state === "done" && progress.queries.length > 0 && !reading.length;
   return (
@@ -302,6 +380,9 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
       status={state}
       title={stepTitle(ui, part, progress, cited, state)}
     >
+      {part.toolName === "run_python" && (
+        <ChatCodeStep toolCallId={part.toolCallId} state={state} />
+      )}
       {(queries.length > 0 || reading.length > 0 || noResults) && (
         <div className="space-y-1.5 text-xs">
           {queries.length > 0 && (

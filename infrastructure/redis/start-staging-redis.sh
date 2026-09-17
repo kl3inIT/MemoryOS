@@ -3,6 +3,7 @@ set -eu
 
 : "${MEMORYOS_REDIS_ADMIN_PASSWORD_FILE:=/run/secrets/redis_admin_password}"
 : "${MEMORYOS_REDIS_WORKER_PASSWORD_FILE:=/run/secrets/redis_worker_password}"
+: "${MEMORYOS_REDIS_API_PASSWORD_FILE:=/run/secrets/redis_api_password}"
 : "${MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE:=/run/secrets/redis_inspector_password}"
 : "${MEMORYOS_REDIS_TLS_CA_FILE:=/run/secrets/redis_tls_ca}"
 : "${MEMORYOS_REDIS_TLS_CERTIFICATE_FILE:=/run/secrets/redis_tls_certificate}"
@@ -10,9 +11,10 @@ set -eu
 
 ADMIN_PASSWORD=$(cat "$MEMORYOS_REDIS_ADMIN_PASSWORD_FILE")
 WORKER_PASSWORD=$(cat "$MEMORYOS_REDIS_WORKER_PASSWORD_FILE")
+API_PASSWORD=$(cat "$MEMORYOS_REDIS_API_PASSWORD_FILE")
 INSPECTOR_PASSWORD=$(cat "$MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE")
-if [ -z "$ADMIN_PASSWORD" ] || [ -z "$WORKER_PASSWORD" ] || [ -z "$INSPECTOR_PASSWORD" ]; then
-    echo "Redis administrator, worker, and inspector passwords must be non-empty" >&2
+if [ -z "$ADMIN_PASSWORD" ] || [ -z "$WORKER_PASSWORD" ] || [ -z "$API_PASSWORD" ] || [ -z "$INSPECTOR_PASSWORD" ]; then
+    echo "Redis administrator, worker, API, and inspector passwords must be non-empty" >&2
     exit 1
 fi
 
@@ -22,8 +24,9 @@ hash_password() {
 
 ADMIN_HASH=$(hash_password "$ADMIN_PASSWORD")
 WORKER_HASH=$(hash_password "$WORKER_PASSWORD")
+API_HASH=$(hash_password "$API_PASSWORD")
 INSPECTOR_HASH=$(hash_password "$INSPECTOR_PASSWORD")
-unset ADMIN_PASSWORD WORKER_PASSWORD INSPECTOR_PASSWORD
+unset ADMIN_PASSWORD WORKER_PASSWORD API_PASSWORD INSPECTOR_PASSWORD
 
 umask 077
 cp "$MEMORYOS_REDIS_TLS_CA_FILE" /tmp/redis-ca.crt
@@ -34,6 +37,7 @@ cat >/tmp/memoryos-users.acl <<EOF
 user default off
 user memoryos-admin on #$ADMIN_HASH ~* &* +@all
 user memoryos-worker on #$WORKER_HASH ~memoryos:execution:* &* +ping +hello +info +client|setname +client|setinfo +xgroup +xinfo +xadd +xdel +xreadgroup +xack +xpending +xclaim +xautoclaim +xlen +xrange +del +exists
+user memoryos-api on #$API_HASH ~memoryos:chat:stream:* resetchannels +ping +hello +info +client|setname +client|setinfo +xadd +xrange +xrevrange +pexpire +del +exists
 user memoryos-inspector on #$INSPECTOR_HASH ~* &* -@all +@read +@connection +info +command +memory|usage +memory|stats +memory|doctor +memory|malloc-stats +config|get +slowlog|get +slowlog|len +client|list +client|info
 EOF
 cat >/tmp/memoryos-redis.conf <<EOF

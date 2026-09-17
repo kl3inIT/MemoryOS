@@ -54,7 +54,9 @@ flowchart TB
     ING[ingestion]
     RET[retrieval]
     CHAT[chat]
+    MCP[mcp]
 
+    MCP --> IAM
     OBJ --> IAM
     DOC --> IAM
     DOC --> OBJ
@@ -73,6 +75,7 @@ flowchart TB
     CHAT --> IAM
     CHAT --> CON
     CHAT --> RET
+    CHAT --> MCP
 
     API[api composition root] --> IAM
     API --> OBJ
@@ -80,6 +83,7 @@ flowchart TB
     API --> DOC
     API --> RET
     API --> CHAT
+    API --> MCP
     WORKER[worker composition root] --> IAM
     WORKER --> OBJ
     WORKER --> CON
@@ -92,7 +96,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Seven capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `core` | Eight capability implementations and public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -106,6 +110,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
 | `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
+| `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
 
 ## Durable ingestion and Search projection
 
@@ -165,7 +170,11 @@ flowchart LR
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
 
-Chat inference runs in the API process and does not use the ingestion worker or Redis journal. PostgreSQL owns sessions, message branches, command identity, outcome, deadline and model metadata. A bounded in-memory buffer supports live SSE and short replay; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+Chat inference runs in the API process and does not use the ingestion worker or its Redis work streams. PostgreSQL owns sessions, message branches, command identity, outcome, run lease and model metadata. A bounded per-reply Redis Stream (`memoryos:chat:stream:*`, TTL-bound) supports live SSE and replay from any API process; committed database state remains the recovery boundary. Stop is local cancellation for the active process, with persisted partial/terminal outcome semantics.
+
+Deep research is the one Chat mode where MemoryOS owns the inference loop: `ResearchExecutor` runs clarification, plan, orchestrator cycles, up to three parallel research agents and the final report as single guarded `streamInference` calls, executing agent tools directly and merging agent citations into the turn sources. It runs in the same turn, lease, Stop scope and budget as other answers; see the [Deep research contract](docs/specs/chat.md#deep-research).
+
+Code Interpreter (`run_python`) calls the separate `memoryos-interpreter` service from the same tool loop. The service is vendored from Onyx python-sandbox under `interpreter/`. It is reachable only on the internal network with a shared API key, and it starts a disposable, network-less executor container per run. Generated files are copied into Object Storage as owner-authorized Chat artifacts. See the [Chat contract](docs/specs/chat.md#code-interpreter) and the [interpreter runtime](docs/runbooks/ci-cd.md#interpreter-runtime).
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
@@ -198,7 +207,7 @@ Keycloak is the browser credential store and enterprise identity broker. MemoryO
 
 Protected Admin/Basic Groups persist `SYSTEM_ADMIN`/`SYSTEM_BASIC`. Admin expands to every enum capability; Basic implies `SEARCH_READ`, `CHAT_READ`, `CHAT_WRITE`, `IMAGE_GENERATE` and `LLM_GATEWAY_USE`. Only Users, Groups, Sources and Models management are assignable ordinary grants. Chat retains its membership/resource policy rather than granular Chat-token enforcement; image/gateway vocabulary does not claim feature delivery. The [Identity contract](docs/specs/identity.md) defines protected memberships, peer-manager restrictions, Onyx identity presentation and the `manage_grants` gate that hides ordinary Group Permissions and its registry query.
 
-Source associations contain ordinary Groups only: global managers may save `[]`, scoped creation/replacement requires nonempty all-managed associations, and no Source defaults to Admin. Scoped operations require concrete resource authority; deep Drive selection/discovery, FILE visibility and existing OAuth client replacement remain global-only, with callback and post-provider rechecks. Shared deletion remains global, apart from the narrow existing private groupless-creator cleanup rule. The [Connector matrix](docs/specs/connector.md#management-authority-and-group-associations) owns the exact policy; the catalog settings shortcut requires nonempty projected Source actions.
+Source associations contain ordinary Groups only: global managers may save `[]`, the recorded Source manager may add or remove only the Groups they manage, and no Source defaults to Admin. Scoped operations require the Source's recorded manager rather than management of every associated Group, while a Group's manager may detach any Source from that Group; deep Drive selection/discovery, FILE visibility and existing OAuth client replacement remain global-only, with callback and post-provider rechecks. Shared deletion remains global, apart from the narrow existing private groupless-creator cleanup rule. The [Connector matrix](docs/specs/connector.md#management-authority-and-group-associations) owns the exact policy; the catalog settings shortcut requires nonempty projected Source actions.
 
 Google authorization is a separate Connector credential flow. Its callback cannot replace the signed-in Actor or infer identity from email. Provider tokens are encrypted or transient and do not become application-session authority.
 
@@ -209,12 +218,13 @@ Google authorization is a separate Connector credential flow. Its callback canno
 | PostgreSQL | Identity bindings, authorization, Sources, operations, current Documents, Chat state and lifecycle evidence | No |
 | Object storage | Immutable raw inputs, canonical extraction artifacts and private file bytes | Bytes are authoritative; associations and lifecycle remain in PostgreSQL |
 | Redis Streams | Background delivery and pending consumer-group state | Yes, from eligible PostgreSQL operations |
+| Redis Chat replay | Live and recently finished reply events for SSE resume | No; lost replay resets the browser to committed history |
 | OpenSearch | Searchable text/vector projection | Yes, from current authorized Document generations |
 | Keycloak | External authentication and broker configuration | MemoryOS authorization is separate |
 
 Flyway owns schema evolution and runs from the API composition root. Released migrations are append-only; local or historical review databases with divergent unpublished histories are not upgrade targets. Verification uses fresh disposable databases or an explicit data-preserving migration plan.
 
-The merged layout has 61 migrations. Published main V1–V53 stay unchanged, including Chat uploads/message files, 100 MiB binary admission, automatic titles, account language, read-only message artifacts, Web connections, history search and Search access in V37–V52. The MEM-77 tokenizer-profile backfill lands as `V54__backfill_model_tokenizer_profile.sql` without changing catalog identity/revisions or transcript history, and `V55__chat_web_gateway_provider.sql` widens the `chat_web_connection` provider constraint for the 9Router search gateway without touching stored connections. `V61__chat_web_search_modes.sql` rewrites any stored `required` Web intent to `auto` and narrows the `chat_command.web_search` constraint to those two values. PR #106 integrates the feature migrations under these nonconflicting versions:
+The merged layout has 68 migrations. Published main V1–V53 stay unchanged, including Chat uploads/message files, 100 MiB binary admission, automatic titles, account language, read-only message artifacts, Web connections, history search and Search access in V37–V52. The MEM-77 tokenizer-profile backfill lands as `V54__backfill_model_tokenizer_profile.sql` without changing catalog identity/revisions or transcript history, and `V55__chat_web_gateway_provider.sql` widens the `chat_web_connection` provider constraint for the 9Router search gateway without touching stored connections. `V61__chat_web_search_modes.sql` rewrites any stored `required` Web intent to `auto` and narrows the `chat_command.web_search` constraint to those two values. PR #106 integrates the feature migrations under these nonconflicting versions:
 
 | Historical local version | Current filename |
 | --- | --- |

@@ -1,1 +1,12 @@
 # Shared staging logging and telemetry are configured in memoryos-observability.yaml.
+spring:
+  data:
+    redis:
+      ssl:
+        bundle: memoryos-redis
+  ssl:
+    bundle:
+      pem:
+        memoryos-redis:
+          truststore:
+            certificate: ${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}

@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Blocks,
   Globe,
   ImageIcon,
   KeyRound,
@@ -11,6 +12,7 @@ import {
   Plug,
   Settings2,
   Sparkles,
+  SquareTerminal,
   User,
   Users,
   X,
@@ -28,7 +30,16 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "images" | "providers" | "models";
+export type AdminPage =
+  | "sources"
+  | "users"
+  | "groups"
+  | "web"
+  | "images"
+  | "interpreter"
+  | "providers"
+  | "models"
+  | "mcp";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -113,6 +124,7 @@ function SidebarContents({
     canReadSources,
     canManageModels,
     canManageProviders,
+    canManageMcp,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -222,6 +234,28 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tạo ảnh")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/code-interpreter"
+                  icon={<SquareTerminal className="size-4" />}
+                  selected={adminPage === "interpreter"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Code Interpreter")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageMcp ? (
+              <SidebarSection title={ui("Connectors")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/mcp"
+                  icon={<Blocks className="size-4" />}
+                  selected={adminPage === "mcp"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Máy chủ MCP")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

@@ -33,6 +33,201 @@ async function body(request: IncomingMessage) {
   for await (const chunk of request) text += chunk;
   return JSON.parse(text || "{}");
 }
+/** A saved Deep research answer: plan, two parallel agents in the first cycle and one in the second. */
+function seedResearch(value: Session) {
+  const now = new Date().toISOString();
+  const userId = randomUUID();
+  const assistantId = randomUUID();
+  const step = (toolCallId: string, toolName: string, queries: string[], position: number) => ({
+    position,
+    toolCallId,
+    toolName,
+    status: "COMPLETED" as const,
+    durationMs: 4200,
+    textOffset: 0,
+    queries,
+    documents: [],
+    citations: [],
+  });
+  const agent = (
+    toolCallId: string,
+    cycle: number,
+    tabIndex: number,
+    task: string,
+    report: string,
+    steps: ReturnType<typeof step>[],
+    durationMs: number,
+  ) => ({
+    toolCallId,
+    cycle,
+    tabIndex,
+    task,
+    status: "COMPLETED" as const,
+    durationMs,
+    report,
+    citations: [{ marker: 1, citationId: tabIndex + 1 }],
+    activity: {
+      steps,
+      reasoning: [
+        {
+          position: steps.length,
+          textOffset: 0,
+          text: "Sổ tay nhân sự trả lời phần ngày phép, nhưng chưa nói quy trình duyệt, nên tôi đọc thêm quy chế nội bộ.",
+        },
+      ],
+    },
+  });
+  const user: ChatMessage = {
+    id: userId,
+    sessionId: value.session.id,
+    parentMessageId: value.session.rootMessageId,
+    latestChildMessageId: assistantId,
+    role: "USER",
+    content: "Chính sách nghỉ phép hằng năm và quy trình duyệt của công ty thế nào?",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  const assistant: ChatMessage = {
+    id: assistantId,
+    sessionId: value.session.id,
+    parentMessageId: userId,
+    latestChildMessageId: null,
+    role: "ASSISTANT",
+    content:
+      "## Nghỉ phép hằng năm\n\nNhân viên chính thức có **12 ngày phép** mỗi năm, cộng thêm một ngày cho mỗi 5 năm làm việc [1].\n\n## Quy trình duyệt\n\nĐơn phải gửi trước **3 ngày làm việc** và do quản lý trực tiếp duyệt; nghỉ liên tục quá 5 ngày cần thêm duyệt của trưởng bộ phận [2].",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [fixtureSource, { ...fixtureSource, citationId: 2, title: "Quy chế nội bộ 2026" }],
+    artifacts: [],
+    files: [],
+    images: [],
+    activity: { steps: [], reasoning: [] },
+    generatedFiles: [],
+    research: {
+      clarification: false,
+      plan: "1. Xác định số ngày phép hằng năm theo thâm niên trong sổ tay nhân sự.\n2. Tìm quy trình duyệt đơn, ai duyệt và thời hạn báo trước.\n3. Đối chiếu với quy chế nội bộ mới nhất và ghi rõ khác biệt.\n4. Kiểm tra cách tính phép chưa dùng khi chuyển sang năm sau.\n5. Xem quy định nghỉ phép nửa ngày và nghỉ gộp nhiều ngày.\n6. Ghi lại các trường hợp ngoại lệ cần trưởng bộ phận phê duyệt.",
+      agents: [
+        agent(
+          "agent-1",
+          0,
+          0,
+          "Tra sổ tay nhân sự để xác định số ngày phép hằng năm và cách cộng thêm theo thâm niên.",
+          "Sổ tay nhân sự ghi **12 ngày phép** mỗi năm cho nhân viên chính thức, cộng một ngày cho mỗi 5 năm làm việc [1].\n\nNăm đầu tiên tính theo số tháng làm việc thực tế, nên người vào giữa năm nhận số ngày theo tỷ lệ [1].\n\nPhép chưa dùng được chuyển tối đa **5 ngày** sang quý I năm sau, phần còn lại hết hiệu lực [1].",
+          [
+            step("s1", "search_knowledge", ["nghỉ phép hằng năm", "ngày phép thâm niên"], 0),
+            step("s2", "read_file", [], 1),
+          ],
+          92_000,
+        ),
+        agent(
+          "agent-2",
+          0,
+          1,
+          "Tìm quy trình duyệt đơn nghỉ phép, ai duyệt và cần báo trước bao lâu.",
+          "Đơn nghỉ phép gửi trước **3 ngày làm việc**, quản lý trực tiếp duyệt [1].",
+          [step("s3", "search_knowledge", ["quy trình duyệt nghỉ phép"], 0)],
+          64_000,
+        ),
+        agent(
+          "agent-3",
+          1,
+          0,
+          "Đối chiếu quy chế nội bộ 2026 xem có thay đổi nào so với sổ tay nhân sự.",
+          "Quy chế 2026 giữ nguyên 12 ngày phép nhưng yêu cầu **trưởng bộ phận duyệt** khi nghỉ liên tục quá 5 ngày [1].",
+          [
+            step("s4", "search_knowledge", ["quy chế nội bộ 2026 nghỉ phép"], 0),
+            step("s5", "web_search", ["luật lao động ngày nghỉ hằng năm 2026"], 1),
+          ],
+          38_000,
+        ),
+      ],
+    },
+  };
+  value.messages.push(user, assistant);
+  value.allMessages.set(user.id, user);
+  value.allMessages.set(assistant.id, assistant);
+}
+
+/** A saved answer that used a connected MCP server, then was refused by it for authorization. */
+function seedMcp(value: Session) {
+  const now = new Date().toISOString();
+  const userId = randomUUID();
+  const assistantId = randomUUID();
+  const base = { textOffset: 0, queries: [], documents: [], citations: [] };
+  const user: ChatMessage = {
+    id: userId,
+    sessionId: value.session.id,
+    parentMessageId: value.session.rootMessageId,
+    latestChildMessageId: assistantId,
+    role: "USER",
+    content: "Tìm báo cáo doanh thu quý 3 trên Drive và tóm tắt giúp tôi.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    generatedFiles: [],
+    activity: { steps: [], reasoning: [] },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  const assistant: ChatMessage = {
+    id: assistantId,
+    sessionId: value.session.id,
+    parentMessageId: userId,
+    latestChildMessageId: null,
+    role: "ASSISTANT",
+    content:
+      "Tôi tìm thấy **Báo cáo doanh thu Q3 2026** trên Drive, nhưng Google Drive đã từ chối khi tôi mở nội dung tệp. Bạn kết nối lại Google Drive rồi hỏi lại để tôi tóm tắt.",
+    status: "COMPLETED",
+    createdAt: now,
+    finishedAt: now,
+    sources: [],
+    artifacts: [],
+    files: [],
+    images: [],
+    generatedFiles: [],
+    activity: {
+      steps: [
+        {
+          ...base,
+          position: 0,
+          toolCallId: "mcp-1",
+          toolName: "mcp_drive_search_files",
+          status: "COMPLETED",
+          startedAt: now,
+          durationMs: 1800,
+        },
+        {
+          ...base,
+          position: 1,
+          toolCallId: "mcp-2",
+          toolName: "mcp_drive_read_file_content",
+          status: "FAILED",
+          startedAt: now,
+          durationMs: 420,
+          failure: "AUTHORIZATION_REQUIRED",
+        },
+      ],
+      reasoning: [],
+    },
+    research: { clarification: false, plan: null, agents: [] },
+  };
+  value.messages.push(user, assistant);
+  value.allMessages.set(user.id, user);
+  value.allMessages.set(assistant.id, assistant);
+}
+
 function create(title = "Browser conversation", mode = "normal"): Session {
   const now = new Date().toISOString();
   const session = {
@@ -56,6 +251,8 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     feedback: new Map(),
   };
   sessions.set(session.id, value);
+  if (mode === "research") seedResearch(value);
+  if (mode === "mcp") seedMcp(value);
   return value;
 }
 function emit(run: Run, event: string, data: object) {
@@ -361,6 +558,8 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
+        research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "USER",
         content: input.text,
@@ -377,6 +576,8 @@ export async function handleChatFixture(
         files: [],
         activity: { steps: [], reasoning: [] },
         images: [],
+        generatedFiles: [],
+        research: { clarification: false, plan: null, agents: [] },
         sessionId: state.session.id,
         role: "ASSISTANT",
         content: "",
@@ -419,7 +620,7 @@ export async function handleChatFixture(
     if (grounded)
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "STARTED",
         source: null,
       });
@@ -430,7 +631,7 @@ export async function handleChatFixture(
           {
             position: 1,
             toolCallId: "search-1",
-            toolName: "searchKnowledge",
+            toolName: "search_knowledge",
             status: "FAILED",
             startedAt: new Date().toISOString(),
             durationMs: 400,
@@ -446,7 +647,7 @@ export async function handleChatFixture(
       };
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "SEARCHING",
         source: null,
         documents: [],
@@ -461,7 +662,7 @@ export async function handleChatFixture(
       });
       emit(run, "tool", {
         toolCallId: "search-1",
-        toolName: "searchKnowledge",
+        toolName: "search_knowledge",
         stage: "EXPANDING",
         source: null,
         search: null,
@@ -532,7 +733,7 @@ export async function handleChatFixture(
               {
                 position: 0,
                 toolCallId: "search-1",
-                toolName: "searchKnowledge",
+                toolName: "search_knowledge",
                 status: "COMPLETED",
                 startedAt: new Date().toISOString(),
                 durationMs: 1200,
@@ -544,7 +745,7 @@ export async function handleChatFixture(
             ],
             reasoning: [],
           };
-          const tool = { toolCallId: "search-1", toolName: "searchKnowledge" };
+          const tool = { toolCallId: "search-1", toolName: "search_knowledge" };
           emit(run, "tool", { ...tool, stage: "SOURCE", source: fixtureSource });
           emit(run, "tool", { ...tool, stage: "COMPLETED", source: null, durationMs: 1200 });
         }

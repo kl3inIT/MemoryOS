@@ -17,7 +17,11 @@ import tools.jackson.databind.ObjectMapper;
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
 public final class ImageProviderClient {
-    /** Instruction editing that keeps unchanged content (MEM-109); declared once in the image model catalog. */
+    /**
+     * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
+     * Klein 9B is preferred over 4B for quality at about 1,300 neurons per 1024 px edit; declared once in the
+     * image model catalog.
+     */
     static final String CLOUDFLARE_EDIT_MODEL = Objects.requireNonNull(ImageProvider.CLOUDFLARE_WORKERS_AI.editModel()).modelName();
     private static final String OPENAI_ENDPOINT = Objects.requireNonNull(ImageProvider.OPENAI_IMAGE.defaultEndpoint());
     private static final ObjectMapper JSON = new ObjectMapper();

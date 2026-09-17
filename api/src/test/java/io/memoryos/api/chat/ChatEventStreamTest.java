@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.chat.ChatMessage.Status;
+import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import java.util.List;
@@ -28,25 +29,25 @@ import reactor.core.scheduler.Schedulers;
 @NullMarked
 class ChatEventStreamTest {
     private final UUID assistant = UUID.randomUUID();
-    private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(
-            4096, 16384, Duration.ofMinutes(1), 512, Duration.ofMillis(25), 2048,
-            4, 8, 2048, 16, Duration.ofSeconds(15), Duration.ofMinutes(1)));
+    private final StreamBufferWriter streams = new StreamBufferWriter(ChatTestRedis.template(), new ChatStreamProperties(
+            65536, Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 4, 8, 2048,
+            Duration.ofMillis(5), Duration.ofSeconds(15), Duration.ofMinutes(1)));
 
     @Test
     void searchEvidenceReplaysBeforeTextAndTerminalWithStableWireIdentity() {
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2,
                 List.of(new ChatSource.Provenance(2, "[]")));
         streams.open(assistant);
-        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("tool-1", "searchKnowledge"), source));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("tool-1", "search_knowledge"), source));
         streams.append(assistant, "Twelve days [1]");
         streams.finish(assistant, Status.CANCELED, null);
-        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> false), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
                 .collectList().block(Duration.ofSeconds(2));
         assertNotNull(events);
         assertEquals(List.of("tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
         var payload = assertInstanceOf(ChatEventStream.ToolEvent.class, events.getFirst().data());
         assertEquals("tool-1", payload.toolCallId());
-        assertEquals("searchKnowledge", payload.toolName());
+        assertEquals("search_knowledge", payload.toolName());
         assertNotNull(payload.source());
         assertEquals(source.documentId(), payload.source().documentId());
         assertEquals(assistant + ":1", events.getFirst().id());
@@ -63,7 +64,7 @@ class ChatEventStreamTest {
         streams.tool(assistant, ChatToolEvent.finished(call, false, 42L));
         streams.append(assistant, "Answer");
         streams.finish(assistant, Status.COMPLETED, null);
-        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> false), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
                 .collectList().block(Duration.ofSeconds(2));
         assertNotNull(events);
         assertEquals(List.of("reasoning", "reasoning", "tool", "tool", "text-delta", "outcome"), events.stream().map(ServerSentEvent::event).toList());
@@ -77,6 +78,44 @@ class ChatEventStreamTest {
     }
 
     @Test
+    void researchEventsAndNestedStepsKeepTheirPlacementOnTheWire() {
+        var agent = new ChatToolEvent.Call("call_agent", "research_agent");
+        streams.open(assistant);
+        streams.research(assistant, ChatResearchEvent.plan("1. Revenue"));
+        streams.research(assistant, ChatResearchEvent.branching(2));
+        streams.tool(assistant, new ChatToolEvent(agent, ChatToolEvent.Stage.STARTED).tab(1));
+        streams.research(assistant, ChatResearchEvent.agent("call_agent", 1, "Revenue in 2025"));
+        streams.tool(assistant, new ChatToolEvent(new ChatToolEvent.Call("call_search", "search_knowledge"), ChatToolEvent.Stage.STARTED).nested("call_agent"));
+        streams.reasoning(assistant, "Next, costs", "call_agent");
+        streams.research(assistant, ChatResearchEvent.report("call_agent", "Revenue grew [1]."));
+        streams.research(assistant, ChatResearchEvent.citations("call_agent", List.of(new ChatResearchEvent.Citation(1, 2))));
+        streams.finish(assistant, Status.COMPLETED, null);
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> false), assistant, Schedulers.immediate(), Duration.ofSeconds(2))
+                .collectList().block(Duration.ofSeconds(2));
+        assertNotNull(events);
+        assertEquals(List.of("research-plan", "top-level-branching", "tool", "research-agent-start", "tool", "reasoning",
+                "intermediate-report", "intermediate-report-citations", "outcome"), events.stream().map(ServerSentEvent::event).toList());
+        assertEquals("1. Revenue", assertInstanceOf(ChatEventStream.ResearchPlanEvent.class, events.get(0).data()).text());
+        assertEquals(2, assertInstanceOf(ChatEventStream.TopLevelBranchingEvent.class, events.get(1).data()).branches());
+        var agentStep = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(2).data());
+        assertEquals(1, agentStep.tabIndex());
+        assertNull(agentStep.parentToolCallId());
+        var start = assertInstanceOf(ChatEventStream.ResearchAgentStartEvent.class, events.get(3).data());
+        assertEquals("Revenue in 2025", start.task());
+        assertEquals(1, start.tabIndex());
+        var nested = assertInstanceOf(ChatEventStream.ToolEvent.class, events.get(4).data());
+        assertEquals("call_agent", nested.parentToolCallId());
+        assertNull(nested.tabIndex());
+        assertEquals("call_agent", assertInstanceOf(ChatEventStream.ReasoningEvent.class, events.get(5).data()).parentToolCallId());
+        var report = assertInstanceOf(ChatEventStream.IntermediateReportEvent.class, events.get(6).data());
+        assertEquals("call_agent", report.toolCallId());
+        assertEquals("Revenue grew [1].", report.text());
+        assertEquals(List.of(new ChatEventStream.ResearchCitation(1, 2)),
+                assertInstanceOf(ChatEventStream.IntermediateReportCitationsEvent.class, events.get(7).data()).citations());
+        assertEquals(assistant + ":7", events.get(6).id());
+    }
+
+    @Test
     void replayKeepsSequenceAndTerminalAndReleasesReader() {
         streams.open(assistant);
         streams.append(assistant, "First 😀");
@@ -85,7 +124,7 @@ class ChatEventStreamTest {
         streams.finish(assistant, Status.COMPLETED, null);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var scheduler = Schedulers.fromExecutor(executor);
-            var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 1), assistant, scheduler,
+            var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 1, () -> false), assistant, scheduler,
                     Duration.ofSeconds(5)).collectList().block(Duration.ofSeconds(5));
             assertNotNull(events);
             assertEquals(2, events.size());
@@ -101,7 +140,7 @@ class ChatEventStreamTest {
         streams.open(assistant);
         streams.append(assistant, "Answer");
         streams.finish(assistant, Status.COMPLETED, null);
-        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant,
+        var events = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> false), assistant,
                 Schedulers.immediate(), Duration.ofSeconds(5));
         assertEquals(0, streams.readerCount());
         var first = events.collectList().block(Duration.ofSeconds(5));
@@ -121,7 +160,7 @@ class ChatEventStreamTest {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var scheduler = Schedulers.fromExecutor(executor);
             var received = new CountDownLatch(1);
-            var subscription = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, scheduler,
+            var subscription = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> true), assistant, scheduler,
                     Duration.ofSeconds(5)).subscribe(_ -> {
                         assertTrue(Thread.currentThread().isVirtual());
                         received.countDown();
@@ -131,7 +170,7 @@ class ChatEventStreamTest {
             assertEquals(0, streams.readerCount());
             streams.append(assistant, " continues");
             streams.finish(assistant, Status.COMPLETED, null);
-            var replay = ChatEventStream.encode(() -> streams.subscribe(assistant, 1), assistant, scheduler,
+            var replay = ChatEventStream.encode(() -> streams.subscribe(assistant, 1, () -> false), assistant, scheduler,
                     Duration.ofSeconds(5)).collectList().block(Duration.ofSeconds(5));
             assertNotNull(replay);
             assertEquals(" continues", assertInstanceOf(ChatEventStream.TextDeltaEvent.class, replay.getFirst().data()).text());
@@ -142,7 +181,7 @@ class ChatEventStreamTest {
     }
 
     @Test
-    void readerWithNoDemandIsBoundedAndReceivesResetWhenItFallsBehind() throws Exception {
+    void readerWithNoDemandDoesNotHoldTheWriterAndCatchesUpToTheOutcome() throws Exception {
         streams.open(assistant);
         streams.append(assistant, "First");
         streams.flush();
@@ -156,7 +195,7 @@ class ChatEventStreamTest {
                 @Override protected void hookOnNext(ServerSentEvent<Object> event) { frames.add(event); first.countDown(); }
                 @Override protected void hookOnComplete() { done.countDown(); }
             };
-            ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, scheduler,
+            ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> true), assistant, scheduler,
                     Duration.ofSeconds(5)).subscribe(subscriber);
             assertTrue(first.await(5, TimeUnit.SECONDS));
             streams.append(assistant, "x".repeat(16000));
@@ -164,7 +203,10 @@ class ChatEventStreamTest {
             assertEquals(1, frames.size());
             subscriber.requestUnbounded();
             assertTrue(done.await(5, TimeUnit.SECONDS));
-            assertEquals("reset", frames.getLast().event());
+            // Replay lives in Redis, so a reader without demand costs the writer nothing and later reads the rest.
+            assertEquals("outcome", frames.getLast().event());
+            assertEquals("x".repeat(16000), frames.stream().filter(frame -> "text-delta".equals(frame.event())).skip(1)
+                    .map(frame -> assertInstanceOf(ChatEventStream.TextDeltaEvent.class, frame.data()).text()).reduce("", String::concat));
             assertEquals(0, streams.readerCount());
             scheduler.dispose();
         }
@@ -175,14 +217,14 @@ class ChatEventStreamTest {
         streams.open(assistant);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var scheduler = Schedulers.fromExecutor(executor);
-            var frames = ChatEventStream.encode(() -> streams.subscribe(assistant, 0), assistant, scheduler,
+            var frames = ChatEventStream.encode(() -> streams.subscribe(assistant, 0, () -> true), assistant, scheduler,
                     Duration.ofMillis(50)).collectList().block(Duration.ofSeconds(5));
             assertNotNull(frames);
             assertTrue(frames.isEmpty());
             assertEquals(0, streams.readerCount());
             streams.append(assistant, "Still running");
             streams.finish(assistant, Status.CANCELED, null);
-            var missing = ChatEventStream.encode(() -> streams.subscribe(UUID.randomUUID(), 0), assistant, scheduler,
+            var missing = ChatEventStream.encode(() -> streams.subscribe(UUID.randomUUID(), 0, () -> false), assistant, scheduler,
                     Duration.ofSeconds(5)).collectList().block(Duration.ofSeconds(5));
             assertNotNull(missing);
             assertEquals(1, missing.size());

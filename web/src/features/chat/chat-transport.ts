@@ -19,6 +19,14 @@ import {
   type GeneratedImage,
   type ImageMode,
 } from "./chat-image";
+import {
+  generatedFileSchema,
+  parseGeneratedFiles,
+  MAX_CODE_CHARACTERS,
+  MAX_OUTPUT_CHARACTERS,
+  type CodeRun,
+  type GeneratedFile,
+} from "./chat-code";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import {
@@ -28,6 +36,15 @@ import {
   toolEventSchema,
   type ChatActivity,
 } from "./chat-activity";
+import {
+  ResearchChunks,
+  historyResearch,
+  researchAgentEventSchema,
+  researchCitationsEventSchema,
+  researchPlanEventSchema,
+  researchReportEventSchema,
+  type ResearchState,
+} from "./chat-research";
 
 const eventSchema = z.object({
   assistantMessageId: z.string().uuid(),
@@ -37,6 +54,13 @@ const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
 const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
   hasArtifacts: z.boolean().default(false),
+});
+const codeSchema = eventSchema.extend({
+  toolCallId: z.string().min(1).max(256),
+  stage: z.enum(["RUNNING", "OUTPUT", "COMPLETED", "FAILED"]),
+  code: z.string().max(MAX_CODE_CHARACTERS).nullish(),
+  output: z.string().max(MAX_OUTPUT_CHARACTERS).nullish(),
+  files: z.array(generatedFileSchema).max(25).default([]),
 });
 const imageSchema = eventSchema.extend({
   stage: z.enum(["GENERATING", "COMPLETED", "FAILED"]),
@@ -59,10 +83,20 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.webSearch = mode;
     writeWebPreference(this.preferenceOwner, this.session?.id, mode);
   }
+  /** MCP servers chosen for the next turn; per-turn, like Web and image, and never persisted. */
+  mcpServerIds: string[] = [];
+  selectMcpServers(ids: string[]) {
+    this.mcpServerIds = ids;
+  }
   image: ImageMode = "off";
   selectImage(mode: ImageMode) {
     this.image = mode;
     writeImagePreference(this.preferenceOwner, this.session?.id, mode);
+  }
+  /** Browser state of the current chat, as Onyx: reset on reload or chat switch, kept for a chat created from it. */
+  deepResearch = false;
+  selectResearch(enabled: boolean) {
+    this.deepResearch = enabled;
   }
   private modelConfigurationId?: string;
   private onModelAccepted?: (selection: Accepted) => void;
@@ -145,9 +179,18 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     const modelConfigurationId = this.modelConfigurationId;
     const webSearch = this.webSearch;
     const image = this.image;
+    const mcpServerIds = [...this.mcpServerIds];
+    const deepResearch = this.deepResearch;
     const creating = !this.session;
     try {
-      return await this.submit(options, modelConfigurationId, webSearch, image);
+      return await this.submit(
+        options,
+        modelConfigurationId,
+        webSearch,
+        image,
+        mcpServerIds,
+        deepResearch,
+      );
     } catch (error) {
       if (creating && !this.session) this.onSessionFailed?.(error);
       throw error;
@@ -159,6 +202,8 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     modelConfigurationId: string | undefined,
     webSearch: WebSearchMode,
     image: ImageMode,
+    mcpServerIds: string[],
+    deepResearch: boolean,
   ) {
     if (options.trigger !== "submit-message")
       throw new Error("Use the conversation's message actions to create a saved version");
@@ -195,7 +240,9 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         text,
         modelConfigurationId,
         webSearch,
+        deepResearch,
         fileIds: fileIds as string[],
+        mcpServerIds,
       };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
@@ -289,9 +336,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let artifacts: ChatArtifact[] = [];
     let hasArtifacts = false;
     const activity = new ActivityChunks(runId);
+    const research = new ResearchChunks(runId);
+    let committedResearch: ResearchState | undefined;
     let committedActivity: ChatActivity | undefined;
     let images: GeneratedImage[] = [];
     let imageGenerating = false;
+    let codeRuns: Record<string, CodeRun> = {};
+    let generatedFiles: GeneratedFile[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
@@ -301,9 +352,17 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       messageMetadata: { serverStatus: "RUNNING", ...(createdAt && { createdAt }) },
     };
     try {
-      for (let attempt = 0; attempt < 3 && !outcome && !fallback; attempt++) {
+      // As Onyx, the reply is resumed from its cursor until the outcome: the server ends every live stream with an
+      // outcome or a reset, so a connection that simply ended (including the per-connection cap) reconnects at once.
+      // Only failed connections back off and show recovery; history is read after a reset or a sequence gap.
+      let failures = 0;
+      while (!outcome && !fallback) {
         signal.throwIfAborted();
-        this.callbacks.state(attempt === 0 ? "streaming" : "recovering");
+        if (failures > 0 && globalThis.navigator?.onLine === false) {
+          this.callbacks.state("recovering");
+          await online(signal);
+        }
+        this.callbacks.state(failures > 0 ? "recovering" : "streaming");
         const connection = new AbortController();
         const connectionSignal = AbortSignal.any([
           signal,
@@ -341,6 +400,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             }
             sequence = event.sequence;
+            if (failures > 0) {
+              failures = 0;
+              this.callbacks.state("streaming");
+            }
             if (envelope.event === "text-delta") {
               const delta = textSchema.parse(data).text;
               if (text.length + delta.length > 1_000_000)
@@ -354,6 +417,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               break;
             } else if (envelope.event === "tool") {
               const tool = toolEventSchema.parse(data);
+              // Research agents and their steps render in the research part, not as top-level timeline steps.
+              if (tool.parentToolCallId || tool.tabIndex !== null) {
+                yield* research.tool(tool);
+                continue;
+              }
               if (tool.stage === "SOURCE") {
                 if (!tool.source) throw new Error("Missing reply source");
                 sources = sourcesSchema.parse([
@@ -374,7 +442,21 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
               }
               yield* chunks;
             } else if (envelope.event === "reasoning") {
-              yield* activity.reasoning(reasoningEventSchema.parse(data).text);
+              const reasoning = reasoningEventSchema.parse(data);
+              if (reasoning.parentToolCallId)
+                yield* research.reasoning(reasoning.parentToolCallId, reasoning.text);
+              else yield* activity.reasoning(reasoning.text);
+            } else if (envelope.event === "research-plan") {
+              yield* research.planDelta(researchPlanEventSchema.parse(data).text);
+            } else if (envelope.event === "research-agent-start") {
+              const start = researchAgentEventSchema.parse(data);
+              yield* research.agent(start.toolCallId, start.task);
+            } else if (envelope.event === "intermediate-report") {
+              const report = researchReportEventSchema.parse(data);
+              yield* research.report(report.toolCallId, report.text);
+            } else if (envelope.event === "intermediate-report-citations") {
+              const cited = researchCitationsEventSchema.parse(data);
+              yield* research.citations(cited.toolCallId, cited.citations);
             } else if (envelope.event === "image") {
               const image = imageSchema.parse(data);
               if (image.stage === "COMPLETED" && image.id) {
@@ -389,6 +471,35 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
                 imageGenerating = false;
               } else imageGenerating = image.stage === "GENERATING";
               yield { type: "message-metadata", messageMetadata: { images, imageGenerating } };
+            } else if (envelope.event === "code") {
+              const run = codeSchema.parse(data);
+              const previous = codeRuns[run.toolCallId] ?? {
+                code: "",
+                output: "",
+                files: [],
+                status: "running" as const,
+              };
+              codeRuns = {
+                ...codeRuns,
+                [run.toolCallId]: {
+                  code: run.stage === "RUNNING" ? (run.code ?? "") : previous.code,
+                  output:
+                    run.stage === "OUTPUT" ? previous.output + (run.output ?? "") : previous.output,
+                  files: run.stage === "COMPLETED" ? run.files : previous.files,
+                  status:
+                    run.stage === "COMPLETED"
+                      ? "done"
+                      : run.stage === "FAILED"
+                        ? "failed"
+                        : "running",
+                },
+              };
+              if (run.stage === "COMPLETED" && run.files.length)
+                generatedFiles = [
+                  ...generatedFiles.filter((file) => !run.files.some((one) => one.id === file.id)),
+                  ...run.files,
+                ];
+              yield { type: "message-metadata", messageMetadata: { codeRuns, generatedFiles } };
             }
             // Other event types from a newer server are skipped; the committed history stays authoritative.
           }
@@ -398,13 +509,17 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           connection.abort();
         }
         // Clean EOF without an outcome is a disconnect, never successful completion.
-        if (!outcome && !fallback) await pause(500 * (attempt + 1), signal);
+        if (outcome || fallback) break;
+        const healthy =
+          failure === undefined ||
+          (failure instanceof DOMException && failure.name === "TimeoutError");
+        failures = healthy ? 0 : failures + 1;
+        if (failures > 0) await pause(Math.min(500 * 2 ** (failures - 1), 10_000), signal);
       }
       if (!outcome) {
         this.callbacks.state("recovering");
-        // Covers the server's maximum 30-minute deadline plus finalization grace.
-        const until = Date.now() + 31 * 60_000;
-        while (!outcome && Date.now() < until) {
+        // Only a reset or a gap reaches this: poll while the reply is RUNNING. The server lease fails a dead run.
+        while (!outcome) {
           signal.throwIfAborted();
           // Only the reply after its stable USER parent is needed; don't reload a long transcript on every poll.
           if (!this.runParentId) throw new Error("Reply parent is unavailable");
@@ -425,12 +540,15 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             sources = sourcesSchema.parse(message.sources);
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
+            committedResearch = historyResearch(message.research);
             images = parseGeneratedImages((message as { images?: unknown }).images);
             imageGenerating = false;
+            // Code and output live only in the replay buffer; the files themselves are committed.
+            generatedFiles = parseGeneratedFiles(
+              (message as { generatedFiles?: unknown }).generatedFiles,
+            );
           } else await pause(2000, signal);
         }
-        if (!outcome)
-          throw new Error("Reply status could not be confirmed; check the conversation again");
       }
       // Terminal SSE carries only a flag so bounded replay buffers never contain large UI specs.
       // Reuse the authorized history reader, scoped to the stable user parent, exactly once.
@@ -455,8 +573,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           artifacts,
           images,
           imageGenerating: false,
+          codeRuns,
+          generatedFiles,
         },
       };
+      yield* research.finish(committedResearch);
       yield* activity.finish(committedActivity);
       this.runId = undefined;
       this.callbacks.state("ready");
@@ -503,6 +624,23 @@ const boundedEventFetch: typeof fetch = async (input, init) => {
   );
   return new Response(body, { status: response.status, headers: response.headers });
 };
+
+function online(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    signal.throwIfAborted();
+    const done = () => {
+      globalThis.removeEventListener("online", done);
+      signal.removeEventListener("abort", abort);
+      resolve();
+    };
+    const abort = () => {
+      globalThis.removeEventListener("online", done);
+      reject(signal.reason);
+    };
+    globalThis.addEventListener("online", done, { once: true });
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
 
 function pause(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {

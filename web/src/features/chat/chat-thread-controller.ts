@@ -13,6 +13,7 @@ const sendProblems = {
   CHAT_CAPACITY_EXCEEDED: { key: "chatBusy" },
   CHAT_INVALID_REQUEST: { key: "chatRejected" },
   CHAT_WEB_UNAVAILABLE: { key: "chatWebUnavailable" },
+  CHAT_RESEARCH_UNAVAILABLE: { key: "chatResearchUnavailable" },
 } as const satisfies Record<string, ErrorMessage>;
 
 export type ChatThreadState = {
