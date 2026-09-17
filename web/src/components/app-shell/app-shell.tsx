@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Globe,
+  ImageIcon,
   KeyRound,
   Menu,
   PanelLeftClose,
@@ -27,7 +28,7 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models";
+export type AdminPage = "sources" | "users" | "groups" | "web" | "images" | "providers" | "models";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -212,6 +213,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/image-generation"
+                  icon={<ImageIcon className="size-4" />}
+                  selected={adminPage === "images"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Tạo ảnh")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

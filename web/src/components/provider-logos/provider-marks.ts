@@ -6,6 +6,7 @@
 export const providerMarks = {
   ANTHROPIC: { file: "anthropic.svg", monochrome: false },
   BRAVE: { file: "brave.svg", monochrome: false },
+  CLOUDFLARE: { file: "cloudflare.svg", monochrome: false },
   EXA: { file: "exa.png", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
   GOOGLE_PSE: { file: "google.svg", monochrome: false },

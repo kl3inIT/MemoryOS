@@ -140,6 +140,32 @@ export const vietnameseUi: Record<string, string> = {
     "No models on search-capable providers yet.",
   "Địa chỉ tùy chỉnh (để trống dùng mặc định)": "Custom address (leave blank for default)",
   "Tìm kiếm Web của nhà cung cấp cho {{name}}": "Provider Web search for {{name}}",
+  "Cài đặt nhà cung cấp Chat dùng để tạo và sửa ảnh.":
+    "Configure the provider Chat uses to generate and edit images.",
+  "Không tải được cài đặt tạo ảnh.": "Could not load image generation settings.",
+  "Nhà cung cấp": "Providers",
+  "Chọn một nhà cung cấp để bật tạo ảnh trong Chat.":
+    "Select a provider to enable image generation in Chat.",
+  "Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.":
+    "Image editing uses the same provider, so turning image generation off also turns off editing.",
+  "Tạo: {{generate}} · Sửa: {{edit}}": "Generate: {{generate}} · Edit: {{edit}}",
+  "Tạo và sửa: {{model}}": "Generate and edit: {{model}}",
+  "Địa chỉ tài khoản": "Account endpoint",
+  "Mô hình tạo ảnh": "Generation model",
+  "Mô hình khác…": "Other model…",
+  "Tên mô hình": "Model name",
+  "Hỗ trợ sửa ảnh": "Supports editing",
+  "Ngừng hỗ trợ": "Deprecated",
+  "Sửa ảnh luôn dùng {{model}} với nhà cung cấp này.":
+    "Image edits always use {{model}} with this provider.",
+  "Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.":
+    "The connection test generates a real image and may incur provider charges.",
+  "Ngắt kết nối": "Disconnect",
+  "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
+  "Khóa API sẽ bị xóa khỏi MemoryOS; địa chỉ và mô hình được giữ lại.":
+    "The API key is removed from MemoryOS; the endpoint and model are kept.",
+  "Nhà cung cấp này đang dùng. Chọn nhà cung cấp thay thế hoặc tắt tạo ảnh.":
+    "This provider is in use. Choose a replacement or turn image generation off.",
   "Hội thoại được chia sẻ": "Shared conversation",
   "Đóng điều hướng": "Close navigation",
   "Mở điều hướng": "Open navigation",

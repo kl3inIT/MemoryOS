@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
+    const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
@@ -35,7 +36,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
             ? "models"
             : webSearchSelected
               ? "web"
-              : "sources";
+              : imageGenerationSelected
+                ? "images"
+                : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -43,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "providers"
             ? canManageProviders
-            : page === "models" || page === "web"
+            : page === "models" || page === "web" || page === "images"
               ? canManageModels
               : canReadSources;
 
@@ -66,7 +69,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                   ? "Models"
                   : page === "web"
                     ? "Tìm kiếm Web"
-                    : "Sources",
+                    : page === "images"
+                      ? "Tạo ảnh"
+                      : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

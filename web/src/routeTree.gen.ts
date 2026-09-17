@@ -20,6 +20,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
+import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
@@ -90,6 +91,12 @@ const AuthenticatedAdminIdentityProvidersRoute =
   AuthenticatedAdminIdentityProvidersRouteImport.update({
     id: '/identity-providers',
     path: '/identity-providers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminImageGenerationRoute =
+  AuthenticatedAdminImageGenerationRouteImport.update({
+    id: '/image-generation',
+    path: '/image-generation',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminModelsRoute =
@@ -197,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -222,6 +230,7 @@ export interface FileRoutesByTo {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -250,6 +259,7 @@ export interface FileRoutesById {
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/groups'
     | '/admin/identity-providers'
+    | '/admin/image-generation'
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/identity-providers'
+    | '/admin/image-generation'
     | '/admin/models'
     | '/admin/users'
     | '/admin/web-search'
@@ -332,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authenticated/search'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
+    | '/_authenticated/admin/image-generation'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/web-search'
@@ -435,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/identity-providers'
       fullPath: '/admin/identity-providers'
       preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/image-generation': {
+      id: '/_authenticated/admin/image-generation'
+      path: '/image-generation'
+      fullPath: '/admin/image-generation'
+      preLoaderRoute: typeof AuthenticatedAdminImageGenerationRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/models': {
@@ -610,6 +630,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
+  AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
@@ -622,6 +643,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
+  AuthenticatedAdminImageGenerationRoute:
+    AuthenticatedAdminImageGenerationRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,
