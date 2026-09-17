@@ -18,8 +18,13 @@ const apiProxy: ProxyOptions = {
   target: apiTarget,
   changeOrigin: false,
   xfwd: true,
-  // Production keeps Secure cookies; loopback-only Vite removes the flag at its local HTTP boundary.
   configure(proxy) {
+    // http-proxy-3 forwards X-Forwarded-Proto: ws on upgrades; the API's same-origin handshake check then
+    // compares the browser's http Origin against a ws request and rejects it. Forward the real scheme.
+    proxy.on("proxyReqWs", (proxyRequest) => {
+      proxyRequest.setHeader("x-forwarded-proto", "http");
+    });
+    // Production keeps Secure cookies; loopback-only Vite removes the flag at its local HTTP boundary.
     proxy.on("proxyRes", (proxyResponse) => {
       const cookies = proxyResponse.headers["set-cookie"];
       if (cookies) {

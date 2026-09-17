@@ -82,7 +82,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 - [x] `mig:V64__chat_voice_settings.sql` (trước là V60); `core:chat/voice/VoiceSettings.java`, `VoiceSettingsService.java`; `core:chat/persistence/JdbcVoiceSettingsRepository.java` (partial update nguyên tử).
 - [x] `core:chat/voice/Pcm16.java`, `Transcript.java`, `ChunkedTranscriber.java`, `VoiceTranscriptionService.java`.
 - [x] `api:chat/VoiceTicketStore.java`, `VoiceSessionController.java` (`/tickets`, `/settings`), `VoiceHandshakeInterceptor.java`, `TranscribeWebSocketHandler.java`, `VoiceWebSocketConfiguration.java`; contract `VoiceTicketResponse`, `VoiceSettings{Request,Response}`.
-- [x] `web/nginx.conf`: location WebSocket nhập bằng giọng nói. `web/vite.config.ts`: `ws: true`.
+- [x] `web/nginx.conf`: location WebSocket nhập bằng giọng nói. `web/vite.config.ts`: `ws: true` và giữ `X-Forwarded-Proto: http` khi Vite nâng cấp kết nối để kiểm tra same-origin của API chấp nhận Origin cục bộ.
 - [ ] Adapter live OpenAI Realtime (chờ S0.3) và interface phiên live chung khi có implementation thứ hai.
 - [x] **Test:**
   - `core-test:chat/voice/Pcm16Test` (4 ca), `ChunkedTranscriberTest` (4 ca), `VoiceTranscriptionServiceTest` (2 ca).
