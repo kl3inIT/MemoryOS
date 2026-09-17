@@ -130,18 +130,17 @@ it("shows disconnected providers with a connect action and no in-use provider", 
 it("marks a configured provider connected and lets it become the active one", async () => {
   selectChatImageProvider.mockResolvedValue({ data: {} });
   show(catalog, [connection()]);
-  expect(await screen.findByText("Đã kết nối")).toBeInTheDocument();
+  expect((await screen.findAllByText("Đã kết nối")).length).toBeGreaterThanOrEqual(2);
   await userEvent.click(screen.getByRole("button", { name: "Đặt làm mặc định" }));
   expect(selectChatImageProvider).toHaveBeenCalledWith(
     expect.objectContaining({ body: { provider: "OPENAI_IMAGE" } }),
   );
 });
 
-it("shows the in-use provider in the banner and turns generation off", async () => {
+it("shows the in-use provider in the connected list and turns generation off", async () => {
   selectChatImageProvider.mockResolvedValue({ data: {} });
   show(catalog, [connection({ active: true })]);
-  const banner = await screen.findAllByText("Đang dùng");
-  expect(banner.length).toBeGreaterThanOrEqual(2);
+  expect(await screen.findByText("Đang dùng")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Tắt tạo ảnh" }));
   expect(selectChatImageProvider).toHaveBeenCalledWith(
     expect.objectContaining({ body: { provider: undefined } }),
@@ -205,6 +204,10 @@ it("requires an account endpoint for providers that declare one", async () => {
   expect(
     screen.getByText(/flux-2-klein-9b|FLUX\.2 Klein 9B/, { selector: "p" }),
   ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Tài liệu nhà cung cấp" })).toHaveAttribute(
+    "href",
+    "https://developers.cloudflare.com/workers-ai/get-started",
+  );
 });
 
 it("tests a configured connection and reports success", async () => {

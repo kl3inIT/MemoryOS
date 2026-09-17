@@ -1,6 +1,13 @@
 import { useId, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ImageIcon, Settings2, Unplug } from "lucide-react";
+import {
+  CheckCircle2,
+  ImageIcon,
+  ImagePlay,
+  Settings2,
+  SquareArrowOutUpRight,
+  Unplug,
+} from "lucide-react";
 import { Dialog } from "radix-ui";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
@@ -44,6 +51,15 @@ const sites: Record<Provider, string> = {
 const endpointHints: Record<Provider, string> = {
   OPENAI_IMAGE: "https://api.openai.com/v1",
   CLOUDFLARE_WORKERS_AI: "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>",
+};
+const docs: Record<Provider, string> = {
+  OPENAI_IMAGE: "https://platform.openai.com/docs/guides/image-generation",
+  CLOUDFLARE_WORKERS_AI: "https://developers.cloudflare.com/workers-ai/get-started",
+};
+/** One-line product pitch shown on cards that are not connected yet. */
+const taglines: Record<Provider, string> = {
+  OPENAI_IMAGE: "Tạo và sửa ảnh chất lượng cao với mô hình gpt-image.",
+  CLOUDFLARE_WORKERS_AI: "Tạo ảnh FLUX nhanh trên mạng toàn cầu của Cloudflare.",
 };
 const formats: Record<string, string> = {
   "image/png": "PNG",
@@ -153,9 +169,36 @@ export function ChatImageSettings() {
     );
   const catalog = providers.data ?? [];
   const configured = connections.data ?? [];
-  const active = configured.find((connection) => connection.active);
-  const activeProvider =
-    active && catalog.find((provider) => provider.provider === active.provider);
+  // Onyx ordering: connected providers first, the active one leading; the catalog
+  // remainder stays below as providers that can still be connected.
+  const connected = catalog
+    .filter((provider) => configured.some((c) => c.provider === provider.provider))
+    .sort(
+      (a, b) =>
+        Number(configured.some((c) => c.provider === b.provider && c.active)) -
+        Number(configured.some((c) => c.provider === a.provider && c.active)),
+    );
+  const available = catalog.filter(
+    (provider) => !configured.some((c) => c.provider === provider.provider),
+  );
+  const cardFor = (provider: ImageProviderResponse) => {
+    const connection = configured.find((c) => c.provider === provider.provider);
+    return (
+      <ConnectionCard
+        key={`${provider.provider}:${connection?.revision ?? "new"}`}
+        provider={provider}
+        connection={connection}
+        replacements={configured
+          .filter((c) => c.provider !== provider.provider && c.credentialConfigured)
+          .map((c) => c.provider)}
+        disabled={pending}
+        onChanged={changed}
+        onSelect={select}
+        onTurnOff={() => select(null)}
+        onDisconnect={disconnect}
+      />
+    );
+  };
   return (
     <SettingsLayout>
       <PageHeader
@@ -174,57 +217,23 @@ export function ChatImageSettings() {
         <p role="status">{ui("Đang tải…")}</p>
       ) : (
         <>
-          <section aria-label={ui("Đang dùng")} className="space-y-3">
-            <h2 className="text-lg font-semibold">{ui("Đang dùng")}</h2>
-            {active && activeProvider ? (
-              <ProviderCard
-                logo={<ProviderLogo mark={marks[active.provider]} />}
-                name={names[active.provider]}
-                description={<ModelSummary provider={activeProvider} model={active.model} />}
-                selected
-                actions={
-                  <>
-                    <InUseBadge>{ui("Đang dùng")}</InUseBadge>
-                    <Button
-                      size="sm"
-                      prominence="secondary"
-                      disabled={pending}
-                      onClick={() => void select(null)}
-                    >
-                      {ui("Tắt tạo ảnh")}
-                    </Button>
-                  </>
-                }
-              />
-            ) : (
-              <p className={notice}>{ui("Chọn một nhà cung cấp để bật tạo ảnh trong Chat.")}</p>
-            )}
+          <section aria-label={ui("Đã kết nối")} className="space-y-3">
+            <h2 className="text-lg font-semibold">{ui("Đã kết nối")}</h2>
             <p className="text-sm text-content-muted">
               {ui("Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.")}
             </p>
+            {connected.length === 0 ? (
+              <p className={notice}>{ui("Chọn một nhà cung cấp để bật tạo ảnh trong Chat.")}</p>
+            ) : (
+              <div className="space-y-3">{connected.map(cardFor)}</div>
+            )}
           </section>
-          <section aria-label={ui("Nhà cung cấp")} className="mt-8 space-y-3">
-            <h2 className="text-lg font-semibold">{ui("Nhà cung cấp")}</h2>
-            <div className="space-y-3">
-              {catalog.map((provider) => {
-                const connection = configured.find((c) => c.provider === provider.provider);
-                return (
-                  <ConnectionCard
-                    key={`${provider.provider}:${connection?.revision ?? "new"}`}
-                    provider={provider}
-                    connection={connection}
-                    replacements={configured
-                      .filter((c) => c.provider !== provider.provider && c.credentialConfigured)
-                      .map((c) => c.provider)}
-                    disabled={pending}
-                    onChanged={changed}
-                    onSelect={select}
-                    onDisconnect={disconnect}
-                  />
-                );
-              })}
-            </div>
-          </section>
+          {available.length > 0 && (
+            <section aria-label={ui("Thêm nhà cung cấp")} className="mt-8 space-y-3">
+              <h2 className="text-lg font-semibold">{ui("Thêm nhà cung cấp")}</h2>
+              <div className="space-y-3">{available.map(cardFor)}</div>
+            </section>
+          )}
         </>
       )}
       {error && (
@@ -239,25 +248,31 @@ export function ChatImageSettings() {
 function ModelOption({ id, model }: { id: string; model: ImageKnownModelResponse }) {
   const ui = useAppTranslation();
   return (
-    <label htmlFor={id} className={option}>
-      <RadioGroupItem id={id} value={model.modelName} />
+    <label
+      htmlFor={id}
+      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-3 has-[[data-state=checked]]:border-border-strong has-[[data-state=checked]]:bg-surface-sunken"
+    >
+      <RadioGroupItem id={id} value={model.modelName} className="mt-1" />
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-sunken text-content-secondary">
+        <ImagePlay className="size-4.5" aria-hidden="true" />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{model.displayName}</span>
         <span className="block truncate font-mono text-xs text-content-muted">
           {model.modelName}
         </span>
-      </span>
-      <span className="flex flex-wrap justify-end gap-1">
-        <StatusBadge tone="neutral">
-          {formats[model.outputMediaType] ?? model.outputMediaType}
-        </StatusBadge>
-        {model.sizes.length > 0 && (
+        <span className="mt-1.5 flex flex-wrap gap-1">
           <StatusBadge tone="neutral">
-            {model.sizes.map((size) => size.replace("x", "×")).join(" · ")}
+            {formats[model.outputMediaType] ?? model.outputMediaType}
           </StatusBadge>
-        )}
-        {model.edit && <StatusBadge tone="info">{ui("Hỗ trợ sửa ảnh")}</StatusBadge>}
-        {model.deprecated && <StatusBadge tone="warning">{ui("Ngừng hỗ trợ")}</StatusBadge>}
+          {model.sizes.length > 0 && (
+            <StatusBadge tone="neutral">
+              {model.sizes.map((size) => size.replace("x", "×")).join(" · ")}
+            </StatusBadge>
+          )}
+          {model.edit && <StatusBadge tone="info">{ui("Hỗ trợ sửa ảnh")}</StatusBadge>}
+          {model.deprecated && <StatusBadge tone="warning">{ui("Ngừng hỗ trợ")}</StatusBadge>}
+        </span>
       </span>
     </label>
   );
@@ -270,6 +285,7 @@ function ConnectionCard({
   disabled,
   onChanged,
   onSelect,
+  onTurnOff,
   onDisconnect,
 }: {
   provider: ImageProviderResponse;
@@ -278,6 +294,7 @@ function ConnectionCard({
   disabled: boolean;
   onChanged: () => Promise<void>;
   onSelect: (provider: Provider) => Promise<void>;
+  onTurnOff: () => Promise<void>;
   onDisconnect: (provider: Provider, replacement: Provider | null) => Promise<void>;
 }) {
   const ui = useAppTranslation();
@@ -370,7 +387,9 @@ function ConnectionCard({
         connection && configured ? (
           <ModelSummary provider={provider} model={connection.model} />
         ) : (
-          sites[provider.provider]
+          <>
+            {ui(taglines[provider.provider])} {sites[provider.provider]}
+          </>
         )
       }
       selected={active}
@@ -381,6 +400,16 @@ function ConnectionCard({
           ) : configured ? (
             <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
           ) : null}
+          {active && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled || pending}
+              onClick={() => void onTurnOff()}
+            >
+              {ui("Tắt tạo ảnh")}
+            </Button>
+          )}
           {configured && !active && (
             <Button
               size="sm"
@@ -484,6 +513,15 @@ function ConnectionCard({
                 <Dialog.Description className="mt-2 text-sm text-content-secondary">
                   {sites[provider.provider]}
                 </Dialog.Description>
+                <a
+                  href={docs[provider.provider]}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex items-center gap-0.5 rounded-sm text-sm text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                >
+                  {ui("Tài liệu nhà cung cấp")}
+                  <SquareArrowOutUpRight className="size-3" aria-hidden="true" />
+                </a>
                 <fieldset disabled={disabled || pending} className="mt-5 space-y-4">
                   <label className="block space-y-1">
                     <span>
@@ -546,8 +584,11 @@ function ConnectionCard({
                   )}
                 </fieldset>
                 {tested && (
-                  <p role="status" className="mt-4 flex items-center gap-1 text-sm">
-                    <CheckCircle2 className="size-4" />
+                  <p
+                    role="status"
+                    className="mt-4 flex items-center gap-1.5 rounded-xl border border-border-default bg-status-success-surface px-3 py-2 text-sm text-status-success-content"
+                  >
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
                     {ui("Kiểm tra kết nối thành công")}
                   </p>
                 )}
