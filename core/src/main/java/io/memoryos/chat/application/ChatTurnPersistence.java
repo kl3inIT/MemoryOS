@@ -55,6 +55,18 @@ public class ChatTurnPersistence {
         this.imageArtifacts = imageArtifacts;
     }
 
+    /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
+    @Transactional(readOnly = true)
+    public JdbcChatRepository.Persona agent(ActorId actor, UUID session) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        return chats.persona(session, false, agentsManage(actor));
+    }
+
+    private boolean agentsManage(ActorId actor) {
+        return authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE);
+    }
+
     /** Capability gate checked once per command or stream entry, before ownership and the session lock. */
     @Transactional(readOnly = true)
     public void require(ActorId actor, IamCapability capability) {
@@ -93,16 +105,17 @@ public class ChatTurnPersistence {
 
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
-                               String text, Duration timeout, int contextTokenLimit, @Nullable ModelSelection selection) {
+                               String text, Duration lease, int contextTokenLimit, @Nullable ModelSelection selection) {
         return reserve(actor, sessionId, new ChatCommand(ChatCommand.Operation.SEND, parentId, requestId, text,
-                selection == null ? null : selection.requestedId()), timeout, contextTokenLimit, selection);
+                selection == null ? null : selection.requestedId()), lease, contextTokenLimit, selection);
     }
 
+    /** The lease is a liveness fence renewed by the running process, not a turn deadline. */
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, ChatCommand command,
-                               Duration timeout, int contextTokenLimit, @Nullable ModelSelection selection) {
-        if (timeout == null || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(30)) > 0) {
-            throw ChatException.invalid("Invalid chat message or deadline.");
+                               Duration lease, int contextTokenLimit, @Nullable ModelSelection selection) {
+        if (lease == null || lease.isNegative() || lease.isZero() || lease.compareTo(Duration.ofDays(1)) > 0) {
+            throw ChatException.invalid("Invalid chat message or lease.");
         }
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         chats.lockOwner(tenant, actor);
@@ -129,7 +142,7 @@ public class ChatTurnPersistence {
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
         // Initialization is insert-only: editor-owned settings must survive every send.
         chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        var settings = chats.persona(sessionId, true);
+        var settings = chats.persona(sessionId, true, agentsManage(actor));
         if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
             throw ChatException.conflict();
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
@@ -139,21 +152,21 @@ public class ChatTurnPersistence {
         else {
             var binding = selection.binding().forOptions(settings.options());
             instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
-                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor));
+                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor), settings.datetimeAware());
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
         var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()
                 : files.admit(tenant, actor, command.fileIds());
         UUID assistant = UUID.randomUUID();
-        if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, timeout);
-        else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, timeout, attachments);
+        if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, lease);
+        else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, lease, attachments);
         if (selection != null) chats.saveModelSelection(sessionId,
                 command.operation() == ChatCommand.Operation.REGENERATE ? assistant : user,
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
         chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
                 selection == null ? null : selection.fallbackReason());
-        var context = context(actor, tenant, sessionId, user, assistant, settings, instructions);
+        var context = context(actor, tenant, sessionId, user, settings, instructions);
         return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }
 
@@ -195,10 +208,17 @@ public class ChatTurnPersistence {
         });
     }
 
+    /** Deep research is rejected for Project chats, as Onyx; the session's Project is read before reserving. */
+    @Transactional(readOnly = true)
+    public boolean inProject(ActorId actor, UUID session) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable).projectId() != null;
+    }
+
     private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
         if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
                 || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())
-                || previous.webSearch() != command.webSearch()
+                || previous.webSearch() != command.webSearch() || previous.deepResearch() != command.deepResearch()
                 || !Objects.equals(previous.requestedModelId(), command.modelConfigurationId()))
             throw ChatException.conflict();
     }
@@ -208,11 +228,11 @@ public class ChatTurnPersistence {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
         if (reservation.context() != null) return reservation.context();
-        var persona = chats.persona(sessionId, false);
-        return context(actor, tenant, sessionId, reservation.userMessageId(), reservation.assistantMessageId(), persona, persona.instructions());
+        var persona = chats.persona(sessionId, false, agentsManage(actor));
+        return context(actor, tenant, sessionId, reservation.userMessageId(), persona, persona.instructions());
     }
 
-    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, UUID assistant, JdbcChatRepository.Persona settings, String instructions) {
+    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings, String instructions) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = files.admit(tenant, actor, settings.fileIds());
         var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
@@ -228,28 +248,34 @@ public class ChatTurnPersistence {
                 .map(ChatMessage::id).toList()).forEach((message, images) ->
                 generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
-                chats.control(assistant).deadline(), settings.options(), plaintext, workspaceFiles, languages.read(actor), generated);
+                settings.options(), plaintext, workspaceFiles, languages.read(actor), generated);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
-                              List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+                              List<ChatMessage> newestFirst, ChatTurnOptions options,
                               Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
                            Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
-            this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
+            this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
         }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options,
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
                            Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
-            this(actor, tenant, model, instructions, newestFirst, deadline, options, fileTexts, workspaceFiles, null);
+            this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, null);
         }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline, ChatTurnOptions options) {
-            this(actor, tenant, model, instructions, newestFirst, deadline, options, Map.of(), List.of());
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options) {
+            this(actor, tenant, model, instructions, newestFirst, options, Map.of(), List.of());
         }
-        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, Instant deadline) {
-            this(actor, tenant, model, instructions, newestFirst, deadline, ChatTurnOptions.DEFAULT);
+        public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst) {
+            this(actor, tenant, model, instructions, newestFirst, ChatTurnOptions.DEFAULT);
         }
+    }
+
+    /** Renews rows still RUNNING and returns their IDs; a missing ID means the run no longer owns its row. */
+    @Transactional
+    public java.util.Set<UUID> renewLeases(java.util.Collection<UUID> assistants, Duration lease) {
+        return chats.renewLeases(assistants, lease);
     }
 
     @Transactional
@@ -298,12 +324,26 @@ public class ChatTurnPersistence {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
                           io.memoryos.chat.ChatActivity activity) {
-        if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000 || sources.size() > 24)
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity,
+                io.memoryos.chat.ChatResearch.EMPTY);
+    }
+
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
+        if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000)
             throw ChatException.invalid("Invalid terminal outcome.");
         if (artifacts.size() > 3) throw ChatException.invalid("Invalid artifact count.");
-        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity);
+        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity, research);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
+    }
+
+    @Transactional
+    public int failOrphanedRuns() {
+        return chats.failOrphanedRuns();
     }
 
     @Transactional

@@ -8,19 +8,26 @@ import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { fileReference } from "./chat-files";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { parseGeneratedImages, type GeneratedImage } from "./chat-image";
+import { parseGeneratedFiles, type GeneratedFile } from "./chat-code";
+import { historyResearch, type ResearchState } from "./chat-research";
 
-export type ChatUiMessage = UIMessage<{
-  serverStatus?: ChatMessage["status"];
-  createdAt?: string;
-  /** Set by assistant-ui on a live question sent with a composer quote. */
-  custom?: { quote?: { text: string; messageId: string } };
-  sources?: ChatSource[];
-  artifacts?: ChatArtifact[];
-  /** Live citations per tool call, including late hosted-search citations. */
-  toolCitations?: Record<string, number[]>;
-  images?: GeneratedImage[];
-  imageGenerating?: boolean;
-}>;
+export type ChatUiMessage = UIMessage<
+  {
+    serverStatus?: ChatMessage["status"];
+    createdAt?: string;
+    /** Set by assistant-ui on a live question sent with a composer quote. */
+    custom?: { quote?: { text: string; messageId: string } };
+    sources?: ChatSource[];
+    artifacts?: ChatArtifact[];
+    /** Live citations per tool call, including late hosted-search citations. */
+    toolCitations?: Record<string, number[]>;
+    images?: GeneratedImage[];
+    imageGenerating?: boolean;
+    /** Files run_python generated, saved on the assistant message. */
+    generatedFiles?: GeneratedFile[];
+  },
+  { research: ResearchState }
+>;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;
 
@@ -92,14 +99,22 @@ export function initialChatTitle(text: string) {
   return title || i18n.t("app:Hội thoại mới", { keySeparator: false });
 }
 
+/** Saved deep research renders before the answer, as it streamed. */
+function researchParts(message: ChatMessage): ChatUiMessage["parts"] {
+  const research = message.role === "ASSISTANT" ? historyResearch(message.research) : undefined;
+  return research ? [{ type: "data-research", id: `${message.id}:research`, data: research }] : [];
+}
+
 export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
   return messages.map((message) => ({
     id: message.id,
     role: message.role === "USER" ? "user" : "assistant",
     parts: [
-      ...(message.role === "ASSISTANT"
+      ...researchParts(message),
+      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
+      ...((message.role === "ASSISTANT"
         ? historyParts(message.content, activitySchema.parse(message.activity))
-        : [{ type: "text" as const, text: message.content }]),
+        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
       ...(message.files ?? []).map((file) => ({
         type: "file" as const,
         filename: file.filename,
@@ -113,6 +128,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
       images: parseGeneratedImages((message as { images?: unknown }).images),
+      generatedFiles: parseGeneratedFiles(message.generatedFiles),
     },
   }));
 }

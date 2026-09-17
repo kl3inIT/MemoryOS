@@ -143,6 +143,19 @@ class PostgresIamAuthorizationTest {
     }
 
     @Test
+    void ordinaryModelAndMcpGrantsAuthorizeGlobally() {
+        grant(GROUP_ONE, IamCapability.MODELS_MANAGE);
+        grant(GROUP_TWO, IamCapability.MCP_MANAGE);
+
+        org.junit.jupiter.api.Assertions.assertTrue(authorization.effectiveCapabilities(ACTOR)
+                .containsAll(Set.of(IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE)));
+        assertEquals(
+                Authority.GLOBAL,
+                authorization.require(ACTOR, IamCapability.MCP_MANAGE, false).authority()
+        );
+    }
+
+    @Test
     void derivesScopedAuthorityOnlyFromActiveOrdinaryGroupManagement() {
         jdbc.sql("""
                         UPDATE iam_group_memberships

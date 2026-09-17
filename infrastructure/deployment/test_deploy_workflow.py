@@ -89,6 +89,26 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertNotIn(network, service)
         self.assertIn("PYTHON_EXECUTOR_DOCKER_NETWORK: none", service)
 
+    def test_missing_secret_files_stop_the_deployment_before_reservation(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Compose config accepts a missing secret file; rollout would fail after the reservation.
+        self.assertIn("'.secrets // {} | .[].file // empty'", deploy)
+        self.assertLess(deploy.index("'.secrets // {} | .[].file // empty'"), deploy.index('> "$state/pending"'))
+
+    def test_interpreter_and_api_share_one_key_secret(self):
+        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
+        interpreter = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        api = compose.split("\n  api:\n", 1)[1].split("\n  worker:\n", 1)[0]
+        self.assertIn("API_KEY_FILE: /run/secrets/interpreter_api_key", interpreter)
+        self.assertIn("- interpreter_api_key", interpreter)
+        # A 0600 operator-owned key is unreadable to capability-dropped root without DAC_OVERRIDE; the first
+        # staging rollout of the key failed with PermissionError until the file was widened by hand.
+        self.assertRegex(interpreter, r"cap_add:\n\s+- DAC_OVERRIDE")
+        self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
+        self.assertIn("- interpreter_api_key", api)
+        launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
+        self.assertIn('MEMORYOS_INTERPRETER_API_KEY=$(cat "$MEMORYOS_INTERPRETER_API_KEY_FILE")', launcher)
+
 
 @unittest.skipUnless(os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "flock", "jq")),
                      "Deployment transactions require POSIX Bash, flock and jq")

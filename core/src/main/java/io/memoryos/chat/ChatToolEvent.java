@@ -6,17 +6,30 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** Product progress and evidence of one tool call; tool arguments and raw results are not streamed. */
+/**
+ * Product progress and evidence of one tool call; tool arguments and raw results are not streamed.
+ * A deep research agent's own steps carry the agent call as {@code parentToolCallId}; the agent call itself carries
+ * its {@code tabIndex} among the agents of one orchestrator cycle, as Onyx {@code Placement} does.
+ */
 public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nullable ChatSource source,
-        @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs) implements ChatActivityEvent {
+        @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs,
+        @Nullable String parentToolCallId, @Nullable Integer tabIndex, @Nullable Failure failure) implements ChatActivityEvent {
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_.-]{1,64}");
+    /** Onyx runs at most three research agents per orchestrator cycle. */
+    public static final int MAX_TABS = 3;
 
     /** STARTED, COMPLETED and FAILED apply to every tool; the other stages belong to search and Web tools. */
     public enum Stage { STARTED, SEARCHING, SELECTING, EXPANDING, SOURCE, COMPLETED, FAILED }
 
+    /**
+     * Why a FAILED step failed, when the person can act on it: reconnect, retry later, or ask an administrator.
+     * A category only; upstream bodies, endpoints and status codes never reach the stream or history.
+     */
+    public enum Failure { AUTHORIZATION_REQUIRED, TIMEOUT, UNAVAILABLE }
+
     public record Call(String id, String name) {
         public Call {
-            if (id == null || id.isBlank() || id.length() > 256 || name == null || !NAME.matcher(name).matches())
+            if (!validId(id) || name == null || !NAME.matcher(name).matches())
                 throw new IllegalArgumentException("Invalid tool call");
         }
     }
@@ -37,6 +50,17 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
         }
     }
 
+    public ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nullable ChatSource source,
+            @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs) {
+        this(toolCallId, toolName, stage, source, search, documents, durationMs, null, null, null);
+    }
+
+    public ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nullable ChatSource source,
+            @Nullable QueryPlan search, List<ReadingDocument> documents, @Nullable Long durationMs,
+            @Nullable String parentToolCallId, @Nullable Integer tabIndex) {
+        this(toolCallId, toolName, stage, source, search, documents, durationMs, parentToolCallId, tabIndex, null);
+    }
+
     public ChatToolEvent(Call call, Stage stage) {
         this(call.id(), call.name(), stage, null, null, List.of(), null);
     }
@@ -54,11 +78,27 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
     }
 
     public static ChatToolEvent finished(Call call, boolean failed, @Nullable Long durationMs) {
-        return new ChatToolEvent(call.id(), call.name(), failed ? Stage.FAILED : Stage.COMPLETED, null, null, List.of(), durationMs);
+        return finished(call, failed, durationMs, null);
+    }
+
+    /** {@code failure} is kept only on a failed step. */
+    public static ChatToolEvent finished(Call call, boolean failed, @Nullable Long durationMs, @Nullable Failure failure) {
+        return new ChatToolEvent(call.id(), call.name(), failed ? Stage.FAILED : Stage.COMPLETED, null, null, List.of(), durationMs,
+                null, null, failed ? failure : null);
     }
 
     public Call call() {
         return new Call(toolCallId, toolName);
+    }
+
+    /** The same event as a step of the research agent call {@code parent}. */
+    public ChatToolEvent nested(String parent) {
+        return new ChatToolEvent(toolCallId, toolName, stage, source, search, documents, durationMs, parent, null, failure);
+    }
+
+    /** The same event of a research agent call, placed at {@code tab} among the agents of its cycle. */
+    public ChatToolEvent tab(int tab) {
+        return new ChatToolEvent(toolCallId, toolName, stage, source, search, documents, durationMs, null, tab, failure);
     }
 
     public ChatToolEvent {
@@ -66,7 +106,14 @@ public record ChatToolEvent(String toolCallId, String toolName, Stage stage, @Nu
         new Call(toolCallId, toolName);
         if (stage == null || (stage == Stage.SOURCE) == (source == null) || (stage == Stage.SEARCHING) == (search == null)
                 || documents.size() > 10 || !documents.isEmpty() && stage != Stage.EXPANDING
-                || durationMs != null && (durationMs < 0 || stage != Stage.COMPLETED && stage != Stage.FAILED))
+                || durationMs != null && (durationMs < 0 || stage != Stage.COMPLETED && stage != Stage.FAILED)
+                || parentToolCallId != null && (!validId(parentToolCallId) || tabIndex != null)
+                || tabIndex != null && (tabIndex < 0 || tabIndex >= MAX_TABS)
+                || failure != null && stage != Stage.FAILED)
             throw new IllegalArgumentException("Invalid tool event");
+    }
+
+    static boolean validId(@Nullable String id) {
+        return id != null && !id.isBlank() && id.length() <= 256;
     }
 }

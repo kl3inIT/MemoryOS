@@ -1,20 +1,19 @@
 package io.memoryos.chat.persistence;
 
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+/** Persona rows; authority is applied by callers through {@link JdbcAgentRepository#access}. */
 public interface JpaPersonaRepository extends JpaRepository<PersonaEntity, UUID> {
-    @Query("select p from PersonaEntity p where p.tenantId=:tenant and p.deletedAt is null "
-            + "and (p.builtinKey is not null or p.ownerId=:actor) order by p.builtinKey nulls last, p.name, p.id")
-    List<PersonaEntity> readable(UUID tenant, UUID actor, Pageable page);
-
     Optional<PersonaEntity> findByTenantIdAndId(UUID tenantId, UUID id);
+
+    List<PersonaEntity> findByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PersonaEntity p where p.tenantId=:tenant and p.id=:id")

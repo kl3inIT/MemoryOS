@@ -20,7 +20,10 @@ public enum IamCapability {
     SOURCES_READ,
     SOURCES_MANAGE,
     SOURCES_DELETE,
-    MODELS_MANAGE;
+    MODELS_MANAGE,
+    MCP_MANAGE,
+    AGENTS_CREATE,
+    AGENTS_MANAGE;
     private static final IamCapability[] VALUES = values();
     private static final Set<IamCapability> ALL_CAPABILITIES =
             Collections.unmodifiableSet(EnumSet.allOf(IamCapability.class));
@@ -32,11 +35,12 @@ public enum IamCapability {
     private static final Set<IamCapability> GROUPS_MANAGE_IMPLICATIONS = Set.of(GROUPS_READ);
     private static final Set<IamCapability> SOURCES_MANAGE_IMPLICATIONS = Set.of(SOURCES_READ, SOURCES_DELETE);
     private static final Set<IamCapability> SOURCES_DELETE_IMPLICATIONS = Set.of(SOURCES_READ);
+    private static final Set<IamCapability> AGENTS_MANAGE_IMPLICATIONS = Set.of(AGENTS_CREATE);
 
 
     public boolean isOrdinaryGrant() {
         return switch (this) {
-            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE -> true;
+            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, AGENTS_CREATE, AGENTS_MANAGE -> true;
             default -> false;
         };
     }
@@ -49,6 +53,7 @@ public enum IamCapability {
             case GROUPS_MANAGE -> GROUPS_MANAGE_IMPLICATIONS;
             case SOURCES_MANAGE -> SOURCES_MANAGE_IMPLICATIONS;
             case SOURCES_DELETE -> SOURCES_DELETE_IMPLICATIONS;
+            case AGENTS_MANAGE -> AGENTS_MANAGE_IMPLICATIONS;
             default -> Set.of();
         };
     }

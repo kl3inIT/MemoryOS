@@ -39,6 +39,21 @@ spring:
       hibernate.cache.use_query_cache: false
   flyway:
     enabled: true
+  data:
+    redis:
+      # Chat reply replay (MEM-26). Commands are short and non-blocking, so the shared Lettuce connection serves them.
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:6379}
+      username: ${MEMORYOS_REDIS_USERNAME:}
+      password: ${MEMORYOS_REDIS_PASSWORD:}
+      connect-timeout: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:2s}
+      ssl:
+        enabled: ${MEMORYOS_REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
+      lettuce:
+        shutdown-timeout: 1s
   security:
     oauth2:
       resourceserver:
@@ -98,6 +113,10 @@ management:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      # Redis holds only Chat replay; a Redis outage degrades resume to history and must not mark the API down.
+      enabled: false
 
 memoryos:
   chat:
@@ -106,11 +125,20 @@ memoryos:
       base-url: ${MEMORYOS_CHAT_BASE_URL:https://api.openai.com/v1}
     execution:
       concurrency: 8
-      deadline: 2m
+      # No total turn deadline, as Onyx: a renewed lease detects a dead process; providers get a read-gap timeout.
+      lease-ttl: 30m
+      lease-renewal: 60s
+      provider-read-timeout: 60s
       max-cycles: 6
       max-output-tokens: 4096
       context-token-limit: 32000
       max-answer-characters: 1000000
+      mcp-call-limit: 10
+      mcp-call-timeout: 60s
+    interpreter:
+      # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.
+      base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
+      api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     jit:
@@ -128,6 +156,13 @@ memoryos:
         read-timeout: 5s
   browser:
     registration-id: memoryos
+  mcp:
+    credential-encryption-key: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY:}
+    # HTTPS (or loopback HTTP) ending in /login/oauth2/code/mcp; registered with each OAuth client.
+    redirect-uri: ${MEMORYOS_MCP_REDIRECT_URI:}
+    connect-timeout: 5s
+    # Upper bound per MCP request; Chat turns further cap it by their remaining deadline.
+    request-timeout: 30s
   google-drive:
     credential-encryption-key: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:}

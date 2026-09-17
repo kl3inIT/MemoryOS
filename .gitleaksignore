@@ -3,6 +3,8 @@
 aed6ac4da0e3cb05929eac7cf1a8b7a7d41bc835:docs/increments/active/mem-46-search/verification.md:generic-api-key:28
 # Deterministic UTF-8 key used exclusively by the historical cipher unit test.
 ebbe876bea2f7c3ff49588818de79786dce756f7:core/src/test/java/io/memoryos/connector/persistence/GoogleDriveCredentialCipherTest.java:generic-api-key:11
+# The same deterministic test key in the provider-neutral cipher test on the MEM-126 SharePoint branch.
+2c879cf69a0acd1b0151d350fe4ab88eddf35fd8:core/src/test/java/io/memoryos/connector/persistence/CredentialCipherTest.java:generic-api-key:15
 # Container image tags in deployment verification, not API credentials.
 a36727cf1d6cffa1e3a588c10eb2fce430ccd592:docs/increments/completed/mem-13-production-web-foundation/verification.md:generic-api-key:49
 acb095789de626ec6d0b652067e3e00c9840e254:docs/increments/active/mem-13-production-web-foundation/verification.md:generic-api-key:25

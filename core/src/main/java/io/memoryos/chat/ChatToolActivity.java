@@ -17,23 +17,38 @@ public final class ChatToolActivity implements ToolCallInspector {
     private final Consumer<? super ChatToolEvent> events;
     private volatile ChatToolEvent.@Nullable Call current;
     private volatile boolean failed;
+    private volatile ChatToolEvent.@Nullable Failure failure;
 
     public ChatToolActivity(Consumer<? super ChatToolEvent> events) {
         this.events = events;
     }
 
     @Override public void beforeToolCall(BeforeToolCallContext context) {
-        var call = call(context.getToolCall());
+        begin(context.getToolCall().getId(), context.getToolCall().getName());
+    }
+
+    /** A caller that runs tools itself (deep research) opens the step, so tool evidence and progress share its identity. */
+    public ChatToolEvent.Call begin(@Nullable String id, @Nullable String name) {
+        var call = call(id, name);
         current = call;
         failed = false;
+        failure = null;
         events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
+        return call;
+    }
+
+    /** Closes a step opened by {@link #begin}. */
+    public void end(ChatToolEvent.Call call, boolean error, long durationMs) {
+        current = null;
+        events.accept(ChatToolEvent.finished(call, failed || error, durationMs, failure));
     }
 
     @Override public void afterToolCall(AfterToolCallContext context) {
         var active = current;
-        var call = active != null && active.name().equals(context.getToolCall().getName()) ? active : call(context.getToolCall());
+        var call = active != null && active.name().equals(context.getToolCall().getName()) ? active
+                : call(context.getToolCall().getId(), context.getToolCall().getName());
         current = null;
-        events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs()));
+        events.accept(ChatToolEvent.finished(call, failed || context.getResult() instanceof Tool.Result.Error, context.getDurationMs(), failure));
     }
 
     /** The call in progress, so tool evidence and progress share its identity. */
@@ -46,9 +61,16 @@ public final class ChatToolActivity implements ToolCallInspector {
         failed = true;
     }
 
-    private static ChatToolEvent.Call call(com.embabel.chat.ToolCall call) {
-        String id = call.getId() == null || call.getId().isBlank() || call.getId().length() > 256 ? "call-" + UUID.randomUUID() : call.getId();
-        String name = call.getName() == null || !call.getName().matches("[A-Za-z0-9_.-]{1,64}") ? "tool" : call.getName();
+    /** As {@link #fail()}, with the category the person can act on. */
+    public void fail(ChatToolEvent.Failure reason) {
+        failed = true;
+        failure = reason;
+    }
+
+    /** Provider call identity normalized to the event bounds. */
+    public static ChatToolEvent.Call call(@Nullable String callId, @Nullable String callName) {
+        String id = callId == null || callId.isBlank() || callId.length() > 256 ? "call-" + UUID.randomUUID() : callId;
+        String name = callName == null || !callName.matches("[A-Za-z0-9_.-]{1,64}") ? "tool" : callName;
         return new ChatToolEvent.Call(id, name);
     }
 }

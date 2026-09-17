@@ -35,6 +35,21 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import reactor.core.publisher.Mono;
 
 class SearchToolTest {
+    @org.junit.jupiter.api.Test
+    void knowledgeCutoffIsALowerBoundThatRequestsCannotWiden() {
+        var cutoff = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        var floor = new io.memoryos.retrieval.SearchFilters.Interval(cutoff, null);
+        org.junit.jupiter.api.Assertions.assertEquals(floor, SearchTool.floor(null, floor));
+        var earlier = new io.memoryos.retrieval.SearchFilters.Interval(java.time.Instant.parse("2025-01-01T00:00:00Z"), null);
+        org.junit.jupiter.api.Assertions.assertEquals(cutoff, SearchTool.floor(earlier, floor).from());
+        var before = new io.memoryos.retrieval.SearchFilters.Interval(null, java.time.Instant.parse("2025-06-01T00:00:00Z"));
+        var empty = SearchTool.floor(before, floor);
+        org.junit.jupiter.api.Assertions.assertEquals(empty.from(), empty.to());
+        org.junit.jupiter.api.Assertions.assertTrue(SearchTool.beforeFloor(before, floor));
+        org.junit.jupiter.api.Assertions.assertFalse(SearchTool.beforeFloor(earlier, floor));
+        org.junit.jupiter.api.Assertions.assertNull(SearchTool.floor(null, null));
+    }
+
     private final DocumentSearchService search = mock(DocumentSearchService.class);
     private final PromptRunner runner = mock(PromptRunner.class);
     private final List<ChatToolEvent> events = new ArrayList<>();
@@ -69,8 +84,8 @@ class SearchToolTest {
         var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
-                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
-        tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "searchKnowledge", "{}")));
+                }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
+        tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "search_knowledge", "{}")));
         return tool;
     }
 
@@ -106,6 +121,30 @@ class SearchToolTest {
             assertEquals(response, tool.searchKnowledge(List.of("policy"), null));
             assertEquals(1, events.stream().filter(e -> e.source() != null).count());
             verify(search, times(2)).window(any(), any(SearchSection.class), eq(2));
+        }
+    }
+
+    @Test
+    void aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
+        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+        when(originals.citationOriginals(eq(scope.actor()), any())).thenReturn(Map.of(document,
+                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/policy"),
+                        "policy.xlsx", new io.memoryos.objectstorage.ObjectMetadata(42, "application/vnd.ms-excel",
+                        new io.memoryos.objectstorage.ContentSha256("a".repeat(64))))));
+        var sandbox = new SandboxDocuments(originals, scope.actor());
+        try (var tool = tool(8000).withSandbox(sandbox)) {
+            var response = tool.searchKnowledge(List.of("policy"), null);
+            String name = "Policy_" + stored.value() + ".xlsx";
+            assertTrue(response.contains("[1] Policy\nOnly a short excerpt from this document is shown below. The complete file "
+                    + "is available in the sandbox as \"" + name + "\" — prefer the Python code interpreter to read, parse, or "
+                    + "analyze it\n\nExcerpt: Section 2\nSection 3"), response);
+            var staged = sandbox.documents();
+            assertEquals(1, staged.size());
+            assertEquals(new SandboxDocuments.Document(document, generation, name, 42, "a".repeat(64), "application/vnd.ms-excel"),
+                    staged.getFirst());
         }
     }
 
@@ -185,7 +224,7 @@ class SearchToolTest {
     void nativeToolSchemaAndBindingUseNamedParametersAndRejectUnboundedArguments() {
         try (var tool = tool(8000)) {
             var nativeTool = Tool.fromInstance(tool).getFirst();
-            assertEquals("searchKnowledge", nativeTool.getDefinition().getName());
+            assertEquals("search_knowledge", nativeTool.getDefinition().getName());
             var result = nativeTool.call("{\"queries\":[\"a\",\"b\",\"c\",\"d\"]}");
             assertTrue(assertInstanceOf(Tool.Result.Text.class, result).getContent().contains("Invalid search arguments"));
             verifyNoInteractions(search);
@@ -272,8 +311,8 @@ class SearchToolTest {
         try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, 8000, 3, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
-                        new UserMessage("How do I set it up?")), Instant.now().plusSeconds(60), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
-            tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "searchKnowledge", "{}")));
+                        new UserMessage("How do I set it up?")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
+            tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "search_knowledge", "{}")));
             tool.searchKnowledge(List.of("setup instructions"), null);
             tool.searchKnowledge(List.of("setup instructions"), null);
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));

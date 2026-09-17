@@ -165,7 +165,7 @@ class ChatModelGuardTest {
     void toolResponseContentCountsAgainstContextBeforeProviderInference() {
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 128, p -> p);
         var response = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
-                "tool-1", "searchKnowledge", "private document ".repeat(1000)))).build();
+                "tool-1", "search_knowledge", "private document ".repeat(1000)))).build();
         var request = new Prompt(List.of(response), prompt.getOptions());
         assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
         verify(provider, never()).stream(any(Prompt.class));
@@ -197,6 +197,53 @@ class ChatModelGuardTest {
                 () -> guarded.stream(new Prompt("Expanded tool result ".repeat(200))).blockLast()).getMessage());
         assertTrue(guarded.usageKnown(), "A local rejection must not erase usage from completed native calls");
         verify(provider).stream(any(Prompt.class));
+    }
+
+    @Test
+    void researchPromptsReachTheProviderUnchangedWithTheirToolChoiceAndOnlyTheCycleBound() {
+        var research = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 2, () -> {}, policy, 32000,
+                request -> { throw new AssertionError("Research guards never rewrite the final request"); });
+        research.researchPrompts();
+        research.evidenceAvailable(() -> true);
+        research.toolChoice(request -> new Prompt(request.getInstructions(),
+                assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).mutate().toolChoice("required").build()));
+        var sent = new java.util.concurrent.CopyOnWriteArrayList<Prompt>();
+        when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
+            sent.add(call.getArgument(0));
+            var report = AssistantMessage.builder().content("")
+                    .toolCalls(List.of(new AssistantMessage.ToolCall("call_1", "function", "generate_report", "{}"))).build();
+            return Flux.just(new ChatResponse(List.of(new Generation(report, ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                    ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
+        });
+        research.stream(prompt).blockLast();
+        // The loop, not the guard, forces the report: a tool call on the last admitted cycle is not an error.
+        research.stream(prompt).blockLast();
+        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(IllegalStateException.class, () -> research.stream(prompt).blockLast()).getMessage());
+        assertEquals(2, sent.size());
+        for (var request : sent) {
+            assertEquals(List.of("Question"), request.getInstructions().stream().map(org.springframework.ai.chat.messages.Message::getText).toList(),
+                    "No Chat tool guidance, citation or last-cycle reminder");
+            assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).getToolChoice());
+        }
+    }
+
+    @Test
+    void guardsSharingALedgerAdmitAgainstOneTurnBudget() {
+        when(budget.getTokens()).thenReturn(300);
+        var ledger = new ChatAdmissionLedger();
+        var first = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p, ledger);
+        var second = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p, ledger);
+        var separate = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p);
+        first.outputLimit(200);
+        second.outputLimit(200);
+        separate.outputLimit(200);
+        when(provider.stream(any(Prompt.class))).thenReturn(Flux.never(), Flux.just(response("own ledger", "stop", 12)));
+        var running = first.stream(prompt).subscribe();
+        try {
+            assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, () -> second.stream(prompt).blockLast()).getMessage(),
+                    "A parallel research agent cannot spend the allowance another agent already reserved");
+            assertEquals("own ledger", separate.stream(prompt).blockLast().getResult().getOutput().getText());
+        } finally { running.dispose(); }
     }
 
     private ChatResponse response(String text, String reason, int tokens) {

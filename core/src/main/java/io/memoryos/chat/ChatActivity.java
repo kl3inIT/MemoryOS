@@ -20,7 +20,13 @@ public record ChatActivity(List<ActivityStep> steps, List<ReasoningSegment> reas
 
     public record ActivityStep(int position, String toolCallId, String toolName, StepStatus status, Instant startedAt,
             @Nullable Long durationMs, int textOffset, List<String> queries, @Nullable SearchFilters filters,
-            List<ChatToolEvent.ReadingDocument> documents, List<Integer> citations) {
+            List<ChatToolEvent.ReadingDocument> documents, List<Integer> citations, ChatToolEvent.@Nullable Failure failure) {
+        public ActivityStep(int position, String toolCallId, String toolName, StepStatus status, Instant startedAt,
+                @Nullable Long durationMs, int textOffset, List<String> queries, @Nullable SearchFilters filters,
+                List<ChatToolEvent.ReadingDocument> documents, List<Integer> citations) {
+            this(position, toolCallId, toolName, status, startedAt, durationMs, textOffset, queries, filters, documents, citations, null);
+        }
+
         public ActivityStep {
             queries = List.copyOf(queries);
             documents = List.copyOf(documents);
@@ -28,7 +34,8 @@ public record ChatActivity(List<ActivityStep> steps, List<ReasoningSegment> reas
             new ChatToolEvent.Call(toolCallId, toolName);
             if (position < 0 || textOffset < 0 || status == null || startedAt == null || durationMs != null && durationMs < 0
                     || queries.size() > 8 || queries.stream().anyMatch(q -> q.isBlank() || q.length() > 500)
-                    || documents.size() > 10 || citations.size() > 24 || citations.stream().anyMatch(c -> c < 1))
+                    || documents.size() > 10 || citations.stream().anyMatch(c -> c < 1)
+                    || failure != null && status != StepStatus.FAILED)
                 throw new IllegalArgumentException("Invalid activity step");
         }
     }

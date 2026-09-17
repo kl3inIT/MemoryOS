@@ -153,6 +153,10 @@ if [[ "$mode" == deploy ]]; then
   inference_prepare
   target=previous; compose config --quiet
   target=candidate; compose config --quiet
+  # Compose config accepts a missing secret file, and rollout would then fail after the reservation.
+  compose config --format json | jq --raw-output '.secrets // {} | .[].file // empty' | while IFS= read -r file; do
+    [[ -f "$file" ]] || { echo "Missing Compose secret file: $file" >&2; exit 1; }
+  done
   schema > "$tx/schema.before"
   while IFS='|' read -r version _checksum success; do
     [[ "$success" == t && "$version" =~ ^[0-9]+$ ]]

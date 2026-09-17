@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.spring.boot.starter.oauth2.resource.server)
     implementation(libs.spring.boot.starter.oauth2.client)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.session.jdbc)
@@ -41,6 +42,7 @@ dependencies {
     runtimeOnly(libs.postgresql)
     testAndDevelopmentOnly(platform(libs.arconia.bom))
     testAndDevelopmentOnly(libs.arconia.dev.services.postgresql)
+    testAndDevelopmentOnly(libs.arconia.dev.services.redis)
 
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.testcontainers.junit.jupiter)
@@ -48,6 +50,8 @@ dependencies {
     testImplementation(libs.opensearch.java)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
+    // In-process Streamable HTTP MCP servers for administration tests.
+    testImplementation(libs.mcp)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

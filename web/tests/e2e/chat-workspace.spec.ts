@@ -88,7 +88,7 @@ test("does not mark an assistant unavailable while its settings are loading", as
               instructions: "",
               starterPrompts: [],
               sourceIds: [],
-              searchEnabled: true,
+              tools: ["search", "web_search", "image_generation"],
             },
           ]
         : [],
@@ -259,72 +259,6 @@ test("edits, regenerates, selects saved branches, rates, shares, revokes and del
   await page.getByRole("alertdialog").getByRole("button", { name: "Xóa hội thoại" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Renamed workspace" })).toHaveCount(0);
-});
-
-test("creates and revises private assistants with source, starter and limit settings", async ({
-  page,
-}) => {
-  const id = "40000000-0000-4000-8000-000000000001";
-  const sourceId = "40000000-0000-4000-8000-000000000002";
-  let saved: Record<string, unknown> | undefined;
-  await page.route("**/api/chat/personas**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    if (path.endsWith("/sources"))
-      return route.fulfill({ json: [{ id: sourceId, name: "Employee handbook", type: "FILE" }] });
-    if (path.endsWith("/models")) return route.fulfill({ json: [] });
-    if (request.method() === "DELETE") {
-      saved = undefined;
-      return route.fulfill({ status: 204 });
-    }
-    if (request.method() === "POST" || request.method() === "PUT") {
-      expect(request.headers()["x-memoryos-csrf"]).toBe("1");
-      saved = {
-        ...request.postDataJSON(),
-        id,
-        builtin: false,
-        permissions: { edit: true, delete: true },
-        revision: saved ? 1 : 0,
-      };
-      return route.fulfill({ status: request.method() === "POST" ? 201 : 200, json: saved });
-    }
-    return route.fulfill({ json: saved ? [saved] : [] });
-  });
-  await page.goto("/assistants");
-  await page.getByRole("button", { name: "Tạo trợ lý" }).click();
-  await page.getByLabel("Tên trợ lý", { exact: true }).fill("HR assistant");
-  await page.getByLabel("Hướng dẫn", { exact: true }).fill("Answer using the employee handbook.");
-  await page
-    .getByLabel("Câu hỏi gợi ý")
-    .fill(Array.from({ length: 9 }, (_, index) => `Question ${index}`).join("\n"));
-  await expect(page.getByRole("alert")).toHaveText("Dùng tối đa 8 câu hỏi gợi ý.");
-  await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }),
-  ).toHaveCount(0);
-  expect(saved).toBeUndefined();
-  await page
-    .getByLabel("Câu hỏi gợi ý")
-    .fill("How do I request leave?\nWhat is the expense policy?");
-  await page.getByRole("checkbox", { name: "Employee handbook", exact: true }).check();
-  await page.getByText("Giới hạn nâng cao", { exact: true }).click();
-  await page.getByLabel("Max output (token)").fill("1000");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "HR assistant" })).toBeVisible();
-  expect(saved).toMatchObject({
-    sourceIds: [sourceId],
-    outputTokenLimit: 1000,
-    starterPrompts: ["How do I request leave?", "What is the expense policy?"],
-  });
-  await page.getByRole("button", { name: "Chỉnh sửa", exact: true }).click();
-  await expect(
-    page.getByRole("checkbox", { name: "Employee handbook", exact: true }),
-  ).toBeChecked();
-  await page.getByLabel("Tên trợ lý", { exact: true }).fill("Updated assistant");
-  await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Updated assistant" })).toBeVisible();
-  await page.getByRole("button", { name: "Xóa", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Xóa trợ lý" }).click();
-  await expect(page.getByRole("heading", { name: "Updated assistant" })).toHaveCount(0);
 });
 
 test("rechecks shared access without polling the full transcript and hides revoked content", async ({

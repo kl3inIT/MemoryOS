@@ -177,6 +177,8 @@ export const en = {
       "The model provider rejected the request or could not be reached. Check the provider and model, then retry.",
     chatWebUnavailable:
       "Web search is not available: no enabled Web provider, or this model has no tool calling.",
+    chatResearchUnavailable:
+      "Deep research is turned off for your organization. Send the question without Deep research.",
     chatBusy: "Chat is at capacity. Wait a moment and send again.",
     chatRejected:
       "The question was rejected before it ran. Shorten it or pick a model with a larger context window.",

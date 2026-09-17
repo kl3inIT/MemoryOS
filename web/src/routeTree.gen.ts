@@ -14,16 +14,21 @@ import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-pr
 import { Route as InvitationRouteImport } from './routes/invitation'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
 import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
+import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
+import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
+import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
+import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
@@ -34,6 +39,7 @@ import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
 import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
 import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
+import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_authenticated.agents_.$agentId.edit'
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
@@ -62,6 +68,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAssistantsRoute = AuthenticatedAssistantsRouteImport.update({
   id: '/assistants',
   path: '/assistants',
@@ -82,6 +93,18 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminAgentsRoute =
+  AuthenticatedAdminAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminCodeInterpreterRoute =
+  AuthenticatedAdminCodeInterpreterRouteImport.update({
+    id: '/code-interpreter',
+    path: '/code-interpreter',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminGroupsRoute =
   AuthenticatedAdminGroupsRouteImport.update({
     id: '/groups',
@@ -94,6 +117,11 @@ const AuthenticatedAdminIdentityProvidersRoute =
     path: '/identity-providers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMcpRoute = AuthenticatedAdminMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminModelsRoute =
   AuthenticatedAdminModelsRouteImport.update({
     id: '/models',
@@ -115,6 +143,12 @@ const AuthenticatedAdminWebSearchRoute =
     id: '/web-search',
     path: '/web-search',
     getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAgentsCreateRoute =
+  AuthenticatedAgentsCreateRouteImport.update({
+    id: '/agents_/create',
+    path: '/agents/create',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
@@ -176,6 +210,12 @@ const AuthenticatedAdminSourcesNewRoute =
     path: '/sources/new',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAgentsAgentIdEditRoute =
+  AuthenticatedAgentsAgentIdEditRouteImport.update({
+    id: '/agents_/$agentId/edit',
+    path: '/agents/$agentId/edit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewIndexRoute =
   AuthenticatedAdminSourcesNewIndexRouteImport.update({
     id: '/',
@@ -206,14 +246,19 @@ export interface FileRoutesByFullPath {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -224,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -234,13 +280,18 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -250,6 +301,7 @@ export interface FileRoutesByTo {
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -263,14 +315,19 @@ export interface FileRoutesById {
   '/invitation': typeof InvitationRoute
   '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
+  '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
@@ -282,6 +339,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -295,14 +353,19 @@ export interface FileRouteTypes {
     | '/access-not-provisioned'
     | '/invitation'
     | '/admin'
+    | '/agents'
     | '/assistants'
     | '/search'
+    | '/admin/agents'
+    | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
+    | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
+    | '/agents/create'
     | '/settings/general'
     | '/shared/$sessionId'
     | '/admin/'
@@ -313,6 +376,7 @@ export interface FileRouteTypes {
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
+    | '/agents/$agentId/edit'
     | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -323,13 +387,18 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/agents'
     | '/assistants'
     | '/search'
+    | '/admin/agents'
+    | '/admin/code-interpreter'
     | '/admin/identity-providers'
+    | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
+    | '/agents/create'
     | '/settings/general'
     | '/shared/$sessionId'
     | '/admin'
@@ -339,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
+    | '/agents/$agentId/edit'
     | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -351,14 +421,19 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/_authenticated/_chat'
     | '/_authenticated/admin'
+    | '/_authenticated/agents'
     | '/_authenticated/assistants'
     | '/_authenticated/search'
+    | '/_authenticated/admin/agents'
+    | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
+    | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
+    | '/_authenticated/agents_/create'
     | '/_authenticated/settings/general'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
@@ -370,6 +445,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
+    | '/_authenticated/agents_/$agentId/edit'
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
@@ -420,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/assistants': {
       id: '/_authenticated/assistants'
       path: '/assistants'
@@ -448,6 +531,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/agents': {
+      id: '/_authenticated/admin/agents'
+      path: '/agents'
+      fullPath: '/admin/agents'
+      preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/code-interpreter': {
+      id: '/_authenticated/admin/code-interpreter'
+      path: '/code-interpreter'
+      fullPath: '/admin/code-interpreter'
+      preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/groups': {
       id: '/_authenticated/admin/groups'
       path: '/groups'
@@ -460,6 +557,13 @@ declare module '@tanstack/react-router' {
       path: '/identity-providers'
       fullPath: '/admin/identity-providers'
       preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/mcp': {
+      id: '/_authenticated/admin/mcp'
+      path: '/mcp'
+      fullPath: '/admin/mcp'
+      preLoaderRoute: typeof AuthenticatedAdminMcpRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/models': {
@@ -489,6 +593,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/web-search'
       preLoaderRoute: typeof AuthenticatedAdminWebSearchRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/agents_/create': {
+      id: '/_authenticated/agents_/create'
+      path: '/agents/create'
+      fullPath: '/agents/create'
+      preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
@@ -559,6 +670,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/sources/new'
       preLoaderRoute: typeof AuthenticatedAdminSourcesNewRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/agents_/$agentId/edit': {
+      id: '/_authenticated/agents_/$agentId/edit'
+      path: '/agents/$agentId/edit'
+      fullPath: '/agents/$agentId/edit'
+      preLoaderRoute: typeof AuthenticatedAgentsAgentIdEditRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/sources/new/': {
       id: '/_authenticated/admin/sources/new/'
@@ -650,8 +768,11 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
+  AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
+  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
@@ -662,9 +783,13 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
+  AuthenticatedAdminCodeInterpreterRoute:
+    AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
+  AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
@@ -682,21 +807,27 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
+  AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
+  AuthenticatedAgentsCreateRoute: AuthenticatedAgentsCreateRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedAgentsAgentIdEditRoute: AuthenticatedAgentsAgentIdEditRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

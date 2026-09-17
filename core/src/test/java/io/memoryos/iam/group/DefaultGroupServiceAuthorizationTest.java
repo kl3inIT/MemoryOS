@@ -167,11 +167,16 @@ class DefaultGroupServiceAuthorizationTest {
                     assertFalse(metadata.editable());
                     assertEquals(Set.of(IamCapability.SOURCES_READ), metadata.implies());
                 }
+                case AGENTS_MANAGE -> {
+                    assertTrue(metadata.editable());
+                    assertEquals(Set.of(IamCapability.AGENTS_CREATE), metadata.implies());
+                }
                 default -> assertTrue(metadata.editable());
             }
         }
         assertEquals(EnumSet.allOf(IamCapability.class), registered);
         assertEquals(Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
-                IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE), editable);
+                IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE,
+                IamCapability.AGENTS_CREATE, IamCapability.AGENTS_MANAGE), editable);
     }
 }

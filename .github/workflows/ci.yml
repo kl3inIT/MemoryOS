@@ -492,7 +492,7 @@ jobs:
         run: |
           docker run --detach --name memoryos-interpreter-ci --publish 127.0.0.1:8000:8000 \
             --user root --volume /var/run/docker.sock:/var/run/docker.sock \
-            --env MAX_CONCURRENT_EXECUTIONS=5 memoryos-interpreter:ci
+            --env MAX_CONCURRENT_EXECUTIONS=5 --env ALLOW_UNAUTHENTICATED=true memoryos-interpreter:ci
           for _ in {1..30}; do
             curl --silent --fail http://127.0.0.1:8000/health && break
             sleep 2

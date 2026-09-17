@@ -31,6 +31,7 @@ final class ChatActivityRecorder {
         final int textOffset;
         ChatActivity.StepStatus status = ChatActivity.StepStatus.RUNNING;
         @Nullable Long durationMs;
+        ChatToolEvent.@Nullable Failure failure;
         List<String> queries = List.of();
         @Nullable SearchFilters filters;
         List<ChatToolEvent.ReadingDocument> documents = List.of();
@@ -50,16 +51,20 @@ final class ChatActivityRecorder {
     private record Segment(int position, int textOffset, StringBuilder text) {}
 
     synchronized void accept(ChatActivityEvent event, int textOffset) {
+        // Research agent steps, their reasoning and research progress belong to the research tool call tree, not to
+        // the bounded top-level activity.
         switch (event) {
-            case ChatToolEvent tool -> tool(tool, textOffset);
-            case ChatReasoningDelta delta -> reasoning(delta.text(), textOffset);
+            case ChatToolEvent tool -> { if (tool.parentToolCallId() == null) tool(tool, textOffset); }
+            case ChatReasoningDelta delta -> { if (delta.parentToolCallId() == null) reasoning(delta.text(), textOffset); }
+            case ChatResearchEvent ignored -> { }
         }
     }
 
     private void tool(ChatToolEvent event, int textOffset) {
         var step = steps.get(event.toolCallId());
         if (event.stage() == ChatToolEvent.Stage.SOURCE) {
-            if (step != null && step.citations.size() < 24) step.citations.add(event.source().citationId());
+            // No count cap; the byte budget in seal() drops citation detail when history would not fit.
+            if (step != null) step.citations.add(event.source().citationId());
             return;
         }
         if (step == null) {
@@ -78,6 +83,7 @@ final class ChatActivityRecorder {
                 if (step.status == ChatActivity.StepStatus.RUNNING) {
                     step.status = event.stage() == ChatToolEvent.Stage.FAILED ? ChatActivity.StepStatus.FAILED : ChatActivity.StepStatus.COMPLETED;
                     step.durationMs = event.durationMs() != null ? event.durationMs() : step.elapsed();
+                    step.failure = event.failure();
                 }
             }
             default -> { }
@@ -129,7 +135,7 @@ final class ChatActivityRecorder {
     private static ChatActivity build(List<Step> steps, boolean details, List<Segment> reasoning) {
         return new ChatActivity(steps.stream().map(step -> new ChatActivity.ActivityStep(step.position, step.call.id(), step.call.name(),
                         step.status, step.startedAt, step.durationMs, step.textOffset, details ? step.queries : List.of(),
-                        details ? step.filters : null, details ? step.documents : List.of(), details ? List.copyOf(step.citations) : List.of())).toList(),
+                        details ? step.filters : null, details ? step.documents : List.of(), details ? List.copyOf(step.citations) : List.of(), step.failure)).toList(),
                 reasoning.stream().map(segment -> new ChatActivity.ReasoningSegment(segment.position(), segment.textOffset(), segment.text().toString())).toList());
     }
 

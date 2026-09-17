@@ -20,6 +20,7 @@
   --surface-raised: var(--neutral-00);
   --surface-subtle: #f0f0f1;
   --surface-sunken: #e6e6e9;
+  --surface-strong: #cccccf;
   --surface-overlay: var(--neutral-00);
   --surface-scrim: #00000066;
 
@@ -27,6 +28,7 @@
   --content-secondary: #000000bf;
   --content-muted: #0000008c;
   --content-disabled: #00000073;
+  --content-faint: #00000033;
   --content-inverse: var(--neutral-00);
 
   --border-subtle: var(--neutral-100);
@@ -139,6 +141,17 @@
   --action-danger-disabled-border: var(--border-subtle);
   --focus-ring: var(--neutral-950);
 
+  /* Selection accent (switch on, selected row, link) and gallery card surfaces. */
+  --action-selection: #286df8;
+  --action-selection-hover: #508afb;
+  --action-selection-surface: #e7effc;
+  --surface-card-gradient: radial-gradient(
+    236.31% 141.42% at 0% 0%,
+    var(--surface-raised) 0%,
+    var(--surface-base) 100%
+  );
+  --interactive-duration: 150ms;
+
   /* Shared control dimensions. */
   --control-height-sm: 1.75rem;
   --control-height-md: 2.25rem;
@@ -174,6 +187,7 @@
   --pdf-highlight: #ffd24d;
   --pdf-highlight-border: #d99a00;
 
+  --elevation-hover: 0 0 2px 1px #0000000d;
   --elevation-1: 0 1px 2px #0000000d;
   --elevation-2: 0 0 0 1px #00000005, 0 4px 8px -2px #00000014, 0 12px 24px -4px #00000014;
   --radius: 0.5rem;
@@ -231,6 +245,7 @@
   --surface-raised: #000000;
   --surface-subtle: #26262b;
   --surface-sunken: #323239;
+  --surface-strong: #3f3f46;
   --surface-overlay: #262626;
   --surface-scrim: #00000099;
 
@@ -238,6 +253,7 @@
   --content-secondary: #ffffffd9;
   --content-muted: #ffffff99;
   --content-disabled: #ffffff73;
+  --content-faint: #ffffff33;
   --content-inverse: #000000e5;
 
   --border-subtle: #333333;
@@ -250,6 +266,8 @@
   --action-danger-primary-surface-hover: #b02b27;
   --action-danger-primary-surface-active: #e8594e;
   --focus-ring: #ffffff;
+  --action-selection-hover: #3363c3;
+  --action-selection-surface: #091938;
 
   --status-danger-strong: #dc2626;
   --status-danger-surface: #330b09;
@@ -263,6 +281,7 @@
   --evidence-highlight-surface: #3a2f05;
   --evidence-highlight-border: #b88600;
 
+  --elevation-hover: 0 0 2px 1px #ffffff0d;
   --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);
   --elevation-2: 0 1px 2px oklch(0 0 0 / 0.22), 0 12px 32px oklch(0 0 0 / 0.28);
 }

@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   AudioLines,
+  Blocks,
+  Bot,
   Globe,
   KeyRound,
   Menu,
@@ -11,6 +13,7 @@ import {
   Plug,
   Settings2,
   Sparkles,
+  SquareTerminal,
   User,
   Users,
   X,
@@ -28,7 +31,17 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "voice" | "providers" | "models";
+export type AdminPage =
+  | "sources"
+  | "users"
+  | "groups"
+  | "web"
+  | "voice"
+  | "interpreter"
+  | "providers"
+  | "models"
+  | "mcp"
+  | "agents";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -113,6 +126,8 @@ function SidebarContents({
     canReadSources,
     canManageModels,
     canManageProviders,
+    canManageMcp,
+    canManageAgents,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -222,6 +237,41 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Giọng nói")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/code-interpreter"
+                  icon={<SquareTerminal className="size-4" />}
+                  selected={adminPage === "interpreter"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Code Interpreter")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageAgents ? (
+              <SidebarSection title={ui("Trợ lý")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/agents"
+                  icon={<Bot className="size-4" />}
+                  selected={adminPage === "agents"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Quản lý trợ lý")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageMcp ? (
+              <SidebarSection title={ui("Connectors")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/mcp"
+                  icon={<Blocks className="size-4" />}
+                  selected={adminPage === "mcp"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Máy chủ MCP")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

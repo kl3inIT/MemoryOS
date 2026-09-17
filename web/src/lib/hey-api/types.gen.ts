@@ -4,79 +4,6 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type ReplaceSharePointScopeRequest = {
-    requestId: string;
-    /**
-     * Credential revision the scope was reviewed against
-     */
-    expectedCredentialRevision: number;
-    scope: SharePointScopeRequest;
-};
-
-export type SharePointScopeRequest = {
-    scopeMode: 'ALL_SITES' | 'SPECIFIC';
-    /**
-     * Site, library or folder addresses; sharing links are accepted
-     */
-    siteUrls?: Array<string>;
-    excludedSites?: Array<string>;
-    excludedPaths?: Array<string>;
-    includeDocuments: boolean;
-    includePages: boolean;
-    syncIntervalMinutes: number;
-    /**
-     * Hours between prune runs; 0 disables pruning
-     */
-    pruneIntervalHours?: number;
-};
-
-export type SharePointSelectionReceiptResponse = {
-    sourceId: string;
-    operation: SourceOperation;
-};
-
-export type SourceOperation = {
-    id: string;
-    type: string;
-    status: string;
-    createdAt: string;
-    completedAt: string | null;
-    errorCode: string | null;
-};
-
-export type UpdateSharePointScheduleRequest = {
-    syncIntervalMinutes: number;
-    /**
-     * 0 disables pruning
-     */
-    pruneIntervalHours: number;
-};
-
-export type SharePointConfigurationResponse = {
-    sourceId: string;
-    credentialId: string;
-    credentialName: string;
-    credentialStatus: string;
-    credentialRevision: number;
-    scopeRevision: number;
-    scopeMode: 'ALL_SITES' | 'SPECIFIC';
-    rootCount: number;
-    excludedSites: Array<string>;
-    excludedPaths: Array<string>;
-    includeDocuments: boolean;
-    includePages: boolean;
-    syncIntervalMinutes: number;
-    pruneIntervalHours: number;
-    scheduleRevision: number;
-    syncPaused: boolean;
-    tenantHost?: string;
-    lastSyncedAt?: string;
-    lastPrunedAt?: string;
-    pendingWork: boolean;
-    errorCode?: string;
-    pendingSelectionOperation?: SourceOperation;
-};
-
 export type UpdateGoogleDriveScheduleRequest = {
     syncIntervalMinutes: number;
 };
@@ -116,6 +43,15 @@ export type GoogleDriveSelectionCountsResponse = {
     approvedLinkedDocuments: number;
 };
 
+export type SourceOperation = {
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+};
+
 export type ReplaceGoogleDriveRootsRequest = {
     requestId: string;
     discoveryRevision: number;
@@ -137,6 +73,166 @@ export type ReplaceGoogleDriveRootsRequest = {
 export type GoogleDriveSelectionReceiptResponse = {
     sourceId: string;
     operation: SourceOperation;
+};
+
+/**
+ * Header values may contain secrets and are never returned; API-key servers place {api_key}
+ */
+export type McpHeaderTemplateChange = {
+    action: 'KEEP' | 'REPLACE' | 'REMOVE';
+    values?: {
+        [key: string]: string;
+    } | null;
+};
+
+export type McpSecretChange = {
+    action: 'KEEP' | 'REPLACE' | 'REMOVE';
+    value?: string | null;
+};
+
+export type McpServerInput = {
+    /**
+     * Immutable; model-facing tool names are mcp_<slug>_<tool>
+     */
+    slug: string;
+    name: string;
+    description?: string | null;
+    /**
+     * Streamable HTTP endpoint
+     */
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    oauthProviderMode?: 'AUTO_DISCOVERY' | 'KNOWN_PROVIDER';
+    oauthScopes: Array<string>;
+    oauthAdditionalParameters: {
+        [key: string]: string;
+    };
+    headers: McpHeaderTemplateChange;
+    sharedApiKey: McpSecretChange;
+    tenantWide: boolean;
+    groupIds: Array<string>;
+};
+
+/**
+ * Header values and credentials are never returned
+ */
+export type McpServerView = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    oauthProviderMode: 'AUTO_DISCOVERY' | 'KNOWN_PROVIDER';
+    oauthScopes: Array<string>;
+    oauthAdditionalParameters: {
+        [key: string]: string;
+    };
+    headerNames: Array<string>;
+    sharedCredentialConfigured: boolean;
+    tenantWide: boolean;
+    groupIds: Array<string>;
+    status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
+    lastRefreshedAt: string | null;
+    toolCount: number;
+    enabledToolCount: number;
+    revision: number;
+};
+
+export type McpToolEnablement = {
+    enabled: boolean;
+};
+
+/**
+ * Annotation hints come from the server and are not enforced guarantees
+ */
+export type McpToolView = {
+    id: string;
+    name: string;
+    /**
+     * Empty when the tool is not exposable
+     */
+    modelName: string;
+    title: string | null;
+    description: string;
+    readOnlyHint: boolean | null;
+    destructiveHint: boolean | null;
+    enabled: boolean;
+    exposable: boolean;
+    snapshotAt: string;
+    revision: number;
+};
+
+/**
+ * A pre-registered OAuth client; the secret is write-only
+ */
+export type McpOAuthClientInput = {
+    label: string;
+    issuer: string;
+    clientId: string;
+    clientSecret: McpSecretChange;
+    tokenEndpointAuthMethod: 'NONE' | 'CLIENT_SECRET_BASIC' | 'CLIENT_SECRET_POST';
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    revocationEndpoint?: string | null;
+    issParameterRequired: boolean;
+};
+
+/**
+ * Client secrets and registration tokens are never returned
+ */
+export type McpOAuthClientView = {
+    id: string;
+    label: string;
+    source: 'ADMIN' | 'REGISTERED' | 'METADATA_DOCUMENT';
+    issuer: string;
+    clientId: string;
+    clientSecretConfigured: boolean;
+    tokenEndpointAuthMethod: 'NONE' | 'CLIENT_SECRET_BASIC' | 'CLIENT_SECRET_POST';
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    revocationEndpoint: string | null;
+    issParameterRequired: boolean;
+    revision: number;
+};
+
+/**
+ * The User's own API key; write-only
+ */
+export type McpConnectionApiKeyInput = {
+    apiKey: string;
+};
+
+/**
+ * An MCP server the signed-in User may use, with their own connection state
+ */
+export type McpConnection = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    url: string;
+    authType: 'NONE' | 'API_TOKEN' | 'OAUTH';
+    authPerformer: 'ADMIN' | 'PER_USER';
+    status: 'CREATED' | 'AWAITING_AUTH' | 'FETCHING_TOOLS' | 'CONNECTED' | 'DISCONNECTED';
+    connectionState: 'NOT_REQUIRED' | 'SHARED' | 'NOT_CONNECTED' | 'CONNECTED' | 'REAUTH_REQUIRED';
+    /**
+     * Accounts to choose between when connecting
+     */
+    oauthClients: Array<McpConnectionClient>;
+    enabledToolCount: number;
+    credentialUpdatedAt: string | null;
+    revision: number;
+};
+
+/**
+ * A labelled OAuth client; endpoints stay server-side
+ */
+export type McpConnectionClient = {
+    id: string;
+    label: string;
 };
 
 export type LanguagePreference = {
@@ -172,54 +268,6 @@ export type IdentityProviderResponse = {
     brokerRedirectUri: string;
 };
 
-export type RenameSharePointCredentialRequest = {
-    name: string;
-};
-
-export type SharePointCredentialRequest = {
-    name: string;
-    /**
-     * Directory (tenant) ID as a GUID
-     */
-    directoryId: string;
-    /**
-     * Application (client) ID as a GUID
-     */
-    clientId: string;
-    cloud: 'GLOBAL';
-    authMethod: 'CLIENT_SECRET' | 'CERTIFICATE';
-    /**
-     * Client secret Value, required for CLIENT_SECRET
-     */
-    clientSecret?: string;
-    /**
-     * Base64 PKCS#12 keystore, required for CERTIFICATE
-     */
-    certificate?: string;
-    /**
-     * PKCS#12 password
-     */
-    certificatePassword?: string;
-};
-
-export type SharePointCredentialResponse = {
-    id: string;
-    name: string;
-    directoryId: string;
-    clientId: string;
-    cloud: string;
-    authMethod: string;
-    status: string;
-    certificateThumbprint?: string;
-    certificateNotAfter?: string;
-    tenantHost?: string;
-    credentialRevision: number;
-    createdAt: string;
-    updatedAt: string;
-    sourceCount: number;
-    actions: Array<string>;
-};
-
 export type WebSelectionRequest = {
     search?: boolean;
     provider?: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
@@ -243,33 +291,17 @@ export type WebConnectionResponse = {
     revision?: number;
 };
 
-export type VoiceSelectionRequest = {
-    function: 'STT' | 'TTS';
-    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    model?: string;
-};
-
-export type VoiceConnectionRequest = {
-    endpoint: string;
-    sttModel: string;
-    ttsModel: string;
-    ttsVoice: string;
-    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
-    credentialValue?: string;
-    activate?: 'STT' | 'TTS';
+export type ChatSettingsRequest = {
+    deepResearchEnabled: boolean;
     revision?: number;
 };
 
-export type VoiceConnectionResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    endpoint: string;
-    sttModel: string;
-    ttsModel: string;
-    ttsVoice: string;
-    credentialConfigured?: boolean;
-    sttActive?: boolean;
-    ttsActive?: boolean;
-    revision?: number;
+export type ChatSettingsResponse = {
+    /**
+     * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
+     */
+    deepResearchEnabled: boolean;
+    revision: number;
 };
 
 export type Title = {
@@ -351,6 +383,34 @@ export type ProviderView = {
     revision: number;
 };
 
+export type ShortcutInput = {
+    name?: string;
+    content?: string;
+    active?: boolean;
+};
+
+export type PromptShortcut = {
+    id?: string;
+    name?: string;
+    content?: string;
+    active?: boolean;
+    isPublic?: boolean;
+    hidden?: boolean;
+    revision?: number;
+};
+
+export type HiddenRequest = {
+    hidden?: boolean;
+};
+
+export type PreferencesRequest = {
+    enabled?: boolean;
+};
+
+export type PromptShortcutPreferences = {
+    enabled?: boolean;
+};
+
 export type ProjectInput = {
     name?: string;
     description?: string;
@@ -372,18 +432,62 @@ export type PersonaInput = {
     name?: string;
     description?: string;
     instructions?: string;
+    taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
-    searchEnabled?: boolean;
+    tools?: Array<string>;
+    mcpServerIds?: Array<string>;
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
+    iconName?: string;
+    avatarFileId?: string;
+    labelIds?: Array<string>;
+    replaceBaseSystemPrompt?: boolean;
+    datetimeAware?: boolean;
+    knowledgeCutoff?: string;
+};
+
+export type AgentGroupShare = {
+    group?: AgentRef;
+    permission?: 'VIEWER' | 'EDITOR';
+};
+
+export type AgentOwner = {
+    actor?: AgentPerson;
+    group?: AgentRef;
+};
+
+export type AgentPerson = {
+    actorId?: string;
+    name?: string;
+    email?: string;
+};
+
+export type AgentRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentSourceRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentUserShare = {
+    person?: AgentPerson;
+    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type PersonaPermissions = {
     edit?: boolean;
+    share?: boolean;
+    setPublic?: boolean;
     delete?: boolean;
+    transfer?: boolean;
+    leave?: boolean;
+    manage?: boolean;
 };
 
 export type PersonaView = {
@@ -394,19 +498,70 @@ export type PersonaView = {
     name?: string;
     description?: string;
     instructions?: string;
+    taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
-    searchEnabled?: boolean;
+    sources?: Array<AgentSourceRef>;
+    tools?: Array<string>;
+    mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
+    iconName?: string;
+    hasAvatar?: boolean;
+    labels?: Array<AgentRef>;
+    owner?: AgentOwner;
+    vacant?: boolean;
+    userShares?: Array<AgentUserShare>;
+    groupShares?: Array<AgentGroupShare>;
+    isPublic?: boolean;
+    publicPermission?: 'VIEWER' | 'EDITOR';
+    listed?: boolean;
+    featured?: boolean;
+    displayPriority?: number;
+    replaceBaseSystemPrompt?: boolean;
+    datetimeAware?: boolean;
+    knowledgeCutoff?: string;
+    pinned?: boolean;
+    deletedAt?: string;
+};
+
+export type GroupShareInput = {
+    groupId?: string;
+    permission?: 'VIEWER' | 'EDITOR';
+};
+
+export type SharingInput = {
+    users?: Array<UserShareInput>;
+    groups?: Array<GroupShareInput>;
+    isPublic?: boolean;
+    publicPermission?: 'VIEWER' | 'EDITOR';
+};
+
+export type UserShareInput = {
+    actorId?: string;
+    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type PersonaModel = {
     personaId: string;
     modelConfigurationId: string | null;
     revision: number;
+};
+
+export type ListingInput = {
+    listed?: boolean;
+    featured?: boolean;
+    displayPriority?: number;
+};
+
+export type PinsRequest = {
+    personaIds?: Array<string>;
+};
+
+export type LabelRequest = {
+    name?: string;
 };
 
 export type CapabilitiesInput = {
@@ -475,6 +630,20 @@ export type Pricing = {
 
 export type Default = {
     modelConfigurationId: string | null;
+    revision: number;
+};
+
+export type InterpreterSettingsRequest = {
+    enabled: boolean;
+    revision: number;
+};
+
+export type InterpreterSettingsResponse = {
+    /**
+     * Whether this deployment has a Code Interpreter service
+     */
+    configured: boolean;
+    enabled: boolean;
     revision: number;
 };
 
@@ -554,11 +723,6 @@ export type SourceUploadReceipt = {
     operation: SourceOperation;
 };
 
-export type UpdateSharePointPauseRequest = {
-    expectedRevision: number;
-    paused: boolean;
-};
-
 export type RenameSourceRequest = {
     name: string;
 };
@@ -613,18 +777,6 @@ export type UpdateGoogleDrivePauseRequest = {
 
 export type UpdateSourceAccessRequest = {
     access: 'PUBLIC' | 'RESTRICTED';
-};
-
-export type CreateSharePointSourceRequest = {
-    /**
-     * Identifies the request so a retry recovers its receipt
-     */
-    requestId: string;
-    name: string;
-    credentialId: string;
-    scope: SharePointScopeRequest;
-    access: 'PUBLIC' | 'RESTRICTED';
-    groupIds?: Array<string>;
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -721,6 +873,68 @@ export type SourceTypeFacet = {
     count: number;
 };
 
+export type McpToolRefresh = {
+    server: McpServerView;
+    tools: Array<McpToolView>;
+};
+
+export type McpOAuthAuthorizationServer = {
+    issuer: string;
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    registrationEndpoint: string | null;
+    revocationEndpoint: string | null;
+    issParameterSupported: boolean;
+    registrationAvailable: boolean;
+    metadataDocumentAvailable: boolean;
+};
+
+/**
+ * Review only; saving a client or scopes is a separate action
+ */
+export type McpOAuthDiscovery = {
+    resource: string;
+    suggestedScopes: Array<string>;
+    authorizationServers: Array<McpOAuthAuthorizationServer>;
+};
+
+/**
+ * Source REGISTERED uses DCR; METADATA_DOCUMENT uses the MemoryOS client metadata document
+ */
+export type McpOAuthRegistration = {
+    label: string;
+    /**
+     * An issuer from the discovery review
+     */
+    issuer: string;
+    source: 'ADMIN' | 'REGISTERED' | 'METADATA_DOCUMENT';
+};
+
+export type McpOAuthAuthorizationInput = {
+    /**
+     * The labelled OAuth client to connect with
+     */
+    oauthClientId: string;
+};
+
+export type McpOAuthAuthorization = {
+    /**
+     * Navigate the browser here
+     */
+    authorizationUrl: string;
+};
+
+export type McpConnectionAuthorizationInput = {
+    /**
+     * The account to connect with
+     */
+    oauthClientId: string;
+    /**
+     * Relative MemoryOS page to return to, such as /chat/{sessionId}
+     */
+    returnPath?: string | null;
+};
+
 export type CreateInvitationRequest = {
     email: string;
 };
@@ -788,7 +1002,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     permissions: GroupPermissions;
 };
 
@@ -803,12 +1017,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
-};
-
-export type SharePointCredentialTestResponse = {
-    allSitesReadable: boolean;
-    tenantHost?: string;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
 };
 
 export type RevokeGoogleDriveCredentialRequest = {
@@ -830,20 +1039,6 @@ export type WebTestRequest = {
     search?: boolean;
 };
 
-export type VoiceTicketRequest = {
-    purpose?: 'TRANSCRIBE' | 'SYNTHESIZE';
-};
-
-export type VoiceTicketResponse = {
-    ticket: string;
-    expiresAt: string;
-};
-
-export type VoiceSynthesisRequest = {
-    text: string;
-    speed: number;
-};
-
 export type CreateChatSession = {
     title: string;
     personaId?: string | null;
@@ -858,6 +1053,11 @@ export type Send = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
+    mcpServerIds?: Array<string>;
 };
 
 export type Accepted = {
@@ -872,6 +1072,11 @@ export type Regenerate = {
     modelConfigurationId?: string;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
+    mcpServerIds?: Array<string>;
 };
 
 export type Edit = {
@@ -881,6 +1086,11 @@ export type Edit = {
     fileIds?: Array<string>;
     webSearch?: 'off' | 'auto';
     image?: 'off' | 'auto' | 'required';
+    /**
+     * Run Deep research; absent means false. Part of request identity.
+     */
+    deepResearch?: boolean;
+    mcpServerIds?: Array<string>;
 };
 
 export type Cancellation = {
@@ -890,6 +1100,11 @@ export type Cancellation = {
 
 export type ProjectConversation = {
     title: string;
+};
+
+export type TransferInput = {
+    actorId?: string;
+    groupId?: string;
 };
 
 export type ChatModelValidationResult = {
@@ -929,18 +1144,6 @@ export type UploadAuthorization = {
         [key: string]: string;
     };
     expiresAt?: string;
-};
-
-export type VoiceSettingsRequest = {
-    autoSend?: boolean;
-    autoPlayback?: boolean;
-    playbackSpeed?: number;
-};
-
-export type VoiceSettingsResponse = {
-    autoSend: boolean;
-    autoPlayback: boolean;
-    playbackSpeed: number;
 };
 
 export type AccountType = 'STANDARD';
@@ -989,20 +1192,6 @@ export type UserPage = {
     totalItems: number;
     totalPages: number;
     counts: UserCounts;
-};
-
-export type SharePointRoot = {
-    url: string;
-    kind: 'SITE' | 'LIBRARY' | 'FOLDER';
-    displayName?: string;
-    verified: boolean;
-};
-
-export type SharePointRootPageResponse = {
-    scopeRevision: number;
-    roots: Array<SharePointRoot>;
-    nextCursor?: string;
-    total: number;
 };
 
 export type SourceRun = {
@@ -1148,12 +1337,6 @@ export type GoogleDriveSelectionDraftResponse = {
     linkedDocumentIds: Array<string>;
 };
 
-export type SharePointSelectionPolicyResponse = {
-    maxRootsPerSource: number;
-    maxExclusionsPerKind: number;
-    maxRequestBytes: number;
-};
-
 export type SourceGroupPage = {
     items: Array<SourceGroup>;
     page: number;
@@ -1184,6 +1367,20 @@ export type SearchDocument = {
     hasMore: boolean;
 };
 
+export type ChatGroupOption = {
+    id: string;
+    name: string;
+    systemKey: string | null;
+};
+
+export type ChatGroupPage = {
+    items: Array<ChatGroupOption>;
+    page: number;
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
 export type InvitationPage = {
     items: Array<Invitation>;
     page: number;
@@ -1210,11 +1407,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -1275,11 +1472,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -1305,21 +1502,6 @@ export type WebAvailabilityResponse = {
     nativeModelIds?: Array<string>;
 };
 
-export type VoiceAvailabilityResponse = {
-    sttAvailable: boolean;
-    ttsAvailable: boolean;
-};
-
-export type VoiceProviderResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    requiresKey: boolean;
-    requiresEndpoint: boolean;
-    defaultEndpoint: string;
-    sttModels: Array<string>;
-    ttsModels: Array<string>;
-    voices: Array<string>;
-};
-
 export type SharedSession = {
     id?: string;
     title?: string;
@@ -1338,6 +1520,7 @@ export type ActivityStep = {
     filters?: SearchFilters;
     documents?: Array<ReadingDocument>;
     citations?: Array<number>;
+    failure?: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
 };
 
 export type ChatActivity = {
@@ -1373,6 +1556,31 @@ export type ChatMessage = {
     artifacts: Array<ChatArtifact>;
     activity: ChatActivity;
     images: Array<ImageRef>;
+    generatedFiles: Array<GeneratedFileRef>;
+    research: ChatMessageResearch;
+};
+
+export type ChatMessageResearch = {
+    clarification: boolean;
+    plan: string | null;
+    agents: Array<ChatMessageResearchAgent>;
+};
+
+export type ChatMessageResearchAgent = {
+    toolCallId: string;
+    cycle: number;
+    tabIndex: number;
+    task: string | null;
+    status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+    durationMs: number | null;
+    report: string | null;
+    citations: Array<ChatMessageResearchCitation>;
+    activity: ChatActivity;
+};
+
+export type ChatMessageResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatSource = {
@@ -1396,6 +1604,17 @@ export type FileLocation = {
     count?: number;
     generation?: string;
     ordinal?: number;
+};
+
+export type GeneratedFileRef = {
+    id: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    /**
+     * Chart data is available at /api/chat/file-artifacts/{id}/chart
+     */
+    chart: boolean;
 };
 
 export type ImageRef = {
@@ -1474,12 +1693,19 @@ export type ToolEvent = {
     search: QueryPlan | null;
     documents: Array<ReadingDocument>;
     durationMs: number | null;
+    parentToolCallId: string | null;
+    tabIndex: number | null;
+    /**
+     * Why a FAILED step failed when the person can act on it; a category only.
+     */
+    failure: 'AUTHORIZATION_REQUIRED' | 'TIMEOUT' | 'UNAVAILABLE';
 };
 
 export type ReasoningEvent = {
     assistantMessageId: string;
     sequence: number;
     text: string;
+    parentToolCallId: string | null;
 };
 
 export type ImageEvent = {
@@ -1490,6 +1716,64 @@ export type ImageEvent = {
     id: string | null;
     mediaType: string | null;
     revisedPrompt: string | null;
+};
+
+export type CodeEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    stage: 'RUNNING' | 'OUTPUT' | 'COMPLETED' | 'FAILED';
+    code: string | null;
+    output: string | null;
+    files: Array<GeneratedFile>;
+    stream: 'stdout' | 'stderr';
+};
+
+export type GeneratedFile = {
+    id?: string;
+    filename?: string;
+    mediaType?: string;
+    sizeBytes?: number;
+    chart?: boolean;
+};
+
+export type ResearchPlanEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    text: string;
+};
+
+export type TopLevelBranchingEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    branches: number;
+};
+
+export type ResearchAgentStartEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    tabIndex: number;
+    task: string;
+};
+
+export type IntermediateReportEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    text: string;
+};
+
+export type IntermediateReportCitationsEvent = {
+    assistantMessageId: string;
+    sequence: number;
+    toolCallId: string;
+    citations: Array<ResearchCitation>;
+};
+
+export type ResearchCitation = {
+    marker: number;
+    citationId: number;
 };
 
 export type ChatBranch = {
@@ -1555,6 +1839,11 @@ export type SourceOption = {
     type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
 };
 
+export type AgentShareOptions = {
+    people?: Array<AgentPerson>;
+    groups?: Array<AgentRef>;
+};
+
 export type ChatPersona = {
     id: string;
     name: string;
@@ -1565,24 +1854,16 @@ export type ChatPersonaPage = {
     nextCursor: string | null;
 };
 
+export type InterpreterHealthResponse = {
+    connected: boolean;
+    error: string;
+    version: string;
+};
+
 export type ImageAvailabilityResponse = {
     available: boolean;
     provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     model?: string;
-};
-
-export type ChatGroupOption = {
-    id: string;
-    name: string;
-    systemKey: string | null;
-};
-
-export type ChatGroupPage = {
-    items: Array<ChatGroupOption>;
-    page: number;
-    size: number;
-    totalItems: number;
-    totalPages: number;
 };
 
 export type ChatFileTextResponse = {
@@ -1590,6 +1871,16 @@ export type ChatFileTextResponse = {
     offset?: number;
     nextOffset?: number;
     totalCharacters?: number;
+};
+
+export type ChatSpreadsheetPreview = {
+    sheets?: Array<ChatSpreadsheetSheet>;
+};
+
+export type ChatSpreadsheetSheet = {
+    name?: string;
+    csv?: string;
+    truncated?: boolean;
 };
 
 export type ChatFilePolicyResponse = {
@@ -1639,105 +1930,229 @@ export type ApiProblem = {
     }>;
 };
 
-export type ReplaceSharePointScopeData = {
-    body: ReplaceSharePointScopeRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-        'If-Match': string;
-    };
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/sharepoint/scope';
+export type ReplaceSharePointScopeRequest = {
+    requestId: string;
+    /**
+     * Credential revision the scope was reviewed against
+     */
+    expectedCredentialRevision: number;
+    scope: SharePointScopeRequest;
 };
 
-export type ReplaceSharePointScopeErrors = {
+export type SharePointScopeRequest = {
+    scopeMode: 'ALL_SITES' | 'SPECIFIC';
     /**
-     * Invalid SharePoint scope
+     * Site, library or folder addresses; sharing links are accepted
      */
-    400: ApiProblem;
+    siteUrls?: Array<string>;
+    excludedSites?: Array<string>;
+    excludedPaths?: Array<string>;
+    includeDocuments: boolean;
+    includePages: boolean;
+    syncIntervalMinutes: number;
     /**
-     * Authentication required
+     * Hours between prune runs; 0 disables pruning
      */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
+    pruneIntervalHours?: number;
 };
 
-export type ReplaceSharePointScopeError = ReplaceSharePointScopeErrors[keyof ReplaceSharePointScopeErrors];
-
-export type ReplaceSharePointScopeResponses = {
-    /**
-     * Scope accepted for verification
-     */
-    202: SharePointSelectionReceiptResponse;
+export type SharePointSelectionReceiptResponse = {
+    sourceId: string;
+    operation: SourceOperation;
 };
 
-export type ReplaceSharePointScopeResponse = ReplaceSharePointScopeResponses[keyof ReplaceSharePointScopeResponses];
-
-export type UpdateSharePointScheduleData = {
-    body: UpdateSharePointScheduleRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-        'If-Match': string;
-    };
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/sharepoint/schedule';
+export type UpdateSharePointScheduleRequest = {
+    syncIntervalMinutes: number;
+    /**
+     * 0 disables pruning
+     */
+    pruneIntervalHours: number;
 };
 
-export type UpdateSharePointScheduleErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
+export type SharePointConfigurationResponse = {
+    sourceId: string;
+    credentialId: string;
+    credentialName: string;
+    credentialStatus: string;
+    credentialRevision: number;
+    scopeRevision: number;
+    scopeMode: 'ALL_SITES' | 'SPECIFIC';
+    rootCount: number;
+    excludedSites: Array<string>;
+    excludedPaths: Array<string>;
+    includeDocuments: boolean;
+    includePages: boolean;
+    syncIntervalMinutes: number;
+    pruneIntervalHours: number;
+    scheduleRevision: number;
+    syncPaused: boolean;
+    tenantHost?: string;
+    lastSyncedAt?: string;
+    lastPrunedAt?: string;
+    pendingWork: boolean;
+    errorCode?: string;
+    pendingSelectionOperation?: SourceOperation;
 };
 
-export type UpdateSharePointScheduleError = UpdateSharePointScheduleErrors[keyof UpdateSharePointScheduleErrors];
-
-export type UpdateSharePointScheduleResponses = {
-    /**
-     * Updated SharePoint configuration
-     */
-    200: SharePointConfigurationResponse;
+export type RenameSharePointCredentialRequest = {
+    name: string;
 };
 
-export type UpdateSharePointScheduleResponse = UpdateSharePointScheduleResponses[keyof UpdateSharePointScheduleResponses];
+export type SharePointCredentialRequest = {
+    name: string;
+    /**
+     * Directory (tenant) ID as a GUID
+     */
+    directoryId: string;
+    /**
+     * Application (client) ID as a GUID
+     */
+    clientId: string;
+    cloud: 'GLOBAL';
+    authMethod: 'CLIENT_SECRET' | 'CERTIFICATE';
+    /**
+     * Client secret Value, required for CLIENT_SECRET
+     */
+    clientSecret?: string;
+    /**
+     * Base64 PKCS#12 keystore, required for CERTIFICATE
+     */
+    certificate?: string;
+    /**
+     * PKCS#12 password
+     */
+    certificatePassword?: string;
+};
+
+export type SharePointCredentialResponse = {
+    id: string;
+    name: string;
+    directoryId: string;
+    clientId: string;
+    cloud: string;
+    authMethod: string;
+    status: string;
+    certificateThumbprint?: string;
+    certificateNotAfter?: string;
+    tenantHost?: string;
+    credentialRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceCount: number;
+    actions: Array<string>;
+};
+
+export type VoiceSelectionRequest = {
+    function: 'STT' | 'TTS';
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    model?: string;
+};
+
+export type VoiceConnectionRequest = {
+    endpoint: string;
+    sttModel: string;
+    ttsModel: string;
+    ttsVoice: string;
+    credentialAction: 'KEEP' | 'REPLACE' | 'REMOVE';
+    credentialValue?: string;
+    activate?: 'STT' | 'TTS';
+    revision?: number;
+};
+
+export type VoiceConnectionResponse = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    endpoint: string;
+    sttModel: string;
+    ttsModel: string;
+    ttsVoice: string;
+    credentialConfigured?: boolean;
+    sttActive?: boolean;
+    ttsActive?: boolean;
+    revision?: number;
+};
+
+export type UpdateSharePointPauseRequest = {
+    expectedRevision: number;
+    paused: boolean;
+};
+
+export type CreateSharePointSourceRequest = {
+    /**
+     * Identifies the request so a retry recovers its receipt
+     */
+    requestId: string;
+    name: string;
+    credentialId: string;
+    scope: SharePointScopeRequest;
+    access: 'PUBLIC' | 'RESTRICTED';
+    groupIds?: Array<string>;
+};
+
+export type SharePointCredentialTestResponse = {
+    allSitesReadable: boolean;
+    tenantHost?: string;
+};
+
+export type VoiceTicketRequest = {
+    purpose?: 'TRANSCRIBE' | 'SYNTHESIZE';
+};
+
+export type VoiceTicketResponse = {
+    ticket: string;
+    expiresAt: string;
+};
+
+export type VoiceSynthesisRequest = {
+    text: string;
+    speed: number;
+};
+
+export type VoiceSettingsRequest = {
+    autoSend?: boolean;
+    autoPlayback?: boolean;
+    playbackSpeed?: number;
+};
+
+export type VoiceSettingsResponse = {
+    autoSend: boolean;
+    autoPlayback: boolean;
+    playbackSpeed: number;
+};
+
+export type SharePointRoot = {
+    url: string;
+    kind: 'SITE' | 'LIBRARY' | 'FOLDER';
+    displayName?: string;
+    verified: boolean;
+};
+
+export type SharePointRootPageResponse = {
+    scopeRevision: number;
+    roots: Array<SharePointRoot>;
+    nextCursor?: string;
+    total: number;
+};
+
+export type SharePointSelectionPolicyResponse = {
+    maxRootsPerSource: number;
+    maxExclusionsPerKind: number;
+    maxRequestBytes: number;
+};
+
+export type VoiceAvailabilityResponse = {
+    sttAvailable: boolean;
+    ttsAvailable: boolean;
+};
+
+export type VoiceProviderResponse = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    requiresKey: boolean;
+    requiresEndpoint: boolean;
+    defaultEndpoint: string;
+    sttModels: Array<string>;
+    ttsModels: Array<string>;
+    voices: Array<string>;
+};
 
 export type UpdateGoogleDriveScheduleData = {
     body: UpdateGoogleDriveScheduleRequest;
@@ -1788,6 +2203,437 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type DeleteMcpServerData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type DeleteMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteMcpServerError = DeleteMcpServerErrors[keyof DeleteMcpServerErrors];
+
+export type DeleteMcpServerResponses = {
+    /**
+     * MCP server deleted with its tools and credentials
+     */
+    204: void;
+};
+
+export type DeleteMcpServerResponse = DeleteMcpServerResponses[keyof DeleteMcpServerResponses];
+
+export type GetMcpServerData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type GetMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetMcpServerError = GetMcpServerErrors[keyof GetMcpServerErrors];
+
+export type GetMcpServerResponses = {
+    /**
+     * MCP server
+     */
+    200: McpServerView;
+};
+
+export type GetMcpServerResponse = GetMcpServerResponses[keyof GetMcpServerResponses];
+
+export type UpdateMcpServerData = {
+    body: McpServerInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}';
+};
+
+export type UpdateMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpServerError = UpdateMcpServerErrors[keyof UpdateMcpServerErrors];
+
+export type UpdateMcpServerResponses = {
+    /**
+     * Saved MCP server
+     */
+    200: McpServerView;
+};
+
+export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
+
+export type SetMcpServerToolEnabledData = {
+    body: McpToolEnablement;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        toolId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/tools/{toolId}/enabled';
+};
+
+export type SetMcpServerToolEnabledErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetMcpServerToolEnabledError = SetMcpServerToolEnabledErrors[keyof SetMcpServerToolEnabledErrors];
+
+export type SetMcpServerToolEnabledResponses = {
+    /**
+     * Saved tool
+     */
+    200: McpToolView;
+};
+
+export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[keyof SetMcpServerToolEnabledResponses];
+
+export type SetAllMcpServerToolsEnabledData = {
+    body: McpToolEnablement;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/enabled';
+};
+
+export type SetAllMcpServerToolsEnabledErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetAllMcpServerToolsEnabledError = SetAllMcpServerToolsEnabledErrors[keyof SetAllMcpServerToolsEnabledErrors];
+
+export type SetAllMcpServerToolsEnabledResponses = {
+    /**
+     * Saved tools
+     */
+    200: Array<McpToolView>;
+};
+
+export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledResponses[keyof SetAllMcpServerToolsEnabledResponses];
+
+export type DeleteMcpServerOAuthClientData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        clientId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/oauth/clients/{clientId}';
+};
+
+export type DeleteMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteMcpServerOAuthClientError = DeleteMcpServerOAuthClientErrors[keyof DeleteMcpServerOAuthClientErrors];
+
+export type DeleteMcpServerOAuthClientResponses = {
+    /**
+     * OAuth client and its connections deleted
+     */
+    204: void;
+};
+
+export type DeleteMcpServerOAuthClientResponse = DeleteMcpServerOAuthClientResponses[keyof DeleteMcpServerOAuthClientResponses];
+
+export type UpdateMcpServerOAuthClientData = {
+    body: McpOAuthClientInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+        clientId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/mcp/servers/{serverId}/oauth/clients/{clientId}';
+};
+
+export type UpdateMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateMcpServerOAuthClientError = UpdateMcpServerOAuthClientErrors[keyof UpdateMcpServerOAuthClientErrors];
+
+export type UpdateMcpServerOAuthClientResponses = {
+    /**
+     * Saved OAuth client
+     */
+    200: McpOAuthClientView;
+};
+
+export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientResponses[keyof UpdateMcpServerOAuthClientResponses];
+
+export type SaveMcpConnectionApiKeyData = {
+    body: McpConnectionApiKeyInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/api-key';
+};
+
+export type SaveMcpConnectionApiKeyErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SaveMcpConnectionApiKeyError = SaveMcpConnectionApiKeyErrors[keyof SaveMcpConnectionApiKeyErrors];
+
+export type SaveMcpConnectionApiKeyResponses = {
+    /**
+     * Stored connection
+     */
+    200: McpConnection;
+};
+
+export type SaveMcpConnectionApiKeyResponse = SaveMcpConnectionApiKeyResponses[keyof SaveMcpConnectionApiKeyResponses];
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
@@ -1876,168 +2722,6 @@ export type UpdateIdentityProviderResponses = {
 };
 
 export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[keyof UpdateIdentityProviderResponses];
-
-export type DeleteSharePointCredentialData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-        'If-Match': string;
-    };
-    path: {
-        credentialId: string;
-    };
-    query?: never;
-    url: '/api/credentials/sharepoint/{credentialId}';
-};
-
-export type DeleteSharePointCredentialErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type DeleteSharePointCredentialError = DeleteSharePointCredentialErrors[keyof DeleteSharePointCredentialErrors];
-
-export type DeleteSharePointCredentialResponses = {
-    /**
-     * SharePoint credential deleted
-     */
-    204: void;
-};
-
-export type DeleteSharePointCredentialResponse = DeleteSharePointCredentialResponses[keyof DeleteSharePointCredentialResponses];
-
-export type RenameSharePointCredentialData = {
-    body: RenameSharePointCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-        'If-Match': string;
-    };
-    path: {
-        credentialId: string;
-    };
-    query?: never;
-    url: '/api/credentials/sharepoint/{credentialId}';
-};
-
-export type RenameSharePointCredentialErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type RenameSharePointCredentialError = RenameSharePointCredentialErrors[keyof RenameSharePointCredentialErrors];
-
-export type RenameSharePointCredentialResponses = {
-    /**
-     * SharePoint credential renamed
-     */
-    204: void;
-};
-
-export type RenameSharePointCredentialResponse = RenameSharePointCredentialResponses[keyof RenameSharePointCredentialResponses];
-
-export type ReplaceSharePointCredentialAuthenticationData = {
-    body: SharePointCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-        'If-Match': string;
-    };
-    path: {
-        credentialId: string;
-    };
-    query?: never;
-    url: '/api/credentials/sharepoint/{credentialId}/authentication';
-};
-
-export type ReplaceSharePointCredentialAuthenticationErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type ReplaceSharePointCredentialAuthenticationError = ReplaceSharePointCredentialAuthenticationErrors[keyof ReplaceSharePointCredentialAuthenticationErrors];
-
-export type ReplaceSharePointCredentialAuthenticationResponses = {
-    /**
-     * Updated SharePoint credential
-     */
-    200: SharePointCredentialResponse;
-};
-
-export type ReplaceSharePointCredentialAuthenticationResponse = ReplaceSharePointCredentialAuthenticationResponses[keyof ReplaceSharePointCredentialAuthenticationResponses];
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
@@ -2143,8 +2827,49 @@ export type SaveChatWebConnectionResponses = {
 
 export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof SaveChatWebConnectionResponses];
 
-export type SelectChatVoiceProviderData = {
-    body: VoiceSelectionRequest;
+export type GetChatSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings';
+};
+
+export type GetChatSettingsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatSettingsError = GetChatSettingsErrors[keyof GetChatSettingsErrors];
+
+export type GetChatSettingsResponses = {
+    /**
+     * Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type GetChatSettingsResponse = GetChatSettingsResponses[keyof GetChatSettingsResponses];
+
+export type SaveChatSettingsData = {
+    body: ChatSettingsRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.
@@ -2153,12 +2878,12 @@ export type SelectChatVoiceProviderData = {
     };
     path?: never;
     query?: never;
-    url: '/api/chat/voice/selection';
+    url: '/api/chat/settings';
 };
 
-export type SelectChatVoiceProviderErrors = {
+export type SaveChatSettingsErrors = {
     /**
-     * Invalid voice configuration
+     * Invalid Chat settings
      */
     400: ApiProblem;
     /**
@@ -2170,137 +2895,25 @@ export type SelectChatVoiceProviderErrors = {
      */
     403: ApiProblem;
     /**
-     * Voice connection unavailable
+     * Chat unavailable
      */
     404: ApiProblem;
     /**
-     * Voice connection changed
+     * Chat settings changed
      */
     409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
 };
 
-export type SelectChatVoiceProviderError = SelectChatVoiceProviderErrors[keyof SelectChatVoiceProviderErrors];
+export type SaveChatSettingsError = SaveChatSettingsErrors[keyof SaveChatSettingsErrors];
 
-export type SelectChatVoiceProviderResponses = {
+export type SaveChatSettingsResponses = {
     /**
-     * Voice selection saved
+     * Saved Tenant Chat settings
      */
-    204: void;
+    200: ChatSettingsResponse;
 };
 
-export type SelectChatVoiceProviderResponse = SelectChatVoiceProviderResponses[keyof SelectChatVoiceProviderResponses];
-
-export type DeleteChatVoiceConnectionData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    };
-    query: {
-        revision: number;
-    };
-    url: '/api/chat/voice/connections/{provider}';
-};
-
-export type DeleteChatVoiceConnectionErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type DeleteChatVoiceConnectionError = DeleteChatVoiceConnectionErrors[keyof DeleteChatVoiceConnectionErrors];
-
-export type DeleteChatVoiceConnectionResponses = {
-    /**
-     * Voice connection removed from both functions
-     */
-    204: void;
-};
-
-export type DeleteChatVoiceConnectionResponse = DeleteChatVoiceConnectionResponses[keyof DeleteChatVoiceConnectionResponses];
-
-export type SaveChatVoiceConnectionData = {
-    body: VoiceConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    };
-    query?: never;
-    url: '/api/chat/voice/connections/{provider}';
-};
-
-export type SaveChatVoiceConnectionErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type SaveChatVoiceConnectionError = SaveChatVoiceConnectionErrors[keyof SaveChatVoiceConnectionErrors];
-
-export type SaveChatVoiceConnectionResponses = {
-    /**
-     * Verified and saved voice connection
-     */
-    200: VoiceConnectionResponse;
-};
-
-export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
+export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -2898,6 +3511,343 @@ export type UpdateChatProviderResponses = {
 
 export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof UpdateChatProviderResponses];
 
+export type DeleteChatPromptShortcutData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/{shortcutId}';
+};
+
+export type DeleteChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatPromptShortcutError = DeleteChatPromptShortcutErrors[keyof DeleteChatPromptShortcutErrors];
+
+export type DeleteChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatPromptShortcutResponse = DeleteChatPromptShortcutResponses[keyof DeleteChatPromptShortcutResponses];
+
+export type UpdateChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/prompt-shortcuts/{shortcutId}';
+};
+
+export type UpdateChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateChatPromptShortcutError = UpdateChatPromptShortcutErrors[keyof UpdateChatPromptShortcutErrors];
+
+export type UpdateChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcut;
+};
+
+export type UpdateChatPromptShortcutResponse = UpdateChatPromptShortcutResponses[keyof UpdateChatPromptShortcutResponses];
+
+export type HideChatPromptShortcutData = {
+    body: HiddenRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/{shortcutId}/hidden';
+};
+
+export type HideChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type HideChatPromptShortcutError = HideChatPromptShortcutErrors[keyof HideChatPromptShortcutErrors];
+
+export type HideChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type HideChatPromptShortcutResponse = HideChatPromptShortcutResponses[keyof HideChatPromptShortcutResponses];
+
+export type DeletePublicChatPromptShortcutData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public/{shortcutId}';
+};
+
+export type DeletePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeletePublicChatPromptShortcutError = DeletePublicChatPromptShortcutErrors[keyof DeletePublicChatPromptShortcutErrors];
+
+export type DeletePublicChatPromptShortcutResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeletePublicChatPromptShortcutResponse = DeletePublicChatPromptShortcutResponses[keyof DeletePublicChatPromptShortcutResponses];
+
+export type UpdatePublicChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        shortcutId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/prompt-shortcuts/public/{shortcutId}';
+};
+
+export type UpdatePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdatePublicChatPromptShortcutError = UpdatePublicChatPromptShortcutErrors[keyof UpdatePublicChatPromptShortcutErrors];
+
+export type UpdatePublicChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcut;
+};
+
+export type UpdatePublicChatPromptShortcutResponse = UpdatePublicChatPromptShortcutResponses[keyof UpdatePublicChatPromptShortcutResponses];
+
+export type GetChatPromptShortcutPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/preferences';
+};
+
+export type GetChatPromptShortcutPreferencesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatPromptShortcutPreferencesError = GetChatPromptShortcutPreferencesErrors[keyof GetChatPromptShortcutPreferencesErrors];
+
+export type GetChatPromptShortcutPreferencesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcutPreferences;
+};
+
+export type GetChatPromptShortcutPreferencesResponse = GetChatPromptShortcutPreferencesResponses[keyof GetChatPromptShortcutPreferencesResponses];
+
+export type SetChatPromptShortcutPreferencesData = {
+    body: PreferencesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/preferences';
+};
+
+export type SetChatPromptShortcutPreferencesErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatPromptShortcutPreferencesError = SetChatPromptShortcutPreferencesErrors[keyof SetChatPromptShortcutPreferencesErrors];
+
+export type SetChatPromptShortcutPreferencesResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PromptShortcutPreferences;
+};
+
+export type SetChatPromptShortcutPreferencesResponse = SetChatPromptShortcutPreferencesResponses[keyof SetChatPromptShortcutPreferencesResponses];
+
 export type DeleteChatProjectData = {
     body?: never;
     headers: {
@@ -3188,6 +4138,57 @@ export type UpdateChatPersonaResponses = {
 
 export type UpdateChatPersonaResponse = UpdateChatPersonaResponses[keyof UpdateChatPersonaResponses];
 
+export type ShareChatPersonaData = {
+    body: SharingInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/sharing';
+};
+
+export type ShareChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ShareChatPersonaError = ShareChatPersonaErrors[keyof ShareChatPersonaErrors];
+
+export type ShareChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type ShareChatPersonaResponse = ShareChatPersonaResponses[keyof ShareChatPersonaResponses];
+
 export type GetPersonaModelData = {
     body?: never;
     path: {
@@ -3290,6 +4291,290 @@ export type SetPersonaModelResponses = {
 };
 
 export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaModelResponses];
+
+export type SetChatPersonaListingData = {
+    body: ListingInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/listing';
+};
+
+export type SetChatPersonaListingErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type SetChatPersonaListingError = SetChatPersonaListingErrors[keyof SetChatPersonaListingErrors];
+
+export type SetChatPersonaListingResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type SetChatPersonaListingResponse = SetChatPersonaListingResponses[keyof SetChatPersonaListingResponses];
+
+export type ListChatPersonaPinsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-pins';
+};
+
+export type ListChatPersonaPinsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaPinsError = ListChatPersonaPinsErrors[keyof ListChatPersonaPinsErrors];
+
+export type ListChatPersonaPinsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ListChatPersonaPinsResponse = ListChatPersonaPinsResponses[keyof ListChatPersonaPinsResponses];
+
+export type ReplaceChatPersonaPinsData = {
+    body: PinsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-pins';
+};
+
+export type ReplaceChatPersonaPinsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceChatPersonaPinsError = ReplaceChatPersonaPinsErrors[keyof ReplaceChatPersonaPinsErrors];
+
+export type ReplaceChatPersonaPinsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ReplaceChatPersonaPinsResponse = ReplaceChatPersonaPinsResponses[keyof ReplaceChatPersonaPinsResponses];
+
+export type ReorderChatPersonasData = {
+    body: PinsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-order';
+};
+
+export type ReorderChatPersonasErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ReorderChatPersonasError = ReorderChatPersonasErrors[keyof ReorderChatPersonasErrors];
+
+export type ReorderChatPersonasResponses = {
+    /**
+     * Order saved
+     */
+    204: void;
+};
+
+export type ReorderChatPersonasResponse = ReorderChatPersonasResponses[keyof ReorderChatPersonasResponses];
+
+export type DeleteChatPersonaLabelData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        labelId: string;
+    };
+    query?: never;
+    url: '/api/chat/persona-labels/{labelId}';
+};
+
+export type DeleteChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type DeleteChatPersonaLabelError = DeleteChatPersonaLabelErrors[keyof DeleteChatPersonaLabelErrors];
+
+export type DeleteChatPersonaLabelResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteChatPersonaLabelResponse = DeleteChatPersonaLabelResponses[keyof DeleteChatPersonaLabelResponses];
+
+export type RenameChatPersonaLabelData = {
+    body: LabelRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        labelId: string;
+    };
+    query?: never;
+    url: '/api/chat/persona-labels/{labelId}';
+};
+
+export type RenameChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RenameChatPersonaLabelError = RenameChatPersonaLabelErrors[keyof RenameChatPersonaLabelErrors];
+
+export type RenameChatPersonaLabelResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: AgentRef;
+};
+
+export type RenameChatPersonaLabelResponse = RenameChatPersonaLabelResponses[keyof RenameChatPersonaLabelResponses];
 
 export type DeleteChatModelData = {
     body?: never;
@@ -3499,6 +4784,102 @@ export type SetChatModelDefaultResponses = {
 };
 
 export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
+
+export type GetChatInterpreterSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type GetChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterSettingsError = GetChatInterpreterSettingsErrors[keyof GetChatInterpreterSettingsErrors];
+
+export type GetChatInterpreterSettingsResponses = {
+    /**
+     * Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsResponses[keyof GetChatInterpreterSettingsResponses];
+
+export type UpdateChatInterpreterSettingsData = {
+    body: InterpreterSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter';
+};
+
+export type UpdateChatInterpreterSettingsErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatInterpreterSettingsError = UpdateChatInterpreterSettingsErrors[keyof UpdateChatInterpreterSettingsErrors];
+
+export type UpdateChatInterpreterSettingsResponses = {
+    /**
+     * Saved Code Interpreter setting
+     */
+    200: InterpreterSettingsResponse;
+};
+
+export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSettingsResponses[keyof UpdateChatInterpreterSettingsResponses];
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
@@ -3776,104 +5157,6 @@ export type FinalizeSourceUploadResponses = {
 
 export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
-export type SynchronizeSharePointSourceData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/sharepoint/sync';
-};
-
-export type SynchronizeSharePointSourceErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type SynchronizeSharePointSourceError = SynchronizeSharePointSourceErrors[keyof SynchronizeSharePointSourceErrors];
-
-export type SynchronizeSharePointSourceResponses = {
-    /**
-     * Run scheduled
-     */
-    202: SourceOperation;
-};
-
-export type SynchronizeSharePointSourceResponse = SynchronizeSharePointSourceResponses[keyof SynchronizeSharePointSourceResponses];
-
-export type UpdateSharePointPauseData = {
-    body: UpdateSharePointPauseRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/sharepoint/pause';
-};
-
-export type UpdateSharePointPauseErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type UpdateSharePointPauseError = UpdateSharePointPauseErrors[keyof UpdateSharePointPauseErrors];
-
-export type UpdateSharePointPauseResponses = {
-    /**
-     * Updated SharePoint configuration
-     */
-    200: SharePointConfigurationResponse;
-};
-
-export type UpdateSharePointPauseResponse = UpdateSharePointPauseResponses[keyof UpdateSharePointPauseResponses];
-
 export type RenameSourceData = {
     body: RenameSourceRequest;
     headers: {
@@ -4135,53 +5418,6 @@ export type UpdateSourceAccessResponses = {
 
 export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof UpdateSourceAccessResponses];
 
-export type CreateSharePointSourceData = {
-    body: CreateSharePointSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/sources/sharepoint';
-};
-
-export type CreateSharePointSourceErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type CreateSharePointSourceError = CreateSharePointSourceErrors[keyof CreateSharePointSourceErrors];
-
-export type CreateSharePointSourceResponses = {
-    /**
-     * Scope accepted for verification
-     */
-    202: SharePointSelectionReceiptResponse;
-};
-
-export type CreateSharePointSourceResponse = CreateSharePointSourceResponses[keyof CreateSharePointSourceResponses];
-
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
     headers: {
@@ -4247,6 +5483,467 @@ export type SearchDocumentsResponses = {
 };
 
 export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
+
+export type ListMcpServersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/servers';
+};
+
+export type ListMcpServersErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServersError = ListMcpServersErrors[keyof ListMcpServersErrors];
+
+export type ListMcpServersResponses = {
+    /**
+     * Tenant MCP servers
+     */
+    200: Array<McpServerView>;
+};
+
+export type ListMcpServersResponse = ListMcpServersResponses[keyof ListMcpServersResponses];
+
+export type CreateMcpServerData = {
+    body: McpServerInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/mcp/servers';
+};
+
+export type CreateMcpServerErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateMcpServerError = CreateMcpServerErrors[keyof CreateMcpServerErrors];
+
+export type CreateMcpServerResponses = {
+    /**
+     * Created
+     */
+    201: McpServerView;
+};
+
+export type CreateMcpServerResponse = CreateMcpServerResponses[keyof CreateMcpServerResponses];
+
+export type RefreshMcpServerToolsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools/refresh';
+};
+
+export type RefreshMcpServerToolsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RefreshMcpServerToolsError = RefreshMcpServerToolsErrors[keyof RefreshMcpServerToolsErrors];
+
+export type RefreshMcpServerToolsResponses = {
+    /**
+     * Refreshed tool snapshot
+     */
+    200: McpToolRefresh;
+};
+
+export type RefreshMcpServerToolsResponse = RefreshMcpServerToolsResponses[keyof RefreshMcpServerToolsResponses];
+
+export type DiscoverMcpServerOAuthData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/discovery';
+};
+
+export type DiscoverMcpServerOAuthErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DiscoverMcpServerOAuthError = DiscoverMcpServerOAuthErrors[keyof DiscoverMcpServerOAuthErrors];
+
+export type DiscoverMcpServerOAuthResponses = {
+    /**
+     * Discovered authorization servers for review
+     */
+    200: McpOAuthDiscovery;
+};
+
+export type DiscoverMcpServerOAuthResponse = DiscoverMcpServerOAuthResponses[keyof DiscoverMcpServerOAuthResponses];
+
+export type ListMcpServerOAuthClientsData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients';
+};
+
+export type ListMcpServerOAuthClientsErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServerOAuthClientsError = ListMcpServerOAuthClientsErrors[keyof ListMcpServerOAuthClientsErrors];
+
+export type ListMcpServerOAuthClientsResponses = {
+    /**
+     * OAuth clients with secrets redacted
+     */
+    200: Array<McpOAuthClientView>;
+};
+
+export type ListMcpServerOAuthClientsResponse = ListMcpServerOAuthClientsResponses[keyof ListMcpServerOAuthClientsResponses];
+
+export type CreateMcpServerOAuthClientData = {
+    body: McpOAuthClientInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients';
+};
+
+export type CreateMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateMcpServerOAuthClientError = CreateMcpServerOAuthClientErrors[keyof CreateMcpServerOAuthClientErrors];
+
+export type CreateMcpServerOAuthClientResponses = {
+    /**
+     * Created
+     */
+    201: McpOAuthClientView;
+};
+
+export type CreateMcpServerOAuthClientResponse = CreateMcpServerOAuthClientResponses[keyof CreateMcpServerOAuthClientResponses];
+
+export type RegisterMcpServerOAuthClientData = {
+    body: McpOAuthRegistration;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/clients/registrations';
+};
+
+export type RegisterMcpServerOAuthClientErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RegisterMcpServerOAuthClientError = RegisterMcpServerOAuthClientErrors[keyof RegisterMcpServerOAuthClientErrors];
+
+export type RegisterMcpServerOAuthClientResponses = {
+    /**
+     * Created
+     */
+    201: McpOAuthClientView;
+};
+
+export type RegisterMcpServerOAuthClientResponse = RegisterMcpServerOAuthClientResponses[keyof RegisterMcpServerOAuthClientResponses];
+
+export type StartMcpServerOAuthAuthorizationData = {
+    body: McpOAuthAuthorizationInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/authorization';
+};
+
+export type StartMcpServerOAuthAuthorizationErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StartMcpServerOAuthAuthorizationError = StartMcpServerOAuthAuthorizationErrors[keyof StartMcpServerOAuthAuthorizationErrors];
+
+export type StartMcpServerOAuthAuthorizationResponses = {
+    /**
+     * Authorization URL for the browser
+     */
+    200: McpOAuthAuthorization;
+};
+
+export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthorizationResponses[keyof StartMcpServerOAuthAuthorizationResponses];
+
+export type StartMcpConnectionAuthorizationData = {
+    body: McpConnectionAuthorizationInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/authorization';
+};
+
+export type StartMcpConnectionAuthorizationErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StartMcpConnectionAuthorizationError = StartMcpConnectionAuthorizationErrors[keyof StartMcpConnectionAuthorizationErrors];
+
+export type StartMcpConnectionAuthorizationResponses = {
+    /**
+     * Authorization URL for the browser
+     */
+    200: McpOAuthAuthorization;
+};
+
+export type StartMcpConnectionAuthorizationResponse = StartMcpConnectionAuthorizationResponses[keyof StartMcpConnectionAuthorizationResponses];
 
 export type ListInvitationsData = {
     body?: never;
@@ -4800,155 +6497,6 @@ export type ReplaceGroupCapabilitiesResponses = {
 
 export type ReplaceGroupCapabilitiesResponse = ReplaceGroupCapabilitiesResponses[keyof ReplaceGroupCapabilitiesResponses];
 
-export type ListSharePointCredentialsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/credentials/sharepoint';
-};
-
-export type ListSharePointCredentialsErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type ListSharePointCredentialsError = ListSharePointCredentialsErrors[keyof ListSharePointCredentialsErrors];
-
-export type ListSharePointCredentialsResponses = {
-    /**
-     * SharePoint credentials
-     */
-    200: Array<SharePointCredentialResponse>;
-};
-
-export type ListSharePointCredentialsResponse = ListSharePointCredentialsResponses[keyof ListSharePointCredentialsResponses];
-
-export type CreateSharePointCredentialData = {
-    body: SharePointCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/credentials/sharepoint';
-};
-
-export type CreateSharePointCredentialErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type CreateSharePointCredentialError = CreateSharePointCredentialErrors[keyof CreateSharePointCredentialErrors];
-
-export type CreateSharePointCredentialResponses = {
-    /**
-     * Stored SharePoint credential
-     */
-    201: SharePointCredentialResponse;
-};
-
-export type CreateSharePointCredentialResponse = CreateSharePointCredentialResponses[keyof CreateSharePointCredentialResponses];
-
-export type TestSharePointCredentialData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        credentialId: string;
-    };
-    query?: never;
-    url: '/api/credentials/sharepoint/{credentialId}/test';
-};
-
-export type TestSharePointCredentialErrors = {
-    /**
-     * Invalid SharePoint credential
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * SharePoint credential unavailable
-     */
-    404: ApiProblem;
-    /**
-     * SharePoint credential changed
-     */
-    409: ApiProblem;
-    /**
-     * Microsoft did not answer
-     */
-    503: ApiProblem;
-};
-
-export type TestSharePointCredentialError = TestSharePointCredentialErrors[keyof TestSharePointCredentialErrors];
-
-export type TestSharePointCredentialResponses = {
-    /**
-     * SharePoint credential works
-     */
-    200: SharePointCredentialTestResponse;
-};
-
-export type TestSharePointCredentialResponse = TestSharePointCredentialResponses[keyof TestSharePointCredentialResponses];
-
 export type RevokeGoogleDriveCredentialData = {
     body: RevokeGoogleDriveCredentialRequest;
     headers: {
@@ -5047,153 +6595,6 @@ export type TestChatWebConnectionResponses = {
 };
 
 export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
-
-export type CreateChatVoiceTicketData = {
-    body?: VoiceTicketRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/tickets';
-};
-
-export type CreateChatVoiceTicketErrors = {
-    /**
-     * Invalid voice request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Voice authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Membership unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Too many voice tickets
-     */
-    503: ApiProblem;
-};
-
-export type CreateChatVoiceTicketError = CreateChatVoiceTicketErrors[keyof CreateChatVoiceTicketErrors];
-
-export type CreateChatVoiceTicketResponses = {
-    /**
-     * Single-use voice WebSocket ticket
-     */
-    200: VoiceTicketResponse;
-};
-
-export type CreateChatVoiceTicketResponse = CreateChatVoiceTicketResponses[keyof CreateChatVoiceTicketResponses];
-
-export type SynthesizeChatVoiceData = {
-    body: VoiceSynthesisRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/synthesize';
-};
-
-export type SynthesizeChatVoiceErrors = {
-    /**
-     * Invalid text or playback speed
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Chat read authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Membership unavailable
-     */
-    404: ApiProblem;
-    /**
-     * No text-to-speech provider, provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type SynthesizeChatVoiceError = SynthesizeChatVoiceErrors[keyof SynthesizeChatVoiceErrors];
-
-export type SynthesizeChatVoiceResponses = {
-    /**
-     * MP3 audio, streamed as the provider produces it
-     */
-    200: Blob | File;
-};
-
-export type SynthesizeChatVoiceResponse = SynthesizeChatVoiceResponses[keyof SynthesizeChatVoiceResponses];
-
-export type TestChatVoiceConnectionData = {
-    body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
-    };
-    query?: never;
-    url: '/api/chat/voice/connections/{provider}/test';
-};
-
-export type TestChatVoiceConnectionErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type TestChatVoiceConnectionError = TestChatVoiceConnectionErrors[keyof TestChatVoiceConnectionErrors];
-
-export type TestChatVoiceConnectionResponses = {
-    /**
-     * Provider accepted the stored endpoint and credential
-     */
-    204: void;
-};
-
-export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
 
 export type ListChatSessionsData = {
     body?: never;
@@ -5731,6 +7132,184 @@ export type CreateChatModelResponses = {
 
 export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatModelResponses];
 
+export type ListChatPromptShortcutsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeHidden?: boolean;
+    };
+    url: '/api/chat/prompt-shortcuts';
+};
+
+export type ListChatPromptShortcutsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPromptShortcutsError = ListChatPromptShortcutsErrors[keyof ListChatPromptShortcutsErrors];
+
+export type ListChatPromptShortcutsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PromptShortcut>;
+};
+
+export type ListChatPromptShortcutsResponse = ListChatPromptShortcutsResponses[keyof ListChatPromptShortcutsResponses];
+
+export type CreateChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts';
+};
+
+export type CreateChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatPromptShortcutError = CreateChatPromptShortcutErrors[keyof CreateChatPromptShortcutErrors];
+
+export type CreateChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PromptShortcut;
+};
+
+export type CreateChatPromptShortcutResponse = CreateChatPromptShortcutResponses[keyof CreateChatPromptShortcutResponses];
+
+export type ListPublicChatPromptShortcutsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public';
+};
+
+export type ListPublicChatPromptShortcutsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListPublicChatPromptShortcutsError = ListPublicChatPromptShortcutsErrors[keyof ListPublicChatPromptShortcutsErrors];
+
+export type ListPublicChatPromptShortcutsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PromptShortcut>;
+};
+
+export type ListPublicChatPromptShortcutsResponse = ListPublicChatPromptShortcutsResponses[keyof ListPublicChatPromptShortcutsResponses];
+
+export type CreatePublicChatPromptShortcutData = {
+    body: ShortcutInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/prompt-shortcuts/public';
+};
+
+export type CreatePublicChatPromptShortcutErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Name is taken or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreatePublicChatPromptShortcutError = CreatePublicChatPromptShortcutErrors[keyof CreatePublicChatPromptShortcutErrors];
+
+export type CreatePublicChatPromptShortcutResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: PromptShortcut;
+};
+
+export type CreatePublicChatPromptShortcutResponse = CreatePublicChatPromptShortcutResponses[keyof CreatePublicChatPromptShortcutResponses];
+
 export type ListChatProjectsData = {
     body?: never;
     path?: never;
@@ -5921,6 +7500,9 @@ export type ListChatPersonasData = {
     body?: never;
     path?: never;
     query?: {
+        view?: 'ALL' | 'MINE' | 'SHARED';
+        labelId?: string;
+        q?: string;
         offset?: number;
         limit?: number;
     };
@@ -6007,6 +7589,194 @@ export type CreateChatPersonaResponses = {
 };
 
 export type CreateChatPersonaResponse = CreateChatPersonaResponses[keyof CreateChatPersonaResponses];
+
+export type RestoreChatPersonaData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/restore';
+};
+
+export type RestoreChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type RestoreChatPersonaError = RestoreChatPersonaErrors[keyof RestoreChatPersonaErrors];
+
+export type RestoreChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type RestoreChatPersonaResponse = RestoreChatPersonaResponses[keyof RestoreChatPersonaResponses];
+
+export type TransferChatPersonaData = {
+    body: TransferInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/personas/{personaId}/owner';
+};
+
+export type TransferChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type TransferChatPersonaError = TransferChatPersonaErrors[keyof TransferChatPersonaErrors];
+
+export type TransferChatPersonaResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: PersonaView;
+};
+
+export type TransferChatPersonaResponse = TransferChatPersonaResponses[keyof TransferChatPersonaResponses];
+
+export type ListChatPersonaLabelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-labels';
+};
+
+export type ListChatPersonaLabelsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaLabelsError = ListChatPersonaLabelsErrors[keyof ListChatPersonaLabelsErrors];
+
+export type ListChatPersonaLabelsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<AgentRef>;
+};
+
+export type ListChatPersonaLabelsResponse = ListChatPersonaLabelsResponses[keyof ListChatPersonaLabelsResponses];
+
+export type CreateChatPersonaLabelData = {
+    body: LabelRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/persona-labels';
+};
+
+export type CreateChatPersonaLabelErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateChatPersonaLabelError = CreateChatPersonaLabelErrors[keyof CreateChatPersonaLabelErrors];
+
+export type CreateChatPersonaLabelResponses = {
+    /**
+     * Successful chat operation
+     */
+    201: AgentRef;
+};
+
+export type CreateChatPersonaLabelResponse = CreateChatPersonaLabelResponses[keyof CreateChatPersonaLabelResponses];
 
 export type ValidateChatModelData = {
     body?: never;
@@ -6271,94 +8041,6 @@ export type InitiateChatFileUploadResponses = {
 
 export type InitiateChatFileUploadResponse = InitiateChatFileUploadResponses[keyof InitiateChatFileUploadResponses];
 
-export type GetChatVoiceSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/settings';
-};
-
-export type GetChatVoiceSettingsErrors = {
-    /**
-     * Invalid voice request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Voice authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Membership unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Too many voice tickets
-     */
-    503: ApiProblem;
-};
-
-export type GetChatVoiceSettingsError = GetChatVoiceSettingsErrors[keyof GetChatVoiceSettingsErrors];
-
-export type GetChatVoiceSettingsResponses = {
-    /**
-     * The current member's voice settings
-     */
-    200: VoiceSettingsResponse;
-};
-
-export type GetChatVoiceSettingsResponse = GetChatVoiceSettingsResponses[keyof GetChatVoiceSettingsResponses];
-
-export type UpdateChatVoiceSettingsData = {
-    body: VoiceSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/settings';
-};
-
-export type UpdateChatVoiceSettingsErrors = {
-    /**
-     * Invalid voice request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Voice authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Membership unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Too many voice tickets
-     */
-    503: ApiProblem;
-};
-
-export type UpdateChatVoiceSettingsError = UpdateChatVoiceSettingsErrors[keyof UpdateChatVoiceSettingsErrors];
-
-export type UpdateChatVoiceSettingsResponses = {
-    /**
-     * Updated voice settings
-     */
-    200: VoiceSettingsResponse;
-};
-
-export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[keyof UpdateChatVoiceSettingsResponses];
-
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -6433,95 +8115,6 @@ export type GetSourceResponses = {
 };
 
 export type GetSourceResponse = GetSourceResponses[keyof GetSourceResponses];
-
-export type GetSharePointConfigurationData = {
-    body?: never;
-    path: {
-        sourceId: string;
-    };
-    query?: never;
-    url: '/api/sources/{sourceId}/sharepoint';
-};
-
-export type GetSharePointConfigurationErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type GetSharePointConfigurationError = GetSharePointConfigurationErrors[keyof GetSharePointConfigurationErrors];
-
-export type GetSharePointConfigurationResponses = {
-    /**
-     * SharePoint configuration
-     */
-    200: SharePointConfigurationResponse;
-};
-
-export type GetSharePointConfigurationResponse = GetSharePointConfigurationResponses[keyof GetSharePointConfigurationResponses];
-
-export type GetSharePointRootsData = {
-    body?: never;
-    path: {
-        sourceId: string;
-    };
-    query?: {
-        cursor?: string;
-        size?: number;
-    };
-    url: '/api/sources/{sourceId}/sharepoint/roots';
-};
-
-export type GetSharePointRootsErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type GetSharePointRootsError = GetSharePointRootsErrors[keyof GetSharePointRootsErrors];
-
-export type GetSharePointRootsResponses = {
-    /**
-     * SharePoint roots
-     */
-    200: SharePointRootPageResponse;
-};
-
-export type GetSharePointRootsResponse = GetSharePointRootsResponses[keyof GetSharePointRootsResponses];
 
 export type ListSourceRunsData = {
     body?: never;
@@ -6712,90 +8305,6 @@ export type GetGoogleDriveSelectionDraftResponses = {
 
 export type GetGoogleDriveSelectionDraftResponse = GetGoogleDriveSelectionDraftResponses[keyof GetGoogleDriveSelectionDraftResponses];
 
-export type GetSharePointSelectionRequestData = {
-    body?: never;
-    path: {
-        requestId: string;
-    };
-    query?: never;
-    url: '/api/sources/sharepoint/selection-requests/{requestId}';
-};
-
-export type GetSharePointSelectionRequestErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type GetSharePointSelectionRequestError = GetSharePointSelectionRequestErrors[keyof GetSharePointSelectionRequestErrors];
-
-export type GetSharePointSelectionRequestResponses = {
-    /**
-     * SharePoint scope receipt
-     */
-    200: SharePointSelectionReceiptResponse;
-};
-
-export type GetSharePointSelectionRequestResponse = GetSharePointSelectionRequestResponses[keyof GetSharePointSelectionRequestResponses];
-
-export type GetSharePointSelectionPolicyData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/sources/sharepoint/selection-policy';
-};
-
-export type GetSharePointSelectionPolicyErrors = {
-    /**
-     * Invalid SharePoint scope
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Source unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Source or credential changed
-     */
-    409: ApiProblem;
-};
-
-export type GetSharePointSelectionPolicyError = GetSharePointSelectionPolicyErrors[keyof GetSharePointSelectionPolicyErrors];
-
-export type GetSharePointSelectionPolicyResponses = {
-    /**
-     * SharePoint selection policy
-     */
-    200: SharePointSelectionPolicyResponse;
-};
-
-export type GetSharePointSelectionPolicyResponse = GetSharePointSelectionPolicyResponses[keyof GetSharePointSelectionPolicyResponses];
-
 export type ListSourceGroupOptionsData = {
     body?: never;
     path?: never;
@@ -6925,6 +8434,147 @@ export type ReadSearchDocumentOriginalResponses = {
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
+export type ListMcpServerToolsData = {
+    body?: never;
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/tools';
+};
+
+export type ListMcpServerToolsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpServerToolsError = ListMcpServerToolsErrors[keyof ListMcpServerToolsErrors];
+
+export type ListMcpServerToolsResponses = {
+    /**
+     * Tool snapshot
+     */
+    200: Array<McpToolView>;
+};
+
+export type ListMcpServerToolsResponse = ListMcpServerToolsResponses[keyof ListMcpServerToolsResponses];
+
+export type ListMcpGroupOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/mcp/group-options';
+};
+
+export type ListMcpGroupOptionsErrors = {
+    /**
+     * Invalid MCP configuration or tool snapshot
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or tool not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision, duplicate slug, missing credential or server authorization required
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpGroupOptionsError = ListMcpGroupOptionsErrors[keyof ListMcpGroupOptionsErrors];
+
+export type ListMcpGroupOptionsResponses = {
+    /**
+     * Groups available for MCP server access
+     */
+    200: ChatGroupPage;
+};
+
+export type ListMcpGroupOptionsResponse = ListMcpGroupOptionsResponses[keyof ListMcpGroupOptionsResponses];
+
+export type ListMcpConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/mcp/connections';
+};
+
+export type ListMcpConnectionsErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListMcpConnectionsError = ListMcpConnectionsErrors[keyof ListMcpConnectionsErrors];
+
+export type ListMcpConnectionsResponses = {
+    /**
+     * MCP servers this User may use
+     */
+    200: Array<McpConnection>;
+};
+
+export type ListMcpConnectionsResponse = ListMcpConnectionsResponses[keyof ListMcpConnectionsResponses];
 
 export type GetCurrentInvitationData = {
     body?: never;
@@ -7156,141 +8806,6 @@ export type ListChatWebConnectionsResponses = {
 
 export type ListChatWebConnectionsResponse = ListChatWebConnectionsResponses[keyof ListChatWebConnectionsResponses];
 
-export type GetChatVoiceAvailabilityData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice';
-};
-
-export type GetChatVoiceAvailabilityErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type GetChatVoiceAvailabilityError = GetChatVoiceAvailabilityErrors[keyof GetChatVoiceAvailabilityErrors];
-
-export type GetChatVoiceAvailabilityResponses = {
-    /**
-     * Configured voice availability
-     */
-    200: VoiceAvailabilityResponse;
-};
-
-export type GetChatVoiceAvailabilityResponse = GetChatVoiceAvailabilityResponses[keyof GetChatVoiceAvailabilityResponses];
-
-export type ListChatVoiceProvidersData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/providers';
-};
-
-export type ListChatVoiceProvidersErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type ListChatVoiceProvidersError = ListChatVoiceProvidersErrors[keyof ListChatVoiceProvidersErrors];
-
-export type ListChatVoiceProvidersResponses = {
-    /**
-     * Implemented voice providers
-     */
-    200: Array<VoiceProviderResponse>;
-};
-
-export type ListChatVoiceProvidersResponse = ListChatVoiceProvidersResponses[keyof ListChatVoiceProvidersResponses];
-
-export type ListChatVoiceConnectionsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/voice/connections';
-};
-
-export type ListChatVoiceConnectionsErrors = {
-    /**
-     * Invalid voice configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Voice connection unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Voice connection changed
-     */
-    409: ApiProblem;
-    /**
-     * Voice provider unavailable or busy
-     */
-    503: ApiProblem;
-};
-
-export type ListChatVoiceConnectionsError = ListChatVoiceConnectionsErrors[keyof ListChatVoiceConnectionsErrors];
-
-export type ListChatVoiceConnectionsResponses = {
-    /**
-     * Voice connections
-     */
-    200: Array<VoiceConnectionResponse>;
-};
-
-export type ListChatVoiceConnectionsResponse = ListChatVoiceConnectionsResponses[keyof ListChatVoiceConnectionsResponses];
-
 export type GetSharedChatSessionData = {
     body?: never;
     path: {
@@ -7512,7 +9027,7 @@ export type StreamChatMessageResponses = {
     /**
      * SSE frames; the schema describes each data payload
      */
-    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent;
+    200: TextDeltaEvent | OutcomeEvent | ResetEvent | ToolEvent | ReasoningEvent | ImageEvent | CodeEvent | ResearchPlanEvent | TopLevelBranchingEvent | ResearchAgentStartEvent | IntermediateReportEvent | IntermediateReportCitationsEvent;
 };
 
 export type StreamChatMessageResponse = StreamChatMessageResponses[keyof StreamChatMessageResponses];
@@ -7781,6 +9296,49 @@ export type ListChatPersonaModelsResponses = {
 
 export type ListChatPersonaModelsResponse = ListChatPersonaModelsResponses[keyof ListChatPersonaModelsResponses];
 
+export type GetChatPersonaAvatarData = {
+    body?: never;
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/avatar';
+};
+
+export type GetChatPersonaAvatarErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatPersonaAvatarError = GetChatPersonaAvatarErrors[keyof GetChatPersonaAvatarErrors];
+
+export type GetChatPersonaAvatarResponses = {
+    /**
+     * Avatar image bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatPersonaAvatarResponse = GetChatPersonaAvatarResponses[keyof GetChatPersonaAvatarResponses];
+
 export type ListChatPersonaSourcesData = {
     body?: never;
     path?: never;
@@ -7824,6 +9382,95 @@ export type ListChatPersonaSourcesResponses = {
 };
 
 export type ListChatPersonaSourcesResponse = ListChatPersonaSourcesResponses[keyof ListChatPersonaSourcesResponses];
+
+export type ListChatPersonasForAdministrationData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeDeleted?: boolean;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/personas/administration';
+};
+
+export type ListChatPersonasForAdministrationErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonasForAdministrationError = ListChatPersonasForAdministrationErrors[keyof ListChatPersonasForAdministrationErrors];
+
+export type ListChatPersonasForAdministrationResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: Array<PersonaView>;
+};
+
+export type ListChatPersonasForAdministrationResponse = ListChatPersonasForAdministrationResponses[keyof ListChatPersonasForAdministrationResponses];
+
+export type ListChatPersonaShareOptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        limit?: number;
+    };
+    url: '/api/chat/persona-share-options';
+};
+
+export type ListChatPersonaShareOptionsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type ListChatPersonaShareOptionsError = ListChatPersonaShareOptionsErrors[keyof ListChatPersonaShareOptionsErrors];
+
+export type ListChatPersonaShareOptionsResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: AgentShareOptions;
+};
+
+export type ListChatPersonaShareOptionsResponse = ListChatPersonaShareOptionsResponses[keyof ListChatPersonaShareOptionsResponses];
 
 export type ListAvailableChatModelsData = {
     body?: never;
@@ -7922,6 +9569,51 @@ export type ListChatModelPersonasResponses = {
 };
 
 export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
+
+export type GetChatInterpreterHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/interpreter/health';
+};
+
+export type GetChatInterpreterHealthErrors = {
+    /**
+     * Invalid Code Interpreter setting
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Tenant unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Code Interpreter setting changed
+     */
+    409: ApiProblem;
+    /**
+     * Code Interpreter is not configured
+     */
+    503: ApiProblem;
+};
+
+export type GetChatInterpreterHealthError = GetChatInterpreterHealthErrors[keyof GetChatInterpreterHealthErrors];
+
+export type GetChatInterpreterHealthResponses = {
+    /**
+     * Live Code Interpreter service health
+     */
+    200: InterpreterHealthResponse;
+};
+
+export type GetChatInterpreterHealthResponse = GetChatInterpreterHealthResponses[keyof GetChatInterpreterHealthResponses];
 
 export type GetChatImageAvailabilityData = {
     body?: never;
@@ -8303,6 +9995,53 @@ export type ReadChatFileTextResponses = {
 
 export type ReadChatFileTextResponse = ReadChatFileTextResponses[keyof ReadChatFileTextResponses];
 
+export type PreviewChatFileSpreadsheetData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/preview';
+};
+
+export type PreviewChatFileSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileSpreadsheetError = PreviewChatFileSpreadsheetErrors[keyof PreviewChatFileSpreadsheetErrors];
+
+export type PreviewChatFileSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileSpreadsheetResponse = PreviewChatFileSpreadsheetResponses[keyof PreviewChatFileSpreadsheetResponses];
+
 export type ReadChatFilePassagesData = {
     body?: never;
     path: {
@@ -8445,6 +10184,184 @@ export type GetChatFilePolicyResponses = {
 
 export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
 
+export type PreviewChatFileArtifactSpreadsheetData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/preview';
+};
+
+export type PreviewChatFileArtifactSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileArtifactSpreadsheetError = PreviewChatFileArtifactSpreadsheetErrors[keyof PreviewChatFileArtifactSpreadsheetErrors];
+
+export type PreviewChatFileArtifactSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileArtifactSpreadsheetResponse = PreviewChatFileArtifactSpreadsheetResponses[keyof PreviewChatFileArtifactSpreadsheetResponses];
+
+export type GetChatFileArtifactPdfPreviewData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/pdf-preview';
+};
+
+export type GetChatFileArtifactPdfPreviewErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The interpreter is busy
+     */
+    429: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactPdfPreviewError = GetChatFileArtifactPdfPreviewErrors[keyof GetChatFileArtifactPdfPreviewErrors];
+
+export type GetChatFileArtifactPdfPreviewResponses = {
+    /**
+     * PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileArtifactPdfPreviewResponse = GetChatFileArtifactPdfPreviewResponses[keyof GetChatFileArtifactPdfPreviewResponses];
+
+export type GetChatFileArtifactData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/content';
+};
+
+export type GetChatFileArtifactErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactError = GetChatFileArtifactErrors[keyof GetChatFileArtifactErrors];
+
+export type GetChatFileArtifactResponses = {
+    /**
+     * Generated file bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileArtifactResponse = GetChatFileArtifactResponses[keyof GetChatFileArtifactResponses];
+
+export type GetChatFileArtifactChartData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/chart';
+};
+
+export type GetChatFileArtifactChartErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactChartError = GetChatFileArtifactChartErrors[keyof GetChatFileArtifactChartErrors];
+
+export type GetChatFileArtifactChartResponses = {
+    /**
+     * Chart in the E2B chart model (type, title, elements, axes)
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetChatFileArtifactChartResponse = GetChatFileArtifactChartResponses[keyof GetChatFileArtifactChartResponses];
+
 export type ReadChatDocumentPassagesData = {
     body?: never;
     path: {
@@ -8542,6 +10459,112 @@ export type ReadChatDocumentOriginalResponses = {
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
 
+export type DisconnectMcpServerOAuthData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/servers/{serverId}/oauth/connection';
+};
+
+export type DisconnectMcpServerOAuthErrors = {
+    /**
+     * Invalid OAuth configuration or unusable authorization-server metadata
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * MCP management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server or OAuth client not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate label
+     */
+    409: ApiProblem;
+    /**
+     * Authorization server, redirect URI or encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DisconnectMcpServerOAuthError = DisconnectMcpServerOAuthErrors[keyof DisconnectMcpServerOAuthErrors];
+
+export type DisconnectMcpServerOAuthResponses = {
+    /**
+     * Shared connection removed and revoked best effort
+     */
+    204: void;
+};
+
+export type DisconnectMcpServerOAuthResponse = DisconnectMcpServerOAuthResponses[keyof DisconnectMcpServerOAuthResponses];
+
+export type DisconnectMcpConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        serverId: string;
+    };
+    query?: never;
+    url: '/api/mcp/connections/{serverId}/connection';
+};
+
+export type DisconnectMcpConnectionErrors = {
+    /**
+     * Unusable API key, return address or server configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat use, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * MCP server not available to this User
+     */
+    404: ApiProblem;
+    /**
+     * Server configuration changed, or the credential was rejected
+     */
+    409: ApiProblem;
+    /**
+     * MCP server or credential encryption key unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DisconnectMcpConnectionError = DisconnectMcpConnectionErrors[keyof DisconnectMcpConnectionErrors];
+
+export type DisconnectMcpConnectionResponses = {
+    /**
+     * Connection removed
+     */
+    204: void;
+};
+
+export type DisconnectMcpConnectionResponse = DisconnectMcpConnectionResponses[keyof DisconnectMcpConnectionResponses];
+
 export type DeleteGoogleDriveCredentialData = {
     body?: never;
     headers: {
@@ -8566,3 +10589,1310 @@ export type DeleteGoogleDriveCredentialResponses = {
 };
 
 export type DeleteGoogleDriveCredentialResponse = DeleteGoogleDriveCredentialResponses[keyof DeleteGoogleDriveCredentialResponses];
+
+export type LeaveChatPersonaData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        personaId: string;
+    };
+    query?: never;
+    url: '/api/chat/personas/{personaId}/sharing/me';
+};
+
+export type LeaveChatPersonaErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type LeaveChatPersonaError = LeaveChatPersonaErrors[keyof LeaveChatPersonaErrors];
+
+export type LeaveChatPersonaResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChatPersonaResponses];
+
+export type ReplaceSharePointScopeData = {
+    body: ReplaceSharePointScopeRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/scope';
+};
+
+export type ReplaceSharePointScopeErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type ReplaceSharePointScopeError = ReplaceSharePointScopeErrors[keyof ReplaceSharePointScopeErrors];
+
+export type ReplaceSharePointScopeResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: SharePointSelectionReceiptResponse;
+};
+
+export type ReplaceSharePointScopeResponse = ReplaceSharePointScopeResponses[keyof ReplaceSharePointScopeResponses];
+
+export type UpdateSharePointScheduleData = {
+    body: UpdateSharePointScheduleRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/schedule';
+};
+
+export type UpdateSharePointScheduleErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateSharePointScheduleError = UpdateSharePointScheduleErrors[keyof UpdateSharePointScheduleErrors];
+
+export type UpdateSharePointScheduleResponses = {
+    /**
+     * Updated SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type UpdateSharePointScheduleResponse = UpdateSharePointScheduleResponses[keyof UpdateSharePointScheduleResponses];
+
+export type DeleteSharePointCredentialData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}';
+};
+
+export type DeleteSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type DeleteSharePointCredentialError = DeleteSharePointCredentialErrors[keyof DeleteSharePointCredentialErrors];
+
+export type DeleteSharePointCredentialResponses = {
+    /**
+     * SharePoint credential deleted
+     */
+    204: void;
+};
+
+export type DeleteSharePointCredentialResponse = DeleteSharePointCredentialResponses[keyof DeleteSharePointCredentialResponses];
+
+export type RenameSharePointCredentialData = {
+    body: RenameSharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}';
+};
+
+export type RenameSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type RenameSharePointCredentialError = RenameSharePointCredentialErrors[keyof RenameSharePointCredentialErrors];
+
+export type RenameSharePointCredentialResponses = {
+    /**
+     * SharePoint credential renamed
+     */
+    204: void;
+};
+
+export type RenameSharePointCredentialResponse = RenameSharePointCredentialResponses[keyof RenameSharePointCredentialResponses];
+
+export type ReplaceSharePointCredentialAuthenticationData = {
+    body: SharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+        'If-Match': string;
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}/authentication';
+};
+
+export type ReplaceSharePointCredentialAuthenticationErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ReplaceSharePointCredentialAuthenticationError = ReplaceSharePointCredentialAuthenticationErrors[keyof ReplaceSharePointCredentialAuthenticationErrors];
+
+export type ReplaceSharePointCredentialAuthenticationResponses = {
+    /**
+     * Updated SharePoint credential
+     */
+    200: SharePointCredentialResponse;
+};
+
+export type ReplaceSharePointCredentialAuthenticationResponse = ReplaceSharePointCredentialAuthenticationResponses[keyof ReplaceSharePointCredentialAuthenticationResponses];
+
+export type SelectChatVoiceProviderData = {
+    body: VoiceSelectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/selection';
+};
+
+export type SelectChatVoiceProviderErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SelectChatVoiceProviderError = SelectChatVoiceProviderErrors[keyof SelectChatVoiceProviderErrors];
+
+export type SelectChatVoiceProviderResponses = {
+    /**
+     * Voice selection saved
+     */
+    204: void;
+};
+
+export type SelectChatVoiceProviderResponse = SelectChatVoiceProviderResponses[keyof SelectChatVoiceProviderResponses];
+
+export type DeleteChatVoiceConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/voice/connections/{provider}';
+};
+
+export type DeleteChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatVoiceConnectionError = DeleteChatVoiceConnectionErrors[keyof DeleteChatVoiceConnectionErrors];
+
+export type DeleteChatVoiceConnectionResponses = {
+    /**
+     * Voice connection removed from both functions
+     */
+    204: void;
+};
+
+export type DeleteChatVoiceConnectionResponse = DeleteChatVoiceConnectionResponses[keyof DeleteChatVoiceConnectionResponses];
+
+export type SaveChatVoiceConnectionData = {
+    body: VoiceConnectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    };
+    query?: never;
+    url: '/api/chat/voice/connections/{provider}';
+};
+
+export type SaveChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SaveChatVoiceConnectionError = SaveChatVoiceConnectionErrors[keyof SaveChatVoiceConnectionErrors];
+
+export type SaveChatVoiceConnectionResponses = {
+    /**
+     * Verified and saved voice connection
+     */
+    200: VoiceConnectionResponse;
+};
+
+export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
+
+export type SynchronizeSharePointSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/sync';
+};
+
+export type SynchronizeSharePointSourceErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type SynchronizeSharePointSourceError = SynchronizeSharePointSourceErrors[keyof SynchronizeSharePointSourceErrors];
+
+export type SynchronizeSharePointSourceResponses = {
+    /**
+     * Run scheduled
+     */
+    202: SourceOperation;
+};
+
+export type SynchronizeSharePointSourceResponse = SynchronizeSharePointSourceResponses[keyof SynchronizeSharePointSourceResponses];
+
+export type UpdateSharePointPauseData = {
+    body: UpdateSharePointPauseRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint/pause';
+};
+
+export type UpdateSharePointPauseErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateSharePointPauseError = UpdateSharePointPauseErrors[keyof UpdateSharePointPauseErrors];
+
+export type UpdateSharePointPauseResponses = {
+    /**
+     * Updated SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type UpdateSharePointPauseResponse = UpdateSharePointPauseResponses[keyof UpdateSharePointPauseResponses];
+
+export type CreateSharePointSourceData = {
+    body: CreateSharePointSourceRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/sources/sharepoint';
+};
+
+export type CreateSharePointSourceErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type CreateSharePointSourceError = CreateSharePointSourceErrors[keyof CreateSharePointSourceErrors];
+
+export type CreateSharePointSourceResponses = {
+    /**
+     * Scope accepted for verification
+     */
+    202: SharePointSelectionReceiptResponse;
+};
+
+export type CreateSharePointSourceResponse = CreateSharePointSourceResponses[keyof CreateSharePointSourceResponses];
+
+export type ListSharePointCredentialsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/credentials/sharepoint';
+};
+
+export type ListSharePointCredentialsErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type ListSharePointCredentialsError = ListSharePointCredentialsErrors[keyof ListSharePointCredentialsErrors];
+
+export type ListSharePointCredentialsResponses = {
+    /**
+     * SharePoint credentials
+     */
+    200: Array<SharePointCredentialResponse>;
+};
+
+export type ListSharePointCredentialsResponse = ListSharePointCredentialsResponses[keyof ListSharePointCredentialsResponses];
+
+export type CreateSharePointCredentialData = {
+    body: SharePointCredentialRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/credentials/sharepoint';
+};
+
+export type CreateSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type CreateSharePointCredentialError = CreateSharePointCredentialErrors[keyof CreateSharePointCredentialErrors];
+
+export type CreateSharePointCredentialResponses = {
+    /**
+     * Stored SharePoint credential
+     */
+    201: SharePointCredentialResponse;
+};
+
+export type CreateSharePointCredentialResponse = CreateSharePointCredentialResponses[keyof CreateSharePointCredentialResponses];
+
+export type TestSharePointCredentialData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        credentialId: string;
+    };
+    query?: never;
+    url: '/api/credentials/sharepoint/{credentialId}/test';
+};
+
+export type TestSharePointCredentialErrors = {
+    /**
+     * Invalid SharePoint credential
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * SharePoint credential unavailable
+     */
+    404: ApiProblem;
+    /**
+     * SharePoint credential changed
+     */
+    409: ApiProblem;
+    /**
+     * Microsoft did not answer
+     */
+    503: ApiProblem;
+};
+
+export type TestSharePointCredentialError = TestSharePointCredentialErrors[keyof TestSharePointCredentialErrors];
+
+export type TestSharePointCredentialResponses = {
+    /**
+     * SharePoint credential works
+     */
+    200: SharePointCredentialTestResponse;
+};
+
+export type TestSharePointCredentialResponse = TestSharePointCredentialResponses[keyof TestSharePointCredentialResponses];
+
+export type CreateChatVoiceTicketData = {
+    body?: VoiceTicketRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/tickets';
+};
+
+export type CreateChatVoiceTicketErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type CreateChatVoiceTicketError = CreateChatVoiceTicketErrors[keyof CreateChatVoiceTicketErrors];
+
+export type CreateChatVoiceTicketResponses = {
+    /**
+     * Single-use voice WebSocket ticket
+     */
+    200: VoiceTicketResponse;
+};
+
+export type CreateChatVoiceTicketResponse = CreateChatVoiceTicketResponses[keyof CreateChatVoiceTicketResponses];
+
+export type SynthesizeChatVoiceData = {
+    body: VoiceSynthesisRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/synthesize';
+};
+
+export type SynthesizeChatVoiceErrors = {
+    /**
+     * Invalid text or playback speed
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat read authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * No text-to-speech provider, provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type SynthesizeChatVoiceError = SynthesizeChatVoiceErrors[keyof SynthesizeChatVoiceErrors];
+
+export type SynthesizeChatVoiceResponses = {
+    /**
+     * MP3 audio, streamed as the provider produces it
+     */
+    200: Blob | File;
+};
+
+export type SynthesizeChatVoiceResponse = SynthesizeChatVoiceResponses[keyof SynthesizeChatVoiceResponses];
+
+export type TestChatVoiceConnectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    };
+    query?: never;
+    url: '/api/chat/voice/connections/{provider}/test';
+};
+
+export type TestChatVoiceConnectionErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type TestChatVoiceConnectionError = TestChatVoiceConnectionErrors[keyof TestChatVoiceConnectionErrors];
+
+export type TestChatVoiceConnectionResponses = {
+    /**
+     * Provider accepted the stored endpoint and credential
+     */
+    204: void;
+};
+
+export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
+
+export type GetChatVoiceSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/settings';
+};
+
+export type GetChatVoiceSettingsErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type GetChatVoiceSettingsError = GetChatVoiceSettingsErrors[keyof GetChatVoiceSettingsErrors];
+
+export type GetChatVoiceSettingsResponses = {
+    /**
+     * The current member's voice settings
+     */
+    200: VoiceSettingsResponse;
+};
+
+export type GetChatVoiceSettingsResponse = GetChatVoiceSettingsResponses[keyof GetChatVoiceSettingsResponses];
+
+export type UpdateChatVoiceSettingsData = {
+    body: VoiceSettingsRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/settings';
+};
+
+export type UpdateChatVoiceSettingsErrors = {
+    /**
+     * Invalid voice request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Voice authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Too many voice tickets
+     */
+    503: ApiProblem;
+};
+
+export type UpdateChatVoiceSettingsError = UpdateChatVoiceSettingsErrors[keyof UpdateChatVoiceSettingsErrors];
+
+export type UpdateChatVoiceSettingsResponses = {
+    /**
+     * Updated voice settings
+     */
+    200: VoiceSettingsResponse;
+};
+
+export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[keyof UpdateChatVoiceSettingsResponses];
+
+export type GetSharePointConfigurationData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/sharepoint';
+};
+
+export type GetSharePointConfigurationErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointConfigurationError = GetSharePointConfigurationErrors[keyof GetSharePointConfigurationErrors];
+
+export type GetSharePointConfigurationResponses = {
+    /**
+     * SharePoint configuration
+     */
+    200: SharePointConfigurationResponse;
+};
+
+export type GetSharePointConfigurationResponse = GetSharePointConfigurationResponses[keyof GetSharePointConfigurationResponses];
+
+export type GetSharePointRootsData = {
+    body?: never;
+    path: {
+        sourceId: string;
+    };
+    query?: {
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/sources/{sourceId}/sharepoint/roots';
+};
+
+export type GetSharePointRootsErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointRootsError = GetSharePointRootsErrors[keyof GetSharePointRootsErrors];
+
+export type GetSharePointRootsResponses = {
+    /**
+     * SharePoint roots
+     */
+    200: SharePointRootPageResponse;
+};
+
+export type GetSharePointRootsResponse = GetSharePointRootsResponses[keyof GetSharePointRootsResponses];
+
+export type GetSharePointSelectionRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/sources/sharepoint/selection-requests/{requestId}';
+};
+
+export type GetSharePointSelectionRequestErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointSelectionRequestError = GetSharePointSelectionRequestErrors[keyof GetSharePointSelectionRequestErrors];
+
+export type GetSharePointSelectionRequestResponses = {
+    /**
+     * SharePoint scope receipt
+     */
+    200: SharePointSelectionReceiptResponse;
+};
+
+export type GetSharePointSelectionRequestResponse = GetSharePointSelectionRequestResponses[keyof GetSharePointSelectionRequestResponses];
+
+export type GetSharePointSelectionPolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sources/sharepoint/selection-policy';
+};
+
+export type GetSharePointSelectionPolicyErrors = {
+    /**
+     * Invalid SharePoint scope
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Source unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Source or credential changed
+     */
+    409: ApiProblem;
+};
+
+export type GetSharePointSelectionPolicyError = GetSharePointSelectionPolicyErrors[keyof GetSharePointSelectionPolicyErrors];
+
+export type GetSharePointSelectionPolicyResponses = {
+    /**
+     * SharePoint selection policy
+     */
+    200: SharePointSelectionPolicyResponse;
+};
+
+export type GetSharePointSelectionPolicyResponse = GetSharePointSelectionPolicyResponses[keyof GetSharePointSelectionPolicyResponses];
+
+export type GetChatVoiceAvailabilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice';
+};
+
+export type GetChatVoiceAvailabilityErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type GetChatVoiceAvailabilityError = GetChatVoiceAvailabilityErrors[keyof GetChatVoiceAvailabilityErrors];
+
+export type GetChatVoiceAvailabilityResponses = {
+    /**
+     * Configured voice availability
+     */
+    200: VoiceAvailabilityResponse;
+};
+
+export type GetChatVoiceAvailabilityResponse = GetChatVoiceAvailabilityResponses[keyof GetChatVoiceAvailabilityResponses];
+
+export type ListChatVoiceProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/providers';
+};
+
+export type ListChatVoiceProvidersErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type ListChatVoiceProvidersError = ListChatVoiceProvidersErrors[keyof ListChatVoiceProvidersErrors];
+
+export type ListChatVoiceProvidersResponses = {
+    /**
+     * Implemented voice providers
+     */
+    200: Array<VoiceProviderResponse>;
+};
+
+export type ListChatVoiceProvidersResponse = ListChatVoiceProvidersResponses[keyof ListChatVoiceProvidersResponses];
+
+export type ListChatVoiceConnectionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/voice/connections';
+};
+
+export type ListChatVoiceConnectionsErrors = {
+    /**
+     * Invalid voice configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Voice connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Voice connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Voice provider unavailable or busy
+     */
+    503: ApiProblem;
+};
+
+export type ListChatVoiceConnectionsError = ListChatVoiceConnectionsErrors[keyof ListChatVoiceConnectionsErrors];
+
+export type ListChatVoiceConnectionsResponses = {
+    /**
+     * Voice connections
+     */
+    200: Array<VoiceConnectionResponse>;
+};
+
+export type ListChatVoiceConnectionsResponse = ListChatVoiceConnectionsResponses[keyof ListChatVoiceConnectionsResponses];

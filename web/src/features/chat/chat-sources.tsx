@@ -21,6 +21,7 @@ import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
+import { ChatFilePreviewModal, type PreviewTarget } from "./chat-file-preview-modal";
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
@@ -33,9 +34,10 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<{
     messageId?: string;
     citationId?: number;
-    file?: { id: string; filename: string };
     artifactId?: string;
   }>();
+  const [preview, setPreview] = useState<PreviewTarget>();
+  const previewTriggerRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement>(null);
   const fallbackFocusRef = useRef<HTMLDivElement>(null);
   // Read the selected message from the native runtime so an open panel follows
@@ -67,15 +69,14 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
         panelId,
         messageId: selection?.messageId,
         citationId: selection?.citationId,
-        fileId: selection?.file?.id,
         artifactId: selection?.artifactId,
         open: (messageId, trigger, citationId) => {
           returnFocusRef.current = trigger;
           setSelection({ messageId, citationId });
         },
-        openFile: (file, trigger) => {
-          returnFocusRef.current = trigger;
-          setSelection({ file });
+        previewFile: (target, trigger) => {
+          previewTriggerRef.current = trigger;
+          setPreview(target);
         },
         openArtifact: (messageId, artifactId, trigger) => {
           returnFocusRef.current = trigger;
@@ -90,19 +91,31 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
         className="flex min-h-0 min-w-0 flex-1 outline-none"
       >
         {children}
-        {selection &&
-          (selection.file || artifact || (!selection.artifactId && sources.length > 0)) && (
-            <ChatSourcePanel
-              id={panelId}
-              sources={sources}
-              file={selection.file}
-              artifact={artifact}
-              citationId={selection.citationId}
-              onSelect={(citationId) => setSelection({ ...selection, citationId })}
-              onClose={close}
-              restoreFocus={restoreFocus}
-            />
-          )}
+        {selection && (artifact || (!selection.artifactId && sources.length > 0)) && (
+          <ChatSourcePanel
+            id={panelId}
+            sources={sources}
+            artifact={artifact}
+            citationId={selection.citationId}
+            onSelect={(citationId) => setSelection({ ...selection, citationId })}
+            onClose={close}
+            restoreFocus={restoreFocus}
+          />
+        )}
+        {preview && (
+          <ChatFilePreviewModal
+            key={`${preview.source}:${preview.id}`}
+            target={preview}
+            onClose={() => setPreview(undefined)}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              const trigger = previewTriggerRef.current;
+              (trigger?.isConnected ? trigger : fallbackFocusRef.current)?.focus({
+                preventScroll: true,
+              });
+            }}
+          />
+        )}
       </div>
     </PanelContext.Provider>
   );
@@ -223,13 +236,45 @@ function Citation({ source }: { source: ChatSource }) {
   );
 }
 
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  return "file";
+}
+
 export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
   const { sources } = useContext(EvidenceContext);
+  const panel = useContext(PanelContext);
   const citation = /^#citation-(\d{1,2})$/.exec(href ?? "");
   if (citation) {
     const source = sources.find((item) => item.citationId === Number(citation[1]));
     return source ? <Citation source={source} /> : <span>{children}</span>;
   }
+  // Files that run_python generated are ours and are served from this origin; everything else
+  // relative is model-written text, not a link.
+  const generated = /^\/api\/chat\/file-artifacts\/([0-9a-fA-F-]{36})\/content$/.exec(href ?? "");
+  if (generated)
+    return (
+      // Onyx MemoizedTextComponents: a link to a chat file opens the preview instead of downloading.
+      <button
+        type="button"
+        data-slot="generated-file"
+        aria-haspopup="dialog"
+        onClick={(event) =>
+          panel.previewFile(
+            {
+              source: "generated",
+              id: generated[1]!,
+              filename: typeof children === "string" ? children : textOf(children),
+            },
+            event.currentTarget,
+          )
+        }
+        className="inline cursor-pointer text-primary underline underline-offset-2"
+      >
+        {children}
+      </button>
+    );
   if (!href || !/^https?:\/\//i.test(href)) return <span>{children}</span>;
   const domain = new URL(href).hostname.replace(/^www\./, "");
   // Only hostnames of this answer's Web sources may reach the favicon service; other links,

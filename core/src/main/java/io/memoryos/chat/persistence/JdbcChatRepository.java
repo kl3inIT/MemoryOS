@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -38,13 +39,20 @@ public class JdbcChatRepository {
     }
 
     public UUID provisionPersona(TenantId tenant, String name, String instructions, String model) {
-        jdbc.sql("""
+        UUID id = UUID.randomUUID();
+        int inserted = jdbc.sql("""
                         INSERT INTO persona(id, tenant_id, builtin_key, name, instructions, model)
                         VALUES (:id, :tenant, 'default', :name, :instructions, :model)
                         ON CONFLICT (tenant_id, builtin_key) DO NOTHING
-                        """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
+                        """).param("id", id).param("tenant", tenant.value())
                 .param("name", name).param("instructions", instructions).param("model", model)
                 .update();
+        // A new default agent starts with every agent tool, matching the migrated default.
+        if (inserted > 0) jdbc.sql("""
+                        INSERT INTO persona_tool(tenant_id, persona_id, tool_key)
+                        SELECT :tenant, :id, tool FROM unnest(CAST(:tools AS text[])) AS tool
+                        """).param("tenant", tenant.value()).param("id", id)
+                .param("tools", io.memoryos.chat.ChatPersonaService.TOOLS.stream().sorted().toArray(String[]::new)).update();
         return jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
                 .param("tenant", tenant.value()).query(UUID.class).single();
     }
@@ -124,25 +132,27 @@ public class JdbcChatRepository {
                         row.getObject("assistant_message_id", UUID.class), row.getObject("requested_model_id", UUID.class),
                         row.getObject("selected_model_id", UUID.class), row.getString("fallback_reason"),
                         ChatCommand.Operation.valueOf(row.getString("operation")),
-                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), io.memoryos.chat.WebSearchMode.valueOf(row.getString("web_search")))).optional();
+                        List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), io.memoryos.chat.WebSearchMode.valueOf(row.getString("web_search")),
+                        row.getBoolean("deep_research"))).optional();
     }
 
     public record ReservedRequest(UUID userMessageId, UUID parentMessageId, String content, UUID assistantMessageId,
                                   @Nullable UUID requestedModelId, @Nullable UUID selectedModelId, @Nullable String fallbackReason,
-                                  ChatCommand.Operation operation, List<UUID> fileIds, io.memoryos.chat.WebSearchMode webSearch) {
+                                  ChatCommand.Operation operation, List<UUID> fileIds, io.memoryos.chat.WebSearchMode webSearch,
+                                  boolean deepResearch) {
     }
 
     public void saveCommand(UUID session, ChatCommand command, UUID user, UUID assistant,
                             @Nullable UUID selectedModel, @Nullable String fallback) {
         jdbc.sql("""
                 INSERT INTO chat_command(session_id, request_id, operation, target_message_id, request_text,
-                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason, file_ids, web_search)
-                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback, CAST(:files AS jsonb), :web)
+                    requested_model_id, user_message_id, assistant_message_id, selected_model_id, fallback_reason, file_ids, web_search, deep_research)
+                VALUES (:session, :request, :operation, :target, :text, :requested, :user, :assistant, :selected, :fallback, CAST(:files AS jsonb), :web, :research)
                 """).param("session", session).param("request", command.requestId()).param("operation", command.operation().name())
                 .param("target", command.targetMessageId()).param("text", command.text())
                 .param("requested", command.modelConfigurationId(), Types.OTHER).param("user", user).param("assistant", assistant)
                 .param("selected", selectedModel, Types.OTHER).param("fallback", fallback, Types.VARCHAR)
-                .param("files", JSON.writeValueAsString(command.fileIds())).param("web", command.webSearch().name()).update();
+                .param("files", JSON.writeValueAsString(command.fileIds())).param("web", command.webSearch().name()).param("research", command.deepResearch()).update();
     }
 
     public void saveModelSelection(UUID session, UUID user, UUID assistant, @Nullable UUID requested, UUID selected, @Nullable String fallback) {
@@ -177,12 +187,13 @@ public class JdbcChatRepository {
         selectChild(session, parent, user);
     }
 
-    public void insertAssistant(UUID session, UUID user, UUID assistant, Duration timeout) {
+    /** {@code deadline_at} holds the run lease expiry, renewed while the owning process is alive. */
+    public void insertAssistant(UUID session, UUID user, UUID assistant, Duration lease) {
         jdbc.sql("""
                         INSERT INTO chat_message(id, session_id, parent_message_id, role, status, deadline_at)
-                        VALUES (:id, :session, :parent, 'ASSISTANT', 'RUNNING', clock_timestamp() + :timeout * interval '1 millisecond')
+                        VALUES (:id, :session, :parent, 'ASSISTANT', 'RUNNING', clock_timestamp() + :lease * interval '1 millisecond')
                         """).param("id", assistant).param("session", session).param("parent", user)
-                .param("timeout", timeout.toMillis()).update();
+                .param("lease", lease.toMillis()).update();
         selectChild(session, user, assistant);
         touch(session);
     }
@@ -197,8 +208,15 @@ public class JdbcChatRepository {
                 .param("session", session).update();
     }
 
+    /**
+     * One session's agent settings under the session owner's use authority.
+     *
+     * @param tools          agent tool keys ({@code search}, {@code web_search}, {@code image_generation})
+     * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
+     */
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
-                          @Nullable UUID modelConfigurationId, List<UUID> fileIds) {
+                          @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
+                          @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
     }
 
     /** Serialize an owner's editor/turn mutations before taking session or settings row locks. */
@@ -207,31 +225,56 @@ public class JdbcChatRepository {
                 .param("key", "chat-owner:" + tenant.value() + ":" + actor.value()).query(rs -> { rs.next(); return true; });
     }
 
-    public boolean usablePersona(TenantId tenant, ActorId actor, UUID id) {
-        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND id=:id AND deleted_at IS NULL "
-                        + "AND (builtin_key IS NOT NULL OR owner_actor_id=:actor))")
-                .param("tenant", tenant.value()).param("id", id).param("actor", actor.value()).query(Boolean.class).single();
+    public boolean usablePersona(TenantId tenant, ActorId actor, UUID id, boolean agentsManage) {
+        return jdbc.sql("SELECT EXISTS(SELECT 1 FROM persona p WHERE p.tenant_id=:tenant AND p.id=:id AND p.deleted_at IS NULL AND "
+                        + AgentAccessSql.USES + ")")
+                .param("tenant", tenant.value()).param("id", id).param("actor", actor.value()).param("agentsManage", agentsManage)
+                .query(Boolean.class).single();
     }
 
-    public Persona persona(UUID session, boolean lock) {
+    public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
-                        SELECT p.id, p.model, p.model_configuration_id, p.search_enabled, p.context_token_limit, p.output_token_limit,
+                        SELECT p.id, p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
+                            p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
-                            CASE WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
+                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt AND p.datetime_aware
+                                      AND position('{{CURRENT_DATETIME}}' IN p.instructions) = 0
+                                     THEN concat_ws(chr(10), p.instructions, 'The current date is {{CURRENT_DATETIME}}.')
+                                 WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt THEN p.instructions
+                                 WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
                                  WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
                                  ELSE p.instructions END AS instructions
-                        FROM persona p JOIN chat_session s ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
+                        FROM chat_session s JOIN persona p ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
                         LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
-                        WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL
-                            AND (p.builtin_key IS NOT NULL OR p.owner_actor_id=s.owner_actor_id)
-                        """ + (lock ? " FOR SHARE OF p" : ""))
+                        WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
+                        """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id") + (lock ? " FOR SHARE OF p" : ""))
                 .param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
-                .query((row, ignored) -> new Persona(row.getString("instructions"), row.getString("model"),
-                        new ChatTurnOptions(row.getBoolean("search_enabled"), personaSources(row.getObject("id", UUID.class)),
-                                row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class)),
-                        row.getString("revision"), row.getObject("model_configuration_id", UUID.class), List.of(JSON.readValue(row.getString("file_ids"), UUID[].class))))
+                .param("agentsManage", agentsManage)
+                .query((row, ignored) -> {
+                    UUID id = row.getObject("id", UUID.class);
+                    boolean builtin = row.getString("builtin_key") != null;
+                    var cutoff = row.getTimestamp("knowledge_cutoff");
+                    var tools = personaTools(id);
+                    return new Persona(row.getString("instructions"), row.getString("model"),
+                            new ChatTurnOptions(tools.contains("search"), personaSources(id),
+                                    row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
+                                    cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
+                                    tools.contains("code_interpreter")),
+                            row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
+                            List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
+                            builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"));
+                })
                 .optional().orElseThrow(ChatException::unavailable);
+    }
+
+    private Set<String> personaTools(UUID persona) {
+        return Set.copyOf(jdbc.sql("SELECT tool_key FROM persona_tool WHERE persona_id=:persona").param("persona", persona).query(String.class).list());
+    }
+
+    private List<UUID> personaMcpServers(UUID persona) {
+        return jdbc.sql("SELECT server_id FROM persona_mcp_server WHERE persona_id=:persona ORDER BY server_id")
+                .param("persona", persona).query(UUID.class).list();
     }
 
     private List<UUID> personaSources(UUID persona) {
@@ -315,14 +358,26 @@ public class JdbcChatRepository {
                 .query(JdbcChatRepository::message).list();
     }
 
-    public record Control(Status status, Instant deadline, @Nullable String failureCode) {
+    public record Control(Status status, @Nullable String failureCode) {
     }
 
     public Control control(UUID assistant) {
         return jdbc.sql("""
-                SELECT status, deadline_at, failure_code FROM chat_message WHERE id = :id AND role = 'ASSISTANT'
+                SELECT status, failure_code FROM chat_message WHERE id = :id AND role = 'ASSISTANT'
                 """).param("id", assistant).query((row, ignored) -> new Control(Status.valueOf(row.getString("status")),
-                row.getTimestamp("deadline_at").toInstant(), row.getString("failure_code"))).single();
+                row.getString("failure_code"))).single();
+    }
+
+    /**
+     * At most one reply per session is RUNNING, so these row locks never overlap a session-first terminal lock cycle.
+     * Returns the renewed IDs; a row that already ended is not renewed.
+     */
+    public java.util.Set<UUID> renewLeases(java.util.Collection<UUID> assistants, Duration lease) {
+        if (assistants.isEmpty()) return java.util.Set.of();
+        return java.util.Set.copyOf(jdbc.sql("""
+                UPDATE chat_message SET deadline_at = clock_timestamp() + :lease * interval '1 millisecond'
+                WHERE id IN (:ids) AND role = 'ASSISTANT' AND status = 'RUNNING' RETURNING id
+                """).param("ids", assistants).param("lease", lease.toMillis()).query(UUID.class).list());
     }
 
     public boolean finish(UUID session, UUID assistant, Status status, String content,
@@ -346,25 +401,48 @@ public class JdbcChatRepository {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
                           io.memoryos.chat.ChatActivity activity) {
+        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, artifacts, activity,
+                io.memoryos.chat.ChatResearch.EMPTY);
+    }
+
+    public boolean finish(UUID session, UUID assistant, Status status, String content,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return false;
+        // A lapsed but unreconciled lease is not a failure: a live process finishing proves it was alive.
+        // Once reconciliation has failed the row, the RUNNING predicate rejects this late write.
         int changed = jdbc.sql("""
-                        UPDATE chat_message SET
-                            status = CASE WHEN deadline_at <= clock_timestamp() THEN 'FAILED' ELSE :status END,
-                            failure_code = CASE WHEN deadline_at <= clock_timestamp() THEN 'CHAT_DEADLINE' ELSE :failure END,
+                        UPDATE chat_message SET status = :status, failure_code = :failure,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb),
-                            activity = CAST(:activity AS jsonb), finished_at = clock_timestamp()
+                            activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
+                            research_agents = CAST(:agents AS jsonb),
+                            finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         """).param("session", session).param("id", assistant).param("status", status.name())
                 .param("content", content).param("failure", failure, Types.VARCHAR)
                 .param("model", model, Types.VARCHAR).param("input", input, Types.BIGINT)
                 .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
                 .param("sources", JSON.writeValueAsString(sources)).param("artifacts", JSON.writeValueAsString(artifacts))
-                .param("activity", JSON.writeValueAsString(activity)).update();
+                .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
+                .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents())).update();
         if (changed == 1) touch(session);
         return changed == 1;
+    }
+
+    /** One bounded batch of every RUNNING row, regardless of lease; only valid when no process can own one. */
+    public int failOrphanedRuns() {
+        return jdbc.sql("""
+                WITH orphaned AS (
+                    SELECT id FROM chat_message WHERE status = 'RUNNING' ORDER BY deadline_at LIMIT 100 FOR UPDATE SKIP LOCKED
+                ) UPDATE chat_message m SET status = 'FAILED',
+                    failure_code = 'CHAT_INTERRUPTED',
+                    finished_at = clock_timestamp()
+                FROM orphaned o WHERE m.id = o.id AND m.status = 'RUNNING'
+                """).update();
     }
 
     public int expireRuns() {
@@ -394,6 +472,8 @@ public class JdbcChatRepository {
                 List.of(JSON.readValue(row.getString("sources"), ChatSource[].class)),
                 List.of(JSON.readValue(row.getString("files"), ChatFileDescriptor[].class)),
                 List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)),
-                JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class));
+                JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class),
+                new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
+                        List.of(JSON.readValue(row.getString("research_agents"), io.memoryos.chat.ChatResearch.Agent[].class))));
     }
 }

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
+import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "./application-session-context";
@@ -134,6 +135,7 @@ export function GeneralSettingsPage() {
         ) : null}
       </div>
       <VoiceSettingsSection />
+      <PersonalPromptShortcuts />
     </SettingsLayout>
   );
 }

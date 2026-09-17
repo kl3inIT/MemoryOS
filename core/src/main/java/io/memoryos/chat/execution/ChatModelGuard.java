@@ -33,6 +33,7 @@ public final class ChatModelGuard implements ChatModel {
     private final Runnable checkActive;
     private final UnaryOperator<Prompt> finalRequest;
     private final ChatRequestPolicy policy;
+    private final ChatAdmissionLedger ledger;
     private final AtomicInteger calls = new AtomicInteger();
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
@@ -43,13 +44,23 @@ public final class ChatModelGuard implements ChatModel {
     private BooleanSupplier hasEvidence = () -> false;
     private int synchronousLimit;
     private int outputLimit;
-    private long admittedTokens;
-    private double admittedCost;
     private boolean webSiteFilter = true;
+    private boolean researchPrompts;
+    private UnaryOperator<Prompt> toolChoice = UnaryOperator.identity();
     public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
+    private String taskPrompt = "";
+    /** Agent task prompt repeated as the final reminder of every inference (Onyx {@code task_prompt}). */
+    public void taskPrompt(String value) { taskPrompt = value == null ? "" : value; }
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
+        this(delegate, process, model, budget, cycles, checkActive, policy, inputLimit, finalRequest, new ChatAdmissionLedger());
+    }
+
+    public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
+            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest,
+            ChatAdmissionLedger ledger) {
+        this.ledger = ledger;
         this.delegate = delegate;
         this.process = process;
         this.model = model;
@@ -72,6 +83,11 @@ public final class ChatModelGuard implements ChatModel {
         return calls.get() > 0 && accounted.get() == calls.get() && synchronousAccounted.get() == synchronousCalls.get();
     }
 
+    /** Whether this guard admitted any model call; an unused guard contributes no usage. */
+    public boolean used() {
+        return calls.get() > 0 || synchronousCalls.get() > 0;
+    }
+
 
     public int availableContextTokens() { return Math.max(0, inputLimit - lastStreamInput - 1024); }
 
@@ -85,6 +101,15 @@ public final class ChatModelGuard implements ChatModel {
     }
 
     public void outputLimit(int value) { this.outputLimit = value; }
+
+    /**
+     * Deep research composes every prompt itself, as Onyx does: no Chat tool guidance, citation or last-cycle reminder,
+     * no final-cycle request rewrite. { cycles} stays a hard bound ({ CHAT_CYCLE_LIMIT}).
+     */
+    public void researchPrompts() { this.researchPrompts = true; }
+
+    /** Request transform for the next inferences, for example the binding's required tool choice on research cycles. */
+    public synchronized void toolChoice(UnaryOperator<Prompt> value) { this.toolChoice = value; }
 
     @Override
     public ChatResponse call(Prompt prompt) {
@@ -107,7 +132,7 @@ public final class ChatModelGuard implements ChatModel {
         return Flux.defer(() -> {
             checkActive();
             var admission = admitStream(original);
-            int cycle = admission.cycle();
+            boolean lastCycle = admission.lastCycle();
             var request = admission.request();
             var reservation = admission.reservation();
             var finished = new AtomicBoolean();
@@ -140,7 +165,7 @@ public final class ChatModelGuard implements ChatModel {
                                 finished.set(true);
                             if ("length".equalsIgnoreCase(reason) && !response.getResult().getOutput().getToolCalls().isEmpty())
                                 throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
-                            if (cycle == cycles && !response.getResult().getOutput().getToolCalls().isEmpty())
+                            if (lastCycle && !response.getResult().getOutput().getToolCalls().isEmpty())
                                 throw new IllegalStateException("CHAT_LAST_CYCLE_TOOL_CALL");
                         }
                     })
@@ -151,45 +176,30 @@ public final class ChatModelGuard implements ChatModel {
     }
 
 
-    /** Reserve before IO so concurrent helpers cannot all spend the same remaining budget.
-     * These are admission bounds only. Embabel remains the sole invocation/usage/cost ledger. */
-    private synchronized Reservation reserve(int input) {
-        long tokens = (long) input + outputLimit;
-        var pricing = model.getPricingModel();
-        double cost = pricing == null ? 0 : pricing.costOf(input, outputLimit);
-        if (admittedTokens + tokens > budget.getTokens() || admittedCost + cost > budget.getCost())
-            throw new IllegalStateException("CHAT_BUDGET_EXCEEDED");
-        admittedTokens += tokens;
-        admittedCost += cost;
-        return new Reservation(tokens, cost);
+    private ChatAdmissionLedger.Reservation reserve(int input) {
+        return ledger.reserve(budget, model.getPricingModel(), input, outputLimit);
     }
 
-    private synchronized void settle(Reservation reservation, ChatResponse response) {
-        var usage = response.getMetadata().getUsage();
-        // Unknown/failed requests retain their allowance: never turn unreported usage into free budget.
-        if (usage.getTotalTokens() <= 0) return;
-        admittedTokens += usage.getTotalTokens() - reservation.tokens();
-        var pricing = model.getPricingModel();
-        if (pricing != null) admittedCost += pricing.costOf(usage.getPromptTokens(), usage.getCompletionTokens()) - reservation.cost();
+    private void settle(ChatAdmissionLedger.Reservation reservation, ChatResponse response) {
+        ledger.settle(reservation, model.getPricingModel(), response.getMetadata().getUsage());
     }
 
-    private record Reservation(long tokens, double cost) {}
-
-    private record StreamAdmission(int cycle, Prompt request, Reservation reservation) {}
+    private record StreamAdmission(boolean lastCycle, Prompt request, ChatAdmissionLedger.Reservation reservation) {}
 
     private synchronized StreamAdmission admitStream(Prompt original) {
         int cycle = calls.get() + 1;
         if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
-        var guided = ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), cycle == cycles, webSiteFilter);
-        var request = policy.options().apply(cycle == cycles ? finalRequest.apply(guided) : guided);
+        boolean lastCycle = cycle == cycles && !researchPrompts;
+        var guided = researchPrompts ? original : ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, taskPrompt);
+        var request = policy.options().apply(toolChoice.apply(lastCycle ? finalRequest.apply(guided) : guided));
         int input = policy.inputTokens(request, inputLimit);
         var reservation = reserve(input);
         lastStreamInput = input;
         calls.incrementAndGet();
-        return new StreamAdmission(cycle, request, reservation);
+        return new StreamAdmission(lastCycle, request, reservation);
     }
 
-    private synchronized Reservation admitHelper(int input) {
+    private synchronized ChatAdmissionLedger.Reservation admitHelper(int input) {
         if (synchronousCalls.get() >= synchronousLimit) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
         var reservation = reserve(input);
         synchronousCalls.incrementAndGet();

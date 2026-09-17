@@ -11,8 +11,6 @@ import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -39,19 +37,18 @@ public final class EditImageTool {
     private final Set<UUID> attachments;
     private final Map<UUID, String> filenames;
     private final Runnable active;
-    private final Instant deadline;
     private final Consumer<ChatImageEvent> events;
     private final int maxCalls;
     private int calls;
 
     public EditImageTool(ImageProviderClient client, ImageConnectionService.Connection connection, ImageArtifactService artifacts,
                          ChatFileContentService files, ActorId actor, TenantId tenant, UUID sessionId, UUID messageId,
-                         Set<UUID> attachments, Map<UUID, String> filenames, Runnable active, Instant deadline,
+                         Set<UUID> attachments, Map<UUID, String> filenames, Runnable active,
                          Consumer<ChatImageEvent> events, int maxCalls) {
         this.client = client; this.connection = connection; this.artifacts = artifacts; this.files = files;
         this.actor = actor; this.tenant = tenant; this.sessionId = sessionId; this.messageId = messageId;
         this.attachments = Set.copyOf(attachments); this.filenames = Map.copyOf(filenames);
-        this.active = active; this.deadline = deadline; this.events = events; this.maxCalls = maxCalls;
+        this.active = active; this.events = events; this.maxCalls = maxCalls;
     }
 
     private record Source(byte[] bytes, boolean generated) {}
@@ -64,8 +61,6 @@ public final class EditImageTool {
         active.run();
         if (prompt == null || prompt.isBlank() || prompt.length() > 4000)
             return "Provide a nonempty English instruction of at most 4000 characters.";
-        var remaining = Duration.between(Instant.now(), deadline);
-        if (remaining.isNegative() || remaining.isZero()) throw new IllegalStateException("CHAT_DEADLINE");
         boolean masked = maskId != null && !maskId.isBlank();
         UUID mask = masked ? parse(maskId) : null;
         if (masked && (mask == null || !attachments.contains(mask)))
@@ -103,7 +98,7 @@ public final class EditImageTool {
             return "Edited image shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The instruction was refined to: " + result.revisedPrompt());
         } catch (Exception failed) {
-            active.run(); // Cancellation and deadline must propagate, not become an ordinary tool result.
+            active.run(); // Cancellation must propagate, not become an ordinary tool result.
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));
             return "Image editing failed or is unavailable. Do not invent an image; explain the limitation to the user.";
         }
