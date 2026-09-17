@@ -123,6 +123,30 @@ class SearchToolTest {
     }
 
     @Test
+    void aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx() {
+        candidates();
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class))).thenReturn(new SearchTool.Selection(List.of(1)));
+        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
+        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+        when(originals.citationOriginals(eq(scope.actor()), any())).thenReturn(Map.of(document,
+                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/policy"),
+                        "policy.xlsx", new io.memoryos.objectstorage.ObjectMetadata(42, "application/vnd.ms-excel",
+                        new io.memoryos.objectstorage.ContentSha256("a".repeat(64))))));
+        var sandbox = new SandboxDocuments(originals, scope.actor());
+        try (var tool = tool(8000).withSandbox(sandbox)) {
+            var response = tool.searchKnowledge(List.of("policy"), null);
+            String name = "Policy_" + stored.value() + ".xlsx";
+            assertTrue(response.contains("[1] Policy\nOnly a short excerpt from this document is shown below. The complete file "
+                    + "is available in the sandbox as \"" + name + "\" — prefer the Python code interpreter to read, parse, or "
+                    + "analyze it\n\nExcerpt: Section 2\nSection 3"), response);
+            var staged = sandbox.documents();
+            assertEquals(1, staged.size());
+            assertEquals(new SandboxDocuments.Document(document, generation, name, 42, "a".repeat(64), "application/vnd.ms-excel"),
+                    staged.getFirst());
+        }
+    }
+
+    @Test
     void emptySelectionFallsBackToRankedEvidenceInsteadOfReportingNoDocuments() {
         // A query that only names a document matches its title, so the selector may see no relevant passage.
         candidates();

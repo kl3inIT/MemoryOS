@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +32,9 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   readChatDocumentPassages: backend.searchDocument,
   readChatFileText: backend.read,
   downloadChatFile: backend.download,
+  getChatFileArtifact: vi.fn(),
+  previewChatFileSpreadsheet: vi.fn(),
+  previewChatFileArtifactSpreadsheet: vi.fn(),
   listChatFiles: backend.list,
   deleteChatFile: backend.remove,
   retryChatFile: vi.fn(),
@@ -84,7 +87,7 @@ afterEach(() => {
 
 describe("Private file reader", () => {
   for (const mobile of [false, true]) {
-    it(`opens message files in the shared ${mobile ? "mobile dialog" : "desktop panel"} without losing the composer draft`, async () => {
+    it(`opens message files in the centered preview modal on ${mobile ? "mobile" : "desktop"} without losing the composer draft`, async () => {
       vi.stubGlobal(
         "matchMedia",
         vi.fn(() => ({
@@ -93,8 +96,9 @@ describe("Private file reader", () => {
           removeEventListener: vi.fn(),
         })),
       );
-      backend.read.mockResolvedValue({
-        data: { text: "Private document content", offset: 0, nextOffset: 24, totalCharacters: 24 },
+      // The attachment route serves octet-stream; the modal previews it by its stored type, as Onyx.
+      backend.download.mockResolvedValue({
+        data: new Blob(["Private document content"], { type: "application/octet-stream" }),
       });
       function Workspace() {
         const runtime = useLocalRuntime({ run: async () => ({ content: [] }) });
@@ -118,17 +122,23 @@ describe("Private file reader", () => {
       const draft = screen.getByRole("textbox", { name: "Draft" });
       await user.type(draft, "Keep my draft");
       const trigger = screen.getByRole("button", { name: file.filename });
+      expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
       await user.click(trigger);
-      expect(await screen.findByText("Private document content")).toBeVisible();
-      expect(screen.getByRole(mobile ? "dialog" : "complementary")).toBeVisible();
-      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      const dialog = await screen.findByRole("dialog", { name: file.filename });
+      expect(await within(dialog).findByText("Private document content")).toBeVisible();
+      expect(within(dialog).getByText("24 B · 1 lines")).toBeVisible();
+      expect(within(dialog).getByRole("link", { name: "Download" })).toHaveAttribute(
+        "href",
+        `/api/chat/files/${id}/content`,
+      );
       await act(async () => {
         await i18n.changeLanguage("vi");
       });
-      expect(screen.getByRole("button", { name: "Đóng tệp" })).toBeVisible();
-      expect(backend.read).toHaveBeenCalledTimes(1);
+      expect(within(dialog).getByRole("button", { name: "Đóng xem trước" })).toBeVisible();
+      expect(backend.download).toHaveBeenCalledTimes(1);
+      expect(backend.read).not.toHaveBeenCalled();
       await user.keyboard("{Escape}");
-      expect(screen.queryByRole(mobile ? "dialog" : "complementary")).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(trigger).toHaveFocus();
       expect(screen.getByRole("textbox", { name: "Draft" })).toBe(draft);
       expect(draft).toHaveValue("Keep my draft");
@@ -138,6 +148,7 @@ describe("Private file reader", () => {
       });
     });
   }
+
   it("uses the private indexed reader and highlights the cited passage", async () => {
     await i18n.changeLanguage("vi");
     backend.passages.mockResolvedValue({

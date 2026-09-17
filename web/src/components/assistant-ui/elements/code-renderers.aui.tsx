@@ -28,6 +28,19 @@ export function SyntaxHighlighter({ code, language }: SyntaxHighlighterProps) {
   );
 }
 
+/** Highlighted code outside a markdown part, such as a tool step; plain until the highlighter loads. */
+export function HighlightedCode({ code, language }: { code: string; language: string }) {
+  const fallback = <PlainCode code={code} />;
+  if (code.length > 100_000) return fallback;
+  return (
+    <ErrorBoundary fallback={fallback} resetKeys={[code, language]}>
+      <Suspense fallback={fallback}>
+        <Shiki code={code} language={language} />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 export function MermaidDiagram({ code }: SyntaxHighlighterProps) {
   const streaming = useAuiState((s) => s.optional.part?.status.type === "running");
   const fallback = <PlainCode code={code} />;

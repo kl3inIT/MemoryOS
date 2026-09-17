@@ -39,7 +39,7 @@ A non-builtin agent is **vacant** when it has no owner Group and its owner Actor
 
 All use/edit checks come from one SQL predicate in `JdbcAgentAccessRepository`, reused by list queries, `usablePersona`, turn resolution and catalog persona reads. Share Groups must be ordinary Groups (V48 trigger pattern).
 
-## Data model (V72)
+## Data model (V74)
 
 `persona` columns: `is_public` (default false), `public_permission` (`VIEWER`/`EDITOR`), `is_listed` (default true), `is_featured`, `display_priority`, `icon_name`, `avatar_file_id` (chat user file, image), `task_prompt` (≤32000), `replace_base_system_prompt`, `datetime_aware` (default true), `knowledge_cutoff` (timestamptz), `owner_group_id`; `search_enabled` is replaced by tools. V36 `ck_persona_owner` becomes: builtin has no owner; custom has at most one of Actor/Group owner.
 

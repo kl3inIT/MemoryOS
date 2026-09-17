@@ -28,8 +28,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Per-turn Code Interpreter tool, ported from Onyx 40eb240df {@code python_tool.py}: file staging order, caps, notice,
- * name sanitizing, upload cache, result JSON and file reminder. Interpreter ids, URLs and service errors never reach
- * the model; generated files are linked through the owner-authorized MemoryOS artifact route.
+ * name sanitizing, upload cache, result JSON, file reminder and the exception text returned on failure. Generated files
+ * are linked through the owner-authorized MemoryOS artifact route instead of interpreter file ids.
  */
 public final class RunPythonTool {
     static final int MAX_STAGED_FILES = 25;
@@ -37,6 +37,11 @@ public final class RunPythonTool {
     static final int MAX_OUTPUT_CHARACTERS = 50_000;
     /** Onyx runs each call with a fixed timeout; a MemoryOS turn has no total deadline of its own. */
     static final int DEFAULT_TIMEOUT_MS = 60_000;
+    static final int FILENAME_LIMIT = 200;
+    /** Written by the executor's memoryos_charts capture: chart-{n}.png and, when recognised, chart-{n}.json. */
+    static final String CHART_DIR = ".memoryos-charts/";
+    static final int MAX_CHART_JSON_BYTES = 256 * 1024;
+    private static final Pattern CHART_FILE = Pattern.compile("chart-(\\d{1,2})\\.(png|json)");
     static final String MISSING_CODE = "The python tool requires a 'code' parameter containing the Python code to execute. "
             + "Please provide like: {\"code\": \"print('Hello, world!')\"}";
     static final String FILE_REMINDER = """
@@ -84,7 +89,18 @@ public final class RunPythonTool {
         if (call != null) events.accept(event.apply(call.id()));
     }
 
-    private record Candidate(UserFile file, String name, int order) {}
+    /** A file offered to the sandbox: a chat attachment or the source file behind a search hit. */
+    private record Candidate(String name, String original, long sizeBytes, int order, Opener opener) {}
+    private record Opened(String checksum, String mediaType, java.io.InputStream input, Runnable closer) {}
+    @FunctionalInterface private interface Opener { Opened open() throws IOException; }
+
+    private @Nullable SandboxDocuments sandbox;
+
+    /** Also stages the source files that search_knowledge found this turn, after the chat files, as Onyx llm_loop.py. */
+    public RunPythonTool withSandbox(@Nullable SandboxDocuments sandbox) {
+        this.sandbox = sandbox;
+        return this;
+    }
     private record Selection(List<Candidate> files, int dropped, int total) {}
 
     @LlmTool(name = "run_python", description = "Execute Python code in an isolated sandbox environment.")
@@ -116,14 +132,25 @@ public final class RunPythonTool {
                 if (room <= 0 || data.isEmpty()) return;
                 String delta = data.length() <= room ? data : data.substring(0, room);
                 streamed[0] += delta.length();
-                publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, delta));
+                publish(id -> io.memoryos.chat.ChatCodeEvent.output(id,
+                        io.memoryos.chat.ChatCodeEvent.STDERR.equals(stream) ? io.memoryos.chat.ChatCodeEvent.STDERR
+                                : io.memoryos.chat.ChatCodeEvent.STDOUT, delta));
             });
             active.run();
             var generated = new ArrayList<Map<String, String>>();
             var produced = new ArrayList<io.memoryos.chat.ChatCodeEvent.GeneratedFile>();
             var tooLarge = new ArrayList<String>();
+            var charts = new ArrayList<Map<String, String>>();
+            var chartFiles = new java.util.TreeMap<Integer, Map<String, String>>();
             for (var file : execution.files()) {
                 if (!"file".equals(file.kind()) || file.fileId() == null) continue;
+                if (file.path().startsWith(CHART_DIR)) {
+                    var match = CHART_FILE.matcher(file.path().substring(CHART_DIR.length()));
+                    if (match.matches()) chartFiles.computeIfAbsent(Integer.valueOf(match.group(1)), n -> new HashMap<>())
+                            .put(match.group(2), file.fileId());
+                    else delete(file.fileId());
+                    continue;
+                }
                 active.run();
                 String name = safeName(file.path().substring(file.path().lastIndexOf('/') + 1));
                 try {
@@ -143,13 +170,42 @@ public final class RunPythonTool {
                     delete(file.fileId());
                 }
             }
+            for (var chart : chartFiles.entrySet()) {
+                active.run();
+                String png = chart.getValue().get("png");
+                String json = chart.getValue().get("json");
+                try {
+                    if (png == null) continue;
+                    String data = json == null ? null : chartJson(client.download(json));
+                    active.run();
+                    byte[] bytes = client.download(png);
+                    active.run();
+                    var parsed = data == null ? null : JSON.readTree(data);
+                    String title = parsed == null || !parsed.path("title").isString() ? "" : parsed.path("title").asString();
+                    String name = safeName((title.isBlank() ? "chart-" + chart.getKey() : title) + ".png");
+                    UUID id = artifacts.store(tenant, messageId, name, "image/png", bytes, data);
+                    var entry = new LinkedHashMap<String, String>();
+                    entry.put("title", title.isBlank() ? null : title);
+                    entry.put("type", parsed == null ? "image" : parsed.path("type").asString("unknown"));
+                    entry.put("file_link", "/api/chat/file-artifacts/" + id + "/content");
+                    charts.add(entry);
+                    if (produced.size() < MAX_STAGED_FILES)
+                        produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, "image/png", bytes.length, data != null));
+                } catch (IOException | RuntimeException failure) {
+                    active.run();
+                    LOG.warn("Code Interpreter could not store a captured chart ({})", failure.getClass().getSimpleName());
+                } finally {
+                    if (png != null) delete(png);
+                    if (json != null) delete(json);
+                }
+            }
             if (!tooLarge.isEmpty())
                 notice = join(notice, tooLarge.size() + " generated file(s) larger than " + InterpreterClient.MAX_DOWNLOAD_BYTES
                         + " bytes were not returned: " + String.join(", ", tooLarge) + ".");
             String stderr = truncate(execution.stderr());
             Integer exit = execution.exitCode();
             String result = json(truncate(execution.stdout()), stderr, exit, execution.timedOut(), generated,
-                    exit != null && exit == 0 ? null : stderr, notice);
+                    exit != null && exit == 0 ? null : stderr, notice, charts);
             // A timeout or a non-zero exit is a failed run in the timeline, even though the tool still
             // answers the model; the files it managed to produce stay on the event.
             boolean unsuccessful = execution.timedOut() || exit == null || exit != 0;
@@ -159,11 +215,15 @@ public final class RunPythonTool {
         } catch (IOException | RuntimeException failure) {
             active.run(); // Cancellation must propagate, not become an ordinary tool result.
             activity.fail();
+            // Onyx python_tool.py: the exception text reaches both the model and the timeline's stderr, unchanged.
+            String error = failure.getMessage() == null || failure.getMessage().isBlank()
+                    ? failure.getClass().getSimpleName() : failure.getMessage();
+            String shown = error.length() <= io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS
+                    ? error : error.substring(0, io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS);
+            publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, io.memoryos.chat.ChatCodeEvent.STDERR, shown));
             publish(io.memoryos.chat.ChatCodeEvent::failed);
             LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
-            String error = failure instanceof InterpreterClient.BusyException
-                    ? "Code interpreter is busy. Try again shortly." : "Code interpreter is unavailable.";
-            return json("", error, -1, false, List.of(), error, notice);
+            return json("", error, -1, false, List.of(), error, notice, List.of());
         }
     }
 
@@ -175,34 +235,56 @@ public final class RunPythonTool {
         var candidates = new ArrayList<Candidate>();
         for (int i = 0; i < chronological.size(); i++) {
             var file = chronological.get(i);
-            candidates.add(new Candidate(file, dedupe(safeName(file.filename()), used), i));
+            candidates.add(new Candidate(dedupe(safeName(file.filename()), file.id().toString(), used), file.filename(),
+                    file.sizeBytes(), i, () -> {
+                        var content = files.open(actor, tenant, file.id());
+                        return new Opened(content.metadata().checksum().value(), content.metadata().mediaType(),
+                                content.inputStream(), () -> closeQuietly(content));
+                    }));
+        }
+        if (sandbox != null) {
+            var documents = sandbox;
+            for (var document : documents.documents()) {
+                candidates.add(new Candidate(dedupe(safeName(document.name()), document.documentId().toString(), used),
+                        document.name(), document.sizeBytes(), candidates.size(), () -> {
+                            var original = documents.open(document);
+                            return new Opened(document.checksum(), document.mediaType(), original.inputStream(), original::close);
+                        }));
+            }
         }
         var referenced = new ArrayList<Candidate>();
         var others = new ArrayList<Candidate>();
         for (var candidate : candidates)
-            (code.contains(candidate.file().filename()) || code.contains(candidate.name()) ? referenced : others).add(candidate);
+            (code.contains(candidate.original()) || code.contains(candidate.name()) ? referenced : others).add(candidate);
         var priority = new ArrayList<Candidate>(referenced.reversed());
         priority.addAll(others.reversed());
         var selected = new ArrayList<Candidate>();
         long bytes = 0;
         for (var candidate : priority.subList(0, Math.min(MAX_STAGED_FILES, priority.size()))) {
-            if (!selected.isEmpty() && bytes + candidate.file().sizeBytes() > MAX_STAGED_BYTES) break;
+            if (!selected.isEmpty() && bytes + candidate.sizeBytes() > MAX_STAGED_BYTES) break;
             selected.add(candidate);
-            bytes += candidate.file().sizeBytes();
+            bytes += candidate.sizeBytes();
         }
         selected.sort(Comparator.comparingInt(Candidate::order));
         return new Selection(List.copyOf(selected), candidates.size() - selected.size(), candidates.size());
     }
 
     private String upload(Candidate candidate) throws IOException {
-        try (var content = files.open(actor, tenant, candidate.file().id())) {
-            String key = candidate.name() + ' ' + content.metadata().checksum().value();
+        var content = candidate.opener().open();
+        try {
+            String key = candidate.name() + '\0' + content.checksum();
             String cached = uploads.get(key);
             if (cached != null) return cached;
-            String id = client.upload(candidate.name(), content.metadata().mediaType(), content.inputStream());
+            String id = client.upload(candidate.name(), content.mediaType(), content.input());
             uploads.put(key, id);
             return id;
+        } finally {
+            content.closer().run();
         }
+    }
+
+    private static void closeQuietly(AutoCloseable closeable) {
+        try { closeable.close(); } catch (Exception ignored) { /* the read already finished or failed */ }
     }
 
     private void delete(String fileId) {
@@ -226,19 +308,42 @@ public final class RunPythonTool {
         return first == null ? second : first + " " + second;
     }
 
+    /** Onyx {@code _safe_code_interpreter_filename}: unsafe runs become "_", whitespace then dots are stripped, and a
+     *  name over 200 characters keeps its extension. */
     static String safeName(String name) {
-        String safe = UNSAFE_NAME.matcher(name).replaceAll("_").replaceAll("^[ .]+|[ .]+$", "");
-        if (safe.isEmpty()) safe = "file";
-        return safe.length() > 200 ? safe.substring(0, 200) : safe;
+        String safe = UNSAFE_NAME.matcher(name).replaceAll("_").strip().replaceAll("^\\.+|\\.+$", "");
+        if (safe.isEmpty()) return "file";
+        int dot = safe.lastIndexOf('.');
+        String base = dot > 0 ? safe.substring(0, dot) : safe;
+        String extension = dot > 0 ? safe.substring(dot) : "";
+        if (base.isEmpty()) base = "file";
+        return truncateBase(base, Math.max(1, FILENAME_LIMIT - extension.length())) + extension;
     }
 
-    static String dedupe(String name, Set<String> used) {
-        String candidate = name;
+    /** Onyx {@code _dedupe_code_interpreter_filename}: a repeated name gets the file's id before its extension. */
+    static String dedupe(String name, String fallbackId, Set<String> used) {
+        if (used.add(name)) return name;
         int dot = name.lastIndexOf('.');
-        String stem = dot > 0 ? name.substring(0, dot) : name;
-        String extension = dot > 0 ? name.substring(dot) : "";
-        for (int index = 1; !used.add(candidate); index++) candidate = stem + "_" + index + extension;
-        return candidate;
+        String base = dot > 0 ? name.substring(0, dot) : name;
+        String suffix = "_" + fallbackId + (dot > 0 ? name.substring(dot) : "");
+        String deduped = truncateBase(base, Math.max(1, FILENAME_LIMIT - suffix.length())) + suffix;
+        used.add(deduped);
+        return deduped;
+    }
+
+    private static String truncateBase(String base, int limit) {
+        return base.length() <= limit ? base : base.substring(0, limit);
+    }
+
+    /** Chart data is kept only as a bounded JSON object; anything else leaves the PNG without chart data. */
+    static @Nullable String chartJson(byte[] bytes) {
+        if (bytes.length > MAX_CHART_JSON_BYTES) return null;
+        try {
+            var node = JSON.readTree(bytes);
+            return node != null && node.isObject() && node.path("type").isString() ? JSON.writeValueAsString(node) : null;
+        } catch (RuntimeException invalid) {
+            return null;
+        }
     }
 
     static String truncate(String text) {
@@ -254,7 +359,8 @@ public final class RunPythonTool {
     }
 
     private static String json(String stdout, String stderr, @Nullable Integer exitCode, boolean timedOut,
-                               List<Map<String, String>> generated, @Nullable String error, @Nullable String notice) {
+                               List<Map<String, String>> generated, @Nullable String error, @Nullable String notice,
+                               List<Map<String, String>> charts) {
         var result = new LinkedHashMap<String, Object>();
         result.put("type", "python_execution");
         result.put("stdout", stdout);
@@ -264,6 +370,8 @@ public final class RunPythonTool {
         result.put("generated_files", generated);
         result.put("error", error);
         result.put("staging_notice", notice);
+        // Figures left open are captured as charts the user sees interactively; their data stays out of the context.
+        if (!charts.isEmpty()) result.put("charts", charts);
         return JSON.writeValueAsString(result);
     }
 }

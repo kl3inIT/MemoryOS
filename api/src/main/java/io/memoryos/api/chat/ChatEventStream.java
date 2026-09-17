@@ -95,7 +95,8 @@ final class ChatEventStream {
                      @Schema(requiredMode = REQUIRED) io.memoryos.chat.ChatCodeEvent.Stage stage,
                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String code,
                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String output,
-                     @Schema(requiredMode = REQUIRED) List<io.memoryos.chat.ChatCodeEvent.GeneratedFile> files) {}
+                     @Schema(requiredMode = REQUIRED) List<io.memoryos.chat.ChatCodeEvent.GeneratedFile> files,
+                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"stdout", "stderr"}) @Nullable String stream) {}
 
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {
@@ -152,7 +153,7 @@ final class ChatEventStream {
             case "code" -> {
                 var run = Objects.requireNonNull(event.code());
                 yield new CodeEvent(event.assistantMessageId(), event.sequence(), run.toolCallId(), run.stage(),
-                        run.code(), run.output(), run.files());
+                        run.code(), run.output(), run.files(), run.stream());
             }
             default -> throw new IllegalArgumentException("Unknown Chat event type");
         };

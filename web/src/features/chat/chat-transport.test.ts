@@ -156,6 +156,17 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(new URL(reads[0]!.url).searchParams.get("after")).toBe(userId);
     expect(new URL(reads[0]!.url).searchParams.get("limit")).toBe("1");
     expect(toUiMessages([{ ...row, artifacts }])[0]?.metadata?.artifacts).toEqual(artifacts);
+    // Files run_python generated survive a reload.
+    const generated = {
+      id: "6f1d2c3a-9b4e-4f77-8a21-5c0e7b8d9a10",
+      filename: "báo cáo.xlsx",
+      mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      sizeBytes: 12_698,
+      chart: false,
+    };
+    expect(
+      toUiMessages([{ ...row, generatedFiles: [generated] }])[0]?.metadata?.generatedFiles,
+    ).toEqual([generated]);
   });
 
   it("streams one server-executed tool part whose input carries progress and fails it on Stop", async () => {

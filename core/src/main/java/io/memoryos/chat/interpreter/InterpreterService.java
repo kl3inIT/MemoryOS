@@ -79,6 +79,12 @@ public class InterpreterService {
     }
 
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes) {
+        return store(tenant, messageId, filename, mediaType, bytes, null);
+    }
+
+    /** Persists a generated file with optional chart data (a JSON object) captured from its figure. */
+    public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes,
+                      @org.jspecify.annotations.Nullable String chart) {
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
         boolean adopted = false;
@@ -86,12 +92,72 @@ public class InterpreterService {
             tx.executeWithoutResult(ignored -> {
                 writes.adopt(tenant, staged);
                 repository.insertArtifact(tenant, messageId, id, staged.object().id().value(), staged.object().key(),
-                        filename, mediaType, bytes.length);
+                        filename, mediaType, bytes.length, chart);
             });
             adopted = true;
             return id;
         } finally {
             if (!adopted) writes.discard(tenant, staged); // Never leave an unreferenced adopted object.
+        }
+    }
+
+    /** Chart data of an owner-private generated file, as JSON text. */
+    public String chart(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return repository.ownedChart(tenant, actor, id).orElseThrow(ChatException::unavailable);
+    }
+
+    static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+    /** The owner-private presentation to preview, with its cached PDF when one exists. */
+    public JdbcInterpreterRepository.Artifact presentation(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var artifact = repository.ownedArtifact(tenant, actor, id).orElseThrow(ChatException::unavailable);
+        if (!PPTX.equals(artifact.mediaType())) throw ChatException.invalid("Only pptx files have a PDF preview");
+        return artifact;
+    }
+
+    public TenantId activeTenant(ActorId actor) {
+        return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+    }
+
+    public ObjectContent openObject(io.memoryos.objectstorage.ObjectKey key) {
+        return storage.open(key);
+    }
+
+    /** Stores a converted PDF preview; when another request stored one first, this copy is discarded. */
+    public void storePreview(TenantId tenant, UUID id, byte[] pdf) {
+        var staged = writes.stage(tenant, new ObjectWriteService.Specification("preview.pdf", "application/pdf", false), pdf);
+        boolean adopted = false;
+        try {
+            tx.executeWithoutResult(ignored -> {
+                writes.adopt(tenant, staged);
+                // Another request stored a preview first: roll back this adoption and keep theirs.
+                if (!repository.attachPreview(tenant, id, staged.object().id().value(), staged.object().key(), pdf.length))
+                    throw new PreviewAlreadyStored();
+            });
+            adopted = true;
+        } catch (PreviewAlreadyStored ignored) {
+            // The caller reads the stored preview.
+        } finally {
+            if (!adopted) writes.discard(tenant, staged);
+        }
+    }
+
+    private static final class PreviewAlreadyStored extends RuntimeException {
+        PreviewAlreadyStored() { super(null, null, false, false); }
+    }
+
+    static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    /** Onyx {@code fetch_chat_file(parsed=true)}: an owner-private generated xlsx as CSV text per sheet. */
+    public java.util.List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+        var served = open(actor, id);
+        try (var content = served.content()) {
+            if (!XLSX.equals(served.mediaType())) throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
+            return SpreadsheetPreview.parse(content.inputStream());
+        } catch (java.io.IOException failed) {
+            throw ChatException.invalid("The workbook cannot be previewed");
         }
     }
 

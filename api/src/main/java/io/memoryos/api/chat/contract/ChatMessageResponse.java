@@ -30,7 +30,8 @@ public record ChatMessageResponse(
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Chart data is available at /api/chat/file-artifacts/{id}/chart") boolean chart) {}
 
     /** Deep research state: a clarification question makes the next research turn skip clarification. */
     @Schema(name = "ChatMessageResearch")

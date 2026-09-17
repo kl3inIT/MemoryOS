@@ -1,5 +1,6 @@
 import { fixtureModels, fixtureSource } from "./chat-data.ts";
 import { randomUUID } from "node:crypto";
+import { generatedFileMessages, handleGeneratedFile } from "./generated-files.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ChatMessage, ChatSession, ProjectView } from "../../src/lib/hey-api/types.gen.ts";
 
@@ -305,10 +306,19 @@ export async function handleChatFixture(
   if (url.pathname === "/api/chat/test-fixture" && request.method === "POST") {
     const input = await body(request);
     const value = create(input.title, input.mode);
+    if (input.mode === "files")
+      for (const message of await generatedFileMessages(
+        value.session.id,
+        value.session.rootMessageId,
+      )) {
+        value.messages.push(message);
+        value.allMessages.set(message.id, message);
+      }
     json(response, value.session);
     return true;
   }
   if (!url.pathname.startsWith("/api/chat/")) return false;
+  if (await handleGeneratedFile(url.pathname, response)) return true;
   const segments = url.pathname.split("/");
   if (segments[3] === "projects") {
     const project = projects.get(segments[4]!);
