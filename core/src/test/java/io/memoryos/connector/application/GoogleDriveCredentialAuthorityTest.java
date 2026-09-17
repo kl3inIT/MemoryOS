@@ -136,7 +136,7 @@ class GoogleDriveCredentialAuthorityTest {
     }
 
     @Test
-    void scopedCredentialsAreOwnedAndEveryAttachedGroupRemainsRequiredForMutation() {
+    void scopedCredentialsAreOwnedAndTheRecordedSourceManagerKeepsMutationAuthority() {
         var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var foreign = authorize();
@@ -146,8 +146,6 @@ class GoogleDriveCredentialAuthorityTest {
         assertThrows(SourceException.class, () -> drive.create(scoped, UUID.randomUUID(), "Foreign", foreign, ScopeMode.SPECIFIC,
                 List.of(link("one")), List.of(group), null));
         mockSelection();
-        assertThrows(SourceException.class, () -> drive.create(scoped, UUID.randomUUID(), "No groups", own, ScopeMode.SPECIFIC,
-                List.of(link("one")), List.of(), null));
         assertThrows(IamException.class, () -> drive.create(scoped, UUID.randomUUID(), "Outside", own, ScopeMode.SPECIFIC,
                 List.of(link("one")), List.of(group, new io.memoryos.iam.group.GroupId(tenant.value())), null));
         UUID request = UUID.randomUUID();
@@ -167,6 +165,11 @@ class GoogleDriveCredentialAuthorityTest {
         scopedManager(foreignGroup);
         jdbc.sql("INSERT INTO source_group_grants(tenant_id,group_id,connector_credential_pair_id) VALUES(:tenant,:group,:source)")
                 .param("tenant", tenant.value()).param("group", foreignGroup.value()).param("source", source.value()).update();
+        // Another manager's Group joining the Source leaves its recorded manager's authority intact.
+        assertTrue(authorizations.list(scoped).getFirst().actions().contains("reauthorize"));
+
+        jdbc.sql("UPDATE connector_credential_pairs SET manager_actor_id=NULL WHERE id=:id")
+                .param("id", source.value()).update();
         assertTrue(authorizations.list(scoped).getFirst().actions().isEmpty());
         assertThrows(SourceException.class, () -> authorizations.disconnect(scoped, own, 1));
         try (var grant = grant("blocked")) {
@@ -406,7 +409,7 @@ class GoogleDriveCredentialAuthorityTest {
         var shared = credential(source);
         SourceId second = transactions.execute(_ -> {
             assertTrue(connections.currentCredential(tenant, shared, 1));
-            return roots.create(tenant,new SourceId(UUID.randomUUID()),owner,"Other Source",shared,GoogleDriveSourceService.ScopeMode.SPECIFIC,List.of(new GoogleDriveSourceService.Root("other", "Other", "text/plain")),SourceAccess.PRIVATE);
+            return roots.create(tenant,new SourceId(UUID.randomUUID()),owner,"Other Source",shared,GoogleDriveSourceService.ScopeMode.SPECIFIC,List.of(new GoogleDriveSourceService.Root("other", "Other", "text/plain")),SourceAccess.PRIVATE,owner);
         });
         var locked = new CountDownLatch(1);
         var release = new CountDownLatch(1);
@@ -1060,7 +1063,7 @@ class GoogleDriveCredentialAuthorityTest {
             var id = authorizations.complete(owner, prepare(), grant);
             return transactions.execute(_ -> {
                 assertTrue(connections.currentCredential(tenant, id, 1));
-                return roots.create(tenant,new SourceId(UUID.randomUUID()),owner,"Drive Source",id,GoogleDriveSourceService.ScopeMode.SPECIFIC,List.of(new GoogleDriveSourceService.Root("selected", "Selected", "text/plain")),SourceAccess.PRIVATE);
+                return roots.create(tenant,new SourceId(UUID.randomUUID()),owner,"Drive Source",id,GoogleDriveSourceService.ScopeMode.SPECIFIC,List.of(new GoogleDriveSourceService.Root("selected", "Selected", "text/plain")),SourceAccess.PRIVATE,owner);
             });
         }
     }

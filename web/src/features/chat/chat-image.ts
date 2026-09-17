@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Image-generation intent for a turn; mirrors WebSearchMode. */
+/** Image-generation intent for a turn; required forces the tool, unlike Web search. */
 export type ImageMode = "off" | "auto" | "required";
 
 /** A generated image reference persisted on an assistant message and served by the API. */

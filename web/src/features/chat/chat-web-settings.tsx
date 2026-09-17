@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe } from "lucide-react";
+import { CheckCircle2, Cpu, Globe, Settings2, Telescope } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
@@ -10,10 +10,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  getChatSettings,
   listChatProviderAdapters,
   listChatProviders,
   listChatWebConnections,
   listConfiguredChatModels,
+  saveChatSettings,
   saveChatWebConnection,
   selectChatWebProvider,
   testChatWebConnection,
@@ -23,9 +25,9 @@ import type { Model, WebConnectionResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { hasProviderMark } from "@/components/provider-logos/provider-marks";
-import { cn } from "@/lib/utils";
 
 const webProblem = (error: unknown): ErrorMessage =>
   presentProblem(error, "mutation", {
@@ -76,6 +78,17 @@ const searchProviders: Provider[] = [
   "TAVILY",
 ];
 const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
+const notice =
+  "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
+
+function InUseBadge({ children }: { children: ReactNode }) {
+  return (
+    <StatusBadge tone="success" className="gap-1">
+      <CheckCircle2 className="size-3.5" aria-hidden="true" />
+      {children}
+    </StatusBadge>
+  );
+}
 
 export function ChatWebSettings() {
   const ui = useAppTranslation();
@@ -115,12 +128,27 @@ export function ChatWebSettings() {
       setPending(false);
     }
   }
+  function card(provider: Provider, search: boolean) {
+    const connection = query.data?.find((c) => c.provider === provider);
+    return (
+      <ConnectionCard
+        key={`${provider}:${connection?.revision ?? "new"}`}
+        provider={provider}
+        search={search}
+        connection={connection}
+        disabled={pending}
+        onChanged={changed}
+        onSelect={select}
+      />
+    );
+  }
   if (!manager)
     return (
       <p role="alert" className="p-6">
         {ui("Bạn không có quyền quản lý mô hình.")}
       </p>
     );
+  const builtInReader = !query.data?.some((c) => c.contentActive);
   return (
     <SettingsLayout>
       <PageHeader
@@ -155,25 +183,10 @@ export function ChatWebSettings() {
               )}
             </p>
             {!query.data?.some((c) => c.searchActive) && (
-              <p className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary">
-                {ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}
-              </p>
+              <p className={notice}>{ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}</p>
             )}
             <div className="space-y-3">
-              {searchProviders.map((provider) => {
-                const connection = query.data?.find((c) => c.provider === provider);
-                return (
-                  <ConnectionCard
-                    key={`${provider}:${connection?.revision ?? "new"}`}
-                    provider={provider}
-                    search
-                    connection={connection}
-                    disabled={pending}
-                    onChanged={changed}
-                    onSelect={select}
-                  />
-                );
-              })}
+              {searchProviders.map((provider) => card(provider, true))}
             </div>
           </section>
           <section aria-label={ui("Trình đọc trang Web")} className="mt-8 space-y-3">
@@ -181,53 +194,30 @@ export function ChatWebSettings() {
             <p className="text-sm text-content-muted">
               {ui("Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.")}
             </p>
-            <div
-              className={cn(
-                "flex items-center gap-3 rounded-xl border p-4",
-                !query.data?.some((c) => c.contentActive)
-                  ? "border-border-strong bg-surface-sunken"
-                  : "border-border-default",
-              )}
-            >
-              <Globe className="size-6 shrink-0" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <h3 className="font-main-ui-action">{ui("Trình đọc MemoryOS")}</h3>
-                <p className="mt-1 text-sm text-content-muted">
-                  {ui("Tích hợp sẵn, không cần khóa API.")}
-                </p>
-              </div>
-              {!query.data?.some((c) => c.contentActive) ? (
-                <StatusBadge tone="success" className="gap-1 text-xs">
-                  <CheckCircle2 className="size-3.5" />
-                  {ui("Đang dùng")}
-                </StatusBadge>
-              ) : (
-                <Button
-                  size="sm"
-                  prominence="secondary"
-                  disabled={pending}
-                  onClick={() => void select(false, null)}
-                >
-                  {ui("Dùng trình đọc tích hợp")}
-                </Button>
-              )}
-            </div>
-            {readerProviders.map((provider) => {
-              const connection = query.data?.find((c) => c.provider === provider);
-              return (
-                <ConnectionCard
-                  key={`${provider}:${connection?.revision ?? "new"}`}
-                  provider={provider}
-                  search={false}
-                  connection={connection}
-                  disabled={pending}
-                  onChanged={changed}
-                  onSelect={select}
-                />
-              );
-            })}
+            <ProviderCard
+              logo={<Globe />}
+              name={ui("Trình đọc MemoryOS")}
+              description={ui("Tích hợp sẵn, không cần khóa API.")}
+              selected={builtInReader}
+              actions={
+                builtInReader ? (
+                  <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+                ) : (
+                  <Button
+                    size="sm"
+                    prominence="secondary"
+                    disabled={pending}
+                    onClick={() => void select(false, null)}
+                  >
+                    {ui("Dùng trình đọc tích hợp")}
+                  </Button>
+                )
+              }
+            />
+            {readerProviders.map((provider) => card(provider, false))}
           </section>
           <NativeSearchSection onChanged={changed} />
+          <DeepResearchSection />
         </>
       )}
       {error && (
@@ -323,49 +313,52 @@ function ConnectionCard({
     }
   }
   return (
-    <section
+    <ProviderCard
+      as="section"
       aria-label={names[provider]}
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-xl border p-4",
-        active ? "border-border-strong bg-surface-sunken" : "border-border-default",
-      )}
+      logo={<ProviderLogo mark={provider} />}
+      name={names[provider]}
+      description={providerDetails[provider].description}
+      selected={!!active}
+      actions={
+        <>
+          {active ? (
+            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+          ) : configured ? (
+            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
+          ) : null}
+          {configured && !active && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled || pending}
+              onClick={() => void onSelect(search, provider)}
+            >
+              {ui("Đặt làm mặc định")}
+            </Button>
+          )}
+          {configured ? (
+            <Button
+              size="sm"
+              prominence="tertiary"
+              disabled={disabled || pending}
+              onClick={() => setOpen(true)}
+            >
+              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled || pending}
+              onClick={() => setOpen(true)}
+            >
+              {ui("Kết nối")}
+            </Button>
+          )}
+        </>
+      }
     >
-      <span className="flex size-7 shrink-0 items-center justify-center">
-        <ProviderLogo mark={provider} />
-      </span>
-      <div className="mr-auto min-w-0">
-        <h3 className="font-main-ui-action">{names[provider]}</h3>
-        <p className="mt-1 text-sm text-content-muted">{providerDetails[provider].description}</p>
-      </div>
-      {active ? (
-        <StatusBadge tone="success" className="gap-1 text-xs">
-          <CheckCircle2 className="size-3.5" />
-          {ui("Đang dùng")}
-        </StatusBadge>
-      ) : configured ? (
-        <StatusBadge tone="success" className="gap-1 text-xs">
-          <CheckCircle2 className="size-3.5" />
-          {ui("Đã kết nối")}
-        </StatusBadge>
-      ) : null}
-      {configured && !active && (
-        <Button
-          size="sm"
-          prominence="secondary"
-          disabled={disabled || pending}
-          onClick={() => void onSelect(search, provider)}
-        >
-          {ui("Đặt làm mặc định")}
-        </Button>
-      )}
-      <Button
-        size="sm"
-        prominence={configured ? "internal" : "secondary"}
-        disabled={disabled || pending}
-        onClick={() => setOpen(true)}
-      >
-        {configured ? ui("Cấu hình") : ui("Kết nối")}
-      </Button>
       <Dialog.Root open={open} onOpenChange={changeOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px]" />
@@ -479,6 +472,69 @@ function ConnectionCard({
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+    </ProviderCard>
+  );
+}
+
+/** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
+function DeepResearchSection() {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const session = useApplicationSession();
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<ErrorMessage>();
+  const settings = useQuery({
+    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
+    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  async function toggle(enabled: boolean) {
+    if (!settings.data) return;
+    setPending(true);
+    setError(undefined);
+    try {
+      await saveChatSettings({
+        body: { deepResearchEnabled: enabled, revision: settings.data.revision },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
+    } catch (failed) {
+      setError(presentProblem(failed, "mutation").message);
+    } finally {
+      setPending(false);
+    }
+  }
+  if (settings.isPending) return null;
+  return (
+    <section aria-label={ui("Deep Research")} className="mt-8 space-y-3">
+      <h2 className="text-lg font-semibold">{ui("Deep Research")}</h2>
+      {settings.isError ? (
+        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+      ) : (
+        <ProviderCard
+          logo={<Telescope />}
+          name={ui("Deep Research")}
+          description={ui(
+            "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.",
+          )}
+          selected={settings.data.deepResearchEnabled}
+          actions={
+            <Switch
+              checked={settings.data.deepResearchEnabled}
+              disabled={pending}
+              aria-label={ui("Bật Deep Research")}
+              onCheckedChange={(checked) => void toggle(checked)}
+            />
+          }
+        />
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {problemMessage(error)}
+        </p>
+      )}
     </section>
   );
 }
@@ -556,9 +612,7 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
     <section aria-label={ui("Tìm kiếm của nhà cung cấp mô hình")} className="mt-8 space-y-3">
       <h2 className="text-lg font-semibold">{ui("Tìm kiếm của nhà cung cấp mô hình")}</h2>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary">
-          {ui("Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.")}
-        </p>
+        <p className={notice}>{ui("Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.")}</p>
       ) : (
         <ul className="space-y-3">
           {rows.map(({ provider, model }) => {
@@ -567,40 +621,30 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
             const adapter = (provider.adapterType ?? "").toUpperCase();
             const mark = hasProviderMark(adapter) ? adapter : undefined;
             return (
-              <li
+              <ProviderCard
                 key={model.id}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border p-4",
-                  enabled ? "border-border-strong bg-surface-sunken" : "border-border-default",
-                )}
-              >
-                <span className="flex size-7 shrink-0 items-center justify-center">
-                  {mark ? <ProviderLogo mark={mark} /> : <Cpu className="size-5" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-main-ui-action">{model.displayName || model.modelName}</h3>
-                  <p className="mt-1 text-sm text-content-muted">{provider.name}</p>
-                </div>
-                {enabled && (
-                  <StatusBadge tone="success" className="gap-1 text-xs">
-                    <CheckCircle2 className="size-3.5" />
-                    {ui("Đang dùng")}
-                  </StatusBadge>
-                )}
-                {!toolCalling && (
-                  <StatusBadge tone="neutral" className="text-xs">
-                    {ui("Không hỗ trợ công cụ")}
-                  </StatusBadge>
-                )}
-                <Switch
-                  checked={enabled}
-                  disabled={!toolCalling || pending !== undefined}
-                  aria-label={ui("Tìm kiếm Web của nhà cung cấp cho {{name}}", {
-                    name: model.displayName || model.modelName,
-                  })}
-                  onCheckedChange={(checked) => void toggle(model, checked)}
-                />
-              </li>
+                as="li"
+                logo={mark ? <ProviderLogo mark={mark} /> : <Cpu />}
+                name={model.displayName || model.modelName}
+                description={provider.name}
+                selected={enabled}
+                actions={
+                  <>
+                    {enabled && <InUseBadge>{ui("Đang dùng")}</InUseBadge>}
+                    {!toolCalling && (
+                      <StatusBadge tone="neutral">{ui("Không hỗ trợ công cụ")}</StatusBadge>
+                    )}
+                    <Switch
+                      checked={enabled}
+                      disabled={!toolCalling || pending !== undefined}
+                      aria-label={ui("Tìm kiếm Web của nhà cung cấp cho {{name}}", {
+                        name: model.displayName || model.modelName,
+                      })}
+                      onCheckedChange={(checked) => void toggle(model, checked)}
+                    />
+                  </>
+                }
+              />
             );
           })}
         </ul>

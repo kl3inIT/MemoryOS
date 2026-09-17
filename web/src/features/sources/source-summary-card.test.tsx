@@ -25,6 +25,8 @@ const drive: SourceSummary = {
   pendingWork: false,
   lastSucceededAt: null,
   errorCode: null,
+  managerActorId: null,
+  managerName: null,
   permissions: {
     edit: true,
     delete: true,

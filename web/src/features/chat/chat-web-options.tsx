@@ -36,10 +36,7 @@ function useWebSupport(sessionId?: string, modelId?: string) {
     !!(
       available.data?.searchAvailable &&
       selectedModel &&
-      (mode === "required"
-        ? available.data.requiredModelIds
-        : available.data.automaticModelIds
-      )?.includes(selectedModel)
+      available.data.automaticModelIds?.includes(selectedModel)
     );
   return {
     available,
@@ -85,12 +82,10 @@ export function ChatWebToggle({
         <button
           type="button"
           aria-pressed={value !== "off"}
-          disabled={value === "off" && !support.supported("auto") && !support.supported("required")}
+          disabled={value === "off" && !support.supported("auto")}
           className={cn(composerMenuRow, "flex-1")}
           onClick={() => {
-            onChange(
-              value === "off" ? (support.supported("required") ? "required" : "auto") : "off",
-            );
+            onChange(value === "off" ? "auto" : "off");
             onDone();
           }}
         >
@@ -127,7 +122,6 @@ export function ChatWebModes({
   const labels = {
     off: ui("Tắt Web"),
     auto: ui("Tự động dùng Web"),
-    required: ui("Bắt buộc tìm trên Web"),
   };
   const heading = ui("Tìm kiếm và đọc trang Web");
   return (
@@ -143,7 +137,7 @@ export function ChatWebModes({
         {heading}
       </Button>
       <div role="radiogroup" aria-label={heading} className="flex flex-col">
-        {(["off", "auto", "required"] as const).map((mode) => (
+        {(["off", "auto"] as const).map((mode) => (
           <button
             key={mode}
             type="button"

@@ -16,6 +16,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đã đọc trang": "Read pages",
   "+{{n}}": "+{{n}}",
   "Đã tạo ảnh": "Generated an image",
+  "Đã sửa ảnh": "Edited an image",
   "Đã suy nghĩ trong {{duration}}": "Thought for {{duration}}",
   "Đã suy nghĩ": "Thought",
   "Đã dừng suy nghĩ": "Stopped thinking",
@@ -135,6 +136,24 @@ export const vietnameseUi: Record<string, string> = {
   "Kiểm tra kết nối thành công": "Connection test succeeded",
   "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
   "Tìm kiếm của nhà cung cấp mô hình": "Model provider search",
+  "Deep Research": "Deep Research",
+  "Bật Deep Research": "Enable Deep Research",
+  "Deep research": "Deep research",
+  "Kế hoạch nghiên cứu": "Research plan",
+  "Đang lập kế hoạch nghiên cứu…": "Planning research…",
+  "Đang nghiên cứu…": "Researching…",
+  "Đã nghiên cứu": "Researched",
+  "Đã dừng nghiên cứu": "Research stopped",
+  "Tác tử {{n}}": "Agent {{n}}",
+  "Chu kỳ {{n}}": "Cycle {{n}}",
+  "1 nguồn": "1 source",
+  "{{n}} nguồn": "{{n}} sources",
+  "Đã chạy {{duration}}": "Ran for {{duration}}",
+  "Báo cáo trung gian": "Intermediate report",
+  "Tác tử nghiên cứu không hoàn thành.": "The research agent didn’t finish.",
+  "Không tải được cài đặt Chat.": "Couldn’t load Chat settings.",
+  "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.":
+    "Agentic research system that works across the web and connected sources. Uses significantly more tokens per query.",
   "Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.":
     "No models on search-capable providers yet.",
   "Địa chỉ tùy chỉnh (để trống dùng mặc định)": "Custom address (leave blank for default)",
@@ -212,6 +231,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xem thêm hội thoại": "Load more conversations",
   "{{v1}} dự án {{v2}}": "{{v1}} project {{v2}}",
   "Thu gọn": "Collapse",
+  "Xem thêm": "Show more",
   "Mở rộng": "Expand",
   "Đang chuyển hội thoại…": "Moving conversation…",
   "Không tải được hội thoại.": "Could not load the conversation.",
@@ -355,6 +375,18 @@ export const vietnameseUi: Record<string, string> = {
   "Tải ảnh": "Download image",
   "Xem ảnh phóng to": "View image full size",
   "Đang tạo ảnh…": "Generating image…",
+  "Đang sửa ảnh…": "Editing image…",
+  "Sửa ảnh": "Edit image",
+  "Tô lên vùng muốn thay đổi. Không tô thì sửa toàn bộ ảnh.":
+    "Paint over the area to change. Leave it unpainted to edit the whole image.",
+  "Tô vùng cần sửa": "Paint the area to change",
+  "Cỡ cọ": "Brush size",
+  "Xoá vùng tô": "Clear painting",
+  "Mô tả thay đổi": "Describe the change",
+  "Ví dụ: đổi áo sang màu đỏ, giữ nguyên mọi thứ khác":
+    "For example: make the shirt red and keep everything else",
+  "Đưa vào khung chat": "Add to message",
+  "Không tạo được vùng tô. Hãy thử lại.": "Could not prepare the painted area. Try again.",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
@@ -456,12 +488,9 @@ export const englishUi: Record<string, string> = {
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
   "Public · everyone in this Tenant": "Công khai · mọi người trong Tenant này",
   "Private · selected group members": "Riêng tư · thành viên các nhóm đã chọn",
-  "Required · select groups you manage": "Bắt buộc · chọn các nhóm bạn quản lý",
   "Optional · associate ordinary groups": "Không bắt buộc · liên kết các nhóm thông thường",
   Required: "Bắt buộc",
   None: "Không có",
-  "Select at least one managed group. New Sources are private.":
-    "Chọn ít nhất một nhóm bạn quản lý. Nguồn mới ở chế độ riêng tư.",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
   "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.":
@@ -514,8 +543,10 @@ export const englishUi: Record<string, string> = {
   "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
   "Current work and manual synchronization are unchanged.":
     "Công việc hiện tại và đồng bộ thủ công không thay đổi.",
-  "Select only ordinary groups you can manage. Scoped Source managers must keep at least one group association.":
-    "Chỉ chọn các nhóm thông thường mà bạn có thể quản lý. Người quản lý Nguồn theo phạm vi phải duy trì ít nhất một liên kết nhóm.",
+  "Select only ordinary groups you manage. Groups managed by someone else stay as they are.":
+    "Chỉ chọn các nhóm thông thường mà bạn quản lý. Nhóm do người khác quản lý được giữ nguyên.",
+  "This Source belongs to no group yet, so nobody can search or read its documents. Associate it with a group to make it usable.":
+    "Nguồn này chưa thuộc nhóm nào nên chưa ai tìm hay đọc được tài liệu của nó. Hãy liên kết nguồn với một nhóm để dùng được.",
   "Built-in admin group with full access to manage all permissions.":
     "Nhóm quản trị tích hợp có toàn quyền quản lý mọi quyền truy cập.",
   "Default group for all users with basic permissions.":
@@ -542,8 +573,27 @@ export const englishUi: Record<string, string> = {
     "Thay đổi này sẽ khiến người dùng tiêu chuẩn không thuộc nhóm nào. Hãy thêm họ vào một nhóm khác trước, rồi thử lại.",
   "Source associations must use ordinary groups. Scoped managers must retain at least one group and manage every associated group.":
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
-  "Scoped managers must retain at least one managed group. Associate the Source with another group you manage from its detail page first.":
-    "Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm mình quản lý. Trước tiên, hãy liên kết nguồn với một nhóm khác mà bạn quản lý từ trang chi tiết của nguồn.",
+  "This Source is being deleted.": "Nguồn này đang được xóa.",
+  "Responsible group manager": "Người quản lý nhóm phụ trách",
+  "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.":
+    "Người phụ trách liên kết nguồn này với các nhóm họ quản lý và giữ quyền cấu hình nội dung. Nếu không có ai phụ trách, chỉ quản trị viên làm được việc đó.",
+  "No responsible manager. Administrators only.":
+    "Chưa có người phụ trách. Chỉ quản trị viên thao tác được.",
+  "Responsible manager: {{v1}}": "Người phụ trách: {{v1}}",
+  "No members match your search.": "Không có thành viên nào khớp với tìm kiếm.",
+  Responsible: "Đang phụ trách",
+  "Make responsible": "Giao phụ trách",
+  "Remove responsible manager": "Bỏ người phụ trách",
+  "Appoint a responsible manager": "Chỉ định người phụ trách",
+  "Change responsible manager": "Đổi người phụ trách",
+  "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.":
+    "Chọn các nhóm bạn quản lý, hoặc để trống. Nguồn mới ở chế độ riêng tư và chưa đến được với ai cho tới khi thuộc một nhóm.",
+  "Private Source. Group associations are optional and can be added later.":
+    "Nguồn riêng tư. Liên kết nhóm là tùy chọn và có thể thêm sau.",
+  "You can no longer change one of these Sources for this group. Refresh and try again.":
+    "Bạn không còn quyền thay đổi một trong các nguồn này cho nhóm. Làm mới rồi thử lại.",
+  "Sources with a lock are being deleted and can't be removed from this group.":
+    "Các nguồn có biểu tượng khóa đang được xóa nên không gỡ khỏi nhóm này được.",
   "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",

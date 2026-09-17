@@ -32,12 +32,12 @@ class ChatObservationSanitizerTest {
                         assertNull(context.getHighCardinalityKeyValue("error_message"));
                         var tool = context.getLowCardinalityKeyValue("toolName");
                         assertNotNull(tool);
-                        assertEquals("searchKnowledge", tool.getValue());
+                        assertEquals("search_knowledge", tool.getValue());
                         if (context.getError() != null) assertFalse(context.getError().toString().contains("PRIVATE"));
                     }
                 });
         var observation = Observation.createNotStarted("tool call", registry)
-                .lowCardinalityKeyValue("toolName", "searchKnowledge").highCardinalityKeyValue("payload", "PRIVATE QUESTION").start();
+                .lowCardinalityKeyValue("toolName", "search_knowledge").highCardinalityKeyValue("payload", "PRIVATE QUESTION").start();
         observation.highCardinalityKeyValue("result", "PRIVATE SOURCE");
         observation.highCardinalityKeyValue("error_message", "PRIVATE ERROR");
         observation.error(new IllegalStateException("PRIVATE FAILURE"));

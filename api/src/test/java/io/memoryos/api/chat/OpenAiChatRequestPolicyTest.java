@@ -87,6 +87,16 @@ class OpenAiChatRequestPolicyTest {
     }
 
     @Test
+    void requiredToolChoiceAppliesOnlyToRequestsWithTools() {
+        var plain = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini").build());
+        assertSame(plain, OpenAiChatRequestPolicy.requireTools(plain), "A tool-free research inference keeps its request");
+        var withTools = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini")
+                .toolCallbacks(List.of(mock(ToolCallback.class))).toolChoice("auto").build());
+        assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, OpenAiChatRequestPolicy.requireTools(withTools).getOptions()).getToolChoice());
+        assertThrows(IllegalArgumentException.class, () -> OpenAiChatRequestPolicy.requireTools(new Prompt("Question")));
+    }
+
+    @Test
     void profileValidationRejectsUnknownProfilesLocally() {
         var meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try {

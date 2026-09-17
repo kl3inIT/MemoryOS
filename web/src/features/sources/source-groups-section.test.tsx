@@ -42,6 +42,8 @@ const source: SourceSummary = {
   pendingWork: false,
   lastSucceededAt: null,
   errorCode: null,
+  managerActorId: null,
+  managerName: null,
   permissions: {
     edit: true,
     delete: false,
@@ -72,8 +74,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(children: ReactNode, session = globalSession, paginated = false) {
+function setup(
+  children: ReactNode,
+  session = globalSession,
+  paginated = false,
+  removableSourceIds = ["source"],
+  sourceGroups: SourceGroup[] = [...systemGroups, ordinary],
+) {
   const saved: string[][] = [];
+  const removed: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (request: Request) => {
@@ -96,10 +105,15 @@ function setup(children: ReactNode, session = globalSession, paginated = false) 
           saved.push(body.groupIds);
           return Response.json({ items: body.groupIds.map((id) => ({ ...ordinary, id })) });
         }
-        return Response.json({ items: [...systemGroups, ordinary] });
+        return Response.json({ items: sourceGroups });
       }
       if (url.pathname === "/api/sources") return Response.json([source]);
-      if (url.pathname === "/api/groups/team/sources") return Response.json({ items: [source] });
+      if (url.pathname === "/api/groups/team/sources")
+        return Response.json({ items: [source], removableSourceIds });
+      if (url.pathname === "/api/groups/team/sources/source/remove" && request.method === "POST") {
+        removed.push("source");
+        return new Response(null, { status: 204 });
+      }
       throw new Error(`Unexpected request: ${request.method} ${url.pathname}`);
     }),
   );
@@ -113,7 +127,11 @@ function setup(children: ReactNode, session = globalSession, paginated = false) 
     </QueryClientProvider>
   );
   const view = render(wrap(session));
-  return { saved, setSession: (next: ApplicationSession) => view.rerender(wrap(next)) };
+  return {
+    saved,
+    removed,
+    setSession: (next: ApplicationSession) => view.rerender(wrap(next)),
+  };
 }
 
 function PickerSelection() {
@@ -154,6 +172,7 @@ describe("ordinary Source associations", () => {
       <SourceGroupsSection
         sourceId="source"
         editable={false}
+        restricted
         onAuthorityChanged={async () => {}}
       />,
     );
@@ -165,7 +184,12 @@ describe("ordinary Source associations", () => {
   it("lets a global manager clear the final ordinary association without submitting system IDs", async () => {
     const user = userEvent.setup();
     const { saved } = setup(
-      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
+      <SourceGroupsSection
+        sourceId="source"
+        editable
+        restricted
+        onAuthorityChanged={async () => {}}
+      />,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
     await waitFor(() => expect(choice).toBeChecked());
@@ -174,44 +198,83 @@ describe("ordinary Source associations", () => {
     await waitFor(() => expect(saved).toEqual([[]]));
   });
 
-  it("blocks a cleared selection immediately when global management becomes scoped", async () => {
+  it("lets the responsible manager clear the last association and warns that nobody can read it", async () => {
     const user = userEvent.setup();
-    const { saved, setSession } = setup(
-      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
+    const { saved } = setup(
+      <SourceGroupsSection
+        sourceId="source"
+        editable
+        restricted
+        onAuthorityChanged={async () => {}}
+      />,
+      scopedSession,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
     await waitFor(() => expect(choice).toBeChecked());
     await user.click(choice);
-    expect(screen.getByRole("button", { name: "Save associations" })).toBeEnabled();
-    setSession(scopedSession);
-    expect(screen.getByRole("button", { name: "Save associations" })).toBeDisabled();
-    expect(screen.getByRole("alert")).toBeVisible();
-    await user.click(choice);
+    await user.click(screen.getByRole("button", { name: "Save associations" }));
+    await waitFor(() => expect(saved).toEqual([[]]));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(saved).toEqual([]);
+  });
+
+  it("warns when a restricted Source belongs to no group", async () => {
+    setup(
+      <SourceGroupsSection
+        sourceId="source"
+        editable={false}
+        restricted
+        onAuthorityChanged={async () => {}}
+      />,
+      globalSession,
+      false,
+      ["source"],
+      [],
+    );
+    expect(
+      await screen.findByText(
+        "This Source belongs to no group yet, so nobody can search or read its documents. Associate it with a group to make it usable.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("allows a global manager to remove the last association from Group detail", async () => {
     const user = userEvent.setup();
-    const { saved } = setup(
+    const { saved, removed } = setup(
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
     );
     const remove = await screen.findByRole("button", { name: /Remove Team knowledge/ });
     await user.click(remove);
     await user.click(screen.getByRole("button", { name: "Save associations" }));
-    await waitFor(() => expect(saved).toEqual([[]]));
+    await waitFor(() => expect(removed).toEqual(["source"]));
+    expect(saved).toEqual([]);
   });
 
-  it("blocks a scoped manager removing the last ordinary association from Group detail", async () => {
+  it("lets a scoped manager remove a Source shared with another group from Group detail", async () => {
     const user = userEvent.setup();
-    const { saved } = setup(
+    const { saved, removed } = setup(
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
       scopedSession,
     );
-    const remove = await screen.findByRole("button", { name: /Remove Team knowledge/ });
-    await user.click(remove);
+    await user.click(await screen.findByRole("button", { name: /Remove Team knowledge/ }));
     await user.click(screen.getByRole("button", { name: "Save associations" }));
-    expect(await screen.findByRole("alert")).toBeVisible();
+    await waitFor(() => expect(removed).toEqual(["source"]));
     expect(saved).toEqual([]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("locks a Source being deleted from Group detail", async () => {
+    setup(
+      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
+      scopedSession,
+      false,
+      [],
+    );
+    expect(
+      await screen.findByText(
+        "Sources with a lock are being deleted and can't be removed from this group.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove Team knowledge/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save associations" })).not.toBeInTheDocument();
   });
 });

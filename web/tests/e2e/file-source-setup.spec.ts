@@ -310,7 +310,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
   });
 }
 
-test("scoped File creation requires managed groups and never publishes files", async ({ page }) => {
+test("scoped File creation stays private and may start without a group", async ({ page }) => {
   const group = {
     id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
     name: "Managed team",
@@ -402,7 +402,8 @@ test("scoped File creation requires managed groups and never publishes files", a
     buffer: Buffer.from("private"),
   });
   await expect(page.getByRole("combobox", { name: "Visibility" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Upload and create" })).toBeDisabled();
+  // A Group is optional now, so the submit is live before one is picked and nothing is created yet.
+  await expect(page.getByRole("button", { name: "Upload and create" })).toBeEnabled();
   expect(created).toBe(false);
   await page.getByRole("checkbox", { name: /Managed team/ }).check();
   await page.getByRole("button", { name: "Upload and create" }).click();

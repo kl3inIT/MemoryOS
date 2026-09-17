@@ -134,7 +134,7 @@ function GoogleDriveSourceSetup() {
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
   const selectionError = googleDriveSelectionError(proposal, policy.data);
-  const validSelection = !selectionError && (globalManage || groupIds.size > 0);
+  const validSelection = !selectionError;
   const pendingValidation = Boolean(tracking.operation && !tracking.terminal);
   const frozenProposal =
     pendingValidation || tracking.uncertain || tracking.recovering || tracking.recoveryError;
@@ -614,7 +614,6 @@ function GoogleDriveSourceSetup() {
               "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
             )}
             selected={groupIds}
-            required={!globalManage}
             disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
             onChange={(ids) => {
               if (tracking.terminal) tracking.forget();
@@ -624,8 +623,12 @@ function GoogleDriveSourceSetup() {
           />
           <p className="text-sm text-content-muted">
             {globalManage
-              ? ui("Group associations are optional for global Source managers.")
-              : ui("Select at least one group you manage.")}
+              ? ui(
+                  "Leave the selection empty for no group associations. Global Source management does not require an association.",
+                )
+              : ui(
+                  "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.",
+                )}
           </p>
           <GoogleDriveLinks
             scopeMode={scopeMode}

@@ -25,8 +25,8 @@ class SourceAccessModesMigrationTest {
             pair(jdbc, tenant, credential, restricted, "RESTRICTED");
             pair(jdbc, tenant, credential, open, "PUBLIC");
 
-            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("63").load();
-            assertEquals(1, flyway.migrate().migrationsExecuted);
+            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("71").load();
+            assertEquals(9, flyway.migrate().migrationsExecuted);
 
             assertEquals("PRIVATE", access(jdbc, restricted));
             assertEquals("PUBLIC", access(jdbc, open));

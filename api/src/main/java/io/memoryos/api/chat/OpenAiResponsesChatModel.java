@@ -61,7 +61,6 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
     private final boolean summaries;
     private final MeterRegistry meters;
     private final @Nullable Turn turn;
-    private final AtomicBoolean firstRequest = new AtomicBoolean(true);
 
     OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, MeterRegistry meters) {
         this(completions, client, reasoning, true, false, meters);
@@ -98,12 +97,11 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS"));
         // The final-cycle policy removes every tool callback; hosted search is a tool as well.
         boolean tools = options.getToolCallbacks() != null && !options.getToolCallbacks().isEmpty();
-        boolean required = web && active.webRequired() && firstRequest.getAndSet(false);
         ResponseCreateParams params;
-        try { params = request(prompt, options, tools, web, required); }
+        try { params = request(prompt, options, tools, web); }
         catch (RuntimeException invalid) { return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS")); }
         return Flux.create(sink -> {
-            var state = new StreamState(active, sink, required);
+            var state = new StreamState(active, sink);
             AsyncStreamResponse<ResponseStreamEvent> stream = client.responses().createStreaming(params);
             sink.onDispose(stream::close);
             stream.subscribe(new AsyncStreamResponse.Handler<>() {
@@ -118,7 +116,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }, FluxSink.OverflowStrategy.BUFFER);
     }
 
-    private ResponseCreateParams request(Prompt prompt, OpenAiChatOptions options, boolean tools, boolean web, boolean required) {
+    private ResponseCreateParams request(Prompt prompt, OpenAiChatOptions options, boolean tools, boolean web) {
         var mapper = ObjectMappers.jsonMapper();
         var input = new ArrayList<ResponseInputItem>();
         for (var message : prompt.getInstructions())
@@ -148,11 +146,6 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             }
             if (web) declared.add(mapper.convertValue(Map.of("type", "web_search"), Tool.class));
             builder.tools(declared);
-            if (required) builder.toolChoice(mapper.convertValue(Map.of("type", "web_search"), ResponseCreateParams.ToolChoice.class));
-            // A forced function tool (for example required external Web search) keeps its Chat Completions meaning.
-            else if (options.getToolChoice() instanceof Map<?, ?> choice && choice.get("function") instanceof Map<?, ?> function
-                    && function.get("name") instanceof String name)
-                builder.toolChoice(mapper.convertValue(Map.of("type", "function", "name", name), ResponseCreateParams.ToolChoice.class));
         }
         return builder.build();
     }
@@ -198,16 +191,14 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
     private final class StreamState {
         private final Turn turn;
         private final FluxSink<ChatResponse> sink;
-        private final boolean required;
         private final Set<String> started = new HashSet<>();
         private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
 
-        StreamState(Turn turn, FluxSink<ChatResponse> sink, boolean required) {
+        StreamState(Turn turn, FluxSink<ChatResponse> sink) {
             this.turn = turn;
             this.sink = sink;
-            this.required = required;
         }
 
         void accept(ResponseStreamEvent event) {
@@ -280,7 +271,6 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }
 
         private void complete(com.openai.models.responses.Response response) {
-            if (required && !searched) throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
             var mapper = ObjectMappers.jsonMapper();
             var calls = new ArrayList<AssistantMessage.ToolCall>();
             var echoed = new ArrayList<>();

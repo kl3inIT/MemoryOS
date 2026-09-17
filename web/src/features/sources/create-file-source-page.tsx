@@ -100,14 +100,7 @@ export function CreateFileSourcePage() {
   }
 
   async function submit() {
-    if (
-      authority === "none" ||
-      (!sourceId && scoped && groupIds.size === 0) ||
-      controllerRef.current ||
-      blocked ||
-      !file ||
-      !sourceName.trim()
-    )
+    if (authority === "none" || controllerRef.current || blocked || !file || !sourceName.trim())
       return;
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -283,17 +276,11 @@ export function CreateFileSourcePage() {
                     {ui("Access groups")}
                   </span>
                   <span className="mt-0.5 block font-secondary-body text-content-muted">
-                    {scoped
-                      ? ui("Required · select groups you manage")
-                      : ui("Optional · associate ordinary groups")}
+                    {ui("Optional · associate ordinary groups")}
                   </span>
                 </span>
                 <span className="font-secondary-body tabular-nums text-content-muted">
-                  {groupIds.size > 0
-                    ? ui("{{v1}} selected", { v1: groupIds.size })
-                    : scoped
-                      ? ui("Required")
-                      : ui("None")}
+                  {groupIds.size > 0 ? ui("{{v1}} selected", { v1: groupIds.size }) : ui("None")}
                 </span>
               </span>
             </CollapsibleTrigger>
@@ -306,13 +293,14 @@ export function CreateFileSourcePage() {
                       "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.",
                     )}
                     selected={groupIds}
-                    required={scoped}
                     disabled={busy || Boolean(sourceId)}
                     onChange={setGroupIds}
                   />
                   <p className="mt-3 font-secondary-body text-content-muted">
                     {scoped
-                      ? ui("Select at least one managed group. New Sources are private.")
+                      ? ui(
+                          "Select the groups you manage, or none for now. New Sources are private and reach nobody until they belong to a group.",
+                        )
                       : ui(
                           "Leave the selection empty for no group associations. Global Source management does not require an association.",
                         )}
@@ -446,14 +434,7 @@ export function CreateFileSourcePage() {
             <Button
               type="submit"
               pending={busy}
-              disabled={
-                authority === "none" ||
-                (!sourceId && scoped && groupIds.size === 0) ||
-                busy ||
-                blocked ||
-                !file ||
-                !sourceName.trim()
-              }
+              disabled={authority === "none" || busy || blocked || !file || !sourceName.trim()}
             >
               <Upload />
               {uploadAccepted

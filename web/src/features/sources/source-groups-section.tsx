@@ -5,7 +5,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listSourceGroupsOptions,
@@ -19,17 +18,18 @@ import { SourceSectionIcon } from "./source-section-icon";
 type SourceGroupsSectionProps = {
   sourceId: string;
   editable: boolean;
+  restricted: boolean;
   onAuthorityChanged: () => Promise<void>;
 };
 
 export function SourceGroupsSection({
   sourceId,
   editable,
+  restricted,
   onAuthorityChanged,
 }: SourceGroupsSectionProps) {
   const ui = useAppTranslation();
 
-  const globalManage = useCapabilityAuthority("SOURCES_MANAGE") === "global";
   const groups = useQuery({
     ...listSourceGroupsOptions({ path: { sourceId } }),
     retry: false,
@@ -70,8 +70,7 @@ export function SourceGroupsSection({
   }
 
   async function save() {
-    if (!editable || !dirty || (!globalManage && selectedIds.size === 0) || updateGroups.isPending)
-      return;
+    if (!editable || !dirty || updateGroups.isPending) return;
     setError(null);
     try {
       await updateGroups.mutateAsync({
@@ -112,6 +111,15 @@ export function SourceGroupsSection({
         </p>
       ) : null}
 
+      {/* Restricted reads come from group membership alone, so an unassociated Source reaches nobody. */}
+      {restricted && groups.data && currentGroups.length === 0 ? (
+        <p className="mt-4 rounded-lg bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content">
+          {ui(
+            "This Source belongs to no group yet, so nobody can search or read its documents. Associate it with a group to make it usable.",
+          )}
+        </p>
+      ) : null}
+
       {groups.isPending ? (
         <p
           role="status"
@@ -143,7 +151,6 @@ export function SourceGroupsSection({
             className="[--control-height-sm:var(--control-height-md)] [&_[data-slot=input]:enabled]:bg-surface-raised [&_[data-slot=group-options]]:rounded-none [&_[data-slot=group-options]]:border-x-0 [&_[data-slot=group-options]]:bg-transparent"
             selected={selectedIds}
             knownGroups={groups.data?.items}
-            required={!globalManage}
             disabled={updateGroups.isPending}
             onChange={setSelectedIds}
           />
@@ -158,11 +165,7 @@ export function SourceGroupsSection({
             >
               {ui("Cancel")}
             </Button>
-            <Button
-              pending={updateGroups.isPending}
-              disabled={!dirty || (!globalManage && selectedIds.size === 0)}
-              onClick={() => void save()}
-            >
+            <Button pending={updateGroups.isPending} disabled={!dirty} onClick={() => void save()}>
               {updateGroups.isPending ? ui("Saving associations…") : ui("Save associations")}
             </Button>
           </div>

@@ -28,3 +28,5 @@ codex-session-*.jsonl
 hs_err_pid*.log
 replay_pid*.log
 *.docx
+!docs/academic/sep490/templates/*.docx
+/.skills/*/node_modules/

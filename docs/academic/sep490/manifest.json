@@ -1,20 +1,80 @@
 {
-  "source": "User-provided SEP490 package; StudentGuide Fall 2023",
+  "source": "User-provided SEP490 Templates-20260914 (R1-R7, tracking, weekly report, meeting minutes), imported 2026-09-15; StudentGuide Fall 2023 and R2 sample schedule retained from the 2026-09-12 package",
   "files": [
     {
-      "file": "Project Weekly Report_GroupName.xlsx",
-      "bytes": 11670,
-      "sha256": "ac9596ed4d005766cfe04ad41754e5a2942033e9100b54f6cc3a7ac7e0d2e04b"
+      "file": "Meeting_Minutes_Template.docx",
+      "bytes": 43389,
+      "sha256": "fa0f5eca6b9f5c111701535650c91879bec389de9790787cc336077cf55f0dfd"
     },
     {
-      "file": "Report1_Project Introduction.docx",
-      "bytes": 111365,
-      "sha256": "08481ef2253aba57cf9ef2b33108ed063d0aeb2e2579efe92e63b90ac611590d"
+      "file": "Project_Tracking_Template.xlsx",
+      "bytes": 141712,
+      "sha256": "c2ee80cc5226ba4b36667de30885345d0356817e54d0e7163d2dff2a613596b4"
     },
     {
-      "file": "Report2_Project Management Plan.docx",
-      "bytes": 52720,
-      "sha256": "f59a4ce96d99f2f772f4c0ef07828812674aee4b8795aac475d5a395a8401be5"
+      "file": "Project_Weekly_Report_Template.xlsx",
+      "bytes": 11676,
+      "sha256": "5ce0b52d93c3e4ebba140b01e52d6db5288d8d87f4c181eb7e2b61e60d0e4dfd"
+    },
+    {
+      "file": "Report-1_Project Introduction.docx",
+      "bytes": 61869,
+      "sha256": "59e027918a94dd23c2dd3b8090aaeee6c52b23fb9292bb51829095c0da2d6e5a"
+    },
+    {
+      "file": "Report-2_Project Management Plan.docx",
+      "bytes": 114437,
+      "sha256": "416a675676fe9997e46e70a39dca2e87c261e8ebd62fd579ff464ac4e3966cb4"
+    },
+    {
+      "file": "Report-3_Software Requirement Specification.docx",
+      "bytes": 972289,
+      "sha256": "dfb3763b7904bedaeed6d32f60e816618c37a98c6a3b9c18b1575bcd88db5e91"
+    },
+    {
+      "file": "Report-4_Software Design Specification.docx",
+      "bytes": 368154,
+      "sha256": "7e4acb68594cf5ba6198e29d95522f35df7b340ddfd10ec211bef9868f64b43e"
+    },
+    {
+      "file": "Report-5.0_Test Documentation.docx",
+      "bytes": 58307,
+      "sha256": "09278f1dbbbe140d757523236603bc07ce7398d0797cc8e67c73e53c0c15fea4"
+    },
+    {
+      "file": "Report-5.1_Unit Test.xls",
+      "bytes": 67072,
+      "sha256": "1091302a3563d9f67818162c370d33514ece270fbba8321240947accd129618b"
+    },
+    {
+      "file": "Report-5.2_Integration Test.xlsx",
+      "bytes": 49311,
+      "sha256": "04bbda174116da1fd0894f58314d530cd936348332d18e9fc3a53edd89290008"
+    },
+    {
+      "file": "Report-5.3_System Test_FRs.xlsx",
+      "bytes": 46531,
+      "sha256": "9e9aa4a7a683efaf6cd9c5f6bb1037101156c2b6389cff5c5963b59a3fe9357f"
+    },
+    {
+      "file": "Report-5.4_System Test_NFRs.xlsx",
+      "bytes": 12001,
+      "sha256": "ecf612875b54b4cbef3f614490f3dbc07405ad9b7d5823a0c7eb5f75f8dcfefc"
+    },
+    {
+      "file": "Report-5.5_Acceptance Test Scripts.xlsx",
+      "bytes": 11848,
+      "sha256": "7488a5bb308fd000dcba72d1548530790c52e93621949c77aee1e19d4cb2ff15"
+    },
+    {
+      "file": "Report-6_Software User Guides.docx",
+      "bytes": 54468,
+      "sha256": "401d885d15d1fc6c13f9dad9130b2952b9081ef33f1cd6d75787f6770c69c52d"
+    },
+    {
+      "file": "Report-7_Final Project Document.docx",
+      "bytes": 953967,
+      "sha256": "57cb33279de3c6a2d46eaf66fa7a3fdd060c20b6640983694811c33f357e5199"
     },
     {
       "file": "Report2_Sample Project Schedule.pdf",
@@ -25,16 +85,6 @@
       "file": "Report2_Sample Project Schedule.pod",
       "bytes": 318135,
       "sha256": "b294bd494cf8257049afb03f22eb6df03dca544e887ca7fff2d2302d39fbecdb"
-    },
-    {
-      "file": "Report3_Project Tracking.xlsx",
-      "bytes": 69900,
-      "sha256": "5135c4db2d29a39661d9760a3ff7e856f4ce765a45ddb25a1394776d9aba936b"
-    },
-    {
-      "file": "Report3_Software Requirement Specification.docx",
-      "bytes": 798254,
-      "sha256": "5eeb573dd41505af451c0d91296d98c275ae761b0bc29c380b7722df64b77f49"
     },
     {
       "file": "SEP490 StudentGuide_Fall 2023.docx",

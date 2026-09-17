@@ -32,4 +32,6 @@ public interface GroupScopeService {
     );
 
     boolean isManagedBy(TenantId tenantId, ActorId actorId, GroupId groupId);
+
+    boolean managesAnyOrdinaryGroup(TenantId tenantId, ActorId actorId);
 }

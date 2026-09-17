@@ -172,10 +172,10 @@ export const vi = {
     unavailable: "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
     chatProviderUnavailable:
       "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
-    chatWebSearchSkipped:
-      "Yêu cầu bắt buộc tìm Web nhưng mô hình đã trả lời mà không tìm kiếm. Gửi lại hoặc chuyển tìm kiếm Web sang tự động.",
     chatWebUnavailable:
       "Tìm kiếm Web chưa dùng được: chưa có nhà cung cấp Web nào đang bật, hoặc mô hình này không gọi được công cụ.",
+    chatResearchUnavailable:
+      "Deep research đã bị tắt cho tổ chức của bạn. Hãy gửi câu hỏi không dùng Deep research.",
     chatBusy: "Chat đang quá tải. Chờ một chút rồi gửi lại.",
     chatRejected:
       "Câu hỏi bị từ chối trước khi chạy. Hãy hỏi ngắn hơn hoặc chọn mô hình có context window lớn hơn.",
