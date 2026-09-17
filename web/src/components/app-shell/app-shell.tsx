@@ -5,6 +5,7 @@ import {
   Blocks,
   Bot,
   Globe,
+  ImageIcon,
   KeyRound,
   Menu,
   PanelLeftClose,
@@ -35,6 +36,7 @@ export type AdminPage =
   | "users"
   | "groups"
   | "web"
+  | "images"
   | "interpreter"
   | "providers"
   | "models"
@@ -226,6 +228,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/image-generation"
+                  icon={<ImageIcon className="size-4" />}
+                  selected={adminPage === "images"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Tạo ảnh")}
                 </SidebarTab>
                 <SidebarTab
                   to="/admin/code-interpreter"

@@ -18,7 +18,6 @@ import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderClient;
 import io.memoryos.iam.tenant.TenantId;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -40,11 +39,11 @@ class GenerateImageToolTest {
 
     @Test void successEmitsGeneratingThenCompletedAndReturnsArtifactId() throws Exception {
         var artifactId = UUID.randomUUID();
-        when(client.generate(connection, "a red bicycle", "1024x1024"))
+        when(client.generate(connection, "a red bicycle", "portrait"))
                 .thenReturn(new ImageProviderClient.Result(new byte[]{1, 2, 3}, "image/png", "a red racing bicycle at sunset"));
         when(artifacts.store(eq(tenant), eq(messageId), any())).thenReturn(artifactId);
 
-        var reply = tool(4).generateImage("a red bicycle", "1024x1024");
+        var reply = tool(4).generateImage("a red bicycle", "portrait");
 
         assertTrue(reply.contains(artifactId.toString()));
         assertEquals(2, events.size());
@@ -65,6 +64,13 @@ class GenerateImageToolTest {
     @Test void blankPromptRejectedBeforeAnyGeneration() {
         var reply = tool(4).generateImage("   ", null);
         assertTrue(reply.toLowerCase().contains("description"));
+        assertTrue(events.isEmpty());
+        verifyNoInteractions(client);
+    }
+
+    @Test void unknownShapeRejectedBeforeAnyGeneration() {
+        var reply = tool(4).generateImage("a cat", "panorama");
+        assertTrue(reply.contains("square, portrait, or landscape"));
         assertTrue(events.isEmpty());
         verifyNoInteractions(client);
     }

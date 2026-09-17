@@ -9732,6 +9732,56 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/images/providers:
+    get:
+      tags:
+      - Chat Image
+      summary: List installed image providers and their known models for model managers
+      operationId: listChatImageProviders
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Installed image providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/connections:
     get:
       tags:
@@ -16251,6 +16301,55 @@ components:
           type: string
       required:
       - available
+    ImageKnownModelResponse:
+      type: object
+      properties:
+        modelName:
+          type: string
+        displayName:
+          type: string
+        outputMediaType:
+          type: string
+        sizes:
+          type: array
+          items:
+            type: string
+        edit:
+          type: boolean
+        deprecated:
+          type: boolean
+      required:
+      - deprecated
+      - displayName
+      - edit
+      - modelName
+      - outputMediaType
+      - sizes
+    ImageProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        credentialRequired:
+          type: boolean
+        defaultEndpoint:
+          type: string
+        endpointRequired:
+          type: boolean
+        editModel:
+          $ref: "#/components/schemas/ImageKnownModelResponse"
+        knownModels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageKnownModelResponse"
+      required:
+      - credentialRequired
+      - endpointRequired
+      - knownModels
+      - provider
     ChatFileTextResponse:
       type: object
       properties:

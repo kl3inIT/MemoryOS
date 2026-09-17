@@ -40,6 +40,13 @@ public class ImageConnectionService {
     }
     public record Access(@Nullable Connection generate) {}
 
+    /** Installed protocols and their published models; model managers only. */
+    @Transactional(readOnly = true)
+    public List<ImageProvider> providers(ActorId actor) {
+        authorization.require(actor, IamCapability.MODELS_MANAGE, false);
+        return List.of(ImageProvider.values());
+    }
+
     @Transactional(readOnly = true)
     public List<View> list(ActorId actor) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
@@ -52,6 +59,8 @@ public class ImageConnectionService {
         if (input == null || input.endpoint() == null || input.model() == null || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
         if (input.model().isBlank()) throw ChatException.invalid("An image model is required.");
+        if (provider.endpointRequired() && input.endpoint().isBlank())
+            throw ChatException.invalid("This image provider requires an endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new ImageConnectionEntity(tenant, provider));
         if (entity.revision() != input.revision()) throw ChatException.conflict();

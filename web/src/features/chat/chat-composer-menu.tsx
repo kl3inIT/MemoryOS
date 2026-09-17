@@ -43,7 +43,8 @@ export function ChatComposerMenu({
     sessionId?: string;
     modelId?: string;
   };
-  image: {
+  /** Present only while an image provider connection is usable. */
+  image?: {
     value: ImageMode;
     onChange: (mode: ImageMode) => void;
   };
@@ -119,7 +120,9 @@ export function ChatComposerMenu({
               {allowed?.web !== false && (
                 <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
               )}
-              {allowed?.image !== false && <ChatImageToggle {...image} onDone={close} />}
+              {allowed?.image !== false && image && (
+                <ChatImageToggle {...image} onDone={close} />
+              )}
               <ChatMcpToggle
                 selected={mcp.selected}
                 available={
@@ -204,7 +207,7 @@ export function ChatComposerMenu({
           </IconButton>
         </span>
       )}
-      {image.value !== "off" && (
+      {image && image.value !== "off" && (
         <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
           <ImagePlus className="size-3.5" aria-hidden="true" />
           {ui("Tạo ảnh")}

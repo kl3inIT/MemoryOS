@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ImageAvailabilityResponse;
 import io.memoryos.api.chat.contract.ImageConnectionRequest;
 import io.memoryos.api.chat.contract.ImageConnectionResponse;
+import io.memoryos.api.chat.contract.ImageProviderResponse;
 import io.memoryos.api.chat.contract.ImageSelectionRequest;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ProviderCredentials;
@@ -58,6 +59,12 @@ class ImageConnectionController {
         var generate = access.generate();
         return new ImageAvailabilityResponse(generate != null,
                 generate == null ? null : generate.provider(), generate == null ? null : generate.model());
+    }
+    @GetMapping("/providers")
+    @ApiResponse(responseCode = "200", description = "Installed image providers", useReturnTypeSchema = true)
+    @Operation(operationId = "listChatImageProviders", summary = "List installed image providers and their known models for model managers")
+    List<ImageProviderResponse> providers(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return connections.providers(identity.actorId()).stream().map(ImageProviderResponse::from).toList();
     }
     @GetMapping("/connections")
     @ApiResponse(responseCode = "200", description = "Image connections", useReturnTypeSchema = true)
