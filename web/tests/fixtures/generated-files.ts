@@ -190,7 +190,7 @@ export async function generatedFileMessages(
       role: "ASSISTANT",
       content:
         "Tôi đã phân tích doanh thu quý 3 và tạo các tệp dưới đây. Doanh thu cả quý đạt **12,48 tỷ ₫**, tăng 18,4% so với cùng kỳ.",
-      generatedFiles: files,
+      generatedFiles: files.map((file) => ({ ...file, chart: false })),
     },
   ];
 }

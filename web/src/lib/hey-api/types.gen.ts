@@ -1479,6 +1479,10 @@ export type GeneratedFileRef = {
     filename: string;
     mediaType: string;
     sizeBytes: number;
+    /**
+     * Chart data is available at /api/chat/file-artifacts/{id}/chart
+     */
+    chart: boolean;
 };
 
 export type ImageRef = {
@@ -1598,6 +1602,7 @@ export type GeneratedFile = {
     filename?: string;
     mediaType?: string;
     sizeBytes?: number;
+    chart?: boolean;
 };
 
 export type ResearchPlanEvent = {
@@ -8683,6 +8688,51 @@ export type GetChatFileArtifactResponses = {
 };
 
 export type GetChatFileArtifactResponse = GetChatFileArtifactResponses[keyof GetChatFileArtifactResponses];
+
+export type GetChatFileArtifactChartData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/chart';
+};
+
+export type GetChatFileArtifactChartErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactChartError = GetChatFileArtifactChartErrors[keyof GetChatFileArtifactChartErrors];
+
+export type GetChatFileArtifactChartResponses = {
+    /**
+     * Chart in the E2B chart model (type, title, elements, axes)
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetChatFileArtifactChartResponse = GetChatFileArtifactChartResponses[keyof GetChatFileArtifactChartResponses];
 
 export type ReadChatDocumentPassagesData = {
     body?: never;
