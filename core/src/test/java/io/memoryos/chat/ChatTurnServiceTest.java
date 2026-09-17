@@ -70,6 +70,10 @@ class ChatTurnServiceTest {
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
+        // The builtin agent allows every tool and every MCP server the actor can use.
+        when(persistence.agent(any(), any())).thenReturn(new io.memoryos.chat.persistence.JdbcChatRepository.Persona(
+                "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
+                java.util.Set.of("search", "web_search", "image_generation"), null, true));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());

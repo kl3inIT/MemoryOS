@@ -108,8 +108,8 @@ public class ChatPromptShortcutService {
     }
 
     private static String name(@Nullable String value) {
-        if (value == null || value.isBlank() || value.strip().length() > 100 || value.strip().chars().anyMatch(Character::isWhitespace))
-            throw ChatException.invalid("Shortcut names have 1 to 100 characters without spaces.");
+        if (value == null || value.isBlank() || value.strip().length() > 100 || value.chars().anyMatch(Character::isISOControl))
+            throw ChatException.invalid("Shortcut names have 1 to 100 characters on one line.");
         return value.strip();
     }
 

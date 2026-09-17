@@ -124,7 +124,7 @@ CREATE TABLE prompt_shortcut (
     tenant_id UUID NOT NULL REFERENCES tenants (id),
     id UUID NOT NULL,
     owner_actor_id UUID,
-    name VARCHAR(100) NOT NULL CHECK (name = trim(name) AND length(name) BETWEEN 1 AND 100 AND name !~ '\s'),
+    name VARCHAR(100) NOT NULL CHECK (name = trim(name) AND length(name) BETWEEN 1 AND 100 AND name !~ '[[:cntrl:]]'),
     content TEXT NOT NULL CHECK (length(trim(content)) > 0 AND length(content) <= 8000),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

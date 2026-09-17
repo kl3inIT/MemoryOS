@@ -30,6 +30,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -46,8 +47,10 @@ class ModelCatalogConstraintsTest {
     private final ModelSettings settings = new ModelSettings(32000, 4096,
             new ModelSettings.Capabilities(true, true, false, false), Map.of("temperature", 0.5), null, "openai-o200k-v1");
 
-    @BeforeEach void setup() throws Exception {
-        dataSource = TestDatabase.freshPostgres("53"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource, false);
+    // Only the tokenizer backfill needs the pre-V54 schema; the other cases exercise the current agent schema.
+    @BeforeEach void setup(TestInfo test) throws Exception {
+        boolean legacy = test.getTestMethod().map(method -> method.getName().startsWith("tokenizerMigration")).orElse(false);
+        dataSource = TestDatabase.freshPostgres(legacy ? "53" : "latest"); jdbc = JdbcClient.create(dataSource); jpa = TestDatabase.jpa(dataSource, false);
         tx = new TransactionTemplate(jpa.transactionManager());
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
@@ -146,7 +149,10 @@ class ModelCatalogConstraintsTest {
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
                 .param("tenant", tenant).param("actor", actor.value()).update();
-        UUID persona = chats.provisionPersona(new TenantId(tenant), "Builtin", "Preserved instructions", "hosted");
+        // Raw SQL: the repository writes V71 agent tables that do not exist at the V53 baseline.
+        UUID persona = UUID.randomUUID();
+        jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Builtin','Preserved instructions','hosted')")
+                .param("id", persona).param("tenant", tenant).update();
         UUID group = UUID.randomUUID();
         jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,'Models')")
                 .param("tenant", tenant).param("id", group).update();
@@ -166,7 +172,8 @@ class ModelCatalogConstraintsTest {
                     VALUES (:id,:tenant,:provider,'hosted','Hosted',CAST(:settings AS jsonb),9)
                     """).param("id", legacy).param("tenant", tenant).param("provider", provider).param("settings", legacySettings).update();
             catalog.setDefault(tenant, legacy, 1);
-            catalog.setPersonaModel(tenant, actor.value(), true, persona, installed, 1);
+            jdbc.sql("UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1 WHERE id=:id")
+                    .param("model", installed).param("id", persona).update();
             var session = chats.create(new TenantId(tenant), actor, persona, "Preserved history");
             UUID user = UUID.randomUUID(), assistant = UUID.randomUUID();
             chats.insertPair(session.id(), session.rootMessageId(), UUID.randomUUID(), user, assistant, "Tiếng Việt", Duration.ofMinutes(1), List.of());

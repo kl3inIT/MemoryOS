@@ -80,7 +80,7 @@ public class JdbcAgentRepository {
         return jdbc.sql("""
                         SELECT p.id FROM persona p WHERE p.tenant_id = :tenant
                           AND (CAST(:deleted AS boolean) OR p.deleted_at IS NULL)
-                        ORDER BY p.builtin_key NULLS LAST, p.deleted_at NULLS FIRST, p.is_featured DESC,
+                        ORDER BY p.builtin_key NULLS LAST, p.deleted_at NULLS FIRST,
                                  p.display_priority NULLS LAST, lower(p.name), p.id
                         OFFSET :offset LIMIT :limit
                         """).param("tenant", tenant).param("deleted", deleted).param("offset", offset).param("limit", limit)

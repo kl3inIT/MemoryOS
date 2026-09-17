@@ -837,7 +837,10 @@ class ChatPersistenceIntegrationTest {
         when(authorization.effectiveCapabilities(member)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
         var own = shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("tomtat", "Tóm tắt báo cáo này", null), false);
         assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("TomTat", "x", null), false));
-        assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("tom tat", "x", null), false));
+        assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("tóm\ntắt", "x", null), false));
+        var spaced = shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput(" Tóm tắt hợp đồng ", "Tóm tắt điều khoản chính", null), false);
+        assertEquals("Tóm tắt hợp đồng", spaced.name());
+        shortcuts.delete(member, spaced.id(), false);
         assertThrows(ChatException.class, () -> shortcuts.create(member, new ChatPromptShortcutService.ShortcutInput("kpi", "x", null), true));
         var shared = shortcuts.create(owner, new ChatPromptShortcutService.ShortcutInput("kpi", "Xếp loại KPI tháng này", null), true);
         assertThrows(ChatException.class, () -> shortcuts.update(other, own.id(), own.revision(),
