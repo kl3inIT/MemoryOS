@@ -37,6 +37,7 @@ public final class RunPythonTool {
     static final int MAX_OUTPUT_CHARACTERS = 50_000;
     /** Onyx runs each call with a fixed timeout; a MemoryOS turn has no total deadline of its own. */
     static final int DEFAULT_TIMEOUT_MS = 60_000;
+    static final int FILENAME_LIMIT = 200;
     static final String MISSING_CODE = "The python tool requires a 'code' parameter containing the Python code to execute. "
             + "Please provide like: {\"code\": \"print('Hello, world!')\"}";
     static final String FILE_REMINDER = """
@@ -181,7 +182,7 @@ public final class RunPythonTool {
         var candidates = new ArrayList<Candidate>();
         for (int i = 0; i < chronological.size(); i++) {
             var file = chronological.get(i);
-            candidates.add(new Candidate(file, dedupe(safeName(file.filename()), used), i));
+            candidates.add(new Candidate(file, dedupe(safeName(file.filename()), file.id().toString(), used), i));
         }
         var referenced = new ArrayList<Candidate>();
         var others = new ArrayList<Candidate>();
@@ -232,19 +233,31 @@ public final class RunPythonTool {
         return first == null ? second : first + " " + second;
     }
 
+    /** Onyx {@code _safe_code_interpreter_filename}: unsafe runs become "_", whitespace then dots are stripped, and a
+     *  name over 200 characters keeps its extension. */
     static String safeName(String name) {
-        String safe = UNSAFE_NAME.matcher(name).replaceAll("_").replaceAll("^[ .]+|[ .]+$", "");
-        if (safe.isEmpty()) safe = "file";
-        return safe.length() > 200 ? safe.substring(0, 200) : safe;
+        String safe = UNSAFE_NAME.matcher(name).replaceAll("_").strip().replaceAll("^\\.+|\\.+$", "");
+        if (safe.isEmpty()) return "file";
+        int dot = safe.lastIndexOf('.');
+        String base = dot > 0 ? safe.substring(0, dot) : safe;
+        String extension = dot > 0 ? safe.substring(dot) : "";
+        if (base.isEmpty()) base = "file";
+        return truncateBase(base, Math.max(1, FILENAME_LIMIT - extension.length())) + extension;
     }
 
-    static String dedupe(String name, Set<String> used) {
-        String candidate = name;
+    /** Onyx {@code _dedupe_code_interpreter_filename}: a repeated name gets the file's id before its extension. */
+    static String dedupe(String name, String fallbackId, Set<String> used) {
+        if (used.add(name)) return name;
         int dot = name.lastIndexOf('.');
-        String stem = dot > 0 ? name.substring(0, dot) : name;
-        String extension = dot > 0 ? name.substring(dot) : "";
-        for (int index = 1; !used.add(candidate); index++) candidate = stem + "_" + index + extension;
-        return candidate;
+        String base = dot > 0 ? name.substring(0, dot) : name;
+        String suffix = "_" + fallbackId + (dot > 0 ? name.substring(dot) : "");
+        String deduped = truncateBase(base, Math.max(1, FILENAME_LIMIT - suffix.length())) + suffix;
+        used.add(deduped);
+        return deduped;
+    }
+
+    private static String truncateBase(String base, int limit) {
+        return base.length() <= limit ? base : base.substring(0, limit);
     }
 
     static String truncate(String text) {

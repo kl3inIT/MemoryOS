@@ -271,8 +271,20 @@ class RunPythonToolTest {
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {
         assertEquals("a_b_c.csv", RunPythonTool.safeName("a/b:c.csv"));
         assertEquals("file", RunPythonTool.safeName(" .. "));
+        // Python " ..csv".strip().strip(".") is "csv", which has no extension.
+        assertEquals("csv", RunPythonTool.safeName(" ..csv"));
+        assertEquals("report", RunPythonTool.safeName("  .report.  "));
+        // A long name keeps its extension, as Onyx trims the base only.
+        String longName = RunPythonTool.safeName("b".repeat(300) + ".xlsx");
+        assertEquals(RunPythonTool.FILENAME_LIMIT, longName.length());
+        assertTrue(longName.endsWith(".xlsx"));
         var used = new HashSet<String>();
-        assertEquals("data.csv", RunPythonTool.dedupe("data.csv", used));
-        assertEquals("data_1.csv", RunPythonTool.dedupe("data.csv", used));
+        assertEquals("data.csv", RunPythonTool.dedupe("data.csv", "id1", used));
+        assertEquals("data_id2.csv", RunPythonTool.dedupe("data.csv", "id2", used));
+        String dedupedLong = RunPythonTool.dedupe(longName, "4f0c2d1e-0000-4000-8000-000000000001", used);
+        String repeatedLong = RunPythonTool.dedupe(longName, "4f0c2d1e-0000-4000-8000-000000000002", used);
+        assertEquals(longName, dedupedLong);
+        assertEquals(RunPythonTool.FILENAME_LIMIT, repeatedLong.length());
+        assertTrue(repeatedLong.endsWith("_4f0c2d1e-0000-4000-8000-000000000002.xlsx"));
     }
 }
