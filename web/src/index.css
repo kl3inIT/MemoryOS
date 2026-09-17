@@ -6,4 +6,7 @@
 @import "./styles/theme.css";
 @import "./styles/base.css";
 
+/* Streamdown renders answer markdown with its own utility classes (not scanned by default). */
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));

@@ -23,7 +23,9 @@ describe("assistant markdown", () => {
               content: [
                 {
                   type: "text",
-                  text: `[báo cáo.xlsx](${link})\n\n![Biểu đồ](${link})\n\n[bad](javascript:alert(1))`,
+                  text: `[báo cáo.xlsx](${link})\n\n![Biểu đồ](${link})\n\n[bad](javascript:alert(1))
+
+<img src="x" onerror="alert(1)"><script>alert(2)</script><iframe src="https://evil.example"></iframe>`,
                 },
               ],
             },
@@ -48,8 +50,12 @@ describe("assistant markdown", () => {
       expect(screen.getByRole("link", { name: "báo cáo.xlsx" })).toHaveAttribute("href", link),
     );
     expect(screen.getByRole("img", { name: "Biểu đồ" })).toHaveAttribute("src", link);
-    expect(screen.getByText("bad").closest("a")?.getAttribute("href") ?? "").not.toMatch(
+    // Streamdown's hardening renders a blocked script URL as text without a link target.
+    expect(screen.getByText(/bad/).closest("a")?.getAttribute("href") ?? "").not.toMatch(
       /javascript/,
     );
+    expect(document.body.innerHTML).not.toMatch(/javascript:/);
+    // Model text never renders raw HTML: Streamdown's rehype-raw default is not used.
+    expect(document.querySelector("[onerror], script, iframe")).toBeNull();
   });
 });

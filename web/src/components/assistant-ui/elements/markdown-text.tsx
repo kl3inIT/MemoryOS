@@ -1,14 +1,17 @@
 "use client";
 
-import "@assistant-ui/react-markdown/styles/dot.css";
-
 import {
   type CodeHeaderProps,
-  MarkdownTextPrimitive,
-  unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
-  useIsMarkdownCodeBlock,
-} from "@assistant-ui/react-markdown";
-import remarkGfm from "remark-gfm";
+  StreamdownTextPrimitive,
+  type StreamdownTextComponents,
+  useIsStreamdownCodeBlock,
+} from "@assistant-ui/react-streamdown";
+import {
+  type Components,
+  defaultRehypePlugins,
+  defaultRemarkPlugins,
+  type StreamdownProps,
+} from "streamdown";
 import { type ComponentProps, type FC, memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
@@ -20,10 +23,17 @@ import { SyntaxHighlighter, MermaidDiagram } from "./code-renderers.aui";
 
 const languageRenderers = { mermaid: { SyntaxHighlighter: MermaidDiagram } };
 
+// StreamdownTextComponents' index signature rejects the typed CodeHeader/SyntaxHighlighter slots it documents.
+type MarkdownComponents = Partial<Record<string, unknown>>;
+
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
-  components?: Parameters<typeof memoizeMarkdownComponents>[0];
-  remarkPlugins?: React.ComponentProps<typeof MarkdownTextPrimitive>["remarkPlugins"];
+  components?: MarkdownComponents;
+  remarkPlugins?: StreamdownProps["remarkPlugins"];
 };
+
+const baseRemarkPlugins = Object.values(defaultRemarkPlugins);
+// Streamdown's defaults add rehype-raw; model text never renders raw HTML, as react-markdown did.
+const rehypePlugins = [defaultRehypePlugins.sanitize!, defaultRehypePlugins.harden!];
 
 const useShallowStable = <T extends Record<string, unknown> | undefined>(value: T): T => {
   const ref = useRef(value);
@@ -43,18 +53,23 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
   const stableComponents = useShallowStable(components);
   const markdownComponents = useMemo(() => {
     if (!stableComponents) return defaultComponents;
-    return {
-      ...defaultComponents,
-      ...memoizeMarkdownComponents(stableComponents),
-    };
+    return { ...defaultComponents, ...stableComponents };
   }, [stableComponents]);
+  const plugins = useMemo(() => [...baseRemarkPlugins, ...(remarkPlugins ?? [])], [remarkPlugins]);
 
+  // Block-aware streaming (Streamdown): finished blocks keep their parsed tree and only the growing block is parsed
+  // again, as Onyx renders without a per-frame typewriter; re-parsing the whole message on every smoothed frame froze
+  // long answers for seconds on slower machines.
   return (
-    <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm, ...(remarkPlugins ?? [])]}
-      className="aui-md"
-      components={markdownComponents}
+    <StreamdownTextPrimitive
+      remarkPlugins={plugins}
+      rehypePlugins={rehypePlugins}
+      containerClassName="aui-md"
+      components={markdownComponents as StreamdownTextComponents}
       componentsByLanguage={languageRenderers}
+      controls={false}
+      lineNumbers={false}
+      smooth={false}
       defer
     />
   );
@@ -114,7 +129,7 @@ function Pre({ className, node: _node, ...props }: ComponentProps<"pre"> & { nod
   );
 }
 
-const memoizedComponents = memoizeMarkdownComponents({
+const tagComponents: Components = {
   h1: ({ className, ...props }) => (
     <h1
       className={cn(
@@ -250,7 +265,7 @@ const memoizedComponents = memoizeMarkdownComponents({
     <sup className={cn("aui-md-sup [&>a]:text-xs [&>a]:no-underline", className)} {...props} />
   ),
   code: function Code({ className, ...props }) {
-    const isCodeBlock = useIsMarkdownCodeBlock();
+    const isCodeBlock = useIsStreamdownCodeBlock();
     return (
       <code
         className={cn(
@@ -262,7 +277,8 @@ const memoizedComponents = memoizeMarkdownComponents({
       />
     );
   },
-  CodeHeader,
-});
+};
 
-const defaultComponents = { ...memoizedComponents, pre: Pre, SyntaxHighlighter };
+const baseComponents = { ...tagComponents, CodeHeader };
+
+const defaultComponents = { ...baseComponents, pre: Pre, SyntaxHighlighter };
