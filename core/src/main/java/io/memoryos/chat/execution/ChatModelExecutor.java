@@ -48,6 +48,8 @@ public final class ChatModelExecutor {
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter;
+    private final io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings;
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
 
@@ -55,15 +57,19 @@ public final class ChatModelExecutor {
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
+            io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
+            io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
             io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry,
             io.micrometer.core.instrument.MeterRegistry meters) {
+        this.interpreter = interpreter;
+        this.interpreterSettings = interpreterSettings;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? io.memoryos.chat.research.ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -151,7 +157,8 @@ public final class ChatModelExecutor {
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
             Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
-            Consumer<ChatImageEvent> imageEvents, Consumer<CompletableFuture<Void>> onDrained) {
+            Consumer<ChatImageEvent> imageEvents, Consumer<io.memoryos.chat.ChatCodeEvent> codeEvents,
+            Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
@@ -240,6 +247,13 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, 4)));
+            }
+            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
+            if (selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
+                    && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy()) {
+                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
+                        fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
+                        activity, codeEvents)));
             }
             if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
                 var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,

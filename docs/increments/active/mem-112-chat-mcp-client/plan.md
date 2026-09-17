@@ -25,7 +25,7 @@ Evidence: [verification.md](verification.md).
 
 ## Phase 2 — administration
 
-- [ ] Create `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` in the Infisical dev and staging environments before the first admin secret write; without it writes fail with `MCP_NOT_CONFIGURED`.
+- [x] Create `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` in the Infisical dev and staging environments before the first admin secret write; without it writes fail with `MCP_NOT_CONFIGURED`. Verified 2026-09-17: both environments hold a 32-byte key and `MEMORYOS_MCP_REDIRECT_URI`.
 
 ### 2a — servers, API-key credentials, tools
 
@@ -72,7 +72,7 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] Failures are mapped from MCP error codes, never matched text, and carry no upstream body to the model or the logs.
 - [x] `mcpServerIds` on send, edit and regenerate.
 - [x] An end-to-end turn against the fixture MCP server, including Stop closing the sessions.
-- [ ] Activity rendering for MCP steps and the `auth_required` connect action (with Phase 5).
+- [x] Activity rendering for MCP steps and the `auth_required` connect action (with Phase 5): a failed step carries `failure` (`AUTHORIZATION_REQUIRED`, `TIMEOUT`, `UNAVAILABLE`) on the stream and in history.
 - [x] Observability: `memoryos.chat.mcp.call` records a timer per server, tool and outcome, with the label set pinned by a test.
 - [ ] Per-turn bounds measured against real Google Drive schemas; the current 10 calls and 60s are placeholders.
 - [x] Integration coverage for a tool error, a rejected credential and a per-call timeout inside a real turn.
@@ -83,7 +83,8 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] Admin OAuth clients: discovery review, DCR, the metadata-document route, per-organization pasted clients, and the administrator's own connect/disconnect.
 - [x] Composer: server list with status, OAuth connect with account choice, API-key entry.
 - [x] Vietnamese and English copy for every new string.
-- [ ] Generic MCP activity renderer in the timeline.
+- [x] MCP activity renderer in the timeline: tool and server names, the failure category, Connect in place for the person's own credential, and the step group left open while it needs action.
+- [x] Rare server row actions (edit, delete) moved into one menu so the row fits 390px.
 - [x] Unit tests for the composer submenu.
 - [x] Chromium scenario over stubbed responses, with screenshots reviewed and the defects it exposed fixed.
 
@@ -96,6 +97,8 @@ Evidence: [verification.md](verification.md#phase-3--2026-09-16).
 - [x] Frontend `pnpm check` passes in one run.
 
 ## Phase 7 — pass-through OAuth (gated)
+
+Tracked separately as [MEM-133](https://linear.app/memory-os/issue/MEM-133). Editing existing Drive files, which the official Drive MCP server cannot do, is [MEM-132](https://linear.app/memory-os/issue/MEM-132).
 
 - [ ] Only after the Phase 0 confirmation, a concrete Keycloak-trusting MCP server and its ADR.
 - [ ] Session-bound encrypted Keycloak token retention removed at sign-out; Keycloak token exchange (RFC 8693) to the MCP server audience per call, as OrgMemory `apps/mcp` does, instead of forwarding the login token.

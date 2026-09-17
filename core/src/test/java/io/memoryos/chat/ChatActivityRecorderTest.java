@@ -16,6 +16,22 @@ class ChatActivityRecorderTest {
     private final ChatToolEvent.Call read = new ChatToolEvent.Call("call_2", "read_file");
 
     @Test
+    void keepsTheFailureCategoryOfAFailedStepAndRejectsItOnAnyOther() {
+        var recorder = new ChatActivityRecorder();
+        var mcp = new ChatToolEvent.Call("call_mcp", "mcp_drive_search_files");
+        recorder.accept(new ChatToolEvent(mcp, ChatToolEvent.Stage.STARTED), 0);
+        recorder.accept(ChatToolEvent.finished(mcp, true, 7L, ChatToolEvent.Failure.AUTHORIZATION_REQUIRED), 0);
+
+        var step = recorder.seal().steps().getFirst();
+
+        assertEquals(ChatActivity.StepStatus.FAILED, step.status());
+        assertEquals(ChatToolEvent.Failure.AUTHORIZATION_REQUIRED, step.failure());
+        assertEquals(null, ChatToolEvent.finished(mcp, false, 7L, ChatToolEvent.Failure.TIMEOUT).failure());
+        assertThrows(IllegalArgumentException.class, () -> new ChatToolEvent(mcp.id(), mcp.name(), ChatToolEvent.Stage.COMPLETED,
+                null, null, List.of(), 7L, null, null, ChatToolEvent.Failure.TIMEOUT));
+    }
+
+    @Test
     void recordsOrderedStepsSummariesCitationsAndReasoningSegments() {
         var recorder = new ChatActivityRecorder();
         var source = new ChatSource(1, UUID.randomUUID(), UUID.randomUUID(), "HR", 2, 2, List.of(new ChatSource.Provenance(2, "[]")));

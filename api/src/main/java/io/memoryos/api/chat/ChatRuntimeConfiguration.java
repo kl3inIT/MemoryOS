@@ -54,9 +54,12 @@ class ChatRuntimeConfiguration {
                                         io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
                                         io.memoryos.chat.image.ImageArtifactService imageArtifacts,
+                                        io.memoryos.chat.interpreter.InterpreterClient interpreter,
+                                        io.memoryos.chat.interpreter.InterpreterService interpreterSettings,
                                         io.memoryos.chat.research.ResearchProperties research,
                                         io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
-        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts,
+        return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
+                web, image, imageArtifacts, interpreter, interpreterSettings,
                 research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations), meters);
     }
 
@@ -80,8 +83,8 @@ class ChatRuntimeConfiguration {
     }
 
     @Bean
-    StreamBufferWriter chatStreamBuffer(ChatStreamProperties properties) {
-        return new StreamBufferWriter(properties);
+    StreamBufferWriter chatStreamBuffer(org.springframework.data.redis.core.StringRedisTemplate redis, ChatStreamProperties properties) {
+        return new StreamBufferWriter(redis, properties);
     }
 
     @Bean(destroyMethod = "dispose")

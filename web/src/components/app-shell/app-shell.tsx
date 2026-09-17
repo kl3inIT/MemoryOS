@@ -12,6 +12,7 @@ import {
   Plug,
   Settings2,
   Sparkles,
+  SquareTerminal,
   User,
   Users,
   X,
@@ -34,6 +35,7 @@ export type AdminPage =
   | "users"
   | "groups"
   | "web"
+  | "interpreter"
   | "providers"
   | "models"
   | "mcp"
@@ -224,6 +226,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/code-interpreter"
+                  icon={<SquareTerminal className="size-4" />}
+                  selected={adminPage === "interpreter"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Code Interpreter")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

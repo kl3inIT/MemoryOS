@@ -166,6 +166,8 @@ class ChatSessionApiIntegrationTest {
     @Autowired
     private StreamBufferWriter streams;
     @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate redis;
+    @Autowired
     private ChatModelExecutor executor;
     @LocalServerPort
     private int port;
@@ -518,7 +520,7 @@ class ChatSessionApiIntegrationTest {
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
-        try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
+        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
             var events = reader.read().events();
             assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
                     && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
@@ -635,7 +637,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1, bogus.path("tabIndex").asInt());
         assertEquals("COMPLETED", bogus.path("status").asText());
         assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
-        try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
+        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
             var events = reader.read().events();
             assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
             assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
@@ -772,7 +774,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals("Revenue", saved.path("artifacts").get(0).path("title").asText());
         assertEquals(spec, saved.path("artifacts").get(0).path("spec").asText());
         verify(model, times(2)).stream(any(Prompt.class));
-        try (var reader = streams.subscribe(UUID.fromString(id), 0)) {
+        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
             assertTrue(reader.read().events().getLast().hasArtifacts());
         }
         mockMvc.perform(get("/api/chat/sessions/" + session.path("id").asText() + "/messages").with(authentication(other)))
@@ -1057,7 +1059,7 @@ class ChatSessionApiIntegrationTest {
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
             var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
             var answer = new StringBuilder();
-            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {});
+            executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
             assertEquals(12L, accounting.get().input());
             assertEquals(12L, accounting.get().output());
@@ -1135,6 +1137,28 @@ class ChatSessionApiIntegrationTest {
                     .param("id", UUID.fromString(id)).query(String.class).single());
             verify(model, times(1)).stream(any(Prompt.class));
         }
+    }
+
+    @Test
+    void replayIsServedFromRedisOnlyToTheOwnerAndAFinishedReplyWithoutReplayResetsToHistory() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        var session = create();
+        String id = send(session, UUID.randomUUID().toString()).path("assistantMessageId").asText();
+        awaitOutcome(id, "COMPLETED");
+        String events = "http://127.0.0.1:" + port + "/api/chat/sessions/" + session.path("id").asText() + "/messages/" + id + "/events";
+        try (var http = HttpClient.newHttpClient()) {
+            var replay = http.send(httpRequest(events, token(actor)).build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, replay.statusCode());
+            assertTrue(replay.body().contains("event:outcome"), replay.body());
+            assertEquals(2L, redis.opsForStream().size("memoryos:chat:stream:" + id));
+            assertEquals(404, http.send(httpRequest(events, token(other)).build(), HttpResponse.BodyHandlers.ofString()).statusCode());
+            // Expired, evicted or lost with Redis: the stream ends with a reset and the browser reads the saved reply.
+            redis.delete("memoryos:chat:stream:" + id);
+            var missing = http.send(httpRequest(events, token(actor)).build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, missing.statusCode());
+            assertTrue(missing.body().contains("event:reset") && missing.body().contains("BUFFER_MISSING"), missing.body());
+        }
+        assertEquals(0, streams.readerCount());
     }
 
     private static HttpRequest.Builder httpRequest(String url, String token) {

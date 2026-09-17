@@ -52,6 +52,15 @@ public class JdbcUserFileRepository {
                 .query((row, ignored) -> map(row)).optional();
     }
 
+    /** The READY files among {@code ids} that the actor owns, in one query; unknown ids are absent. */
+    public List<Row> owned(TenantId tenant, ActorId actor, java.util.Set<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.sql("SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor"
+                        + " AND id IN (:ids) AND status='READY'")
+                .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
+                .query((row, ignored) -> map(row)).list();
+    }
+
     public List<UserFile> recent(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
                 SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor

@@ -103,11 +103,20 @@ class ChatWebPromptsTest {
         assertFalse(attachments.contains("web_search"));
         assertEquals(1, headings(attachments));
         String all = ChatPrompts.forInference(prompt(Set.of("search_knowledge", "web_search", "open_url",
-                "search_files", "read_file", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
+                "search_files", "read_file", "run_python", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
         for (String block : List.of("## search_knowledge", "## web_search", "## open_url",
-                "## search_files and read_file", "## generate_image", "## edit_image", "## render_gui"))
+                "## search_files and read_file", "## run_python", "## generate_image", "## edit_image", "## render_gui"))
             assertTrue(all.contains(block), block);
         assertEquals(1, headings(all));
+    }
+
+    @Test void runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool() {
+        String with = ChatPrompts.forInference(prompt(Set.of("run_python"), null), false, false).toString();
+        assertTrue(with.contains("## run_python"));
+        assertTrue(with.contains("each call to this tool runs in a fresh, stateless sandbox"));
+        assertTrue(with.contains("CPU time is limited to 30 seconds per run."));
+        assertEquals(1, headings(with));
+        assertFalse(ChatPrompts.forInference(prompt(Set.of("read_file"), null), false, false).toString().contains("run_python"));
     }
 
     private static int headings(String text) {

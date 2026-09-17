@@ -46,9 +46,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
 /**
- * OpenAI Responses API for a Chat turn that uses hosted {@code web_search} or displayable reasoning summaries.
- * Helpers and turns needing neither keep the Chat Completions delegate. Requests are stateless
- * ({@code store=false}); output items needed by the next tool cycle ride in assistant message properties.
+ * OpenAI Responses API for Chat turns. As Onyx, every streamed turn of a model served by OpenAI itself uses it
+ * ({@code always}), because only this API streams reasoning summaries and accepts tools beside reasoning; an
+ * OpenAI-compatible endpoint uses it only for hosted {@code web_search} or configured summaries, and there unbound
+ * streams keep the Chat Completions delegate. Synchronous helpers always do. Requests are stateless ({@code store=false}); output items
+ * needed by the next tool cycle ride in assistant message properties.
  */
 @org.jspecify.annotations.NullMarked
 final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
@@ -59,6 +61,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
     private final boolean reasoning;
     private final boolean webSearch;
     private final boolean summaries;
+    private final boolean always;
     private final MeterRegistry meters;
     private final @Nullable Turn turn;
 
@@ -67,21 +70,27 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
     }
 
     OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, boolean webSearch, boolean summaries, MeterRegistry meters) {
-        this(completions, client, reasoning, webSearch, summaries, meters, null);
+        this(completions, client, reasoning, webSearch, summaries, false, meters, null);
+    }
+
+    OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, boolean webSearch, boolean summaries,
+                             boolean always, MeterRegistry meters) {
+        this(completions, client, reasoning, webSearch, summaries, always, meters, null);
     }
 
     private OpenAiResponsesChatModel(ChatModel completions, OpenAIClientAsync client, boolean reasoning, boolean webSearch, boolean summaries,
-                                     MeterRegistry meters, @Nullable Turn turn) {
+                                     boolean always, MeterRegistry meters, @Nullable Turn turn) {
         this.completions = completions;
         this.client = client;
         this.reasoning = reasoning;
         this.webSearch = webSearch;
         this.summaries = summaries && reasoning;
+        this.always = always;
         this.meters = meters;
         this.turn = turn;
     }
 
-    @Override public ChatModel forTurn(Turn value) { return new OpenAiResponsesChatModel(completions, client, reasoning, webSearch, summaries, meters, value); }
+    @Override public ChatModel forTurn(Turn value) { return new OpenAiResponsesChatModel(completions, client, reasoning, webSearch, summaries, always, meters, value); }
 
     @Override public boolean nativeWebSearch() { return webSearch; }
 
@@ -90,10 +99,11 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
 
     @Override
     public Flux<ChatResponse> stream(Prompt prompt) {
-        var active = turn;
-        if (active == null) return completions.stream(prompt);
+        if (turn == null && !always) return completions.stream(prompt);
+        // Unbound streams (connection validation) probe the same route turns use; they publish no activity.
+        var active = turn != null ? turn : new Turn(new io.memoryos.chat.ChatEvidence(), ignored -> {}, false, () -> {});
         boolean web = webSearch && active.webSearch();
-        if (!web && !summaries) return completions.stream(prompt);
+        if (!web && !summaries && !always) return completions.stream(prompt);
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS"));
         // The final-cycle policy removes every tool callback; hosted search is a tool as well.
         boolean tools = options.getToolCallbacks() != null && !options.getToolCallbacks().isEmpty();
@@ -129,7 +139,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         if (options.getTopP() != null) builder.topP(options.getTopP());
         var reasoningOptions = new LinkedHashMap<String, Object>();
         if (options.getReasoningEffort() != null) reasoningOptions.put("effort", options.getReasoningEffort());
-        if (summaries) reasoningOptions.put("summary", "auto");
+        // As Onyx, summaries accompany every reasoning request, so the stream carries packets while the model thinks.
+        if (summaries && !"none".equals(options.getReasoningEffort())) reasoningOptions.put("summary", "auto");
         if (!reasoningOptions.isEmpty()) builder.putAdditionalBodyProperty("reasoning", JsonValue.from(reasoningOptions));
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {
@@ -146,6 +157,9 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             }
             if (web) declared.add(mapper.convertValue(Map.of("type", "web_search"), Tool.class));
             builder.tools(declared);
+            Object choice = toolChoice(options.getToolChoice());
+            if (choice != null) builder.putAdditionalBodyProperty("tool_choice", JsonValue.from(choice));
+            if (options.getParallelToolCalls() != null) builder.parallelToolCalls(options.getParallelToolCalls());
         }
         return builder.build();
     }
@@ -186,6 +200,24 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         return items;
     }
 
+    /**
+     * A Chat Completions tool choice as Responses expects it: {@code auto}, {@code none} and {@code required} are the
+     * same strings; a named function moves its name from {@code function.name} to the top level.
+     */
+    static @Nullable Object toolChoice(@Nullable Object choice) {
+        if (choice == null) return null;
+        Object value = choice instanceof String text && text.trim().startsWith("{") ? JSON.readValue(text, Map.class) : choice;
+        if (value instanceof String text) {
+            if (!Set.of("auto", "none", "required").contains(text)) throw new IllegalArgumentException("Unsupported tool choice");
+            return text;
+        }
+        Map<?, ?> map = value instanceof Map<?, ?> direct ? direct : JSON.convertValue(value, Map.class);
+        if (!"function".equals(map.get("type"))) throw new IllegalArgumentException("Unsupported tool choice");
+        if (map.get("function") instanceof Map<?, ?> named && named.get("name") instanceof String name) return Map.of("type", "function", "name", name);
+        if (map.get("name") instanceof String name) return Map.of("type", "function", "name", name);
+        throw new IllegalArgumentException("Unsupported tool choice");
+    }
+
     private static String text(@Nullable String value) { return value == null ? "" : value; }
 
     private final class StreamState {
@@ -195,6 +227,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
+        private boolean separate;
 
         StreamState(Turn turn, FluxSink<ChatResponse> sink) {
             this.turn = turn;
@@ -206,7 +239,9 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             event.outputTextDelta().ifPresent(delta -> {
                 if (!delta.delta().isEmpty()) sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(delta.delta()).build()))));
             });
-            event.reasoningSummaryPartAdded().ifPresent(part -> { if (part.summaryIndex() > 0) turn.events().accept(new ChatReasoningDelta("\n\n")); });
+            // Every summary part opens with a bold heading. Parts of a new reasoning item or of the next inference
+            // join the same timeline reasoning, so each part is separated, as Onyx's summary newline patch does.
+            event.reasoningSummaryPartAdded().ifPresent(part -> separate = true);
             event.reasoningSummaryTextDelta().ifPresent(delta -> reason(delta.delta()));
             event.webSearchCallInProgress().ifPresent(progress -> start(progress.itemId()));
             event.webSearchCallSearching().ifPresent(progress -> start(progress.itemId()));
@@ -221,6 +256,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         }
 
         private void reason(String text) {
+            if (text.isEmpty()) return;
+            if (separate) {
+                separate = false;
+                // Markdown ignores the leading blank line of the first part.
+                turn.events().accept(new ChatReasoningDelta("\n\n"));
+            }
             for (int offset = 0; offset < text.length(); ) {
                 int end = Math.min(text.length(), offset + 4000);
                 if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) end--;

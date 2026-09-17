@@ -257,7 +257,14 @@ public final class ChatTurnService implements AutoCloseable {
             // Authorization/cursor errors remain synchronous; no reader slot is held until subscription.
             return () -> {
                 lock.lock();
-                try { persistence.authorizeReply(actor, session, assistant); return streams.subscribe(assistant, after); }
+                try {
+                    persistence.authorizeReply(actor, session, assistant);
+                    // The reader re-authorizes on every liveness check, so a revoked membership ends a long stream.
+                    return streams.subscribe(assistant, after, () -> {
+                        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
+                        return persistence.authorizeReply(actor, session, assistant) == ChatMessage.Status.RUNNING;
+                    });
+                }
                 finally { lock.unlock(); }
             };
         } finally { lock.unlock(); }
@@ -273,8 +280,8 @@ public final class ChatTurnService implements AutoCloseable {
             for (UUID message : messages) {
                 var run = active.get(message);
                 if (run != null) { run.deleted = true; run.cancel(StopReason.USER); }
-                streams.discard(message);
             }
+            streams.discard(messages);
         } finally { lock.unlock(); }
     }
 
@@ -307,6 +314,7 @@ public final class ChatTurnService implements AutoCloseable {
                             case ChatResearchEvent research -> streams.research(run.setup.assistantMessageId(), research);
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
+                    codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
                     draining -> run.draining = draining);
             run.check();
             if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");

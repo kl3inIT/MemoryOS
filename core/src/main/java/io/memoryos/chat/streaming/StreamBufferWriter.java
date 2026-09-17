@@ -4,38 +4,63 @@ import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
-import tools.jackson.databind.ObjectMapper;
 import io.memoryos.chat.ChatMessage.Status;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.DefaultStringRedisConnection;
+import org.springframework.data.redis.connection.Limit;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * Process-local bounded replay. The monitor protects memory only; no network or database calls occur under it.
+ * Reply replay in Redis, as Onyx's {@code stream_buffer.py}: one Redis Stream per reply whose entry IDs are the
+ * sequences ({@code 0-n}), a TTL refreshed by every write and a shorter one after the outcome, and a {@code truncated}
+ * entry past the per-reply byte bound. Chunking stays in this process under a per-reply monitor; Redis is written by
+ * the flush tick outside it, so a slow or unavailable Redis never blocks the model writer. Only this process writes a
+ * reply it runs; any process can read it.
  */
 public final class StreamBufferWriter {
+    private static final Logger LOG = LoggerFactory.getLogger(StreamBufferWriter.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
+    static final String PREFIX = "memoryos:chat:stream:";
+    private static final String TRUNCATED = "truncated";
+    private static final String OUTCOME = "outcome";
+    /** A read that finds a reply no longer RUNNING waits this long for its outcome, written after the terminal commit. */
+    private static final long FINAL_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(2);
+
+    private final StringRedisTemplate redis;
     private final ChatStreamProperties limits;
     private final LongSupplier millis;
-    private final LinkedHashMap<UUID, Stream> streams = new LinkedHashMap<>();
+    private final ConcurrentHashMap<UUID, Stream> streams = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> readersPerRun = new java.util.HashMap<>();
     private int readers;
-    private long total;
-    private static final ObjectMapper JSON = new ObjectMapper();
 
-    public StreamBufferWriter(ChatStreamProperties limits) {
-        this(limits, System::currentTimeMillis);
+    public StreamBufferWriter(StringRedisTemplate redis, ChatStreamProperties limits) {
+        this(redis, limits, System::currentTimeMillis);
     }
 
-    StreamBufferWriter(ChatStreamProperties limits, LongSupplier millis) {
+    StreamBufferWriter(StringRedisTemplate redis, ChatStreamProperties limits, LongSupplier millis) {
+        this.redis = redis;
         this.limits = limits;
         this.millis = millis;
     }
@@ -43,11 +68,17 @@ public final class StreamBufferWriter {
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                         @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId) {
+                        @Nullable String parentToolCallId, io.memoryos.chat.@Nullable ChatCodeEvent code) {
+        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
+                     @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
+                     @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
+                     @Nullable String parentToolCallId) {
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, research, parentToolCallId, null);
+        }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                      @Nullable ChatImageEvent image, boolean hasArtifacts) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null);
+            this(assistantMessageId, sequence, type, text, status, failureCode, tool, image, hasArtifacts, null, null, null);
         }
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool, boolean hasArtifacts) {
@@ -69,31 +100,26 @@ public final class StreamBufferWriter {
     public record Batch(List<Event> events, boolean done, @Nullable String reset) {
     }
 
-    private record Chunk(Event event, int bytes) {
+    /** One entry waiting for Redis; {@code data} is null for the truncation marker. */
+    private record Entry(long sequence, String type, @Nullable String data) {
     }
 
-    public synchronized void open(UUID id) {
-        if (streams.containsKey(id)) throw new IllegalStateException("Chat stream already exists");
-        while (streams.size() >= limits.maxStreams()) {
-            var old = streams.values().stream().filter(s -> s.done).findFirst().orElseThrow(ChatException::busy);
-            remove(old);
-        }
+    public void open(UUID id) {
         var stream = new Stream(id);
-        stream.writtenAt = millis.getAsLong();
-        streams.put(id, stream);
+        if (streams.putIfAbsent(id, stream) != null) throw new IllegalStateException("Chat stream already exists");
     }
 
-    public synchronized void append(UUID id, String text) {
+    public void append(UUID id, String text) {
         appendPending(id, "text-delta", null, text);
     }
 
     /** Reasoning shares the answer's chunking; a change between text and reasoning flushes the pending chunk first. */
-    public synchronized void reasoning(UUID id, String text) {
+    public void reasoning(UUID id, String text) {
         appendPending(id, "reasoning", null, text);
     }
 
     /** Reasoning of a research agent chunks apart from the orchestrator's and from other agents'. */
-    public synchronized void reasoning(UUID id, String text, @Nullable String parentToolCallId) {
+    public void reasoning(UUID id, String text, @Nullable String parentToolCallId) {
         appendPending(id, "reasoning", parentToolCallId, text);
     }
 
@@ -101,7 +127,7 @@ public final class StreamBufferWriter {
      * Plan and intermediate report deltas chunk like answer text, one pending chunk per agent; the other research
      * events flush the pending chunk and publish at once.
      */
-    public synchronized void research(UUID id, ChatResearchEvent event) {
+    public void research(UUID id, ChatResearchEvent event) {
         switch (event.kind()) {
             case PLAN_DELTA -> appendPending(id, "research-plan", null, event.text());
             case REPORT_DELTA -> appendPending(id, "intermediate-report", event.toolCallId(), event.text());
@@ -115,99 +141,139 @@ public final class StreamBufferWriter {
 
     private void publishNow(UUID id, String type, ChatResearchEvent event) {
         var stream = require(id);
-        if (stream.done) return;
-        flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, type, null, null, null, null, null, false, event, null));
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, type, null, null, null, null, null, false, event, null));
+        }
     }
 
     private void appendPending(UUID id, String type, @Nullable String key, String text) {
         var stream = require(id);
-        if (stream.done) return;
-        if (!stream.pendingType.equals(type) || !java.util.Objects.equals(stream.pendingKey, key)) {
-            flush(stream);
-            stream.pendingType = type;
-            stream.pendingKey = key;
+        synchronized (stream) {
+            if (stream.done) return;
+            if (!stream.pendingType.equals(type) || !java.util.Objects.equals(stream.pendingKey, key)) {
+                chunk(stream);
+                stream.pendingType = type;
+                stream.pendingKey = key;
+            }
+            for (int offset = 0; offset < text.length(); ) {
+                int point = text.codePointAt(offset);
+                int bytes = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+                if (stream.pendingBytes + bytes > limits.chunkBytes()) chunk(stream);
+                stream.pending.appendCodePoint(point);
+                stream.pendingBytes += bytes;
+                offset += Character.charCount(point);
+            }
+            if (millis.getAsLong() - stream.flushedAt >= limits.flushInterval().toMillis()) chunk(stream);
         }
-        for (int offset = 0; offset < text.length(); ) {
-            int point = text.codePointAt(offset);
-            int bytes = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
-            if (stream.pendingBytes + bytes > limits.chunkBytes()) flush(stream);
-            stream.pending.appendCodePoint(point);
-            stream.pendingBytes += bytes;
-            offset += Character.charCount(point);
-            trim(stream);
-        }
-        if (millis.getAsLong() - stream.flushedAt >= limits.flushInterval().toMillis()) flush(stream);
     }
 
-    public synchronized void finish(UUID id, Status status, @Nullable String failure) {
+    public void finish(UUID id, Status status, @Nullable String failure) {
         finish(id, status, failure, false);
     }
 
-    public synchronized void finish(UUID id, Status status, @Nullable String failure, boolean hasArtifacts) {
-        var stream = require(id);
-        if (stream.done) return;
+    /** Called after the terminal transaction commits; the outcome entry is the done marker readers trust. */
+    public void finish(UUID id, Status status, @Nullable String failure, boolean hasArtifacts) {
         if (status == Status.RUNNING) throw new IllegalArgumentException("Terminal status required");
-        flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, "outcome", null, status, failure, null, hasArtifacts));
-        stream.done = true;
-        stream.finishedAt = millis.getAsLong();
-        notifyAll();
-    }
-
-    public synchronized void tool(UUID id, ChatToolEvent event) {
         var stream = require(id);
-        if (stream.done) return;
-        flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, "tool", null, null, null, event));
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, OUTCOME, null, status, failure, null, hasArtifacts));
+            stream.done = true;
+            stream.finishedAt = millis.getAsLong();
+        }
+        write(stream);
     }
 
-    public synchronized void image(UUID id, ChatImageEvent event) {
+    public void tool(UUID id, ChatToolEvent event) {
         var stream = require(id);
-        if (stream.done) return;
-        flush(stream);
-        publish(stream, new Event(id, ++stream.sequence, "image", null, null, null, null, event, false));
-    }
-
-    public synchronized void flush() {
-        for (var stream : new ArrayList<>(streams.values())) {
-            flush(stream);
-            expire(stream);
-            if (stream.done && millis.getAsLong() - stream.finishedAt >= limits.doneTtl().toMillis()) remove(stream);
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, "tool", null, null, null, event));
         }
     }
 
-    public synchronized void validateSubscription(UUID id, long after) {
+    public void image(UUID id, ChatImageEvent event) {
+        var stream = require(id);
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, "image", null, null, null, null, event, false));
+        }
+    }
+
+    public void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+        var stream = require(id);
+        synchronized (stream) {
+            if (stream.done) return;
+            chunk(stream);
+            publish(stream, new Event(id, stream.sequence + 1, "code", null, null, null, null, null, false, null, null, event));
+        }
+    }
+
+    /** The flush tick: publishes due pending chunks and writes queued entries; a reply leaves this process once written. */
+    public void flush() {
+        for (var stream : streams.values()) {
+            synchronized (stream) {
+                if (!stream.done) chunk(stream);
+            }
+            write(stream);
+            synchronized (stream) {
+                // Late events after the outcome are ignored for its completed retention; unwritten entries are given up then.
+                if (stream.done && millis.getAsLong() - stream.finishedAt >= limits.doneTtl().toMillis()) streams.remove(stream.id, stream);
+            }
+        }
+    }
+
+    public void validateSubscription(UUID id, long after) {
         if (after < 0) throw ChatException.invalid("Invalid stream cursor.");
-        var stream = streams.get(id);
-        if (stream == null) return;
-        flush(stream);
-        expire(stream);
-        if (after > stream.sequence) throw ChatException.invalid("Stream cursor is ahead of this reply.");
-        if (after < stream.firstSequence() - 1) return;
-        if (readers >= limits.maxReaders() || stream.readers.size() >= limits.readersPerRun())
-            throw ChatException.busy();
+        long last;
+        // Unreadable replay is reported by the reader as a reset, so the browser falls back to history.
+        try { last = lastSequence(id); }
+        catch (org.springframework.dao.DataAccessException unavailable) { last = after; }
+        if (after > last) throw ChatException.invalid("Stream cursor is ahead of this reply.");
+        synchronized (readersPerRun) {
+            if (readers >= limits.maxReaders() || readersPerRun.getOrDefault(id, 0) >= limits.readersPerRun())
+                throw ChatException.busy();
+        }
     }
 
-    public synchronized Reader subscribe(UUID id, long after) {
+    /**
+     * {@code running} is asked when a read finds nothing new: first at once, then at each heartbeat. It re-authorizes
+     * the reader and reports whether the reply is still RUNNING; once it is not, the reader drains what remains and ends,
+     * as Onyx ends a resume when the processing fence lapses.
+     */
+    public Reader subscribe(UUID id, long after, BooleanSupplier running) {
         validateSubscription(id, after);
-        var stream = streams.get(id);
-        if (stream == null) return new Reader(null, after, "BUFFER_MISSING");
-        if (after < stream.firstSequence() - 1) return new Reader(null, after, stream.gap);
-        var reader = new Reader(stream, after, null);
-        stream.readers.add(reader);
-        readers++;
-        return reader;
+        synchronized (readersPerRun) {
+            readers++;
+            readersPerRun.merge(id, 1, Integer::sum);
+        }
+        return new Reader(id, after, running);
     }
 
-    public synchronized int readerCount() {
-        return readers;
+    public int readerCount() {
+        synchronized (readersPerRun) {
+            return readers;
+        }
     }
 
-    public synchronized void discard(UUID id) {
-        var stream = streams.get(id);
-        if (stream != null) remove(stream);
-        notifyAll();
+    /** Session deletion; a Redis failure leaves the keys to their TTL. */
+    public void discard(java.util.Collection<UUID> ids) {
+        for (var id : ids) {
+            var stream = streams.remove(id);
+            if (stream != null) synchronized (stream) { stream.done = true; stream.queue.clear(); }
+        }
+        if (ids.isEmpty()) return;
+        try { redis.delete(ids.stream().map(StreamBufferWriter::key).toList()); }
+        catch (RuntimeException failure) { LOG.warn("Chat stream deletion unavailable ({})", failure.getClass().getSimpleName()); }
+    }
+
+    static String key(UUID id) {
+        return PREFIX + id;
     }
 
     private Stream require(UUID id) {
@@ -216,156 +282,205 @@ public final class StreamBufferWriter {
         return stream;
     }
 
-    private void flush(Stream stream) {
+    private long lastSequence(UUID id) {
+        var stream = streams.get(id);
+        if (stream != null) synchronized (stream) { return stream.sequence; }
+        var last = redis.opsForStream().reverseRange(key(id), Range.unbounded(), Limit.limit().count(1));
+        return last == null || last.isEmpty() ? 0 : last.getFirst().getId().getSequence();
+    }
+
+    private void chunk(Stream stream) {
         if (stream.pending.isEmpty()) return;
         String text = stream.pending.toString();
         stream.pending.setLength(0);
         stream.pendingBytes = 0;
         stream.flushedAt = millis.getAsLong();
+        long sequence = stream.sequence + 1;
         publish(stream, switch (stream.pendingType) {
-            case "research-plan" -> new Event(stream.id, ++stream.sequence, stream.pendingType, null, null, null, null, null, false,
+            case "research-plan" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
                     ChatResearchEvent.plan(text), null);
-            case "intermediate-report" -> new Event(stream.id, ++stream.sequence, stream.pendingType, null, null, null, null, null, false,
+            case "intermediate-report" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
                     ChatResearchEvent.report(java.util.Objects.requireNonNull(stream.pendingKey), text), null);
-            default -> new Event(stream.id, ++stream.sequence, stream.pendingType, text, null, null, null, null, false, null, stream.pendingKey);
+            default -> new Event(stream.id, sequence, stream.pendingType, text, null, null, null, null, false, null, stream.pendingKey);
         });
     }
 
+    /** As Onyx: past the per-reply bound one marker is written and the reply stops appending; readers fall back to history. */
     private void publish(Stream stream, Event event) {
-        int bytes = 256 + (event.text() == null ? 0 : event.text().getBytes(StandardCharsets.UTF_8).length)
-                + (event.tool() == null ? 0 : JSON.writeValueAsBytes(event.tool()).length)
-                + (event.image() == null ? 0 : JSON.writeValueAsBytes(event.image()).length)
-                + (event.research() == null ? 0 : JSON.writeValueAsBytes(event.research()).length)
-                + (event.parentToolCallId() == null ? 0 : event.parentToolCallId().length());
-        stream.chunks.addLast(new Chunk(event, bytes));
+        if (stream.truncated) return;
+        String data = JSON.writeValueAsString(event);
+        int bytes = data.getBytes(StandardCharsets.UTF_8).length;
+        stream.sequence = event.sequence();
+        if (stream.bytes + bytes > limits.runBytes()) {
+            stream.truncated = true;
+            stream.queue.addLast(new Entry(event.sequence(), TRUNCATED, null));
+            LOG.warn("Chat stream for reply {} exceeded {} bytes; replay is truncated", stream.id, limits.runBytes());
+            return;
+        }
         stream.bytes += bytes;
-        total += bytes;
-        stream.writtenAt = millis.getAsLong();
-        for (var reader : new ArrayList<>(stream.readers)) {
-            reader.liveBytes += bytes;
-            if (reader.liveBytes > limits.readerBytes()) reader.reset("BUFFER_GAP");
+        stream.queue.addLast(new Entry(event.sequence(), event.type(), data));
+    }
+
+    private void write(Stream stream) {
+        if (!stream.writing.tryLock()) return;
+        try {
+            List<Entry> batch;
+            synchronized (stream) {
+                batch = List.copyOf(stream.queue);
+            }
+            if (batch.isEmpty()) return;
+            String key = key(stream.id);
+            try {
+                // Plain commands on the shared connection: a pipeline would take a dedicated connection on every tick.
+                redis.execute((RedisCallback<Object>) connection -> {
+                    append(connection, key, batch);
+                    return null;
+                });
+                acknowledge(stream, batch.getLast().sequence());
+                if (stream.failing) LOG.info("Chat stream writes to Redis resumed for reply {}", stream.id);
+                stream.failing = false;
+            } catch (RuntimeException failure) {
+                // A timed-out pipeline may have been applied: entries Redis already holds are dropped, the rest retried.
+                if (!stream.failing) LOG.warn("Chat stream write to Redis failed for reply {} ({}); retrying",
+                        stream.id, failure.getClass().getSimpleName());
+                stream.failing = true;
+                try {
+                    var last = redis.opsForStream().reverseRange(key, Range.unbounded(), Limit.limit().count(1));
+                    if (last != null && !last.isEmpty()) acknowledge(stream, last.getFirst().getId().getSequence());
+                } catch (RuntimeException ignored) {
+                    // Redis is unavailable; the queue stays bounded by the per-reply bytes and is retried next tick.
+                }
+            }
+        } finally {
+            stream.writing.unlock();
         }
-        trim(stream);
-        notifyAll();
     }
 
-    private void trim(Stream stream) {
-        while (!stream.chunks.isEmpty() && stream.bytes + stream.pendingBytes > limits.runBytes()) drop(stream, "BUFFER_GAP");
-        // Held bytes, not reservations, are bounded: completed replays go first, then this run's oldest events.
-        while (total > limits.totalBytes()) {
-            var completed = streams.values().stream().filter(other -> other.done && other != stream).findFirst();
-            if (completed.isPresent()) remove(completed.get());
-            else if (!stream.chunks.isEmpty()) drop(stream, "BUFFER_GAP");
-            else break;
+    private void append(RedisConnection connection, String key, List<Entry> batch) {
+        var strings = new DefaultStringRedisConnection(connection);
+        boolean terminal = false;
+        for (var entry : batch) {
+            Map<String, String> fields = entry.data() == null ? Map.of("type", entry.type())
+                    : Map.of("type", entry.type(), "data", entry.data());
+            strings.xAdd(StreamRecords.string(fields).withStreamKey(key).withId(RecordId.of(0, entry.sequence())));
+            terminal |= entry.type().equals(OUTCOME) || entry.type().equals(TRUNCATED);
         }
+        // Refreshed by every write, as Onyx; the outcome switches the reply to its completed retention.
+        strings.pExpire(key, (terminal && batch.getLast().type().equals(OUTCOME) ? limits.doneTtl() : limits.ttl()).toMillis());
     }
 
-    /** As Onyx's refresh-on-write TTL: a live replay expires only after a whole idle TTL; completion has its own TTL. */
-    private void expire(Stream stream) {
-        if (stream.done || millis.getAsLong() - stream.writtenAt < limits.ttl().toMillis()) return;
-        while (!stream.chunks.isEmpty()) drop(stream, "BUFFER_EXPIRED");
-    }
-
-    private void drop(Stream stream, String gap) {
-        int bytes = stream.chunks.removeFirst().bytes();
-        stream.bytes -= bytes;
-        total -= bytes;
-        stream.gap = gap;
-    }
-
-    private void remove(Stream stream) {
-        streams.remove(stream.id);
-        for (var reader : new ArrayList<>(stream.readers)) reader.reset("BUFFER_MISSING");
-        stream.chunks.clear();
-        stream.pending.setLength(0);
-        total -= stream.bytes;
-        stream.bytes = 0;
-        stream.pendingBytes = 0;
+    private static void acknowledge(Stream stream, long written) {
+        synchronized (stream) {
+            while (!stream.queue.isEmpty() && stream.queue.getFirst().sequence() <= written) stream.queue.removeFirst();
+        }
     }
 
     private static final class Stream {
         final UUID id;
-        final ArrayDeque<Chunk> chunks = new ArrayDeque<>();
-        final Set<Reader> readers = new HashSet<>();
+        final ArrayDeque<Entry> queue = new ArrayDeque<>();
         final StringBuilder pending = new StringBuilder();
+        final ReentrantLock writing = new ReentrantLock();
         String pendingType = "text-delta";
         @Nullable String pendingKey;
-        int bytes;
         int pendingBytes;
+        long bytes;
         long sequence;
-        long writtenAt;
         long flushedAt;
         long finishedAt;
         boolean done;
-        String gap = "BUFFER_GAP";
+        boolean truncated;
+        volatile boolean failing;
 
         Stream(UUID id) {
             this.id = id;
         }
-
-        long firstSequence() {
-            return chunks.isEmpty() ? sequence + 1 : chunks.getFirst().event().sequence();
-        }
     }
 
     public final class Reader implements AutoCloseable {
-        private final @Nullable Stream stream;
-        private final long highWater;
+        private final UUID id;
+        private final BooleanSupplier running;
         private long after;
-        private int liveBytes;
-        private boolean closed;
-        private @Nullable String reset;
+        private boolean checked;
+        private long drainUntil;
+        private volatile boolean closed;
 
-        private Reader(@Nullable Stream stream, long after, @Nullable String reset) {
-            this.stream = stream;
+        private Reader(UUID id, long after, BooleanSupplier running) {
+            this.id = id;
             this.after = after;
-            this.highWater = stream == null ? after : stream.sequence;
-            this.reset = reset;
+            this.running = running;
         }
 
+        /**
+         * Replays from the cursor, then polls Redis every {@code poll-interval} until events arrive or a heartbeat is
+         * due, as Onyx's resume endpoint. Returns done after the outcome, a reset on a gap, truncation or missing buffer.
+         */
         public Batch read() throws InterruptedException {
-            synchronized (StreamBufferWriter.this) {
-                long heartbeatAt = System.nanoTime() + limits.heartbeat().toNanos();
-                while (stream != null && !closed && reset == null && after == stream.sequence && !stream.done) {
-                    long remaining = heartbeatAt - System.nanoTime();
-                    if (remaining <= 0) break;
-                    TimeUnit.NANOSECONDS.timedWait(StreamBufferWriter.this, remaining);
+            long heartbeatAt = System.nanoTime() + limits.heartbeat().toNanos();
+            while (!closed) {
+                Batch batch;
+                try { batch = next(); }
+                catch (org.springframework.dao.DataAccessException unavailable) {
+                    // As Onyx's resume endpoint without a buffer: the browser reads history and polls while RUNNING.
+                    LOG.warn("Chat stream replay unavailable for reply {} ({})", id, unavailable.getClass().getSimpleName());
+                    return end("BUFFER_MISSING");
                 }
-                if (reset != null) return new Batch(List.of(), true, reset);
-                if (closed || stream == null) return new Batch(List.of(), true, null);
-                expire(stream);
-                if (after < stream.firstSequence() - 1) {
-                    reset(stream.gap);
-                    return new Batch(List.of(), true, reset);
+                if (batch != null) return batch;
+                long now = System.nanoTime();
+                if (drainUntil != 0) {
+                    if (now >= drainUntil) return end(exists() ? "BUFFER_GAP" : "BUFFER_MISSING");
+                } else if (!checked || now >= heartbeatAt) {
+                    boolean first = !checked;
+                    checked = true;
+                    if (!running.getAsBoolean()) drainUntil = now + FINAL_DRAIN_NANOS;
+                    else if (!first) return new Batch(List.of(), false, null);
                 }
-                var result = new ArrayList<Event>();
-                int bytes = 0;
-                for (var chunk : stream.chunks) {
-                    if (chunk.event().sequence() <= after) continue;
-                    if (bytes + chunk.bytes() > Math.min(limits.readBytes(), limits.readerBytes())) break;
-                    result.add(chunk.event());
-                    after = chunk.event().sequence();
-                    bytes += chunk.bytes();
-                    if (after > highWater) liveBytes -= chunk.bytes();
-                }
-                boolean done = stream.done && after == stream.sequence;
-                if (done) close();
-                return new Batch(List.copyOf(result), done, null);
+                TimeUnit.NANOSECONDS.sleep(limits.pollInterval().toNanos());
             }
+            return new Batch(List.of(), true, null);
         }
 
-        private void reset(String reason) {
-            reset = reason;
+        private @Nullable Batch next() {
+            List<MapRecord<String, Object, Object>> records = redis.opsForStream().range(key(id),
+                    Range.rightUnbounded(Range.Bound.inclusive("0-" + (after + 1))), Limit.limit().count(64));
+            if (records == null || records.isEmpty()) return null;
+            var events = new ArrayList<Event>();
+            int bytes = 0;
+            for (var record : records) {
+                long sequence = record.getId().getSequence();
+                if (sequence != after + 1) return events.isEmpty() ? end("BUFFER_GAP") : new Batch(List.copyOf(events), false, null);
+                String type = String.valueOf(record.getValue().get("type"));
+                if (type.equals(TRUNCATED)) return events.isEmpty() ? end("BUFFER_GAP") : new Batch(List.copyOf(events), false, null);
+                String data = String.valueOf(record.getValue().get("data"));
+                var event = JSON.readValue(data, Event.class);
+                events.add(event);
+                after = sequence;
+                if (type.equals(OUTCOME)) {
+                    close();
+                    return new Batch(List.copyOf(events), true, null);
+                }
+                bytes += data.length();
+                if (bytes >= limits.readBytes()) break;
+            }
+            return new Batch(List.copyOf(events), false, null);
+        }
+
+        private boolean exists() {
+            try { return Boolean.TRUE.equals(redis.hasKey(key(id))); }
+            catch (org.springframework.dao.DataAccessException unavailable) { return false; }
+        }
+
+        private Batch end(String reason) {
             close();
+            return new Batch(List.of(), true, reason);
         }
 
         @Override
         public void close() {
-            synchronized (StreamBufferWriter.this) {
+            synchronized (readersPerRun) {
                 if (closed) return;
                 closed = true;
-                if (stream != null && stream.readers.remove(this)) readers--;
-                StreamBufferWriter.this.notifyAll();
+                readers--;
+                readersPerRun.computeIfPresent(id, (key, count) -> count <= 1 ? null : count - 1);
             }
         }
     }

@@ -135,6 +135,28 @@ class OpenAiChatProviderAdapterTest {
         }
     }
 
+    @Test
+    void theOpenAiHostAlwaysSelectsTheResponsesModelAndCompatibleEndpointsDoNot() {
+        assertTrue(OpenAiChatProviderAdapter.servedByOpenAi("https://api.openai.com/v1"));
+        assertTrue(OpenAiChatProviderAdapter.servedByOpenAi("https://API.OPENAI.COM/v1/"));
+        assertFalse(OpenAiChatProviderAdapter.servedByOpenAi("https://openrouter.ai/api/v1"));
+        assertFalse(OpenAiChatProviderAdapter.servedByOpenAi("http://api.openai.com.internal/v1"));
+        assertFalse(OpenAiChatProviderAdapter.servedByOpenAi("not a url"));
+        var meters = new SimpleMeterRegistry();
+        try {
+            var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+            var openAi = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("https://api.openai.com/v1", "fixture-only");
+            try (var client = adapter.create(openAi, "gpt-5.6-terra", settings(Map.of(), true), java.time.Duration.ofSeconds(1))) {
+                var model = assertInstanceOf(io.memoryos.chat.execution.ChatModelTurns.class, client.binding().service().getChatModel());
+                assertFalse(model.nativeWebSearch());
+            }
+            var gateway = new io.memoryos.chat.catalog.ChatProviderAdapter.Connection("https://openrouter.ai/api/v1", "fixture-only");
+            try (var client = adapter.create(gateway, "qwen/qwen3.8-27b", settings(Map.of(), true), java.time.Duration.ofSeconds(1))) {
+                assertFalse(client.binding().service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns);
+            }
+        } finally { meters.close(); }
+    }
+
     private static ModelSettings settings(Map<String, Object> options, boolean reasoning) {
         return new ModelSettings(8192, 512, new ModelSettings.Capabilities(true, true, false, reasoning), options, null, "openai-o200k-v1");
     }
