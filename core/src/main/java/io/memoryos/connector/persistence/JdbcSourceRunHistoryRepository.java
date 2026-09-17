@@ -73,17 +73,18 @@ public class JdbcSourceRunHistoryRepository {
     }
 
     public SourceRunHistoryService.Page list(TenantId tenant, SourceId source, SourceRunHistoryService.Query query) {
-        String scope = scope(tenant, source, "RUN", query.status(), query.trigger(), query.from(), query.to());
+        List<String> statuses = query.statuses().stream().map(SourceRunStatus::name).sorted().toList();
+        String scope = scope(tenant, source, "RUN", statuses, query.trigger(), query.from(), query.to());
         Cursor cursor = decode(query.cursor(), scope);
         String filteredRuns = " FROM (" + PROJECTION + ") runs WHERE TRUE"
-                + (query.status() == null ? "" : " AND run_state = :status")
+                + (statuses.isEmpty() ? "" : " AND run_state IN (:statuses)")
                 + (query.trigger() == null ? "" : " AND trigger_kind = :trigger")
                 + (query.from() == null ? "" : " AND created_at >= :from")
                 + (query.to() == null ? "" : " AND created_at < :to");
         var parameters = new HashMap<String, Object>();
         parameters.put("tenant", tenant.value());
         parameters.put("source", source.value());
-        if (query.status() != null) parameters.put("status", query.status().name());
+        if (!statuses.isEmpty()) parameters.put("statuses", statuses);
         if (query.trigger() != null) parameters.put("trigger", query.trigger().name());
         if (query.from() != null) parameters.put("from", WorkLeases.sqlTime(query.from()));
         if (query.to() != null) parameters.put("to", WorkLeases.sqlTime(query.to()));
@@ -112,7 +113,7 @@ public class JdbcSourceRunHistoryRepository {
     }
 
     public SourceRunHistoryService.ErrorPage errors(TenantId tenant, SourceId source, UUID runId, @Nullable String token, int size) {
-        String scope = scope(tenant, source, "ERROR:" + runId, null, null, null, null);
+        String scope = scope(tenant, source, "ERROR:" + runId, List.of(), null, null, null);
         Cursor cursor = decode(token, scope);
         var statement = jdbc.sql("""
                 WITH error_page AS (
@@ -189,9 +190,11 @@ public class JdbcSourceRunHistoryRepository {
                         r.getObject("indexing_superseded", Long.class), r.getObject("indexing_cancelled", Long.class)));
     }
 
-    private static String scope(TenantId tenant, SourceId source, String kind, @Nullable SourceRunStatus status,
+    /** Binds a cursor to its filters; sorted statuses keep one filter set to one scope. */
+    private static String scope(TenantId tenant, SourceId source, String kind, List<String> statuses,
             @Nullable SourceRunTrigger trigger, @Nullable Instant from, @Nullable Instant to) {
-        return tenant.value() + "|" + source.value() + "|" + kind + "|" + status + "|" + trigger + "|" + from + "|" + to + "|";
+        return tenant.value() + "|" + source.value() + "|" + kind + "|" + String.join(",", statuses) + "|" + trigger
+                + "|" + from + "|" + to + "|";
     }
 
     private static String encode(String scope, Instant time, UUID id) {

@@ -5455,7 +5455,7 @@ export type ListSourceRunsData = {
     query?: {
         cursor?: string;
         size?: number;
-        status?: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
+        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'>;
         trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL';
         from?: string;
         to?: string;

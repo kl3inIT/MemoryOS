@@ -405,6 +405,11 @@ export const vietnameseUi: Record<string, string> = {
 
 export const englishUi: Record<string, string> = {
   "Source sections": "Các phần của nguồn",
+  "Source actions": "Thao tác nguồn",
+  "Indexing history": "Lịch sử lập chỉ mục",
+  "Who can read": "Ai có thể đọc",
+  Activity: "Hoạt động",
+  Duration: "Thời lượng",
   Content: "Nội dung",
   "Sync history": "Lịch sử đồng bộ",
   "Connection and settings": "Kết nối và cấu hình",
@@ -463,7 +468,6 @@ export const englishUi: Record<string, string> = {
   Error: "Lỗi",
   "Current state": "Trạng thái hiện tại",
   "Occurred at": "Thời điểm",
-  "More counts and definitions": "Số liệu khác và định nghĩa",
   "Refresh file states": "Cập nhật trạng thái tệp",
   "Historical run error": "Lỗi lần chạy trong lịch sử",
   "No current file is linked to this error.": "Không có tệp hiện tại liên kết với lỗi này.",
@@ -474,6 +478,24 @@ export const englishUi: Record<string, string> = {
   "Technical details": "Chi tiết kỹ thuật",
   "Error code": "Mã lỗi",
   "Run ID": "ID lần chạy",
+  "Latest run": "Lần chạy gần nhất",
+  "Clear status filter": "Xóa bộ lọc trạng thái",
+  Trigger: "Kích hoạt",
+  "Automatic schedule": "Lịch tự động",
+  Manual: "Thủ công",
+  "Initial synchronization": "Đồng bộ lần đầu",
+  "{{v1}} checked": "{{v1}} đã kiểm tra",
+  "+{{v1}} indexed": "+{{v1}} đã lập chỉ mục",
+  "−{{v1}} removed": "−{{v1}} đã xóa",
+  "{{v1}} pending": "{{v1}} đang chờ",
+  "{{v1}} failed": "{{v1}} lỗi",
+  Overview: "Tổng quan",
+  Finished: "Kết thúc",
+  Stages: "Các giai đoạn",
+  "Read content": "Đọc nội dung",
+  "Index content": "Lập chỉ mục nội dung",
+  "Not required": "Không cần",
+  "File counts": "Số liệu tệp",
   "Content indexed since this error.": "Nội dung đã được lập chỉ mục sau lỗi này.",
   "Current content is indexed.": "Nội dung hiện tại đã được lập chỉ mục.",
   "Indexing is pending or in progress.": "Tệp đang chờ hoặc đang được lập chỉ mục.",
@@ -497,17 +519,13 @@ export const englishUi: Record<string, string> = {
     "Với Nguồn riêng tư, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn.",
   "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ Nguồn riêng tư. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn; quyền từng tệp trên Google Drive quyết định ai được đọc. Quyền quản lý Nguồn toàn Tenant không cấp quyền đọc tài liệu riêng tư nếu không là thành viên nhóm.",
-  "Group associations are optional for global Source managers.":
-    "Liên kết nhóm là tùy chọn đối với người có quyền quản lý Nguồn toàn Tenant.",
   "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
+  "Select groups": "Chọn nhóm",
+  "Type to find more groups.": "Nhập tên để tìm thêm nhóm.",
   "Auto Sync · people who can open each file in Google Drive":
     "Tự động đồng bộ · những người mở được từng tệp trên Google Drive",
   "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.":
     "Người đọc cần có quyền với từng tệp trên Google Drive và email đăng nhập đã xác minh trùng khớp. Nhóm chỉ quyết định ai quản lý Nguồn này.",
-  "Members of the selected MemoryOS groups can search and read imported Drive documents.":
-    "Thành viên các nhóm MemoryOS đã chọn được tìm kiếm và đọc tài liệu Drive đã nhập.",
-  "Everyone in this Tenant can search and read imported Drive documents.":
-    "Mọi người trong Tenant này được tìm kiếm và đọc tài liệu Drive đã nhập.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -537,8 +555,6 @@ export const englishUi: Record<string, string> = {
   "Automatic synchronization": "Đồng bộ tự động",
   Paused: "Đã tạm dừng",
   Enabled: "Đã bật",
-  "Resume automatic sync": "Tiếp tục đồng bộ tự động",
-  "Pause automatic sync": "Tạm dừng đồng bộ tự động",
   "Automatic synchronization paused": "Đã tạm dừng đồng bộ tự động",
   "Automatic synchronization resumed": "Đã tiếp tục đồng bộ tự động",
   "Current work and manual synchronization are unchanged.":
@@ -971,7 +987,6 @@ Object.assign(englishUi, {
   "Access groups": "Nhóm truy cập",
   "Optional · defaults to the protected Admin group":
     "Không bắt buộc · mặc định là nhóm quản trị được bảo vệ",
-  "{{v1}} selected": "Đã chọn {{v1}}",
   Default: "Mặc định",
   "Leave the selection empty to associate the new Source with the protected Admin group.":
     "Để trống để liên kết nguồn mới với nhóm quản trị được bảo vệ.",
@@ -984,8 +999,6 @@ Object.assign(englishUi, {
   "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB":
     "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB",
   "Remove selected file": "Bỏ tệp đã chọn",
-  "Source management visibility follows the selected group associations.":
-    "Quyền xem và quản lý nguồn tuân theo các nhóm được liên kết.",
   "The file reached object storage; retry finalization without uploading it again.":
     "Tệp đã được lưu; hãy thử xác nhận hoàn tất mà không tải lên lại.",
   "Finish your pending upload first.": "Hãy hoàn tất lần tải lên đang chờ trước.",
@@ -994,6 +1007,7 @@ Object.assign(englishUi, {
   "Open created Source": "Mở nguồn đã tạo",
   "Retry finalization": "Thử xác nhận hoàn tất lại",
   "Retry upload": "Thử tải lên lại",
+  "Upload progress": "Tiến độ tải lên",
   "Upload and create": "Tải lên và tạo",
   "Google authorization was not completed. You can try connecting again.":
     "Chưa hoàn tất cấp quyền Google. Bạn có thể thử kết nối lại.",
@@ -1019,11 +1033,7 @@ Object.assign(englishUi, {
   "Selection limits could not be loaded. Creation is disabled.":
     "Không tải được giới hạn lựa chọn. Chưa thể tạo nguồn.",
   "Retry selection policy": "Thử tải quy tắc lựa chọn lại",
-  "Configure connector": "Cấu hình kết nối",
-  "Credential:": "Thông tin kết nối:",
   "Not selected": "Chưa chọn",
-  ". This creates a separate Source; other Sources using this credential are unchanged.":
-    ". Thao tác này tạo một nguồn riêng; các nguồn khác dùng thông tin kết nối này không thay đổi.",
   "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.":
     "Chọn thông tin kết nối đã xác thực trước khi tạo nguồn. Quay lại danh sách để làm mới hoặc kết nối lại.",
   "e.g. Team documentation": "Ví dụ: Tài liệu nhóm",
@@ -1082,19 +1092,20 @@ Object.assign(englishUi, {
   "Continuing to Google…": "Đang chuyển đến Google…",
   Authenticate: "Xác thực",
   "Selected content": "Nội dung đã chọn",
-  "For Specific, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.":
-    "Với phạm vi cụ thể, dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chỉ đồng bộ các tệp và nội dung thư mục đã chọn. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu.",
-  "OAuth permissions are broader than a Specific selection. General synchronizes the connected account's My Drive tree, not all content accessible to the account.":
-    "Quyền OAuth rộng hơn phạm vi cụ thể. Phạm vi toàn bộ đồng bộ cây Drive của tôi của tài khoản đã kết nối, không phải tất cả nội dung tài khoản có thể truy cập.",
+  "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.":
+    "Với Tệp và thư mục đã chọn, dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chỉ đồng bộ các tệp và nội dung thư mục đã chọn. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu.",
+  "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.":
+    "Quyền OAuth rộng hơn các tệp và thư mục đã chọn. Toàn bộ My Drive đồng bộ cây My Drive của tài khoản đã kết nối, không phải tất cả nội dung tài khoản có thể truy cập.",
   "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.":
     "Định dạng hỗ trợ: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT và Markdown. Giới hạn dung lượng và xử lý hiện có vẫn áp dụng.",
   Scope: "Phạm vi",
-  General: "Toàn bộ",
-  Specific: "Cụ thể",
-  "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.":
-    "Toàn bộ Drive của tôi của tài khoản OAuth đã kết nối, gồm tệp được hỗ trợ trong các thư mục. Không quét mục Được chia sẻ với tôi, bộ nhớ dùng chung hoặc Drive của người khác.",
-  "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.":
-    "Chọn liên kết tệp hoặc thư mục cụ thể{{v1}}. Chỉ đồng bộ các tệp và nội dung thư mục đó.",
+  "Selected files and folders": "Tệp và thư mục đã chọn",
+  "Entire My Drive": "Toàn bộ My Drive",
+  "Every supported file in the connected account's My Drive. Files shared with you and shared drives are not included.":
+    "Mọi tệp được hỗ trợ trong My Drive của tài khoản đã kết nối. Không gồm tệp được chia sẻ với bạn và bộ nhớ dùng chung.",
+  "Only the files and folders you link below, up to {{count}}.":
+    "Chỉ các tệp và thư mục bạn dán liên kết bên dưới, tối đa {{count}}.",
+  "Only the files and folders you link below.": "Chỉ các tệp và thư mục bạn dán liên kết bên dưới.",
   "File or folder links": "Liên kết tệp hoặc thư mục",
   " links · Read only": " liên kết · Chỉ đọc",
   "{{v1}} explicit roots": "{{v1}} mục gốc được chọn",
@@ -1117,17 +1128,24 @@ Object.assign(englishUi, {
   "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.":
     "Tối đa 16 KiB. Chứa khóa bí mật ứng dụng; chỉ gửi tới MemoryOS cho kết nối này, không lưu trong bộ nhớ trình duyệt và được xóa khi tiếp tục hoặc rời thiết lập.",
   "Reading client JSON…": "Đang đọc JSON ứng dụng…",
-  "Automatic interval": "Chu kỳ tự động",
+  "Every {{v1}}": "Mỗi {{v1}}",
+  "Members of its groups": "Thành viên các nhóm của nguồn",
+  "People with access in Google Drive": "Người có quyền trên Google Drive",
   "Loading…": "Đang tải…",
   Unavailable: "Không khả dụng",
   "Loading Google Drive connection…": "Đang tải kết nối Google Drive…",
   "Retry connection status": "Thử tải trạng thái kết nối lại",
   "Google Drive configuration": "Cấu hình Google Drive",
-  minute: "phút",
-  minutes: "phút",
   "Edit interval": "Sửa chu kỳ",
   Edit: "Chỉnh sửa",
-  "Interval in minutes": "Chu kỳ tính bằng phút",
+  "Sync every": "Đồng bộ mỗi",
+  Unsupported: "Không hỗ trợ",
+  Connection: "Kết nối",
+  "Not connected": "Chưa kết nối",
+  "No credential selected": "Chưa chọn thông tin kết nối",
+  "{{v1}} ({{v2}})": "{{v1}} ({{v2}})",
+  "Enter a whole number from 1 to {{v1}}.": "Nhập số nguyên từ 1 đến {{v1}}.",
+  "Interval unit": "Đơn vị chu kỳ",
   "The automatic interval changed while you were editing. Your interval draft has not been saved. Reload the saved interval before continuing.":
     "Chu kỳ tự động đã thay đổi trong lúc bạn chỉnh sửa. Bản nháp chưa được lưu. Tải lại chu kỳ đã lưu trước khi tiếp tục.",
   "Save interval": "Lưu chu kỳ",
@@ -1146,7 +1164,9 @@ Object.assign(englishUi, {
 
 Object.assign(englishUi, {
   "Manage connection": "Quản lý kết nối",
+  Breadcrumb: "Đường dẫn phân cấp",
   Close: "Đóng",
+  More: "Thêm",
   "This credential is shared. Reconnecting or disconnecting affects all Sources using it":
     "Thông tin kết nối này được dùng chung. Kết nối lại hoặc ngắt kết nối ảnh hưởng đến mọi nguồn đang dùng",
   " ({{v1}} Sources)": " ({{v1}} nguồn)",
@@ -1223,7 +1243,7 @@ Object.assign(englishUi, {
   "Loading selection page…": "Đang tải trang lựa chọn…",
   "Selection results": "Kết quả lựa chọn",
   "No matching items": "Không có kết quả phù hợp",
-  "items on this page": "mục trên trang này",
+  "Items {{v1}}–{{v2}}": "Mục {{v1}}–{{v2}}",
   "Previous selection page": "Trang lựa chọn trước",
   "Next selection page": "Trang lựa chọn tiếp",
   "File and folder links": "Liên kết tệp và thư mục",
@@ -1240,8 +1260,8 @@ Object.assign(englishUi, {
   "Loading selected content…": "Đang tải nội dung đã chọn…",
   "Selection or discovery changed. Refresh before expanding this content. Your draft is retained.":
     "Lựa chọn hoặc kết quả tìm liên kết đã thay đổi. Làm mới trước khi mở rộng nội dung. Bản nháp được giữ lại.",
-  "More content could not be loaded. The items already shown and your draft are retained.":
-    "Không tải được thêm nội dung. Các mục đã hiển thị và bản nháp được giữ lại.",
+  "This page could not be loaded. Your draft is retained.":
+    "Không tải được trang này. Bản nháp được giữ lại.",
   "This content could not be loaded. It is not an empty folder or a completed discovery.":
     "Không tải được nội dung này. Điều đó không có nghĩa là thư mục trống hoặc đã tìm liên kết xong.",
   "Refresh selected content": "Làm mới nội dung đã chọn",
@@ -1254,9 +1274,10 @@ Object.assign(englishUi, {
     "Chưa ghi nhận liên kết cho tệp này. Tệp có thể chưa được kiểm tra hoặc chưa tìm liên kết xong.",
   "No selected content is available in this scope.":
     "Chưa có nội dung được chọn trong phạm vi này.",
-  "Load more in {{v1}}": "Tải thêm trong {{v1}}",
-  "Load more selected content": "Tải thêm nội dung đã chọn",
-  "Load more": "Tải thêm",
+  "Previous page in {{v1}}": "Trang trước trong {{v1}}",
+  "Next page in {{v1}}": "Trang tiếp trong {{v1}}",
+  "Previous page of selected content": "Trang trước của nội dung đã chọn",
+  "Next page of selected content": "Trang tiếp của nội dung đã chọn",
   "Already shown earlier in this branch. Its sync selection is shared.":
     "Đã hiển thị trước đó trong nhánh này. Lựa chọn đồng bộ được dùng chung.",
   "Folder · Contents included": "Thư mục · Đã bao gồm nội dung",
@@ -1349,14 +1370,19 @@ Object.assign(englishUi, {
   "Source groups": "Nhóm của nguồn",
   "Latest attempt:": "Lần xử lý gần nhất:",
   "File indexing attempts": "Lịch sử lập chỉ mục tệp",
-  "Each row processes one file version, including manual reindexing. Files above is the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.":
-    "Mỗi dòng xử lý một phiên bản tệp, gồm cả lập chỉ mục lại thủ công. Mục Tệp bên trên là kho hiện tại; lịch sử này ghi kết quả từng tệp. Thời gian vào hàng đợi chỉ hiển thị khi chưa ghi nhận thời điểm bắt đầu thực tế.",
+  "Each row processes one file version, including manual reindexing. The Files tab shows the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.":
+    "Mỗi dòng xử lý một phiên bản tệp, gồm cả lập chỉ mục lại thủ công. Tab Tệp là kho hiện tại; lịch sử này ghi kết quả từng tệp. Thời gian vào hàng đợi chỉ hiển thị khi chưa ghi nhận thời điểm bắt đầu thực tế.",
   Refresh: "Làm mới",
   "File attempts could not be refreshed. Displayed attempts may be out of date.":
     "Không làm mới được lịch sử xử lý tệp. Thông tin hiển thị có thể đã cũ.",
   "Loading file attempts…": "Đang tải lịch sử xử lý tệp…",
   "File indexing attempt records": "Bản ghi lập chỉ mục tệp",
   "File indexing attempts, newest first": "Lịch sử lập chỉ mục tệp, mới nhất trước",
+  "Indexing attempt details": "Chi tiết lần lập chỉ mục",
+  "View details for {{v1}} queued {{v2}}": "Xem chi tiết {{v1}}, xếp hàng lúc {{v2}}",
+  "Attempt ID": "Mã lần lập chỉ mục",
+  "To index this file again, use Reindex in the Files tab.":
+    "Để lập chỉ mục lại tệp này, dùng Lập chỉ mục lại trong tab Tệp.",
   Started: "Bắt đầu",
   "Completed / duration": "Hoàn tất / thời gian xử lý",
   "Error message": "Thông báo lỗi",
@@ -1416,6 +1442,13 @@ Object.assign(englishUi, {
   "Documents indexed": "Tài liệu đã lập chỉ mục",
   "Last indexed successfully": "Lập chỉ mục thành công gần nhất",
   "Not yet": "Chưa có",
+  Folder: "Thư mục",
+  Spreadsheet: "Bảng tính",
+  Presentation: "Bản trình chiếu",
+  Archive: "Tệp nén",
+  Database: "Cơ sở dữ liệu",
+  Font: "Phông chữ",
+  Log: "Nhật ký",
   "Existing sources": "Nguồn hiện có",
   "Manage connected content and monitor indexing.":
     "Quản lý nội dung đã kết nối và theo dõi lập chỉ mục.",
@@ -1423,6 +1456,12 @@ Object.assign(englishUi, {
   "Loading sources": "Đang tải nguồn",
   "Sources unavailable": "Nguồn không khả dụng",
   "No sources yet": "Chưa có nguồn",
+  "Connect Google Drive or upload files. MemoryOS keeps them indexed, so Search and Chat can cite them.":
+    "Kết nối Google Drive hoặc tải tệp lên. MemoryOS sẽ lập chỉ mục để Tìm kiếm và Trò chuyện trích dẫn được.",
+  "Connect Google Drive": "Kết nối Google Drive",
+  "Upload files": "Tải tệp lên",
+  "Ask a workspace manager to add a source.":
+    "Hãy nhờ người quản trị không gian làm việc thêm nguồn.",
   "Collapse all": "Thu gọn tất cả",
   "Expand all": "Mở rộng tất cả",
   "Filter sources": "Lọc nguồn",
@@ -1835,8 +1874,8 @@ Object.assign(englishUi, {
     "{{v1}} đã kết nối và sẵn sàng dùng với nguồn.",
   "{{v1}}: displayed values may be out of date. Try refreshing again.":
     "{{v1}}: giá trị hiển thị có thể đã cũ. Hãy thử làm mới lại.",
-  "Synchronizes every {{v1}} {{v2}}. Current work is unchanged.":
-    "Đồng bộ mỗi {{v1}} {{v2}}. Công việc hiện tại không thay đổi.",
+  "Synchronizes every {{v1}}. Current work is unchanged.":
+    "Đồng bộ mỗi {{v1}}. Công việc hiện tại không thay đổi.",
   "{{v1}}: selected content is synchronized. Indexing may still be running.":
     "{{v1}}: nội dung đã chọn đã đồng bộ. Lập chỉ mục có thể vẫn đang chạy.",
   "{{v1}}: this request was replaced by newer work.":
@@ -2005,7 +2044,6 @@ Object.assign(englishUi, {
   "The selection request exceeds the server's {{count}}-byte limit. Reduce the submitted links.":
     "Yêu cầu lựa chọn vượt giới hạn {{count}} byte của máy chủ. Hãy giảm số liên kết gửi lên.",
   "Use at most {{count}} file or folder links.": "Dùng tối đa {{count}} liên kết tệp hoặc thư mục.",
-  " (up to {{count}})": " (tối đa {{count}})",
   "{{count}} of {{max}} explicit roots": "{{count}} / {{max}} tệp hoặc thư mục gốc",
   "{{count}} explicit roots": "{{count}} tệp hoặc thư mục gốc",
   "{{filename}}: processing may still be running. Refresh the source to check its status.":

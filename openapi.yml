@@ -5129,19 +5129,21 @@ paths:
         in: query
         required: false
         schema:
-          type: string
-          enum:
-          - QUEUED
-          - ACQUIRING
-          - RETRY_SCHEDULED
-          - RECOVERY_PENDING
-          - INDEXING
-          - SUCCEEDED
-          - COMPLETED_WITH_ERRORS
-          - FAILED
-          - SUPERSEDED
-          - CANCELLED
-          - UNKNOWN
+          type: array
+          items:
+            type: string
+            enum:
+            - QUEUED
+            - ACQUIRING
+            - RETRY_SCHEDULED
+            - RECOVERY_PENDING
+            - INDEXING
+            - SUCCEEDED
+            - COMPLETED_WITH_ERRORS
+            - FAILED
+            - SUPERSEDED
+            - CANCELLED
+            - UNKNOWN
       - name: trigger
         in: query
         required: false

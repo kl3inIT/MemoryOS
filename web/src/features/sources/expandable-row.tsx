@@ -2,34 +2,6 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 /**
- * Two-pane list + detail layout shared by the Source detail surfaces.
- * On wide screens the detail sits beside the list; below `lg` it stacks
- * under the list. Pass `detail={null}` to render the list full width.
- */
-export function ListDetailLayout({
-  list,
-  detail,
-  detailLabel,
-}: {
-  list: ReactNode;
-  detail: ReactNode;
-  detailLabel: string;
-}) {
-  if (!detail) return <>{list}</>;
-  return (
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <div className="min-w-0">{list}</div>
-      <aside
-        aria-label={detailLabel}
-        className="min-w-0 self-start rounded-xl border border-border-subtle bg-surface-raised p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto"
-      >
-        {detail}
-      </aside>
-    </div>
-  );
-}
-
-/**
  * One expandable row: a full-width summary button toggling a detail region.
  * Used for per-file run errors and permission entries.
  */

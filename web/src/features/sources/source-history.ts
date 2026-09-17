@@ -16,6 +16,29 @@ export function historyDuration(start: string | null, end: string | null) {
     : `${unit(Math.floor(minutes / 60), "hour")} ${unit(minutes % 60, "minute")}`;
 }
 
+const relativeUnits: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ["day", 86_400],
+  ["hour", 3_600],
+  ["minute", 60],
+];
+const relativeLimitSeconds = 7 * 86_400;
+/** Tolerates a server clock slightly ahead of the browser's. */
+const clockSkewSeconds = 60;
+
+/** "6 minutes ago" for times within the last week; null for older, future or invalid times. */
+export function historyRelativeTime(value: string, now = Date.now()) {
+  const seconds = Math.round((now - new Date(value).getTime()) / 1_000);
+  if (!Number.isFinite(seconds) || seconds < -clockSkewSeconds || seconds >= relativeLimitSeconds)
+    return null;
+  const elapsed = Math.max(seconds, 0);
+  const [unit, size] = relativeUnits.find(([, size]) => elapsed >= size) ?? ["second", 1];
+  const amount = Math.floor(elapsed / size);
+  return new Intl.RelativeTimeFormat(uiLocale(), { numeric: "auto" }).format(
+    amount === 0 ? 0 : -amount,
+    unit,
+  );
+}
+
 export function runHasNoChanges(run: SourceRun) {
   return (
     run.status === "SUCCEEDED" &&

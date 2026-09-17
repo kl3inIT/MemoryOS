@@ -2,6 +2,7 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, type ReactNode, type Ref } from "react";
 import { inputVariants } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type {
@@ -10,103 +11,6 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { parseGoogleDriveLinks } from "./google-drive-selection";
-
-const defaultRootType = { label: "File", color: "#8A9099", mark: "file" };
-const rootTypes = new Map<string, typeof defaultRootType>([
-  ["application/vnd.google-apps.folder", { label: "Folder", color: "#9AA0A6", mark: "folder" }],
-  [
-    "application/vnd.google-apps.spreadsheet",
-    { label: "Google Sheets", color: "#00AC47", mark: "grid" },
-  ],
-  [
-    "application/vnd.google-apps.document",
-    { label: "Google Docs", color: "#4285F4", mark: "lines" },
-  ],
-  [
-    "application/vnd.google-apps.presentation",
-    { label: "Google Slides", color: "#F4B400", mark: "slides" },
-  ],
-  ["application/msword", { label: "Word", color: "#2B7CD3", mark: "W" }],
-  [
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    { label: "Word", color: "#2B7CD3", mark: "W" },
-  ],
-  ["application/vnd.ms-excel", { label: "Excel", color: "#21A366", mark: "X" }],
-  [
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    { label: "Excel", color: "#21A366", mark: "X" },
-  ],
-  [
-    "application/vnd.ms-excel.sheet.macroEnabled.12",
-    { label: "Excel", color: "#21A366", mark: "X" },
-  ],
-  ["application/vnd.ms-powerpoint", { label: "PowerPoint", color: "#D35230", mark: "P" }],
-  [
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    { label: "PowerPoint", color: "#D35230", mark: "P" },
-  ],
-  ["application/pdf", { label: "PDF", color: "#E34B47", mark: "PDF" }],
-  ["text/csv", { label: "CSV", color: "#21A366", mark: "grid" }],
-]);
-
-function RootTypeIcon({ color, mark }: { color: string; mark: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none">
-      {mark === "folder" ? (
-        <path
-          d="M1 4a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
-          fill={color}
-        />
-      ) : (
-        <>
-          {mark === "lines" || mark === "file" ? (
-            <>
-              <path d="M3 1h7l4 4v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1Z" fill={color} />
-              <path d="M10 1v4h4Z" fill="white" fillOpacity=".35" />
-            </>
-          ) : (
-            <rect x="1" y="1" width="14" height="14" rx="2" fill={color} />
-          )}
-          {mark === "grid" ? (
-            <path d="M5.5 3.5v9M3.5 5.5h9" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-          ) : mark === "lines" || mark === "file" ? (
-            <path
-              d="M5 7.5h6M5 10h6M5 12.5h4"
-              stroke="white"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
-          ) : mark === "slides" ? (
-            <rect x="3.5" y="4.5" width="9" height="7" rx=".5" stroke="white" strokeWidth="1.5" />
-          ) : (
-            <text
-              x="8"
-              y={mark === "PDF" ? "10.5" : "12"}
-              textAnchor="middle"
-              fontFamily="Arial, sans-serif"
-              fontSize={mark === "PDF" ? "6" : "11"}
-              fontWeight="700"
-              fill="white"
-            >
-              {mark}
-            </text>
-          )}
-        </>
-      )}
-    </svg>
-  );
-}
-
-export function GoogleDriveMimeIcon({ mimeType }: { mimeType: string }) {
-  const ui = useAppTranslation();
-  const type = rootTypes.get(mimeType) ?? defaultRootType;
-  return (
-    <span title={ui(type.label)} className="mt-0.5 shrink-0">
-      <RootTypeIcon color={type.color} mark={type.mark} />
-      <span className="sr-only">{ui(type.label)}: </span>
-    </span>
-  );
-}
 
 export function GoogleDriveLinks({
   scopeMode,
@@ -151,70 +55,79 @@ export function GoogleDriveLinks({
     <div className="space-y-3">
       {onScopeModeChange ? (
         <>
-          <div className="flex items-center gap-2">
-            <h3 className="font-heading-h3 text-content-primary">{ui("Selected content")}</h3>
-            <HelpPopover label={ui("Selected content")}>
-              <p>
-                {ui(
-                  "For Specific, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
-                )}
-              </p>
-              <p>
-                {ui(
-                  "OAuth permissions are broader than a Specific selection. General synchronizes the connected account's My Drive tree, not all content accessible to the account.",
-                )}
-              </p>
-              <p>
-                {ui(
-                  "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.",
-                )}
-              </p>
-            </HelpPopover>
-          </div>
           <fieldset disabled={disabled} className="space-y-2">
-            <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
+            {/* A field label like the rest of the form, not a second heading (Cohere's connector form). */}
+            <legend className="flex items-center gap-1.5 text-sm font-medium text-content-primary">
+              {ui("Scope")}
+              <HelpPopover label={ui("Scope")}>
+                <p>
+                  {ui(
+                    "For Selected files and folders, paste file or folder links, one per line or separated by commas. Only selected files and folder contents are synced. Choose a folder or its descendants, not both. Links and Google access are checked when you save.",
+                  )}
+                </p>
+                <p>
+                  {ui(
+                    "OAuth permissions are broader than selected files and folders. Entire My Drive synchronizes the connected account's My Drive tree, not all content accessible to the account.",
+                  )}
+                </p>
+                <p>
+                  {ui(
+                    "Supported formats: Google Docs, Sheets, Slides, PDF, DOCX, PPTX, XLSX, CSV, TXT, and Markdown. Existing file-size and processing limits still apply.",
+                  )}
+                </p>
+              </HelpPopover>
+            </legend>
+            {/* A plain stacked radio list, as in Pipedrive's and Airtable's sync scope choices. */}
             <RadioGroup
-              className="flex flex-wrap gap-3"
+              className="gap-3"
               value={scopeMode}
               onValueChange={(mode) => onScopeModeChange(mode as "SPECIFIC" | "GENERAL")}
             >
               {(["SPECIFIC", "GENERAL"] as const).map((mode) => (
-                <label
-                  key={mode}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border-default px-3 has-checked:bg-surface-subtle has-disabled:cursor-default"
-                >
-                  <RadioGroupItem value={mode} aria-describedby={`${id}-scope-description`} />
-                  {mode === "GENERAL" ? ui("General") : ui("Specific")}
-                </label>
+                <div key={mode} className="flex items-start gap-3">
+                  <RadioGroupItem
+                    id={`${id}-scope-${mode}`}
+                    value={mode}
+                    className="mt-0.5"
+                    aria-describedby={scopeMode === mode ? `${id}-scope-description` : undefined}
+                  />
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor={`${id}-scope-${mode}`}
+                      className="cursor-pointer text-sm text-content-primary"
+                    >
+                      {mode === "GENERAL"
+                        ? ui("Entire My Drive")
+                        : ui("Selected files and folders")}
+                    </label>
+                    {scopeMode === mode ? (
+                      <p id={`${id}-scope-description`} className="text-sm text-content-muted">
+                        {mode === "GENERAL"
+                          ? ui(
+                              "Every supported file in the connected account's My Drive. Files shared with you and shared drives are not included.",
+                            )
+                          : policy
+                            ? ui("Only the files and folders you link below, up to {{count}}.", {
+                                count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
+                              })
+                            : ui("Only the files and folders you link below.")}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               ))}
             </RadioGroup>
-            <p id={`${id}-scope-description`} className="text-sm text-content-secondary">
-              {scopeMode === "GENERAL"
-                ? ui(
-                    "Entire My Drive of the connected OAuth account, including supported files in its folders. Does not scan Shared with me, Shared Drives, or everyone else's drives.",
-                  )
-                : ui(
-                    "Choose explicit file or folder links{{v1}}. Only those files and folder contents are synchronized.",
-                    {
-                      v1: policy
-                        ? ui(" (up to {{count}})", {
-                            count: policy.maxExplicitRootsPerSource.toLocaleString(uiLocale()),
-                          })
-                        : "",
-                    },
-                  )}
-            </p>
           </fieldset>
         </>
       ) : null}
       {scopeMode === "SPECIFIC" ? (
         <div>
           {readOnly || !showLabel ? null : (
-            <label htmlFor={id} className="font-secondary-action text-content-primary">
+            <label htmlFor={id} className="text-sm font-medium text-content-primary">
               {ui("File or folder links")}
             </label>
           )}
-          <textarea
+          <Textarea
             id={id}
             ref={inputRef}
             rows={readOnly ? Math.min(Math.max(links.length, 2), 6) : 5}
@@ -228,7 +141,7 @@ export function GoogleDriveLinks({
             aria-describedby={`${id}-count${error ? ` ${id}-error` : ""}`}
             aria-invalid={Boolean(error)}
             className={cn(
-              "h-auto py-2",
+              "h-auto py-2 field-sizing-fixed",
               readOnly
                 ? "w-full min-w-0 resize-none rounded-lg border border-transparent bg-transparent px-0 text-sm text-content-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                 : cn(inputVariants(), "mt-2 min-h-28 resize-y"),

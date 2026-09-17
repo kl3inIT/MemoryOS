@@ -772,7 +772,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertTrue(updated.pendingWork());
         assertEquals(before, preservedScheduleState());
         assertEquals(otherDue, nextSyncAt(second));
-        assertEquals(5, drive.configuration(owner, second).syncIntervalMinutes());
+        assertEquals(30, drive.configuration(owner, second).syncIntervalMinutes());
         assertEquals(1, drive.configuration(owner, second).scheduleRevision());
         assertFalse(nextSyncAt(first).isBefore(savedAfter.plus(Duration.ofMinutes(17))));
         assertFalse(nextSyncAt(first).isAfter(savedBefore.plus(Duration.ofMinutes(17))));
@@ -875,7 +875,7 @@ class GoogleDriveCredentialAuthorityTest {
             assertEquals("IAM_ACCESS_DENIED", ((IamException) failure.getCause()).code());
         }
         assertEquals(1, roots.configuration(tenant, source).scheduleRevision());
-        assertEquals(5, roots.configuration(tenant, source).syncIntervalMinutes());
+        assertEquals(30, roots.configuration(tenant, source).syncIntervalMinutes());
     }
 
     @ParameterizedTest

@@ -1,3 +1,17 @@
+import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2, History, RefreshCw } from "lucide-react";
+import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { HelpPopover } from "@/components/ui/help-popover";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
   TableBody,
@@ -7,246 +21,340 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { CheckCircle2, ChevronRight, History, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { HelpPopover } from "@/components/ui/help-popover";
-import { Select } from "@/components/ui/select";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { uiLocale } from "@/i18n/format";
+import { statusLabel } from "@/i18n/status-copy";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceIndexAttemptsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { terminalOperationStatuses } from "./source-operations";
+import type { SourceIndexAttempt } from "@/lib/hey-api/types.gen";
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
+import { terminalOperationStatuses } from "./source-operations";
 import { SourceSectionIcon } from "./source-section-icon";
 
+/** File indexing attempts of a Source; it loads when its section tab opens. */
 export function SourceItemHistory({ sourceId }: { sourceId: string }) {
   const ui = useAppTranslation();
 
-  const [open, setOpen] = useState(false);
   const [size, setSize] = useState(5);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
+  const [detail, setDetail] = useState<SourceIndexAttempt | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detailOpener = useRef<HTMLElement | null>(null);
   const history = useQuery({
     ...listSourceIndexAttemptsOptions({ path: { sourceId }, query: { size, cursor } }),
-    enabled: open,
     retry: false,
     staleTime: 0,
     refetchInterval: (query) =>
-      query.state.data?.items.some(
-        (operation) => !Object.hasOwn(terminalOperationStatuses, operation.status),
-      )
-        ? 1_500
-        : false,
+      query.state.data?.items.some((operation) => !attemptFinished(operation)) ? 1_500 : false,
   });
   const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
+  // Polling keeps the open attempt current while it stays on the displayed page.
+  const detailAttempt =
+    detail && (history.data?.items.find((attempt) => attempt.id === detail.id) ?? detail);
   if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
     setCursor(undefined);
     setPrevious([]);
   }
 
   return (
-    <Collapsible
-      className="group/history relative mt-8 min-w-0 border-t border-border-subtle pt-6"
-      onOpenChange={setOpen}
-    >
-      <CollapsibleTrigger className="min-h-10 cursor-pointer list-none pr-24 text-content-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&::-webkit-details-marker]:hidden">
-        <h2 className="inline-flex items-center gap-3 align-middle font-heading-h3">
+    <section aria-label={ui("File indexing attempts")} className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <SourceSectionIcon icon={History} />
-          <span>{ui("File indexing attempts")}</span>
-          <ChevronRight
-            className="size-4 shrink-0 group-open/history:rotate-90"
-            aria-hidden="true"
-          />
+          <h2 className="font-heading-h3 text-content-primary">{ui("File indexing attempts")}</h2>
           <HelpPopover label={ui("File indexing attempts")}>
             <p>
               {ui(
-                "Each row processes one file version, including manual reindexing. Files above is the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.",
+                "Each row processes one file version, including manual reindexing. The Files tab shows the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.",
               )}
             </p>
           </HelpPopover>
-        </h2>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        {open ? (
-          <section aria-label={ui("File indexing attempts")} className="mt-4 min-w-0 space-y-2">
-            <div className="absolute right-0 top-7 flex items-center gap-1">
-              <Button
-                size="sm"
-                prominence="tertiary"
-                pending={history.isFetching}
-                onClick={() => void history.refetch()}
-              >
-                <RefreshCw aria-hidden="true" /> {ui("Refresh")}
-              </Button>
-            </div>
-            {history.isError ? (
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui("File attempts could not be refreshed. Displayed attempts may be out of date.")}
-              </p>
-            ) : history.isPending ? (
-              <p role="status" className="text-sm text-content-muted">
-                {ui("Loading file attempts…")}
-              </p>
-            ) : null}
-            {history.data ? (
-              <>
-                <div
-                  role="region"
-                  aria-label={ui("File indexing attempt records")}
-                  tabIndex={0}
-                  className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-                >
-                  <Table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-                    <TableCaption className="sr-only">
-                      {ui("File indexing attempts, newest first")}
-                    </TableCaption>
-                    <TableHeader className="border-b border-border-subtle text-xs text-content-muted">
-                      <TableRow>
-                        <TableHead scope="col" className="px-3 py-2 font-normal">
-                          {ui("File")}
-                        </TableHead>
-                        <TableHead scope="col" className="px-3 py-2 font-normal">
-                          {ui("Started")}
-                        </TableHead>
-                        <TableHead scope="col" className="px-3 py-2 font-normal">
-                          {ui("Status")}
-                        </TableHead>
-                        <TableHead scope="col" className="px-3 py-2 font-normal">
-                          {ui("Completed / duration")}
-                        </TableHead>
-                        <TableHead scope="col" className="px-3 py-2 font-normal">
-                          {ui("Error message")}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border-subtle">
-                      {history.data.items.map((operation) => (
-                        <TableRow key={operation.id} className="align-middle hover:bg-surface-base">
-                          <TableCell className="whitespace-nowrap px-3 py-3 font-medium text-content-primary">
-                            <span className="break-words">
-                              {operation.filename ?? ui("File name unavailable")}
-                            </span>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap px-3 py-3 text-content-secondary">
-                            {operation.startedAt ? (
-                              <HistoryTime value={operation.startedAt} />
-                            ) : (
-                              <>
-                                <span className="block text-xs text-content-muted">
-                                  {ui("Queued · start not recorded")}
-                                </span>
-                                <HistoryTime value={operation.createdAt} />
-                              </>
-                            )}
-                          </TableCell>
-                          <TableCell className="px-3 py-3">
-                            <StatusBadge
-                              className="gap-1"
-                              tone={
-                                operation.status === "SUCCEEDED"
-                                  ? "success"
-                                  : operation.status === "FAILED"
-                                    ? "danger"
-                                    : Object.hasOwn(terminalOperationStatuses, operation.status)
-                                      ? "neutral"
-                                      : "info"
-                              }
-                            >
-                              {operation.status === "SUCCEEDED" ? (
-                                <CheckCircle2 className="size-3" aria-hidden="true" />
-                              ) : null}
-                              {operation.status === "SUCCEEDED"
-                                ? ui("Indexed")
-                                : ui(statusLabel(operation.status))}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap px-3 py-3 text-content-secondary">
-                            {operation.completedAt ? (
-                              <>
-                                <HistoryTime value={operation.completedAt} />
-                                <span className="block text-xs text-content-muted">
-                                  {historyDuration(operation.startedAt, operation.completedAt) ??
-                                    ui("Duration unknown")}
-                                </span>
-                              </>
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-sm px-3 py-3 text-xs text-content-muted">
-                            {operation.errorCode ? (
-                              <span className="break-words text-status-danger-content">
-                                {ui(sourceStatusMessage(operation.errorCode))}
-                              </span>
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {!history.data.items.length ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="px-3 py-6 text-center text-content-muted"
-                          >
-                            {ui("No file indexing attempts on this page.")}
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
-                </div>
-                <TablePagination
-                  label={ui("Indexing attempt pages")}
-                  page={previous.length}
-                  totalPages={totalPages}
-                  previousLabel={ui("Previous indexing attempts")}
-                  nextLabel={ui("Next indexing attempts")}
-                  previousDisabled={!previous.length || history.isFetching}
-                  nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
-                  onPrevious={() => {
-                    setCursor(previous.at(-1));
-                    setPrevious((pages) => pages.slice(0, -1));
-                  }}
-                  onNext={() => {
-                    setPrevious((pages) => [...pages, cursor]);
-                    setCursor(history.data?.nextCursor ?? undefined);
-                  }}
-                >
-                  <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-                    {ui("Rows")}
-                    <Select
-                      aria-label={ui("Rows per page")}
-                      size="sm"
-                      className="w-auto px-2"
-                      value={size}
-                      disabled={history.isFetching}
-                      onChange={(event) => {
-                        setSize(Number(event.target.value));
-                        setCursor(undefined);
-                        setPrevious([]);
-                      }}
-                    >
-                      {[5, 10, 25, 50].map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                </TablePagination>
-              </>
-            ) : null}
-          </section>
-        ) : null}
-      </CollapsibleContent>
-    </Collapsible>
+        </div>
+        <Button
+          size="sm"
+          prominence="tertiary"
+          pending={history.isFetching}
+          onClick={() => void history.refetch()}
+        >
+          <RefreshCw aria-hidden="true" /> {ui("Refresh")}
+        </Button>
+      </div>
+      {history.isError ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {ui("File attempts could not be refreshed. Displayed attempts may be out of date.")}
+        </p>
+      ) : history.isPending ? (
+        <p role="status" className="text-sm text-content-muted">
+          {ui("Loading file attempts…")}
+        </p>
+      ) : null}
+      {history.data ? (
+        <>
+          <div
+            role="region"
+            aria-label={ui("File indexing attempt records")}
+            tabIndex={0}
+            className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          >
+            <Table className="w-full min-w-[46rem] border-collapse text-left text-sm">
+              <TableCaption className="sr-only">
+                {ui("File indexing attempts, newest first")}
+              </TableCaption>
+              <TableHeader className="border-b border-border-subtle text-xs text-content-muted">
+                <TableRow>
+                  <TableHead scope="col" className="px-3 py-2 font-normal">
+                    {ui("File")}
+                  </TableHead>
+                  <TableHead scope="col" className="px-3 py-2 font-normal">
+                    {ui("Started")}
+                  </TableHead>
+                  <TableHead scope="col" className="px-3 py-2 font-normal">
+                    {ui("Status")}
+                  </TableHead>
+                  <TableHead scope="col" className="px-3 py-2 font-normal">
+                    {ui("Completed / duration")}
+                  </TableHead>
+                  <TableHead scope="col" className="px-3 py-2 font-normal">
+                    {ui("Error message")}
+                  </TableHead>
+                  <TableHead scope="col" className="px-3 py-2 text-right font-normal">
+                    <span className="sr-only">{ui("Indexing attempt details")}</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border-subtle">
+                {history.data.items.map((operation) => (
+                  <TableRow
+                    key={operation.id}
+                    data-state={detailOpen && detail?.id === operation.id ? "selected" : undefined}
+                    className="align-middle hover:bg-surface-base"
+                  >
+                    <TableCell className="whitespace-nowrap px-3 py-3 font-medium text-content-primary">
+                      <span className="break-words">
+                        {operation.filename ?? ui("File name unavailable")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-3 text-content-secondary">
+                      {operation.startedAt ? (
+                        <HistoryTime value={operation.startedAt} />
+                      ) : (
+                        <>
+                          <span className="block text-xs text-content-muted">
+                            {ui("Queued · start not recorded")}
+                          </span>
+                          <HistoryTime value={operation.createdAt} />
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      <AttemptStatus attempt={operation} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap px-3 py-3 text-content-secondary">
+                      {operation.completedAt ? (
+                        <>
+                          <HistoryTime value={operation.completedAt} />
+                          <span className="block text-xs text-content-muted">
+                            {historyDuration(operation.startedAt, operation.completedAt) ??
+                              ui("Duration unknown")}
+                          </span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-sm px-3 py-3 text-xs text-content-muted">
+                      {operation.errorCode ? (
+                        <span className="line-clamp-2 break-words text-status-danger-content">
+                          {ui(sourceStatusMessage(operation.errorCode))}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-3 text-right">
+                      <Button
+                        size="sm"
+                        prominence="tertiary"
+                        aria-label={ui("View details for {{v1}} queued {{v2}}", {
+                          v1: operation.filename ?? ui("File name unavailable"),
+                          v2: new Date(operation.createdAt).toLocaleString(uiLocale()),
+                        })}
+                        onClick={(event) => {
+                          detailOpener.current = event.currentTarget;
+                          setDetail(operation);
+                          setDetailOpen(true);
+                        }}
+                      >
+                        {ui("View details")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!history.data.items.length ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="px-3 py-6 text-center text-content-muted">
+                      {ui("No file indexing attempts on this page.")}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+          <TablePagination
+            label={ui("Indexing attempt pages")}
+            page={previous.length}
+            totalPages={totalPages}
+            previousLabel={ui("Previous indexing attempts")}
+            nextLabel={ui("Next indexing attempts")}
+            previousDisabled={!previous.length || history.isFetching}
+            nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+            onPrevious={() => {
+              setCursor(previous.at(-1));
+              setPrevious((pages) => pages.slice(0, -1));
+            }}
+            onNext={() => {
+              setPrevious((pages) => [...pages, cursor]);
+              setCursor(history.data?.nextCursor ?? undefined);
+            }}
+          >
+            <PageSizeSelect
+              label={ui("Rows per page")}
+              rowsLabel={ui("Rows")}
+              value={size}
+              sizes={[5, 10, 25, 50]}
+              disabled={history.isFetching}
+              onSizeChange={(next) => {
+                setSize(next);
+                setCursor(undefined);
+                setPrevious([]);
+              }}
+            />
+          </TablePagination>
+        </>
+      ) : null}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent
+          className="w-full gap-0 overflow-y-auto sm:max-w-xl"
+          onCloseAutoFocus={(event) => {
+            // Opened without a SheetTrigger, so Radix has no trigger to refocus.
+            event.preventDefault();
+            detailOpener.current?.focus();
+          }}
+        >
+          <SheetHeader className="border-b border-border-subtle pr-12">
+            <SheetTitle className="font-heading-h3 text-content-primary">
+              {ui("Indexing attempt details")}
+            </SheetTitle>
+            <SheetDescription className="break-words">
+              {detailAttempt?.filename ?? ui("File name unavailable")}
+            </SheetDescription>
+          </SheetHeader>
+          {detailAttempt ? <AttemptDetails attempt={detailAttempt} /> : null}
+        </SheetContent>
+      </Sheet>
+    </section>
   );
 }
-import { statusLabel } from "@/i18n/status-copy";
+
+function attemptFinished(attempt: SourceIndexAttempt) {
+  return Object.hasOwn(terminalOperationStatuses, attempt.status);
+}
+
+function AttemptStatus({ attempt }: { attempt: SourceIndexAttempt }) {
+  const ui = useAppTranslation();
+  const succeeded = attempt.status === "SUCCEEDED";
+  return (
+    <StatusBadge
+      className="gap-1"
+      tone={
+        succeeded
+          ? "success"
+          : attempt.status === "FAILED"
+            ? "danger"
+            : attemptFinished(attempt)
+              ? "neutral"
+              : "info"
+      }
+    >
+      {succeeded ? <CheckCircle2 className="size-3" aria-hidden="true" /> : null}
+      {succeeded ? ui("Indexed") : ui(statusLabel(attempt.status))}
+    </StatusBadge>
+  );
+}
+
+const attemptTimeline = [
+  ["Queued", "createdAt"],
+  ["Started", "startedAt"],
+  ["Completed", "completedAt"],
+] as const;
+
+/** One file attempt. Attempts carry no item identity, so reindexing stays in the Files tab. */
+function AttemptDetails({ attempt }: { attempt: SourceIndexAttempt }) {
+  const ui = useAppTranslation();
+  const finished = attemptFinished(attempt);
+  return (
+    <div className="min-w-0 space-y-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-sunken px-4 py-3">
+        <AttemptStatus attempt={attempt} />
+        <span className="text-sm font-medium tabular-nums text-content-primary">
+          {historyDuration(attempt.startedAt, attempt.completedAt) ??
+            (finished ? ui("Duration unknown") : ui("In progress"))}
+        </span>
+      </div>
+      <dl className="divide-y divide-border-subtle rounded-lg border border-border-subtle text-sm">
+        {attemptTimeline.map(([label, field]) => {
+          const value = attempt[field];
+          return (
+            <div
+              key={field}
+              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+            >
+              <dt className="text-content-muted">{ui(label)}</dt>
+              <dd className="text-content-primary">
+                {value ? (
+                  <HistoryTime value={value} />
+                ) : (
+                  <span className="text-content-muted">
+                    {finished ? ui("Not recorded") : ui("Not yet")}
+                  </span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      {attempt.errorCode ? (
+        <section className="rounded-xl bg-status-danger-surface p-4">
+          <h3 className="text-sm font-medium text-status-danger-content">{ui("Error message")}</h3>
+          <p className="mt-2 text-sm break-words text-content-primary">
+            {ui(sourceStatusMessage(attempt.errorCode))}
+          </p>
+        </section>
+      ) : null}
+      {attempt.status === "FAILED" ? (
+        <p className="text-sm text-content-secondary">
+          {ui("To index this file again, use Reindex in the Files tab.")}
+        </p>
+      ) : null}
+      <dl className="space-y-2 text-xs text-content-secondary">
+        {attempt.errorCode ? (
+          <div>
+            <dt>{ui("Error code")}</dt>
+            <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+              <code>{attempt.errorCode}</code>
+            </dd>
+          </div>
+        ) : null}
+        <div>
+          <dt>{ui("Attempt ID")}</dt>
+          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+            <code>{attempt.id}</code>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}

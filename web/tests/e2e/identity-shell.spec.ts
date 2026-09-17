@@ -1145,7 +1145,8 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
   await sourceSearch.fill("");
   await page.getByRole("button", { name: "Filter sources" }).click();
-  await page.getByLabel("Status").selectOption("ACTIVE");
+  await page.getByLabel("Status").click();
+  await page.getByRole("option", { name: "Active", exact: true }).click();
   await expect(page.getByText("No sources match your search and filters.")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(supportSource).toBeVisible();
@@ -1223,7 +1224,8 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   expect(objectStoragePuts).toBe(1);
   expect(storedBytes).toEqual(uploadedFile);
   expect(apiUploadBodies.some((body) => body?.equals(uploadedFile))).toBe(false);
-  await page.getByRole("button", { name: "Reindex" }).click();
+  await page.getByRole("button", { name: /^Actions for / }).click();
+  await page.getByRole("menuitem", { name: "Reindex" }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(
     page
@@ -1231,8 +1233,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
       .getByText("knowledge.txt", { exact: true }),
   ).toBeVisible();
 
-  const removeTrigger = page.getByRole("button", { name: "Remove" });
-  await removeTrigger.click();
+  const openRemoval = async () => {
+    await page.getByRole("button", { name: /^Actions for / }).click();
+    await page.getByRole("menuitem", { name: "Remove" }).click();
+  };
+  await openRemoval();
   let confirmation = page.getByRole("alertdialog");
   await expect(confirmation.getByRole("heading", { name: "Remove knowledge.txt?" })).toBeVisible();
   await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
@@ -1240,12 +1245,12 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(confirmation).not.toBeVisible();
   expect(removeAttempts).toBe(0);
 
-  await removeTrigger.click();
+  await openRemoval();
   confirmation = page.getByRole("alertdialog");
   await confirmation.getByRole("button", { name: "Cancel" }).click();
   expect(removeAttempts).toBe(0);
 
-  await removeTrigger.click();
+  await openRemoval();
   confirmation = page.getByRole("alertdialog");
   await confirmation.getByRole("button", { name: "Remove file" }).click();
   await expect(confirmation.getByRole("alert")).toBeVisible();
@@ -1261,7 +1266,8 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(confirmation).not.toBeVisible();
   await expect(page.getByText("No files yet")).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete source" }).click();
+  await page.getByRole("button", { name: "Source actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete source" }).click();
   confirmation = page.getByRole("alertdialog");
   await expect(
     confirmation.getByRole("heading", { name: "Delete Product documentation?" }),
