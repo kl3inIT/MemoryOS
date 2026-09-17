@@ -633,15 +633,67 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     ).toHaveLength(6);
   });
 
-  it("falls back to committed history when three connections in a row deliver nothing", async () => {
-    const fetch = fixture(() => sse(""));
-    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+  it("keeps resuming connections that deliver nothing until the outcome, without polling history or showing recovery", async () => {
+    // A research agent can work for minutes without an event; the server ends every live stream with an outcome or a reset.
+    let call = 0;
+    const fetch = fixture(() => {
+      call += 1;
+      return call <= 4 ? sse(": heartbeat\n\n") : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const states: string[] = [];
+    transport.callbacks.state = (state) => states.push(state);
+    const chunks = await collect(await send(transport));
     expect(chunks.at(-1)?.type).toBe("finish");
+    const requests = fetch.mock.calls.map(([input, init]) => new Request(input, init));
     expect(
-      fetch.mock.calls.filter(([input, init]) =>
-        new URL(new Request(input, init).url).pathname.endsWith("/events"),
+      requests.filter((request) => new URL(request.url).pathname.endsWith("/events")),
+    ).toHaveLength(5);
+    expect(
+      requests.filter(
+        (request) =>
+          request.method === "GET" && new URL(request.url).pathname.endsWith("/messages"),
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(0);
+    expect(states).not.toContain("recovering");
+  });
+
+  it("backs off failed connections, shows recovery and returns to streaming on the next event", async () => {
+    let call = 0;
+    fixture(() => {
+      call += 1;
+      return call <= 2 ? json({}, 503) : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const states: string[] = [];
+    transport.callbacks.state = (state) => states.push(state);
+    const chunks = await collect(await send(transport));
+    expect(chunks.at(-1)?.type).toBe("finish");
+    expect(call).toBe(3);
+    expect(states.slice(states.indexOf("recovering"))).toEqual([
+      "recovering",
+      "recovering",
+      "streaming",
+      "ready",
+    ]);
+  });
+
+  it("waits for the browser to come back online before reconnecting", async () => {
+    let call = 0;
+    const onLine = vi.spyOn(globalThis.navigator, "onLine", "get").mockReturnValue(false);
+    fixture(() => {
+      call += 1;
+      return call === 1 ? json({}, 503) : sse(delta + terminal());
+    });
+    const transport = new MemoryOsChatTransport(session);
+    const collected = send(transport).then(collect);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    expect(call).toBe(1);
+    onLine.mockReturnValue(true);
+    globalThis.dispatchEvent(new Event("online"));
+    expect((await collected).at(-1)?.type).toBe("finish");
+    expect(call).toBe(2);
+    onLine.mockRestore();
   });
 
   it("keeps a failed partial reply and never emits finish", async () => {

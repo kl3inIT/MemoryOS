@@ -83,8 +83,8 @@ class ChatRuntimeConfiguration {
     }
 
     @Bean
-    StreamBufferWriter chatStreamBuffer(ChatStreamProperties properties) {
-        return new StreamBufferWriter(properties);
+    StreamBufferWriter chatStreamBuffer(org.springframework.data.redis.core.StringRedisTemplate redis, ChatStreamProperties properties) {
+        return new StreamBufferWriter(redis, properties);
     }
 
     @Bean(destroyMethod = "dispose")

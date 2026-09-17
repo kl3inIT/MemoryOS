@@ -175,6 +175,49 @@ class McpToolsTest {
         assertEquals(1, meters.find("memoryos.chat.mcp.call").tag("outcome", "auth_required").timer().count());
     }
 
+    @Test
+    void closesItsStepWithTheActionableFailureCategoryOnly() {
+        var rejected = mock(McpTurnTools.class);
+        when(rejected.bindings()).thenReturn(List.of(binding));
+        when(rejected.unavailable()).thenReturn(List.of());
+        when(rejected.call(any(), any(), any()))
+                .thenThrow(failure(McpTurnTools.CallFailure.Reason.AUTHORIZATION_REQUIRED))
+                .thenThrow(failure(McpTurnTools.CallFailure.Reason.UNKNOWN_TOOL));
+        var tool = new McpTools(rejected, () -> {}, Duration.ofSeconds(30), 10,
+                events::add, new ChatToolActivity(ignored -> {}), () -> 8000,
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst();
+
+        tool.call("{}");
+        tool.call("{}");
+
+        // Without the runner's inspector the tool opens and closes its own steps rather than leaving them running.
+        assertEquals(List.of(ChatToolEvent.Stage.STARTED, ChatToolEvent.Stage.FAILED, ChatToolEvent.Stage.STARTED, ChatToolEvent.Stage.FAILED),
+                events.stream().map(ChatToolEvent::stage).toList());
+        assertEquals(ChatToolEvent.Failure.AUTHORIZATION_REQUIRED, events.get(1).failure());
+        // A failure the person cannot act on (the model named a tool the server no longer has) carries no category.
+        assertEquals(null, events.get(3).failure());
+    }
+
+    @Test
+    void reportsTheCategoryThroughTheRunnerInspectorStep() {
+        var rejected = mock(McpTurnTools.class);
+        when(rejected.bindings()).thenReturn(List.of(binding));
+        when(rejected.unavailable()).thenReturn(List.of());
+        when(rejected.call(any(), any(), any())).thenThrow(failure(McpTurnTools.CallFailure.Reason.TIMEOUT));
+        var activity = new ChatToolActivity(events::add);
+        var tool = new McpTools(rejected, () -> {}, Duration.ofSeconds(30), 10,
+                events::add, activity, () -> 8000,
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), meters).tools().getFirst();
+
+        var call = activity.begin("call_1", "mcp_drive_search_files");
+        tool.call("{}");
+        activity.end(call, false, 5);
+
+        assertEquals(2, events.size());
+        assertEquals(ChatToolEvent.Stage.FAILED, events.getLast().stage());
+        assertEquals(ChatToolEvent.Failure.TIMEOUT, events.getLast().failure());
+    }
+
     private static McpTurnTools.CallFailure failure(McpTurnTools.CallFailure.Reason reason) {
         return new McpTurnTools.CallFailure(reason);
     }

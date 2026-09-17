@@ -63,11 +63,24 @@ services:
       MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
       MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
       MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+      # MEM-26: Chat reply replay. The memoryos-api ACL user reaches only memoryos:chat:stream:* keys.
+      MEMORYOS_REDIS_HOST: redis
+      MEMORYOS_REDIS_PORT: "6379"
+      MEMORYOS_REDIS_USERNAME: memoryos-api
+      MEMORYOS_REDIS_SSL_ENABLED: "true"
+      MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
+      MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
     secrets:
       - interpreter_api_key
+      - redis_tls_ca
+      - redis_api_password
     depends_on:
       postgres-inspector-bootstrap:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
   worker:
     networks:
@@ -251,6 +264,7 @@ services:
       - redis_admin_password
       - redis_inspector_password
       - redis_worker_password
+      - redis_api_password
       - redis_tls_ca
       - redis_tls_certificate
       - redis_tls_private_key
@@ -576,6 +590,8 @@ secrets:
     file: ${MEMORYOS_REDIS_ADMIN_PASSWORD_FILE:?Set MEMORYOS_REDIS_ADMIN_PASSWORD_FILE}
   redis_worker_password:
     file: ${MEMORYOS_REDIS_WORKER_PASSWORD_FILE:?Set MEMORYOS_REDIS_WORKER_PASSWORD_FILE}
+  redis_api_password:
+    file: ${MEMORYOS_REDIS_API_PASSWORD_FILE:?Set MEMORYOS_REDIS_API_PASSWORD_FILE}
   redis_inspector_password:
     file: ${MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE:?Set MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE}
   redisinsight_encryption_key:

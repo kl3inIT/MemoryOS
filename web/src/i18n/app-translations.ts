@@ -35,6 +35,16 @@ export const vietnameseUi: Record<string, string> = {
   "Đã tạo thẻ trình bày": "Created a visual card",
   "Đang dùng công cụ…": "Using a tool…",
   "Đã dùng công cụ": "Used a tool",
+  "Đang dùng {{tool}}…": "Using {{tool}}…",
+  "Thao tác với {{name}}": "Actions for {{name}}",
+  "Đang dùng {{tool}} trên {{server}}…": "Using {{tool}} on {{server}}…",
+  "Đã dùng {{tool}} trên {{server}}": "Used {{tool}} on {{server}}",
+  "{{server}} từ chối kết nối của bạn. Kết nối lại để tiếp tục.":
+    "{{server}} rejected your connection. Reconnect to continue.",
+  "{{server}} từ chối kết nối dùng chung. Quản trị viên cần kết nối lại.":
+    "{{server}} rejected the shared connection. An administrator needs to reconnect it.",
+  "{{server}} không phản hồi kịp.": "{{server}} did not respond in time.",
+  "Không liên lạc được với {{server}}.": "Could not reach {{server}}.",
   "{{step}} · không hoàn tất": "{{step}} · not completed",
   "Truy vấn tìm kiếm": "Search queries",
   "Tài liệu đã đọc": "Documents read",

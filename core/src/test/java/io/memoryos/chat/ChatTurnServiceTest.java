@@ -54,9 +54,9 @@ class ChatTurnServiceTest {
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
-    private final StreamBufferWriter streams = new StreamBufferWriter(new ChatStreamProperties(4096, 16384,
-            Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 2048, 4, 8, 2048, 16,
-            Duration.ofMillis(5), Duration.ofMinutes(1)));
+    private final StreamBufferWriter streams = new StreamBufferWriter(io.memoryos.chat.streaming.TestRedis.template(),
+            new ChatStreamProperties(4096, Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 4, 8, 2048,
+                    Duration.ofMillis(5), Duration.ofMillis(5), Duration.ofMinutes(1)));
     private final UUID session = UUID.randomUUID();
     private final UUID parent = UUID.randomUUID();
     private final UUID request = UUID.randomUUID();
@@ -210,7 +210,7 @@ class ChatTurnServiceTest {
                 .thenReturn(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.FAILED, "CHAT_INTERRUPTED"));
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
             service.send(actor, session, parent, request, "Question", null);
-            try (var reader = streams.subscribe(pair.assistantMessageId(), 0)) {
+            try (var reader = streams.subscribe(pair.assistantMessageId(), 0, () -> true)) {
                 var pending = reader.read();
                 assertFalse(pending.done());
                 assertTrue(pending.events().stream().noneMatch(event -> event.type().equals("outcome")));

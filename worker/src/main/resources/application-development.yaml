@@ -9,3 +9,4 @@ arconia:
     services:
       redis:
         port: 56379
+        shared: true

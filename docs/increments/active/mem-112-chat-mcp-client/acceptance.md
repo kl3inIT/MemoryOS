@@ -11,9 +11,11 @@ OAuth applications is in the [MCP server runbook](../../../runbooks/mcp-servers.
 ## Preparation
 
 Two Workspace organizations, A and B, each with an `Internal` Web application whose authorized redirect URI is
-exactly the staging callback, with the Drive API and Drive MCP API enabled.
+exactly the staging callback, with the Drive API and Drive MCP API enabled. The Drive MCP server is part of the
+Google Workspace Developer Preview Program, so each project must be enrolled first. Google's configuration guide
+lists the scopes `https://www.googleapis.com/auth/drive.readonly` and `https://www.googleapis.com/auth/drive.file`.
 
-In MemoryOS: one server, `OAUTH` + `PER_USER` + `AUTO_DISCOVERY`, URL `https://drivemcp.googleapis.com/mcp`,
+In MemoryOS: one server, `OAUTH` + `PER_USER` + `AUTO_DISCOVERY`, URL `https://drivemcp.googleapis.com/mcp/v1`,
 scopes as the discovery review suggests, and additional authorization parameters
 `access_type=offline` and `prompt=consent`. Add both applications under **Ứng dụng OAuth**, labelled by
 organization.
@@ -28,7 +30,7 @@ organization.
 | 4 | The same person connects choosing label **B** | Expected: Google refuses with `org_internal`. Record the exact error the person sees |
 | 5 | Ask a question that uses a read tool | The tool runs and the answer cites what it returned |
 | 6 | Wait past the access-token lifetime, ask again | The turn refreshes silently. If it instead asks the person to reconnect, `access_type=offline` did not take effect |
-| 7 | Ask for `create_file` in a dedicated empty test folder | The file appears. Do not run this against real content |
+| 7 | Ask for `create_file` in a dedicated empty test folder | The file appears. Do not run this against real content. The published tool set has no tool that edits an existing file (write tools are `create_file` and `copy_file`) |
 | 8 | A member of organization B connects with label B | Succeeds independently of A's connection; the two credentials do not interfere |
 | 9 | Disconnect from the composer | The credential is gone and Google shows the grant revoked |
 

@@ -85,50 +85,64 @@ public final class McpTools {
 
     private Tool.Result call(McpTurnTools.Binding binding, String argumentJson) {
         active.run();
-        var call = activity.current();
-        if (call == null) {
-            call = new ChatToolEvent.Call("mcp-" + UUID.randomUUID(), binding.modelName());
-            events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
-        }
-        if (++calls > maxCalls) {
-            activity.fail();
-            return refused(binding, "call_limit", "The MCP tool call limit for this turn is reached. "
-                    + "Answer with what you have or ask the user to narrow the request.");
-        }
-        Map<String, Object> arguments;
-        try {
-            arguments = argumentJson == null || argumentJson.isBlank() ? Map.of()
-                    : JSON.readValue(argumentJson, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
-        } catch (RuntimeException invalid) {
-            activity.fail();
-            return refused(binding, "invalid_arguments",
-                    "The arguments were not a JSON object matching the tool's schema.");
-        }
-        // A turn has no total deadline, so each call is bounded only by the configured MCP call timeout.
-        Instant callDeadline = Instant.now().plus(callTimeout);
+        var current = activity.current();
+        // The runner's inspector opens the step; a direct call (tests, or a runner without it) opens and closes its own.
+        var call = current != null ? current : new ChatToolEvent.Call("mcp-" + UUID.randomUUID(), binding.modelName());
+        if (current == null) events.accept(new ChatToolEvent(call, ChatToolEvent.Stage.STARTED));
         long start = System.nanoTime();
-        String outcome = "unavailable";
+        ChatToolEvent.Failure failure = null;
+        boolean failed = true;
         try {
-            var result = turn.call(binding, arguments, callDeadline);
-            active.run();
-            // The server's own isError is a tool outcome, not a transport failure, and is counted apart.
-            outcome = result.error() ? "tool_error" : "succeeded";
-            if (result.error()) activity.fail();
-            return Tool.Result.text(cap(binding, result.text()));
-        } catch (McpTurnTools.CallFailure failure) {
-            activity.fail();
-            outcome = switch (failure.reason()) {
-                case AUTHORIZATION_REQUIRED -> "auth_required";
-                case TIMEOUT -> "timeout";
-                case INVALID_ARGUMENTS -> "invalid_arguments";
-                case UNKNOWN_TOOL -> "unknown_tool";
-                case UNAVAILABLE -> "unavailable";
-            };
-            // The reason is a code from the MCP capability, not matched text, and carries no upstream body.
-            LOG.warn("MCP tool {} failed on server {}: {}", binding.modelName(), binding.serverId(), failure.reason());
-            return Tool.Result.error(message(binding, failure.reason()));
+            if (++calls > maxCalls) {
+                activity.fail();
+                return refused(binding, "call_limit", "The MCP tool call limit for this turn is reached. "
+                        + "Answer with what you have or ask the user to narrow the request.");
+            }
+            Map<String, Object> arguments;
+            try {
+                arguments = argumentJson == null || argumentJson.isBlank() ? Map.of()
+                        : JSON.readValue(argumentJson, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            } catch (RuntimeException invalid) {
+                activity.fail();
+                return refused(binding, "invalid_arguments",
+                        "The arguments were not a JSON object matching the tool's schema.");
+            }
+            // A turn has no total deadline, so each call is bounded only by the configured MCP call timeout.
+            Instant callDeadline = Instant.now().plus(callTimeout);
+            long upstream = System.nanoTime();
+            String outcome = "unavailable";
+            try {
+                var result = turn.call(binding, arguments, callDeadline);
+                active.run();
+                // The server's own isError is a tool outcome, not a transport failure, and is counted apart.
+                outcome = result.error() ? "tool_error" : "succeeded";
+                failed = result.error();
+                if (failed) activity.fail();
+                return Tool.Result.text(cap(binding, result.text()));
+            } catch (McpTurnTools.CallFailure rejected) {
+                failure = switch (rejected.reason()) {
+                    case AUTHORIZATION_REQUIRED -> ChatToolEvent.Failure.AUTHORIZATION_REQUIRED;
+                    case TIMEOUT -> ChatToolEvent.Failure.TIMEOUT;
+                    case UNAVAILABLE -> ChatToolEvent.Failure.UNAVAILABLE;
+                    case INVALID_ARGUMENTS, UNKNOWN_TOOL -> null;
+                };
+                if (failure == null) activity.fail(); else activity.fail(failure);
+                outcome = switch (rejected.reason()) {
+                    case AUTHORIZATION_REQUIRED -> "auth_required";
+                    case TIMEOUT -> "timeout";
+                    case INVALID_ARGUMENTS -> "invalid_arguments";
+                    case UNKNOWN_TOOL -> "unknown_tool";
+                    case UNAVAILABLE -> "unavailable";
+                };
+                // The reason is a code from the MCP capability, not matched text, and carries no upstream body.
+                LOG.warn("MCP tool {} failed on server {}: {}", binding.modelName(), binding.serverId(), rejected.reason());
+                return Tool.Result.error(message(binding, rejected.reason()));
+            } finally {
+                measure(binding, outcome, System.nanoTime() - upstream);
+            }
         } finally {
-            measure(binding, outcome, System.nanoTime() - start);
+            if (current == null)
+                events.accept(ChatToolEvent.finished(call, failed, (System.nanoTime() - start) / 1_000_000, failure));
         }
     }
 
