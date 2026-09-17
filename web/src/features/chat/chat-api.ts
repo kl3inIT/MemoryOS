@@ -8,6 +8,7 @@ import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { fileReference } from "./chat-files";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { parseGeneratedImages, type GeneratedImage } from "./chat-image";
+import { parseGeneratedFiles, type GeneratedFile } from "./chat-code";
 import { historyResearch, type ResearchState } from "./chat-research";
 
 export type ChatUiMessage = UIMessage<
@@ -22,6 +23,8 @@ export type ChatUiMessage = UIMessage<
     toolCitations?: Record<string, number[]>;
     images?: GeneratedImage[];
     imageGenerating?: boolean;
+    /** Files run_python generated, saved on the assistant message. */
+    generatedFiles?: GeneratedFile[];
   },
   { research: ResearchState }
 >;
@@ -125,6 +128,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
       images: parseGeneratedImages((message as { images?: unknown }).images),
+      generatedFiles: parseGeneratedFiles(message.generatedFiles),
     },
   }));
 }

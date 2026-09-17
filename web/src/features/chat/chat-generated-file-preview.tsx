@@ -184,9 +184,11 @@ function CsvTable({ csv, truncated = false }: { csv: string; truncated?: boolean
             {shown.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {Array.from({ length: columns }, (_, index) => (
+                  // One line per row, as a spreadsheet: wrapping in a narrow panel made every cell a column of words.
                   <TableCell
                     key={index}
-                    className="max-w-72 whitespace-pre-wrap break-words align-top"
+                    title={row[index] || undefined}
+                    className="max-w-64 truncate whitespace-nowrap"
                   >
                     {row[index] ?? ""}
                   </TableCell>
@@ -197,8 +199,12 @@ function CsvTable({ csv, truncated = false }: { csv: string; truncated?: boolean
         </Table>
       </div>
       <p className="text-xs text-content-muted">
-        {ui("{{rows}} dòng · {{columns}} cột", { rows: rows.length, columns })}
-        {(truncated || rows.length > MAX_TABLE_ROWS) && ` · ${ui("Bản xem trước bị cắt bớt")}`}
+        {truncated || rows.length > MAX_TABLE_ROWS
+          ? ui("{{rows}} dòng · {{columns}} cột · bản xem trước bị cắt bớt", {
+              rows: rows.length,
+              columns,
+            })
+          : ui("{{rows}} dòng · {{columns}} cột", { rows: rows.length, columns })}
       </p>
     </div>
   );
@@ -221,10 +227,16 @@ function SpreadsheetPreview({ file }: { file: GeneratedFile }) {
   const sheets = preview.data.sheets;
   return (
     <Tabs defaultValue="0">
-      <TabsList className="max-w-full overflow-x-auto">
+      {/* Start-aligned and scrollable: a centered overflowing list clips its first sheet name. */}
+      <TabsList className="w-full justify-start overflow-x-auto">
         {sheets.map((sheet, index) => (
-          <TabsTrigger key={index} value={String(index)}>
-            {sheet.name}
+          <TabsTrigger
+            key={index}
+            value={String(index)}
+            className="max-w-56 flex-none"
+            title={sheet.name}
+          >
+            <span className="truncate">{sheet.name}</span>
           </TabsTrigger>
         ))}
       </TabsList>
@@ -289,7 +301,8 @@ function DocxPreview({ file }: { file: GeneratedFile }) {
       <div
         ref={body}
         data-slot="docx-preview"
-        className="max-h-[70dvh] overflow-auto rounded-lg bg-surface-sunken p-3 text-black [&_.docx]:mx-auto [&_.docx]:bg-white [&_.docx]:shadow-sm"
+        // Page margins are for print; in the narrow panel they left a sliver of text.
+        className="max-h-[70dvh] overflow-auto rounded-lg bg-surface-sunken p-3 text-black [&_section.docx]:mx-auto [&_section.docx]:mb-3 [&_section.docx]:!min-h-0 [&_section.docx]:!w-auto [&_section.docx]:bg-white [&_section.docx]:!p-6 [&_section.docx]:shadow-sm"
       />
     </>
   );

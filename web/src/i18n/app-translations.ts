@@ -146,7 +146,8 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ hiển thị 1 MB đầu của tệp.": "Showing only the first 1 MB of the file.",
   "Trang tính trống": "Empty sheet",
   "{{rows}} dòng · {{columns}} cột": "{{rows}} rows · {{columns}} columns",
-  "Bản xem trước bị cắt bớt": "Preview truncated",
+  "{{rows}} dòng · {{columns}} cột · bản xem trước bị cắt bớt":
+    "{{rows}} rows · {{columns}} columns · preview truncated",
   "Công cụ": "Tools",
   OAuth: "OAuth",
   "Ai đăng nhập": "Who signs in",
