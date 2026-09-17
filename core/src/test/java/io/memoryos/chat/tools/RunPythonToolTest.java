@@ -106,6 +106,32 @@ class RunPythonToolTest {
         assertFalse(reply.contains(RunPythonTool.FILE_REMINDER));
     }
 
+    @Test void searchedSourceFilesAreStagedAfterTheChatFilesThroughCitationAuthority() throws Exception {
+        attach("notes.csv", 10, 5);
+        var originals = mock(io.memoryos.retrieval.DocumentOriginalService.class);
+        UUID document = UUID.randomUUID(), generation = UUID.randomUUID();
+        var stored = new io.memoryos.objectstorage.StoredObjectId(UUID.randomUUID());
+        when(originals.citationOriginals(eq(actor), any())).thenReturn(java.util.Map.of(document,
+                new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/r"),
+                        "report.xlsx", new ObjectMetadata(20, "application/vnd.ms-excel", new ContentSha256("c".repeat(64))))));
+        var closed = new java.util.concurrent.atomic.AtomicBoolean();
+        when(originals.citationOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
+                .OriginalPdf(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
+        var sandbox = new SandboxDocuments(originals, actor);
+        sandbox.register(List.of(new io.memoryos.retrieval.SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
+                Instant.EPOCH, .5)));
+        String name = "Report_" + stored.value() + ".xlsx";
+        when(client.upload(eq(name), eq("application/vnd.ms-excel"), any())).thenReturn("svc-report");
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenReturn(ok(""));
+
+        tool().withSandbox(sandbox).runPython("print(1)");
+
+        assertEquals(List.of(new InterpreterClient.StagedFile("notes.csv", "svc-notes.csv"),
+                new InterpreterClient.StagedFile(name, "svc-report")), staged());
+        verify(originals).citationOriginal(actor, document, generation);
+        assertTrue(closed.get());
+    }
+
     @Test void referencedFilesWinTheFileCapAndTheNoticeNamesTheLimit() throws Exception {
         var referenced = attach("budget.xlsx", 10, 100);
         for (int i = 0; i < RunPythonTool.MAX_STAGED_FILES; i++) attach("f" + i + ".csv", 10, 50 - i);

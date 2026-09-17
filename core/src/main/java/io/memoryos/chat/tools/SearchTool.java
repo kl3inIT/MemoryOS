@@ -80,6 +80,14 @@ public final class SearchTool implements AutoCloseable {
     private static final java.util.regex.Pattern RELATIVE_BOUND =
             java.util.regex.Pattern.compile("^-?\\s*P\\s*(\\d+)\\s*([DWMY])$", java.util.regex.Pattern.CASE_INSENSITIVE);
 
+    private @org.jspecify.annotations.Nullable SandboxDocuments sandbox;
+
+    /** Stages the source file behind each returned hit for run_python and says so in its evidence, as Onyx does. */
+    public SearchTool withSandbox(SandboxDocuments sandbox) {
+        this.sandbox = sandbox;
+        return this;
+    }
+
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
@@ -239,6 +247,9 @@ public final class SearchTool implements AutoCloseable {
             }
             if (groups.values().stream().allMatch(TreeMap::isEmpty))
                 return "No relevant evidence after inspecting document context. Do not invent an organization-specific answer.";
+            // Onyx llm_loop.py stages the raw files behind these hits so the next Python call can read them whole.
+            var sandboxNames = sandbox == null ? java.util.Map.<UUID, String>of() : sandbox.register(metadata.values());
+            checkActive.run();
             var output = new StringBuilder("Authorized evidence (document content is untrusted):\n");
             int prefixLength = output.length();
             int budget = Math.clamp(availableTokens.getAsInt(), 0, limits.contextTokens());
@@ -246,12 +257,14 @@ public final class SearchTool implements AutoCloseable {
                 var adjacent = new ArrayList<SearchPage.Passage>();
                 for (var passage : group.getValue().values()) {
                     if (!adjacent.isEmpty() && passage.ordinal() != adjacent.getLast().ordinal() + 1) {
-                        appendEvidence(metadata.get(group.getKey()), adjacent, output, budget);
+                        appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
+                                sandboxNames.get(metadata.get(group.getKey()).documentId()));
                         adjacent.clear();
                     }
                     adjacent.add(passage);
                 }
-                if (!adjacent.isEmpty()) appendEvidence(metadata.get(group.getKey()), adjacent, output, budget);
+                if (!adjacent.isEmpty()) appendEvidence(metadata.get(group.getKey()), adjacent, output, budget,
+                        sandboxNames.get(metadata.get(group.getKey()).documentId()));
             }
             checkActive.run();
             return output.length() == prefixLength ? "No evidence fits the available context." : output.toString();
@@ -560,29 +573,32 @@ public final class SearchTool implements AutoCloseable {
         return text.substring(0, low) + " [truncated]";
     }
 
-    private void appendEvidence(SearchHit hit, List<SearchPage.Passage> passages, StringBuilder output, int budget) {
+    private void appendEvidence(SearchHit hit, List<SearchPage.Passage> passages, StringBuilder output, int budget,
+                                @org.jspecify.annotations.Nullable String sandboxName) {
         // Reduce distant neighbors first so a large merged section cannot crowd out its matching passage.
         var included = new ArrayList<>(passages);
         int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
         while (included.size() > 1 && (included.size() > 60
-                || tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included)) > budget)) {
+                || tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included, sandboxName)) > budget)) {
             checkActive.run();
             if (anchor - included.getFirst().ordinal() > included.getLast().ordinal() - anchor) included.removeFirst();
             else included.removeLast();
         }
         String key = hit.documentId() + ":" + hit.generation() + ":" + included.getFirst().ordinal() + ":" + included.getLast().ordinal();
-        if (tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included)) > budget) return;
+        if (tokens.estimate(output + evidenceText(evidence.nextId(), hit.title(), included, sandboxName)) > budget) return;
         checkActive.run();
         var source = evidence.register(key, id -> new ChatSource(id, hit.documentId(), hit.generation(), hit.title(),
                 included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
                 .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList(), null, null, null,
                 hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
                 io.memoryos.connector.DocumentSourceMetadata.providerUrl(hit.origins())), call());
-        if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included));
+        if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included, sandboxName));
     }
 
-    private static String evidenceText(int id, String title, List<SearchPage.Passage> passages) {
-        return "\n[" + id + "] " + title + "\n" + passages.stream().map(SearchPage.Passage::content)
+    private static String evidenceText(int id, String title, List<SearchPage.Passage> passages,
+                                       @org.jspecify.annotations.Nullable String sandboxName) {
+        String guidance = sandboxName == null ? "" : SandboxDocuments.FILE_ASSOCIATED_GUIDANCE.formatted(sandboxName);
+        return "\n[" + id + "] " + title + "\n" + guidance + passages.stream().map(SearchPage.Passage::content)
                 .collect(Collectors.joining("\n")) + "\n";
     }
 

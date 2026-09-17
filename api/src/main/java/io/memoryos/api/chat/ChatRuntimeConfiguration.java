@@ -56,10 +56,11 @@ class ChatRuntimeConfiguration {
                                         io.memoryos.chat.image.ImageArtifactService imageArtifacts,
                                         io.memoryos.chat.interpreter.InterpreterClient interpreter,
                                         io.memoryos.chat.interpreter.InterpreterService interpreterSettings,
+                                        io.memoryos.retrieval.DocumentOriginalService originals,
                                         io.memoryos.chat.research.ResearchProperties research,
                                         io.micrometer.core.instrument.MeterRegistry meters, io.micrometer.observation.ObservationRegistry observations) {
         return new ChatModelExecutor(contexts, repository, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent,
-                web, image, imageArtifacts, interpreter, interpreterSettings,
+                web, image, imageArtifacts, interpreter, interpreterSettings, originals,
                 research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations), meters);
     }
 

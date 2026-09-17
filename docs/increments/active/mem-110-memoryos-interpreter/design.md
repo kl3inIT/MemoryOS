@@ -95,7 +95,7 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
 
    Unlike Web search and image generation, an unavailable interpreter omits the tool instead of failing the turn. `ChatPrompts` adds the guidance only when the tool is registered.
 3. **Running code.** When the model calls `run_python(code)`, the tool:
-   - selects this turn's attachments (`ChatTurnSetup.fileIds`) in the Onyx order (files named in the code first, then newest) within 25 files and 100 MiB, with Onyx file-name sanitizing and de-duplication;
+   - selects this turn's attachments (`ChatTurnSetup.fileIds`), followed by the source files `search_knowledge` found this turn (Onyx `build_python_chat_files_from_search_docs`, `llm_loop.py`), in the Onyx order (files named in the code first, then newest) within 25 files and 100 MiB, with Onyx file-name sanitizing and de-duplication;
    - uploads them with `POST /v1/files`, streaming from object storage, and reuses uploads within the turn by file name and the stored SHA-256, so no attachment is buffered in the API heap;
    - calls **`POST /v1/execute`** with a fixed `timeout_ms` of 60 000 and an HTTP timeout 10 seconds longer, as in Onyx. The first draft derived the timeout from the turn deadline; MEM-101 removed the turn deadline (`ChatTurnService.maintain`: "A turn has no total deadline"), so there is nothing to subtract from and the Onyx per-call timeout stands on its own. Stop and the tool-cycle limit bound a turn.
 
@@ -106,11 +106,12 @@ The runtime path phases 3 and 4 implement. Phase 3 decisions, 2026-09-16 (Onyx r
 5. **Generated files.** Each workspace file up to 25 MiB is downloaded with `GET /v1/files/{id}`, staged and adopted into object storage as a `chat_file_artifact` (V71) row on the assistant message, and deleted from the interpreter. Larger files are reported as skipped. Uploaded inputs stay on the service until its file TTL (`FILE_TTL_SEC`, 900 seconds on staging), as in Onyx; phase 3 adds the missing expiry loop to the service. Files are served owner-authorized at `GET /api/chat/file-artifacts/{id}/content`: `inline` for PNG, JPEG and WebP, `attachment` otherwise, with `nosniff` and `no-store`.
 6. **Model result.** The Onyx JSON: `{type: "python_execution", stdout, stderr, exit_code, timed_out, generated_files: [{filename, file_link}], error, staging_notice}`.
    - `stdout` and `stderr` are truncated to 50 000 characters with the Onyx suffix.
-   - `exit_code` is -1 when the service cannot be reached or rejects the call.
+   - `exit_code` is -1 when the service cannot be reached or rejects the call, with the exception text in `stderr` and `error` as Onyx (`str(e)`). The first draft returned a generic error; the owner chose the Onyx behaviour on 2026-09-17.
    - `file_link` is the relative MemoryOS URL above, so the model never sees interpreter file IDs or URLs.
    - MemoryOS has no reminder message, so the Onyx `FILE_REMINDER` text follows the JSON in the tool result when files were generated.
-7. **Browser.** Phase 3 adds the administration page and a timeline label. Phase 4 adds the code and output in the step and download cards for generated files below the answer, and makes the model's markdown link to the artifact path clickable.
-8. **Administration and runtime.**
+7. **Searched source files.** When `run_python` is registered, `SearchTool` records the stored original behind each hit through `DocumentOriginalService.citationOriginals` (the Chat source reader's authority, any media type, 64 MiB) and prefixes that hit's evidence with Onyx `FILE_ASSOCIATED_GUIDANCE`. Departures: a title without an extension takes the stored file's extension, so the model can tell the file type; Onyx appends the file id to the title unchanged. Opening the file for upload rechecks authority, the generation's stored object and its size.
+8. **Browser.** Phase 3 adds the administration page and a timeline label. Phase 4 adds the code and output in the step and download cards for generated files below the answer, and makes the model's markdown link to the artifact path clickable.
+9. **Administration and runtime.**
    - `/api/chat/interpreter`: `GET` and `PUT` the Tenant setting, and `GET /health` returns the uncached `{connected, error, version}` (Onyx `server/manage/code_interpreter/api.py`), all with `MODELS_MANAGE`.
    - The interpreter requires `X-Api-Key` on every `/v1` route (a MemoryOS addition). The API sends the same key.
    - Both containers read one host file mounted as the Compose secret `interpreter_api_key`. The API reads `MEMORYOS_INTERPRETER_API_KEY_FILE` through its launcher; there is no Infisical entry.

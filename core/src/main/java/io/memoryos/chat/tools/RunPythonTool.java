@@ -85,7 +85,18 @@ public final class RunPythonTool {
         if (call != null) events.accept(event.apply(call.id()));
     }
 
-    private record Candidate(UserFile file, String name, int order) {}
+    /** A file offered to the sandbox: a chat attachment or the source file behind a search hit. */
+    private record Candidate(String name, String original, long sizeBytes, int order, Opener opener) {}
+    private record Opened(String checksum, String mediaType, java.io.InputStream input, Runnable closer) {}
+    @FunctionalInterface private interface Opener { Opened open() throws IOException; }
+
+    private @Nullable SandboxDocuments sandbox;
+
+    /** Also stages the source files that search_knowledge found this turn, after the chat files, as Onyx llm_loop.py. */
+    public RunPythonTool withSandbox(@Nullable SandboxDocuments sandbox) {
+        this.sandbox = sandbox;
+        return this;
+    }
     private record Selection(List<Candidate> files, int dropped, int total) {}
 
     @LlmTool(name = "run_python", description = "Execute Python code in an isolated sandbox environment.")
@@ -182,34 +193,56 @@ public final class RunPythonTool {
         var candidates = new ArrayList<Candidate>();
         for (int i = 0; i < chronological.size(); i++) {
             var file = chronological.get(i);
-            candidates.add(new Candidate(file, dedupe(safeName(file.filename()), file.id().toString(), used), i));
+            candidates.add(new Candidate(dedupe(safeName(file.filename()), file.id().toString(), used), file.filename(),
+                    file.sizeBytes(), i, () -> {
+                        var content = files.open(actor, tenant, file.id());
+                        return new Opened(content.metadata().checksum().value(), content.metadata().mediaType(),
+                                content.inputStream(), () -> closeQuietly(content));
+                    }));
+        }
+        if (sandbox != null) {
+            var documents = sandbox;
+            for (var document : documents.documents()) {
+                candidates.add(new Candidate(dedupe(safeName(document.name()), document.documentId().toString(), used),
+                        document.name(), document.sizeBytes(), candidates.size(), () -> {
+                            var original = documents.open(document);
+                            return new Opened(document.checksum(), document.mediaType(), original.inputStream(), original::close);
+                        }));
+            }
         }
         var referenced = new ArrayList<Candidate>();
         var others = new ArrayList<Candidate>();
         for (var candidate : candidates)
-            (code.contains(candidate.file().filename()) || code.contains(candidate.name()) ? referenced : others).add(candidate);
+            (code.contains(candidate.original()) || code.contains(candidate.name()) ? referenced : others).add(candidate);
         var priority = new ArrayList<Candidate>(referenced.reversed());
         priority.addAll(others.reversed());
         var selected = new ArrayList<Candidate>();
         long bytes = 0;
         for (var candidate : priority.subList(0, Math.min(MAX_STAGED_FILES, priority.size()))) {
-            if (!selected.isEmpty() && bytes + candidate.file().sizeBytes() > MAX_STAGED_BYTES) break;
+            if (!selected.isEmpty() && bytes + candidate.sizeBytes() > MAX_STAGED_BYTES) break;
             selected.add(candidate);
-            bytes += candidate.file().sizeBytes();
+            bytes += candidate.sizeBytes();
         }
         selected.sort(Comparator.comparingInt(Candidate::order));
         return new Selection(List.copyOf(selected), candidates.size() - selected.size(), candidates.size());
     }
 
     private String upload(Candidate candidate) throws IOException {
-        try (var content = files.open(actor, tenant, candidate.file().id())) {
-            String key = candidate.name() + ' ' + content.metadata().checksum().value();
+        var content = candidate.opener().open();
+        try {
+            String key = candidate.name() + '\0' + content.checksum();
             String cached = uploads.get(key);
             if (cached != null) return cached;
-            String id = client.upload(candidate.name(), content.metadata().mediaType(), content.inputStream());
+            String id = client.upload(candidate.name(), content.mediaType(), content.input());
             uploads.put(key, id);
             return id;
+        } finally {
+            content.closer().run();
         }
+    }
+
+    private static void closeQuietly(AutoCloseable closeable) {
+        try { closeable.close(); } catch (Exception ignored) { /* the read already finished or failed */ }
     }
 
     private void delete(String fileId) {
