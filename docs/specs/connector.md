@@ -22,6 +22,8 @@ Detail loads the Source summary independently from the current Files page. The b
 
 Current-file rows show name, size, status, Last indexed and actions. Last indexed is a plain accessible timestamp for the current version's retained successful processing completion, or Unknown. There is no expandable Added/queued/start/completion detail or repeated subtitle beneath the filename.
 
+Current file status uses an icon badge; the table does not repeat the separate Search-readiness state. The Source heading omits the redundant provider-type subtitle. A Source error appears after the complete synchronization overview and before the tabs, rather than above the overview.
+
 Pending rows show Queued only when their latest attempt is `NOT_STARTED`, or Processing when it is `IN_PROGRESS`. Other item states remain authoritative; a differing latest-attempt outcome appears separately, and missing or unrecognized state never implies completion. Search readiness remains separate from extraction status. The aggregate activity label is Work pending, not a processing percentage. Indexed means processing completed, not that financial values were verified.
 
 The Files table has a 64rem minimum width inside its own focusable horizontal-scroll region. Size, Status, Last indexed and Actions reserve 6rem, 11rem, 12rem and 13rem respectively; the filename receives the remaining width, wraps and exposes its full value through the title attribute. Narrow viewports scroll the table rather than compressing status, timestamps and actions into overlapping columns.
@@ -32,11 +34,11 @@ FILE Sources instead show File indexing attempts: filename, queued/start/complet
 
 Source detail uses a 40px top-level Drive provider mark and consistent icon-backed major headings for Upload content, Synchronization, Credentials, Selected content, Files, indexing histories and Group associations where applicable. Group associations uses the same plain divided section and table surface rather than a nested outer card; authorization, editable drafts, Save and Cancel remain unchanged.
 
-Files and both history queries use zero stale time rather than the shared 30-second freshness window. Returning to a cached cursor page refetches its rows and total, including the first-page reset after removal or retention; otherwise a fresh cached first page could restore the obsolete total indefinitely for terminal FILE history. Existing polling intervals and collapsed-history read guards are unchanged.
+Files and both history queries use zero stale time rather than the shared 30-second freshness window. Returning to a cached cursor page refetches its rows and total, including the first-page reset after removal or retention; otherwise a fresh cached first page could restore the obsolete total indefinitely for terminal FILE history. Existing polling intervals remain. FILE history retains its disclosure read guard; Google run history mounts in the selected History tab, and run-error queries mount only for the selected run.
 
 Google setup presents Credential → Connector using the shared credential card and Create New modal. The picker has a separate selection column before four metadata columns: ID (short UUID with full value on hover), Name (without repeating an identical account email), Created and Last Updated (local dates without times). On narrow screens the same metadata stacks into labelled groups without horizontal scrolling. Unusable credentials retain a warning and cannot be selected. The labelled three-dot Manage button discloses attachment count and guarded reconnect/revoke/delete actions. New consent selects the created credential; an existing active credential needs no JSON upload or repeat consent. Connector submission names the Source and queues durable validation; worker activation atomically persists its General/Specific scope and initial sync. Specific is the safe default and accepts explicit file/folder links; General explains the connected account's My Drive boundary and hides the link editor. Mode is chosen only at creation, where Specific link drafts survive toggling General and back and no saved-selection summary is shown. Detail renders saved mode without a selector. General retains its summary despite its empty public roots list and has no link editor or selection-save/reload actions. Specific lists saved roots only when present; its link draft survives refresh and independent interval saves until explicit Save selection. Concurrent root/credential/actor authority changes require explicit reload rather than stale retry. App/redirect configuration remains under collapsed Setup instructions; shared credential management and cleanup remain available. No account browser, document viewer, ACL editor, reader linking, Groups or Drive PUBLIC control is added.
 
-Synchronization, Selected content and history place question-mark help popovers beside their titles rather than persistent explanatory subtitles. Guidance remains pointer- and keyboard-accessible, including the broader OAuth-permission boundary. History help does not toggle its disclosure; Escape closes help and restores trigger focus. Link-field counts, validation errors, conflict warnings and pending validation remain visible. Selection errors remain distinct from synchronization/interval errors; editing or retrying clears field errors without replacing the complete draft. Detail has no redundant Saved scope heading. Saved roots use filled, MIME-aware icons with accessible type labels for Sheets, Docs, Slides, Word, Excel, PowerPoint, PDF and CSV, with a generic fallback. Non-interactive file rows have no hover fill; Reindex/Remove retain distinct button hover and focus surfaces.
+Google Source detail keeps overview and synchronization controls together above Content, Sync history and Connection/settings tabs. Content contains selected scope and acquired files; connection and Source-group management belong together under settings. Selection drafts remain mounted across tab changes. Synchronization and Selected content retain keyboard-accessible help popovers; run history instead has a concise purpose description and an explicit details action. The obsolete disclaimer that Google document access is not configured here is removed. Link-field counts, validation errors, conflict warnings and pending validation remain visible. Selection errors remain distinct from synchronization/interval errors; editing or retrying clears field errors without replacing the complete draft. Detail has no redundant Saved scope heading. Saved roots use filled, MIME-aware icons with accessible type labels for Sheets, Docs, Slides, Word, Excel, PowerPoint, PDF and CSV, with a generic fallback. Non-interactive file rows have no hover fill; Reindex/Remove retain distinct button hover and focus surfaces.
 
 For Drive managers with retained connection data, Source-summary and Drive-configuration refresh failures share one warning in Synchronization and its existing Refresh status action; no duplicate Source-level warning or Refresh source button appears above the detail. Either failed read keeps mutations disabled until fresh state is available. FILE detail and scoped readers without Drive administration retain their Source-level recovery action.
 
@@ -120,6 +122,11 @@ A Drive provider version also advances for sharing or metadata changes. When re-
 
 ## Synchronization run history
 
+Retained run errors keep their original code, stage, identifiers and occurrence time. Their read projection additionally returns nullable `currentItemStatus`, `currentItemErrorCode` and `currentItemLastIndexedAt`, joined within the same Tenant/Source/item. The timestamp is successful indexing of the current item version, not any prior version. Missing items remain unknown; deleting items do not count as recovery. These live fields never rewrite historical outcomes or counters, and content recovery does not establish provider/ACL recovery.
+
+The run dialog separates the historical error from current file state and progressively discloses the exact safe code and correlation IDs. Old generic timeout codes cannot identify their underlying cause. Correlation identifiers are not an exception trace; no historical traceback is synthesized.
+
+`source_sync_attempts` anchors a synchronization run; `index_attempts` remains item processing. V28 stores nullable legacy trigger/actor/counters, acquisition and end-to-end timestamps, revision snapshots, exact owned-child attribution and retained safe errors. Automatic index creation at input adoption records tenant/source-safe `source_sync_attempt_id` in the same transaction. Manual reindex/FILE attempts remain unattributed; observing an older live attempt adds `alreadyPending` without taking ownership of its publication.
 `source_sync_attempts` anchors a synchronization run; `index_attempts` remains item processing. V31 stores nullable legacy trigger/actor/counters, acquisition and end-to-end timestamps, revision snapshots, exact owned-child attribution and retained safe errors. Automatic index creation at input adoption records tenant/source-safe `source_sync_attempt_id` in the same transaction. Manual reindex/FILE attempts remain unattributed; observing an older live attempt adds `alreadyPending` without taking ownership of its publication.
 
 | Counter | Meaning |
@@ -137,7 +144,7 @@ Counters are durable and idempotent across duplicate delivery, retry, supersessi
 
 Global/scoped `SOURCES_READ`-authorized `GET /api/sources/{sourceId}/runs` returns keyset pages ordered by descending `(created_at,id)`, default 25/max 100, with optional `status`, `trigger`, `from` and `to`. Required nonnegative `totalItems` counts all retained runs in the same authorized Tenant/Source and projected-status/trigger/half-open time filter, excluding the cursor and limit. Page and count share the filtered run projection but are separate read-committed statements; retention or ingestion can change totals between requests. The response also returns independent `current`, `lastCompleted` and `lastSuccessful` summaries. `GET .../runs/{runId}` returns one run; `GET .../runs/{runId}/errors` pages errors by `(occurred_at,id)` with the same size bounds. Cursors bind tenant/Source and query context; foreign identifiers cannot become an authority oracle. `/api/sources/{sourceId}/index-attempts` remains paged item history, not an alias for synchronization runs. Generic operation polling remains a separate contract.
 
-Read states distinguish queued, acquiring, retry scheduled, recovery pending, indexing, succeeded, completed with errors, failed, superseded/cancelled and unknown legacy outcome. Expired claims report recovery pending, not an active worker. No owned children gives indexing `NOT_REQUIRED`. The compact table distinguishes loading, empty and unavailable reads and renders null counts as Unknown. No changes requires a successful end-to-end outcome with no indexing needed and known zero acquisition/publication side effects, removals, failures, skipped or pending work; acquisition success alone cannot hide ongoing owned indexing. Counter/error details expose retained run facts rather than current Source Document totals. `INDEXED` does not mean search-ready. Independent `current`, `lastCompleted` and `lastSuccessful` API summaries remain available but are not rendered as dashboard cards.
+Read states distinguish queued, acquiring, retry scheduled, recovery pending, indexing, succeeded, completed with errors, failed, superseded/cancelled and unknown legacy outcome. Expired claims report recovery pending, not an active worker. No owned children gives indexing `NOT_REQUIRED`. The responsive run list distinguishes loading, empty and unavailable reads and preserves null/Unknown counts. No changes requires a successful end-to-end outcome with no indexing needed and known zero acquisition/publication side effects, removals, failures, skipped or pending work; acquisition success alone cannot hide ongoing owned indexing. Current and last-successful summaries appear when retained. Each run shows duration, outcome and meaningful activity counts; its dialog exposes retained counters and five-error cursor pages, separately identifying run-wide failures, file identity, stage, safe guidance and detail expiration. Dialog close restores focus to the invoking action. Counts describe that run, not the current corpus, and cannot be summed into progress percentages. `INDEXED` does not mean search-ready.
 
 Errors retain safe `PROVIDER`, `STORAGE_READ`, `STORAGE_WRITE`, `EXTRACTION`, `PUBLICATION` or `SYSTEM` stage, code, time and known run/operation/item/file identifiers/name. Run-wide failures differ from file failures. Storage read/write/connectivity/TLS messages do not instruct the owner to fix Google links. Raw exceptions, tokens, signed URLs, provider bytes and internal object paths are not public error detail. Historical failures remain visible after later successful runs; recovery uses current Synchronize now or item Reindex, not replay of old authority.
 
@@ -181,4 +188,98 @@ Manage Sources is the only directly grantable Source permission. It includes glo
 
 ## Document-content access
 
-A Source that is indexing other items keeps its retrieval-eligible Documents readable and searchable; `NOT_STARTED`, `FAILED` and `DELETING` Sources are excluded. `SourceDocumentAccessResolver` requires current active Tenant membership and a live retrieval-eligible mapping whose FILE Pair, FILE Connector and Document are active/eligible. PUBLIC FILE is readable by active Tenant members; private FILE additionally requires the actor's current membership in at least one associated ordinary Group. Neither global administration, scoped management nor creator identity bypasses that content policy. Actor-bound Search scopes are narrowed server-side, and current membership, eligible origins and generation are rechecked after index IO and during passage expansion. GOOGLE_DRIVE remains RESTRICTED and excluded even after successful indexing; Google permissions are not collected or enforced, and neither Tenant membership nor the ingestion account email supplies a Drive read policy. Private Chat files use their separate Chat-owned authorization, not this Source resolver. Group replacement and access-type changes publish `SourceAccessChanged` inside their transaction; `SourceSearchService` exposes index-time `DocumentAccess` and per-request reader tokens for the Search projection ([Search index access](search.md)).
+A Source that is indexing other items keeps its retrieval-eligible Documents readable and searchable; `NOT_STARTED`, `FAILED` and `DELETING` Sources are excluded. `SourceDocumentAccessResolver` requires current active Tenant membership and a live retrieval-eligible mapping whose FILE Pair, FILE Connector and Document are active/eligible. PUBLIC FILE is readable by active Tenant members; private FILE additionally requires the actor's current membership in at least one associated ordinary Group. Neither global administration, scoped management nor creator identity bypasses that content policy. Actor-bound Search scopes are narrowed server-side, and current membership, eligible origins and generation are rechecked after index IO and during passage expansion. GOOGLE_DRIVE remains RESTRICTED and excluded even after successful indexing; Google permissions are collected as observations (MEM-88 below) but not enforced, and neither Tenant membership nor the ingestion account email supplies a Drive read policy. Private Chat files use their separate Chat-owned authorization, not this Source resolver. Group replacement and access-type changes publish `SourceAccessChanged` inside their transaction; `SourceSearchService` exposes index-time `DocumentAccess` and per-request reader tokens for the Search projection ([Search index access](search.md)).
+
+## Google Drive ACL observations — MEM-88
+
+This is an observation and handoff contract, not effective authorization. As in Onyx, collected permissions are consumed server-side only: no HTTP endpoint or UI displays them, and the earlier read-only inspector was removed. Google Sources remain RESTRICTED; Search/Chat/citations and the existing FILE access resolver do not consume these observations. No reader identity linking, Google Group expansion, Owner bypass or PUBLIC conversion is provided.
+
+`GoogleDriveProvider.Session.permissions(fileId)` uses the existing OAuth grant and fully traverses `permissions.list` with `supportsAllDrives=true`, within existing cumulative request/time/byte limits. Permission page size is capped at 100. Duplicate IDs, cyclic page tokens, malformed or missing permission arrays, invalid field types and later-page failures do not return a partial snapshot. An explicit successful empty array is distinct from unknown or failed retrieval. Provider HTTP 404/410 and a file-level 403 on metadata or content use the unavailable-file `SOURCE_GOOGLE_NOT_FOUND` classification; this is not proof of deletion. A 403 whose reason is `insufficientPermissions`, or whose ErrorInfo detail is `ACCESS_TOKEN_SCOPE_INSUFFICIENT`, is `SOURCE_GOOGLE_SCOPE_INSUFFICIENT` on any Drive call: every Drive flow that stops for authentication stops for it (`requiresReconnect()`), and SOURCE_SYNC ends the run and marks the credential for reconnect. Any other non-quota 403 from `permissions.list` is `SOURCE_GOOGLE_ACCESS_DENIED`: the connected account can read the file but not its sharing settings. It is recorded on that file's snapshot while content synchronization continues. Quota reasons keep `SOURCE_GOOGLE_QUOTA`.
+
+Permissions retain opaque Google IDs, type, role, nullable email/domain, expiration, deleted-account and pending-owner flags, `allowFileDiscovery`, `view`, `inheritedPermissionsDisabled` and all returned permissionDetails (permissionType, role, inheritedFrom, inherited). Missing optional fields stay unknown rather than becoming false. The API's ordinary permission view is requested; additional published-view permissions are not explicitly requested. Preserving a returned view does not turn published or metadata-only visibility into full-content access. Completion means the requested pages were collected, not that all effective access or group membership is known. My Drive does not necessarily expose inheritedFrom; do not infer missing ancestry.
+
+SOURCE_SYNC collects after selected membership is checked and before content reuse. Folder permissions are collected once at their FILE frontier node, not once per child-list page. A metadata-version postflight rejects an observation if the version changes during retrieval. Provider I/O stays outside database transactions; the existing source/credential/scope/operation fences guard publication. A non-authentication ACL failure records failure independently of content acquisition; authentication retains the existing credential invalidation path. A successful content run therefore does not imply a successful ACL refresh.
+
+### Handoff identity and state
+
+V69 stores one `google_drive_acl_snapshots` row per `(tenant_id, source_id, file_id)` with source-qualified cascading deletion. Internal `JdbcGoogleDriveAclRepository.read(TenantId, SourceId, fileId)` returns `Optional<GoogleDriveAclSnapshot>` in one database statement, including current SourceItem/Document mapping. The consumer read `readByDocument` shares this lifecycle projection. Neither read performs actor authorization, and no HTTP endpoint exposes either.
+
+| Data | Meaning |
+| --- | --- |
+| `revision` | Monotonic successful-observation revision, not an effective-policy revision; zero means no successful snapshot |
+| `permissions` | Last complete provider result; failure cannot partially replace it |
+| `status`, `errorCode` | Latest attempt SUCCEEDED/FAILED and sanitized error; evaluate independently of retained payload |
+| `lastAttempt`, `lastSuccess` | Actual timestamps, operation, credential identity/revision, scope revision and traversal generation; lastSuccess is nullable |
+| `contextStatus` | CURRENT, STALE, INVALID or UNOBSERVED for the retained successful observation |
+| `currentContext` | Current tenant/source/credential activity, credential/scope revisions, traversal and membership generations, selected/excluded/removal evidence |
+| `sourceItemId`, `documentIds` | Nullable/empty before publication; source-qualified provider-to-content mapping, never an Actor identity |
+| `readAt` | Database observation time for the projection |
+
+CURRENT only means matching active lifecycle and traversal provenance. It does not mean recent enough, SUCCEEDED on the latest attempt, complete effective access or permission to read. Consumers must examine status, lastSuccess, expiration and their own freshness policy. Failed-only rows have no successful provenance; missing rows are Optional.empty. Credential revocation/reconnect, scope changes, removal/exclusion, source deletion and traversal changes invalidate or stale old evidence rather than silently blessing it. No wall-clock freshness threshold or revocation SLA is fabricated: runs can queue, fail or stop.
+
+#### Consumer read API and change event
+
+Enforcement consumes two public `connector` types instead of reading the table.
+
+`GoogleDriveAclReader.readByDocument(TenantId, DocumentId)` returns `List<GoogleDriveAclSnapshot>`, one per (Source, file) whose current SourceItem maps to the Document, ordered by Source and file ID. It makes no provider calls and performs no actor authorization. The mapping is keyed by `(tenant, Source, Document)`, so a Document has at most one Drive file per Source, and Google Sources assign their own Document identity: in practice the list holds zero or one snapshot. Consumers must not assume exactly one and must deny on an empty list.
+
+`GoogleDriveAclChanged(tenantId, sourceId, fileId, documentIds, revision, status, errorCode)` is a Spring application event published inside the snapshot-writing transaction when the stored permission payload or the latest-attempt status changes. `fileId` is the Google provider file ID, `documentIds` are the currently mapped Documents (empty before publication) and `revision` is the successful-observation revision after the write. The event is a hint to re-read through `readByDocument`; grants must not be derived from it alone.
+
+```json
+{"tenantId": "7c…", "sourceId": "3a…", "fileId": "1Fx…Q9", "documentIds": ["9d…"],
+ "revision": 4, "status": "SUCCEEDED", "errorCode": null}
+```
+
+`permissions` are exactly what `permissions.list` returns: direct entries and, where Google reports them, inherited entries with their `permissionDetails`. They are not a computed effective-access list. `expirationTime` is returned unchanged for the consumer to apply. `anyone` and link sharing keep the provider type, role and `allowFileDiscovery`; how they map to Tenant visibility is enforcement policy.
+
+#### Handoff example and state interpretation
+
+A successful, current observation. Identifiers are shortened; the record also carries `tenantId`, `sourceId`, `errorMessage` and `readAt`.
+
+```json
+{
+  "fileId": "1Fx…Q9",
+  "revision": 3,
+  "status": "SUCCEEDED",
+  "permissions": [
+    {"id": "0412…", "type": "user", "role": "owner", "emailAddress": "owner@example.test",
+     "domain": null, "expirationTime": null, "allowFileDiscovery": null, "deleted": false,
+     "pendingOwner": false, "permissionDetails": [], "view": null, "inheritedPermissionsDisabled": null},
+    {"id": "1937…", "type": "user", "role": "reader", "emailAddress": "reader@example.test",
+     "domain": null, "expirationTime": "2026-12-31T00:00:00Z", "allowFileDiscovery": null, "deleted": false,
+     "pendingOwner": false, "permissionDetails": [], "view": null, "inheritedPermissionsDisabled": null},
+    {"id": "0833…", "type": "group", "role": "writer", "emailAddress": "finance@example.test",
+     "domain": null, "expirationTime": null, "allowFileDiscovery": null, "deleted": false, "pendingOwner": null,
+     "permissionDetails": [{"permissionType": "file", "role": "writer", "inheritedFrom": "0Bx…folder", "inherited": true}],
+     "view": null, "inheritedPermissionsDisabled": null}
+  ],
+  "lastAttempt": {"at": "2026-09-14T08:00:05Z", "operationId": "a1…", "credentialId": "c1…",
+                  "credentialRevision": 4, "scopeRevision": 2, "generation": 7},
+  "lastSuccess": {"at": "2026-09-14T08:00:05Z", "operationId": "a1…", "credentialId": "c1…",
+                  "credentialRevision": 4, "scopeRevision": 2, "generation": 7},
+  "errorCode": null,
+  "contextStatus": "CURRENT",
+  "currentContext": {"tenantActive": true, "sourceActive": true, "credentialId": "c1…", "credentialRevision": 4,
+                     "credentialActive": true, "scopeRevision": 2, "generation": 7, "membershipGeneration": 7,
+                     "selected": true, "itemRemoved": false},
+  "sourceItemId": "5e…",
+  "documentIds": ["9d…"]
+}
+```
+
+| Situation | status | revision | permissions | contextStatus | `GoogleDriveAclChanged` | Enforcement reading |
+| --- | --- | --- | --- | --- | --- | --- |
+| First successful observation | SUCCEEDED | 1 | Complete result | CURRENT | Yes | Candidate grants, subject to the consumer's freshness policy |
+| Share added, role changed or share removed | SUCCEEDED | +1 | New complete result | CURRENT | Yes | Re-read and replace previous grants |
+| Identical re-observation | SUCCEEDED | +1 | Unchanged | CURRENT | No | Nothing changes; `lastSuccess` advances |
+| Later attempt fails, for example `SOURCE_GOOGLE_ACCESS_DENIED` | FAILED | Unchanged | Last complete result retained | Unchanged | Only when status changes | Latest check failed; retained grants are older evidence only |
+| Never successfully observed | FAILED | 0 | Empty | UNOBSERVED | Yes, on the first failure | Deny: empty means unknown, not shared with nobody |
+| No row yet | `Optional.empty` | — | — | — | No | Deny |
+| A newer traversal has not re-observed the file | Either | Unchanged | Retained | STALE | No | Deny until a CURRENT success |
+| Deselected or removed file, scope or credential change, inactive Tenant/Source/credential | Either | Unchanged | Retained | INVALID | No | Deny |
+
+Context changes do not publish `GoogleDriveAclChanged`; a consumer must evaluate `contextStatus` on read and react to Source, selection and credential lifecycle changes. This section answers the enforcement owner's MEM-88 handoff questions; freshness thresholds, `anyone`/link policy and combination with Source Groups remain MEM-93 decisions, and the contract is recorded as agreed only once MEM-93 confirms it.
+
+ACL refresh does not require OCR. If provider version is unchanged, no content acquisition occurs. A sharing-only change that advances the provider version while bytes and filename stay identical follows the re-synchronization rule above: the current version's provider version is refreshed in place and its extraction reused, so the ACL snapshot updates without a new version, index attempt or re-extraction, and later observations of that version avoid repeated downloads. A changed file requires normal acquisition/indexing. Byte-identical comparison does not claim semantic deduplication of native snapshot envelopes.
+
+The [active increment](../increments/active/mem-88-google-drive-acl-sync/design.md) records the Onyx comparison, and the [verification record](../increments/active/mem-88-google-drive-acl-sync/verification.md) distinguishes real read-only Google evidence from controlled sharing/revocation fixtures.

@@ -1248,6 +1248,11 @@ export type SourceRunError = {
     stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
     code: string;
     occurredAt: string;
+    errorMessage: string | null;
+    errorDetail: string | null;
+    currentItemStatus: 'PENDING' | 'INDEXED' | 'FAILED' | 'DELETING';
+    currentItemErrorCode: string | null;
+    currentItemLastIndexedAt: string | null;
 };
 
 export type SourceRunErrorPage = {

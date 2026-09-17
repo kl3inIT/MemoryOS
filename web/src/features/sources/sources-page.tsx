@@ -138,12 +138,12 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           className="min-w-40 flex-1 bg-surface-sunken"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
-        <Button size="sm" prominence="tertiary" onClick={toggleAll}>
+        <Button size="sm" prominence="secondary" onClick={toggleAll}>
           {hasExpandedGroups ? ui("Collapse all") : ui("Expand all")}
         </Button>
         <IconButton
           size="sm"
-          prominence={filtersOpen || hasActiveFilters ? "secondary" : "tertiary"}
+          prominence="secondary"
           aria-label={ui("Filter sources")}
           aria-expanded={filtersOpen}
           aria-controls="source-filters"
@@ -218,14 +218,14 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         role="region"
         aria-label={ui("Connected sources table")}
       >
-        <Table className="w-full min-w-[64rem] table-fixed border-collapse">
+        <Table className="w-full min-w-[74rem] table-fixed border-collapse">
           <TableCaption className="sr-only">{ui("Connected sources")}</TableCaption>
           <colgroup>
             <col />
-            <col className="w-40" />
-            <col className="w-40" />
-            <col className="w-60" />
             <col className="w-44" />
+            <col className="w-44" />
+            <col className="w-72" />
+            <col className="w-48" />
             <col className="w-16" />
           </colgroup>
           {groups.map((group) => (
@@ -281,7 +281,10 @@ function SourceGroupBody({
       <TableRow aria-hidden="true">
         <TableCell colSpan={6} className="h-4 p-0" />
       </TableRow>
-      <TableRow className="h-[72px] bg-surface-raised">
+      <TableRow
+        className="h-[72px] cursor-pointer bg-surface-raised transition-colors hover:bg-surface-subtle/70"
+        onClick={onToggle}
+      >
         <TableHead
           scope="rowgroup"
           className="border-y border-l border-border-subtle px-4 text-left"
@@ -294,7 +297,10 @@ function SourceGroupBody({
               v2: group.sources.length,
               v3: documentCount,
             })}
-            onClick={onToggle}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle();
+            }}
             className="flex h-full w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             {collapsed ? (

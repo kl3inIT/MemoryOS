@@ -13,7 +13,8 @@ public interface ConnectorIndexingPort {
 
     boolean renew(IndexWork work);
 
-    boolean retry(IndexWork work, String errorCode, int maxAttempts, Duration backoff);
+    boolean retry(IndexWork work, String errorCode, @org.jspecify.annotations.Nullable String errorMessage,
+            @org.jspecify.annotations.Nullable String errorDetail, int maxAttempts, Duration backoff);
 
     Optional<DocumentId> findMappedDocument(IndexWork work);
 
@@ -21,5 +22,6 @@ public interface ConnectorIndexingPort {
 
     void supersede(IndexWork work);
 
-    boolean fail(IndexWork work, String errorCode);
+    boolean fail(IndexWork work, String errorCode, @org.jspecify.annotations.Nullable String errorMessage,
+            @org.jspecify.annotations.Nullable String errorDetail);
 }

@@ -5,12 +5,16 @@ import static org.mockito.Mockito.*;
 
 import ai.docling.serve.api.convert.response.ResponseType;
 import io.memoryos.ingestion.ExtractionException;
+import ai.docling.serve.client.DoclingServeClientException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.connector.SourceInputDescriptor;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -174,6 +178,29 @@ class DoclingSourceContentExtractorTest {
             assertEquals(ExtractionFailure.MALFORMED,
                     assertThrows(ExtractionException.class, () -> pdf(extractor)).failure());
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("transportFailures")
+    void distinguishesConnectionFailuresFromProcessingTimeoutsWithoutResubmitting(
+            Exception cause, ExtractionFailure expected) {
+        when(client.convertDocument(any())).thenThrow(new DoclingServeClientException(cause));
+        try (var extractor = extractor()) {
+            var error = assertThrows(ExtractionException.class, () -> pdf(extractor));
+            assertEquals(expected, error.failure());
+            assertNull(error.getCause());
+            assertFalse(error.toString().contains("private-endpoint"));
+            verify(client, times(1)).convertDocument(any());
+        }
+    }
+
+    private static java.util.stream.Stream<Arguments> transportFailures() {
+        return java.util.stream.Stream.of(
+                Arguments.of(new java.net.http.HttpConnectTimeoutException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new java.net.ConnectException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new java.net.UnknownHostException("private-endpoint"), ExtractionFailure.CONNECTION_FAILED),
+                Arguments.of(new java.net.http.HttpTimeoutException("private-endpoint"), ExtractionFailure.TIMEOUT),
+                Arguments.of(new java.net.SocketException("private-endpoint"), ExtractionFailure.INTERNAL));
     }
 
 

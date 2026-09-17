@@ -12,6 +12,7 @@ public interface GoogleDriveProvider {
     interface Session extends AutoCloseable {
         FilePage listFiles(String parentId, @Nullable String pageToken);
         FileMetadata metadata(String fileId);
+        List<Permission> permissions(String fileId);
         AcquiredContent acquire(FileMetadata file);
         @Nullable byte[] rotatedRefreshToken();
         @Override void close();
@@ -40,6 +41,27 @@ public interface GoogleDriveProvider {
                         @Nullable String shortcutTargetId) {
         public FileMetadata { parents = List.copyOf(parents); }
         public boolean folder() { return "application/vnd.google-apps.folder".equals(mimeType); }
+    }
+
+    record Permission(String id, String type, String role, @Nullable String emailAddress,
+                      @Nullable String domain, @Nullable Instant expirationTime,
+                      @Nullable Boolean allowFileDiscovery, @Nullable Boolean deleted,
+                      @Nullable Boolean pendingOwner, List<PermissionDetail> permissionDetails,
+                      @Nullable String view, @Nullable Boolean inheritedPermissionsDisabled) {
+        public Permission {
+            if (Objects.requireNonNull(id, "id").isBlank()
+                    || Objects.requireNonNull(type, "type").isBlank()
+                    || Objects.requireNonNull(role, "role").isBlank()) {
+                throw new IllegalArgumentException("Permission identity, type and role must not be blank");
+            }
+            permissionDetails = List.copyOf(permissionDetails);
+        }
+        @Override public String toString() { return "Permission[redacted]"; }
+    }
+
+    record PermissionDetail(@Nullable String permissionType, @Nullable String role,
+                            @Nullable String inheritedFrom, @Nullable Boolean inherited) {
+        @Override public String toString() { return "PermissionDetail[redacted]"; }
     }
 
     record AcquiredContent(String filename, String mediaType, byte[] bytes,

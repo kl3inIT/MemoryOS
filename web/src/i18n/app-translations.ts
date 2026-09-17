@@ -859,6 +859,85 @@ export const vietnameseUi: Record<string, string> = {
 };
 
 export const englishUi: Record<string, string> = {
+  "Source sections": "Các phần của nguồn",
+  Content: "Nội dung",
+  "Sync history": "Lịch sử đồng bộ",
+  "Connection and settings": "Kết nối và cấu hình",
+  "Review what each run changed and open its details for errors that need attention.":
+    "Xem thay đổi trong từng lần chạy và mở chi tiết để xem các lỗi cần xử lý.",
+  "Current run": "Lần chạy hiện tại",
+  "Last successful run": "Lần chạy thành công gần nhất",
+  "View details": "Xem chi tiết",
+  "Started / duration": "Bắt đầu / thời lượng",
+  "Run activity": "Hoạt động của lần chạy",
+  "Run details": "Chi tiết lần chạy",
+  "Close run details": "Đóng chi tiết lần chạy",
+  "View details for run started {{v1}}": "Xem chi tiết lần chạy bắt đầu {{v1}}",
+  "Run statuses": "Trạng thái lần chạy",
+  "at an unknown time": "vào thời điểm không rõ",
+  "What do the different statuses mean?": "Các trạng thái khác nhau có ý nghĩa gì?",
+  "All checked files were acquired and indexed.":
+    "Tất cả tệp đã kiểm tra đều được thu thập và lập chỉ mục.",
+  "The run found no new or changed content to index.":
+    "Lần chạy không tìm thấy nội dung mới hoặc thay đổi để lập chỉ mục.",
+  "The run finished but some files failed. Open the run for per-file errors.":
+    "Lần chạy đã kết thúc nhưng một số tệp bị lỗi. Mở lần chạy để xem lỗi từng tệp.",
+  "The run stopped before finishing.": "Lần chạy đã dừng trước khi hoàn tất.",
+  "Acquisition finished; indexing has not completed.":
+    "Thu thập đã xong; lập chỉ mục chưa hoàn tất.",
+  "The run is waiting to start.": "Lần chạy đang chờ bắt đầu.",
+  "The run is reading content from the provider.": "Lần chạy đang đọc nội dung từ nhà cung cấp.",
+  "The run is publishing acquired content to the index.":
+    "Lần chạy đang đưa nội dung đã thu thập vào chỉ mục.",
+  "The run resumes automatically after a retry delay.":
+    "Lần chạy tự tiếp tục sau thời gian chờ thử lại.",
+  "The run is recovering after an interruption.": "Lần chạy đang khôi phục sau khi bị gián đoạn.",
+  "A newer run replaced this one before it finished.":
+    "Một lần chạy mới hơn đã thay thế lần chạy này trước khi kết thúc.",
+  "The run was cancelled before it finished.": "Lần chạy đã bị hủy trước khi kết thúc.",
+  "The outcome was not recorded.": "Kết quả không được ghi nhận.",
+  "Counters appear as the run progresses.": "Số liệu hiển thị khi lần chạy tiến triển.",
+  "No recorded activity.": "Chưa ghi nhận hoạt động.",
+  "Error details for {{v1}}": "Chi tiết lỗi của {{v1}}",
+  "Operation ID": "ID tác vụ",
+  "Counts describe this run, not the current corpus. A file can appear in more than one count.":
+    "Các số liệu mô tả lần chạy này, không phải tập tài liệu hiện tại. Một tệp có thể được tính trong nhiều chỉ số.",
+  "No activity counts recorded.": "Chưa ghi nhận số liệu hoạt động.",
+  "Run error — view details for guidance.": "Lỗi lần chạy — xem chi tiết để biết cách xử lý.",
+  "This run could not be refreshed. Displayed details may be out of date.":
+    "Không thể cập nhật lần chạy này. Chi tiết đang hiển thị có thể đã cũ.",
+  "Next retry": "Lần thử lại tiếp theo",
+  "Run error": "Lỗi lần chạy",
+  "Already pending belongs to earlier work, not indexing owned by this run.":
+    "Mục đã chờ xử lý thuộc công việc trước đó, không phải tác vụ lập chỉ mục của lần chạy này.",
+  "File ID": "ID tệp",
+  "No retained error details on this page.": "Không còn chi tiết lỗi được lưu trên trang này.",
+  "Run error pages": "Các trang lỗi của lần chạy",
+  "Run errors": "Lỗi của lần chạy",
+  Stage: "Giai đoạn",
+  Error: "Lỗi",
+  "Current state": "Trạng thái hiện tại",
+  "Occurred at": "Thời điểm",
+  "More counts and definitions": "Số liệu khác và định nghĩa",
+  "Refresh file states": "Cập nhật trạng thái tệp",
+  "Historical run error": "Lỗi lần chạy trong lịch sử",
+  "No current file is linked to this error.": "Không có tệp hiện tại liên kết với lỗi này.",
+  "Error details and current file states could not be refreshed. Displayed states may be out of date.":
+    "Không thể cập nhật chi tiết lỗi và trạng thái tệp hiện tại. Trạng thái đang hiển thị có thể đã cũ.",
+  "Extraction timed out during this run. The retained error does not identify the underlying cause.":
+    "Trích xuất đã hết thời gian trong lần chạy này. Lỗi được lưu không xác định nguyên nhân gốc.",
+  "Technical details": "Chi tiết kỹ thuật",
+  "Error code": "Mã lỗi",
+  "Run ID": "ID lần chạy",
+  "Content indexed since this error.": "Nội dung đã được lập chỉ mục sau lỗi này.",
+  "Current content is indexed.": "Nội dung hiện tại đã được lập chỉ mục.",
+  "Indexing is pending or in progress.": "Tệp đang chờ hoặc đang được lập chỉ mục.",
+  "Removal is in progress.": "Tệp đang được xóa.",
+  "This file still needs attention.": "Tệp này vẫn cần được xử lý.",
+  "Current file state is unavailable; the file may have been removed.":
+    "Không có trạng thái tệp hiện tại; tệp có thể đã bị xóa.",
+  "The extraction service could not be reached. Ask an administrator to check the service address, network access, and service availability before indexing again.":
+    "Không thể kết nối đến dịch vụ trích xuất. Nhờ quản trị viên kiểm tra địa chỉ dịch vụ, kết nối mạng và tình trạng hoạt động của dịch vụ trước khi lập chỉ mục lại.",
   Visibility: "Chế độ hiển thị",
   "Private · only members of the selected groups can search and read these files.":
     "Riêng tư · chỉ thành viên của các nhóm đã chọn mới có thể tìm kiếm và đọc những tệp này.",
@@ -1341,6 +1420,7 @@ Object.assign(englishUi, {
   "Leave the selection empty to associate the new Source with the protected Admin group.":
     "Để trống để liên kết nguồn mới với nhóm quản trị được bảo vệ.",
   File: "Tệp",
+  "File name": "Tên tệp",
   "Drag and drop your file here": "Kéo và thả tệp vào đây",
   "Choose file": "Chọn tệp",
   "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file":
@@ -1541,8 +1621,8 @@ Object.assign(englishUi, {
     "Phạm vi toàn bộ gồm nội dung được hỗ trợ trong Drive của tôi của tài khoản này, không gồm mục Được chia sẻ với tôi và bộ nhớ dùng chung.",
   "Specific includes directly selected files, folder contents and approved linked documents. This is not an account-wide browser.":
     "Phạm vi cụ thể gồm tệp được chọn trực tiếp, nội dung thư mục và tài liệu liên kết đã được duyệt. Đây không phải trình duyệt toàn bộ tài khoản.",
-  "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree.":
-    "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây.",
+  "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree, including files inside selected folders once the source has synced.":
+    "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây, gồm cả tệp bên trong thư mục đã chọn sau khi nguồn đồng bộ.",
   "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
     "Tham chiếu đếm các vị trí riêng biệt trong tài liệu nguồn. Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
   "Use Edit selection to paste file or folder links, one per line or separated by commas. Choose a folder or its descendants, not both. Links and Google access are checked when you save; OAuth permissions may be broader than this selection.":
@@ -1575,21 +1655,18 @@ Object.assign(englishUi, {
   "Discovery could not check": "Không kiểm tra được",
   inputs: "đầu vào",
   "Search selected content": "Tìm nội dung đã chọn",
+  "Filter selected content": "Lọc nội dung đã chọn",
+  "Show search": "Hiện ô tìm kiếm",
+  "Hide search": "Ẩn ô tìm kiếm",
   "Content type": "Loại nội dung",
   "All types": "Mọi loại",
   Folders: "Thư mục",
   Files: "Tệp",
   "Linked documents": "Tài liệu liên kết",
-  "Filtered results · Each matching selected root or linked target appears once, across the full selection index. Folder descendants are browsed in the tree.":
-    "Kết quả đã lọc · Mỗi mục gốc hoặc đích liên kết phù hợp xuất hiện một lần trên toàn bộ chỉ mục lựa chọn. Xem mục con của thư mục trong cây.",
   "Refresh selection page": "Làm mới trang lựa chọn",
   "Loading selection page…": "Đang tải trang lựa chọn…",
-  "folders ·": "thư mục ·",
-  files: "tệp",
-  "linked documents": "tài liệu liên kết",
   "Selection results": "Kết quả lựa chọn",
-  "No matching selected roots or linked documents on this page. Browse folders in the tree to see their files.":
-    "Không có mục gốc hoặc tài liệu liên kết phù hợp trên trang này. Mở thư mục trong cây để xem tệp.",
+  "No matching items": "Không có kết quả phù hợp",
   "items on this page": "mục trên trang này",
   "Previous selection page": "Trang lựa chọn trước",
   "Next selection page": "Trang lựa chọn tiếp",
@@ -1597,6 +1674,11 @@ Object.assign(englishUi, {
   "Edit replacement proposal": "Sửa đề xuất thay thế",
   "Edit selection": "Sửa lựa chọn",
   "Load saved links": "Tải liên kết đã lưu",
+  "Search scope": "Phạm vi tìm kiếm",
+  "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.":
+    "Tìm kiếm bao gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp bên trong thư mục đã chọn. Nội dung thư mục có thể tìm được sau khi nguồn đồng bộ.",
+  "In scope": "Trong phạm vi",
+  Linked: "Liên kết",
   "Loading folder contents…": "Đang tải nội dung thư mục…",
   "Loading recorded links…": "Đang tải liên kết đã ghi nhận…",
   "Loading selected content…": "Đang tải nội dung đã chọn…",
@@ -1710,7 +1792,6 @@ Object.assign(englishUi, {
   "No group associations are visible.": "Không có liên kết nhóm được phép xem.",
   "Source groups": "Nhóm của nguồn",
   "Latest attempt:": "Lần xử lý gần nhất:",
-  "Search index:": "Chỉ mục tìm kiếm:",
   "File indexing attempts": "Lịch sử lập chỉ mục tệp",
   "Each row processes one file version, including manual reindexing. Files above is the current corpus; this history records individual file outcomes. Queued time is shown only when the actual processing start was not recorded.":
     "Mỗi dòng xử lý một phiên bản tệp, gồm cả lập chỉ mục lại thủ công. Mục Tệp bên trên là kho hiện tại; lịch sử này ghi kết quả từng tệp. Thời gian vào hàng đợi chỉ hiển thị khi chưa ghi nhận thời điểm bắt đầu thực tế.",
@@ -1960,6 +2041,10 @@ Object.assign(englishUi, {
     "Yêu cầu vượt giới hạn thu thập Google Drive được hỗ trợ.",
   "Synchronization paused. Reconnect the Google account.":
     "Đã tạm dừng đồng bộ. Kết nối lại tài khoản Google.",
+  "Google did not grant the Drive access MemoryOS needs. Reconnect the Google account and allow every requested permission.":
+    "Google chưa cấp đủ quyền Drive mà MemoryOS cần. Kết nối lại tài khoản Google và cho phép mọi quyền được yêu cầu.",
+  "The connected Google account can open this file but is not allowed to read its sharing settings.":
+    "Tài khoản Google đã kết nối mở được tệp này nhưng không được phép xem cài đặt chia sẻ của tệp.",
   "The Google connection is unavailable. Check its status and reconnect if needed.":
     "Kết nối Google không khả dụng. Kiểm tra trạng thái và kết nối lại nếu cần.",
   "This Google Drive item is not supported for acquisition.":
@@ -2649,7 +2734,6 @@ const unchanged = [
   "{{v1}} KiB",
   " {{v1}}%",
   " ({{v1}})",
-  " · {{v1}}",
   " +{{v1}}",
   "{{percent}}%",
 ];
