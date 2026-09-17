@@ -73,6 +73,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectMcpServers(ids: string[]) {
     this.mcpServerIds = ids;
   }
+  /** Tools the conversation's agent allows; commands never carry a disallowed tool (Onyx per-agent tools). */
+  allowedTools: { web: boolean; image: boolean; mcpServerIds: string[] | null } | undefined;
+  restrictTools(
+    allowed: { web: boolean; image: boolean; mcpServerIds: string[] | null } | undefined,
+  ) {
+    this.allowedTools = allowed;
+  }
   image: ImageMode = "off";
   selectImage(mode: ImageMode) {
     this.image = mode;
@@ -162,9 +169,12 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   async sendMessages(options: Parameters<ChatTransport<ChatUiMessage>["sendMessages"]>[0]) {
     // Capture selection before any await; later UI changes affect the next turn.
     const modelConfigurationId = this.modelConfigurationId;
-    const webSearch = this.webSearch;
-    const image = this.image;
-    const mcpServerIds = [...this.mcpServerIds];
+    const allowed = this.allowedTools;
+    const webSearch = allowed?.web === false ? "off" : this.webSearch;
+    const image = allowed?.image === false ? "off" : this.image;
+    const mcpServerIds = this.mcpServerIds.filter(
+      (id) => !allowed?.mcpServerIds || allowed.mcpServerIds.includes(id),
+    );
     const deepResearch = this.deepResearch;
     const creating = !this.session;
     try {

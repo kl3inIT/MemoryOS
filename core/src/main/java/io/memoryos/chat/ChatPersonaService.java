@@ -74,7 +74,7 @@ public class ChatPersonaService {
 
     /**
      * Null tools, MCP servers, files, labels, task prompt and flags keep the current value on update and use defaults
-     * on create. A null icon, avatar or knowledge cutoff clears it.
+     * on create. A null knowledge cutoff clears it; an icon removes the avatar image, and omitting both keeps the image.
      */
     public record PersonaInput(String name, String description, String instructions, @Nullable String taskPrompt,
                                List<String> starterPrompts, List<UUID> sourceIds, @Nullable Set<String> tools,
@@ -388,7 +388,8 @@ public class ChatPersonaService {
         }
         String iconName = input.iconName() == null || input.iconName().isBlank() ? null : input.iconName();
         if (iconName != null && !iconName.matches("[a-z0-9-]{1,40}")) throw ChatException.invalid("Invalid icon.");
-        UUID avatar = input.avatarFileId();
+        // A new image replaces the icon; choosing an icon removes the image; sending neither keeps the image.
+        UUID avatar = input.avatarFileId() != null ? input.avatarFileId() : iconName == null ? entity.avatarFileId() : null;
         if (avatar != null && !avatar.equals(entity.avatarFileId())) {
             var file = userFiles.readable(tenant, actor, avatar, false).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."))
                     .file();

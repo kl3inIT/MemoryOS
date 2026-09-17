@@ -389,7 +389,7 @@ export type ShortcutInput = {
     active?: boolean;
 };
 
-export type Shortcut = {
+export type PromptShortcut = {
     id?: string;
     name?: string;
     content?: string;
@@ -407,7 +407,7 @@ export type PreferencesRequest = {
     enabled?: boolean;
 };
 
-export type Preferences = {
+export type PromptShortcutPreferences = {
     enabled?: boolean;
 };
 
@@ -449,20 +449,35 @@ export type PersonaInput = {
     knowledgeCutoff?: string;
 };
 
-export type GroupShare = {
-    group?: Ref;
+export type AgentGroupShare = {
+    group?: AgentRef;
     permission?: 'VIEWER' | 'EDITOR';
 };
 
-export type Owner = {
-    actor?: Person;
-    group?: Ref;
+export type AgentOwner = {
+    actor?: AgentPerson;
+    group?: AgentRef;
 };
 
-export type Person = {
+export type AgentPerson = {
     actorId?: string;
     name?: string;
     email?: string;
+};
+
+export type AgentRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentSourceRef = {
+    id?: string;
+    name?: string;
+};
+
+export type AgentUserShare = {
+    person?: AgentPerson;
+    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type PersonaPermissions = {
@@ -486,20 +501,20 @@ export type PersonaView = {
     taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
-    sources?: Array<SourceRef>;
+    sources?: Array<AgentSourceRef>;
     tools?: Array<string>;
-    mcpServers?: Array<Ref>;
+    mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
     contextTokenLimit?: number | null;
     outputTokenLimit?: number | null;
     fileIds?: Array<string>;
     iconName?: string;
     hasAvatar?: boolean;
-    labels?: Array<Ref>;
-    owner?: Owner;
+    labels?: Array<AgentRef>;
+    owner?: AgentOwner;
     vacant?: boolean;
-    userShares?: Array<UserShare>;
-    groupShares?: Array<GroupShare>;
+    userShares?: Array<AgentUserShare>;
+    groupShares?: Array<AgentGroupShare>;
     isPublic?: boolean;
     publicPermission?: 'VIEWER' | 'EDITOR';
     listed?: boolean;
@@ -510,21 +525,6 @@ export type PersonaView = {
     knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;
-};
-
-export type Ref = {
-    id?: string;
-    name?: string;
-};
-
-export type SourceRef = {
-    id?: string;
-    name?: string;
-};
-
-export type UserShare = {
-    person?: Person;
-    permission?: 'VIEWER' | 'EDITOR';
 };
 
 export type GroupShareInput = {
@@ -1785,9 +1785,9 @@ export type SourceOption = {
     type?: 'FILE' | 'GOOGLE_DRIVE';
 };
 
-export type ShareOptions = {
-    people?: Array<Person>;
-    groups?: Array<Ref>;
+export type AgentShareOptions = {
+    people?: Array<AgentPerson>;
+    groups?: Array<AgentRef>;
 };
 
 export type ChatPersona = {
@@ -3312,7 +3312,7 @@ export type UpdateChatPromptShortcutResponses = {
     /**
      * Successful chat operation
      */
-    200: Shortcut;
+    200: PromptShortcut;
 };
 
 export type UpdateChatPromptShortcutResponse = UpdateChatPromptShortcutResponses[keyof UpdateChatPromptShortcutResponses];
@@ -3461,7 +3461,7 @@ export type UpdatePublicChatPromptShortcutResponses = {
     /**
      * Successful chat operation
      */
-    200: Shortcut;
+    200: PromptShortcut;
 };
 
 export type UpdatePublicChatPromptShortcutResponse = UpdatePublicChatPromptShortcutResponses[keyof UpdatePublicChatPromptShortcutResponses];
@@ -3502,7 +3502,7 @@ export type GetChatPromptShortcutPreferencesResponses = {
     /**
      * Successful chat operation
      */
-    200: Preferences;
+    200: PromptShortcutPreferences;
 };
 
 export type GetChatPromptShortcutPreferencesResponse = GetChatPromptShortcutPreferencesResponses[keyof GetChatPromptShortcutPreferencesResponses];
@@ -3549,7 +3549,7 @@ export type SetChatPromptShortcutPreferencesResponses = {
     /**
      * Successful chat operation
      */
-    200: Preferences;
+    200: PromptShortcutPreferences;
 };
 
 export type SetChatPromptShortcutPreferencesResponse = SetChatPromptShortcutPreferencesResponses[keyof SetChatPromptShortcutPreferencesResponses];
@@ -4230,7 +4230,7 @@ export type RenameChatPersonaLabelResponses = {
     /**
      * Successful chat operation
      */
-    200: Ref;
+    200: AgentRef;
 };
 
 export type RenameChatPersonaLabelResponse = RenameChatPersonaLabelResponses[keyof RenameChatPersonaLabelResponses];
@@ -6733,7 +6733,7 @@ export type ListChatPromptShortcutsResponses = {
     /**
      * Successful chat operation
      */
-    200: Array<Shortcut>;
+    200: Array<PromptShortcut>;
 };
 
 export type ListChatPromptShortcutsResponse = ListChatPromptShortcutsResponses[keyof ListChatPromptShortcutsResponses];
@@ -6780,7 +6780,7 @@ export type CreateChatPromptShortcutResponses = {
     /**
      * Successful chat operation
      */
-    201: Shortcut;
+    201: PromptShortcut;
 };
 
 export type CreateChatPromptShortcutResponse = CreateChatPromptShortcutResponses[keyof CreateChatPromptShortcutResponses];
@@ -6821,7 +6821,7 @@ export type ListPublicChatPromptShortcutsResponses = {
     /**
      * Successful chat operation
      */
-    200: Array<Shortcut>;
+    200: Array<PromptShortcut>;
 };
 
 export type ListPublicChatPromptShortcutsResponse = ListPublicChatPromptShortcutsResponses[keyof ListPublicChatPromptShortcutsResponses];
@@ -6868,7 +6868,7 @@ export type CreatePublicChatPromptShortcutResponses = {
     /**
      * Successful chat operation
      */
-    201: Shortcut;
+    201: PromptShortcut;
 };
 
 export type CreatePublicChatPromptShortcutResponse = CreatePublicChatPromptShortcutResponses[keyof CreatePublicChatPromptShortcutResponses];
@@ -7289,7 +7289,7 @@ export type ListChatPersonaLabelsResponses = {
     /**
      * Successful chat operation
      */
-    200: Array<Ref>;
+    200: Array<AgentRef>;
 };
 
 export type ListChatPersonaLabelsResponse = ListChatPersonaLabelsResponses[keyof ListChatPersonaLabelsResponses];
@@ -7336,7 +7336,7 @@ export type CreateChatPersonaLabelResponses = {
     /**
      * Successful chat operation
      */
-    201: Ref;
+    201: AgentRef;
 };
 
 export type CreateChatPersonaLabelResponse = CreateChatPersonaLabelResponses[keyof CreateChatPersonaLabelResponses];
@@ -9030,7 +9030,7 @@ export type ListChatPersonaShareOptionsResponses = {
     /**
      * Successful chat operation
      */
-    200: ShareOptions;
+    200: AgentShareOptions;
 };
 
 export type ListChatPersonaShareOptionsResponse = ListChatPersonaShareOptionsResponses[keyof ListChatPersonaShareOptionsResponses];

@@ -1,3 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ChatPersonasPage } from "@/features/chat/chat-personas-page";
-export const Route = createFileRoute("/_authenticated/assistants")({ component: ChatPersonasPage });
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
+/** The assistants page became the agent gallery; old links keep working. */
+export const Route = createFileRoute("/_authenticated/assistants")({
+  beforeLoad: () => {
+    throw redirect({ to: "/agents", replace: true });
+  },
+});

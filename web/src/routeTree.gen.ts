@@ -14,10 +14,12 @@ import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-pr
 import { Route as InvitationRouteImport } from './routes/invitation'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
 import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
+import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
@@ -61,6 +63,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAssistantsRoute = AuthenticatedAssistantsRouteImport.update({
   id: '/assistants',
   path: '/assistants',
@@ -81,6 +88,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminAgentsRoute =
+  AuthenticatedAdminAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminGroupsRoute =
   AuthenticatedAdminGroupsRouteImport.update({
     id: '/groups',
@@ -199,8 +212,10 @@ export interface FileRoutesByFullPath {
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
@@ -226,8 +241,10 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
@@ -254,8 +271,10 @@ export interface FileRoutesById {
   '/invitation': typeof InvitationRoute
   '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
+  '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
@@ -285,8 +304,10 @@ export interface FileRouteTypes {
     | '/access-not-provisioned'
     | '/invitation'
     | '/admin'
+    | '/agents'
     | '/assistants'
     | '/search'
+    | '/admin/agents'
     | '/admin/groups'
     | '/admin/identity-providers'
     | '/admin/mcp'
@@ -312,8 +333,10 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/agents'
     | '/assistants'
     | '/search'
+    | '/admin/agents'
     | '/admin/identity-providers'
     | '/admin/mcp'
     | '/admin/models'
@@ -339,8 +362,10 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/_authenticated/_chat'
     | '/_authenticated/admin'
+    | '/_authenticated/agents'
     | '/_authenticated/assistants'
     | '/_authenticated/search'
+    | '/_authenticated/admin/agents'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/mcp'
@@ -407,6 +432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/assistants': {
       id: '/_authenticated/assistants'
       path: '/assistants'
@@ -433,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/agents': {
+      id: '/_authenticated/admin/agents'
+      path: '/agents'
+      fullPath: '/admin/agents'
+      preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/groups': {
@@ -627,6 +666,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
@@ -639,6 +679,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
@@ -659,6 +700,7 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
@@ -669,6 +711,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,

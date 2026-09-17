@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Blocks,
+  Bot,
   Globe,
   KeyRound,
   Menu,
@@ -28,7 +29,15 @@ import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin";
-export type AdminPage = "sources" | "users" | "groups" | "web" | "providers" | "models" | "mcp";
+export type AdminPage =
+  | "sources"
+  | "users"
+  | "groups"
+  | "web"
+  | "providers"
+  | "models"
+  | "mcp"
+  | "agents";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -114,6 +123,7 @@ function SidebarContents({
     canManageModels,
     canManageProviders,
     canManageMcp,
+    canManageAgents,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -214,6 +224,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageAgents ? (
+              <SidebarSection title={ui("Trợ lý")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/agents"
+                  icon={<Bot className="size-4" />}
+                  selected={adminPage === "agents"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Quản lý trợ lý")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

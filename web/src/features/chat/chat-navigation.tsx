@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Bot, Folder, ChevronDown, ChevronRight, FileSearch, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/element
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { chatSessionsKey } from "./chat-api";
+import { chatSessionsKey, newChatSession } from "./chat-api";
+import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
 import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
-import { loadProjects, moveConversation, type Project } from "./chat-workspace-api";
+import { loadProjects, moveConversation, personaSchema, type Project } from "./chat-workspace-api";
 import { chatActionError } from "./chat-action-utils";
 import { useChatThreads, useOptionalChatThreads } from "./chat-threads-context";
 import { sessionFromThread } from "./chat-thread-list-adapter";
@@ -60,10 +62,10 @@ export function ChatNavigation({
         {ui("Search documents")}
       </SidebarTab>
       <SidebarTab
-        to="/assistants"
+        to="/agents"
         icon={<Bot className="size-4" />}
         collapsed={collapsed}
-        selected={pathname === "/assistants"}
+        selected={pathname === "/agents"}
         onClick={onNavigate}
       >
         {ui("Trợ lý")}
@@ -80,6 +82,7 @@ export function ChatNavigation({
         </SidebarTab>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <PinnedAgents onNavigate={onNavigate} />
           <div className="mb-2 flex items-center justify-between px-2">
             <Link
               to="/projects"
@@ -136,6 +139,63 @@ export function ChatNavigation({
         />
       )}
     </div>
+  );
+}
+
+/** Pinned agents start a new conversation with that agent (Onyx sidebar pins). */
+function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
+  const ui = useAppTranslation();
+  const { actorId, authorizationVersion } = useApplicationSession();
+  const cache = useQueryClient();
+  const navigate = useNavigate();
+  const [pending, setPending] = useState<string>();
+  const [error, setError] = useState<string>();
+  const pins = useQuery({
+    queryKey: ["chat-persona-pins", actorId, authorizationVersion],
+    queryFn: async ({ signal }) =>
+      personaSchema.array().parse((await listChatPersonaPins({ signal, throwOnError: true })).data),
+  });
+  if (!pins.data?.length) return null;
+  return (
+    <section aria-labelledby="pinned-agents" className="mb-4">
+      <h2 id="pinned-agents" className="px-2 pb-1 text-sm font-medium text-content-secondary">
+        {ui("Trợ lý đã ghim")}
+      </h2>
+      {pins.data.map((agent) => (
+        <button
+          key={agent.id}
+          type="button"
+          disabled={pending !== undefined}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface-subtle disabled:opacity-60"
+          onClick={async () => {
+            setPending(agent.id);
+            setError(undefined);
+            try {
+              const session = await newChatSession(
+                agent.name,
+                AbortSignal.timeout(30000),
+                agent.id,
+              );
+              await cache.invalidateQueries({ queryKey: chatSessionsKey });
+              await navigate({ to: "/chat/$sessionId", params: { sessionId: session.id } });
+              onNavigate?.();
+            } catch (cause) {
+              setError(chatActionError(cause));
+            } finally {
+              setPending(undefined);
+            }
+          }}
+        >
+          <AgentAvatar agent={agent} size="sm" />
+          <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+        </button>
+      ))}
+      {error && (
+        <p role="alert" className="px-2 text-xs text-status-danger-content">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 

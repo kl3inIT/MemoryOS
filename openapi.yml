@@ -1838,7 +1838,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Shortcut"
+                $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2018,7 +2018,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Shortcut"
+                $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2112,7 +2112,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Preferences"
+                $ref: "#/components/schemas/PromptShortcutPreferences"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2168,7 +2168,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Preferences"
+                $ref: "#/components/schemas/PromptShortcutPreferences"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -2953,7 +2953,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Ref"
+                $ref: "#/components/schemas/AgentRef"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6270,7 +6270,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Shortcut"
+                  $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6326,7 +6326,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Shortcut"
+                $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6370,7 +6370,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Shortcut"
+                  $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6426,7 +6426,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Shortcut"
+                $ref: "#/components/schemas/PromptShortcut"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6975,7 +6975,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Ref"
+                  $ref: "#/components/schemas/AgentRef"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7031,7 +7031,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Ref"
+                $ref: "#/components/schemas/AgentRef"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9338,7 +9338,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShareOptions"
+                $ref: "#/components/schemas/AgentShareOptions"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11524,7 +11524,7 @@ components:
           type: string
         active:
           type: boolean
-    Shortcut:
+    PromptShortcut:
       type: object
       properties:
         id:
@@ -11553,7 +11553,7 @@ components:
       properties:
         enabled:
           type: boolean
-    Preferences:
+    PromptShortcutPreferences:
       type: object
       properties:
         enabled:
@@ -11662,24 +11662,24 @@ components:
         knowledgeCutoff:
           type: string
           format: date-time
-    GroupShare:
+    AgentGroupShare:
       type: object
       properties:
         group:
-          $ref: "#/components/schemas/Ref"
+          $ref: "#/components/schemas/AgentRef"
         permission:
           type: string
           enum:
           - VIEWER
           - EDITOR
-    Owner:
+    AgentOwner:
       type: object
       properties:
         actor:
-          $ref: "#/components/schemas/Person"
+          $ref: "#/components/schemas/AgentPerson"
         group:
-          $ref: "#/components/schemas/Ref"
-    Person:
+          $ref: "#/components/schemas/AgentRef"
+    AgentPerson:
       type: object
       properties:
         actorId:
@@ -11689,6 +11689,32 @@ components:
           type: string
         email:
           type: string
+    AgentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentSourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AgentUserShare:
+      type: object
+      properties:
+        person:
+          $ref: "#/components/schemas/AgentPerson"
+        permission:
+          type: string
+          enum:
+          - VIEWER
+          - EDITOR
     PersonaPermissions:
       type: object
       properties:
@@ -11739,7 +11765,7 @@ components:
         sources:
           type: array
           items:
-            $ref: "#/components/schemas/SourceRef"
+            $ref: "#/components/schemas/AgentSourceRef"
         tools:
           type: array
           items:
@@ -11748,7 +11774,7 @@ components:
         mcpServers:
           type: array
           items:
-            $ref: "#/components/schemas/Ref"
+            $ref: "#/components/schemas/AgentRef"
         modelConfigurationId:
           oneOf:
           - type: string
@@ -11776,19 +11802,19 @@ components:
         labels:
           type: array
           items:
-            $ref: "#/components/schemas/Ref"
+            $ref: "#/components/schemas/AgentRef"
         owner:
-          $ref: "#/components/schemas/Owner"
+          $ref: "#/components/schemas/AgentOwner"
         vacant:
           type: boolean
         userShares:
           type: array
           items:
-            $ref: "#/components/schemas/UserShare"
+            $ref: "#/components/schemas/AgentUserShare"
         groupShares:
           type: array
           items:
-            $ref: "#/components/schemas/GroupShare"
+            $ref: "#/components/schemas/AgentGroupShare"
         isPublic:
           type: boolean
         publicPermission:
@@ -11815,32 +11841,6 @@ components:
         deletedAt:
           type: string
           format: date-time
-    Ref:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-    SourceRef:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-    UserShare:
-      type: object
-      properties:
-        person:
-          $ref: "#/components/schemas/Person"
-        permission:
-          type: string
-          enum:
-          - VIEWER
-          - EDITOR
     GroupShareInput:
       type: object
       properties:
@@ -15531,17 +15531,17 @@ components:
           enum:
           - FILE
           - GOOGLE_DRIVE
-    ShareOptions:
+    AgentShareOptions:
       type: object
       properties:
         people:
           type: array
           items:
-            $ref: "#/components/schemas/Person"
+            $ref: "#/components/schemas/AgentPerson"
         groups:
           type: array
           items:
-            $ref: "#/components/schemas/Ref"
+            $ref: "#/components/schemas/AgentRef"
     ChatPersona:
       type: object
       properties:

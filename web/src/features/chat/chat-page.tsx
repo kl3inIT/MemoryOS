@@ -182,7 +182,27 @@ function ChatConversation({
     !project &&
     !session?.projectId &&
     chatSettings.data?.deepResearchEnabled === true &&
-    (persona?.searchEnabled === true || webAvailability.data?.searchAvailable === true);
+    (persona?.tools.includes("search") === true ||
+      (persona?.tools.includes("web_search") !== false &&
+        webAvailability.data?.searchAvailable === true));
+  const allowedTools = useMemo(
+    () =>
+      persona
+        ? {
+            web: persona.tools.includes("web_search"),
+            image: persona.tools.includes("image_generation"),
+            mcpServerIds: persona.builtin ? null : persona.mcpServers.map((server) => server.id),
+          }
+        : undefined,
+    [persona],
+  );
+  // The server rejects tools the agent does not allow; the transport drops them and the composer hides them.
+  useEffect(() => transport.restrictTools(allowedTools), [transport, allowedTools]);
+  const shownWebSearch = allowedTools?.web === false ? "off" : webSearch;
+  const shownImage = allowedTools?.image === false ? "off" : image;
+  const shownMcpServerIds = mcpServerIds.filter(
+    (id) => !allowedTools?.mcpServerIds || allowedTools.mcpServerIds.includes(id),
+  );
   const busy = state.connection !== "ready" || state.checking;
   const imageEditing = useMemo(
     () => ({
@@ -366,10 +386,11 @@ function ChatConversation({
               composerMenu={
                 <ChatComposerMenu
                   disabled={busy}
+                  allowed={allowedTools}
                   web={{
                     sessionId: session?.id,
                     modelId: model.choice.id,
-                    value: webSearch,
+                    value: shownWebSearch,
                     onChange: (mode) => {
                       transport.selectWeb(mode);
                       setWebSearch(mode);
@@ -387,14 +408,14 @@ function ChatConversation({
                       : undefined
                   }
                   image={{
-                    value: image,
+                    value: shownImage,
                     onChange: (mode) => {
                       transport.selectImage(mode);
                       setImage(mode);
                     },
                   }}
                   mcp={{
-                    selected: mcpServerIds,
+                    selected: shownMcpServerIds,
                     sessionId: session?.id,
                     onChange: (ids) => {
                       transport.selectMcpServers(ids);
