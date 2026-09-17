@@ -50,6 +50,7 @@ public final class ChatModelExecutor {
     private final ImageArtifactService imageArtifacts;
     private final io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter;
     private final io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings;
+    private final io.memoryos.retrieval.@Nullable DocumentOriginalService originals;
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final @Nullable ResearchExecutor research;
 
@@ -57,7 +58,7 @@ public final class ChatModelExecutor {
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
@@ -66,10 +67,12 @@ public final class ChatModelExecutor {
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
             io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
+            io.memoryos.retrieval.@Nullable DocumentOriginalService originals,
             io.memoryos.chat.research.@Nullable ResearchProperties researchLimits, io.memoryos.chat.research.@Nullable ResearchTelemetry researchTelemetry,
             io.micrometer.core.instrument.MeterRegistry meters) {
         this.interpreter = interpreter;
         this.interpreterSettings = interpreterSettings;
+        this.originals = originals;
         this.research = researchLimits == null ? null : new ResearchExecutor(researchLimits, researchTelemetry == null ? io.memoryos.chat.research.ResearchTelemetry.NOOP : researchTelemetry);
         this.contexts = contexts;
         this.processes = processes;
@@ -225,12 +228,18 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.FileReaderTool(files, setup.actor(), setup.tenant(),
                         setup.fileIds(), fileActive, guard::availableContextTokens, selected.policy().tokens(), fileSearch, setup.evidence(), fileWork)));
             }
+            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
+            boolean python = selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
+                    && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
+            // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
+            var sandbox = python && originals != null ? new io.memoryos.chat.tools.SandboxDocuments(originals, setup.actor()) : null;
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity);
+                if (sandbox != null) searchTool.withSandbox(sandbox);
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
@@ -245,12 +254,10 @@ public final class ChatModelExecutor {
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
                         fileActive, imageEvents, 4)));
             }
-            // Onyx is_available: configured, enabled and healthy; an unavailable interpreter omits the tool, never fails the turn.
-            if (selected.toolCalling() && interpreter != null && interpreterSettings != null && interpreter.configured()
-                    && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy()) {
+            if (python) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
-                        activity, codeEvents)));
+                        activity, codeEvents).withSandbox(sandbox)));
             }
             if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
                 var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,

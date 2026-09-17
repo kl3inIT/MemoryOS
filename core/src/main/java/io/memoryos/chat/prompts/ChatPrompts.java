@@ -135,6 +135,7 @@ public final class ChatPrompts {
             Also preinstalled: statsmodels, sympy, pyarrow, xlrd (legacy .xls), xlsxwriter, python-docx, python-pptx, reportlab, fpdf2, pypdf, pdfplumber, pdf2image, markitdown, beautifulsoup4, jinja2, markdown, tabulate, chardet and charset-normalizer. Packages cannot be installed; use only what is available.
             If a text file's encoding is unknown, detect it with charset-normalizer before decoding.
             Command-line tools are available via subprocess: pdftotext and pdftoppm, qpdf, sqlite3, zip and unzip.
+            A workbook saved by openpyxl has no computed formula values (xlsxwriter stores 0) until it is recalculated, so readers other than Excel show empty cells. After saving an .xlsx that contains formulas, run `recalc-xlsx` via subprocess with all such files in one call; it recalculates them in place with LibreOffice, keeps formulas, formatting and charts, takes about 15 seconds, and prints one JSON line per file whose `errors` lists cells such as `Sheet!B6: #DIV/0!` to fix.
             Vietnamese and other Latin, Greek and Cyrillic text renders in matplotlib's default font, but the built-in PDF fonts (Helvetica, Times) cannot render it. Register a TTF font first, e.g. `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` with fpdf2 `add_font` or reportlab `TTFont`.
             Memory is limited to about 1 GiB; process large files in chunks.
             CPU time is limited to 30 seconds per run. A run killed by the memory or CPU limit exits with code 137 and no error message.

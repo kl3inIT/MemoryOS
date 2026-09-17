@@ -10,13 +10,16 @@ export const generatedFileSchema = z.object({
   filename: z.string().min(1).max(200),
   mediaType: z.string().max(128),
   sizeBytes: z.number().int().nonnegative(),
+  /** Chart data captured from the figure behind this PNG is served at /chart. */
+  chart: z.boolean().optional(),
 });
 export type GeneratedFile = z.infer<typeof generatedFileSchema>;
 
 /** One run_python call as the timeline knows it, keyed by tool call id. */
 export type CodeRun = {
   code: string;
-  output: string;
+  stdout: string;
+  stderr: string;
   files: GeneratedFile[];
   status: "running" | "done" | "failed";
 };

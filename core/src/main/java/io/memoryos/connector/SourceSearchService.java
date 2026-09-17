@@ -58,6 +58,12 @@ public class SourceSearchService {
         return documents.originalPdf(tenant, actor, document);
     }
 
+    /** Original source objects of any media type for readable, eligible Documents; callers still check generation. */
+    public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
+            java.util.Set<UUID> documents) {
+        return documents.isEmpty() ? java.util.Map.of() : this.documents.originals(tenant, actor, documents, false);
+    }
+
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {
         return documents.sourceMetadata(tenant, List.of(document.value()), null, generation)
                 .getOrDefault(document.value(), List.of());

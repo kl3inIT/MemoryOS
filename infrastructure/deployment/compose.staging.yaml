@@ -117,6 +117,10 @@ services:
     image: ${MEMORYOS_INTERPRETER_IMAGE:?Set MEMORYOS_INTERPRETER_IMAGE}
     container_name: memoryos-interpreter
     user: root
+    # Compose file secrets keep their host owner and mode (0600, owned by the operator), so root in this
+    # capability-dropped container needs DAC_OVERRIDE to read the API key, as the api service does.
+    cap_add:
+      - DAC_OVERRIDE
     environment:
       EXECUTOR_BACKEND: docker
       PYTHON_EXECUTOR_DOCKER_IMAGE: ${MEMORYOS_INTERPRETER_EXECUTOR_IMAGE:?Set MEMORYOS_INTERPRETER_EXECUTOR_IMAGE}

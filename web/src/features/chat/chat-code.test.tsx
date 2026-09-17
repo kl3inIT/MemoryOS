@@ -1,8 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { AssistantRuntimeProvider, ThreadPrimitive, useLocalRuntime } from "@assistant-ui/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n";
 import { ChatGeneratedFiles } from "./chat-generated-files";
+import { ChatPanelContext } from "./chat-panel-context";
 import { fileSize, parseGeneratedFiles } from "./chat-code";
 
 const file = {
@@ -46,11 +47,38 @@ describe("files run_python generated", () => {
     const link = screen.getByRole("link", { name: `Tải ${file.filename}` });
     expect(link).toHaveAttribute("href", `/api/chat/file-artifacts/${file.id}/content`);
     expect(link).toHaveAttribute("download", file.filename);
-    expect(within(link).getByText(file.filename)).toBeVisible();
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText(file.filename)).toBeVisible();
+    expect(within(row).getByText("12,4 KB")).toBeVisible();
+    expect(row.querySelector("[data-slot=file-root]")).not.toBeNull();
 
     cleanup();
     render(<Thread custom={{}} />);
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("opens the file in the preview modal from its name", () => {
+    const opened: unknown[] = [];
+    render(
+      <ChatPanelContext.Provider
+        value={{
+          panelId: "panel",
+          open: () => {},
+          previewFile: (selected) => opened.push(selected),
+          openArtifact: () => {},
+          close: () => {},
+        }}
+      >
+        <Thread custom={{ generatedFiles: [file] }} />
+      </ChatPanelContext.Provider>,
+    );
+
+    const preview = screen.getByRole("button", { name: `Xem trước ${file.filename}` });
+    expect(preview).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(preview);
+    expect(opened).toEqual([
+      { source: "generated", id: file.id, filename: file.filename, mediaType: file.mediaType },
+    ]);
   });
 
   it("keeps only well-formed files from a reloaded conversation", () => {
@@ -69,11 +97,24 @@ describe("files run_python generated", () => {
 
 // The step body is the only place the code and its output appear; both are streaming-only state.
 describe("the run_python timeline step", () => {
-  it("shows the code, the output so far and a failure, in the active language", async () => {
+  it("shows the code, output, errors, file count and no-output note like Onyx, in both languages", async () => {
     const { ChatToolStep } = await import("./chat-activity-view");
     const codeRuns = {
-      call1: { code: "print('xin chào')", output: "xin chào\n", files: [], status: "running" },
-      call2: { code: "1/0", output: "", files: [], status: "failed" },
+      call1: {
+        code: "print('xin chào')",
+        stdout: "xin chào\n",
+        stderr: "",
+        files: [],
+        status: "running",
+      },
+      call2: {
+        code: "1/0",
+        stdout: "",
+        stderr: "ZeroDivisionError: division by zero",
+        files: [],
+        status: "failed",
+      },
+      call3: { code: "open('a.csv','w')", stdout: "", stderr: "", files: [file], status: "done" },
     };
     function Steps() {
       const runtime = useLocalRuntime(
@@ -106,6 +147,7 @@ describe("the run_python timeline step", () => {
                 <>
                   <ChatToolStep part={part("call1")} />
                   <ChatToolStep part={part("call2")} />
+                  <ChatToolStep part={part("call3")} />
                 </>
               ),
               UserMessage: () => null,
@@ -116,13 +158,18 @@ describe("the run_python timeline step", () => {
     }
     render(<Steps />);
 
-    expect(screen.getByText(/print\('xin chào'\)/)).toBeVisible();
-    expect(screen.getByText(/xin chào$/)).toBeVisible();
-    expect(screen.getByText("Kết quả")).toBeVisible();
-    expect(screen.getByText("Chạy Python không thành công")).toBeVisible();
+    expect(await screen.findByText(/print\('xin chào'\)/)).toBeVisible();
+    expect(screen.getByText(/^xin chào$/)).toBeVisible();
+    expect(screen.getByRole("region", { name: "Kết quả" })).toBeVisible();
+    const error = screen.getByRole("region", { name: "Lỗi" });
+    expect(within(error).getByText("ZeroDivisionError: division by zero")).toBeVisible();
+    expect(screen.getByText("Đã tạo 1 tệp")).toBeVisible();
+    expect(screen.getAllByText("Không có output")).toHaveLength(1);
     await i18n.changeLanguage("en");
-    expect(screen.getByText("Output")).toBeVisible();
-    expect(screen.getByText("Running Python did not finish")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Output" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Error" })).toBeVisible();
+    expect(screen.getByText("Files created: 1")).toBeVisible();
+    expect(screen.getByText("No output")).toBeVisible();
     await i18n.changeLanguage("vi");
   });
 });

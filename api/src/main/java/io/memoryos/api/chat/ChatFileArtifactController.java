@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ContentDisposition;
@@ -35,7 +36,65 @@ class ChatFileArtifactController {
     /** Only raster images display inline; every other generated file downloads under nosniff. */
     private static final Set<String> INLINE = Set.of("image/png", "image/jpeg", "image/webp");
     private final InterpreterService files;
-    ChatFileArtifactController(InterpreterService files) { this.files = files; }
+    private final io.memoryos.chat.interpreter.PresentationPreviewService presentations;
+    ChatFileArtifactController(InterpreterService files, io.memoryos.chat.interpreter.PresentationPreviewService presentations) {
+        this.files = files;
+        this.presentations = presentations;
+    }
+
+    @Schema(name = "ChatSpreadsheetPreview")
+    record SpreadsheetPreviewResponse(List<SheetResponse> sheets) {}
+
+    @Schema(name = "ChatSpreadsheetSheet")
+    record SheetResponse(String name, String csv, boolean truncated) {}
+
+    @GetMapping(value = "/{artifactId}/pdf-preview", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(operationId = "getChatFileArtifactPdfPreview",
+            summary = "Read a PDF rendering of an owner-private generated presentation, converted in the interpreter on first request")
+    @ApiResponse(responseCode = "200", description = "PDF bytes",
+            content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "429", description = "The interpreter is busy", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    void pdfPreview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
+        var served = presentations.pdf(identity.actorId(), artifactId);
+        try (var content = served.content()) {
+            response.setContentType(MediaType.APPLICATION_PDF_VALUE);
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Disposition", ContentDisposition.attachment()
+                    .filename(served.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+            response.setContentLengthLong(content.metadata().sizeBytes());
+            content.inputStream().transferTo(response.getOutputStream());
+        }
+    }
+
+    @GetMapping(value = "/{artifactId}/chart", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "getChatFileArtifactChart",
+            summary = "Read the chart data captured from the figure behind an owner-private generated PNG")
+    @ApiResponse(responseCode = "200", description = "Chart in the E2B chart model (type, title, elements, axes)",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(type = "object")))
+    void chart(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
+        byte[] body = files.chart(identity.actorId(), artifactId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setContentLength(body.length);
+        response.getOutputStream().write(body);
+    }
+
+    @GetMapping("/{artifactId}/preview")
+    @Operation(operationId = "previewChatFileArtifactSpreadsheet",
+            summary = "Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary")
+    @ApiResponse(responseCode = "200", description = "Sheets in workbook order",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = SpreadsheetPreviewResponse.class)))
+    SpreadsheetPreviewResponse preview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID artifactId, HttpServletResponse response) {
+        var sheets = files.spreadsheet(identity.actorId(), artifactId).stream()
+                .map(sheet -> new SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
+        response.setHeader("Cache-Control", "no-store");
+        return new SpreadsheetPreviewResponse(sheets);
+    }
 
     @GetMapping(value = "/{artifactId}/content", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @Operation(operationId = "getChatFileArtifact", summary = "Read an owner-private file generated by Code Interpreter")

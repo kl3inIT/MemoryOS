@@ -185,8 +185,19 @@ public class JdbcSourceDocumentRepository {
      * current source content. Other media types and stale versions have no original to serve.
      */
     public Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
-        return jdbcClient.sql("""
-                SELECT o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
+        return Optional.ofNullable(originals(tenant, actor, java.util.Set.of(document), true).get(document));
+    }
+
+    /**
+     * The stored source object each readable, eligible Document was extracted from, whatever its media type. Documents
+     * the actor cannot read through an active searchable Source, or whose current version no longer matches, are absent.
+     */
+    public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
+            java.util.Set<UUID> documents, boolean pdfOnly) {
+        if (documents.isEmpty()) return java.util.Map.of();
+        var result = new java.util.LinkedHashMap<UUID, io.memoryos.objectstorage.StoredObjectReference>();
+        jdbcClient.sql("""
+                SELECT DISTINCT ON (m.document_id) m.document_id,o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
                 FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
@@ -194,20 +205,22 @@ public class JdbcSourceDocumentRepository {
                 JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
                 JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id AND o.state='ACTIVE'
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
-                WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND d.media_type='application/pdf'
+                WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
+                    AND d.status='ELIGIBLE' AND (:pdfOnly=FALSE OR d.media_type='application/pdf')
                     AND d.source_content_sha256=v.content_sha256
                     AND c.status='ACTIVE' AND %s AND p.status='ACTIVE' AND %s
-                ORDER BY p.id,i.id
-                LIMIT 1
-                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("document", document)
-                .param("actor", actor.value())
-                .query((r, _) -> new io.memoryos.objectstorage.StoredObjectReference(
-                        new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
-                        new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
-                        new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
-                                new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))))
-                .optional();
+                ORDER BY m.document_id,p.id,i.id
+                """.formatted(SEARCHABLE_SOURCE, READ_SCOPE)).param("tenant", tenant.value()).param("documents", documents)
+                .param("pdfOnly", pdfOnly).param("actor", actor.value())
+                .query((r, _) -> {
+                    result.put(r.getObject("document_id", UUID.class), new io.memoryos.objectstorage.StoredObjectReference(
+                            new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
+                            new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
+                            new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
+                                    new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))));
+                    return true;
+                }).list();
+        return java.util.Map.copyOf(result);
     }
 
     private static List<String> authors(@Nullable String json) {

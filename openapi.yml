@@ -8718,6 +8718,62 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private xlsx attachment as CSV text per sheet, each\
+        \ cut at a row boundary"
+      operationId: previewChatFileSpreadsheet
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/passages:
     get:
       tags:
@@ -8890,6 +8946,113 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read an owner-private generated xlsx as CSV text per sheet, each cut\
+        \ at a row boundary"
+      operationId: previewChatFileArtifactSpreadsheet
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSpreadsheetPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/pdf-preview:
+    get:
+      tags:
+      - Chat
+      summary: "Read a PDF rendering of an owner-private generated presentation, converted\
+        \ in the interpreter on first request"
+      operationId: getChatFileArtifactPdfPreview
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "429":
+          description: The interpreter is busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/file-artifacts/{artifactId}/content:
     get:
       tags:
@@ -8937,6 +9100,56 @@ paths:
               schema:
                 type: string
                 format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}/chart:
+    get:
+      tags:
+      - Chat
+      summary: Read the chart data captured from the figure behind an owner-private
+        generated PNG
+      operationId: getChatFileArtifactChart
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Chart in the E2B chart model (type, title, elements, axes)"
+          content:
+            application/json:
+              schema:
+                type: object
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13529,7 +13742,11 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
+          description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
       required:
+      - chart
       - filename
       - id
       - mediaType
@@ -13850,6 +14067,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GeneratedFile"
+        stream:
+          type:
+          - string
+          - "null"
+          enum:
+          - stdout
+          - stderr
       required:
       - assistantMessageId
       - code
@@ -13857,6 +14081,7 @@ components:
       - output
       - sequence
       - stage
+      - stream
       - toolCallId
     GeneratedFile:
       type: object
@@ -13871,6 +14096,8 @@ components:
         sizeBytes:
           type: integer
           format: int64
+        chart:
+          type: boolean
     ResearchPlanEvent:
       type: object
       properties:
@@ -14203,6 +14430,22 @@ components:
         totalCharacters:
           type: integer
           format: int32
+    ChatSpreadsheetPreview:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatSpreadsheetSheet"
+    ChatSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
     ChatFilePolicyResponse:
       type: object
       properties:

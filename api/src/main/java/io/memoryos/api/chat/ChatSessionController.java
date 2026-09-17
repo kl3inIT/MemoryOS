@@ -106,7 +106,7 @@ class ChatSessionController {
                 byMessage.getOrDefault(message.id(), List.of()).stream()
                         .map(artifact -> new ChatMessageResponse.ImageRef(artifact.id(), artifact.mediaType(), artifact.revisedPrompt())).toList(),
                 filesByMessage.getOrDefault(message.id(), List.of()).stream()
-                        .map(file -> new ChatMessageResponse.GeneratedFileRef(file.id(), file.filename(), file.mediaType(), file.sizeBytes())).toList())).toList();
+                        .map(file -> new ChatMessageResponse.GeneratedFileRef(file.id(), file.filename(), file.mediaType(), file.sizeBytes(), file.chart())).toList())).toList();
     }
 
     record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}

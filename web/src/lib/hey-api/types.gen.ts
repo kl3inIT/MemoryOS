@@ -1479,6 +1479,10 @@ export type GeneratedFileRef = {
     filename: string;
     mediaType: string;
     sizeBytes: number;
+    /**
+     * Chart data is available at /api/chat/file-artifacts/{id}/chart
+     */
+    chart: boolean;
 };
 
 export type ImageRef = {
@@ -1590,6 +1594,7 @@ export type CodeEvent = {
     code: string | null;
     output: string | null;
     files: Array<GeneratedFile>;
+    stream: 'stdout' | 'stderr';
 };
 
 export type GeneratedFile = {
@@ -1597,6 +1602,7 @@ export type GeneratedFile = {
     filename?: string;
     mediaType?: string;
     sizeBytes?: number;
+    chart?: boolean;
 };
 
 export type ResearchPlanEvent = {
@@ -1728,6 +1734,16 @@ export type ChatFileTextResponse = {
     offset?: number;
     nextOffset?: number;
     totalCharacters?: number;
+};
+
+export type ChatSpreadsheetPreview = {
+    sheets?: Array<ChatSpreadsheetSheet>;
+};
+
+export type ChatSpreadsheetSheet = {
+    name?: string;
+    csv?: string;
+    truncated?: boolean;
 };
 
 export type ChatFilePolicyResponse = {
@@ -8445,6 +8461,53 @@ export type ReadChatFileTextResponses = {
 
 export type ReadChatFileTextResponse = ReadChatFileTextResponses[keyof ReadChatFileTextResponses];
 
+export type PreviewChatFileSpreadsheetData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/preview';
+};
+
+export type PreviewChatFileSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileSpreadsheetError = PreviewChatFileSpreadsheetErrors[keyof PreviewChatFileSpreadsheetErrors];
+
+export type PreviewChatFileSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileSpreadsheetResponse = PreviewChatFileSpreadsheetResponses[keyof PreviewChatFileSpreadsheetResponses];
+
 export type ReadChatFilePassagesData = {
     body?: never;
     path: {
@@ -8587,6 +8650,96 @@ export type GetChatFilePolicyResponses = {
 
 export type GetChatFilePolicyResponse = GetChatFilePolicyResponses[keyof GetChatFilePolicyResponses];
 
+export type PreviewChatFileArtifactSpreadsheetData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/preview';
+};
+
+export type PreviewChatFileArtifactSpreadsheetErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PreviewChatFileArtifactSpreadsheetError = PreviewChatFileArtifactSpreadsheetErrors[keyof PreviewChatFileArtifactSpreadsheetErrors];
+
+export type PreviewChatFileArtifactSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: ChatSpreadsheetPreview;
+};
+
+export type PreviewChatFileArtifactSpreadsheetResponse = PreviewChatFileArtifactSpreadsheetResponses[keyof PreviewChatFileArtifactSpreadsheetResponses];
+
+export type GetChatFileArtifactPdfPreviewData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/pdf-preview';
+};
+
+export type GetChatFileArtifactPdfPreviewErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The interpreter is busy
+     */
+    429: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactPdfPreviewError = GetChatFileArtifactPdfPreviewErrors[keyof GetChatFileArtifactPdfPreviewErrors];
+
+export type GetChatFileArtifactPdfPreviewResponses = {
+    /**
+     * PDF bytes
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileArtifactPdfPreviewResponse = GetChatFileArtifactPdfPreviewResponses[keyof GetChatFileArtifactPdfPreviewResponses];
+
 export type GetChatFileArtifactData = {
     body?: never;
     path: {
@@ -8629,6 +8782,51 @@ export type GetChatFileArtifactResponses = {
 };
 
 export type GetChatFileArtifactResponse = GetChatFileArtifactResponses[keyof GetChatFileArtifactResponses];
+
+export type GetChatFileArtifactChartData = {
+    body?: never;
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}/chart';
+};
+
+export type GetChatFileArtifactChartErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileArtifactChartError = GetChatFileArtifactChartErrors[keyof GetChatFileArtifactChartErrors];
+
+export type GetChatFileArtifactChartResponses = {
+    /**
+     * Chart in the E2B chart model (type, title, elements, axes)
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetChatFileArtifactChartResponse = GetChatFileArtifactChartResponses[keyof GetChatFileArtifactChartResponses];
 
 export type ReadChatDocumentPassagesData = {
     body?: never;

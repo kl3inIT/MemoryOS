@@ -154,7 +154,9 @@ class InterpreterClientTest {
 
     @Test void busyOversizedAndUnauthorizedResponsesAreTypedFailures() {
         var client = client();
-        assertThrows(InterpreterClient.BusyException.class, () -> client.execute("busy", 1000, List.of()));
+        // Onyx hands the model the HTTP error text as it is; the body comes along, bounded.
+        assertEquals("Code interpreter returned HTTP 429: {}",
+                assertThrows(InterpreterClient.BusyException.class, () -> client.execute("busy", 1000, List.of())).getMessage());
         assertThrows(IOException.class, () -> client.download("../../etc"));
         var wrongKey = new InterpreterClient(new InterpreterProperties("http://127.0.0.1:" + server.getAddress().getPort(), "wrong"), now::get);
         assertThrows(IOException.class, () -> wrongKey.delete("cccccccc-0000-0000-0000-000000000003"));
@@ -179,8 +181,10 @@ class InterpreterClientTest {
 
         // The service's own error event, a stream that stops before its result, and a caller that stops reading
         // (a Stop, which must abandon the body so the container is killed) are all failures, never a partial result.
-        assertThrows(IOException.class, () -> client.executeStream("boom", 1000, List.of(), (stream, data) -> { }));
-        assertThrows(IOException.class, () -> client.executeStream("cut", 1000, List.of(), (stream, data) -> { }));
+        assertEquals("Code interpreter error: executor exploded", assertThrows(IOException.class,
+                () -> client.executeStream("boom", 1000, List.of(), (stream, data) -> { })).getMessage());
+        assertEquals("Code interpreter stream ended without a result event", assertThrows(IOException.class,
+                () -> client.executeStream("cut", 1000, List.of(), (stream, data) -> { })).getMessage());
         assertThrows(IOException.class, () -> client.executeStream("print(1)", 1000, List.of(),
                 (stream, data) -> { throw new IOException("stopped"); }));
     }
