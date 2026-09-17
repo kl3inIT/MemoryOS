@@ -28,8 +28,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Per-turn Code Interpreter tool, ported from Onyx 40eb240df {@code python_tool.py}: file staging order, caps, notice,
- * name sanitizing, upload cache, result JSON and file reminder. Interpreter ids, URLs and service errors never reach
- * the model; generated files are linked through the owner-authorized MemoryOS artifact route.
+ * name sanitizing, upload cache, result JSON, file reminder and the exception text returned on failure. Generated files
+ * are linked through the owner-authorized MemoryOS artifact route instead of interpreter file ids.
  */
 public final class RunPythonTool {
     static final int MAX_STAGED_FILES = 25;
@@ -116,7 +116,9 @@ public final class RunPythonTool {
                 if (room <= 0 || data.isEmpty()) return;
                 String delta = data.length() <= room ? data : data.substring(0, room);
                 streamed[0] += delta.length();
-                publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, delta));
+                publish(id -> io.memoryos.chat.ChatCodeEvent.output(id,
+                        io.memoryos.chat.ChatCodeEvent.STDERR.equals(stream) ? io.memoryos.chat.ChatCodeEvent.STDERR
+                                : io.memoryos.chat.ChatCodeEvent.STDOUT, delta));
             });
             active.run();
             var generated = new ArrayList<Map<String, String>>();
@@ -159,10 +161,14 @@ public final class RunPythonTool {
         } catch (IOException | RuntimeException failure) {
             active.run(); // Cancellation must propagate, not become an ordinary tool result.
             activity.fail();
+            // Onyx python_tool.py: the exception text reaches both the model and the timeline's stderr, unchanged.
+            String error = failure.getMessage() == null || failure.getMessage().isBlank()
+                    ? failure.getClass().getSimpleName() : failure.getMessage();
+            String shown = error.length() <= io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS
+                    ? error : error.substring(0, io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS);
+            publish(id -> io.memoryos.chat.ChatCodeEvent.output(id, io.memoryos.chat.ChatCodeEvent.STDERR, shown));
             publish(io.memoryos.chat.ChatCodeEvent::failed);
             LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
-            String error = failure instanceof InterpreterClient.BusyException
-                    ? "Code interpreter is busy. Try again shortly." : "Code interpreter is unavailable.";
             return json("", error, -1, false, List.of(), error, notice);
         }
     }

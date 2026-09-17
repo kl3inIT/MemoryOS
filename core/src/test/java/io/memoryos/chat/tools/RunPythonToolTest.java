@@ -183,15 +183,16 @@ class RunPythonToolTest {
         assertTrue(json.path("stdout").asString().endsWith("\n... [output truncated, 7 characters omitted]"));
     }
 
-    @Test void anUnreachableServiceReturnsExitMinusOneWithoutDetails() throws Exception {
-        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
+    @Test void aServiceFailureReturnsExitMinusOneWithTheExceptionTextLikeOnyx() throws Exception {
+        when(client.executeStream(anyString(), anyInt(), anyList(), any()))
+                .thenThrow(new IOException("Code interpreter returned HTTP 503: executor image missing"));
 
         var reply = tool().runPython("print(1)");
 
         var json = result(reply);
         assertEquals(-1, json.path("exit_code").asInt());
-        assertEquals("Code interpreter is unavailable.", json.path("error").asString());
-        assertFalse(reply.contains("secret"));
+        assertEquals("Code interpreter returned HTTP 503: executor image missing", json.path("error").asString());
+        assertEquals("Code interpreter returned HTTP 503: executor image missing", json.path("stderr").asString());
         verify(activity).fail();
     }
 
@@ -225,6 +226,7 @@ class RunPythonToolTest {
         assertEquals("plt.savefig('chart.png')", published.getFirst().code());
         var streamed = published.stream().filter(event -> event.stage() == io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT).toList();
         assertEquals("first\n", streamed.getFirst().output());
+        assertEquals(List.of("stdout", "stderr"), streamed.stream().map(io.memoryos.chat.ChatCodeEvent::stream).toList());
         assertEquals(io.memoryos.chat.ChatCodeEvent.MAX_OUTPUT_CHARACTERS,
                 streamed.stream().mapToInt(event -> event.output().length()).sum());
         var completed = published.getLast();
@@ -254,13 +256,16 @@ class RunPythonToolTest {
         assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
     }
 
-    @Test void aFailedRunTellsTheTimelineWithoutServiceDetail() throws Exception {
-        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("secret-service-detail"));
+    @Test void aFailedRunShowsTheErrorOnStderrBeforeTheFailedStage() throws Exception {
+        when(client.executeStream(anyString(), anyInt(), anyList(), any())).thenThrow(new IOException("Code interpreter error: boom"));
 
         tool().runPython("print(1)");
 
+        var error = published.get(published.size() - 2);
+        assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.OUTPUT, error.stage());
+        assertEquals("stderr", error.stream());
+        assertEquals("Code interpreter error: boom", error.output());
         assertEquals(io.memoryos.chat.ChatCodeEvent.Stage.FAILED, published.getLast().stage());
-        assertTrue(published.stream().noneMatch(event -> String.valueOf(event.output()).contains("secret")));
     }
 
     @Test void namesAreSanitizedAndDeduplicatedLikeOnyx() {
