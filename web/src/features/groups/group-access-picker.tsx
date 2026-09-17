@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { HelpPopover } from "@/components/ui/help-popover";
 
 /** Group option shape shared by every capability that associates Groups with a resource. */
 export type GroupOption = { id: string; name: string; systemKey?: string | null };
@@ -111,9 +112,11 @@ export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey ex
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="flex items-center gap-1">
           <h3 className="font-secondary-action text-content-primary">{ui("Access groups")}</h3>
-          <p className="mt-1 font-secondary-body text-content-muted">{ui(description)}</p>
+          <HelpPopover label={ui("Access groups")}>
+            <p>{ui(description)}</p>
+          </HelpPopover>
         </div>
         <span className="font-secondary-body tabular-nums text-content-muted">
           {ordinarySelected.size} {ui("selected")}
