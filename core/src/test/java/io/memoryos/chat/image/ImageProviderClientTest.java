@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -46,10 +47,26 @@ class ImageProviderClientTest {
         String b64 = Base64.getEncoder().encodeToString(png);
         when(http.post(any(), eq(Map.of("Authorization", "Bearer test-secret")), anyString()))
                 .thenReturn(ok("{\"data\":[{\"b64_json\":\"" + b64 + "\",\"revised_prompt\":\"a red bicycle, cinematic\"}]}"));
-        var result = client.generate(connection("https://api.openai.com/v1", "gpt-image-1"), "a red bicycle", "1024x1024");
+        var result = client.generate(connection("https://api.openai.com/v1", "gpt-image-1"), "a red bicycle", "square");
         assertArrayEquals(png, result.bytes());
         assertEquals("image/png", result.mediaType());
         assertEquals("a red bicycle, cinematic", result.revisedPrompt());
+    }
+
+    @Test void shapeMapsToTheCatalogSizeOfTheConfiguredModel() throws Exception {
+        when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"data\":[{\"b64_json\":\"AQID\"}]}"));
+        client.generate(connection("", "gpt-image-1"), "a cat", "portrait");
+        var body = ArgumentCaptor.forClass(String.class);
+        verify(http).post(any(), anyMap(), body.capture());
+        assertTrue(body.getValue().contains("\"size\":\"1024x1536\""));
+    }
+
+    @Test void shapeIsIgnoredForAModelOutsideTheCatalog() throws Exception {
+        when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"data\":[{\"b64_json\":\"AQID\"}]}"));
+        client.generate(connection("", "custom-model"), "a cat", "portrait");
+        var body = ArgumentCaptor.forClass(String.class);
+        verify(http).post(any(), anyMap(), body.capture());
+        assertFalse(body.getValue().contains("\"size\""));
     }
 
     @Test void usesConfiguredEndpointAndBearerCredential() throws Exception {

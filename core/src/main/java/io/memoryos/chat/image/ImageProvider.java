@@ -1,6 +1,7 @@
 package io.memoryos.chat.image;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -47,6 +48,12 @@ public enum ImageProvider {
     /** Generation models the adapter serves end to end, newest first. */
     public List<KnownModel> knownModels() { return knownModels; }
 
+    /** Resolves a tool shape through the catalog; a model outside the catalog ignores the shape. */
+    public @Nullable String sizeFor(String model, @Nullable String shape) {
+        var known = knownModels.stream().filter(entry -> entry.modelName().equals(model)).findFirst().orElse(null);
+        return known == null ? null : known.sizeFor(shape);
+    }
+
     /** Published metadata only: runtime behaviour follows the connection's stored model, never this entry. */
     public record KnownModel(String modelName, String displayName, String outputMediaType, List<String> sizes,
                              boolean edit, boolean deprecated) {
@@ -61,6 +68,25 @@ public enum ImageProvider {
                     || sizes == null || !sizes.stream().allMatch(size -> size != null && SIZE.matcher(size).matches()))
                 throw new IllegalArgumentException("Invalid known image model metadata");
             sizes = List.copyOf(sizes);
+        }
+
+        /** The declared size matching a tool shape; null for an unknown shape or an empty size list. */
+        public @Nullable String sizeFor(@Nullable String shape) {
+            if (shape == null) return null;
+            Integer aspect = switch (shape.toLowerCase(Locale.ROOT)) {
+                case "square" -> 0;
+                case "landscape" -> 1;
+                case "portrait" -> -1;
+                default -> null;
+            };
+            if (aspect == null) return null;
+            for (var size : sizes) {
+                var at = size.indexOf('x');
+                int order = Integer.compare(
+                        Integer.parseInt(size.substring(0, at)), Integer.parseInt(size.substring(at + 1)));
+                if (order == aspect) return size;
+            }
+            return null;
         }
     }
 }

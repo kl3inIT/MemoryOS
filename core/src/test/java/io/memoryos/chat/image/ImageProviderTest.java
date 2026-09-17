@@ -40,6 +40,18 @@ class ImageProviderTest {
     }
 
     @Test
+    void shapeResolvesToTheDeclaredSizeByAspect() {
+        var provider = ImageProvider.OPENAI_IMAGE;
+        assertEquals("1024x1024", provider.sizeFor("gpt-image-1", "square"));
+        assertEquals("1536x1024", provider.sizeFor("gpt-image-1", "landscape"));
+        assertEquals("1024x1536", provider.sizeFor("gpt-image-1", "PORTRAIT"));
+        assertNull(provider.sizeFor("gpt-image-1", "wide"));
+        assertNull(provider.sizeFor("gpt-image-1", null));
+        assertNull(provider.sizeFor("undeclared-model", "square"));
+        assertNull(ImageProvider.CLOUDFLARE_WORKERS_AI.sizeFor("@cf/black-forest-labs/flux-1-schnell", "square"));
+    }
+
+    @Test
     void rejectsInvalidModelMetadata() {
         assertThrows(IllegalArgumentException.class,
                 () -> new ImageProvider.KnownModel(" ", "Blank", "image/png", List.of(), false, false));
