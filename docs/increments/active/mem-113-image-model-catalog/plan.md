@@ -34,7 +34,7 @@ See [design.md](design.md).
   - catalog model versus manual entry;
   - hidden deprecated models;
   - disconnecting the active provider.
-- [x] The composer offers the image toggle only while `GET /api/chat/images` reports `available` (`chat-page.tsx` gates the menu prop).
+- [x] The composer keeps the image toggle row disabled with a notice while `GET /api/chat/images` reports no available connection; the active state shows as a chip that toggles off when clicked.
 
 ## Step 3 — `shape` for `generate_image`
 
