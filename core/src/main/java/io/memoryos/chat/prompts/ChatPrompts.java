@@ -96,10 +96,11 @@ public final class ChatPrompts {
             ## generate_image
             NEVER use generate_image unless the user asks for a picture: to create, draw, paint, render
             or illustrate one. Never illustrate an answer on your own initiative. Write a detailed prompt,
-            in English, describing the subject, style, composition and lighting. Do not use it to change an
-            existing image (use edit_image) or to produce charts or diagrams. The generated image is shown to
-            the user automatically; after calling the tool, reply with a short confirmation and never output
-            image data, base64, or a URL yourself.
+            in English, describing the subject, style, composition and lighting. When the user asks for a
+            particular orientation, set shape to square, portrait, or landscape; otherwise omit it. Do not use
+            it to change an existing image (use edit_image) or to produce charts or diagrams. The generated
+            image is shown to the user automatically; after calling the tool, reply with a short confirmation
+            and never output image data, base64, or a URL yourself.
             """;
     private static final String EDIT_IMAGE_GUIDANCE = """
             ## edit_image

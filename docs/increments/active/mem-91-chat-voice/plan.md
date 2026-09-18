@@ -51,7 +51,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ### Backend
 
-- [x] `mig:V77__chat_voice_connections.sql` (đánh số lại sau khi `main` dùng V64–V74): một dòng mỗi provider, CHECK provider có tên, CHECK active phải có model/giọng, partial unique `stt_active`/`tts_active`.
+- [x] `mig:V81__chat_voice_connections.sql` (đánh số lại sau khi `main` dùng V75–V78): một dòng mỗi provider, CHECK provider có tên, CHECK active phải có model/giọng, partial unique `stt_active`/`tts_active`.
 - [x] `core:chat/voice/VoiceProvider.java`, `VoiceFunction.java`.
 - [x] `core:chat/voice/VoiceConnectionService.java`:
   - list, probe (key nháp), save (KEEP/REPLACE/REMOVE, kích hoạt khi tạo mới), delete, select (kèm model TTS), forTest, resolve;
@@ -79,7 +79,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 ### Backend
 
 - [x] `spring-boot-starter-websocket` (`gradle/libs.versions.toml`, `api/build.gradle.kts`).
-- [x] `mig:V78__chat_voice_settings.sql` (trước là V64); `core:chat/voice/VoiceSettings.java`, `VoiceSettingsService.java`; `core:chat/persistence/JdbcVoiceSettingsRepository.java` (partial update nguyên tử).
+- [x] `mig:V82__chat_voice_settings.sql` (trước là V64/V78); `core:chat/voice/VoiceSettings.java`, `VoiceSettingsService.java`; `core:chat/persistence/JdbcVoiceSettingsRepository.java` (partial update nguyên tử).
 - [x] `core:chat/voice/Pcm16.java`, `Transcript.java`, `ChunkedTranscriber.java`, `VoiceTranscriptionService.java`.
 - [x] `api:chat/VoiceTicketStore.java`, `VoiceSessionController.java` (`/tickets`, `/settings`), `VoiceHandshakeInterceptor.java`, `TranscribeWebSocketHandler.java`, `VoiceWebSocketConfiguration.java`; contract `VoiceTicketResponse`, `VoiceSettings{Request,Response}`.
 - [x] `web/nginx.conf`: location WebSocket nhập bằng giọng nói. `web/vite.config.ts`: `ws: true` và giữ `X-Forwarded-Proto: http` khi Vite nâng cấp kết nối để kiểm tra same-origin của API chấp nhận Origin cục bộ.
@@ -206,7 +206,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ## Giai đoạn 5 — ElevenLabs và Azure (PR D)
 
-- [x] CHECK provider trong `V77__chat_voice_connections.sql` nhận `ELEVENLABS` và `AZURE`. Migration chưa lên `main` nên sửa tại chỗ, không thêm migration mới.
+- [x] CHECK provider trong `V81__chat_voice_connections.sql` nhận `ELEVENLABS` và `AZURE`. Migration chưa lên `main` nên sửa tại chỗ, không thêm migration mới.
 - [x] **ElevenLabs** (`core:chat/voice/ElevenLabsVoice.java`):
   - kiểm credential `GET {base}/models` với `xi-api-key`; phản hồi phải là mảng JSON;
   - Scribe REST `POST /speech-to-text` multipart (`model_id`, `language_code` vi/en, `file` WAV);

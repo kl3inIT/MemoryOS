@@ -172,13 +172,17 @@ public final class ChatModelExecutor {
         if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
-        int maxOutput = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
+        // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
+        // reasoning tokens count toward it, so a small deployment cap cut long tool calls off mid-stream.
+        // max-output-tokens still reserves room for the answer when the input budget is computed.
+        int maxOutput = selected.maxOutputTokens();
+        int outputReserve = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
                 && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
         if (delegate instanceof ChatModelTurns turns)
             delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
-        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - maxOutput);
+        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - outputReserve);
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,

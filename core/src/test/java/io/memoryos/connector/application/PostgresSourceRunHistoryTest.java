@@ -102,10 +102,10 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id,group_id,actor_id) VALUES (:tenant,:tenant,:actor)")
                 .param("tenant", tenant.value()).param("actor", owner.value()).update();
         sources = new JdbcSourceRepository(jdbc, event -> { });
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.RESTRICTED, owner)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "History", io.memoryos.connector.SourceAccess.PRIVATE, owner)));
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
-        jdbc.sql("UPDATE connector_credential_pairs SET access_type='RESTRICTED' WHERE id=:id").param("id", source.value()).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_roots(tenant_id,source_id,file_id,name,mime_type) VALUES (:tenant,:source,'folder','Folder','application/vnd.google-apps.folder')")
@@ -119,6 +119,9 @@ class PostgresSourceRunHistoryTest {
             return file;
         });
         when(session.listFiles(any(), any())).thenAnswer(_ -> new GoogleDriveProvider.FilePage(listing, null));
+        when(session.permissions(any())).thenReturn(List.of(new GoogleDriveProvider.Permission(
+                "fixture-owner", "user", "owner", "owner@example.test", null, null,
+                null, false, false, List.of(), null, null)));
         when(session.acquire(any())).thenAnswer(call -> {
             GoogleDriveProvider.FileMetadata file = call.getArgument(0);
             return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain", (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8),
@@ -152,7 +155,8 @@ class PostgresSourceRunHistoryTest {
         });
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
-        service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc), items, attempts,
+        service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc),
+                new JdbcGoogleDriveAclRepository(jdbc, event -> {}), items, attempts,
                 mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
@@ -202,6 +206,9 @@ class PostgresSourceRunHistoryTest {
             assertThat(error.stage()).isEqualTo(SourceRunErrorStage.EXTRACTION);
             assertThat(error.code()).isEqualTo("SOURCE_EXTRACTION_MALFORMED");
             assertThat(error.fileName()).isNotBlank();
+            assertThat(error.currentItemStatus()).isEqualTo(SourceItemStatus.FAILED);
+            assertThat(error.currentItemErrorCode()).isEqualTo("SOURCE_EXTRACTION_MALFORMED");
+            assertThat(error.currentItemLastIndexedAt()).isNull();
         });
         var cleanup = new JdbcCleanupAttemptRepository(jdbc);
         for (UUID item : jdbc.sql("SELECT id FROM connector_items WHERE tenant_id=:tenant").param("tenant", tenant.value()).query(UUID.class).list()) {
@@ -209,7 +216,102 @@ class PostgresSourceRunHistoryTest {
                     SourceOperationType.REMOVE_ITEM, source, new SourceItemId(item), UUID.randomUUID(), null)));
         }
         assertThat(run(run.id()).counts()).isEqualTo(completed.counts());
-        assertThat(history.errors(owner, source, run.id(), null, 25).items()).isEqualTo(errors);
+        assertThat(history.errors(owner, source, run.id(), null, 25).items()).singleElement().satisfies(error -> {
+            assertThat(error).usingRecursiveComparison()
+                    .ignoringFields("currentItemStatus", "currentItemErrorCode", "currentItemLastIndexedAt")
+                    .isEqualTo(errors.getFirst());
+            assertThat(error.currentItemStatus()).isNull();
+            assertThat(error.currentItemErrorCode()).isNull();
+            assertThat(error.currentItemLastIndexedAt()).isNull();
+        });
+    }
+
+    @Test
+    void historicalTimeoutRemainsUnchangedWhenCurrentItemRecoversAndIsRemoved() {
+        list(file("recovered", "1"));
+        var failed = finish(enqueue());
+        var work = claimIndex();
+        tx.executeWithoutResult(_ -> attempts.fail(work, "SOURCE_EXTRACTION_TIMEOUT",
+                "Extraction timed out after 30s", "io.memoryos.ingestion.ExtractionException: timeout\n\tat worker"));
+        var completed = run(failed.id());
+        var before = history.errors(owner, source, failed.id(), null, 1).items().getFirst();
+        assertThat(before.currentItemStatus()).isEqualTo(SourceItemStatus.FAILED);
+        assertThat(before.currentItemErrorCode()).isEqualTo("SOURCE_EXTRACTION_TIMEOUT");
+        assertThat(before.currentItemLastIndexedAt()).isNull();
+        assertThat(before.errorMessage()).isEqualTo("Extraction timed out after 30s");
+        assertThat(before.errorDetail()).contains("ExtractionException");
+        tx.executeWithoutResult(_ -> {
+            var pair = sources.lock(tenant, source);
+            attempts.create(tenant, pair, items.lockCurrentVersion(tenant, pair, work.itemId()));
+        });
+        assertThat(process(dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery()))
+                .isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var recovered = history.errors(owner, source, failed.id(), null, 1).items().getFirst();
+        assertThat(recovered).usingRecursiveComparison()
+                .ignoringFields("currentItemStatus", "currentItemErrorCode", "currentItemLastIndexedAt").isEqualTo(before);
+        assertThat(recovered.currentItemStatus()).isEqualTo(SourceItemStatus.INDEXED);
+        assertThat(recovered.currentItemErrorCode()).isNull();
+        assertThat(recovered.currentItemLastIndexedAt()).isNotNull();
+        assertThat(run(failed.id())).isEqualTo(completed);
+        tx.executeWithoutResult(_ -> items.markDeleting(tenant, sources.lock(tenant, source), work.itemId()));
+        var removed = history.errors(owner, source, failed.id(), null, 1).items().getFirst();
+        assertThat(removed.currentItemStatus()).isEqualTo(SourceItemStatus.DELETING);
+        assertThat(removed.code()).isEqualTo("SOURCE_EXTRACTION_TIMEOUT");
+        assertThat(run(failed.id())).isEqualTo(completed);
+    }
+
+    @Test
+    void currentErrorItemsNeverLeakAcrossTenantOrSourceAndProviderOnlyErrorsStayUnknown() {
+        list(file("indexed", "1"));
+        var indexedRun = finish(enqueue());
+        assertThat(process(dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery()))
+                .isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        UUID item = jdbc.sql("SELECT id FROM connector_items WHERE tenant_id=:tenant")
+                .param("tenant", tenant.value()).query(UUID.class).single();
+        var foreignTenant = new TenantId(UUID.randomUUID());
+        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
+        jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES (:id,'foreign','Foreign','ACTIVE','FOREIGN-HISTORY-TEST')")
+                .param("id", foreignTenant.value()).update();
+        var foreignOwner = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id) VALUES (:id) ON CONFLICT DO NOTHING").param("id", foreignOwner.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES (:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", foreignTenant.value()).param("actor", foreignOwner.value()).update();
+        var otherSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PRIVATE, owner)));
+        var foreignSource = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(foreignTenant, foreignOwner, "Foreign", io.memoryos.connector.SourceAccess.PRIVATE, foreignOwner)));
+        for (var pair : List.of(otherSource, foreignSource)) {
+            var errorTenant = pair.sourceId().equals(otherSource.sourceId()) ? tenant : foreignTenant;
+            jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id")
+                    .param("id", pair.connectorId()).update();
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id")
+                    .param("id", pair.sourceId().value()).update();
+            jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
+                    .param("tenant", errorTenant.value()).param("source", pair.sourceId().value()).update();
+            UUID runId = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO source_sync_attempts(id,tenant_id,source_id,scope_revision,credential_revision,generation,status,completed_at)
+                    VALUES (:id,:tenant,:source,1,1,0,'FAILED',CURRENT_TIMESTAMP)
+                    """).param("id", runId).param("tenant", errorTenant.value()).param("source", pair.sourceId().value()).update();
+            jdbc.sql("""
+                    INSERT INTO source_run_errors(id,tenant_id,run_id,error_key,item_id,stage,code)
+                    VALUES (:id,:tenant,:run,'foreign-item',:item,'EXTRACTION','SOURCE_EXTRACTION_TIMEOUT')
+                    """).param("id", UUID.randomUUID()).param("tenant", errorTenant.value()).param("run", runId).param("item", item).update();
+            assertThat(queries.errors(errorTenant, pair.sourceId(), runId, null, 1).items()).singleElement().satisfies(error -> {
+                assertThat(error.code()).isEqualTo("SOURCE_EXTRACTION_TIMEOUT");
+                assertThat(error.currentItemStatus()).isNull();
+                assertThat(error.currentItemErrorCode()).isNull();
+                assertThat(error.currentItemLastIndexedAt()).isNull();
+            });
+        }
+        jdbc.sql("""
+                INSERT INTO source_run_errors(id,tenant_id,run_id,error_key,file_id,stage,code)
+                VALUES (:id,:tenant,:run,'provider-only','indexed','PROVIDER','SOURCE_GOOGLE_UNAVAILABLE')
+                """).param("id", UUID.randomUUID()).param("tenant", tenant.value()).param("run", indexedRun.id()).update();
+        assertThat(history.errors(owner, source, indexedRun.id(), null, 1).items()).singleElement().satisfies(error -> {
+            assertThat(error.itemId()).isNull();
+            assertThat(error.currentItemStatus()).isNull();
+            assertThat(error.currentItemErrorCode()).isNull();
+            assertThat(error.currentItemLastIndexedAt()).isNull();
+        });
     }
 
     @Test
@@ -224,7 +326,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(run(run.id()).counts().indexingSuperseded()).isZero();
         jdbc.sql("UPDATE google_drive_membership SET eligible=TRUE WHERE source_id=:source").param("source", source.value()).update();
         var retried = claimIndex();
-        tx.executeWithoutResult(_ -> attempts.retry(retried, "SOURCE_STORAGE_READ_UNAVAILABLE", 2, Duration.ofSeconds(1)));
+        tx.executeWithoutResult(_ -> attempts.retry(retried, "SOURCE_STORAGE_READ_UNAVAILABLE", null, null, 2, Duration.ofSeconds(1)));
         assertThat(run(run.id()).indexingStatus()).isEqualTo(SourceRunIndexingStatus.RETRY_SCHEDULED);
         assertThat(run(run.id()).counts().indexingFailed()).isZero();
         jdbc.sql("UPDATE index_attempts SET next_dispatch_at=CURRENT_TIMESTAMP-INTERVAL '1 second' WHERE id=:id").param("id", retried.operationId().value()).update();
@@ -234,7 +336,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(run(run.id()).indexingStatus()).isEqualTo(SourceRunIndexingStatus.RECOVERY_PENDING);
         jdbc.sql("UPDATE index_attempts SET lease_expires_at=CURRENT_TIMESTAMP+INTERVAL '1 minute' WHERE id=:id")
                 .param("id", exhausted.operationId().value()).update();
-        tx.executeWithoutResult(_ -> attempts.retry(exhausted, "SOURCE_STORAGE_READ_UNAVAILABLE", 2, Duration.ofSeconds(1)));
+        tx.executeWithoutResult(_ -> attempts.retry(exhausted, "SOURCE_STORAGE_READ_UNAVAILABLE", null, null, 2, Duration.ofSeconds(1)));
         assertThat(run(run.id()).counts().indexingFailed()).isEqualTo(1);
         assertThat(run(run.id()).completedAt()).isNotNull();
     }
@@ -274,7 +376,7 @@ class PostgresSourceRunHistoryTest {
         assertThat(next.totalItems()).isEqualTo(4);
         assertThat(history.list(owner, source, query(null, 2)).lastSuccessful().id()).isEqualTo(later.id());
         assertThatThrownBy(() -> history.list(owner, source, new SourceRunHistoryService.Query(page.nextCursor(), 2,
-                SourceRunStatus.FAILED, null, null, null))).isInstanceOf(SourceException.class);
+                Set.of(SourceRunStatus.FAILED), null, null, null))).isInstanceOf(SourceException.class);
         var foreign = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Other", io.memoryos.connector.SourceAccess.PUBLIC, null))).sourceId();
         assertThatThrownBy(() -> history.list(owner, foreign, query(page.nextCursor(), 2))).isInstanceOf(SourceException.class);
         assertThat(history.list(owner, foreign, query(null, 2)).totalItems()).isZero();
@@ -316,11 +418,16 @@ class PostgresSourceRunHistoryTest {
         jdbc.sql("UPDATE source_sync_attempts SET trigger_kind = 'SCHEDULED' WHERE id = :id")
                 .param("id", scheduled.id()).update();
         var first = history.list(owner, source, new SourceRunHistoryService.Query(null, 1,
-                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5)));
+                Set.of(SourceRunStatus.SUCCEEDED), SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5)));
         assertThat(first.items()).extracting(SourceRun::id).containsExactly(newest.id());
         assertThat(first.totalItems()).isEqualTo(2);
+        var combined = history.list(owner, source, new SourceRunHistoryService.Query(null, 5,
+                Set.of(SourceRunStatus.SUCCEEDED, SourceRunStatus.INDEXING), SourceRunTrigger.MANUAL,
+                start.plusSeconds(1), start.plusSeconds(5)));
+        assertThat(combined.items()).extracting(SourceRun::id).containsExactly(indexing.id(), newest.id(), oldest.id());
+        assertThat(combined.totalItems()).isEqualTo(3);
         var secondQuery = new SourceRunHistoryService.Query(first.nextCursor(), 1,
-                SourceRunStatus.SUCCEEDED, SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5));
+                Set.of(SourceRunStatus.SUCCEEDED), SourceRunTrigger.MANUAL, start.plusSeconds(1), start.plusSeconds(5));
         var second = history.list(owner, source, secondQuery);
         assertThat(second.items()).extracting(SourceRun::id).containsExactly(oldest.id());
         assertThat(second.totalItems()).isEqualTo(2);
@@ -483,7 +590,7 @@ class PostgresSourceRunHistoryTest {
 
     private SourceRun run(UUID id) { return history.get(owner, source, id); }
     private static SourceRunHistoryService.Query query(String cursor, int size) {
-        return new SourceRunHistoryService.Query(cursor, size, null, null, null, null);
+        return new SourceRunHistoryService.Query(cursor, size, Set.of(), null, null, null);
     }
     private void list(GoogleDriveProvider.FileMetadata... values) {
         listing = List.of(values);

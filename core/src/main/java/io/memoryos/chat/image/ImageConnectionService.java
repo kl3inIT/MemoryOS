@@ -34,11 +34,26 @@ public class ImageConnectionService {
     public record Input(String endpoint, String model, ProviderCredentials.Change credential, long revision) {
         @Override public @NonNull String toString() { return "ImageConnectionInput[redacted]"; }
     }
-    public record Connection(UUID id, UUID tenantId, ImageProvider provider, String endpoint, String model,
+    public record Connection(@Nullable UUID id, UUID tenantId, ImageProvider provider, String endpoint, String model,
                              @Nullable String encryptedCredential, long revision) {
         @Override public @NonNull String toString() { return "ImageConnection[redacted]"; }
     }
+    /** Unsaved connection details to probe; a missing credentialValue falls back to the stored key. */
+    public record ProbeInput(String endpoint, String model, @Nullable String credentialValue) {
+        @Override public @NonNull String toString() { return "ImageProbeInput[redacted]"; }
+    }
+    /** A validated connection to test; credential is the supplied plaintext key, null when the stored key applies. */
+    public record Probe(Connection connection, @Nullable String credential) {
+        @Override public @NonNull String toString() { return "ImageConnectionProbe[redacted]"; }
+    }
     public record Access(@Nullable Connection generate) {}
+
+    /** Installed protocols and their published models; model managers only. */
+    @Transactional(readOnly = true)
+    public List<ImageProvider> providers(ActorId actor) {
+        authorization.require(actor, IamCapability.MODELS_MANAGE, false);
+        return List.of(ImageProvider.values());
+    }
 
     @Transactional(readOnly = true)
     public List<View> list(ActorId actor) {
@@ -52,11 +67,14 @@ public class ImageConnectionService {
         if (input == null || input.endpoint() == null || input.model() == null || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
         if (input.model().isBlank()) throw ChatException.invalid("An image model is required.");
-        if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
+        var endpoint = provider.normalizeEndpoint(input.endpoint());
+        if (provider.endpointRequired() && endpoint.isBlank())
+            throw ChatException.invalid("This image provider requires an endpoint.");
+        if (!endpoint.isEmpty()) ModelCatalogService.validateEndpoint(endpoint);
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new ImageConnectionEntity(tenant, provider));
         if (entity.revision() != input.revision()) throw ChatException.conflict();
         String credential = credentials.update(tenant, entity.id(), entity.credential(), input.credential());
-        entity.configure(input.endpoint(), input.model(), credential);
+        entity.configure(endpoint, input.model(), credential);
         if (provider.requiresKey() && !credentials.configured(credential)) entity.select(false);
         return view(connections.saveAndFlush(entity));
     }
@@ -76,12 +94,32 @@ public class ImageConnectionService {
         if (selected != null) selected.select(true);
     }
 
+    /**
+     * Connection to test; a null input tests the saved connection, otherwise the supplied endpoint/model
+     * are validated like a save but never persisted, and a supplied credential replaces the stored key.
+     */
     @Transactional(readOnly = true)
-    public Connection forTest(ActorId actor, ImageProvider provider) {
+    public Probe forTest(ActorId actor, ImageProvider provider, @Nullable ProbeInput input) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
-        var connection = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(ChatException::unavailable);
-        if (!usable(connection)) throw ChatException.providerUnavailable();
-        return snapshot(connection);
+        var stored = connections.findByTenantIdAndProvider(tenant, provider).orElse(null);
+        if (input == null) {
+            if (stored == null || !usable(stored)) throw ChatException.providerUnavailable();
+            return new Probe(snapshot(stored), null);
+        }
+        if (input.endpoint() == null || input.model() == null || input.model().isBlank() || input.model().length() > 200)
+            throw ChatException.invalid("Invalid image connection.");
+        var endpoint = provider.normalizeEndpoint(input.endpoint());
+        if (provider.endpointRequired() && endpoint.isBlank())
+            throw ChatException.invalid("This image provider requires an endpoint.");
+        if (!endpoint.isEmpty()) ModelCatalogService.validateEndpoint(endpoint);
+        String key = input.credentialValue();
+        boolean override = key != null && !key.isBlank();
+        if (override && key.length() > 8192) throw ChatException.invalid("Invalid provider credential.");
+        if (!override && provider.requiresKey() && (stored == null || !credentials.configured(stored.credential())))
+            throw ChatException.invalid("An API key is required to test this provider.");
+        var connection = new Connection(stored == null ? null : stored.id(), tenant, provider, endpoint,
+                input.model(), override || stored == null ? null : stored.credential(), stored == null ? 0 : stored.revision());
+        return new Probe(connection, override ? key.trim() : null);
     }
 
     @Transactional(readOnly = true)
@@ -91,7 +129,8 @@ public class ImageConnectionService {
         return new Access(all.stream().filter(c -> c.active() && usable(c)).findFirst().map(this::snapshot).orElse(null));
     }
     public String key(Connection connection) {
-        return credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
+        return connection.encryptedCredential() == null ? ""
+            : credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }
     private boolean usable(ImageConnectionEntity c) { return !c.provider().requiresKey() || credentials.configured(c.credential()); }
     private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), credentials.configured(c.credential()), c.active(), c.revision()); }

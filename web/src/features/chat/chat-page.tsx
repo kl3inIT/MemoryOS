@@ -15,6 +15,7 @@ import {
   getChatFeedback,
   getChatProject,
   getChatSettings,
+  getChatImageAvailability,
   getChatWebAvailability,
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted } from "@/lib/hey-api/types.gen";
@@ -174,6 +175,12 @@ function ChatConversation({
           throwOnError: true,
         })
       ).data,
+    retry: false,
+  });
+  const imageAvailability = useQuery({
+    queryKey: ["chat-image", applicationSession.actorId, applicationSession.authorizationVersion],
+    queryFn: async ({ signal }) =>
+      (await getChatImageAvailability({ signal, throwOnError: true })).data,
     retry: false,
   });
   // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
@@ -410,6 +417,11 @@ function ChatConversation({
                       : undefined
                   }
                   image={{
+                    available: imageAvailability.data?.available === true,
+                    pending: imageAvailability.isPending,
+                    onRetry: imageAvailability.isError
+                      ? () => void imageAvailability.refetch()
+                      : undefined,
                     value: shownImage,
                     onChange: (mode) => {
                       transport.selectImage(mode);

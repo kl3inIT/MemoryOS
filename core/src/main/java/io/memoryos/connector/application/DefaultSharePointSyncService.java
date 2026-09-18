@@ -117,20 +117,22 @@ public class DefaultSharePointSyncService {
                 return walk(work, run, connection.session(), tenantHost);
             }
         } catch (StaleSyncException exception) {
-            settle(work, () -> runs.terminal(work, "SUPERSEDED", null));
+            settle(work, () -> runs.terminal(work, "SUPERSEDED", null, null, null));
             return Result.SUPERSEDED;
         } catch (SharePointProviderException exception) {
             String code = "SOURCE_SHAREPOINT_" + exception.failure().name();
             if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION) {
                 settle(work, () -> connections.authenticationFailed(work.tenantId(),
                         sharePoint.credentialId(work.tenantId(), work.sourceId()), work.credentialRevision()));
-                settle(work, () -> runs.terminal(work, "FAILED", code));
+                settle(work, () -> runs.terminal(work, "FAILED", code, exception.getMessage(),
+                        io.memoryos.FailureEvidence.detail(exception)));
             } else {
                 settle(work, () -> runs.retry(work, code));
             }
             return Result.FAILED;
         } catch (io.memoryos.BusinessException exception) {
-            settle(work, () -> runs.terminal(work, "FAILED", "SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE"));
+            settle(work, () -> runs.terminal(work, "FAILED", "SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE",
+                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             return Result.FAILED;
         } catch (RuntimeException exception) {
             LOGGER.atWarn().addKeyValue("event", "sharepoint.sync.run.failed")

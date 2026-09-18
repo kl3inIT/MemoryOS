@@ -200,7 +200,7 @@ final class GoogleDriveLinkedDiscovery {
     static boolean supported(String mimeType) { return SUPPORTED.contains(mimeType); }
 
     private void inputError(String id, String name, GoogleDriveProviderException exception) {
-        if (exception.failure() == Failure.AUTHENTICATION || exception.failure() == Failure.QUOTA
+        if (exception.requiresReconnect() || exception.failure() == Failure.QUOTA
                 || exception.failure() == Failure.LIMIT_EXCEEDED) throw exception;
         errors.add(new DiscoveryError(id, bounded(name, 255), "SOURCE_GOOGLE_" + exception.failure().name()));
     }

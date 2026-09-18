@@ -109,9 +109,6 @@ export const vi = {
     signOutFailed: "Không thể đăng xuất. Vui lòng thử lại.",
   },
   identity: {
-    signIn: "Đăng nhập MemoryOS",
-    signInDescription: "Dùng tài khoản công ty để mở không gian làm việc.",
-    companyAccount: "Tiếp tục với tài khoản công ty",
     notProvisioned: "Bạn chưa được cấp quyền truy cập.",
     notProvisionedDescription:
       "Danh tính đã được xác thực nhưng chưa được thêm vào tổ chức trên MemoryOS. Hãy liên hệ chủ tổ chức hoặc dùng tài khoản khác.",

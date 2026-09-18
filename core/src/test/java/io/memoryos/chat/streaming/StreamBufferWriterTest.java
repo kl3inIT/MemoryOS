@@ -60,6 +60,31 @@ class StreamBufferWriterTest {
     }
 
     @Test
+    void aLiveReaderInTheWritingProcessWakesOnTheWriteInsteadOfThePollInterval() throws Exception {
+        // As Onyx's attached response reads its in-memory tee: a 5-second poll must not delay a live token.
+        var slowPoll = new ChatStreamProperties(65536, Duration.ofMinutes(60), Duration.ofMinutes(10), 32, Duration.ofMillis(25),
+                2, 4, 65536, Duration.ofSeconds(5), Duration.ofSeconds(30), Duration.ofMinutes(1));
+        var writer = new StreamBufferWriter(redis, slowPoll);
+        var id = UUID.randomUUID();
+        writer.open(id);
+        writer.append(id, "first");
+        writer.flush();
+        try (var reader = writer.subscribe(id, 1, () -> true)) {
+            var started = System.nanoTime();
+            var pending = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try { return reader.read(); }
+                catch (InterruptedException interrupted) { throw new IllegalStateException(interrupted); }
+            });
+            Thread.sleep(150);
+            writer.append(id, "second");
+            writer.flush();
+            var batch = pending.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals("second", batch.events().getFirst().text());
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 2000);
+        }
+    }
+
+    @Test
     void reasoningChunksSeparatelyFromTextAndKeepsPublicationOrder() throws Exception {
         var writer = new StreamBufferWriter(redis, limits);
         var id = UUID.randomUUID();

@@ -289,7 +289,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
 
     @Override
     @Transactional
-    public boolean retry(IndexWork work, String errorCode, int maxAttempts, Duration backoff) {
+    public boolean retry(IndexWork work, String errorCode, @Nullable String errorMessage,
+            @Nullable String errorDetail, int maxAttempts, Duration backoff) {
         if (!lockSource(work)) return false;
         WorkLeases.RetryOutcome outcome = WorkLeases.retry(
                 jdbcClient,
@@ -298,6 +299,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 work.operationId().value(),
                 work.claimToken(),
                 errorCode,
+                errorMessage,
+                errorDetail,
                 maxAttempts,
                 backoff
         );
@@ -351,19 +354,23 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
 
     @Override
     @Transactional
-    public boolean fail(IndexWork work, String errorCode) {
+    public boolean fail(IndexWork work, String errorCode, @Nullable String errorMessage,
+            @Nullable String errorDetail) {
         if (!lockSource(work)) return false;
         String safeCode = WorkLeases.safeErrorCode(errorCode);
         int updated = jdbcClient.sql("""
                         UPDATE index_attempts
                         SET status = 'FAILED', completed_at = CURRENT_TIMESTAMP,
-                            claim_token = NULL, lease_expires_at = NULL, error_code = :errorCode
+                            claim_token = NULL, lease_expires_at = NULL, error_code = :errorCode,
+                            error_message = :errorMessage, error_detail = :errorDetail
                         WHERE tenant_id = :tenantId
                           AND id = :attemptId
                           AND status = 'IN_PROGRESS'
                           AND claim_token = :claimToken
                         """)
                 .param("errorCode", safeCode)
+                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
+                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
                 .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())

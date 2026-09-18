@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
+    const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
@@ -48,13 +49,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
               ? "web"
               : voiceSelected
                 ? "voice"
-                : interpreterSelected
-                  ? "interpreter"
-                  : mcpSelected
-                    ? "mcp"
-                    : agentsSelected
-                      ? "agents"
-                      : "sources";
+                : imageGenerationSelected
+                  ? "images"
+                  : interpreterSelected
+                    ? "interpreter"
+                    : mcpSelected
+                      ? "mcp"
+                      : agentsSelected
+                        ? "agents"
+                        : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -62,7 +65,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "providers"
             ? canManageProviders
-            : page === "models" || page === "web" || page === "voice" || page === "interpreter"
+            : page === "models" ||
+                page === "web" ||
+                page === "voice" ||
+                page === "images" ||
+                page === "interpreter"
               ? canManageModels
               : page === "mcp"
                 ? canManageMcp
@@ -91,13 +98,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
                     ? "Tìm kiếm Web"
                     : page === "voice"
                       ? "Giọng nói"
-                      : page === "interpreter"
-                        ? "Code Interpreter"
-                        : page === "mcp"
-                          ? "Máy chủ MCP"
-                          : page === "agents"
-                            ? "Quản lý trợ lý"
-                            : "Sources",
+                      : page === "images"
+                        ? "Tạo ảnh"
+                        : page === "interpreter"
+                          ? "Code Interpreter"
+                          : page === "mcp"
+                            ? "Máy chủ MCP"
+                            : page === "agents"
+                              ? "Quản lý trợ lý"
+                              : "Sources",
         )}
         sourceSetupStep={sourceSetupStep}
       >

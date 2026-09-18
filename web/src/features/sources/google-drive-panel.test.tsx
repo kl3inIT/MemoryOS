@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Tabs } from "@/components/ui/tabs";
 import { ActionNotifications } from "@/components/ui/action-notifications";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
@@ -31,7 +32,7 @@ const source: SourceSummary = {
   id: "46337ebd-a134-41de-b322-196cd9be22c4",
   name: "Team Drive",
   type: "GOOGLE_DRIVE",
-  access: "RESTRICTED",
+  access: "PRIVATE",
   status: "ACTIVE",
   pendingWork: false,
   documentCount: 0,
@@ -70,7 +71,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
+function setup(
+  initial: Partial<GetGoogleDriveConfigurationResponse> = {},
+  activeSection = "content",
+) {
   let configuration: GetGoogleDriveConfigurationResponse = {
     sourceId: source.id,
     credentialId: "81c51573-31a9-4e67-91c5-f276960c94af",
@@ -301,6 +305,7 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
           completedAt: "2026-09-08T10:00:01Z",
           errorCode: null,
         });
+      if (url.pathname.endsWith("/groups")) return Response.json({ items: [] });
       throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
     }),
   );
@@ -311,11 +316,16 @@ function setup(initial: Partial<GetGoogleDriveConfigurationResponse> = {}) {
       <QueryClientProvider client={queryClient}>
         <ApplicationSessionProvider session={session}>
           <ActionNotifications>
-            <GoogleDrivePanel
-              source={currentSource}
-              sourceStale={sourceStale}
-              onBusyChange={() => {}}
-            />
+            <Tabs value={activeSection}>
+              <GoogleDrivePanel
+                source={currentSource}
+                sourceStale={sourceStale}
+                onBusyChange={() => {}}
+                activeSection={activeSection}
+                content={null}
+                settings={null}
+              />
+            </Tabs>
           </ActionNotifications>
         </ApplicationSessionProvider>
       </QueryClientProvider>
@@ -429,26 +439,27 @@ describe("Google Drive enterprise selection", () => {
       manageConfiguration: false,
       removeItems: false,
     });
-    expect(
-      screen.queryByRole("spinbutton", { name: "Interval in minutes" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: "Sync every" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Synchronize now" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pause automatic sync" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("switch", { name: "Automatic synchronization" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Source summary")).toBeVisible();
   });
 
   it("loads the full draft separately and preserves hidden approvals through cursor pages and search", async () => {
     const user = userEvent.setup();
     const server = setup();
-    await user.selectOptions(
-      await screen.findByRole("combobox", { name: "Content type" }),
-      "LINKED",
-    );
+    await user.click(await screen.findByRole("button", { name: "Filter selected content" }));
+    await user.click(await screen.findByRole("combobox", { name: "Content type" }));
+    await user.click(await screen.findByRole("option", { name: "Linked documents" }));
+    await user.keyboard("{Escape}");
     const input = await edit(user);
     expect(input).toHaveFocus();
     await user.click(await screen.findByRole("checkbox", { name: "Sync Budget" }));
     await user.click(screen.getByRole("button", { name: "Next selection page" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Research" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Show search" }));
     await user.type(screen.getByRole("textbox", { name: "Search selected content" }), "Budget");
     await user.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Budget" })).toBeChecked();
@@ -552,7 +563,7 @@ describe("Google Drive enterprise selection", () => {
     const user = userEvent.setup();
     const server = setup();
     await user.click(await screen.findByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "1.5");
     expect(screen.getByRole("button", { name: "Save interval" })).toBeDisabled();
@@ -575,7 +586,7 @@ describe("Google Drive enterprise selection", () => {
     await user.clear(input);
     await user.paste(secondLink);
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    const interval = screen.getByRole("spinbutton", { name: "Interval in minutes" });
+    const interval = screen.getByRole("spinbutton", { name: "Sync every" });
     await user.clear(interval);
     await user.type(interval, "15");
     server.setConfiguration({ scheduleRevision: 4, syncIntervalMinutes: 30 });
@@ -593,7 +604,7 @@ describe("Google Drive enterprise selection", () => {
     expect(input).toHaveValue(secondLink);
     server.failSchedule();
     await user.click(screen.getByRole("button", { name: "Save interval" }));
-    expect(await screen.findByText("1 minute")).toBeVisible();
+    expect(await screen.findByText("Every 1 minute")).toBeVisible();
     expect(input).toHaveValue(secondLink);
   });
 
@@ -605,12 +616,12 @@ describe("Google Drive enterprise selection", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synchronize now" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Edit interval" }));
-    expect(screen.getByRole("spinbutton", { name: "Interval in minutes" })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: "Sync every" })).toBeEnabled();
   });
 
   it("never caches owner-supplied OAuth secrets and ignores late authorization after actor change", async () => {
     const user = userEvent.setup();
-    const server = setup();
+    const server = setup({}, "settings");
     await user.click(await screen.findByText("Manage connection"));
     await user.click(screen.getByRole("checkbox", { name: "Replace OAuth app on reconnect" }));
     const input = screen.getByRole("textbox", { name: "Upload or paste OAuth app JSON" });

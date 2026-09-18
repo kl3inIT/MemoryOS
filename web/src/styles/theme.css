@@ -76,6 +76,16 @@
   --color-status-warning-content: var(--status-warning-content);
   --color-status-info-surface: var(--status-info-surface);
   --color-status-info-content: var(--status-info-content);
+  --color-status-danger-emphasis: var(--status-danger-emphasis);
+  --color-status-success-emphasis: var(--status-success-emphasis);
+  --color-status-warning-emphasis: var(--status-warning-emphasis);
+  --color-status-info-emphasis: var(--status-info-emphasis);
+  --color-status-neutral-emphasis: var(--status-neutral-emphasis);
+  --color-status-danger-emphasis-border: var(--status-danger-emphasis-border);
+  --color-status-success-emphasis-border: var(--status-success-emphasis-border);
+  --color-status-warning-emphasis-border: var(--status-warning-emphasis-border);
+  --color-status-info-emphasis-border: var(--status-info-emphasis-border);
+  --color-status-neutral-emphasis-border: var(--status-neutral-emphasis-border);
   --color-evidence-highlight-surface: var(--evidence-highlight-surface);
   --color-evidence-highlight-border: var(--evidence-highlight-border);
   --color-pdf-highlight: var(--pdf-highlight);

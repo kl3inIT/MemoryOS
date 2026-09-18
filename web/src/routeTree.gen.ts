@@ -23,6 +23,7 @@ import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
+import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
@@ -115,6 +116,12 @@ const AuthenticatedAdminIdentityProvidersRoute =
   AuthenticatedAdminIdentityProvidersRouteImport.update({
     id: '/identity-providers',
     path: '/identity-providers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminImageGenerationRoute =
+  AuthenticatedAdminImageGenerationRouteImport.update({
+    id: '/image-generation',
+    path: '/image-generation',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminMcpRoute = AuthenticatedAdminMcpRouteImport.update({
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -286,6 +294,7 @@ export interface FileRoutesByTo {
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
+    | '/admin/image-generation'
     | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
+    | '/admin/image-generation'
     | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
@@ -428,6 +440,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
+    | '/_authenticated/admin/image-generation'
     | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
@@ -557,6 +570,13 @@ declare module '@tanstack/react-router' {
       path: '/identity-providers'
       fullPath: '/admin/identity-providers'
       preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/image-generation': {
+      id: '/_authenticated/admin/image-generation'
+      path: '/image-generation'
+      fullPath: '/admin/image-generation'
+      preLoaderRoute: typeof AuthenticatedAdminImageGenerationRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/mcp': {
@@ -772,6 +792,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
+  AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -789,6 +810,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
+  AuthenticatedAdminImageGenerationRoute:
+    AuthenticatedAdminImageGenerationRoute,
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,

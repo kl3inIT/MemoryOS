@@ -192,6 +192,7 @@ public class JdbcSourceRepository {
                 .param("name", name).update();
     }
 
+    /** FILE and Google Drive Sources change access; only Google Drive has provider permissions for SYNC. */
     public void updateAccess(TenantId tenantId, SourceId sourceId, SourceAccess access) {
         int updated = jdbcClient.sql("""
                 UPDATE connector_credential_pairs pair
@@ -199,10 +200,11 @@ public class JdbcSourceRepository {
                 WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
                   AND EXISTS (SELECT 1 FROM connectors connector
                     WHERE connector.tenant_id = pair.tenant_id AND connector.id = pair.connector_id
-                      AND connector.connector_type = 'FILE')
+                      AND (connector.connector_type = 'GOOGLE_DRIVE'
+                        OR (connector.connector_type = 'FILE' AND :access <> 'SYNC')))
                 """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
                 .param("access", access.name()).update();
-        if (updated != 1) throw SourceException.conflict("access changes require a FILE source");
+        if (updated != 1) throw SourceException.conflict("Auto Sync requires a Google Drive source");
         events.publishEvent(new io.memoryos.connector.SourceAccessChanged(tenantId, sourceId));
     }
 

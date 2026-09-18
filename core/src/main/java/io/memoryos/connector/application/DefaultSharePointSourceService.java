@@ -9,6 +9,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
@@ -91,9 +92,9 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         Objects.requireNonNull(requestId, "requestId");
         policy.requireScope(scope);
         policy.requireSize(sourceName, scope);
-        var tenant = sourceAccess.creation(actor, access, groupIds).authority().tenantId();
+        var tenant = sourceAccess.creation(actor, SourceType.SHAREPOINT, access, groupIds).authority().tenantId();
         return Objects.requireNonNull(transactions.execute(_ -> {
-            var creation = sourceAccess.lockCreation(actor, access, groupIds);
+            var creation = sourceAccess.lockCreation(actor, SourceType.SHAREPOINT, access, groupIds);
             if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
             var groups = creation.groupIds().stream()
                     .sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
@@ -244,7 +245,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         var source = work.sourceId();
         if (intent.name() != null) {
             var access = Objects.requireNonNull(intent.access());
-            var creation = sourceAccess.creation(intent.actorId(), access, intent.groupIds());
+            var creation = sourceAccess.creation(intent.actorId(), SourceType.SHAREPOINT, access, intent.groupIds());
             sharePoint.create(tenant, source, intent.actorId(),
                     creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId(), intent.name(),
                     new CredentialId(Objects.requireNonNull(intent.credentialId())), access, scope, roots, tenantHost);

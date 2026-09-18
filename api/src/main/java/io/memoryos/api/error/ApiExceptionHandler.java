@@ -43,8 +43,8 @@ final class ApiExceptionHandler {
     @ExceptionHandler(GoogleDriveProviderException.class)
     ProblemDetail handleGoogleDriveFailure(GoogleDriveProviderException exception) {
         HttpStatus status = switch (exception.failure()) {
-            case AUTHENTICATION, INCONSISTENT -> HttpStatus.CONFLICT;
-            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case AUTHENTICATION, SCOPE_INSUFFICIENT, INCONSISTENT -> HttpStatus.CONFLICT;
+            case NOT_FOUND, ACCESS_DENIED -> HttpStatus.NOT_FOUND;
             case UNSUPPORTED, MALFORMED, LIMIT_EXCEEDED -> HttpStatus.BAD_REQUEST;
             case QUOTA, UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };

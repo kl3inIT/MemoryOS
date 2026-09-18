@@ -6,6 +6,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
+import io.memoryos.connector.GoogleDriveProvider.Permission;
+import io.memoryos.connector.GoogleDriveProvider.PermissionDetail;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
 import io.memoryos.connector.SourceInputFormat;
 import java.io.ByteArrayInputStream;
@@ -15,6 +17,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +50,220 @@ class RestGoogleDriveProviderTest {
                         () -> session.listFiles(parent, null)).failure());
             }
             assertEquals(requests, fixture.requests.size());
+        }
+    }
+
+    @Test
+    void permissionsTraverseEveryPageAndPreserveSharingPrincipalsWithoutExpandingGroups() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("/files/shared-file/permissions", exchange.getRequestURI().getPath());
+            assertEquals("GET", exchange.getRequestMethod());
+            assertEquals("Bearer access", exchange.getRequestHeaders().getFirst("Authorization"));
+            String query = decodedQuery(exchange);
+            assertTrue(query.contains("supportsAllDrives=true"));
+            assertTrue(query.contains("pageSize=100"));
+            assertTrue(query.contains("fields=nextPageToken,permissions(id,type,role,emailAddress,domain,expirationTime,"
+                    + "allowFileDiscovery,deleted,pendingOwner,permissionDetails(permissionType,role,inheritedFrom,inherited),"
+                    + "view,inheritedPermissionsDisabled)"));
+            assertFalse(query.contains("useDomainAdminAccess"));
+            if (query.contains("pageToken=next /+")) return ok("""
+                    {"permissions":[
+                      {"id":"domain:example.test","type":"domain","role":"reader","domain":"example.test","allowFileDiscovery":true},
+                      {"id":"anyoneWithLink","type":"anyone","role":"reader","allowFileDiscovery":false,
+                       "view":"metadata","inheritedPermissionsDisabled":true}]}
+                    """);
+            return ok("""
+                    {"nextPageToken":"next /+","permissions":[
+                      {"id":"user:123","type":"user","role":"writer","emailAddress":"Owner@Example.test",
+                       "expirationTime":"2026-08-01T00:00:00Z","deleted":false,"pendingOwner":true,
+                       "permissionDetails":[{"permissionType":"file","role":"writer","inherited":false}]},
+                      {"id":"group:456","type":"group","role":"organizer","emailAddress":"Team@Example.test","deleted":true,
+                       "permissionDetails":[
+                         {"permissionType":"member","role":"organizer","inheritedFrom":"shared-drive","inherited":true},
+                         {"permissionType":"file","role":"commenter","inherited":false}]}]}
+                    """);
+        }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+                fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
+             var credential = credential(); var session = provider.open(credential)) {
+            var permissions = session.permissions("shared-file");
+            assertEquals(List.of(
+                    new Permission("user:123", "user", "writer", "Owner@Example.test", null,
+                            Instant.parse("2026-08-01T00:00:00Z"), null, false, true,
+                            List.of(new PermissionDetail("file", "writer", null, false)), null, null),
+                    new Permission("group:456", "group", "organizer", "Team@Example.test", null, null, null, true, null,
+                            List.of(new PermissionDetail("member", "organizer", "shared-drive", true),
+                                    new PermissionDetail("file", "commenter", null, false)), null, null),
+                    new Permission("domain:example.test", "domain", "reader", null, "example.test", null, true, null,
+                            null, List.of(), null, null),
+                    new Permission("anyoneWithLink", "anyone", "reader", null, null, null, false, null, null,
+                            List.of(), "metadata", true)), permissions);
+            assertThrows(UnsupportedOperationException.class, permissions::clear);
+            assertThrows(UnsupportedOperationException.class, permissions.getFirst().permissionDetails()::clear);
+            assertEquals(3, fixture.requests.size());
+            assertEquals(List.of("grant_type=refresh_token&client_id=client.apps.googleusercontent.com"
+                    + "&client_secret=secret&refresh_token=refresh"), fixture.tokenForms);
+            String rendered = permissions.toString() + permissions.get(1).permissionDetails();
+            assertFalse(rendered.contains("Example.test"));
+            assertFalse(rendered.contains("shared-drive"));
+            assertFalse(rendered.contains("user:123"));
+        }
+    }
+
+    @Test
+    void permissionOnlyChangesReuseTheOpenGrantWithoutAcquiringContentOrCachingAcl() throws Exception {
+        AtomicInteger observations = new AtomicInteger();
+        try (var fixture = new Fixture(exchange -> {
+            assertEquals("Bearer access", exchange.getRequestHeaders().getFirst("Authorization"));
+            if (exchange.getRequestURI().getPath().equals("/files/file1")) return ok(metadata("text/plain", "1"));
+            assertEquals("/files/file1/permissions", exchange.getRequestURI().getPath());
+            return observations.incrementAndGet() == 1 ? ok("""
+                    {"permissions":[{"id":"reader","type":"user","role":"reader","emailAddress":"reader@example.test"}]}
+                    """) : ok("{\"permissions\":[]}");
+        }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            var before = session.metadata("file1");
+            assertEquals("reader", session.permissions("file1").getFirst().id());
+            assertEquals(before, session.metadata("file1"));
+            assertEquals(List.of(), session.permissions("file1"));
+            assertEquals(1, fixture.tokenForms.size());
+            assertEquals(5, fixture.requests.size());
+        }
+    }
+
+    @Test
+    void laterPermissionPageFailuresNeverReturnTheFirstPageAsACompleteSnapshot() throws Exception {
+        int[] statuses = {401, 403, 404, 429, 503};
+        Failure[] failures = {Failure.AUTHENTICATION, Failure.ACCESS_DENIED, Failure.NOT_FOUND, Failure.QUOTA, Failure.UNAVAILABLE};
+        for (int index = 0; index < statuses.length; index++) {
+            int status = statuses[index];
+            try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("pageToken=next")
+                    ? new Response(status, bytes("{\"error\":{\"message\":\"reader@example.test access\"}}"))
+                    : ok("{\"nextPageToken\":\"next\",\"permissions\":[{\"id\":\"reader\",\"type\":\"user\",\"role\":\"reader\"}]}"));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                var error = assertThrows(GoogleDriveProviderException.class, () -> session.permissions("file1"));
+                assertEquals(failures[index], error.failure());
+                assertFalse(error.toString().contains("reader@example.test"));
+                assertEquals(3, fixture.requests.size());
+            }
+        }
+    }
+
+    @Test
+    void forbiddenReasonsSeparateMissingScopeFromUnreadableSharingAndUnavailableFiles() throws Exception {
+        String scope = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"insufficientPermissions\"}]}}";
+        String scopeDetail = "{\"error\":{\"code\":403,\"status\":\"PERMISSION_DENIED\",\"details\":["
+                + "{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"ACCESS_TOKEN_SCOPE_INSUFFICIENT\"}]}}";
+        String sharing = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"insufficientFilePermissions\"}]}}";
+        String quota = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"userRateLimitExceeded\"}]}}";
+        record Case(String body, boolean permissions, Failure expected) {}
+        for (var example : List.of(
+                new Case(scope, true, Failure.SCOPE_INSUFFICIENT),
+                new Case(scopeDetail, true, Failure.SCOPE_INSUFFICIENT),
+                new Case(sharing, true, Failure.ACCESS_DENIED),
+                new Case(quota, true, Failure.QUOTA),
+                new Case(scope, false, Failure.SCOPE_INSUFFICIENT),
+                new Case(sharing, false, Failure.NOT_FOUND))) {
+            try (var fixture = new Fixture(exchange -> new Response(403, bytes(example.body())));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                var error = assertThrows(GoogleDriveProviderException.class, () -> {
+                    if (example.permissions()) session.permissions("file1");
+                    else session.metadata("file1");
+                });
+                assertEquals(example.expected(), error.failure(), example.toString());
+            }
+        }
+    }
+
+    @Test
+    void duplicatePermissionIdsAndCyclicPageTokensRejectAmbiguousSnapshots() throws Exception {
+        String entry = "{\"id\":\"reader\",\"type\":\"user\",\"role\":\"reader\"}";
+        List<List<String>> pages = List.of(
+                List.of("{\"permissions\":[" + entry + "," + entry + "]}"),
+                List.of("{\"nextPageToken\":\"next\",\"permissions\":[" + entry + "]}",
+                        "{\"permissions\":[" + entry + "]}"),
+                List.of("{\"nextPageToken\":\"a\",\"permissions\":[]}",
+                        "{\"nextPageToken\":\"a\",\"permissions\":[]}"),
+                List.of("{\"nextPageToken\":\"a\",\"permissions\":[]}",
+                        "{\"nextPageToken\":\"b\",\"permissions\":[]}",
+                        "{\"nextPageToken\":\"a\",\"permissions\":[]}"));
+        for (var responses : pages) {
+            AtomicInteger page = new AtomicInteger();
+            try (var fixture = new Fixture(exchange -> ok(responses.get(page.getAndIncrement())));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                assertEquals(Failure.INCONSISTENT, assertThrows(GoogleDriveProviderException.class,
+                        () -> session.permissions("file1")).failure());
+                assertEquals(responses.size(), page.get());
+            }
+        }
+    }
+
+    @Test
+    void malformedPermissionPagesCannotMasqueradeAsEmptyOrCompletePermissions() throws Exception {
+        List<String> malformed = List.of(
+                "{}", "{\"permissions\":null}", "{\"permissions\":{}}", "{\"permissions\":[null]}",
+                "{\"permissions\":[],\"nextPageToken\":12}", "{\"permissions\":[],\"nextPageToken\":\" \"}",
+                "{\"permissions\":[]} {\"permissions\":[]}", "{\"permissions\":[],\"permissions\":[]}",
+                "{\"permissions\":[{\"id\":12,\"type\":\"user\",\"role\":\"reader\"}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\" \"}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\"}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"emailAddress\":12}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"deleted\":\"false\"}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"expirationTime\":\"invalid\"}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"permissionDetails\":{}}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"permissionDetails\":[true]}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"permissionDetails\":[{\"inherited\":0}]}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"view\":true}]}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"inheritedPermissionsDisabled\":\"true\"}]}");
+        for (String response : malformed) {
+            try (var fixture = new Fixture(exchange -> decodedQuery(exchange).contains("pageToken=next")
+                    ? ok(response) : ok("{\"nextPageToken\":\"next\",\"permissions\":[{\"id\":\"first\",\"type\":\"user\",\"role\":\"owner\"}]}"));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                assertEquals(Failure.MALFORMED, assertThrows(GoogleDriveProviderException.class,
+                        () -> session.permissions("file1")).failure());
+            }
+        }
+    }
+
+    @Test
+    void permissionTraversalSharesRequestAndCumulativeByteBudgetsAcrossPages() throws Exception {
+        AtomicInteger pages = new AtomicInteger();
+        try (var fixture = new Fixture(exchange -> ok("{\"nextPageToken\":\"page-" + pages.incrementAndGet() + "\",\"permissions\":[]}"));
+             var provider = provider(fixture, 0, 2); var credential = credential(); var session = provider.open(credential)) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
+                    () -> session.permissions("file1")).failure());
+            assertEquals(2, pages.get());
+        }
+        String first = "{\"nextPageToken\":\"next\",\"permissions\":[{\"id\":\"first\",\"type\":\"user\",\"role\":\"reader\"}]}";
+        String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
+        try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
+             var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
+             var credential = credential(); var session = provider.open(credential)) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
+                    () -> session.permissions("file1")).failure());
+            assertEquals(3, fixture.requests.size());
+        }
+    }
+
+    @Test
+    void permissionLimitsRejectOversizedPagesFieldsAndBodiesBeforeReturningData() throws Exception {
+        String entry = "{\"id\":\"reader\",\"type\":\"user\",\"role\":\"reader\"}";
+        List<String> oversized = List.of(
+                "{\"permissions\":[" + String.join(",", Collections.nCopies(101, entry)) + "]}",
+                "{\"permissions\":[],\"nextPageToken\":\"" + "t".repeat(16_385) + "\"}",
+                "{\"permissions\":[{\"id\":\"x\",\"type\":\"user\",\"role\":\"reader\",\"emailAddress\":\"" + "x".repeat(16_385) + "\"}]}");
+        for (String response : oversized) {
+            try (var fixture = new Fixture(exchange -> ok(response));
+                 var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
+                        () -> session.permissions("file1")).failure());
+            }
+        }
+        try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
+             var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
+                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
+             var credential = credential(); var session = provider.open(credential)) {
+            assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
+                    () -> session.permissions("file1")).failure());
         }
     }
 

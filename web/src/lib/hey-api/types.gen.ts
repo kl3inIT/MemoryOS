@@ -739,7 +739,7 @@ export type SourceSummary = {
     id: string;
     name: string;
     type: string;
-    access: string;
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
     status: string;
     pendingWork: boolean;
     documentCount: number;
@@ -776,7 +776,7 @@ export type UpdateGoogleDrivePauseRequest = {
 };
 
 export type UpdateSourceAccessRequest = {
-    access: 'PUBLIC' | 'RESTRICTED';
+    access: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type CreateGoogleDriveSourceRequest = {
@@ -795,6 +795,10 @@ export type CreateGoogleDriveSourceRequest = {
      * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
      */
     groupIds?: Array<string> | null;
+    /**
+     * PUBLIC, PRIVATE or SYNC; defaults to SYNC. PUBLIC requires global Source management.
+     */
+    access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type CreateFileSourceRequest = {
@@ -803,7 +807,10 @@ export type CreateFileSourceRequest = {
      * Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.
      */
     groupIds?: Array<string> | null;
-    access?: 'PUBLIC' | 'RESTRICTED';
+    /**
+     * PUBLIC or PRIVATE; SYNC requires a Google Drive source.
+     */
+    access?: 'PUBLIC' | 'PRIVATE' | 'SYNC';
 };
 
 export type SearchRequest = {
@@ -1112,6 +1119,12 @@ export type ChatModelValidationResult = {
     failureCode: string | null;
 };
 
+export type ImageConnectionTestRequest = {
+    endpoint: string;
+    model: string;
+    credentialValue?: string;
+};
+
 export type ChatFileResponse = {
     id?: string;
     filename?: string;
@@ -1252,6 +1265,11 @@ export type SourceRunError = {
     stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
     code: string;
     occurredAt: string;
+    errorMessage: string | null;
+    errorDetail: string | null;
+    currentItemStatus: 'PENDING' | 'INDEXED' | 'FAILED' | 'DELETING';
+    currentItemErrorCode: string | null;
+    currentItemLastIndexedAt: string | null;
 };
 
 export type SourceRunErrorPage = {
@@ -1864,6 +1882,24 @@ export type ImageAvailabilityResponse = {
     available: boolean;
     provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     model?: string;
+};
+
+export type ImageKnownModelResponse = {
+    modelName: string;
+    displayName: string;
+    outputMediaType: string;
+    sizes: Array<string>;
+    edit: boolean;
+    deprecated: boolean;
+};
+
+export type ImageProviderResponse = {
+    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    credentialRequired: boolean;
+    defaultEndpoint?: string;
+    endpointRequired: boolean;
+    editModel?: ImageKnownModelResponse;
+    knownModels: Array<ImageKnownModelResponse>;
 };
 
 export type ChatFileTextResponse = {
@@ -7832,7 +7868,7 @@ export type ValidateChatModelResponses = {
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
 export type TestChatImageConnectionData = {
-    body?: never;
+    body?: ImageConnectionTestRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.
@@ -8124,7 +8160,7 @@ export type ListSourceRunsData = {
     query?: {
         cursor?: string;
         size?: number;
-        status?: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
+        status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'>;
         trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL';
         from?: string;
         to?: string;
@@ -9659,6 +9695,51 @@ export type GetChatImageAvailabilityResponses = {
 };
 
 export type GetChatImageAvailabilityResponse = GetChatImageAvailabilityResponses[keyof GetChatImageAvailabilityResponses];
+
+export type ListChatImageProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/images/providers';
+};
+
+export type ListChatImageProvidersErrors = {
+    /**
+     * Invalid image configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Image connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Image connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Image provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatImageProvidersError = ListChatImageProvidersErrors[keyof ListChatImageProvidersErrors];
+
+export type ListChatImageProvidersResponses = {
+    /**
+     * Installed image providers
+     */
+    200: Array<ImageProviderResponse>;
+};
+
+export type ListChatImageProvidersResponse = ListChatImageProvidersResponses[keyof ListChatImageProvidersResponses];
 
 export type ListChatImageConnectionsData = {
     body?: never;

@@ -234,6 +234,28 @@ class OpenAiResponsesChatModelTest {
     }
 
     @Test
+    void anIncompleteResponseEndsLikeOnyxWithItsTextAndWithoutTheCutOffToolCall() {
+        var cut = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "search_knowledge",
+                "arguments", "{\"queries\":[\"le", "status", "incomplete");
+        bodies.add(sse(
+                event("response.output_text.delta", Map.of("item_id", "msg_1", "output_index", 0, "content_index", 0,
+                        "sequence_number", 1, "delta", "Doanh thu quý 3", "logprobs", List.of())),
+                event("response.incomplete", Map.of("sequence_number", 2, "response", Map.of("id", "resp_1", "object", "response",
+                        "status", "incomplete", "incomplete_details", Map.of("reason", "max_output_tokens"),
+                        "output", List.of(message("Doanh thu quý 3"), cut),
+                        "usage", Map.of("input_tokens", 10, "output_tokens", 4096, "total_tokens", 4106,
+                                "input_tokens_details", Map.of("cached_tokens", 0), "output_tokens_details", Map.of("reasoning_tokens", 3900)))))));
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
+
+        var responses = model.stream(new Prompt(List.of(new UserMessage("Báo cáo")), options(true))).collectList().block();
+
+        assertEquals("Doanh thu quý 3", text(responses));
+        var last = responses.getLast().getResult();
+        assertEquals("length", last.getMetadata().getFinishReason());
+        assertTrue(last.getOutput().getToolCalls().isEmpty());
+    }
+
+    @Test
     void turnsWithoutWebAndHelperCallsUseTheChatCompletionsDelegate() {
         var completions = mock(ChatModel.class);
         var prompt = new Prompt("Helper", options(true));

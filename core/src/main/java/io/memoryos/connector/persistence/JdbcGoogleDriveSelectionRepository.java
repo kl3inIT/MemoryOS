@@ -3,6 +3,7 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.*;
 import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.GoogleDriveSourceService.*;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.group.GroupId;
@@ -104,7 +105,7 @@ public class JdbcGoogleDriveSelectionRepository {
     public SelectionReceipt submit(TenantId tenant, ActorId actor, UUID request, String hash, SourceId source,
             CredentialId credential, long credentialRevision, long scopeRevision, long discoveryRevision,
             ScopeMode mode, @Nullable String name, List<String> roots, List<LinkedDocument> approvals, SelectionPolicy policy,
-            List<GroupId> groupIds) {
+            List<GroupId> groupIds, @Nullable SourceAccess access) {
         jdbc.sql("""
                 UPDATE google_drive_selection_operations SET status='SUPERSEDED', completed_at=CURRENT_TIMESTAMP,
                     claim_token=NULL, lease_expires_at=NULL,error_code='SELECTION_SUPERSEDED'
@@ -115,10 +116,11 @@ public class JdbcGoogleDriveSelectionRepository {
         jdbc.sql("""
                 INSERT INTO google_drive_selection_operations(id,tenant_id,source_id,actor_id,request_id,request_hash,
                     credential_id,credential_revision,scope_revision,discovery_revision,scope_mode,source_name,
-                    max_requests,max_metadata,max_roots,max_request_bytes,origin_trace_id,origin_span_id,group_ids)
+                    max_requests,max_metadata,max_roots,max_request_bytes,origin_trace_id,origin_span_id,group_ids,access_type)
                 VALUES(:id,:tenant,:source,:actor,:request,:hash,:credential,:credentialRevision,:scope,:discovery,
-                    :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span,CAST(:groups AS jsonb))
+                    :mode,:name,:requests,:metadata,:roots,:bytes,:trace,:span,CAST(:groups AS jsonb),:access)
                 """).param("id",id).param("tenant",tenant.value()).param("source",source.value()).param("actor",actor.value())
+                .param("access", access == null ? null : access.name(), java.sql.Types.VARCHAR)
                 .param("request",request).param("hash",hash).param("credential",credential.value())
                 .param("credentialRevision",credentialRevision).param("scope",scopeRevision).param("discovery",discoveryRevision)
                 .param("mode",mode.name()).param("name",name).param("requests",Math.min(100000,policy.maxExplicitRootsPerSource()*64+4096))
@@ -187,7 +189,12 @@ public class JdbcGoogleDriveSelectionRepository {
                         new ActorId(r.getObject("actor_id",UUID.class)),r.getObject("credential_id",UUID.class),
                         r.getLong("credential_revision"),r.getLong("scope_revision"),r.getLong("discovery_revision"),
                         ScopeMode.valueOf(r.getString("scope_mode")),r.getString("source_name"),
-                        groupIds(work))).single();
+                        groupIds(work),intentAccess(r.getString("access_type")))).single();
+    }
+
+    /** Creation intents submitted before V63 carry no access and keep the Private behaviour they were created with. */
+    private static SourceAccess intentAccess(@Nullable String stored) {
+        return stored == null ? SourceAccess.PRIVATE : SourceAccess.valueOf(stored);
     }
 
     private List<GroupId> groupIds(Work work) {
@@ -275,7 +282,7 @@ public class JdbcGoogleDriveSelectionRepository {
                 JdbcSourceRepository.instant(r,"completed_at"),r.getString("error_code"));
     }
     public record Intent(ActorId actorId,@Nullable UUID credentialId,long credentialRevision,long scopeRevision,
-            long discoveryRevision,ScopeMode scopeMode,@Nullable String name,List<GroupId> groupIds) {}
+            long discoveryRevision,ScopeMode scopeMode,@Nullable String name,List<GroupId> groupIds,SourceAccess access) {}
     public record Entry(String id,String kind,boolean wasSelected,boolean verified,boolean covered,String status,
             @Nullable String name,@Nullable String mimeType) {}
 }

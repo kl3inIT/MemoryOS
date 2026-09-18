@@ -206,20 +206,19 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
     await expect(submit).toBeEnabled();
     if (failure === "none") {
-      await page
-        .locator('[data-slot="collapsible-trigger"]')
-        .filter({ hasText: "Access groups" })
-        .click();
-      const groupSearch = page.getByRole("search");
-      await groupSearch.getByRole("searchbox").fill("Knowledge team");
-      await groupSearch.getByRole("searchbox").press("Enter");
-      await groupSearch.getByRole("button", { name: "Search", exact: true }).click();
-      await expect(page.getByRole("checkbox", { name: "Knowledge team" })).toBeVisible();
+      const visibility = page.getByRole("combobox", { name: "Visibility" });
+      const groups = page.getByRole("button", { name: "Access groups" });
+      await expect(groups).toHaveCount(0);
+      await visibility.click();
+      await page.getByRole("option", { name: /^Private/ }).click();
+      await groups.click();
+      await page.getByPlaceholder("Search groups…").fill("Knowledge team");
+      await expect(page.getByRole("option", { name: "Knowledge team" })).toBeVisible();
       expect(creates).toBe(0);
-      await page
-        .locator('[data-slot="collapsible-trigger"]')
-        .filter({ hasText: "Access groups" })
-        .click();
+      await page.keyboard.press("Escape");
+      await visibility.click();
+      await page.getByRole("option", { name: /^Workspace members/ }).click();
+      await expect(groups).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath("file-setup-desktop.png"),
         fullPage: true,
@@ -320,7 +319,7 @@ test("scoped File creation stays private and may start without a group", async (
     id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
     name: "Private knowledge",
     type: "FILE",
-    access: "RESTRICTED",
+    access: "PRIVATE",
     status: "ACTIVE",
     pendingWork: false,
     documentCount: 0,
@@ -355,7 +354,7 @@ test("scoped File creation stays private and may start without a group", async (
         json: { items: [group], page: 0, size: 25, totalItems: 1, totalPages: 1 },
       });
     } else if (path === "/api/sources/file") {
-      expect(request.postDataJSON()).toMatchObject({ access: "RESTRICTED", groupIds: [group.id] });
+      expect(request.postDataJSON()).toMatchObject({ access: "PRIVATE", groupIds: [group.id] });
       expect(request.headers()["x-memoryos-csrf"]).toBe("1");
       created = true;
       await route.fulfill({ status: 201, json: source });
@@ -405,10 +404,14 @@ test("scoped File creation stays private and may start without a group", async (
   // A Group is optional now, so the submit is live before one is picked and nothing is created yet.
   await expect(page.getByRole("button", { name: "Upload and create" })).toBeEnabled();
   expect(created).toBe(false);
-  await page.getByRole("checkbox", { name: /Managed team/ }).check();
+  await page.getByRole("button", { name: "Access groups" }).click();
+  await page.getByRole("option", { name: "Managed team" }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Upload and create" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
   await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Change visibility" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Delete source" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Source actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Rename source" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Change visibility" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Delete source" })).toHaveCount(0);
 });

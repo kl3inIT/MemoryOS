@@ -4,15 +4,23 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
 import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -37,7 +45,6 @@ import {
   getGoogleDriveSelectionPolicyOptions,
   listGoogleDriveCredentialsOptions,
   listSourcesQueryKey,
-  listSourceGroupOptionsOptions,
   revokeGoogleDriveCredentialMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
@@ -45,8 +52,10 @@ import type {
   CreateGoogleDriveSourceData,
   GetGoogleDriveConfigurationResponse,
   GoogleDriveCredentialResponse,
+  SourceSummary,
 } from "@/lib/hey-api/types.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
+import { SourceAccessChoice } from "./source-access-choice";
 import { GoogleDriveLinks } from "./google-drive-links";
 import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
 import {
@@ -54,10 +63,14 @@ import {
   type GoogleDriveOAuthClientInputHandle,
 } from "./google-drive-oauth-client-input";
 import { sourceMutationError } from "./source-errors";
+import { GoogleDriveConnectionAccount } from "./google-drive-connection-account";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
-import { GroupAccessPicker } from "@/features/groups/group-access-picker";
+import { SourceGroupPicker } from "./source-group-picker";
+
+/** One bordered block per group of settings, as in Vanta's integration setup. */
+const sectionCard = "space-y-5 rounded-2xl border border-border-default bg-surface-base p-6";
 
 export function CreateGoogleDriveSourcePage() {
   const session = useApplicationSession();
@@ -82,6 +95,7 @@ function GoogleDriveSourceSetup() {
   const globalManage = authority === "global";
   const canManage = authority !== "none";
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
+  const [access, setAccess] = useState<SourceSummary["access"]>("SYNC");
   const credentials = useQuery({
     ...listGoogleDriveCredentialsOptions(),
     enabled: canManage,
@@ -120,13 +134,17 @@ function GoogleDriveSourceSetup() {
   const authorizationController = useRef<AbortController | null>(null);
   const busy =
     authorizing || leaving || createSource.isPending || revoke.isPending || remove.isPending;
+  const [linksTouched, setLinksTouched] = useState(false);
   const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
+  // Readers of a Private Source are its groups; scoped managers also need groups for Auto Sync.
+  const showGroups = access === "PRIVATE" || (access === "SYNC" && !globalManage);
   const proposal = {
     name: sourceName.trim(),
     credentialId: selected?.id ?? "",
     scopeMode,
     links,
-    groupIds: groupIds.size > 0 ? [...groupIds] : undefined,
+    groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
+    access,
     requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
   };
   const selectionError = googleDriveSelectionError(proposal, policy.data);
@@ -457,9 +475,10 @@ function GoogleDriveSourceSetup() {
         <p role="alert">{ui("You do not have permission to manage credentials and Sources.")}</p>
       ) : null}
       {error && !modalOpen ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui(error)}
-        </p>
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
       ) : null}
       {tracking.operation && !createdSourceId ? (
         <div
@@ -529,92 +548,123 @@ function GoogleDriveSourceSetup() {
       ) : null}
       {step === "connector" ? (
         <form
-          className="space-y-6 rounded-2xl border border-border-default bg-surface-base p-6"
+          className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             void create();
           }}
         >
-          <h2 className="font-heading-h3">{ui("Configure connector")}</h2>
-          <p className="break-words text-sm text-content-secondary">
-            {ui("Credential:")} {selected?.name ?? ui("Not selected")}
-            {selected ? ui(" ({{v1}})", { v1: selected.accountEmail }) : ""}
-            {ui(
-              ". This creates a separate Source; other Sources using this credential are unchanged.",
-            )}
-          </p>
-          {unavailable || !connected ? (
-            <p role="alert" className="text-sm text-status-warning-content">
-              {ui(
-                "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.",
-              )}
-            </p>
-          ) : null}
-          <div>
-            <label htmlFor="google-drive-source-name" className="font-secondary-action">
-              {ui("Source name")}
-            </label>
-            <Input
-              id="google-drive-source-name"
-              value={sourceName}
-              maxLength={120}
-              required
-              disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
-              onChange={(event) => {
+          <section aria-labelledby="google-drive-connection-heading" className={sectionCard}>
+            <h2
+              id="google-drive-connection-heading"
+              className="font-heading-h3 text-content-primary"
+            >
+              {ui("Connection")}
+            </h2>
+            <GoogleDriveConnectionAccount credential={selected} connected={connected} />
+            {unavailable || !connected ? (
+              <p role="alert" className="text-sm text-status-warning-content">
+                {ui(
+                  "Select a connected credential before creating a Source. Return to credentials to refresh or reconnect.",
+                )}
+              </p>
+            ) : null}
+          </section>
+          <section aria-labelledby="google-drive-settings-heading" className={sectionCard}>
+            <h2 id="google-drive-settings-heading" className="font-heading-h3 text-content-primary">
+              {ui("Source settings")}
+            </h2>
+            <div>
+              <label
+                htmlFor="google-drive-source-name"
+                className="text-sm font-medium text-content-primary"
+              >
+                {ui("Source name")}
+              </label>
+              <Input
+                id="google-drive-source-name"
+                value={sourceName}
+                maxLength={120}
+                required
+                disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+                onChange={(event) => {
+                  if (tracking.terminal) tracking.forget();
+                  setSourceName(event.target.value);
+                  setError(null);
+                }}
+                placeholder={ui("e.g. Team documentation")}
+                autoComplete="off"
+                className="mt-2"
+              />
+            </div>
+            <div className="space-y-2">
+              <span
+                id="google-drive-source-access-label"
+                className="text-sm font-medium text-content-primary"
+              >
+                {ui("Visibility")}
+              </span>
+              <SourceAccessChoice
+                id="google-drive-source-access"
+                labelledBy="google-drive-source-access-label"
+                modes={globalManage ? ["SYNC", "PRIVATE", "PUBLIC"] : ["SYNC", "PRIVATE"]}
+                value={access}
+                disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+                onValueChange={(next) => {
+                  if (tracking.terminal) tracking.forget();
+                  setAccess(next);
+                  setError(null);
+                }}
+              />
+            </div>
+            {showGroups ? (
+              <SourceGroupPicker
+                label={ui("Access groups")}
+                placeholder={
+                  globalManage ? ui("Select groups") : ui("Select at least one group you manage.")
+                }
+                selected={groupIds}
+                disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
+                onChange={(ids) => {
+                  if (tracking.terminal) tracking.forget();
+                  setGroupIds(ids);
+                  setError(null);
+                }}
+              />
+            ) : null}
+          </section>
+          <section aria-labelledby="google-drive-content-heading" className={sectionCard}>
+            <h2 id="google-drive-content-heading" className="font-heading-h3 text-content-primary">
+              {ui("Content")}
+            </h2>
+            <GoogleDriveLinks
+              scopeMode={scopeMode}
+              policy={policy.data}
+              onScopeModeChange={(mode) => {
                 if (tracking.terminal) tracking.forget();
-                setSourceName(event.target.value);
+                setScopeMode(mode);
                 setError(null);
               }}
-              placeholder={ui("e.g. Team documentation")}
-              autoComplete="off"
-              className="mt-2"
+              errorMessage={
+                error || tracking.recoveryError || tracking.statusUnavailable || policy.isError
+                  ? ""
+                  : selectionError && linksTouched
+                    ? ui(selectionError)
+                    : null
+              }
+              value={linksText}
+              disabled={
+                busy || unavailable || !connected || frozenProposal || Boolean(createdSourceId)
+              }
+              onChange={(value) => {
+                if (tracking.terminal) tracking.forget();
+                setLinksTouched(true);
+                setLinksText(value);
+                setError(null);
+              }}
             />
-          </div>
-          <GroupAccessPicker
-            load={(query) => listSourceGroupOptionsOptions({ query })}
-            description={appText(
-              "For restricted File and Google Drive Sources, group members can search and read imported documents. Google Drive file permissions are not synchronized.",
-            )}
-            selected={groupIds}
-            disabled={busy || unavailable || frozenProposal || Boolean(createdSourceId)}
-            onChange={(ids) => {
-              if (tracking.terminal) tracking.forget();
-              setGroupIds(ids);
-              setError(null);
-            }}
-          />
-          <p className="text-sm text-content-muted">
-            {ui("Private Source. Group associations are optional and can be added later.")}{" "}
-            {ui(
-              "Members of the selected MemoryOS groups can search and read imported Drive documents. Google per-file permissions are not synchronized.",
-            )}
-          </p>
-          <GoogleDriveLinks
-            scopeMode={scopeMode}
-            policy={policy.data}
-            onScopeModeChange={(mode) => {
-              if (tracking.terminal) tracking.forget();
-              setScopeMode(mode);
-              setError(null);
-            }}
-            errorMessage={
-              error || tracking.recoveryError || tracking.statusUnavailable || policy.isError
-                ? ""
-                : selectionError
-                  ? ui(selectionError)
-                  : null
-            }
-            value={linksText}
-            disabled={
-              busy || unavailable || !connected || frozenProposal || Boolean(createdSourceId)
-            }
-            onChange={(value) => {
-              if (tracking.terminal) tracking.forget();
-              setLinksText(value);
-              setError(null);
-            }}
-          />
-          <footer className="flex flex-wrap justify-between gap-3">
+          </section>
+          <footer className="flex flex-wrap justify-between gap-3 pt-2">
             <Button
               prominence="secondary"
               disabled={busy || frozenProposal}
@@ -645,16 +695,27 @@ function GoogleDriveSourceSetup() {
           </footer>
         </form>
       ) : (
-        <>
-          <section
-            aria-labelledby="credential-heading"
-            className="rounded-2xl border border-border-default bg-surface-base p-6"
-          >
-            <h2 id="credential-heading" className="pb-2 font-heading-h3 text-content-primary">
-              {ui("Select a credential")}
-            </h2>
-            <p className="mb-4 text-sm text-content-secondary">{ui("Choose an account.")}</p>
-            <div>
+        <section aria-labelledby="credential-heading" className={sectionCard}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 id="credential-heading" className="font-heading-h3 text-content-primary">
+                {ui("Select a credential")}
+              </h2>
+              <p className="text-sm text-content-muted">{ui("Choose an account.")}</p>
+            </div>
+            <Button
+              prominence="secondary"
+              disabled={unavailable || busy || frozenProposal}
+              onClick={(event) => {
+                modalTrigger.current = event.currentTarget;
+                changeModal(true);
+              }}
+            >
+              <Plus /> {ui("Create New")}
+            </Button>
+          </div>
+          <div>
+            <TooltipProvider>
               <RadioGroup
                 value={credentialId ?? ""}
                 onValueChange={(selected) => {
@@ -709,9 +770,14 @@ function GoogleDriveSourceSetup() {
                             <span className="mr-2 text-xs text-content-secondary sm:hidden">
                               {ui("ID")}
                             </span>
-                            <span title={credential.id} className="font-mono text-xs">
-                              {credential.id.slice(0, 8)}
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span tabIndex={0} className="font-mono text-xs">
+                                  {credential.id.slice(0, 8)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="font-mono">{credential.id}</TooltipContent>
+                            </Tooltip>
                           </TableCell>
                           <TableCell className="order-first col-span-2 px-2 py-2 align-middle">
                             <div className="flex items-center gap-2">
@@ -737,20 +803,26 @@ function GoogleDriveSourceSetup() {
                                 </span>
                               </div>
                               {credential.actions.length > 0 ? (
-                                <IconButton
-                                  aria-label={ui("Manage {{v1}}", { v1: credential.name })}
-                                  aria-expanded={managedCredentialId === credential.id}
-                                  aria-controls={`credential-actions-${credential.id}`}
-                                  title={ui("Manage credential")}
-                                  className="size-11"
-                                  onClick={() =>
-                                    setManagedCredentialId(
-                                      managedCredentialId === credential.id ? null : credential.id,
-                                    )
-                                  }
-                                >
-                                  <Ellipsis />
-                                </IconButton>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <IconButton
+                                      aria-label={ui("Manage {{v1}}", { v1: credential.name })}
+                                      aria-expanded={managedCredentialId === credential.id}
+                                      aria-controls={`credential-actions-${credential.id}`}
+                                      className="size-11"
+                                      onClick={() =>
+                                        setManagedCredentialId(
+                                          managedCredentialId === credential.id
+                                            ? null
+                                            : credential.id,
+                                        )
+                                      }
+                                    >
+                                      <Ellipsis />
+                                    </IconButton>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{ui("Manage credential")}</TooltipContent>
+                                </Tooltip>
                               ) : null}
                             </div>
                           </TableCell>
@@ -827,13 +899,6 @@ function GoogleDriveSourceSetup() {
                                           frozenProposal ||
                                           credential.sourceCount !== 0
                                         }
-                                        title={
-                                          credential.sourceCount
-                                            ? ui(
-                                                "Delete all attached Sources before deleting this credential",
-                                              )
-                                            : undefined
-                                        }
                                       >
                                         {ui("Delete")}
                                       </Button>
@@ -850,6 +915,13 @@ function GoogleDriveSourceSetup() {
                                     }
                                   />
                                 ) : null}
+                                {credential.actions.includes("delete") && credential.sourceCount ? (
+                                  <p className="w-full text-xs text-content-muted">
+                                    {ui(
+                                      "Delete all attached Sources before deleting this credential",
+                                    )}
+                                  </p>
+                                ) : null}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -859,48 +931,38 @@ function GoogleDriveSourceSetup() {
                   })}
                 </Table>
               </RadioGroup>
-              {canManage && credentials.isPending ? (
-                <p role="status" className="mt-4 text-sm text-content-secondary">
-                  {ui("Loading credentials…")}
+            </TooltipProvider>
+            {canManage && credentials.isPending ? (
+              <p role="status" className="mt-4 text-sm text-content-secondary">
+                {ui("Loading credentials…")}
+              </p>
+            ) : credentials.isError ? (
+              <div className="mt-4 space-y-3">
+                <p role="alert" className="text-sm text-status-danger-content">
+                  {ui("Credentials could not be loaded. Refresh before making changes.")}
                 </p>
-              ) : credentials.isError ? (
-                <div className="mt-4 space-y-3">
-                  <p role="alert" className="text-sm text-status-danger-content">
-                    {ui("Credentials could not be loaded. Refresh before making changes.")}
-                  </p>
-                  <Button
-                    prominence="secondary"
-                    pending={credentials.isFetching}
-                    onClick={() => void credentials.refetch()}
-                  >
-                    {ui("Try again")}
-                  </Button>
-                </div>
-              ) : canManage && !credentials.data?.length ? (
-                <p className="mt-4 text-sm text-content-primary">
-                  {ui("No credentials exist for this connector!")}
-                </p>
-              ) : null}
-              {credentialId && !selected && !unavailable ? (
-                <p role="alert" className="mt-4 text-sm text-status-warning-content">
-                  {ui(
-                    "The selected credential is no longer available. Select another credential or create a new one.",
-                  )}
-                </p>
-              ) : null}
-            </div>
-            <Button
-              className="mt-6"
-              disabled={unavailable || busy || frozenProposal}
-              onClick={(event) => {
-                modalTrigger.current = event.currentTarget;
-                changeModal(true);
-              }}
-            >
-              {ui("Create New")}
-            </Button>
-          </section>
-          <footer className="flex justify-end">
+                <Button
+                  prominence="secondary"
+                  pending={credentials.isFetching}
+                  onClick={() => void credentials.refetch()}
+                >
+                  {ui("Try again")}
+                </Button>
+              </div>
+            ) : canManage && !credentials.data?.length ? (
+              <p className="mt-4 text-sm text-content-primary">
+                {ui("No credentials exist for this connector!")}
+              </p>
+            ) : null}
+            {credentialId && !selected && !unavailable ? (
+              <p role="alert" className="mt-4 text-sm text-status-warning-content">
+                {ui(
+                  "The selected credential is no longer available. Select another credential or create a new one.",
+                )}
+              </p>
+            ) : null}
+          </div>
+          <footer className="flex justify-end border-t border-border-subtle pt-5">
             <Button
               disabled={unavailable || busy || !connected}
               onClick={() => void navigate({ search: { credentialId, step: "connector" } })}
@@ -908,152 +970,149 @@ function GoogleDriveSourceSetup() {
               {ui("Continue")} <ArrowRight />
             </Button>
           </footer>
-        </>
+        </section>
       )}
-      <Dialog.Root open={modalOpen} onOpenChange={changeModal}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
-          <Dialog.Content
-            aria-describedby="credential-modal-description"
-            onCloseAutoFocus={(event) => {
+      <Dialog open={modalOpen} onOpenChange={changeModal}>
+        <DialogContent
+          showCloseButton={false}
+          aria-describedby="credential-modal-description"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            modalTrigger.current?.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          className="flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border-default bg-surface-base p-0 shadow-2xl ring-0 sm:max-w-[calc(100dvw-2rem)] md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
+        >
+          <header className="flex shrink-0 items-center gap-3 px-6 py-4">
+            <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
+            {/* tailwind-merge cannot match font-heading-h3 against DialogTitle's defaults, so equal sizes displace them. */}
+            <DialogTitle className="min-w-0 flex-1 font-heading-h3 text-lg leading-7 font-semibold">
+              {reconnecting
+                ? ui("Reconnect a Google Drive credential")
+                : ui("Create a Google Drive credential")}
+            </DialogTitle>
+            <DialogClose asChild>
+              <IconButton
+                prominence="tertiary"
+                aria-label={ui("Close credential dialog")}
+                disabled={busy}
+              >
+                <X />
+              </IconButton>
+            </DialogClose>
+          </header>
+          <form
+            className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
+            onSubmit={(event) => {
               event.preventDefault();
-              modalTrigger.current?.focus();
+              void connect();
             }}
-            onEscapeKeyDown={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            onPointerDownOutside={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-base shadow-2xl outline-none md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
           >
-            <header className="flex shrink-0 items-center gap-3 px-6 py-4">
-              <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
-              <Dialog.Title className="min-w-0 flex-1 font-heading-h3">
-                {reconnecting
-                  ? ui("Reconnect a Google Drive credential")
-                  : ui("Create a Google Drive credential")}
-              </Dialog.Title>
-              <Dialog.Close asChild>
-                <IconButton
-                  prominence="tertiary"
-                  aria-label={ui("Close credential dialog")}
-                  disabled={busy}
-                >
-                  <X />
-                </IconButton>
-              </Dialog.Close>
-            </header>
-            <form
-              className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void connect();
-              }}
-            >
-              <div>
-                <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
-                <Dialog.Description
-                  id="credential-modal-description"
-                  className="mt-2 text-sm text-content-secondary"
-                >
-                  {ui("Authenticate with OAuth to access your Google Drive documents.")}
-                </Dialog.Description>
-              </div>
-              <div>
-                <label
-                  htmlFor="google-drive-credential-name"
-                  className="font-secondary-action text-content-primary"
-                >
-                  {ui("Credential name")}
-                </label>
-                <Input
-                  id="google-drive-credential-name"
-                  value={name}
-                  maxLength={120}
-                  required
-                  disabled={busy}
-                  readOnly={Boolean(reconnecting)}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={ui("e.g. Team Google account")}
-                  autoComplete="off"
-                  className="mt-2"
-                />
-              </div>
-              {reconnecting ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
-                  {ui(
-                    "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
-                  )}
-                </p>
-              ) : null}
-              {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={replaceClient}
-                    disabled={busy}
-                    onCheckedChange={(event) => {
-                      clientInput.current?.clear();
-                      setClientReady(false);
-                      setReplaceClient(event === true);
-                    }}
-                  />
-                  {ui("Replace OAuth app on reconnect")}
-                </label>
-              ) : null}
-              {needsClient ? (
-                <GoogleDriveOAuthClientInput
-                  ref={clientInput}
-                  disabled={busy || !canManage}
-                  onReadyChange={setClientReady}
-                />
-              ) : missingClient ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui(
-                    "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
-                  )}
-                </p>
-              ) : (
-                <p className="text-sm text-content-secondary">
-                  {ui("Reconnect reuses the OAuth app saved with this credential.")}
-                </p>
-              )}
-              <p className="text-sm text-content-secondary">
+            <div>
+              <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
+              <DialogDescription
+                id="credential-modal-description"
+                className="mt-2 text-sm text-content-secondary"
+              >
+                {ui("Authenticate with OAuth to access your Google Drive documents.")}
+              </DialogDescription>
+            </div>
+            <div>
+              <label
+                htmlFor="google-drive-credential-name"
+                className="text-sm font-medium text-content-primary"
+              >
+                {ui("Credential name")}
+              </label>
+              <Input
+                id="google-drive-credential-name"
+                value={name}
+                maxLength={120}
+                required
+                disabled={busy}
+                readOnly={Boolean(reconnecting)}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={ui("e.g. Team Google account")}
+                autoComplete="off"
+                className="mt-2"
+              />
+            </div>
+            {reconnecting ? (
+              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
                 {ui(
-                  "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+                  "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
                 )}
               </p>
-              {error ? (
-                <p
-                  role="alert"
-                  className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-                >
-                  {ui(error)}
-                </p>
-              ) : null}
-              {leaving ? (
-                <p role="status" className="text-sm text-content-secondary">
-                  {ui("Continuing to Google…")}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                pending={authorizing || leaving}
-                disabled={
-                  busy ||
-                  unavailable ||
-                  missingClient ||
-                  !name.trim() ||
-                  (needsClient && !clientReady)
-                }
-              >
-                {ui("Authenticate")}
-              </Button>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            ) : null}
+            {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={replaceClient}
+                  disabled={busy}
+                  onCheckedChange={(event) => {
+                    clientInput.current?.clear();
+                    setClientReady(false);
+                    setReplaceClient(event === true);
+                  }}
+                />
+                {ui("Replace OAuth app on reconnect")}
+              </label>
+            ) : null}
+            {needsClient ? (
+              <GoogleDriveOAuthClientInput
+                ref={clientInput}
+                disabled={busy || !canManage}
+                onReadyChange={setClientReady}
+              />
+            ) : missingClient ? (
+              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                {ui(
+                  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
+                )}
+              </p>
+            ) : (
+              <p className="text-sm text-content-secondary">
+                {ui("Reconnect reuses the OAuth app saved with this credential.")}
+              </p>
+            )}
+            <p className="text-sm text-content-secondary">
+              {ui(
+                "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+              )}
+            </p>
+            {error ? (
+              <Alert variant="destructive">
+                <TriangleAlert aria-hidden="true" />
+                <AlertDescription>{ui(error)}</AlertDescription>
+              </Alert>
+            ) : null}
+            {leaving ? (
+              <p role="status" className="text-sm text-content-secondary">
+                {ui("Continuing to Google…")}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              pending={authorizing || leaving}
+              disabled={
+                busy ||
+                unavailable ||
+                missingClient ||
+                !name.trim() ||
+                (needsClient && !clientReady)
+              }
+            >
+              {ui("Authenticate")}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SettingsLayout>
   );
 }

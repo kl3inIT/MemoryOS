@@ -293,12 +293,41 @@ class SearchIndexWorkIntegrationTest {
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
     }
 
+    @Test
+    void autoSyncPermissionChangeRefreshesTheChangedDocumentsOfASyncSourceOnly() {
+        var document = publish(null);
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+            var source = mapToFileSource(document);
+            var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
+                    new DataSourceTransactionManager(dataSource));
+            var changed = new io.memoryos.connector.GoogleDriveAclChanged(tenant, source, "file", List.of(document), 2,
+                    io.memoryos.connector.GoogleDriveAclSnapshot.Status.SUCCEEDED, null);
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
+            assertEquals(0, count("search_index_operations WHERE action='ACCESS'"), "A Private Source ignores provider permissions");
+
+            jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", source.value()).update();
+            jdbc.sql("UPDATE connector_credential_pairs SET access_type='SYNC' WHERE id=:id").param("id", source.value()).update();
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(new io.memoryos.connector.GoogleDriveAclChanged(tenant, source,
+                    "unmapped", List.of(), 1, io.memoryos.connector.GoogleDriveAclSnapshot.Status.SUCCEEDED, null)));
+            assertEquals(1, count("search_index_operations WHERE action='ACCESS' AND status='NOT_STARTED'"),
+                    "Repeated permission changes collapse into one pending refresh");
+            assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
+        }
+        verify(index).updateAccess(tenant, document, generation(document));
+        verify(index, times(1)).index(any());
+        assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "A permission refresh must not hide the document");
+    }
+
     private SourceId mapToFileSource(DocumentId document) {
         UUID source = UUID.randomUUID(), item = UUID.randomUUID();
         for (String sql : List.of(
                 "INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:source,:tenant,'Files','NO_AUTH','ACTIVE')",
                 "INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:source,:tenant,'Files','FILE','ACTIVE')",
-                "INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:source,:tenant,:source,:source,'RESTRICTED','ACTIVE')",
+                "INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status) VALUES(:source,:tenant,:source,:source,'PRIVATE','ACTIVE')",
                 "INSERT INTO connector_items(id,tenant_id,connector_id,content_sha256,status) VALUES(:item,:tenant,:source,REPEAT('b',64),'INDEXED')",
                 """
                 INSERT INTO documents_by_connector_credential_pair(tenant_id,connector_id,connector_credential_pair_id,document_id,connector_item_id,retrieval_eligible)

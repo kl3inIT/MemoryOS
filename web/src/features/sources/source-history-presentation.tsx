@@ -2,18 +2,30 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { runHasNoChanges, runIsActive } from "./source-history";
+import { CircleCheck, CircleHelp, CircleX, Clock3, LoaderCircle, Trash2 } from "lucide-react";
+import { historyRelativeTime, runHasNoChanges, runIsActive } from "./source-history";
+import { SourceHint } from "./source-hint";
+import { statusPill } from "./source-status-presentation";
 
-export function HistoryTime({ value }: { value: string | null }) {
+/** A local time; `relative` words times within the last week as "6 minutes ago". */
+export function HistoryTime({
+  value,
+  relative = false,
+}: {
+  value: string | null;
+  relative?: boolean;
+}) {
   const ui = useAppTranslation();
 
   if (!value) return <span>{ui("Unknown")}</span>;
   const date = new Date(value);
   const full = date.toLocaleString(uiLocale(), { dateStyle: "full", timeStyle: "long" });
   return (
-    <time dateTime={value} title={full} aria-label={full}>
-      {date.toLocaleString(uiLocale())}
-    </time>
+    <SourceHint hint={full}>
+      <time dateTime={value} aria-label={full}>
+        {(relative && historyRelativeTime(value)) || date.toLocaleString(uiLocale())}
+      </time>
+    </SourceHint>
   );
 }
 
@@ -41,11 +53,14 @@ export function RunOutcome({ run }: { run: SourceRun }) {
           : run.status === "SUCCEEDED"
             ? "Outcome unknown"
             : (runStatusLabels[run.status] ?? "Unknown");
+  const tone = failed ? "danger" : active ? "info" : knownComplete ? "success" : "neutral";
+  const Icon = failed ? CircleX : active ? LoaderCircle : knownComplete ? CircleCheck : CircleHelp;
   return (
-    <StatusBadge
-      tone={failed ? "danger" : active ? "info" : knownComplete ? "success" : "neutral"}
-      className="capitalize"
-    >
+    <StatusBadge tone={tone} className={`${statusPill(tone)} px-2.5 py-0.5`}>
+      <Icon
+        aria-hidden="true"
+        className={`size-3.5 shrink-0 ${active ? "motion-safe:animate-spin" : ""}`}
+      />
       {ui(label)}
     </StatusBadge>
   );
@@ -78,17 +93,10 @@ const attemptStatusLabels: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
-const searchIndexStatusLabels: Record<string, string> = {
-  READY: "Ready",
-  FAILED: "Failed",
-  INDEXING: "Indexing",
-  WAITING: "Waiting",
-};
-
 export function ItemStatus({
   item,
 }: {
-  item: Pick<SourceItem, "status" | "searchStatus"> & {
+  item: Pick<SourceItem, "status"> & {
     latestAttempt?: SourceItem["latestAttempt"] | null;
   };
 }) {
@@ -106,20 +114,40 @@ export function ItemStatus({
       : Object.hasOwn(itemStatusLabels, item.status)
         ? itemStatusLabels[item.status]
         : "Unknown";
+  const tone =
+    item.status === "INDEXED"
+      ? "success"
+      : item.status === "FAILED"
+        ? "danger"
+        : item.status === "PENDING"
+          ? "info"
+          : "neutral";
+  const Icon =
+    item.status === "INDEXED"
+      ? CircleCheck
+      : item.status === "FAILED"
+        ? CircleX
+        : item.status === "DELETING"
+          ? Trash2
+          : item.status === "PENDING"
+            ? attemptStatus === "IN_PROGRESS"
+              ? LoaderCircle
+              : Clock3
+            : CircleHelp;
   return (
     <>
-      <span>{ui(label)}</span>
+      <StatusBadge tone={tone} className={`${statusPill(tone)} px-2.5 py-1`}>
+        <Icon
+          aria-hidden="true"
+          className={`size-3.5 shrink-0 ${item.status === "PENDING" && attemptStatus === "IN_PROGRESS" ? "motion-safe:animate-spin" : ""}`}
+        />
+        {ui(label)}
+      </StatusBadge>
       {item.latestAttempt && attemptLabel !== label ? (
         <p className="mt-1 font-secondary-body text-content-muted">
           {ui("Latest attempt:")} {ui(attemptLabel)}
         </p>
       ) : null}
-      <p className="mt-1 font-secondary-body text-content-muted">
-        {ui("Search index:")}{" "}
-        {Object.hasOwn(searchIndexStatusLabels, item.searchStatus)
-          ? ui(searchIndexStatusLabels[item.searchStatus])
-          : ui("Unknown")}
-      </p>
     </>
   );
 }

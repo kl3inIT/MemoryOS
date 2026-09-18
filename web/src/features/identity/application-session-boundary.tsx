@@ -12,7 +12,6 @@ import {
   SessionLoadingScreen,
   SignInRedirect,
 } from "@/features/identity/session-states";
-import { clearSignInRedirect } from "@/features/identity/sign-in-redirect";
 import { isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getCurrentIdentity } from "@/lib/hey-api/sdk.gen";
@@ -36,7 +35,6 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
 
   useLayoutEffect(() => {
     if (!sessionQuery.data) return;
-    clearSignInRedirect();
     void i18n.changeLanguage(uiLanguage(sessionQuery.data.uiLanguage));
   }, [sessionQuery.data]);
 

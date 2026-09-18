@@ -123,6 +123,8 @@ memoryos:
     provider:
       api-key: ${MEMORYOS_CHAT_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
       base-url: ${MEMORYOS_CHAT_BASE_URL:https://api.openai.com/v1}
+    catalog:
+      encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}
     execution:
       concurrency: 8
       # No total turn deadline, as Onyx: a renewed lease detects a dead process; providers get a read-gap timeout.

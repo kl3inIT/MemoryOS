@@ -95,7 +95,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 
 ### 4.1 Dữ liệu
 
-**`chat_voice_connection`** — V77, Chat sở hữu, JPA `VoiceConnectionEntity`:
+**`chat_voice_connection`** — V81, Chat sở hữu, JPA `VoiceConnectionEntity`:
 
 | Cột                                   | Onyx                                      | Ghi chú                                                                                                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -109,7 +109,7 @@ Nguyên tắc của MEM-91 giữ nguyên:
 
 - Azure dùng endpoint của tài nguyên Speech (Target URI) nên không cần cột region. Nhận dạng theo ngôn ngữ giao diện nên không lưu Spoken Languages. Model hiển thị `default` (STT) và `neural` (TTS) như Onyx.
 
-**`chat_voice_settings`** — V78, JDBC `JdbcVoiceSettingsRepository`:
+**`chat_voice_settings`** — V82, JDBC `JdbcVoiceSettingsRepository`:
 
 - **Cột:** `tenant_id`, `actor_id` (khóa ngoại tới `tenant_memberships`), `auto_send` (false), `auto_playback` (false), `playback_speed` (1.0, CHECK 0.5–2.0).
 - **Ghi dữ liệu:** partial update nguyên tử bằng `INSERT … ON CONFLICT DO UPDATE SET x = COALESCE(:x, x)`, không đọc rồi ghi.

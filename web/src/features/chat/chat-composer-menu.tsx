@@ -43,9 +43,13 @@ export function ChatComposerMenu({
     sessionId?: string;
     modelId?: string;
   };
-  image: {
+  /** Image-mode state; the row is disabled while no provider connection is usable. */
+  image?: {
     value: ImageMode;
     onChange: (mode: ImageMode) => void;
+    available?: boolean;
+    pending?: boolean;
+    onRetry?: () => void;
   };
   mcp: {
     selected: string[];
@@ -119,7 +123,7 @@ export function ChatComposerMenu({
               {allowed?.web !== false && (
                 <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
               )}
-              {allowed?.image !== false && <ChatImageToggle {...image} onDone={close} />}
+              {allowed?.image !== false && image && <ChatImageToggle {...image} onDone={close} />}
               <ChatMcpToggle
                 selected={mcp.selected}
                 available={
@@ -204,21 +208,18 @@ export function ChatComposerMenu({
           </IconButton>
         </span>
       )}
-      {image.value !== "off" && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken py-0.5 pr-0.5 pl-2 text-sm text-content-secondary">
+      {image && image.value !== "off" && (
+        <button
+          type="button"
+          aria-pressed="true"
+          title={ui("Tắt tạo ảnh")}
+          disabled={disabled}
+          onClick={() => image.onChange("off")}
+          className="inline-flex items-center justify-center gap-1 rounded-full bg-surface-sunken px-2.5 py-1 text-sm text-content-secondary outline-none transition-colors hover:bg-surface-strong focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+        >
           <ImagePlus className="size-3.5" aria-hidden="true" />
           {ui("Tạo ảnh")}
-          <IconButton
-            size="sm"
-            prominence="internal"
-            aria-label={ui("Tắt tạo ảnh")}
-            title={ui("Tắt tạo ảnh")}
-            disabled={disabled}
-            onClick={() => image.onChange("off")}
-          >
-            <X />
-          </IconButton>
-        </span>
+        </button>
       )}
       <ChatRecentFilesDialog
         open={allFiles}

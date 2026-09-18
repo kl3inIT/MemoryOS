@@ -326,11 +326,16 @@ class PostgresSourceLifecycleTest {
         GroupId b = new GroupId(UUID.randomUUID());
         addScopedManager(b);
         var publicSource = service.createFileSource(owner, "Public", List.of(a), null);
-        var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.RESTRICTED);
-        var managedOnly = service.createFileSource(owner, "Managed only", List.of(a), SourceAccess.RESTRICTED);
+        var shared = service.createFileSource(owner, "Shared", List.of(a, b), SourceAccess.PRIVATE);
+        jdbcClient.sql("""
+                INSERT INTO iam_group_memberships (tenant_id, group_id, actor_id, is_manager)
+                VALUES (:tenant, :group, :actor, FALSE)
+                """).param("tenant", tenantId).param("group", b.value()).param("actor", manager.value()).update();
+        var memberOnly = service.createFileSource(owner, "Member only", List.of(b), SourceAccess.PRIVATE);
+        var managedOnly = service.createFileSource(owner, "Managed only", List.of(a), SourceAccess.PRIVATE);
 
         // Managing every associated Group is no longer Source authority: these Sources record no manager.
-        for (var source : List.of(publicSource, shared, managedOnly)) {
+        for (var source : List.of(publicSource, shared, memberOnly, managedOnly)) {
             assertNull(service.getSource(owner, source.id()).managerActorId());
             assertEquals(SourcePermissions.NONE, service.getSource(manager, source.id()).permissions());
             assertThrows(SourceException.class, () -> service.renameSource(manager, source.id(), "Denied"));
@@ -359,12 +364,25 @@ class PostgresSourceLifecycleTest {
         assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
         long before = jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single();
-        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.RESTRICTED);
+        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PRIVATE);
         assertThat(jdbcClient.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", tenantId).query(Long.class).single()).isGreaterThan(before);
         assertTrue(service.getSource(manager, publicSource.id()).permissions().edit());
         assertNull(service.assignSourceManager(owner, publicSource.id(), null).managerActorId());
+        service.updateSourceAccess(owner, publicSource.id(), SourceAccess.PUBLIC);
         assertEquals(SourcePermissions.NONE, service.getSource(manager, publicSource.id()).permissions());
+        assertThrows(SourceException.class, () -> service.updateSourceAccess(owner, publicSource.id(), SourceAccess.SYNC));
+        assertEquals(SourceAccess.PUBLIC, service.getSource(owner, publicSource.id()).access());
+        jdbcClient.sql("""
+                UPDATE connectors SET connector_type='GOOGLE_DRIVE'
+                WHERE id=(SELECT connector_id FROM connector_credential_pairs WHERE id=:source)
+                """).param("source", shared.id().value()).update();
+        assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.SYNC));
+        for (var mode : List.of(SourceAccess.SYNC, SourceAccess.PUBLIC, SourceAccess.PRIVATE)) {
+            service.updateSourceAccess(owner, shared.id(), mode);
+            assertEquals(mode.name(), jdbcClient.sql("SELECT access_type FROM connector_credential_pairs WHERE id=:source")
+                    .param("source", shared.id().value()).query(String.class).single());
+        }
     }
 
     @Test
@@ -379,9 +397,9 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.createFileSource(manager, "System", List.of(adminGroupId()), null));
         assertEquals(0L, count("connector_credential_pairs"));
 
-        // Nobody reads a restricted Source with no Group; its creator attaches it when they are ready.
+        // Nobody reads a private Source with no Group; its creator attaches it when they are ready.
         var source = service.createFileSource(manager, "Unattached", List.of(), null);
-        assertEquals(SourceAccess.RESTRICTED, source.access());
+        assertEquals(SourceAccess.PRIVATE, source.access());
         assertEquals(manager, source.managerActorId());
         assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
         assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
@@ -400,7 +418,7 @@ class PostgresSourceLifecycleTest {
         GroupId other = new GroupId(UUID.randomUUID());
         ActorId stranger = addScopedManager(other);
         var own = service.createFileSource(manager, "Own", List.of(managed), null);
-        var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.RESTRICTED);
+        var foreign = service.createFileSource(owner, "Foreign", List.of(managed), SourceAccess.PRIVATE);
         jdbcClient.sql("DELETE FROM source_group_grants WHERE tenant_id=:tenant")
                 .param("tenant", tenantId).update();
         assertEquals(new SourcePermissions(true, true, false, false, false), service.getSource(manager, own.id()).permissions());
@@ -408,7 +426,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(SourceException.class, () -> service.deleteSource(manager, foreign.id()));
         service.updateSourceAccess(owner, own.id(), SourceAccess.PUBLIC);
         assertThrows(SourceException.class, () -> service.deleteSource(manager, own.id()));
-        service.updateSourceAccess(owner, own.id(), SourceAccess.RESTRICTED);
+        service.updateSourceAccess(owner, own.id(), SourceAccess.PRIVATE);
         var deletion = service.deleteSource(manager, own.id());
         assertEquals(deletion, service.deleteSource(manager, own.id()));
         var delivery = dispatch(OperationWorkload.CLEANUP);
@@ -454,8 +472,8 @@ class PostgresSourceLifecycleTest {
         ActorId manager = addScopedManager(managedGroupId);
         GroupId foreignGroupId = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroupId);
-        var managed = service.createFileSource(manager, "Managed source", List.of(managedGroupId), SourceAccess.RESTRICTED);
-        var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.RESTRICTED);
+        var managed = service.createFileSource(manager, "Managed source", List.of(managedGroupId), SourceAccess.PRIVATE);
+        var hidden = service.createFileSource(owner, "Hidden source", List.of(), SourceAccess.PRIVATE);
         var managedUpload = upload(
                 manager,
                 managed.id(),
@@ -522,10 +540,10 @@ class PostgresSourceLifecycleTest {
         ActorId manager = addScopedManager(managedGroup);
         GroupId foreignGroup = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroup);
-        var shared = service.createFileSource(owner, "Shared", List.of(managedGroup, foreignGroup), SourceAccess.RESTRICTED);
-        var onlyGroup = service.createFileSource(owner, "Only group", List.of(managedGroup), SourceAccess.RESTRICTED);
+        var shared = service.createFileSource(owner, "Shared", List.of(managedGroup, foreignGroup), SourceAccess.PRIVATE);
+        var onlyGroup = service.createFileSource(owner, "Only group", List.of(managedGroup), SourceAccess.PRIVATE);
         var publicShared = service.createFileSource(owner, "Public shared", List.of(managedGroup), SourceAccess.PUBLIC);
-        var foreignOnly = service.createFileSource(owner, "Foreign only", List.of(foreignGroup), SourceAccess.RESTRICTED);
+        var foreignOnly = service.createFileSource(owner, "Foreign only", List.of(foreignGroup), SourceAccess.PRIVATE);
 
         // What their own Group carries is theirs to decide, even for Sources they cannot otherwise manage.
         assertEquals(SourcePermissions.NONE, service.getSource(manager, shared.id()).permissions());
@@ -599,7 +617,7 @@ class PostgresSourceLifecycleTest {
     void managerRevocationDuringProviderVerificationPreventsUploadCommit() throws Exception {
         GroupId managedGroupId = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(managedGroupId);
-        SourceId sourceId = service.createFileSource(manager, "Revoked source", List.of(managedGroupId), SourceAccess.RESTRICTED).id();
+        SourceId sourceId = service.createFileSource(manager, "Revoked source", List.of(managedGroupId), SourceAccess.PRIVATE).id();
         byte[] content = "revoked during verification".getBytes(StandardCharsets.UTF_8);
         ObjectUploadAuthorization upload = service.initiateUpload(
                 manager,
@@ -805,6 +823,8 @@ class PostgresSourceLifecycleTest {
             assertTrue(attempts.retry(
                     work,
                     "SOURCE_EXTRACTION_INTERNAL",
+                    null,
+                    null,
                     3,
                     Duration.ofHours(1)
             ));
@@ -878,7 +898,7 @@ class PostgresSourceLifecycleTest {
                     ("content " + index).getBytes(StandardCharsets.UTF_8)));
             var delivery = dispatch(OperationWorkload.INGESTION);
             var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
-            assertTrue(attempts.fail(work, failures[index]));
+            assertTrue(attempts.fail(work, failures[index], null, null));
         }
         assertEquals(failures[1], service.getSource(owner, sourceId).errorCode());
 
@@ -1003,7 +1023,7 @@ class PostgresSourceLifecycleTest {
                 initialDelivery.operationId(),
                 initialDelivery.deliveryId()
         ).orElseThrow();
-        assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT"));
+        assertTrue(attempts.fail(initialWork, "SOURCE_EXTRACTION_TIMEOUT", null, null));
 
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> service.reindex(owner, sourceId, upload.item().id()));
@@ -1034,8 +1054,8 @@ class PostgresSourceLifecycleTest {
         assertThat(staleCleanup.initialQueueWait()).isNotNull().isGreaterThanOrEqualTo(Duration.ZERO);
         assertNull(currentCleanup.initialQueueWait());
         assertNotEquals(staleCleanup.claimToken(), currentCleanup.claimToken());
-        assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL"));
-        assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL"));
+        assertFalse(cleanup.fail(staleCleanup, "SOURCE_CLEANUP_INTERNAL", null, null));
+        assertTrue(cleanup.fail(currentCleanup, "SOURCE_CLEANUP_INTERNAL", null, null));
     }
 
     @Test

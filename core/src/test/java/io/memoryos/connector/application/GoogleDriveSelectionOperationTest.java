@@ -312,6 +312,7 @@ public class GoogleDriveSelectionOperationTest {
                     return page;
                 }
                 @Override public GoogleDriveProvider.AcquiredContent acquire(GoogleDriveProvider.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
+                @Override public List<GoogleDriveProvider.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
                 @Override public byte[] rotatedRefreshToken() { return null; }
                 @Override public void close() {}
             };
@@ -340,7 +341,7 @@ public class GoogleDriveSelectionOperationTest {
             return links;
         }
         public SelectionReceipt create(UUID request,List<String> links) {
-            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links,List.of());
+            return service.create(owner,request,"Fixture",credential,ScopeMode.SPECIFIC,links,List.of(),null);
         }
         public void discoverApproval(SourceId source,String id) {
             files.put(id,file(id,false,List.of("ancestor0")));

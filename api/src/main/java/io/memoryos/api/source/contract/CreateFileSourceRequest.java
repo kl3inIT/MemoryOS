@@ -23,7 +23,8 @@ public record CreateFileSourceRequest(
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
                 description = "Ordinary groups; at least one managed group is required for scoped managers. Global creation may omit groups.")
         @Nullable List<@NotNull UUID> groupIds,
-        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true,
+                description = "PUBLIC or PRIVATE; SYNC requires a Google Drive source.")
         @Nullable SourceAccess access
 ) {
     public CreateFileSourceRequest {

@@ -4116,7 +4116,7 @@ paths:
     post:
       tags:
       - Sources
-      summary: Update FILE source access
+      summary: Update Source access; SYNC requires a Google Drive source
       operationId: updateSourceAccess
       parameters:
       - name: X-MemoryOS-CSRF
@@ -7286,6 +7286,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageConnectionTestRequest"
       responses:
         "400":
           description: Invalid image configuration
@@ -7679,19 +7684,21 @@ paths:
         in: query
         required: false
         schema:
-          type: string
-          enum:
-          - QUEUED
-          - ACQUIRING
-          - RETRY_SCHEDULED
-          - RECOVERY_PENDING
-          - INDEXING
-          - SUCCEEDED
-          - COMPLETED_WITH_ERRORS
-          - FAILED
-          - SUPERSEDED
-          - CANCELLED
-          - UNKNOWN
+          type: array
+          items:
+            type: string
+            enum:
+            - QUEUED
+            - ACQUIRING
+            - RETRY_SCHEDULED
+            - RECOVERY_PENDING
+            - INDEXING
+            - SUCCEEDED
+            - COMPLETED_WITH_ERRORS
+            - FAILED
+            - SUPERSEDED
+            - CANCELLED
+            - UNKNOWN
       - name: trigger
         in: query
         required: false
@@ -9727,6 +9734,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImageAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/images/providers:
+    get:
+      tags:
+      - Chat Image
+      summary: List installed image providers and their known models for model managers
+      operationId: listChatImageProviders
+      responses:
+        "400":
+          description: Invalid image configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Image connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Image provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Installed image providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageProviderResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14398,6 +14455,10 @@ components:
           type: string
         access:
           type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
         status:
           type: string
         pendingWork:
@@ -14490,7 +14551,8 @@ components:
           type: string
           enum:
           - PUBLIC
-          - RESTRICTED
+          - PRIVATE
+          - SYNC
       required:
       - access
     CreateGoogleDriveSourceRequest:
@@ -14533,6 +14595,16 @@ components:
             format: uuid
           maxItems: 100
           minItems: 0
+        access:
+          type:
+          - string
+          - "null"
+          description: "PUBLIC, PRIVATE or SYNC; defaults to SYNC. PUBLIC requires\
+            \ global Source management."
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
       required:
       - credentialId
       - links
@@ -14562,9 +14634,11 @@ components:
           type:
           - string
           - "null"
+          description: PUBLIC or PRIVATE; SYNC requires a Google Drive source.
           enum:
           - PUBLIC
-          - RESTRICTED
+          - PRIVATE
+          - SYNC
       required:
       - name
     SearchRequest:
@@ -15393,6 +15467,24 @@ components:
       required:
       - failureCode
       - reachable
+    ImageConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+      - model
     ChatFileResponse:
       type: object
       properties:
@@ -15898,8 +15990,39 @@ components:
         occurredAt:
           type: string
           format: date-time
+        errorMessage:
+          type:
+          - string
+          - "null"
+        errorDetail:
+          type:
+          - string
+          - "null"
+        currentItemStatus:
+          type:
+          - string
+          - "null"
+          enum:
+          - PENDING
+          - INDEXED
+          - FAILED
+          - DELETING
+        currentItemErrorCode:
+          type:
+          - string
+          - "null"
+        currentItemLastIndexedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
       required:
       - code
+      - currentItemErrorCode
+      - currentItemLastIndexedAt
+      - currentItemStatus
+      - errorDetail
+      - errorMessage
       - fileId
       - fileName
       - id
@@ -17739,6 +17862,55 @@ components:
           type: string
       required:
       - available
+    ImageKnownModelResponse:
+      type: object
+      properties:
+        modelName:
+          type: string
+        displayName:
+          type: string
+        outputMediaType:
+          type: string
+        sizes:
+          type: array
+          items:
+            type: string
+        edit:
+          type: boolean
+        deprecated:
+          type: boolean
+      required:
+      - deprecated
+      - displayName
+      - edit
+      - modelName
+      - outputMediaType
+      - sizes
+    ImageProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI_IMAGE
+          - CLOUDFLARE_WORKERS_AI
+        credentialRequired:
+          type: boolean
+        defaultEndpoint:
+          type: string
+        endpointRequired:
+          type: boolean
+        editModel:
+          $ref: "#/components/schemas/ImageKnownModelResponse"
+        knownModels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageKnownModelResponse"
+      required:
+      - credentialRequired
+      - endpointRequired
+      - knownModels
+      - provider
     ChatFileTextResponse:
       type: object
       properties:

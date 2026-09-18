@@ -181,6 +181,17 @@
   --status-warning-content: #b54204;
   --status-info-surface: #e7effc;
   --status-info-content: #245fda;
+  /* Solid fills for white-lettered status pills. */
+  --status-danger-emphasis: #c12222;
+  --status-success-emphasis: #007a2d;
+  --status-warning-emphasis: #b54204;
+  --status-info-emphasis: #245fda;
+  --status-neutral-emphasis: #5c5c5c;
+  --status-danger-emphasis-border: var(--status-danger-emphasis);
+  --status-success-emphasis-border: var(--status-success-emphasis);
+  --status-warning-emphasis-border: var(--status-warning-emphasis);
+  --status-info-emphasis-border: var(--status-info-emphasis);
+  --status-neutral-emphasis-border: var(--status-neutral-emphasis);
   /* Cited evidence: passage highlight per theme; the PDF highlighter multiplies onto an always-white page. */
   --evidence-highlight-surface: #fff6d1;
   --evidence-highlight-border: #e0a100;
@@ -278,6 +289,17 @@
   --status-warning-content: #fb945d;
   --status-info-surface: #091938;
   --status-info-content: #8cb4ff;
+  /* Onyx's dark connector badges: a -900 fill outlined one step brighter. */
+  --status-danger-emphasis: #82181a;
+  --status-success-emphasis: #0d542b;
+  --status-warning-emphasis: #a65f00;
+  --status-info-emphasis: #1c398e;
+  --status-neutral-emphasis: #404040;
+  --status-danger-emphasis-border: #c10007;
+  --status-success-emphasis-border: #00a63e;
+  --status-warning-emphasis-border: #d08700;
+  --status-info-emphasis-border: #155dfc;
+  --status-neutral-emphasis-border: #737373;
   --evidence-highlight-surface: #3a2f05;
   --evidence-highlight-border: #b88600;
 

@@ -110,9 +110,6 @@ export const en = {
     signOutFailed: "We couldn't sign you out. Try again.",
   },
   identity: {
-    signIn: "Sign in to MemoryOS",
-    signInDescription: "Continue with your company account to open your workspace.",
-    companyAccount: "Continue with company account",
     notProvisioned: "You don’t have access yet.",
     notProvisionedDescription:
       "Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a Tenant owner for access, or continue with another account.",

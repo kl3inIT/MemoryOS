@@ -1,16 +1,27 @@
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
+import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, KeyRound, RefreshCw, Unplug } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, KeyRound, Pencil, RefreshCw, Unplug } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HelpPopover } from "@/components/ui/help-popover";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   useApplicationSession,
@@ -52,12 +63,31 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
+import { SourceHint } from "./source-hint";
 import { SourceSummaryCard } from "./source-summary-card";
+import {
+  formatSyncInterval,
+  maxSyncIntervalValue,
+  splitSyncInterval,
+  syncIntervalMinutes,
+  syncIntervalUnitName,
+  syncIntervalUnits,
+  type SyncIntervalUnit,
+} from "./sync-interval";
 import { can } from "@/lib/resource-permissions";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {
-  minutes: string;
+  value: string;
+  unit: SyncIntervalUnit;
 };
+
+function intervalDraftOf({
+  syncIntervalMinutes: minutes,
+  scheduleRevision,
+}: GetGoogleDriveConfigurationResponse): IntervalDraft {
+  const { value, unit } = splitSyncInterval(minutes);
+  return { value: String(value), unit, scheduleRevision };
+}
 type DriveAction =
   | "sync"
   | "authorize"
@@ -65,18 +95,25 @@ type DriveAction =
   | "save-interval"
   | "reload-interval"
   | "pause";
-const MAX_SYNC_INTERVAL_MINUTES = 2_147_483_647;
 
 export function GoogleDrivePanel({
   source,
   sourceStale,
   disabled = false,
   onBusyChange,
+  activeSection = "content",
+  navigation,
+  content,
+  settings,
 }: {
   source: SourceSummary;
   sourceStale: boolean;
   disabled?: boolean;
   onBusyChange: (busy: boolean) => void;
+  activeSection?: string;
+  navigation?: ReactNode;
+  content: ReactNode;
+  settings: ReactNode;
 }) {
   const ui = useAppTranslation();
 
@@ -161,14 +198,14 @@ export function GoogleDrivePanel({
   const hasSelectionChanges = editingSelection;
 
   const editingInterval = intervalDraft !== null;
-  const intervalMinutes = Number(intervalDraft?.minutes);
+  const intervalMinutes = intervalDraft
+    ? syncIntervalMinutes(intervalDraft.value, intervalDraft.unit)
+    : null;
   const intervalValidation =
-    intervalDraft &&
-    (!/^\d+$/.test(intervalDraft.minutes) ||
-      !Number.isInteger(intervalMinutes) ||
-      intervalMinutes < 1 ||
-      intervalMinutes > MAX_SYNC_INTERVAL_MINUTES)
-      ? "Enter a whole number of minutes from 1 to 2147483647."
+    intervalDraft && intervalMinutes === null
+      ? appText("Enter a whole number from 1 to {{v1}}.", {
+          v1: maxSyncIntervalValue(intervalDraft.unit).toLocaleString(uiLocale()),
+        })
       : null;
   const intervalConflicted =
     intervalRevisionConflict ||
@@ -427,7 +464,7 @@ export function GoogleDrivePanel({
   }
 
   async function saveInterval(signal: AbortSignal) {
-    if (!intervalDraft || intervalValidation || intervalConflicted || stale) return;
+    if (!intervalDraft || intervalMinutes === null || intervalConflicted || stale) return;
     const saved = await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
       headers: { ...sameOriginMutationHeaders, "If-Match": `"${intervalDraft.scheduleRevision}"` },
@@ -442,9 +479,8 @@ export function GoogleDrivePanel({
     notify({
       tone: "success",
       title: "Automatic interval saved",
-      description: appText("Synchronizes every {{v1}} {{v2}}. Current work is unchanged.", {
-        v1: saved.syncIntervalMinutes,
-        v2: appText(saved.syncIntervalMinutes === 1 ? "minute" : "minutes"),
+      description: appText("Synchronizes every {{v1}}. Current work is unchanged.", {
+        v1: formatSyncInterval(saved.syncIntervalMinutes),
       }),
     });
     await refresh();
@@ -474,10 +510,7 @@ export function GoogleDrivePanel({
     const { data: saved } = await configurationQuery.refetch({ throwOnError: true });
     signal.throwIfAborted();
     if (!saved) return;
-    setIntervalDraft({
-      minutes: String(saved.syncIntervalMinutes),
-      scheduleRevision: saved.scheduleRevision,
-    });
+    setIntervalDraft(intervalDraftOf(saved));
     setIntervalRevisionConflict(false);
     notify({
       tone: "info",
@@ -652,10 +685,10 @@ export function GoogleDrivePanel({
   if (!configuration) {
     return (
       <>
-        <SourceSummaryCard source={source}>
+        <SourceSummaryCard source={source} className="mt-6">
           <div>
-            <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-            <dd className="mt-2 text-content-muted">
+            <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+            <dd className="mt-1 flex min-h-8 items-center text-content-muted">
               {configurationQuery.isPending ? ui("Loading…") : ui("Unavailable")}
             </dd>
           </div>
@@ -680,38 +713,101 @@ export function GoogleDrivePanel({
             </div>
           )}
         </div>
+        {navigation}
+        <TabsContent value="content">{content}</TabsContent>
+        <TabsContent value="settings">{settings}</TabsContent>
       </>
     );
   }
 
   return (
-    <section aria-label={ui("Google Drive configuration")} className="space-y-6">
-      <SourceSummaryCard source={source}>
+    <section aria-label={ui("Google Drive configuration")} className="mt-6 space-y-5">
+      <SourceSummaryCard
+        source={source}
+        header={
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
+                <HelpPopover label={ui("Synchronization")}>
+                  <p>
+                    {ui(
+                      "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
+                    )}
+                  </p>
+                </HelpPopover>
+              </div>
+              <div className="flex items-center gap-2">
+                <SourceHint hint={ui("Refresh status")}>
+                  <IconButton
+                    aria-label={ui("Refresh status")}
+                    disabled={disabled || busy}
+                    pending={configurationQuery.isFetching}
+                    onClick={() => void refreshStatus()}
+                  >
+                    <RefreshCw aria-hidden="true" />
+                  </IconButton>
+                </SourceHint>
+                {connected && canSynchronize ? (
+                  <Button
+                    disabled={
+                      controlsDisabled ||
+                      hasSelectionChanges ||
+                      configuration.pendingWork ||
+                      source.pendingWork
+                    }
+                    pending={activeAction === "sync" || observingSynchronization}
+                    onClick={() => run("sync", sync)}
+                  >
+                    <RefreshCw /> {ui("Synchronize now")}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {configuration.errorCode ? (
+              <p className="mt-2 text-sm text-status-danger-content">
+                {ui(sourceStatusMessage(configuration.errorCode))}
+              </p>
+            ) : null}
+          </>
+        }
+      >
         <div className="min-w-0" aria-live="polite">
-          <dt className="text-content-muted">{ui("Automatic interval")}</dt>
-          <dd className="mt-2 min-w-0 space-y-3 text-content-primary">
-            <div className="flex flex-wrap items-center gap-2">
+          <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
+          <dd className="mt-1 min-w-0 space-y-3 text-content-primary">
+            <div className="flex min-h-8 flex-wrap items-center gap-2">
+              {canPause ? (
+                <Switch
+                  checked={!configuration.syncPaused}
+                  disabled={controlsDisabled}
+                  aria-label={ui("Automatic synchronization")}
+                  onCheckedChange={() => run("pause", togglePause)}
+                />
+              ) : null}
               <span>
-                {configuration.syncIntervalMinutes}{" "}
-                {configuration.syncIntervalMinutes === 1 ? ui("minute") : ui("minutes")}
+                {ui("Every {{v1}}", {
+                  v1: formatSyncInterval(configuration.syncIntervalMinutes),
+                })}
               </span>
+              {configuration.syncPaused ? (
+                <StatusBadge tone="neutral" size="sm">
+                  {ui("Paused")}
+                </StatusBadge>
+              ) : null}
               {canSchedule && !editingInterval ? (
-                <Button
+                <IconButton
                   ref={intervalEditButton}
                   size="sm"
                   aria-label={ui("Edit interval")}
                   prominence="tertiary"
                   disabled={controlsDisabled}
                   onClick={() => {
-                    setIntervalDraft({
-                      minutes: String(configuration.syncIntervalMinutes),
-                      scheduleRevision: configuration.scheduleRevision,
-                    });
+                    setIntervalDraft(intervalDraftOf(configuration));
                     setIntervalError(null);
                   }}
                 >
-                  {ui("Edit")}
-                </Button>
+                  <Pencil aria-hidden="true" />
+                </IconButton>
               ) : null}
             </div>
             {canSchedule && intervalDraft ? (
@@ -730,28 +826,61 @@ export function GoogleDrivePanel({
                   }
                 }}
               >
-                <label className="block space-y-1">
-                  <span>{ui("Interval in minutes")}</span>
-                  <Input
-                    ref={intervalInput}
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={MAX_SYNC_INTERVAL_MINUTES}
-                    step={1}
-                    required
-                    value={intervalDraft.minutes}
-                    disabled={controlsDisabled}
-                    aria-invalid={Boolean(intervalValidation)}
-                    aria-describedby={
-                      intervalValidation ? `sync-interval-error-${source.id}` : undefined
-                    }
-                    onChange={(event) => {
-                      setIntervalDraft({ ...intervalDraft, minutes: event.target.value });
-                      setIntervalError(null);
-                    }}
-                  />
-                </label>
+                <div className="space-y-2">
+                  <span
+                    id={`sync-interval-label-${source.id}`}
+                    className="block text-sm font-medium text-content-primary"
+                  >
+                    {ui("Sync every")}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={intervalInput}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={maxSyncIntervalValue(intervalDraft.unit)}
+                      step={1}
+                      required
+                      value={intervalDraft.value}
+                      disabled={controlsDisabled}
+                      aria-labelledby={`sync-interval-label-${source.id}`}
+                      aria-invalid={Boolean(intervalValidation)}
+                      aria-describedby={
+                        intervalValidation ? `sync-interval-error-${source.id}` : undefined
+                      }
+                      className="w-24"
+                      onChange={(event) => {
+                        setIntervalDraft({ ...intervalDraft, value: event.target.value });
+                        setIntervalError(null);
+                      }}
+                    />
+                    <Select
+                      value={intervalDraft.unit}
+                      disabled={controlsDisabled}
+                      onValueChange={(next) => {
+                        const unit = syncIntervalUnits.find((entry) => entry === next);
+                        if (!unit) return;
+                        setIntervalDraft({ ...intervalDraft, unit });
+                        setIntervalError(null);
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label={ui("Interval unit")}
+                        className="h-(--control-height-md) min-w-28"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {syncIntervalUnits.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {syncIntervalUnitName(unit, Number(intervalDraft.value) || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {intervalValidation ? (
                   <p
                     id={`sync-interval-error-${source.id}`}
@@ -799,60 +928,7 @@ export function GoogleDrivePanel({
             ) : null}
           </dd>
         </div>
-        <div>
-          <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
-          <dd className="mt-2 text-content-primary">
-            {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
-          </dd>
-        </div>
       </SourceSummaryCard>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <SourceSectionIcon icon={RefreshCw} />
-          <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
-          <HelpPopover label={ui("Synchronization")}>
-            <p>
-              {ui(
-                "Automatic sync uses this Source’s saved interval. Saving an interval schedules the next run from the save time and does not interrupt current work. Start time depends on availability and pending work. Synchronize now requests a run.",
-              )}
-            </p>
-          </HelpPopover>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            prominence="tertiary"
-            disabled={disabled || busy}
-            pending={configurationQuery.isFetching}
-            onClick={() => void refreshStatus()}
-          >
-            <RefreshCw /> {ui("Refresh status")}
-          </Button>
-          {canPause ? (
-            <Button
-              prominence="secondary"
-              disabled={controlsDisabled}
-              pending={activeAction === "pause"}
-              onClick={() => run("pause", togglePause)}
-            >
-              {configuration.syncPaused ? ui("Resume automatic sync") : ui("Pause automatic sync")}
-            </Button>
-          ) : null}
-          {connected && canSynchronize ? (
-            <Button
-              disabled={
-                controlsDisabled ||
-                hasSelectionChanges ||
-                configuration.pendingWork ||
-                source.pendingWork
-              }
-              pending={activeAction === "sync" || observingSynchronization}
-              onClick={() => run("sync", sync)}
-            >
-              <RefreshCw /> {ui("Synchronize now")}
-            </Button>
-          ) : null}
-        </div>
-      </div>
       {stale ? (
         <p role="alert" className="text-sm text-status-danger-content">
           {ui(
@@ -865,11 +941,6 @@ export function GoogleDrivePanel({
           {ui(error)}
         </p>
       ) : null}
-      {configuration.errorCode ? (
-        <p className="text-sm text-status-danger-content">
-          {ui(sourceStatusMessage(configuration.errorCode))}
-        </p>
-      ) : null}
       {!connected ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
           {ui(
@@ -877,187 +948,206 @@ export function GoogleDrivePanel({
           )}
         </p>
       ) : null}
-      <section
-        aria-labelledby="source-credentials-heading"
-        className="space-y-3 border-b border-border-subtle pb-5"
+      {navigation}
+      <TabsContent
+        value="settings"
+        forceMount
+        hidden={activeSection !== "settings"}
+        className="space-y-5 outline-none"
       >
-        <div className="flex items-center gap-3">
-          <SourceSectionIcon icon={KeyRound} />
-          <h2 id="source-credentials-heading" className="font-heading-h3 text-content-primary">
-            {ui("Credentials")}
-          </h2>
-        </div>
-        <Collapsible className="group" defaultOpen={Boolean(!connected ? true : undefined)}>
-          <CollapsibleTrigger className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
-            <StatusBadge tone={connected ? "success" : "warning"}>
-              {connected ? ui("Connected") : ui("Needs reconnect")}
-            </StatusBadge>
-            <span className="min-w-0 break-all text-content-muted">
-              {configuration.accountEmail}
-            </span>
-            <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
-              <span className="group-open:hidden">
-                {canReauthorize || canRevoke ? ui("Manage connection") : ui("Connection details")}
+        <section
+          aria-labelledby="source-credentials-heading"
+          className="space-y-4 rounded-xl border border-border-subtle bg-surface-raised p-5"
+        >
+          <div className="flex items-center gap-3">
+            <SourceSectionIcon icon={KeyRound} />
+            <h2 id="source-credentials-heading" className="font-heading-h3 text-content-primary">
+              {ui("Credentials")}
+            </h2>
+          </div>
+          <Collapsible className="group" defaultOpen={Boolean(!connected ? true : undefined)}>
+            <CollapsibleTrigger className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+              <StatusBadge tone={connected ? "success" : "warning"}>
+                {connected ? ui("Connected") : ui("Needs reconnect")}
+              </StatusBadge>
+              <span className="min-w-0 break-all text-content-muted">
+                {configuration.accountEmail}
               </span>
-              <span className="hidden group-open:inline">{ui("Close")}</span>
-              <ChevronDown
-                className="size-4 group-open:rotate-180 motion-safe:transition-transform"
-                aria-hidden="true"
-              />
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-4 space-y-4">
-              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                {ui(
-                  "This credential is shared. Reconnecting or disconnecting affects all Sources using it",
-                )}
-                {credential ? ui(" ({{v1}} Sources)", { v1: credential.sourceCount }) : ""}
-                {ui(", not just this Source. Saved links and indexed documents are retained.")}
-              </p>
-              {credentials.isError ? (
-                <div className="space-y-2">
-                  <p role="alert" className="text-sm text-status-danger-content">
-                    {ui("Credential details could not be loaded. Refresh before reconnecting.")}
-                  </p>
-                  <Button
-                    prominence="secondary"
-                    pending={credentials.isFetching}
-                    onClick={() => void refreshCredentials()}
-                  >
-                    {ui("Retry credential details")}
-                  </Button>
-                </div>
-              ) : null}
-              {canReauthorize ? (
-                <div className="space-y-3">
-                  {!savedClientConfigured ? (
-                    <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                      {canReplaceClient
-                        ? ui(
-                            "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
-                          )
-                        : ui(
-                            "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.",
-                          )}
-                    </p>
-                  ) : (
-                    <>
-                      <p className="text-sm text-content-secondary">
-                        {ui("Reconnect reuses the OAuth app saved with this shared credential.")}
-                      </p>
-                      {canReplaceClient ? (
-                        <label className="flex items-center gap-2 text-sm text-content-primary">
-                          <Checkbox
-                            checked={replaceClient}
-                            disabled={controlsDisabled || hasSelectionChanges}
-                            onCheckedChange={(event) => {
-                              clientInput.current?.clear();
-                              setClientReady(false);
-                              setReplaceClient(event === true);
-                            }}
-                          />
-                          {ui("Replace OAuth app on reconnect")}
-                        </label>
-                      ) : null}
-                    </>
+              <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
+                <span className="group-data-[state=open]:hidden">
+                  {canReauthorize || canRevoke ? ui("Manage connection") : ui("Connection details")}
+                </span>
+                <span className="hidden group-data-[state=open]:inline">{ui("Close")}</span>
+                <ChevronDown
+                  className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
+                  aria-hidden="true"
+                />
+              </span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-4 space-y-4">
+                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                  {ui(
+                    "This credential is shared. Reconnecting or disconnecting affects all Sources using it",
                   )}
-                  {needsClient ? (
-                    <GoogleDriveOAuthClientInput
-                      key={`${resourceKey}:${credentialKey}`}
-                      ref={clientInput}
-                      disabled={controlsDisabled || hasSelectionChanges}
-                      onReadyChange={setClientReady}
+                  {credential ? ui(" ({{v1}} Sources)", { v1: credential.sourceCount }) : ""}
+                  {ui(", not just this Source. Saved links and indexed documents are retained.")}
+                </p>
+                {credentials.isError ? (
+                  <div className="space-y-2">
+                    <p role="alert" className="text-sm text-status-danger-content">
+                      {ui("Credential details could not be loaded. Refresh before reconnecting.")}
+                    </p>
+                    <Button
+                      prominence="secondary"
+                      pending={credentials.isFetching}
+                      onClick={() => void refreshCredentials()}
+                    >
+                      {ui("Retry credential details")}
+                    </Button>
+                  </div>
+                ) : null}
+                {canReauthorize ? (
+                  <div className="space-y-3">
+                    {!savedClientConfigured ? (
+                      <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                        {canReplaceClient
+                          ? ui(
+                              "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.",
+                            )
+                          : ui(
+                              "This connection has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect this credential.",
+                            )}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-content-secondary">
+                          {ui("Reconnect reuses the OAuth app saved with this shared credential.")}
+                        </p>
+                        {canReplaceClient ? (
+                          <label className="flex items-center gap-2 text-sm text-content-primary">
+                            <Checkbox
+                              checked={replaceClient}
+                              disabled={controlsDisabled || hasSelectionChanges}
+                              onCheckedChange={(event) => {
+                                clientInput.current?.clear();
+                                setClientReady(false);
+                                setReplaceClient(event === true);
+                              }}
+                            />
+                            {ui("Replace OAuth app on reconnect")}
+                          </label>
+                        ) : null}
+                      </>
+                    )}
+                    {needsClient ? (
+                      <GoogleDriveOAuthClientInput
+                        key={`${resourceKey}:${credentialKey}`}
+                        ref={clientInput}
+                        disabled={controlsDisabled || hasSelectionChanges}
+                        onReadyChange={setClientReady}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {canReauthorize ? (
+                    <ConfirmDialog
+                      trigger={
+                        <Button
+                          prominence="secondary"
+                          disabled={
+                            controlsDisabled ||
+                            !credential ||
+                            credentials.isError ||
+                            hasSelectionChanges ||
+                            missingClient ||
+                            (needsClient && !clientReady)
+                          }
+                          pending={activeAction === "authorize" || leaving}
+                        >
+                          {ui("Reconnect Google Drive")}
+                        </Button>
+                      }
+                      title={ui("Reconnect shared Google credential?")}
+                      description={ui(
+                        "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
+                        { v1: credential?.sourceCount ?? ui("attached") },
+                      )}
+                      confirmLabel={ui("Reconnect")}
+                      pendingLabel={ui("Reconnecting")}
+                      onConfirm={() => perform("authorize", reconnect)}
+                      errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
+                    />
+                  ) : null}
+                  {canRevoke && configuration.credentialStatus !== "REVOKED" ? (
+                    <ConfirmDialog
+                      trigger={
+                        <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
+                          <Unplug /> {ui("Disconnect")}
+                        </Button>
+                      }
+                      title={ui("Disconnect shared Google credential?")}
+                      description={ui(
+                        "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.",
+                        { v1: credential?.sourceCount ?? ui("attached") },
+                      )}
+                      confirmLabel={ui("Disconnect")}
+                      pendingLabel={ui("Disconnecting")}
+                      onConfirm={() => perform("disconnect", disconnect)}
+                      errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
                     />
                   ) : null}
                 </div>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {canReauthorize ? (
-                  <ConfirmDialog
-                    trigger={
-                      <Button
-                        prominence="secondary"
-                        disabled={
-                          controlsDisabled ||
-                          !credential ||
-                          credentials.isError ||
-                          hasSelectionChanges ||
-                          missingClient ||
-                          (needsClient && !clientReady)
-                        }
-                        pending={activeAction === "authorize" || leaving}
-                      >
-                        {ui("Reconnect Google Drive")}
-                      </Button>
-                    }
-                    title={ui("Reconnect shared Google credential?")}
-                    description={ui(
-                      "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
-                      { v1: credential?.sourceCount ?? ui("attached") },
-                    )}
-                    confirmLabel={ui("Reconnect")}
-                    pendingLabel={ui("Reconnecting")}
-                    onConfirm={() => perform("authorize", reconnect)}
-                    errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
-                  />
-                ) : null}
-                {canRevoke && configuration.credentialStatus !== "REVOKED" ? (
-                  <ConfirmDialog
-                    trigger={
-                      <Button tone="danger" prominence="tertiary" disabled={controlsDisabled}>
-                        <Unplug /> {ui("Disconnect")}
-                      </Button>
-                    }
-                    title={ui("Disconnect shared Google credential?")}
-                    description={ui(
-                      "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.",
-                      { v1: credential?.sourceCount ?? ui("attached") },
-                    )}
-                    confirmLabel={ui("Disconnect")}
-                    pendingLabel={ui("Disconnecting")}
-                    onConfirm={() => perform("disconnect", disconnect)}
-                    errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
-                  />
-                ) : null}
+                <p className="text-xs text-content-muted">
+                  {ui(
+                    "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.",
+                  )}
+                </p>
               </div>
-              <p className="text-xs text-content-muted">
-                {ui(
-                  "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.",
-                )}
-              </p>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </section>
-      {canConfigure ? (
-        <GoogleDriveSelectionPanel
-          key={`${session.actorId}:${session.authorizationVersion}:${capabilities}:${source.id}`}
-          sourceId={source.id}
-          configuration={configuration}
-          disabled={controlsDisabled || !connected}
-          onEditingChange={setEditingSelection}
-          onBusyChange={setSelectionBusy}
-          onActivated={refresh}
-        />
-      ) : (
-        <section aria-label={ui("Saved Drive selection")} className="space-y-3">
-          <h2 className="font-heading-h3">{ui("Saved selection")}</h2>
-          <p className="text-sm text-content-muted">
-            {configuration.scopeMode === "GENERAL"
-              ? ui("Whole Google account")
-              : ui("Specific files and folders")}
-            {ui(". Selection configuration is read-only.")}
-          </p>
-          <p className="text-sm text-content-primary">
-            {ui("{{v1}} folders · {{v2}} files · {{v3}} approved linked documents", {
-              v1: configuration.counts.folders,
-              v2: configuration.counts.files,
-              v3: configuration.counts.approvedLinkedDocuments,
-            })}
-          </p>
+            </CollapsibleContent>
+          </Collapsible>
         </section>
-      )}
+        {settings}
+      </TabsContent>
+      <TabsContent
+        value="content"
+        forceMount
+        hidden={activeSection !== "content"}
+        className="outline-none"
+      >
+        {canConfigure ? (
+          <div className="rounded-xl border border-border-subtle bg-surface-raised px-4 py-5 sm:px-5">
+            <GoogleDriveSelectionPanel
+              key={`${session.actorId}:${session.authorizationVersion}:${capabilities}:${source.id}`}
+              sourceId={source.id}
+              configuration={configuration}
+              disabled={controlsDisabled || !connected}
+              onEditingChange={setEditingSelection}
+              onBusyChange={setSelectionBusy}
+              onActivated={refresh}
+            />
+          </div>
+        ) : (
+          <section aria-label={ui("Saved Drive selection")} className="space-y-3">
+            <h2 className="font-heading-h3">{ui("Saved selection")}</h2>
+            <p className="text-sm text-content-muted">
+              {configuration.scopeMode === "GENERAL"
+                ? ui("Whole Google account")
+                : ui("Specific files and folders")}
+              {ui(". Selection configuration is read-only.")}
+            </p>
+            <p className="text-sm text-content-primary">
+              {ui("{{v1}} folders · {{v2}} files · {{v3}} approved linked documents", {
+                v1: configuration.counts.folders,
+                v2: configuration.counts.files,
+                v3: configuration.counts.approvedLinkedDocuments,
+              })}
+            </p>
+          </section>
+        )}
+        {content}
+      </TabsContent>
     </section>
   );
 }

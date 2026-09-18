@@ -7,6 +7,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -18,9 +19,11 @@ import tools.jackson.databind.ObjectMapper;
 public final class ImageProviderClient {
     /**
      * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
-     * Klein 9B is preferred over 4B for quality at about 1,300 neurons per 1024 px edit.
+     * Klein 9B is preferred over 4B for quality at about 1,300 neurons per 1024 px edit; declared once in the
+     * image model catalog.
      */
-    static final String CLOUDFLARE_EDIT_MODEL = "@cf/black-forest-labs/flux-2-klein-9b";
+    static final String CLOUDFLARE_EDIT_MODEL = Objects.requireNonNull(ImageProvider.CLOUDFLARE_WORKERS_AI.editModel()).modelName();
+    private static final String OPENAI_ENDPOINT = Objects.requireNonNull(ImageProvider.OPENAI_IMAGE.defaultEndpoint());
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ImageHttp http;
     private final ImageConnectionService connections;
@@ -30,8 +33,13 @@ public final class ImageProviderClient {
     }
     public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 
-    public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String size) throws IOException {
-        return measured(connection.provider().name(), "generate", () -> generateRequest(connection, prompt, size));
+    public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape) throws IOException {
+        return generate(connection, prompt, shape, null);
+    }
+
+    /** An override key authenticates an unsaved probe; null resolves the connection's stored credential. */
+    public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
+        return measured(connection.provider().name(), "generate", () -> generateRequest(connection, prompt, shape, key));
     }
 
     /** Edits a normalized working image from an English instruction; a mask is applied afterwards by the caller. */
@@ -39,13 +47,16 @@ public final class ImageProviderClient {
         return measured(connection.provider().name(), "edit", () -> editRequest(connection, prompt, image));
     }
 
-    private Result generateRequest(ImageConnectionService.Connection connection, String prompt, @Nullable String size) throws IOException {
+    private Result generateRequest(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
         validate(prompt);
-        String key = connections.key(connection);
+        String credential = key != null ? key : connections.key(connection);
         String base = connection.endpoint().replaceAll("/+$", "");
+        // The tool shape maps to a declared size of the configured model; unknown models and
+        // models without declared sizes keep the provider default.
+        String size = connection.provider().sizeFor(connection.model(), shape);
         return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAi(base.isEmpty() ? "https://api.openai.com/v1" : base, key, connection.model(), prompt, size);
-            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, key, connection.model(), prompt);
+            case OPENAI_IMAGE -> openAi(base.isEmpty() ? OPENAI_ENDPOINT : base, credential, connection.model(), prompt, size);
+            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, credential, connection.model(), prompt);
         };
     }
     private Result editRequest(ImageConnectionService.Connection connection, String prompt, ImageEditImages.Working image) throws IOException {
@@ -53,7 +64,7 @@ public final class ImageProviderClient {
         var auth = Map.of("Authorization", "Bearer " + connections.key(connection));
         String base = connection.endpoint().replaceAll("/+$", "");
         return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAiEdit(base.isEmpty() ? "https://api.openai.com/v1" : base, auth, connection.model(), prompt, image);
+            case OPENAI_IMAGE -> openAiEdit(base.isEmpty() ? OPENAI_ENDPOINT : base, auth, connection.model(), prompt, image);
             case CLOUDFLARE_WORKERS_AI -> cloudflareEdit(base, auth, prompt, image);
         };
     }

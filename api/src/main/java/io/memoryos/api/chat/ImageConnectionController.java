@@ -3,6 +3,8 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ImageAvailabilityResponse;
 import io.memoryos.api.chat.contract.ImageConnectionRequest;
 import io.memoryos.api.chat.contract.ImageConnectionResponse;
+import io.memoryos.api.chat.contract.ImageConnectionTestRequest;
+import io.memoryos.api.chat.contract.ImageProviderResponse;
 import io.memoryos.api.chat.contract.ImageSelectionRequest;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ProviderCredentials;
@@ -59,6 +61,12 @@ class ImageConnectionController {
         return new ImageAvailabilityResponse(generate != null,
                 generate == null ? null : generate.provider(), generate == null ? null : generate.model());
     }
+    @GetMapping("/providers")
+    @ApiResponse(responseCode = "200", description = "Installed image providers", useReturnTypeSchema = true)
+    @Operation(operationId = "listChatImageProviders", summary = "List installed image providers and their known models for model managers")
+    List<ImageProviderResponse> providers(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return connections.providers(identity.actorId()).stream().map(ImageProviderResponse::from).toList();
+    }
     @GetMapping("/connections")
     @ApiResponse(responseCode = "200", description = "Image connections", useReturnTypeSchema = true)
     @Operation(operationId = "listChatImageConnections", summary = "List image connections for model managers")
@@ -84,10 +92,12 @@ class ImageConnectionController {
     @ApiResponse(responseCode = "204", description = "Provider request succeeded", content = @Content)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "testChatImageConnection", summary = "Explicitly generate a test image; provider charges may apply")
-    void test(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable ImageProvider provider) {
-        var connection = connections.forTest(identity.actorId(), provider);
+    void test(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable ImageProvider provider,
+            @Valid @RequestBody(required = false) ImageConnectionTestRequest request) {
+        var probe = connections.forTest(identity.actorId(), provider,
+                request == null ? null : new ImageConnectionService.ProbeInput(request.endpoint(), request.model(), request.credentialValue()));
         try {
-            if (client.generate(connection, "a small solid blue circle on a white background", null).bytes().length == 0)
+            if (client.generate(probe.connection(), "a small solid blue circle on a white background", null, probe.credential()).bytes().length == 0)
                 throw new IOException("No image produced");
         } catch (IOException | IllegalArgumentException failed) { throw ChatException.providerUnavailable(); }
     }

@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.application;
 
+import io.memoryos.connector.GoogleDriveAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
@@ -30,6 +31,12 @@ public class SearchProjectionMaintenance {
     /** Runs in the transaction that changed Source access; membership changes need no index write. */
     @EventListener
     public void accessChanged(SourceAccessChanged event) { work.enqueueSourceAccess(event.tenantId(), event.sourceId(), index.identity()); }
+
+    /** Runs in the permission snapshot transaction; only SYNC Sources index provider permissions. */
+    @EventListener
+    public void aclChanged(GoogleDriveAclChanged event) {
+        work.enqueueDocumentAccess(event.tenantId(), event.sourceId(), event.documentIds(), index.identity());
+    }
 
     public synchronized void reconcile() {
         work.cancelObsolete(index.identity());

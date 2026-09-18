@@ -48,6 +48,7 @@ function DialogContent({
   showCloseButton?: boolean;
 }) {
   const ui = useAppTranslation();
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -91,6 +92,7 @@ function DialogFooter({
   showCloseButton?: boolean;
 }) {
   const ui = useAppTranslation();
+
   return (
     <div
       data-slot="dialog-footer"

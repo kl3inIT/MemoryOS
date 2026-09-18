@@ -148,9 +148,9 @@ class GoogleDriveOAuthClientMigrationTest {
                 UUID second = UUID.randomUUID();
                 jdbc.sql("INSERT INTO connectors (id, tenant_id, name, connector_type, status) VALUES (:id, :t, 'Second source', 'GOOGLE_DRIVE', 'ACTIVE')")
                         .param("id", second).param("t", tenant).update();
-                jdbc.sql("INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status) VALUES (:id, :t, :id, :credential, 'RESTRICTED', 'NOT_STARTED')")
+                jdbc.sql("INSERT INTO connector_credential_pairs (id, tenant_id, connector_id, credential_id, access_type, status) VALUES (:id, :t, :id, :credential, 'PRIVATE', 'NOT_STARTED')")
                         .param("id", second).param("t", tenant).param("credential", drive).update();
-                assertEquals(2, credentials.list(new TenantId(tenant), null).getFirst().sourceCount());
+                assertEquals(2,credentials.list(new TenantId(tenant), null).getFirst().sourceCount());
                 jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :t, 'Another account', 'GOOGLE_OAUTH', 'ACTIVE')")
                         .param("id", UUID.randomUUID()).param("t", tenant).update();
                 var savepoint = connection.setSavepoint();

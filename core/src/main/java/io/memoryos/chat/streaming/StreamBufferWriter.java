@@ -47,6 +47,12 @@ public final class StreamBufferWriter {
     private static final String OUTCOME = "outcome";
     /** A read that finds a reply no longer RUNNING waits this long for its outcome, written after the terminal commit. */
     private static final long FINAL_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(2);
+    /**
+     * Signalled after every Redis write, so a reader in this process wakes at once, as Onyx's attached response reads
+     * its in-memory tee; the poll interval still bounds readers of replies written by another process.
+     */
+    private final Object written = new Object();
+    private long writes;
 
     private final StringRedisTemplate redis;
     private final ChatStreamProperties limits;
@@ -337,6 +343,10 @@ public final class StreamBufferWriter {
                     return null;
                 });
                 acknowledge(stream, batch.getLast().sequence());
+                synchronized (written) {
+                    writes++;
+                    written.notifyAll();
+                }
                 if (stream.failing) LOG.info("Chat stream writes to Redis resumed for reply {}", stream.id);
                 stream.failing = false;
             } catch (RuntimeException failure) {
@@ -417,6 +427,8 @@ public final class StreamBufferWriter {
         public Batch read() throws InterruptedException {
             long heartbeatAt = System.nanoTime() + limits.heartbeat().toNanos();
             while (!closed) {
+                long seen;
+                synchronized (written) { seen = writes; }
                 Batch batch;
                 try { batch = next(); }
                 catch (org.springframework.dao.DataAccessException unavailable) {
@@ -434,7 +446,10 @@ public final class StreamBufferWriter {
                     if (!running.getAsBoolean()) drainUntil = now + FINAL_DRAIN_NANOS;
                     else if (!first) return new Batch(List.of(), false, null);
                 }
-                TimeUnit.NANOSECONDS.sleep(limits.pollInterval().toNanos());
+                synchronized (written) {
+                    // A write between the read above and this wait is not missed.
+                    if (writes == seen) written.wait(Math.max(1, limits.pollInterval().toMillis()));
+                }
             }
             return new Batch(List.of(), true, null);
         }

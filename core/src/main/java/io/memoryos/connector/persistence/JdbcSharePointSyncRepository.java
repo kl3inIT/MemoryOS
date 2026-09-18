@@ -255,7 +255,7 @@ public class JdbcSharePointSyncRepository {
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("end", java.sql.Timestamp.from(windowEnd)).param("tenant", work.tenantId().value())
                 .param("source", work.sourceId().value()).update();
-        attempts.terminal(work, "SUCCEEDED", null);
+        attempts.terminal(work, "SUCCEEDED", null, null, null);
     }
 
     public void finishPrune(Work work) {
@@ -266,11 +266,12 @@ public class JdbcSharePointSyncRepository {
                     error_code = NULL
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
-        attempts.terminal(work, "SUCCEEDED", null);
+        attempts.terminal(work, "SUCCEEDED", null, null, null);
     }
 
-    public void terminal(Work work, String status, @Nullable String code) {
-        attempts.terminal(work, status, code);
+    public void terminal(Work work, String status, @Nullable String code, @Nullable String errorMessage,
+            @Nullable String technicalDetail) {
+        attempts.terminal(work, status, code, errorMessage, technicalDetail);
         if (code != null) {
             jdbc.sql("""
                     UPDATE sharepoint_sources SET error_code = :code,

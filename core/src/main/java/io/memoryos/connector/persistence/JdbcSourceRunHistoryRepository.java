@@ -2,6 +2,7 @@ package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
+import io.memoryos.connector.SourceItemStatus;
 import io.memoryos.connector.SourceRun;
 import io.memoryos.connector.SourceRunCounts;
 import io.memoryos.connector.SourceRunError;
@@ -76,17 +77,18 @@ public class JdbcSourceRunHistoryRepository {
     }
 
     public SourceRunHistoryService.Page list(TenantId tenant, SourceId source, SourceRunHistoryService.Query query) {
-        String scope = scope(tenant, source, "RUN", query.status(), query.trigger(), query.from(), query.to());
+        List<String> statuses = query.statuses().stream().map(SourceRunStatus::name).sorted().toList();
+        String scope = scope(tenant, source, "RUN", statuses, query.trigger(), query.from(), query.to());
         Cursor cursor = decode(query.cursor(), scope);
         String filteredRuns = " FROM (" + PROJECTION + ") runs WHERE TRUE"
-                + (query.status() == null ? "" : " AND run_state = :status")
+                + (statuses.isEmpty() ? "" : " AND run_state IN (:statuses)")
                 + (query.trigger() == null ? "" : " AND trigger_kind = :trigger")
                 + (query.from() == null ? "" : " AND created_at >= :from")
                 + (query.to() == null ? "" : " AND created_at < :to");
         var parameters = new HashMap<String, Object>();
         parameters.put("tenant", tenant.value());
         parameters.put("source", source.value());
-        if (query.status() != null) parameters.put("status", query.status().name());
+        if (!statuses.isEmpty()) parameters.put("statuses", statuses);
         if (query.trigger() != null) parameters.put("trigger", query.trigger().name());
         if (query.from() != null) parameters.put("from", WorkLeases.sqlTime(query.from()));
         if (query.to() != null) parameters.put("to", WorkLeases.sqlTime(query.to()));
@@ -115,20 +117,51 @@ public class JdbcSourceRunHistoryRepository {
     }
 
     public SourceRunHistoryService.ErrorPage errors(TenantId tenant, SourceId source, UUID runId, @Nullable String token, int size) {
-        String scope = scope(tenant, source, "ERROR:" + runId, null, null, null, null);
+        String scope = scope(tenant, source, "ERROR:" + runId, List.of(), null, null, null);
         Cursor cursor = decode(token, scope);
         var statement = jdbc.sql("""
-                SELECT e.* FROM source_run_errors e
-                JOIN source_sync_attempts r ON r.tenant_id = e.tenant_id AND r.id = e.run_id
-                WHERE e.tenant_id = :tenant AND r.source_id = :source AND e.run_id = :run
+                WITH error_page AS (
+                    SELECT e.*, p.connector_id FROM source_run_errors e
+                    JOIN source_sync_attempts r ON r.tenant_id = e.tenant_id AND r.id = e.run_id
+                    JOIN connector_credential_pairs p ON p.tenant_id = r.tenant_id AND p.id = r.source_id
+                    WHERE e.tenant_id = :tenant AND r.source_id = :source AND e.run_id = :run
                 """ + (cursor == null ? "" : " AND (e.occurred_at, e.id) < (:cursorTime, :cursorId)")
-                + " ORDER BY e.occurred_at DESC, e.id DESC LIMIT :limit")
+                + """
+                    ORDER BY e.occurred_at DESC, e.id DESC LIMIT :limit
+                )
+                SELECT e.*, item.status AS current_item_status,
+                    attempt.error_code AS current_item_error_code,
+                    success.completed_at AS current_item_last_indexed_at
+                FROM error_page e
+                LEFT JOIN connector_items item ON item.tenant_id = e.tenant_id
+                    AND item.connector_id = e.connector_id AND item.id = e.item_id
+                LEFT JOIN LATERAL (
+                    SELECT latest.error_code FROM index_attempts latest
+                    WHERE latest.tenant_id = item.tenant_id
+                        AND latest.connector_credential_pair_id = :source AND latest.connector_item_id = item.id
+                    ORDER BY latest.pair_sequence DESC LIMIT 1
+                ) attempt ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT completed_at FROM index_attempts successful
+                    WHERE successful.tenant_id = item.tenant_id
+                        AND successful.connector_credential_pair_id = :source AND successful.connector_item_id = item.id
+                        AND successful.connector_item_version_id = item.current_version_id AND successful.status = 'SUCCEEDED'
+                    ORDER BY successful.pair_sequence DESC LIMIT 1
+                ) success ON TRUE
+                ORDER BY e.occurred_at DESC, e.id DESC
+                """)
                 .param("tenant", tenant.value()).param("source", source.value()).param("run", runId).param("limit", size + 1);
         if (cursor != null) statement.param("cursorTime", WorkLeases.sqlTime(cursor.time())).param("cursorId", cursor.id());
-        var found = statement.query((r, _) -> new SourceRunError(r.getObject("id", UUID.class), runId,
-                r.getObject("operation_id", UUID.class), r.getObject("item_id", UUID.class),
-                r.getString("file_id"), r.getString("file_name"), SourceRunErrorStage.valueOf(r.getString("stage")),
-                r.getString("code"), r.getTimestamp("occurred_at").toInstant())).list();
+        var found = statement.query((r, _) -> {
+            String currentStatus = r.getString("current_item_status");
+            return new SourceRunError(r.getObject("id", UUID.class), runId,
+                    r.getObject("operation_id", UUID.class), r.getObject("item_id", UUID.class),
+                    r.getString("file_id"), r.getString("file_name"), SourceRunErrorStage.valueOf(r.getString("stage")),
+                    r.getString("code"), r.getTimestamp("occurred_at").toInstant(),
+                    r.getString("error_message"), r.getString("error_detail"),
+                    currentStatus == null ? null : SourceItemStatus.valueOf(currentStatus),
+                    r.getString("current_item_error_code"), JdbcSourceRepository.instant(r, "current_item_last_indexed_at"));
+        }).list();
         boolean more = found.size() > size;
         var items = more ? List.copyOf(found.subList(0, size)) : found;
         var last = items.isEmpty() ? null : items.getLast();
@@ -161,9 +194,11 @@ public class JdbcSourceRunHistoryRepository {
                         r.getObject("indexing_superseded", Long.class), r.getObject("indexing_cancelled", Long.class)));
     }
 
-    private static String scope(TenantId tenant, SourceId source, String kind, @Nullable SourceRunStatus status,
+    /** Binds a cursor to its filters; sorted statuses keep one filter set to one scope. */
+    private static String scope(TenantId tenant, SourceId source, String kind, List<String> statuses,
             @Nullable SourceRunTrigger trigger, @Nullable Instant from, @Nullable Instant to) {
-        return tenant.value() + "|" + source.value() + "|" + kind + "|" + status + "|" + trigger + "|" + from + "|" + to + "|";
+        return tenant.value() + "|" + source.value() + "|" + kind + "|" + String.join(",", statuses) + "|" + trigger
+                + "|" + from + "|" + to + "|";
     }
 
     private static String encode(String scope, Instant time, UUID id) {
