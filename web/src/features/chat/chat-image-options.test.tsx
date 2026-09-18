@@ -27,3 +27,27 @@ it("shows the active state and turns image generation off again", async () => {
   await userEvent.click(button);
   expect(onChange).toHaveBeenCalledWith("off");
 });
+
+it("stays disabled with a notice while no image provider is connected", () => {
+  render(<ChatImageToggle value="off" onChange={vi.fn()} onDone={vi.fn()} available={false} />);
+  expect(screen.getByRole("button", { name: "Tạo ảnh" })).toBeDisabled();
+  expect(screen.getByText("Chưa kết nối mô hình tạo ảnh.")).toBeInTheDocument();
+});
+
+it("hides the notice while availability is loading and offers retry on failure", () => {
+  const onRetry = vi.fn();
+  const { rerender } = render(
+    <ChatImageToggle value="off" onChange={vi.fn()} onDone={vi.fn()} available={false} pending />,
+  );
+  expect(screen.queryByText("Chưa kết nối mô hình tạo ảnh.")).not.toBeInTheDocument();
+  rerender(
+    <ChatImageToggle
+      value="off"
+      onChange={vi.fn()}
+      onDone={vi.fn()}
+      available={false}
+      onRetry={onRetry}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Tải lại" })).toBeInTheDocument();
+});

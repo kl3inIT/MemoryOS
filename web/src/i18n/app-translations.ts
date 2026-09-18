@@ -367,6 +367,8 @@ export const vietnameseUi: Record<string, string> = {
     "Image edits always use {{model}} with this provider.",
   "Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.":
     "The connection test generates a real image and may incur provider charges.",
+  "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>":
+    "The 32-character ID in the Cloudflare dashboard URL: dash.cloudflare.com/<ACCOUNT_ID>",
   "Ngắt kết nối": "Disconnect",
   "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
   "Khóa API sẽ bị xóa khỏi MemoryOS; địa chỉ và mô hình được giữ lại.":
@@ -749,6 +751,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không tạo được vùng tô. Hãy thử lại.": "Could not prepare the painted area. Try again.",
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
+  "Chưa kết nối mô hình tạo ảnh.": "No image model connected.",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",
@@ -2809,6 +2812,7 @@ Object.assign(englishUi, {
 });
 
 const unchanged = [
+  "Account ID",
   "Google Sheets",
   "Google Docs",
   "Google Slides",

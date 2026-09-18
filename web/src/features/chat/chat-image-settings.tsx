@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ImageIcon, Settings2, Unplug } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
@@ -43,8 +43,14 @@ const sites: Record<Provider, string> = {
 };
 const endpointHints: Record<Provider, string> = {
   OPENAI_IMAGE: "https://api.openai.com/v1",
-  CLOUDFLARE_WORKERS_AI: "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>",
+  CLOUDFLARE_WORKERS_AI: "<ACCOUNT_ID>",
 };
+const CLOUDFLARE_ACCOUNT_BASE = "https://api.cloudflare.com/client/v4/accounts/";
+/** Cloudflare asks for its account ID; a stored account endpoint is shown back as the ID. */
+const displayEndpoint = (provider: Provider, endpoint: string) =>
+  provider === "CLOUDFLARE_WORKERS_AI" && endpoint.startsWith(CLOUDFLARE_ACCOUNT_BASE)
+    ? endpoint.slice(CLOUDFLARE_ACCOUNT_BASE.length)
+    : endpoint;
 const formats: Record<string, string> = {
   "image/png": "PNG",
   "image/jpeg": "JPEG",
@@ -82,6 +88,7 @@ export function ChatImageSettings() {
   const ui = useAppTranslation();
   const session = useApplicationSession();
   const manager = session.capabilities.includes("MODELS_MANAGE");
+  const cache = useQueryClient();
   const problemMessage = useProblemMessage();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ErrorMessage>();
@@ -100,7 +107,10 @@ export function ChatImageSettings() {
     retry: false,
   });
   async function changed() {
-    await connections.refetch();
+    await Promise.all([
+      connections.refetch(),
+      cache.invalidateQueries({ queryKey: ["chat-image"] }),
+    ]);
   }
   async function select(provider: Provider | null) {
     setPending(true);
@@ -210,7 +220,7 @@ export function ChatImageSettings() {
                 const connection = configured.find((c) => c.provider === provider.provider);
                 return (
                   <ConnectionCard
-                    key={`${provider.provider}:${connection?.revision ?? "new"}`}
+                    key={provider.provider}
                     provider={provider}
                     connection={connection}
                     replacements={configured
@@ -297,7 +307,9 @@ function ConnectionCard({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"configure" | "disconnect">("configure");
   const [key, setKey] = useState("");
-  const [endpoint, setEndpoint] = useState(connection?.endpoint ?? "");
+  const [endpoint, setEndpoint] = useState(
+    displayEndpoint(provider.provider, connection?.endpoint ?? ""),
+  );
   const [choice, setChoice] = useState(initialChoice);
   const [custom, setCustom] = useState(initialChoice === OTHER ? (connection?.model ?? "") : "");
   const [replacement, setReplacement] = useState<string>(replacements[0] ?? OFF);
@@ -305,14 +317,20 @@ function ConnectionCard({
   const [actionError, setActionError] = useState<ErrorMessage>();
   const [tested, setTested] = useState(false);
   const model = choice === OTHER ? custom.trim() : choice;
+  const testable =
+    model.length > 0 &&
+    (!provider.endpointRequired || endpoint.trim().length > 0) &&
+    (configured || key.trim().length > 0);
   function changeOpen(next: boolean) {
     if (pending) return;
-    if (!next) {
-      setActionError(undefined);
-      setTested(false);
-      setKey("");
-      setStep("configure");
-    }
+    setActionError(undefined);
+    setTested(false);
+    setKey("");
+    setStep("configure");
+    setEndpoint(displayEndpoint(provider.provider, connection?.endpoint ?? ""));
+    setChoice(initialChoice);
+    setCustom(initialChoice === OTHER ? (connection?.model ?? "") : "");
+    setReplacement(replacements[0] ?? OFF);
     setOpen(next);
   }
   async function perform(action: () => Promise<void>) {
@@ -349,6 +367,11 @@ function ConnectionCard({
     perform(async () => {
       await testChatImageConnection({
         path: { provider: provider.provider },
+        body: {
+          endpoint: endpoint.trim(),
+          model,
+          credentialValue: key || undefined,
+        },
         headers: sameOriginMutationHeaders,
         throwOnError: true,
       });
@@ -396,7 +419,7 @@ function ConnectionCard({
               size="sm"
               prominence="tertiary"
               disabled={disabled || pending}
-              onClick={() => setOpen(true)}
+              onClick={() => changeOpen(true)}
             >
               <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
             </Button>
@@ -405,7 +428,7 @@ function ConnectionCard({
               size="sm"
               prominence="secondary"
               disabled={disabled || pending}
-              onClick={() => setOpen(true)}
+              onClick={() => changeOpen(true)}
             >
               {ui("Kết nối")}
             </Button>
@@ -455,7 +478,6 @@ function ConnectionCard({
                 <div className="mt-6 flex justify-end gap-2">
                   <Button
                     type="button"
-                    size="sm"
                     prominence="secondary"
                     disabled={pending}
                     onClick={() => setStep("configure")}
@@ -464,7 +486,6 @@ function ConnectionCard({
                   </Button>
                   <Button
                     type="button"
-                    size="sm"
                     tone="danger"
                     pending={pending}
                     onClick={() => void disconnect()}
@@ -487,9 +508,11 @@ function ConnectionCard({
                 <fieldset disabled={disabled || pending} className="mt-5 space-y-4">
                   <label className="block space-y-1">
                     <span>
-                      {provider.endpointRequired
-                        ? ui("Địa chỉ tài khoản")
-                        : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
+                      {provider.provider === "CLOUDFLARE_WORKERS_AI"
+                        ? ui("Account ID")
+                        : provider.endpointRequired
+                          ? ui("Địa chỉ tài khoản")
+                          : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
                     </span>
                     <Input
                       value={endpoint}
@@ -499,6 +522,13 @@ function ConnectionCard({
                       placeholder={provider.defaultEndpoint ?? endpointHints[provider.provider]}
                     />
                   </label>
+                  {provider.provider === "CLOUDFLARE_WORKERS_AI" && (
+                    <p className="-mt-3 text-xs text-content-muted">
+                      {ui(
+                        "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>",
+                      )}
+                    </p>
+                  )}
                   <label className="block space-y-1">
                     <span>{ui("Khóa API")}</span>
                     <Input
@@ -546,8 +576,11 @@ function ConnectionCard({
                   )}
                 </fieldset>
                 {tested && (
-                  <p role="status" className="mt-4 flex items-center gap-1 text-sm">
-                    <CheckCircle2 className="size-4" />
+                  <p
+                    role="status"
+                    className="mt-4 flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
+                  >
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
                     {ui("Kiểm tra kết nối thành công")}
                   </p>
                 )}
@@ -556,16 +589,13 @@ function ConnectionCard({
                     {problemMessage(actionError)}
                   </p>
                 )}
-                {configured && (
-                  <p className="mt-4 text-xs text-content-muted">
-                    {ui("Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.")}
-                  </p>
-                )}
+                <p className="mt-4 text-xs text-content-muted">
+                  {ui("Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.")}
+                </p>
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
                   {configured ? (
                     <Button
                       type="button"
-                      size="sm"
                       prominence="tertiary"
                       tone="danger"
                       disabled={disabled || pending}
@@ -580,27 +610,23 @@ function ConnectionCard({
                     <span />
                   )}
                   <div className="flex flex-wrap justify-end gap-2">
-                    {configured && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        prominence="internal"
-                        disabled={disabled || pending}
-                        onClick={() => void test()}
-                      >
-                        {ui("Kiểm tra kết nối")}
-                      </Button>
-                    )}
                     <Button
                       type="button"
-                      size="sm"
+                      prominence="internal"
+                      disabled={disabled || pending || !testable}
+                      onClick={() => void test()}
+                    >
+                      {ui("Kiểm tra kết nối")}
+                    </Button>
+                    <Button
+                      type="button"
                       prominence="secondary"
                       disabled={pending}
                       onClick={() => changeOpen(false)}
                     >
                       {ui("Đóng")}
                     </Button>
-                    <Button type="submit" size="sm" pending={pending} disabled={disabled || !model}>
+                    <Button type="submit" pending={pending} disabled={disabled || !model}>
                       {ui("Lưu")}
                     </Button>
                   </div>

@@ -197,14 +197,37 @@ it("hides deprecated models unless the connection already uses one", async () =>
   expect(screen.queryByRole("radio", { name: /DALL·E 3/ })).not.toBeInTheDocument();
 });
 
-it("requires an account endpoint for providers that declare one", async () => {
+it("requires an account id for providers that declare an endpoint", async () => {
   show(catalog, []);
   const card = (await screen.findAllByRole("button", { name: "Kết nối" }))[1];
   await userEvent.click(card);
-  expect(await screen.findByText("Địa chỉ tài khoản")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Account ID")).toBeInTheDocument();
   expect(
     screen.getByText(/flux-2-klein-9b|FLUX\.2 Klein 9B/, { selector: "p" }),
   ).toBeInTheDocument();
+});
+
+it("shows a stored cloudflare endpoint as its account id", async () => {
+  saveChatImageConnection.mockResolvedValue({ data: {} });
+  show(catalog, [
+    connection({
+      provider: "CLOUDFLARE_WORKERS_AI",
+      endpoint: "https://api.cloudflare.com/client/v4/accounts/b73a9841898f88f7cc2b731d7776f265",
+      model: "@cf/black-forest-labs/flux-1-schnell",
+    }),
+  ]);
+  await userEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
+  const field = await screen.findByLabelText("Account ID");
+  expect(field).toHaveValue("b73a9841898f88f7cc2b731d7776f265");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  expect(saveChatImageConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: { provider: "CLOUDFLARE_WORKERS_AI" },
+      body: expect.objectContaining({
+        endpoint: "b73a9841898f88f7cc2b731d7776f265",
+      }),
+    }),
+  );
 });
 
 it("tests a configured connection and reports success", async () => {
@@ -213,7 +236,30 @@ it("tests a configured connection and reports success", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
   await userEvent.click(await screen.findByRole("button", { name: "Kiểm tra kết nối" }));
   expect(testChatImageConnection).toHaveBeenCalledWith(
-    expect.objectContaining({ path: { provider: "OPENAI_IMAGE" } }),
+    expect.objectContaining({
+      path: { provider: "OPENAI_IMAGE" },
+      body: {
+        endpoint: "https://api.openai.com/v1",
+        model: "gpt-image-1",
+        credentialValue: undefined,
+      },
+    }),
+  );
+  expect(await screen.findByText("Kiểm tra kết nối thành công")).toBeInTheDocument();
+});
+
+it("tests unsaved values before the first save", async () => {
+  testChatImageConnection.mockResolvedValue({ data: {} });
+  show(catalog, []);
+  await userEvent.click((await screen.findAllByRole("button", { name: "Kết nối" }))[0]);
+  expect(await screen.findByRole("button", { name: "Kiểm tra kết nối" })).toBeDisabled();
+  await userEvent.type(screen.getByLabelText("Khóa API"), "sk-new");
+  await userEvent.click(screen.getByRole("button", { name: "Kiểm tra kết nối" }));
+  expect(testChatImageConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: { provider: "OPENAI_IMAGE" },
+      body: { endpoint: "", model: "gpt-image-1", credentialValue: "sk-new" },
+    }),
   );
   expect(await screen.findByText("Kiểm tra kết nối thành công")).toBeInTheDocument();
 });
