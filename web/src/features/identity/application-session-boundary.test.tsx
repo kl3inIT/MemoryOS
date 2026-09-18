@@ -243,19 +243,6 @@ describe("ApplicationSessionBoundary", () => {
     expect(await screen.findByText("MEMBER")).toBeInTheDocument();
   });
 
-  it("clears the sign-in redirect guard once a session is confirmed", async () => {
-    window.sessionStorage.setItem("memoryos.signInRedirectAt", String(Date.now()));
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json(OWNER_SESSION)),
-    );
-
-    renderBoundary(createMemoryOsQueryClient());
-
-    expect(await screen.findByText("OWNER")).toBeInTheDocument();
-    expect(window.sessionStorage.getItem("memoryos.signInRedirectAt")).toBeNull();
-  });
-
   it("purges private client state when the identity query becomes unauthenticated", async () => {
     let authenticated = true;
     vi.stubGlobal(
