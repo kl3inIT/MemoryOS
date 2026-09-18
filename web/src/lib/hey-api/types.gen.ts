@@ -723,10 +723,6 @@ export type SourceUploadReceipt = {
     operation: SourceOperation;
 };
 
-export type RenameSourceRequest = {
-    name: string;
-};
-
 export type SourcePermissions = {
     edit: boolean;
     delete: boolean;
@@ -754,6 +750,10 @@ export type SourceSummary = {
      */
     managerName: string | null;
     permissions: SourcePermissions;
+};
+
+export type RenameSourceRequest = {
+    name: string;
 };
 
 export type AssignSourceManagerRequest = {
@@ -1210,7 +1210,7 @@ export type UserPage = {
 export type SourceRun = {
     id: string;
     sourceId: string;
-    trigger: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | null;
+    trigger: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | 'RESUMED' | null;
     actorId: string | null;
     status: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
     acquisitionStatus: 'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN';
@@ -4965,6 +4965,30 @@ export type FinalizeSourceUploadResponses = {
 
 export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof FinalizeSourceUploadResponses];
 
+export type ResumeSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/resume';
+};
+
+export type ResumeSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type ResumeSourceResponse = ResumeSourceResponses[keyof ResumeSourceResponses];
+
 export type RenameSourceData = {
     body: RenameSourceRequest;
     headers: {
@@ -4988,6 +5012,30 @@ export type RenameSourceResponses = {
 };
 
 export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceResponses];
+
+export type PauseSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sourceId: string;
+    };
+    query?: never;
+    url: '/api/sources/{sourceId}/pause';
+};
+
+export type PauseSourceResponses = {
+    /**
+     * OK
+     */
+    200: SourceSummary;
+};
+
+export type PauseSourceResponse = PauseSourceResponses[keyof PauseSourceResponses];
 
 export type AssignSourceManagerData = {
     body: AssignSourceManagerRequest;
@@ -7933,7 +7981,7 @@ export type ListSourceRunsData = {
         cursor?: string;
         size?: number;
         status?: Array<'QUEUED' | 'ACQUIRING' | 'RETRY_SCHEDULED' | 'RECOVERY_PENDING' | 'INDEXING' | 'SUCCEEDED' | 'COMPLETED_WITH_ERRORS' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED' | 'UNKNOWN'>;
-        trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL';
+        trigger?: 'SCHEDULED' | 'MANUAL' | 'INITIAL' | 'RESUMED';
         from?: string;
         to?: string;
     };

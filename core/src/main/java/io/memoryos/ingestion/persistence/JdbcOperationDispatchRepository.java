@@ -40,7 +40,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
               ON item.tenant_id = attempt.tenant_id
              AND item.id = attempt.connector_item_id
             WHERE tenant.status = 'ACTIVE'
-              AND pair.status <> 'DELETING'
+              AND pair.status NOT IN ('DELETING', 'PAUSED')
               AND item.status <> 'DELETING'
               AND item.current_version_id = attempt.connector_item_version_id
               AND (item.provider_file_id IS NULL OR EXISTS (
@@ -81,7 +81,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             FROM source_sync_attempts attempt
             JOIN tenants tenant ON tenant.id = attempt.tenant_id
             JOIN connector_credential_pairs pair ON pair.tenant_id = attempt.tenant_id AND pair.id = attempt.source_id
-            WHERE tenant.status = 'ACTIVE' AND pair.status <> 'DELETING'
+            WHERE tenant.status = 'ACTIVE' AND pair.status NOT IN ('DELETING', 'PAUSED')
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))

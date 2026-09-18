@@ -64,7 +64,7 @@ public class JdbcSourceSyncRepository {
                 SELECT s.tenant_id, s.source_id FROM google_drive_sources s
                 JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
                 JOIN tenants t ON t.id = s.tenant_id
-                WHERE t.status = 'ACTIVE' AND p.status <> 'DELETING' AND s.next_sync_at <= CURRENT_TIMESTAMP
+                WHERE t.status = 'ACTIVE' AND p.status NOT IN ('DELETING', 'PAUSED') AND s.next_sync_at <= CURRENT_TIMESTAMP
                   AND NOT s.sync_paused
                   AND EXISTS (SELECT 1 FROM google_drive_roots r WHERE r.tenant_id = s.tenant_id AND r.source_id = s.source_id)
                   AND NOT EXISTS (SELECT 1 FROM source_sync_attempts a WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
@@ -101,7 +101,7 @@ public class JdbcSourceSyncRepository {
                 WHERE a.tenant_id = :tenant AND a.id = :id AND a.claim_token = :token
                   AND a.status = 'IN_PROGRESS' AND a.lease_expires_at > CURRENT_TIMESTAMP
                   AND s.revision = a.scope_revision AND s.generation = a.generation
-                  AND p.status <> 'DELETING' AND t.status = 'ACTIVE'
+                  AND p.status NOT IN ('DELETING', 'PAUSED') AND t.status = 'ACTIVE'
                 FOR UPDATE OF a, s
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                 .param("token", work.claimToken()).query(UUID.class).optional().isPresent();
@@ -383,6 +383,94 @@ public class JdbcSourceSyncRepository {
                     completed_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND source_id = :source
                     AND status IN ('NOT_STARTED','IN_PROGRESS')
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    /**
+     * Cancels queued (never-claimed) runs for a paused Source. In-flight runs are left to settle
+     * through the {@link #current(Work)} fence so they record {@code CANCELLED} at a safe boundary.
+     */
+    public void cancelQueuedForPause(TenantId tenant, SourceId source) {
+        jdbc.sql("""
+                UPDATE source_sync_attempts SET status = 'CANCELLED', error_code = 'SOURCE_PAUSED',
+                    claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL,
+                    dispatch_token = NULL, dispatch_lease_expires_at = NULL, redis_message_id = NULL,
+                    completed_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND source_id = :source AND status = 'NOT_STARTED'
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    /**
+     * Enqueues a resumed run after a pause. When the latest run was canceled by pause and its
+     * scope/credential revisions still match, the new attempt inherits its phase, page tokens and
+     * the full frontier so traversal continues from the retained checkpoint. Otherwise a fresh
+     * run starts. Returns empty when a live run already exists.
+     */
+    public Optional<SourceOperationView> enqueueResumed(TenantId tenant, SourceId source,
+            long credentialRevision, @Nullable ActorId actor) {
+        var live = jdbc.sql("""
+                SELECT * FROM source_sync_attempts WHERE tenant_id = :tenant AND source_id = :source
+                  AND status IN ('NOT_STARTED','IN_PROGRESS')
+                """).param("tenant", tenant.value()).param("source", source.value()).query(this::operation).optional();
+        if (live.isPresent()) return live;
+        UUID id = UUID.randomUUID();
+        var trace = SourceOperationTraceContext.current();
+        jdbc.sql("""
+                UPDATE google_drive_sources SET generation = generation + 1, error_code = NULL,
+                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+        int created = jdbc.sql("""
+                INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
+                    generation, phase, full_scan, page_token, final_token, restart_count,
+                    origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
+                    scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
+                    published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
+                SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation,
+                    donor.phase, donor.full_scan, donor.page_token, donor.final_token, donor.restart_count,
+                    :trace, :span, 1, 'RESUMED', :actor,
+                    donor.scanned, donor.acquired, donor.unchanged, donor.already_pending,
+                    donor.acquisition_failed, donor.skipped, donor.removed,
+                    0, 0, 0, 0, 0
+                FROM google_drive_sources s
+                JOIN LATERAL (
+                    SELECT * FROM source_sync_attempts a
+                    WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
+                      AND a.status = 'CANCELLED' AND a.error_code = 'SOURCE_PAUSED'
+                      AND a.scope_revision = s.revision AND a.credential_revision = :credential
+                    ORDER BY a.created_at DESC LIMIT 1
+                ) donor ON TRUE
+                WHERE s.tenant_id = :tenant AND s.source_id = :source
+                """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
+                .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
+                .param("span", trace == null ? null : trace.spanId())
+                .param("actor", actor == null ? null : actor.value()).update();
+        if (created == 0) {
+            jdbc.sql("""
+                    INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
+                        generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
+                        scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
+                        published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
+                    SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation, :trace, :span,
+                        1, 'RESUMED', :actor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                    FROM google_drive_sources s WHERE s.tenant_id = :tenant AND s.source_id = :source
+                    """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
+                    .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
+                    .param("span", trace == null ? null : trace.spanId())
+                    .param("actor", actor == null ? null : actor.value()).update();
+            return find(tenant, new SourceOperationId(id));
+        }
+        jdbc.sql("""
+                INSERT INTO google_drive_frontier (tenant_id, attempt_id, file_id, task_kind, page_token, state, attempts, error_code)
+                SELECT :tenant, :id, file_id, task_kind, page_token, state, attempts, error_code
+                FROM google_drive_frontier
+                WHERE tenant_id = :tenant AND attempt_id = (
+                    SELECT a.id FROM source_sync_attempts a
+                    WHERE a.tenant_id = :tenant AND a.source_id = :source
+                      AND a.status = 'CANCELLED' AND a.error_code = 'SOURCE_PAUSED'
+                    ORDER BY a.created_at DESC LIMIT 1
+                )
+                """).param("id", id).param("tenant", tenant.value()).param("source", source.value()).update();
+        return find(tenant, new SourceOperationId(id));
     }
 
     public void exclude(TenantId tenant, SourceId source, SourceItemId item) {

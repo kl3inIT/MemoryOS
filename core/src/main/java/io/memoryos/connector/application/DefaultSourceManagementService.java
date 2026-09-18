@@ -70,6 +70,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final TransactionTemplate transactions;
     private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
     private final io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections;
+    private final io.memoryos.connector.GoogleDriveConnectionService connections;
 
     public DefaultSourceManagementService(
             JdbcSourceRepository sources,
@@ -86,6 +87,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             PlatformTransactionManager transactionManager,
             io.memoryos.connector.persistence.JdbcSourceSyncRepository sync,
             io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections,
+            io.memoryos.connector.GoogleDriveConnectionService connections,
             SourceAccessPolicy sourceAccess
     ) {
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
@@ -101,6 +103,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.sync = Objects.requireNonNull(sync);
         this.selections = Objects.requireNonNull(selections);
+        this.connections = Objects.requireNonNull(connections);
         this.sourceAccess = Objects.requireNonNull(sourceAccess);
         this.transactions = new TransactionTemplate(
                 Objects.requireNonNull(transactionManager, "transactionManager must not be null")
@@ -476,6 +479,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 requiredSourceId,
                 access.authority() == Authority.GLOBAL
         ));
+        if (pair.status() == SourceStatus.PAUSED) throw SourceException.conflict("source is paused");
         var version = items.lockCurrentVersion(
                 access.tenantId(),
                 pair,
@@ -485,6 +489,64 @@ public class DefaultSourceManagementService implements SourceManagementService {
             throw SourceException.conflict("source item must complete an authorized synchronization before reindexing");
         return attempts.findLive(access.tenantId(), requiredSourceId, version)
                 .orElseGet(() -> attempts.create(access.tenantId(), pair, version));
+    }
+
+    @Override
+    @Transactional
+    public SourceSummary pauseSource(ActorId actorId, SourceId sourceId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequire(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE,
+                true
+        );
+        var pair = requireMutable(sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                access.authority() == Authority.GLOBAL
+        ));
+        if (pair.status() != SourceStatus.PAUSED) {
+            sources.setPaused(access.tenantId(), requiredSourceId);
+            sync.cancelQueuedForPause(access.tenantId(), requiredSourceId);
+            attempts.cancelQueuedForPause(access.tenantId(), requiredSourceId);
+        }
+        return getSource(requiredActorId, requiredSourceId);
+    }
+
+    @Override
+    @Transactional
+    public SourceSummary resumeSource(ActorId actorId, SourceId sourceId) {
+        ActorId requiredActorId = requireActorId(actorId);
+        SourceId requiredSourceId = requireSourceId(sourceId);
+        IamAccess access = authorization.lockAndRequire(
+                requiredActorId,
+                IamCapability.SOURCES_MANAGE,
+                true
+        );
+        var pair = requireMutable(sources.lockAuthorized(
+                access.tenantId(),
+                requiredActorId,
+                requiredSourceId,
+                access.authority() == Authority.GLOBAL
+        ));
+        if (pair.status() == SourceStatus.PAUSED) {
+            sources.clearPaused(access.tenantId(), requiredSourceId);
+            attempts.requeuePaused(access.tenantId(), pair);
+            if (getSource(requiredActorId, requiredSourceId).type() == io.memoryos.connector.SourceType.GOOGLE_DRIVE) {
+                try {
+                    var state = connections.state(access.tenantId(), requiredSourceId);
+                    if (connections.current(access.tenantId(), requiredSourceId, state.credentialRevision())) {
+                        sync.enqueueResumed(access.tenantId(), requiredSourceId, state.credentialRevision(), requiredActorId);
+                    }
+                } catch (SourceException exception) {
+                    if (!"SOURCE_NOT_FOUND".equals(exception.code())) throw exception;
+                }
+            }
+            sources.recomputeStatus(access.tenantId(), requiredSourceId, false);
+        }
+        return getSource(requiredActorId, requiredSourceId);
     }
 
     @Override
@@ -625,6 +687,8 @@ public class DefaultSourceManagementService implements SourceManagementService {
         var source = queries.summary(access.tenantId(), actorId, sourceId, global, global, false);
         if (source.type() != io.memoryos.connector.SourceType.FILE)
             throw SourceException.conflict("browser uploads require a FILE source");
+        if (source.status() == SourceStatus.PAUSED || source.status() == SourceStatus.PAUSING)
+            throw SourceException.conflict("source is paused");
         return access;
     }
 

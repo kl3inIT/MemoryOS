@@ -209,6 +209,8 @@ class OpenApiContractTest {
             "/api/sources/{sourceId}/access",
             "/api/sources/{sourceId}/manager",
             "/api/sources/{sourceId}/delete",
+            "/api/sources/{sourceId}/pause",
+            "/api/sources/{sourceId}/resume",
             "/api/sources/{sourceId}/index-attempts",
             "/api/sources/{sourceId}/runs",
             "/api/sources/{sourceId}/runs/{runId}",

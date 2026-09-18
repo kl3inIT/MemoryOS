@@ -3772,6 +3772,37 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/resume:
+    post:
+      tags:
+      - Sources
+      summary: Resume sync and indexing work for one paused source
+      operationId: resumeSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/rename:
     post:
       tags:
@@ -3799,6 +3830,37 @@ paths:
             schema:
               $ref: "#/components/schemas/RenameSourceRequest"
         required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause new sync and indexing work for one source
+      operationId: pauseSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
         "200":
           description: OK
@@ -7708,6 +7770,7 @@ paths:
           - SCHEDULED
           - MANUAL
           - INITIAL
+          - RESUMED
       - name: from
         in: query
         required: false
@@ -12884,16 +12947,6 @@ components:
       required:
       - item
       - operation
-    RenameSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-      required:
-      - name
     SourcePermissions:
       type: object
       additionalProperties: false
@@ -12973,6 +13026,16 @@ components:
       - permissions
       - status
       - type
+    RenameSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
     AssignSourceManagerRequest:
       type: object
       additionalProperties: false
@@ -14202,6 +14265,7 @@ components:
             - SCHEDULED
             - MANUAL
             - INITIAL
+            - RESUMED
           - type: "null"
         actorId:
           type:
