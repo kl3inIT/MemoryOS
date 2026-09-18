@@ -36,7 +36,10 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
     def test_release_and_health_guards_are_preserved(self):
         for guard in (".event == \"push\"", ".head_branch == \"main\"", "Publish verified release", "sha256sum --check --strict", "git merge-base --is-ancestor", "StrictHostKeyChecking yes"):
             self.assertIn(guard, WORKFLOW)
-        self.assertLess(WORKFLOW.index("Pull images, back up"), WORKFLOW.index("Finalize the healthy deployment"))
+        self.assertLess(
+            WORKFLOW.index("deploy '$RELEASE' '$GITHUB_ACTOR'"),
+            WORKFLOW.index("finish '$RELEASE'"),
+        )
         for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
             self.assertIn(guard, SCRIPT)
 
@@ -49,7 +52,10 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", WORKFLOW)
 
     def test_manual_finish_keeps_exact_selection_and_server_ownership_guard(self):
-        recovery = WORKFLOW.split("- name: Finish only the explicitly selected", 1)[1].split("- name: Pull images", 1)[0]
+        rollout_id = WORKFLOW.index("id: rollout")
+        rollout_start = WORKFLOW.rfind("- name:", 0, rollout_id)
+        recovery_start = WORKFLOW.rfind("- name:", 0, rollout_start)
+        recovery = WORKFLOW[recovery_start:rollout_start]
         self.assertIn("inputs.recovery_release != ''", recovery)
         self.assertIn('[[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}', recovery)
         self.assertIn("finish '$RECOVERY_RELEASE'", recovery)
