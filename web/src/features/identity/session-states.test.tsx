@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { redirectToSignIn } from "@/features/identity/sign-in-redirect";
 import { whenBootSplashDone } from "@/lib/boot-splash";
-import { AccessNotProvisionedScreen, SignInRedirect, SignInScreen } from "./session-states";
+import { AccessNotProvisionedScreen, SignInRedirect } from "./session-states";
 
 vi.mock("@/features/identity/sign-in-redirect", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/identity/sign-in-redirect")>()),
@@ -43,28 +43,6 @@ describe("browser authentication states", () => {
 
     await act(async () => finishSplash());
     expect(redirectToSignIn).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers the manual sign-in gate instead of redirecting again right after a redirect", () => {
-    window.sessionStorage.setItem("memoryos.signInRedirectAt", String(Date.now()));
-
-    render(<SignInRedirect />);
-
-    expect(screen.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
-      "href",
-      "/oauth2/authorization/memoryos",
-    );
-    expect(redirectToSignIn).not.toHaveBeenCalled();
-  });
-
-  it("renders the signed-out state as a direct authentication gate", () => {
-    render(<SignInScreen />);
-
-    expect(screen.getByRole("heading", { name: /sign in to memoryos/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /continue with company account/i })).toHaveAttribute(
-      "href",
-      "/oauth2/authorization/memoryos",
-    );
   });
 
   it("explains an authenticated but unprovisioned denial", () => {

@@ -1,5 +1,5 @@
-// Boot splash rendered by index.html and styled by splash.css. public/splash-mode.js chooses the full
-// intro for a tab's first load and the short form afterwards, before first paint.
+// Boot splash rendered by index.html and styled by splash.css: ribbons draw the wordmark once,
+// then the sheen repeats until the application has rendered and the intro time has passed.
 
 const SPLASH_ID = "memoryos-splash";
 const DONE_EVENT = "memoryos:boot-splash-done";
@@ -10,8 +10,7 @@ export function dismissBootSplash() {
   const splash = document.getElementById(SPLASH_ID);
   if (!splash) return;
 
-  const fullIntro = document.documentElement.dataset.memoryosSplash === "full";
-  const introMs = Number(fullIntro ? splash.dataset.fullIntroMs : splash.dataset.shortIntroMs);
+  const introMs = Number(splash.dataset.introMs);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const introRemaining = reducedMotion ? 0 : introMs - performance.now();
 
