@@ -19,6 +19,40 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
+ * Replace what a SharePoint source synchronizes; the new scope is verified before it applies
+ */
+export const replaceSharePointScope = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointScopeData, ThrowOnError>): RequestResult<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint/scope',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Update the automatic synchronization and prune intervals
+ */
+export const updateSharePointSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointScheduleData, ThrowOnError>): RequestResult<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint/schedule',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Update the automatic Google Drive sync interval
  */
 export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateGoogleDriveScheduleData, ThrowOnError>): RequestResult<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError>({
@@ -226,6 +260,53 @@ export const updateIdentityProvider = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
+ * Delete an unused SharePoint credential with a revision precondition
+ */
+export const deleteSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteSharePointCredentialData, ThrowOnError>): RequestResult<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint/{credentialId}',
+    ...options
+});
+
+/**
+ * Rename a SharePoint credential with a revision precondition
+ */
+export const renameSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<RenameSharePointCredentialData, ThrowOnError>): RequestResult<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint/{credentialId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replace the client secret or certificate of an existing SharePoint credential
+ */
+export const replaceSharePointCredentialAuthentication = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointCredentialAuthenticationData, ThrowOnError>): RequestResult<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint/{credentialId}/authentication',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Select the search or content provider; null disables search or restores built-in reading
  */
 export const selectChatWebProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatWebProviderData, ThrowOnError>): RequestResult<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError>({
@@ -252,6 +333,53 @@ export const saveChatWebConnection = <ThrowOnError extends boolean = false>(opti
             type: 'apiKey'
         }],
     url: '/api/chat/web/connections/{provider}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Select the speech-to-text or text-to-speech default; null turns the function off
+ */
+export const selectChatVoiceProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatVoiceProviderData, ThrowOnError>): RequestResult<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/selection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Disconnect a voice provider and clear its stored credential
+ */
+export const deleteChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<DeleteChatVoiceConnectionData, ThrowOnError>): RequestResult<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/connections/{provider}',
+    ...options
+});
+
+/**
+ * Verify and save one voice connection; a first connection may select one function
+ */
+export const saveChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<SaveChatVoiceConnectionData, ThrowOnError>): RequestResult<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/connections/{provider}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1001,6 +1129,36 @@ export const finalizeSourceUpload = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
+ * Schedule a synchronization run now
+ */
+export const synchronizeSharePointSource = <ThrowOnError extends boolean = false>(options: Options<SynchronizeSharePointSourceData, ThrowOnError>): RequestResult<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint/sync',
+    ...options
+});
+
+/**
+ * Pause or resume future automatic synchronization
+ */
+export const updateSharePointPause = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointPauseData, ThrowOnError>): RequestResult<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint/pause',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Rename one source
  */
 export const renameSource = <ThrowOnError extends boolean = false>(options: Options<RenameSourceData, ThrowOnError>): RequestResult<RenameSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameSourceResponses, unknown, ThrowOnError>({
@@ -1158,6 +1316,23 @@ export const updateSourceAccess = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}/access',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Create a SharePoint source; its scope is verified with Microsoft before it takes effect
+ */
+export const createSharePointSource = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointSourceData, ThrowOnError>): RequestResult<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/sharepoint',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1618,6 +1793,49 @@ export const replaceGroupCapabilities = <ThrowOnError extends boolean = false>(o
 });
 
 /**
+ * List reusable Tenant-owned SharePoint credentials
+ */
+export const listSharePointCredentials = <ThrowOnError extends boolean = false>(options?: Options<ListSharePointCredentialsData, ThrowOnError>): RequestResult<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint',
+    ...options
+});
+
+/**
+ * Verify an Entra application with Microsoft and store it; nothing is stored when Microsoft rejects it
+ */
+export const createSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointCredentialData, ThrowOnError>): RequestResult<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Ask Microsoft for a token and read the root site; records the resolved Tenant host
+ */
+export const testSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<TestSharePointCredentialData, ThrowOnError>): RequestResult<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/credentials/sharepoint/{credentialId}/test',
+    ...options
+});
+
+/**
  * Revoke a shared Google Drive credential and disconnect all attached Sources
  */
 export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = false>(options: Options<RevokeGoogleDriveCredentialData, ThrowOnError>): RequestResult<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).post<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError>({
@@ -1666,6 +1884,53 @@ export const testChatWebConnection = <ThrowOnError extends boolean = false>(opti
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Issue a 60-second single-use ticket for the transcription or read-aloud voice WebSocket
+ */
+export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(options: Options<CreateChatVoiceTicketData, ThrowOnError>): RequestResult<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/tickets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read text aloud with the Tenant's default text-to-speech provider
+ */
+export const synthesizeChatVoice = <ThrowOnError extends boolean = false>(options: Options<SynthesizeChatVoiceData, ThrowOnError>): RequestResult<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError> => (options.client ?? client).post<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/synthesize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify a stored voice connection with the provider
+ */
+export const testChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<TestChatVoiceConnectionData, ThrowOnError>): RequestResult<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/connections/{provider}/test',
+    ...options
 });
 
 /**
@@ -2119,6 +2384,36 @@ export const initiateChatFileUpload = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
+ * Read the current member's voice settings
+ */
+export const getChatVoiceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceSettingsData, ThrowOnError>): RequestResult<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/settings',
+    ...options
+});
+
+/**
+ * Change the current member's voice settings; absent values are kept
+ */
+export const updateChatVoiceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateChatVoiceSettingsData, ThrowOnError>): RequestResult<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List users manageable by the current IAM administrator
  */
 export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
@@ -2154,6 +2449,32 @@ export const getSource = <ThrowOnError extends boolean = false>(options: Options
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}',
+    ...options
+});
+
+/**
+ * Get SharePoint source configuration
+ */
+export const getSharePointConfiguration = <ThrowOnError extends boolean = false>(options: Options<GetSharePointConfigurationData, ThrowOnError>): RequestResult<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint',
+    ...options
+});
+
+/**
+ * Page the site, library and folder addresses in scope
+ */
+export const getSharePointRoots = <ThrowOnError extends boolean = false>(options: Options<GetSharePointRootsData, ThrowOnError>): RequestResult<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/{sourceId}/sharepoint/roots',
     ...options
 });
 
@@ -2271,6 +2592,32 @@ export const getGoogleDriveSelectionDraft = <ThrowOnError extends boolean = fals
             type: 'apiKey'
         }],
     url: '/api/sources/{sourceId}/google-drive/selection-draft',
+    ...options
+});
+
+/**
+ * Recover the receipt of an accepted scope request
+ */
+export const getSharePointSelectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetSharePointSelectionRequestData, ThrowOnError>): RequestResult<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/sharepoint/selection-requests/{requestId}',
+    ...options
+});
+
+/**
+ * Get the configured scope admission limits
+ */
+export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = false>(options?: Options<GetSharePointSelectionPolicyData, ThrowOnError>): RequestResult<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/sources/sharepoint/selection-policy',
     ...options
 });
 
@@ -2499,6 +2846,45 @@ export const listChatWebConnections = <ThrowOnError extends boolean = false>(opt
             type: 'apiKey'
         }],
     url: '/api/chat/web/connections',
+    ...options
+});
+
+/**
+ * Read whether speech-to-text and text-to-speech are configured
+ */
+export const getChatVoiceAvailability = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceAvailabilityData, ThrowOnError>): RequestResult<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice',
+    ...options
+});
+
+/**
+ * List implemented voice providers with suggested models and voices
+ */
+export const listChatVoiceProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceProvidersData, ThrowOnError>): RequestResult<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/providers',
+    ...options
+});
+
+/**
+ * List voice connections for model managers
+ */
+export const listChatVoiceConnections = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceConnectionsData, ThrowOnError>): RequestResult<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/voice/connections',
     ...options
 });
 
@@ -3034,391 +3420,5 @@ export const leaveChatPersona = <ThrowOnError extends boolean = false>(options: 
             type: 'apiKey'
         }],
     url: '/api/chat/personas/{personaId}/sharing/me',
-    ...options
-});
-
-/**
- * Replace what a SharePoint source synchronizes; the new scope is verified before it applies
- */
-export const replaceSharePointScope = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointScopeData, ThrowOnError>): RequestResult<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint/scope',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Update the automatic synchronization and prune intervals
- */
-export const updateSharePointSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointScheduleData, ThrowOnError>): RequestResult<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint/schedule',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete an unused SharePoint credential with a revision precondition
- */
-export const deleteSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteSharePointCredentialData, ThrowOnError>): RequestResult<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint/{credentialId}',
-    ...options
-});
-
-/**
- * Rename a SharePoint credential with a revision precondition
- */
-export const renameSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<RenameSharePointCredentialData, ThrowOnError>): RequestResult<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint/{credentialId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Replace the client secret or certificate of an existing SharePoint credential
- */
-export const replaceSharePointCredentialAuthentication = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointCredentialAuthenticationData, ThrowOnError>): RequestResult<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint/{credentialId}/authentication',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Select the speech-to-text or text-to-speech default; null turns the function off
- */
-export const selectChatVoiceProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatVoiceProviderData, ThrowOnError>): RequestResult<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/selection',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Disconnect a voice provider and clear its stored credential
- */
-export const deleteChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<DeleteChatVoiceConnectionData, ThrowOnError>): RequestResult<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/connections/{provider}',
-    ...options
-});
-
-/**
- * Verify and save one voice connection; a first connection may select one function
- */
-export const saveChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<SaveChatVoiceConnectionData, ThrowOnError>): RequestResult<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/connections/{provider}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Schedule a synchronization run now
- */
-export const synchronizeSharePointSource = <ThrowOnError extends boolean = false>(options: Options<SynchronizeSharePointSourceData, ThrowOnError>): RequestResult<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint/sync',
-    ...options
-});
-
-/**
- * Pause or resume future automatic synchronization
- */
-export const updateSharePointPause = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointPauseData, ThrowOnError>): RequestResult<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint/pause',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Create a SharePoint source; its scope is verified with Microsoft before it takes effect
- */
-export const createSharePointSource = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointSourceData, ThrowOnError>): RequestResult<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/sharepoint',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * List reusable Tenant-owned SharePoint credentials
- */
-export const listSharePointCredentials = <ThrowOnError extends boolean = false>(options?: Options<ListSharePointCredentialsData, ThrowOnError>): RequestResult<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint',
-    ...options
-});
-
-/**
- * Verify an Entra application with Microsoft and store it; nothing is stored when Microsoft rejects it
- */
-export const createSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointCredentialData, ThrowOnError>): RequestResult<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Ask Microsoft for a token and read the root site; records the resolved Tenant host
- */
-export const testSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<TestSharePointCredentialData, ThrowOnError>): RequestResult<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/credentials/sharepoint/{credentialId}/test',
-    ...options
-});
-
-/**
- * Issue a 60-second single-use ticket for the transcription or read-aloud voice WebSocket
- */
-export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(options: Options<CreateChatVoiceTicketData, ThrowOnError>): RequestResult<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/tickets',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Read text aloud with the Tenant's default text-to-speech provider
- */
-export const synthesizeChatVoice = <ThrowOnError extends boolean = false>(options: Options<SynthesizeChatVoiceData, ThrowOnError>): RequestResult<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError> => (options.client ?? client).post<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/synthesize',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Verify a stored voice connection with the provider
- */
-export const testChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<TestChatVoiceConnectionData, ThrowOnError>): RequestResult<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/connections/{provider}/test',
-    ...options
-});
-
-/**
- * Read the current member's voice settings
- */
-export const getChatVoiceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceSettingsData, ThrowOnError>): RequestResult<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/settings',
-    ...options
-});
-
-/**
- * Change the current member's voice settings; absent values are kept
- */
-export const updateChatVoiceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateChatVoiceSettingsData, ThrowOnError>): RequestResult<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/settings',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Get SharePoint source configuration
- */
-export const getSharePointConfiguration = <ThrowOnError extends boolean = false>(options: Options<GetSharePointConfigurationData, ThrowOnError>): RequestResult<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint',
-    ...options
-});
-
-/**
- * Page the site, library and folder addresses in scope
- */
-export const getSharePointRoots = <ThrowOnError extends boolean = false>(options: Options<GetSharePointRootsData, ThrowOnError>): RequestResult<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/{sourceId}/sharepoint/roots',
-    ...options
-});
-
-/**
- * Recover the receipt of an accepted scope request
- */
-export const getSharePointSelectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetSharePointSelectionRequestData, ThrowOnError>): RequestResult<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/sharepoint/selection-requests/{requestId}',
-    ...options
-});
-
-/**
- * Get the configured scope admission limits
- */
-export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = false>(options?: Options<GetSharePointSelectionPolicyData, ThrowOnError>): RequestResult<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/sources/sharepoint/selection-policy',
-    ...options
-});
-
-/**
- * Read whether speech-to-text and text-to-speech are configured
- */
-export const getChatVoiceAvailability = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceAvailabilityData, ThrowOnError>): RequestResult<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice',
-    ...options
-});
-
-/**
- * List implemented voice providers with suggested models and voices
- */
-export const listChatVoiceProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceProvidersData, ThrowOnError>): RequestResult<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/providers',
-    ...options
-});
-
-/**
- * List voice connections for model managers
- */
-export const listChatVoiceConnections = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceConnectionsData, ThrowOnError>): RequestResult<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/voice/connections',
     ...options
 });

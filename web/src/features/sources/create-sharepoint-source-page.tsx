@@ -84,7 +84,7 @@ function SharePointSourceSetup() {
     recover: (requestId) => getSharePointSelectionRequestOptions({ path: { requestId } }),
   });
   const [sourceName, setSourceName] = useState("");
-  const [access, setAccess] = useState<"PUBLIC" | "RESTRICTED">(scoped ? "RESTRICTED" : "PUBLIC");
+  const [access, setAccess] = useState<"PUBLIC" | "PRIVATE">(scoped ? "PRIVATE" : "PUBLIC");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<SharePointScopeDraft>(emptySharePointScopeDraft);
   const [error, setError] = useState<AppCopy | null>(null);
@@ -402,7 +402,7 @@ function SharePointSourceSetup() {
                     value={access}
                     className="grid gap-3 sm:grid-cols-2"
                     onValueChange={(value) =>
-                      editProposal(() => setAccess(value as "PUBLIC" | "RESTRICTED"))
+                      editProposal(() => setAccess(value as "PUBLIC" | "PRIVATE"))
                     }
                   >
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
@@ -420,7 +420,7 @@ function SharePointSourceSetup() {
                       </span>
                     </label>
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
-                      <RadioGroupItem value="RESTRICTED" className="mt-1" />
+                      <RadioGroupItem value="PRIVATE" className="mt-1" />
                       <LockKeyhole className="mt-0.5 size-4.5 shrink-0 text-content-secondary" />
                       <span>
                         <span className="block font-main-ui-action text-content-primary">

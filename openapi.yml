@@ -7,6 +7,143 @@ servers:
 - url: /
   description: Same-origin MemoryOS runtime
 paths:
+  /api/sources/{sourceId}/sharepoint/scope:
+    put:
+      tags:
+      - Sources
+      summary: Replace what a SharePoint source synchronizes; the new scope is verified
+        before it applies
+      operationId: replaceSharePointScope
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceSharePointScopeRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/schedule:
+    put:
+      tags:
+      - Sources
+      summary: Update the automatic synchronization and prune intervals
+      operationId: updateSharePointSchedule
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSharePointScheduleRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/google-drive/schedule:
     put:
       tags:
@@ -788,6 +925,214 @@ paths:
       security:
       - browserSession: []
       - bearerAuth: []
+  /api/credentials/sharepoint/{credentialId}:
+    put:
+      tags:
+      - Credentials
+      summary: Rename a SharePoint credential with a revision precondition
+      operationId: renameSharePointCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameSharePointCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: SharePoint credential renamed
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Credentials
+      summary: Delete an unused SharePoint credential with a revision precondition
+      operationId: deleteSharePointCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: SharePoint credential deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/sharepoint/{credentialId}/authentication:
+    put:
+      tags:
+      - Credentials
+      summary: Replace the client secret or certificate of an existing SharePoint
+        credential
+      operationId: replaceSharePointCredentialAuthentication
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharePointCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharePointCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/web/selection:
     put:
       tags:
@@ -922,6 +1267,209 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WebConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/selection:
+    put:
+      tags:
+      - Chat Voice
+      summary: Select the speech-to-text or text-to-speech default; null turns the
+        function off
+      operationId: selectChatVoiceProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSelectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Voice selection saved
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections/{provider}:
+    put:
+      tags:
+      - Chat Voice
+      summary: Verify and save one voice connection; a first connection may select
+        one function
+      operationId: saveChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceConnectionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Verified and saved voice connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat Voice
+      summary: Disconnect a voice provider and clear its stored credential
+      operationId: deleteChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Voice connection removed from both functions
       security:
       - bearerAuth: []
       - browserSession: []
@@ -3772,6 +4320,126 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/sources/{sourceId}/sharepoint/sync:
+    post:
+      tags:
+      - Sources
+      summary: Schedule a synchronization run now
+      operationId: synchronizeSharePointSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Run scheduled
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SourceOperation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/pause:
+    post:
+      tags:
+      - Sources
+      summary: Pause or resume future automatic synchronization
+      operationId: updateSharePointPause
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSharePointPauseRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/sources/{sourceId}/rename:
     post:
       tags:
@@ -4146,6 +4814,64 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint:
+    post:
+      tags:
+      - Sources
+      summary: Create a SharePoint source; its scope is verified with Microsoft before
+        it takes effect
+      operationId: createSharePointSource
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSharePointSourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: Scope accepted for verification
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5559,6 +6285,183 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/credentials/sharepoint:
+    get:
+      tags:
+      - Credentials
+      summary: List reusable Tenant-owned SharePoint credentials
+      operationId: listSharePointCredentials
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SharePointCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Credentials
+      summary: Verify an Entra application with Microsoft and store it; nothing is
+        stored when Microsoft rejects it
+      operationId: createSharePointCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharePointCredentialRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "201":
+          description: Stored SharePoint credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharePointCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/sharepoint/{credentialId}/test:
+    post:
+      tags:
+      - Credentials
+      summary: Ask Microsoft for a token and read the root site; records the resolved
+        Tenant host
+      operationId: testSharePointCredential
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint credential
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: SharePoint credential unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: SharePoint credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Microsoft did not answer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint credential works
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharePointCredentialTestResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/credentials/google-drive/{credentialId}/revoke:
     post:
       tags:
@@ -5694,6 +6597,184 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "204":
           description: Provider request succeeded
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/tickets:
+    post:
+      tags:
+      - Chat Voice
+      summary: Issue a 60-second single-use ticket for the transcription or read-aloud
+        voice WebSocket
+      operationId: createChatVoiceTicket
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceTicketRequest"
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Single-use voice WebSocket ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceTicketResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/synthesize:
+    post:
+      tags:
+      - Chat Voice
+      summary: Read text aloud with the Tenant's default text-to-speech provider
+      operationId: synthesizeChatVoice
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSynthesisRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid text or playback speed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Chat read authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "No text-to-speech provider, provider unavailable or busy"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "MP3 audio, streamed as the provider produces it"
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections/{provider}/test:
+    post:
+      tags:
+      - Chat Voice
+      summary: Verify a stored voice connection with the provider
+      operationId: testChatVoiceConnection
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Provider accepted the stored endpoint and credential
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7518,6 +8599,104 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/voice/settings:
+    get:
+      tags:
+      - Chat Voice
+      summary: Read the current member's voice settings
+      operationId: getChatVoiceSettings
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The current member's voice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    patch:
+      tags:
+      - Chat Voice
+      summary: Change the current member's voice settings; absent values are kept
+      operationId: updateChatVoiceSettings
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid voice request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Voice authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Too many voice tickets
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Updated voice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users:
     get:
       tags:
@@ -7650,6 +8829,116 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SourceSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint:
+    get:
+      tags:
+      - Sources
+      summary: Get SharePoint source configuration
+      operationId: getSharePointConfiguration
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint configuration
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointConfigurationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/{sourceId}/sharepoint/roots:
+    get:
+      tags:
+      - Sources
+      summary: "Page the site, library and folder addresses in scope"
+      operationId: getSharePointRoots
+      parameters:
+      - name: sourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint roots
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointRootPageResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -8010,6 +9299,97 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/GoogleDriveSelectionDraftResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint/selection-requests/{requestId}:
+    get:
+      tags:
+      - Sources
+      summary: Recover the receipt of an accepted scope request
+      operationId: getSharePointSelectionRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint scope receipt
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/sources/sharepoint/selection-policy:
+    get:
+      tags:
+      - Sources
+      summary: Get the configured scope admission limits
+      operationId: getSharePointSelectionPolicy
+      responses:
+        "400":
+          description: Invalid SharePoint scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Source unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Source or credential changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: SharePoint selection policy
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SharePointSelectionPolicyResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -8651,6 +10031,154 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/WebConnectionResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice:
+    get:
+      tags:
+      - Chat Voice
+      summary: Read whether speech-to-text and text-to-speech are configured
+      operationId: getChatVoiceAvailability
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Configured voice availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceAvailabilityResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/providers:
+    get:
+      tags:
+      - Chat Voice
+      summary: List implemented voice providers with suggested models and voices
+      operationId: listChatVoiceProviders
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Implemented voice providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/voice/connections:
+    get:
+      tags:
+      - Chat Voice
+      summary: List voice connections for model managers
+      operationId: listChatVoiceConnections
+      responses:
+        "400":
+          description: Invalid voice configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Voice connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Voice connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Voice provider unavailable or busy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Voice connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VoiceConnectionResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -10982,1536 +12510,221 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/sources/{sourceId}/sharepoint/scope:
-    put:
-      tags:
-      - Sources
-      summary: Replace what a SharePoint source synchronizes; the new scope is verified
-        before it applies
-      operationId: replaceSharePointScope
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReplaceSharePointScopeRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Scope accepted for verification
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/sharepoint/schedule:
-    put:
-      tags:
-      - Sources
-      summary: Update the automatic synchronization and prune intervals
-      operationId: updateSharePointSchedule
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateSharePointScheduleRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated SharePoint configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/sharepoint/{credentialId}:
-    put:
-      tags:
-      - Credentials
-      summary: Rename a SharePoint credential with a revision precondition
-      operationId: renameSharePointCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RenameSharePointCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: SharePoint credential renamed
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Credentials
-      summary: Delete an unused SharePoint credential with a revision precondition
-      operationId: deleteSharePointCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: SharePoint credential deleted
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/sharepoint/{credentialId}/authentication:
-    put:
-      tags:
-      - Credentials
-      summary: Replace the client secret or certificate of an existing SharePoint
-        credential
-      operationId: replaceSharePointCredentialAuthentication
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: If-Match
-        in: header
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SharePointCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated SharePoint credential
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SharePointCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/selection:
-    put:
-      tags:
-      - Chat Voice
-      summary: Select the speech-to-text or text-to-speech default; null turns the
-        function off
-      operationId: selectChatVoiceProvider
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VoiceSelectionRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Voice selection saved
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/connections/{provider}:
-    put:
-      tags:
-      - Chat Voice
-      summary: Verify and save one voice connection; a first connection may select
-        one function
-      operationId: saveChatVoiceConnection
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: provider
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VoiceConnectionRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Verified and saved voice connection
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoiceConnectionResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Chat Voice
-      summary: Disconnect a voice provider and clear its stored credential
-      operationId: deleteChatVoiceConnection
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: provider
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-      - name: revision
-        in: query
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 0
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Voice connection removed from both functions
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/sharepoint/sync:
-    post:
-      tags:
-      - Sources
-      summary: Schedule a synchronization run now
-      operationId: synchronizeSharePointSource
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Run scheduled
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SourceOperation"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/sharepoint/pause:
-    post:
-      tags:
-      - Sources
-      summary: Pause or resume future automatic synchronization
-      operationId: updateSharePointPause
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateSharePointPauseRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated SharePoint configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/sharepoint:
-    post:
-      tags:
-      - Sources
-      summary: Create a SharePoint source; its scope is verified with Microsoft before
-        it takes effect
-      operationId: createSharePointSource
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateSharePointSourceRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "202":
-          description: Scope accepted for verification
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/sharepoint:
-    get:
-      tags:
-      - Credentials
-      summary: List reusable Tenant-owned SharePoint credentials
-      operationId: listSharePointCredentials
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint credentials
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SharePointCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    post:
-      tags:
-      - Credentials
-      summary: Verify an Entra application with Microsoft and store it; nothing is
-        stored when Microsoft rejects it
-      operationId: createSharePointCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SharePointCredentialRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "201":
-          description: Stored SharePoint credential
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SharePointCredentialResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/credentials/sharepoint/{credentialId}/test:
-    post:
-      tags:
-      - Credentials
-      summary: Ask Microsoft for a token and read the root site; records the resolved
-        Tenant host
-      operationId: testSharePointCredential
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: credentialId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid SharePoint credential
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: SharePoint credential unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: SharePoint credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Microsoft did not answer
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint credential works
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SharePointCredentialTestResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/tickets:
-    post:
-      tags:
-      - Chat Voice
-      summary: Issue a 60-second single-use ticket for the transcription or read-aloud
-        voice WebSocket
-      operationId: createChatVoiceTicket
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VoiceTicketRequest"
-      responses:
-        "400":
-          description: Invalid voice request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Voice authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Membership unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Too many voice tickets
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Single-use voice WebSocket ticket
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoiceTicketResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/synthesize:
-    post:
-      tags:
-      - Chat Voice
-      summary: Read text aloud with the Tenant's default text-to-speech provider
-      operationId: synthesizeChatVoice
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VoiceSynthesisRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid text or playback speed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Chat read authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Membership unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "No text-to-speech provider, provider unavailable or busy"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: "MP3 audio, streamed as the provider produces it"
-          content:
-            audio/mpeg:
-              schema:
-                type: string
-                format: binary
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/connections/{provider}/test:
-    post:
-      tags:
-      - Chat Voice
-      summary: Verify a stored voice connection with the provider
-      operationId: testChatVoiceConnection
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: provider
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "204":
-          description: Provider accepted the stored endpoint and credential
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/settings:
-    get:
-      tags:
-      - Chat Voice
-      summary: Read the current member's voice settings
-      operationId: getChatVoiceSettings
-      responses:
-        "400":
-          description: Invalid voice request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Voice authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Membership unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Too many voice tickets
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: The current member's voice settings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoiceSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    patch:
-      tags:
-      - Chat Voice
-      summary: Change the current member's voice settings; absent values are kept
-      operationId: updateChatVoiceSettings
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VoiceSettingsRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid voice request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Voice authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Membership unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Too many voice tickets
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Updated voice settings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoiceSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/sharepoint:
-    get:
-      tags:
-      - Sources
-      summary: Get SharePoint source configuration
-      operationId: getSharePointConfiguration
-      parameters:
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint configuration
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointConfigurationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/{sourceId}/sharepoint/roots:
-    get:
-      tags:
-      - Sources
-      summary: "Page the site, library and folder addresses in scope"
-      operationId: getSharePointRoots
-      parameters:
-      - name: sourceId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 50
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint roots
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointRootPageResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/sharepoint/selection-requests/{requestId}:
-    get:
-      tags:
-      - Sources
-      summary: Recover the receipt of an accepted scope request
-      operationId: getSharePointSelectionRequest
-      parameters:
-      - name: requestId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint scope receipt
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointSelectionReceiptResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/sources/sharepoint/selection-policy:
-    get:
-      tags:
-      - Sources
-      summary: Get the configured scope admission limits
-      operationId: getSharePointSelectionPolicy
-      responses:
-        "400":
-          description: Invalid SharePoint scope
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Source unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Source or credential changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: SharePoint selection policy
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/SharePointSelectionPolicyResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice:
-    get:
-      tags:
-      - Chat Voice
-      summary: Read whether speech-to-text and text-to-speech are configured
-      operationId: getChatVoiceAvailability
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Configured voice availability
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VoiceAvailabilityResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/providers:
-    get:
-      tags:
-      - Chat Voice
-      summary: List implemented voice providers with suggested models and voices
-      operationId: listChatVoiceProviders
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Implemented voice providers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/VoiceProviderResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/voice/connections:
-    get:
-      tags:
-      - Chat Voice
-      summary: List voice connections for model managers
-      operationId: listChatVoiceConnections
-      responses:
-        "400":
-          description: Invalid voice configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Voice connection unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Voice connection changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Voice provider unavailable or busy
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Voice connections
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/VoiceConnectionResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
 components:
   schemas:
+    ReplaceSharePointScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        expectedCredentialRevision:
+          type: integer
+          format: int64
+          description: Credential revision the scope was reviewed against
+          exclusiveMinimum: 0
+        scope:
+          $ref: "#/components/schemas/SharePointScopeRequest"
+      required:
+      - expectedCredentialRevision
+      - requestId
+      - scope
+    SharePointScopeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeMode:
+          type: string
+          enum:
+          - ALL_SITES
+          - SPECIFIC
+        siteUrls:
+          type: array
+          description: "Site, library or folder addresses; sharing links are accepted"
+          items:
+            type: string
+            maxLength: 2048
+            minLength: 0
+          maxItems: 1000
+          minItems: 0
+        excludedSites:
+          type: array
+          items:
+            type: string
+            maxLength: 512
+            minLength: 0
+          maxItems: 100
+          minItems: 0
+        excludedPaths:
+          type: array
+          items:
+            type: string
+            maxLength: 512
+            minLength: 0
+          maxItems: 100
+          minItems: 0
+        includeDocuments:
+          type: boolean
+        includePages:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+        pruneIntervalHours:
+          type: integer
+          format: int32
+          description: Hours between prune runs; 0 disables pruning
+          maximum: 8760
+          minimum: 0
+      required:
+      - includeDocuments
+      - includePages
+      - scopeMode
+      - syncIntervalMinutes
+    SharePointSelectionReceiptResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - operation
+      - sourceId
+    SourceOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        errorCode:
+          type:
+          - string
+          - "null"
+      required:
+      - completedAt
+      - createdAt
+      - errorCode
+      - id
+      - status
+      - type
+    UpdateSharePointScheduleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+        pruneIntervalHours:
+          type: integer
+          format: int32
+          description: 0 disables pruning
+          maximum: 8760
+          minimum: 0
+      required:
+      - pruneIntervalHours
+      - syncIntervalMinutes
+    SharePointConfigurationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        credentialId:
+          type: string
+          format: uuid
+        credentialName:
+          type: string
+        credentialStatus:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        scopeRevision:
+          type: integer
+          format: int64
+        scopeMode:
+          type: string
+          enum:
+          - ALL_SITES
+          - SPECIFIC
+        rootCount:
+          type: integer
+          format: int64
+        excludedSites:
+          type: array
+          items:
+            type: string
+        excludedPaths:
+          type: array
+          items:
+            type: string
+        includeDocuments:
+          type: boolean
+        includePages:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+          format: int32
+        pruneIntervalHours:
+          type: integer
+          format: int32
+        scheduleRevision:
+          type: integer
+          format: int64
+        syncPaused:
+          type: boolean
+        tenantHost:
+          type: string
+        lastSyncedAt:
+          type: string
+          format: date-time
+        lastPrunedAt:
+          type: string
+          format: date-time
+        pendingWork:
+          type: boolean
+        errorCode:
+          type: string
+        pendingSelectionOperation:
+          $ref: "#/components/schemas/SourceOperation"
+      required:
+      - credentialId
+      - credentialName
+      - credentialRevision
+      - credentialStatus
+      - excludedPaths
+      - excludedSites
+      - includeDocuments
+      - includePages
+      - pendingWork
+      - pruneIntervalHours
+      - rootCount
+      - scheduleRevision
+      - scopeMode
+      - scopeRevision
+      - sourceId
+      - syncIntervalMinutes
+      - syncPaused
     UpdateGoogleDriveScheduleRequest:
       type: object
       additionalProperties: false
@@ -12646,36 +12859,6 @@ components:
       - files
       - folders
       - linkedDocuments
-    SourceOperation:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        status:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        errorCode:
-          type:
-          - string
-          - "null"
-      required:
-      - completedAt
-      - createdAt
-      - errorCode
-      - id
-      - status
-      - type
     ReplaceGoogleDriveRootsRequest:
       type: object
       additionalProperties: false
@@ -13263,6 +13446,121 @@ components:
       - enabled
       - issuer
       - jitAllowed
+    RenameSharePointCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+      required:
+      - name
+    SharePointCredentialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        directoryId:
+          type: string
+          description: Directory (tenant) ID as a GUID
+          maxLength: 64
+          minLength: 0
+        clientId:
+          type: string
+          description: Application (client) ID as a GUID
+          maxLength: 64
+          minLength: 0
+        cloud:
+          type: string
+          enum:
+          - GLOBAL
+        authMethod:
+          type: string
+          enum:
+          - CLIENT_SECRET
+          - CERTIFICATE
+        clientSecret:
+          type: string
+          description: "Client secret Value, required for CLIENT_SECRET"
+          maxLength: 256
+          minLength: 0
+        certificate:
+          type: string
+          description: "Base64 PKCS#12 keystore, required for CERTIFICATE"
+          maxLength: 24000
+          minLength: 0
+        certificatePassword:
+          type: string
+          description: PKCS#12 password
+          maxLength: 256
+          minLength: 0
+      required:
+      - authMethod
+      - clientId
+      - cloud
+      - directoryId
+      - name
+    SharePointCredentialResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        directoryId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        cloud:
+          type: string
+        authMethod:
+          type: string
+        status:
+          type: string
+        certificateThumbprint:
+          type: string
+        certificateNotAfter:
+          type: string
+          format: date-time
+        tenantHost:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceCount:
+          type: integer
+          format: int64
+        actions:
+          type: array
+          items:
+            type: string
+      required:
+      - actions
+      - authMethod
+      - clientId
+      - cloud
+      - createdAt
+      - credentialRevision
+      - directoryId
+      - id
+      - name
+      - sourceCount
+      - status
+      - updatedAt
     WebSelectionRequest:
       type: object
       properties:
@@ -13339,6 +13637,104 @@ components:
       - endpoint
       - engineId
       - provider
+    VoiceSelectionRequest:
+      type: object
+      properties:
+        function:
+          type: string
+          enum:
+          - STT
+          - TTS
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - function
+    VoiceConnectionRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        sttModel:
+          type: string
+          maxLength: 200
+          minLength: 0
+        ttsModel:
+          type: string
+          maxLength: 200
+          minLength: 0
+        ttsVoice:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialAction:
+          type: string
+          enum:
+          - KEEP
+          - REPLACE
+          - REMOVE
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+        activate:
+          type: string
+          enum:
+          - STT
+          - TTS
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - credentialAction
+      - endpoint
+      - sttModel
+      - ttsModel
+      - ttsVoice
+    VoiceConnectionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+        endpoint:
+          type: string
+        sttModel:
+          type: string
+        ttsModel:
+          type: string
+        ttsVoice:
+          type: string
+        credentialConfigured:
+          type: boolean
+        sttActive:
+          type: boolean
+        ttsActive:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+      required:
+      - endpoint
+      - provider
+      - sttModel
+      - ttsModel
+      - ttsVoice
     ChatSettingsRequest:
       type: object
       properties:
@@ -14412,6 +14808,19 @@ components:
       required:
       - item
       - operation
+    UpdateSharePointPauseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedRevision:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+        paused:
+          type: boolean
+      required:
+      - expectedRevision
+      - paused
     RenameSourceRequest:
       type: object
       additionalProperties: false
@@ -14555,6 +14964,42 @@ components:
           - SYNC
       required:
       - access
+    CreateSharePointSourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Identifies the request so a retry recovers its receipt
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        credentialId:
+          type: string
+          format: uuid
+        scope:
+          $ref: "#/components/schemas/SharePointScopeRequest"
+        access:
+          type: string
+          enum:
+          - PUBLIC
+          - PRIVATE
+          - SYNC
+        groupIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 0
+      required:
+      - access
+      - credentialId
+      - name
+      - requestId
+      - scope
     CreateGoogleDriveSourceRequest:
       type: object
       additionalProperties: false
@@ -15217,6 +15662,16 @@ components:
           minItems: 0
       required:
       - capabilities
+    SharePointCredentialTestResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        allSitesReadable:
+          type: boolean
+        tenantHost:
+          type: string
+      required:
+      - allSitesReadable
     RevokeGoogleDriveCredentialRequest:
       type: object
       additionalProperties: false
@@ -15261,6 +15716,40 @@ components:
       properties:
         search:
           type: boolean
+    VoiceTicketRequest:
+      type: object
+      properties:
+        purpose:
+          type: string
+          enum:
+          - TRANSCRIBE
+          - SYNTHESIZE
+    VoiceTicketResponse:
+      type: object
+      properties:
+        ticket:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - ticket
+    VoiceSynthesisRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 32000
+          minLength: 0
+        speed:
+          type: number
+          format: double
+          maximum: 2.0
+          minimum: 0.5
+      required:
+      - speed
+      - text
     CreateChatSession:
       type: object
       properties:
@@ -15565,6 +16054,32 @@ components:
         expiresAt:
           type: string
           format: date-time
+    VoiceSettingsRequest:
+      type: object
+      properties:
+        autoSend:
+          type: boolean
+        autoPlayback:
+          type: boolean
+        playbackSpeed:
+          type: number
+          format: double
+          maximum: 2.0
+          minimum: 0.5
+    VoiceSettingsResponse:
+      type: object
+      properties:
+        autoSend:
+          type: boolean
+        autoPlayback:
+          type: boolean
+        playbackSpeed:
+          type: number
+          format: double
+      required:
+      - autoPlayback
+      - autoSend
+      - playbackSpeed
     AccountType:
       type: string
       enum:
@@ -15716,6 +16231,46 @@ components:
       - size
       - totalItems
       - totalPages
+    SharePointRoot:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+        kind:
+          type: string
+          enum:
+          - SITE
+          - LIBRARY
+          - FOLDER
+        displayName:
+          type: string
+        verified:
+          type: boolean
+      required:
+      - kind
+      - url
+      - verified
+    SharePointRootPageResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeRevision:
+          type: integer
+          format: int64
+        roots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharePointRoot"
+        nextCursor:
+          type: string
+        total:
+          type: integer
+          format: int64
+      required:
+      - roots
+      - scopeRevision
+      - total
     SourceRun:
       type: object
       additionalProperties: false
@@ -16298,6 +16853,23 @@ components:
       - linkedDocumentIds
       - links
       - revision
+    SharePointSelectionPolicyResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        maxRootsPerSource:
+          type: integer
+          format: int32
+        maxExclusionsPerKind:
+          type: integer
+          format: int32
+        maxRequestBytes:
+          type: integer
+          format: int32
+      required:
+      - maxExclusionsPerKind
+      - maxRequestBytes
+      - maxRootsPerSource
     SourceGroupPage:
       type: object
       additionalProperties: false
@@ -16849,6 +17421,52 @@ components:
           items:
             type: string
             format: uuid
+    VoiceAvailabilityResponse:
+      type: object
+      properties:
+        sttAvailable:
+          type: boolean
+        ttsAvailable:
+          type: boolean
+      required:
+      - sttAvailable
+      - ttsAvailable
+    VoiceProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+        requiresKey:
+          type: boolean
+        requiresEndpoint:
+          type: boolean
+        defaultEndpoint:
+          type: string
+        sttModels:
+          type: array
+          items:
+            type: string
+        ttsModels:
+          type: array
+          items:
+            type: string
+        voices:
+          type: array
+          items:
+            type: string
+      required:
+      - defaultEndpoint
+      - provider
+      - requiresEndpoint
+      - requiresKey
+      - sttModels
+      - ttsModels
+      - voices
     SharedSession:
       type: object
       properties:
@@ -18018,623 +18636,6 @@ components:
       - instance
       - status
       - title
-    ReplaceSharePointScopeRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-        expectedCredentialRevision:
-          type: integer
-          format: int64
-          description: Credential revision the scope was reviewed against
-          exclusiveMinimum: 0
-        scope:
-          $ref: "#/components/schemas/SharePointScopeRequest"
-      required:
-      - expectedCredentialRevision
-      - requestId
-      - scope
-    SharePointScopeRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        scopeMode:
-          type: string
-          enum:
-          - ALL_SITES
-          - SPECIFIC
-        siteUrls:
-          type: array
-          description: "Site, library or folder addresses; sharing links are accepted"
-          items:
-            type: string
-            maxLength: 2048
-            minLength: 0
-          maxItems: 1000
-          minItems: 0
-        excludedSites:
-          type: array
-          items:
-            type: string
-            maxLength: 512
-            minLength: 0
-          maxItems: 100
-          minItems: 0
-        excludedPaths:
-          type: array
-          items:
-            type: string
-            maxLength: 512
-            minLength: 0
-          maxItems: 100
-          minItems: 0
-        includeDocuments:
-          type: boolean
-        includePages:
-          type: boolean
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-          minimum: 1
-        pruneIntervalHours:
-          type: integer
-          format: int32
-          description: Hours between prune runs; 0 disables pruning
-          maximum: 8760
-          minimum: 0
-      required:
-      - includeDocuments
-      - includePages
-      - scopeMode
-      - syncIntervalMinutes
-    SharePointSelectionReceiptResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        sourceId:
-          type: string
-          format: uuid
-        operation:
-          $ref: "#/components/schemas/SourceOperation"
-      required:
-      - operation
-      - sourceId
-    UpdateSharePointScheduleRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-          minimum: 1
-        pruneIntervalHours:
-          type: integer
-          format: int32
-          description: 0 disables pruning
-          maximum: 8760
-          minimum: 0
-      required:
-      - pruneIntervalHours
-      - syncIntervalMinutes
-    SharePointConfigurationResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        sourceId:
-          type: string
-          format: uuid
-        credentialId:
-          type: string
-          format: uuid
-        credentialName:
-          type: string
-        credentialStatus:
-          type: string
-        credentialRevision:
-          type: integer
-          format: int64
-        scopeRevision:
-          type: integer
-          format: int64
-        scopeMode:
-          type: string
-          enum:
-          - ALL_SITES
-          - SPECIFIC
-        rootCount:
-          type: integer
-          format: int64
-        excludedSites:
-          type: array
-          items:
-            type: string
-        excludedPaths:
-          type: array
-          items:
-            type: string
-        includeDocuments:
-          type: boolean
-        includePages:
-          type: boolean
-        syncIntervalMinutes:
-          type: integer
-          format: int32
-        pruneIntervalHours:
-          type: integer
-          format: int32
-        scheduleRevision:
-          type: integer
-          format: int64
-        syncPaused:
-          type: boolean
-        tenantHost:
-          type: string
-        lastSyncedAt:
-          type: string
-          format: date-time
-        lastPrunedAt:
-          type: string
-          format: date-time
-        pendingWork:
-          type: boolean
-        errorCode:
-          type: string
-        pendingSelectionOperation:
-          $ref: "#/components/schemas/SourceOperation"
-      required:
-      - credentialId
-      - credentialName
-      - credentialRevision
-      - credentialStatus
-      - excludedPaths
-      - excludedSites
-      - includeDocuments
-      - includePages
-      - pendingWork
-      - pruneIntervalHours
-      - rootCount
-      - scheduleRevision
-      - scopeMode
-      - scopeRevision
-      - sourceId
-      - syncIntervalMinutes
-      - syncPaused
-    RenameSharePointCredentialRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-      required:
-      - name
-    SharePointCredentialRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-        directoryId:
-          type: string
-          description: Directory (tenant) ID as a GUID
-          maxLength: 64
-          minLength: 0
-        clientId:
-          type: string
-          description: Application (client) ID as a GUID
-          maxLength: 64
-          minLength: 0
-        cloud:
-          type: string
-          enum:
-          - GLOBAL
-        authMethod:
-          type: string
-          enum:
-          - CLIENT_SECRET
-          - CERTIFICATE
-        clientSecret:
-          type: string
-          description: "Client secret Value, required for CLIENT_SECRET"
-          maxLength: 256
-          minLength: 0
-        certificate:
-          type: string
-          description: "Base64 PKCS#12 keystore, required for CERTIFICATE"
-          maxLength: 24000
-          minLength: 0
-        certificatePassword:
-          type: string
-          description: PKCS#12 password
-          maxLength: 256
-          minLength: 0
-      required:
-      - authMethod
-      - clientId
-      - cloud
-      - directoryId
-      - name
-    SharePointCredentialResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        directoryId:
-          type: string
-          format: uuid
-        clientId:
-          type: string
-          format: uuid
-        cloud:
-          type: string
-        authMethod:
-          type: string
-        status:
-          type: string
-        certificateThumbprint:
-          type: string
-        certificateNotAfter:
-          type: string
-          format: date-time
-        tenantHost:
-          type: string
-        credentialRevision:
-          type: integer
-          format: int64
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        sourceCount:
-          type: integer
-          format: int64
-        actions:
-          type: array
-          items:
-            type: string
-      required:
-      - actions
-      - authMethod
-      - clientId
-      - cloud
-      - createdAt
-      - credentialRevision
-      - directoryId
-      - id
-      - name
-      - sourceCount
-      - status
-      - updatedAt
-    VoiceSelectionRequest:
-      type: object
-      properties:
-        function:
-          type: string
-          enum:
-          - STT
-          - TTS
-        provider:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-        model:
-          type: string
-          maxLength: 200
-          minLength: 0
-      required:
-      - function
-    VoiceConnectionRequest:
-      type: object
-      properties:
-        endpoint:
-          type: string
-          maxLength: 2048
-          minLength: 0
-        sttModel:
-          type: string
-          maxLength: 200
-          minLength: 0
-        ttsModel:
-          type: string
-          maxLength: 200
-          minLength: 0
-        ttsVoice:
-          type: string
-          maxLength: 200
-          minLength: 0
-        credentialAction:
-          type: string
-          enum:
-          - KEEP
-          - REPLACE
-          - REMOVE
-        credentialValue:
-          type: string
-          maxLength: 8192
-          minLength: 0
-        activate:
-          type: string
-          enum:
-          - STT
-          - TTS
-        revision:
-          type: integer
-          format: int64
-          minimum: 0
-      required:
-      - credentialAction
-      - endpoint
-      - sttModel
-      - ttsModel
-      - ttsVoice
-    VoiceConnectionResponse:
-      type: object
-      properties:
-        provider:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-        endpoint:
-          type: string
-        sttModel:
-          type: string
-        ttsModel:
-          type: string
-        ttsVoice:
-          type: string
-        credentialConfigured:
-          type: boolean
-        sttActive:
-          type: boolean
-        ttsActive:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-      required:
-      - endpoint
-      - provider
-      - sttModel
-      - ttsModel
-      - ttsVoice
-    UpdateSharePointPauseRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        expectedRevision:
-          type: integer
-          format: int64
-          exclusiveMinimum: 0
-        paused:
-          type: boolean
-      required:
-      - expectedRevision
-      - paused
-    CreateSharePointSourceRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        requestId:
-          type: string
-          format: uuid
-          description: Identifies the request so a retry recovers its receipt
-        name:
-          type: string
-          maxLength: 120
-          minLength: 0
-        credentialId:
-          type: string
-          format: uuid
-        scope:
-          $ref: "#/components/schemas/SharePointScopeRequest"
-        access:
-          type: string
-          enum:
-          - PUBLIC
-          - RESTRICTED
-        groupIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          maxItems: 100
-          minItems: 0
-      required:
-      - access
-      - credentialId
-      - name
-      - requestId
-      - scope
-    SharePointCredentialTestResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        allSitesReadable:
-          type: boolean
-        tenantHost:
-          type: string
-      required:
-      - allSitesReadable
-    VoiceTicketRequest:
-      type: object
-      properties:
-        purpose:
-          type: string
-          enum:
-          - TRANSCRIBE
-          - SYNTHESIZE
-    VoiceTicketResponse:
-      type: object
-      properties:
-        ticket:
-          type: string
-        expiresAt:
-          type: string
-          format: date-time
-      required:
-      - expiresAt
-      - ticket
-    VoiceSynthesisRequest:
-      type: object
-      properties:
-        text:
-          type: string
-          maxLength: 32000
-          minLength: 0
-        speed:
-          type: number
-          format: double
-          maximum: 2.0
-          minimum: 0.5
-      required:
-      - speed
-      - text
-    VoiceSettingsRequest:
-      type: object
-      properties:
-        autoSend:
-          type: boolean
-        autoPlayback:
-          type: boolean
-        playbackSpeed:
-          type: number
-          format: double
-          maximum: 2.0
-          minimum: 0.5
-    VoiceSettingsResponse:
-      type: object
-      properties:
-        autoSend:
-          type: boolean
-        autoPlayback:
-          type: boolean
-        playbackSpeed:
-          type: number
-          format: double
-      required:
-      - autoPlayback
-      - autoSend
-      - playbackSpeed
-    SharePointRoot:
-      type: object
-      additionalProperties: false
-      properties:
-        url:
-          type: string
-        kind:
-          type: string
-          enum:
-          - SITE
-          - LIBRARY
-          - FOLDER
-        displayName:
-          type: string
-        verified:
-          type: boolean
-      required:
-      - kind
-      - url
-      - verified
-    SharePointRootPageResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        scopeRevision:
-          type: integer
-          format: int64
-        roots:
-          type: array
-          items:
-            $ref: "#/components/schemas/SharePointRoot"
-        nextCursor:
-          type: string
-        total:
-          type: integer
-          format: int64
-      required:
-      - roots
-      - scopeRevision
-      - total
-    SharePointSelectionPolicyResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        maxRootsPerSource:
-          type: integer
-          format: int32
-        maxExclusionsPerKind:
-          type: integer
-          format: int32
-        maxRequestBytes:
-          type: integer
-          format: int32
-      required:
-      - maxExclusionsPerKind
-      - maxRequestBytes
-      - maxRootsPerSource
-    VoiceAvailabilityResponse:
-      type: object
-      properties:
-        sttAvailable:
-          type: boolean
-        ttsAvailable:
-          type: boolean
-      required:
-      - sttAvailable
-      - ttsAvailable
-    VoiceProviderResponse:
-      type: object
-      properties:
-        provider:
-          type: string
-          enum:
-          - OPENAI
-          - OPENAI_COMPATIBLE
-          - ELEVENLABS
-          - AZURE
-        requiresKey:
-          type: boolean
-        requiresEndpoint:
-          type: boolean
-        defaultEndpoint:
-          type: string
-        sttModels:
-          type: array
-          items:
-            type: string
-        ttsModels:
-          type: array
-          items:
-            type: string
-        voices:
-          type: array
-          items:
-            type: string
-      required:
-      - defaultEndpoint
-      - provider
-      - requiresEndpoint
-      - requiresKey
-      - sttModels
-      - ttsModels
-      - voices
   securitySchemes:
     browserSession:
       type: apiKey
