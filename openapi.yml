@@ -7286,6 +7286,11 @@ paths:
           enum:
           - OPENAI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageConnectionTestRequest"
       responses:
         "400":
           description: Invalid image configuration
@@ -13931,6 +13936,24 @@ components:
       required:
       - failureCode
       - reachable
+    ImageConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+      - model
     ChatFileResponse:
       type: object
       properties:

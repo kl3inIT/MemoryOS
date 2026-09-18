@@ -40,6 +40,18 @@ class ImageProviderTest {
     }
 
     @Test
+    void cloudflareExpandsABareAccountIdIntoItsAccountEndpoint() {
+        var provider = ImageProvider.CLOUDFLARE_WORKERS_AI;
+        var url = "https://api.cloudflare.com/client/v4/accounts/b73a9841898f88f7cc2b731d7776f265";
+        assertEquals(url, provider.normalizeEndpoint("b73a9841898f88f7cc2b731d7776f265"));
+        assertEquals(url, provider.normalizeEndpoint("B73A9841898F88F7CC2B731D7776F265"));
+        assertEquals(url, provider.normalizeEndpoint(url));
+        assertEquals("not-an-id", provider.normalizeEndpoint("not-an-id"));
+        assertEquals("https://proxy.example/v1",
+                ImageProvider.OPENAI_IMAGE.normalizeEndpoint("https://proxy.example/v1"));
+    }
+
+    @Test
     void shapeResolvesToTheDeclaredSizeByAspect() {
         var provider = ImageProvider.OPENAI_IMAGE;
         assertEquals("1024x1024", provider.sizeFor("gpt-image-1", "square"));

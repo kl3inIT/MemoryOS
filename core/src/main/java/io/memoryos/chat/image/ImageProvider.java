@@ -20,6 +20,9 @@ public enum ImageProvider {
             new KnownModel("@cf/black-forest-labs/flux-2-klein-9b", "FLUX.2 klein 9B", "image/jpeg", List.of(), true, false),
             List.of(new KnownModel("@cf/black-forest-labs/flux-1-schnell", "FLUX.1 schnell", "image/jpeg", List.of(), false, false)));
 
+    private static final String CLOUDFLARE_ACCOUNT_BASE = "https://api.cloudflare.com/client/v4/accounts/";
+    private static final Pattern CLOUDFLARE_ACCOUNT_ID = Pattern.compile("[0-9a-f]{32}", Pattern.CASE_INSENSITIVE);
+
     private final @Nullable String defaultEndpoint;
     private final boolean endpointRequired;
     private final @Nullable KnownModel editModel;
@@ -41,6 +44,13 @@ public enum ImageProvider {
     public @Nullable String defaultEndpoint() { return defaultEndpoint; }
 
     public boolean endpointRequired() { return endpointRequired; }
+
+    /** A bare Cloudflare account ID expands to its account endpoint; every other value is stored as given. */
+    public String normalizeEndpoint(String endpoint) {
+        if (this == CLOUDFLARE_WORKERS_AI && CLOUDFLARE_ACCOUNT_ID.matcher(endpoint).matches())
+            return CLOUDFLARE_ACCOUNT_BASE + endpoint.toLowerCase(Locale.ROOT);
+        return endpoint;
+    }
 
     /** The model every edit on this protocol uses; null when edits use the connection's configured model. */
     public @Nullable KnownModel editModel() { return editModel; }

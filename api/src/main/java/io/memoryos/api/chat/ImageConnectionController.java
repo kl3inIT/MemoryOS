@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ImageAvailabilityResponse;
 import io.memoryos.api.chat.contract.ImageConnectionRequest;
 import io.memoryos.api.chat.contract.ImageConnectionResponse;
+import io.memoryos.api.chat.contract.ImageConnectionTestRequest;
 import io.memoryos.api.chat.contract.ImageProviderResponse;
 import io.memoryos.api.chat.contract.ImageSelectionRequest;
 import io.memoryos.chat.ChatException;
@@ -91,10 +92,12 @@ class ImageConnectionController {
     @ApiResponse(responseCode = "204", description = "Provider request succeeded", content = @Content)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "testChatImageConnection", summary = "Explicitly generate a test image; provider charges may apply")
-    void test(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable ImageProvider provider) {
-        var connection = connections.forTest(identity.actorId(), provider);
+    void test(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable ImageProvider provider,
+            @Valid @RequestBody(required = false) ImageConnectionTestRequest request) {
+        var probe = connections.forTest(identity.actorId(), provider,
+                request == null ? null : new ImageConnectionService.ProbeInput(request.endpoint(), request.model(), request.credentialValue()));
         try {
-            if (client.generate(connection, "a small solid blue circle on a white background", null).bytes().length == 0)
+            if (client.generate(probe.connection(), "a small solid blue circle on a white background", null, probe.credential()).bytes().length == 0)
                 throw new IOException("No image produced");
         } catch (IOException | IllegalArgumentException failed) { throw ChatException.providerUnavailable(); }
     }
