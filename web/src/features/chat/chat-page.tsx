@@ -416,17 +416,18 @@ function ChatConversation({
                         }
                       : undefined
                   }
-                  image={
-                    imageAvailability.data?.available === true
-                      ? {
-                          value: shownImage,
-                          onChange: (mode) => {
-                            transport.selectImage(mode);
-                            setImage(mode);
-                          },
-                        }
-                      : undefined
-                  }
+                  image={{
+                    available: imageAvailability.data?.available === true,
+                    pending: imageAvailability.isPending,
+                    onRetry: imageAvailability.isError
+                      ? () => void imageAvailability.refetch()
+                      : undefined,
+                    value: shownImage,
+                    onChange: (mode) => {
+                      transport.selectImage(mode);
+                      setImage(mode);
+                    },
+                  }}
                   mcp={{
                     selected: shownMcpServerIds,
                     sessionId: session?.id,
