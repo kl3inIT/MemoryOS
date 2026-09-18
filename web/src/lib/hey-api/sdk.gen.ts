@@ -2068,7 +2068,11 @@ export const testChatImageConnection = <ThrowOnError extends boolean = false>(op
             type: 'apiKey'
         }],
     url: '/api/chat/images/connections/{provider}/test',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

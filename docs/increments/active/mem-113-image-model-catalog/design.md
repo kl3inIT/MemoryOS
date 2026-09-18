@@ -31,7 +31,7 @@ Today this requires calling `/api/chat/images/*` by hand and typing exact model 
 | D3 | Declare the catalog in the backend per `ImageProvider`, in the spirit of `ChatProviderAdapter.knownModels()` | One source for the UI, validation, and the adapter; only the backend knows which models an adapter can serve |
 | D4 | The catalog lists only generation models the current adapter handles end to end | Workers AI request/response formats differ per model: flux-1-schnell takes JSON and returns base64, while FLUX.2 needs multipart, which MEM-109 implemented for edits only. Listing unsupported models would advertise something that fails. Other models can still be entered manually |
 | D5 | Catalog entries carry no free-text descriptions; the UI shows localized capability chips | Backend strings bypass i18n (`ui()` / `app-translations.ts`) |
-| D6 | Connection tests keep running against the saved configuration (Onyx also tests unsaved credentials) | Matches the chat catalog policy: validate clean, saved state only |
+| D6 | The test endpoint accepts the dialog's unsaved endpoint/model/key like Onyx, and also keeps the bodyless saved-connection probe | Managers test before saving; the transient probe validates like `save` but persists nothing, and a blank key falls back to the stored credential |
 | D7 | "Disconnect" saves with `credentialAction: REMOVE`; no delete endpoint | `save` already deselects a connection that loses its key, so no new endpoint is needed ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)) |
 | D8 | Keep returning only `credentialConfigured` (Onyx returns keys masked to the first and last four characters) | Existing MemoryOS credential policy |
 | D9 | Catalog entries declare whether the model also serves edits; a provider may declare a fixed edit model | After MEM-109, Cloudflare generates and edits with different models, while OpenAI uses one model for both. Admins need to see what the active connection will actually do |
@@ -51,7 +51,7 @@ Today this requires calling `/api/chat/images/*` by hand and typing exact model 
   - `OPENAI_IMAGE`: `gpt-image-1` (PNG; 1024x1024, 1536x1024, 1024x1536; generate and edit). Add `gpt-image-1.5` / `gpt-image-2` only after verifying them on both `/images/generations` (returning `b64_json`) and `/images/edits`.
   - `CLOUDFLARE_WORKERS_AI`: `@cf/black-forest-labs/flux-1-schnell` (JPEG; generate only; edits go through the provider `editModel`).
 - `ImageConnectionService.providers(actor)` (requires `MODELS_MANAGE`) is exposed as `GET /api/chat/images/providers` (`listChatImageProviders`). The response lists each provider with its credential requirement, `defaultEndpoint`, `endpointRequired`, `editModel`, and `knownModels`.
-- `save` rejects an empty endpoint when `endpointRequired`; today that error only surfaces at generation time.
+- `save` rejects an empty endpoint when `endpointRequired`; today that error only surfaces at generation time. For Cloudflare the dialog asks for the account ID, and `ImageProvider.normalizeEndpoint` expands a bare 32-hex ID into the account endpoint before validation; a pasted full account URL still passes through unchanged.
 - `ImageProviderClient` reads the Cloudflare edit model from `ImageProvider.editModel` (D10).
 
 ## 6. UI design
@@ -92,7 +92,8 @@ Providers
 └───────────────────────────────────────────────────────────────────────────┘
 
 Dialog "Cloudflare Workers AI"
-  Account endpoint   [https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>]
+  Account ID         [<ACCOUNT_ID>]
+                     the 32-character id in the dashboard URL dash.cloudflare.com/<ACCOUNT_ID>
   API key            [••••••]   Key saved; leave blank to keep it
   Generation model
     (•) FLUX.1 schnell      [JPEG] [1024×1024]
@@ -106,6 +107,7 @@ Dialog "Cloudflare Workers AI"
 - Component `features/chat/chat-image-settings.tsx`, modeled on `chat-web-settings.tsx`. Reuse `ProviderCard`, `ProviderLogo`, `StatusBadge`, `SettingsLayout` / `PageHeader`, Radix `Dialog`, `Input`, `Button`, and `presentProblem` / `useProblemMessage`. No new card or dialog components.
 - Turning image generation off also disables editing, because both tools use the active connection. The page says so.
 - The connection test exercises generation only; editing uses the same endpoint and credential.
+- The test probes the values shown in the dialog before anything is saved (D6): it is enabled once the required endpoint, model and a key (typed or already stored) are present, and reports success inline like n8n.
 - Disconnecting the active provider opens a confirmation that offers a replacement (connected providers only) or "Turn off image generation". It then calls `select`, reloads the revision, and saves with `REMOVE`.
 - `deprecated` models are hidden unless currently configured, in which case they show a "Deprecated" chip.
 

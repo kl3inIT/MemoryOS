@@ -1119,6 +1119,12 @@ export type ChatModelValidationResult = {
     failureCode: string | null;
 };
 
+export type ImageConnectionTestRequest = {
+    endpoint: string;
+    model: string;
+    credentialValue?: string;
+};
+
 export type ChatFileResponse = {
     id?: string;
     filename?: string;
@@ -7634,7 +7640,7 @@ export type ValidateChatModelResponses = {
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
 export type TestChatImageConnectionData = {
-    body?: never;
+    body?: ImageConnectionTestRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.

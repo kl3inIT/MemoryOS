@@ -34,7 +34,12 @@ public final class ImageProviderClient {
     public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 
     public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape) throws IOException {
-        return measured(connection.provider().name(), "generate", () -> generateRequest(connection, prompt, shape));
+        return generate(connection, prompt, shape, null);
+    }
+
+    /** An override key authenticates an unsaved probe; null resolves the connection's stored credential. */
+    public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
+        return measured(connection.provider().name(), "generate", () -> generateRequest(connection, prompt, shape, key));
     }
 
     /** Edits a normalized working image from an English instruction; a mask is applied afterwards by the caller. */
@@ -42,16 +47,16 @@ public final class ImageProviderClient {
         return measured(connection.provider().name(), "edit", () -> editRequest(connection, prompt, image));
     }
 
-    private Result generateRequest(ImageConnectionService.Connection connection, String prompt, @Nullable String shape) throws IOException {
+    private Result generateRequest(ImageConnectionService.Connection connection, String prompt, @Nullable String shape, @Nullable String key) throws IOException {
         validate(prompt);
-        String key = connections.key(connection);
+        String credential = key != null ? key : connections.key(connection);
         String base = connection.endpoint().replaceAll("/+$", "");
         // The tool shape maps to a declared size of the configured model; unknown models and
         // models without declared sizes keep the provider default.
         String size = connection.provider().sizeFor(connection.model(), shape);
         return switch (connection.provider()) {
-            case OPENAI_IMAGE -> openAi(base.isEmpty() ? OPENAI_ENDPOINT : base, key, connection.model(), prompt, size);
-            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, key, connection.model(), prompt);
+            case OPENAI_IMAGE -> openAi(base.isEmpty() ? OPENAI_ENDPOINT : base, credential, connection.model(), prompt, size);
+            case CLOUDFLARE_WORKERS_AI -> cloudflare(base, credential, connection.model(), prompt);
         };
     }
     private Result editRequest(ImageConnectionService.Connection connection, String prompt, ImageEditImages.Working image) throws IOException {
