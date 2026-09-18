@@ -9,6 +9,8 @@ release=${2:?verified SHA-workflowRun-workflowAttempt}
 root=/apps/memoryos
 state=$root/deployments
 tx=$state/$release
+# Populated by inference_paths from the release-owned helper before every use.
+declare serving_control
 mkdir -p "$state"
 exec 9>"$state/lock"
 flock --nonblock 9 || { echo 'Another staging operation owns the lock' >&2; exit 1; }
@@ -78,7 +80,7 @@ if [[ "$mode" == rollback && ! -f "$state/pending" ]]; then
 fi
 if [[ "$mode" != deploy ]]; then
   # The selected release owns recovery code; never source a checkout or mutable research launcher.
-  # shellcheck source=infrastructure/deployment/inference-operations.sh
+  # shellcheck disable=SC1091
   source "$tx/source/infrastructure/deployment/inference-operations.sh"
 fi
 
@@ -105,7 +107,7 @@ if [[ "$mode" == deploy ]]; then
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
   # These tracked mounts contain no secrets. Extraction follows umask077, but serving/monitoring run as non-root.
   chmod -R a+rX "$tx/source/infrastructure/inference/managed" "$tx/source/infrastructure/observability"
-  # shellcheck source=infrastructure/deployment/inference-operations.sh
+  # shellcheck disable=SC1091
   source "$tx/source/infrastructure/deployment/inference-operations.sh"
   for file in compose.base.yaml compose.staging.yaml compose.search.staging.yaml compose.inference.application.yaml; do
     printf '%s\n' "$tx/source/infrastructure/deployment/$file" >> "$tx/candidate.compose"
@@ -303,6 +305,8 @@ elif [[ "$mode" == serving-rollback ]]; then
   fi
   serving_target=previous; inference_compatible_restore
   serving_target=candidate; inference_drain
+  # Consumed by inference_start and inference_resume from the release-owned helper.
+  # shellcheck disable=SC2034
   serving_target=previous
   touch "$tx/serving-restored"
   inference_start; inference_resume
