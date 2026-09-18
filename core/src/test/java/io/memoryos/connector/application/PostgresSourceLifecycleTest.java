@@ -22,6 +22,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemView;
 import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.SourceUploadReceipt;
 import io.memoryos.connector.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
@@ -1096,6 +1097,56 @@ class PostgresSourceLifecycleTest {
         assertEquals(0L, count("documents_by_connector_credential_pair"));
     }
 
+    @Test
+    void pauseBlocksNewWorkAndResumeRequeuesCanceledIndexing() {
+        SourceId sourceId = service.createFileSource(owner, "Pausable", List.of(), null).id();
+        upload(owner, sourceId, "one.txt", "one".getBytes(StandardCharsets.UTF_8));
+        upload(owner, sourceId, "two.txt", "two".getBytes(StandardCharsets.UTF_8));
+
+        // Pause: summary reports PAUSED and queued attempts are canceled with SOURCE_PAUSED.
+        var paused = service.pauseSource(owner, sourceId);
+        assertEquals(SourceStatus.PAUSED, paused.status());
+        assertEquals(
+                2,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'CANCELLED' AND error_code = 'SOURCE_PAUSED'")
+                        .query(Integer.class).single());
+
+        // While paused, dispatch claims nothing for the source and uploads/reindex are rejected.
+        assertTrue(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
+        assertThrows(SourceException.class,
+                () -> service.initiateUpload(owner, sourceId,
+                        new ObjectUploadSpecification("three.txt", "text/plain", 5, checksum("three".getBytes(StandardCharsets.UTF_8)))));
+
+        // Resume: canceled attempts are re-enqueued and the source returns to a live status.
+        var resumed = service.resumeSource(owner, sourceId);
+        assertNotEquals(SourceStatus.PAUSED, resumed.status());
+        assertNotEquals(SourceStatus.PAUSING, resumed.status());
+        assertEquals(
+                2,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'NOT_STARTED'")
+                        .query(Integer.class).single());
+        assertFalse(operationDispatch.claim(OperationWorkload.INGESTION, 1).isEmpty());
+    }
+
+    @Test
+    void pauseIsIdempotentAndResumeWithoutPauseIsANoOp() {
+        SourceId sourceId = service.createFileSource(owner, "Idempotent", List.of(), null).id();
+        upload(owner, sourceId, "item.txt", "item".getBytes(StandardCharsets.UTF_8));
+
+        // Resume on a non-paused source is a no-op returning the live summary.
+        var live = service.resumeSource(owner, sourceId);
+        assertNotEquals(SourceStatus.PAUSED, live.status());
+
+        // Pausing twice stays paused and does not double-cancel.
+        service.pauseSource(owner, sourceId);
+        var paused = service.pauseSource(owner, sourceId);
+        assertEquals(SourceStatus.PAUSED, paused.status());
+        assertEquals(
+                1,
+                jdbcClient.sql("SELECT COUNT(*) FROM index_attempts WHERE status = 'CANCELLED' AND error_code = 'SOURCE_PAUSED'")
+                        .query(Integer.class).single());
+    }
+
     private OperationDelivery dispatch(OperationWorkload workload) {
         return operationDispatch.claim(workload, 1).getFirst().delivery();
     }
@@ -1222,6 +1273,7 @@ class PostgresSourceLifecycleTest {
                 transactionManager,
                 new io.memoryos.connector.persistence.JdbcSourceSyncRepository(jdbcClient),
                 new io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient),
+                org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class),
                 new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)))
         );
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);

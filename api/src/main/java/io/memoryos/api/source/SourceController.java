@@ -197,6 +197,26 @@ final class SourceController {
         ));
     }
 
+    @Operation(operationId = "pauseSource", summary = "Pause new sync and indexing work for one source")
+    @PostMapping("/{sourceId}/pause")
+    @ResponseStatus(HttpStatus.OK)
+    SourceSummaryResponse pauseSource(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId
+    ) {
+        return SourceSummaryResponse.from(sources.pauseSource(identityContext.actorId(), new SourceId(sourceId)));
+    }
+
+    @Operation(operationId = "resumeSource", summary = "Resume sync and indexing work for one paused source")
+    @PostMapping("/{sourceId}/resume")
+    @ResponseStatus(HttpStatus.OK)
+    SourceSummaryResponse resumeSource(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @PathVariable UUID sourceId
+    ) {
+        return SourceSummaryResponse.from(sources.resumeSource(identityContext.actorId(), new SourceId(sourceId)));
+    }
+
     @Operation(operationId = "removeSourceItem", summary = "Start durable source item removal")
     @PostMapping("/{sourceId}/items/{itemId}/remove")
     @ResponseStatus(HttpStatus.ACCEPTED)

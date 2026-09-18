@@ -45,10 +45,16 @@ public class JdbcSourceQueryRepository {
                    connector.name,
                    connector.connector_type,
                    pair.access_type,
-                   CASE WHEN pair.status <> 'DELETING' AND EXISTS (
+                   CASE WHEN pair.status = 'PAUSED' AND (EXISTS (
+                       SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
+                         AND sync.source_id = pair.id AND sync.status = 'IN_PROGRESS'
+                   ) OR EXISTS (
+                       SELECT 1 FROM index_attempts attempt WHERE attempt.tenant_id = pair.tenant_id
+                         AND attempt.connector_credential_pair_id = pair.id AND attempt.status = 'IN_PROGRESS'
+                   )) THEN 'PAUSING' WHEN pair.status <> 'DELETING' AND EXISTS (
                        SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
                          AND sync.source_id = pair.id AND sync.status IN ('NOT_STARTED', 'IN_PROGRESS')
-                   ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND EXISTS (
+                   ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND pair.status <> 'PAUSED' AND EXISTS (
                        SELECT 1 FROM google_drive_sources s WHERE s.tenant_id = pair.tenant_id
                          AND s.source_id = pair.id AND s.error_code IS NOT NULL
                    ) THEN 'FAILED' ELSE pair.status END AS status,
@@ -287,8 +293,8 @@ public class JdbcSourceQueryRepository {
                 SourceType.valueOf(resultSet.getString("connector_type")),
                 SourceAccess.valueOf(resultSet.getString("access_type")),
                 status,
-                status == SourceStatus.INDEXING || status == SourceStatus.DELETING
-                        || resultSet.getBoolean("cleanup_pending"),
+                status == SourceStatus.INDEXING || status == SourceStatus.PAUSING
+                        || status == SourceStatus.DELETING || resultSet.getBoolean("cleanup_pending"),
                 resultSet.getLong("document_count"),
                 JdbcSourceRepository.instant(resultSet, "last_succeeded_at"),
                 resultSet.getString("error_code"),

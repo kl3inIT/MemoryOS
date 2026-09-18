@@ -287,7 +287,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             authorization.lockAndRequire(actor, IamCapability.SOURCES_MANAGE, true);
             credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
             if (!tenant.equals(sourceAccess.lockManage(actor, source).tenantId())) throw SourceException.notFound();
-            drive.requireGoogle(tenant, source);
+            if (sources.lock(tenant, source).status() == io.memoryos.connector.SourceStatus.PAUSED)
+                throw SourceException.conflict("source is paused");
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
             if (drive.roots(tenant, source).isEmpty()) throw SourceException.invalid("Select roots before synchronizing.", "Drive roots not configured");

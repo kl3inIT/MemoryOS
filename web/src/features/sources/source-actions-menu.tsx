@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, ShieldCheck, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pause, Pencil, Play, ShieldCheck, Trash2 } from "lucide-react";
 import { type RefObject, useRef } from "react";
 import {
   DropdownMenu,
@@ -17,19 +17,25 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 export function SourceActionsMenu({
   triggerRef,
   disabled,
+  status,
   onRename,
   onChangeAccess,
+  onPause,
+  onResume,
   onDelete,
 }: {
   triggerRef: RefObject<HTMLButtonElement | null>;
   disabled: boolean;
+  status?: string;
   onRename?: () => void;
   onChangeAccess?: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
   onDelete?: () => void;
 }) {
   const ui = useAppTranslation();
   const openingDialog = useRef(false);
-  if (!onRename && !onChangeAccess && !onDelete) return null;
+  if (!onRename && !onChangeAccess && !onPause && !onResume && !onDelete) return null;
 
   const openDialog = (open: () => void) => () => {
     openingDialog.current = true;
@@ -69,7 +75,27 @@ export function SourceActionsMenu({
             {ui("Change visibility")}
           </DropdownMenuItem>
         ) : null}
-        {onDelete && (onRename || onChangeAccess) ? <DropdownMenuSeparator /> : null}
+        {onPause && status !== "PAUSED" && status !== "PAUSING" ? (
+          <DropdownMenuItem onSelect={openDialog(onPause)}>
+            <Pause aria-hidden="true" />
+            {ui("Pause source")}
+          </DropdownMenuItem>
+        ) : null}
+        {onResume && status === "PAUSED" ? (
+          <DropdownMenuItem onSelect={openDialog(onResume)}>
+            <Play aria-hidden="true" />
+            {ui("Resume source")}
+          </DropdownMenuItem>
+        ) : null}
+        {status === "PAUSING" ? (
+          <DropdownMenuItem disabled>
+            <Pause aria-hidden="true" />
+            {ui("Pausing…")}
+          </DropdownMenuItem>
+        ) : null}
+        {onDelete && (onRename || onChangeAccess || onPause || onResume) ? (
+          <DropdownMenuSeparator />
+        ) : null}
         {onDelete ? (
           <DropdownMenuItem variant="destructive" onSelect={openDialog(onDelete)}>
             <Trash2 aria-hidden="true" />

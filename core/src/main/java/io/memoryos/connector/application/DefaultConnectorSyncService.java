@@ -83,7 +83,8 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         for (var due : sync.due(limit)) {
             try {
                 boolean accepted = Boolean.TRUE.equals(transactions.execute(_ -> {
-                    sources.lock(due.tenantId(), due.sourceId());
+                    var pair = sources.lock(due.tenantId(), due.sourceId());
+                    if (pair.status() == io.memoryos.connector.SourceStatus.PAUSED) return false;
                     if (!drive.automaticSyncEnabled(due.tenantId(), due.sourceId())) return false;
                     var state = connections.state(due.tenantId(), due.sourceId());
                     sync.postpone(due.tenantId(), due.sourceId());
@@ -119,7 +120,13 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             fenced(work, () -> { sync.continuation(work, null); return true; });
             return Result.CONTINUED;
         } catch (StaleSyncException exception) {
-            settle(work, () -> sync.terminal(work, "SUPERSEDED", null, null, null));
+            settle(work, () -> {
+                if (sources.lock(work.tenantId(), work.sourceId()).status() == io.memoryos.connector.SourceStatus.PAUSED) {
+                    sync.terminal(work, "CANCELLED", "SOURCE_PAUSED", null, null);
+                } else {
+                    sync.terminal(work, "SUPERSEDED", null, null, null);
+                }
+            });
             return Result.SUPERSEDED;
         } catch (GoogleDriveProviderException exception) {
             String code = "SOURCE_GOOGLE_" + exception.failure().name();
