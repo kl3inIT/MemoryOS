@@ -4,6 +4,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
+import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
@@ -11,6 +12,7 @@ import io.memoryos.iam.tenant.TenantId;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -60,6 +62,20 @@ public class DefaultSharePointConnectionService implements SharePointConnectionS
             throw exception;
         }
         return new Connection(session, stored.revision(), stored.tenantHost());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean current(TenantId tenantId, SourceId sourceId, long credentialRevision) {
+        try {
+            var credentialId = sources.credentialId(tenantId, sourceId);
+            return credentials.lock(tenantId, credentialId)
+                    .filter(row -> row.usable() && row.revision() == credentialRevision)
+                    .isPresent();
+        } catch (SourceException exception) {
+            if ("SOURCE_NOT_FOUND".equals(exception.code())) return false;
+            throw exception;
+        }
     }
 
     @Override

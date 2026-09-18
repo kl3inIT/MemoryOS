@@ -51,6 +51,7 @@ aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-auth = { module = "software.amazon.awssdk:auth" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
 arconia-bom = { module = "io.arconia:arconia-bom", version.ref = "arconia" }
+arconia-spring-boot = { module = "io.arconia:arconia-spring-boot" }
 arconia-multitenancy-web = { module = "io.arconia:arconia-multitenancy-web-spring-boot-starter" }
 arconia-dev-services-redis = { module = "io.arconia:arconia-dev-services-redis" }
 arconia-dev-services-postgresql = { module = "io.arconia:arconia-dev-services-postgresql" }

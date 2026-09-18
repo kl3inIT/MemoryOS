@@ -109,7 +109,7 @@ class PostgresSharePointSelectionTest {
                 new JdbcSourceSyncRepository(jdbc),
                 new io.memoryos.connector.persistence.JdbcSharePointSyncRepository(jdbc, new JdbcSourceSyncRepository(jdbc)),
                 new JdbcIndexAttemptRepository(jdbc, sourceRows, documents,
-                        mock(io.memoryos.connector.GoogleDriveConnectionService.class)),
+                        mock(io.memoryos.connector.ProviderAuthorityService.class)),
                 documents, new SharePointSelectionPolicy(1000, 3_145_728), manager);
         sources = TestDatabase.transactionalProxy(service, SharePointSourceService.class, manager);
         processor = new DefaultSharePointSelectionProcessor(selections, service, connections, manager);

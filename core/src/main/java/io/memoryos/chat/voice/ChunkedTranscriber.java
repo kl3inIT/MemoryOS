@@ -14,7 +14,7 @@ import java.util.function.Function;
  * windows for interim text and silent windows never reach the provider. Finishing transcribes the silence-trimmed
  * recording once for the final text. Audio lives only in this object and is released when it closes.
  */
-public final class ChunkedTranscriber implements AutoCloseable {
+public final class ChunkedTranscriber implements TranscriptionSession {
     static final int WINDOW_BYTES = Pcm16.BYTES_PER_SECOND * 3;
     /** A slow provider skips interim windows instead of queueing audio; the final pass still covers everything. */
     private static final int MAX_PENDING_WINDOWS = 4;

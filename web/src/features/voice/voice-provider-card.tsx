@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AudioWaveform, CheckCircle2, Cloud, Server, Trash2 } from "lucide-react";
+import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -9,7 +10,6 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { deleteChatVoiceConnection } from "@/lib/hey-api/sdk.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
-import { cn } from "@/lib/utils";
 import { VoiceProviderDialog } from "./voice-provider-dialog";
 import {
   connectionServes,
@@ -90,19 +90,14 @@ export function VoiceProviderCard({
         .join(" · ")
     : providerSummary(provider.provider, fn, ui);
   return (
-    <li
+    <ProviderCard
+      as="li"
       aria-label={name}
-      className={cn(
-        "flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5",
-        active && "bg-surface-sunken",
-      )}
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-base">
-        <ProviderIcon provider={provider.provider} />
-      </span>
-      <div className="mr-auto min-w-0 flex-1 basis-48">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-main-ui-action text-content-primary">{name}</h3>
+      className="h-full rounded-xl bg-surface-raised"
+      logo={<ProviderIcon provider={provider.provider} />}
+      name={
+        <>
+          <span>{name}</span>
           {active ? (
             <StatusBadge tone="success" className="gap-1 text-xs">
               <CheckCircle2 className="size-3.5" aria-hidden="true" />
@@ -117,61 +112,65 @@ export function VoiceProviderCard({
               {ui("Đã kết nối")}
             </StatusBadge>
           ) : null}
-        </div>
-        <p className="mt-0.5 truncate text-sm text-content-muted">{detail}</p>
-      </div>
-      <div className="flex items-center gap-1.5">
-        {ready && !active && (
+        </>
+      }
+      description={detail}
+      selected={active}
+      actions={
+        <>
+          {ready && !active && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled}
+              onClick={() => void onSelect(provider.provider)}
+            >
+              {ui("Đặt làm mặc định")}
+            </Button>
+          )}
           <Button
             size="sm"
-            prominence="secondary"
+            prominence={connection ? "internal" : "secondary"}
             disabled={disabled}
-            onClick={() => void onSelect(provider.provider)}
+            onClick={() => setOpen(true)}
           >
-            {ui("Đặt làm mặc định")}
+            {connection ? ui("Cấu hình") : ui("Kết nối")}
           </Button>
-        )}
-        <Button
-          size="sm"
-          prominence={connection ? "internal" : "secondary"}
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-        >
-          {connection ? ui("Cấu hình") : ui("Kết nối")}
-        </Button>
-        {connection && (
-          <ConfirmDialog
-            trigger={
-              <IconButton
-                size="sm"
-                tone="danger"
-                disabled={disabled}
-                aria-label={ui("Ngắt kết nối {{name}}", { name })}
-                title={ui("Ngắt kết nối {{name}}", { name })}
-              >
-                <Trash2 />
-              </IconButton>
-            }
-            title={ui("Ngắt kết nối {{name}}?", { name })}
-            description={ui(
-              "Khóa và cấu hình của {{name}} sẽ bị xóa khỏi cả nhận dạng giọng nói lẫn đọc thành tiếng. Chức năng đang dùng {{name}} làm mặc định sẽ tắt cho đến khi bạn chọn nhà cung cấp khác.",
-              { name },
-            )}
-            confirmLabel={ui("Ngắt kết nối")}
-            pendingLabel={ui("Đang ngắt kết nối…")}
-            errorMessage={voiceProblem}
-            onConfirm={async () => {
-              await deleteChatVoiceConnection({
-                path: { provider: provider.provider },
-                query: { revision: connection.revision ?? 0 },
-                headers: sameOriginMutationHeaders,
-                throwOnError: true,
-              });
-              await onChanged();
-            }}
-          />
-        )}
-      </div>
+          {connection && (
+            <ConfirmDialog
+              trigger={
+                <IconButton
+                  size="sm"
+                  tone="danger"
+                  disabled={disabled}
+                  aria-label={ui("Ngắt kết nối {{name}}", { name })}
+                  title={ui("Ngắt kết nối {{name}}", { name })}
+                >
+                  <Trash2 />
+                </IconButton>
+              }
+              title={ui("Ngắt kết nối {{name}}?", { name })}
+              description={ui(
+                "Khóa và cấu hình của {{name}} sẽ bị xóa khỏi cả nhận dạng giọng nói lẫn đọc thành tiếng. Chức năng đang dùng {{name}} làm mặc định sẽ tắt cho đến khi bạn chọn nhà cung cấp khác.",
+                { name },
+              )}
+              confirmLabel={ui("Ngắt kết nối")}
+              pendingLabel={ui("Đang ngắt kết nối…")}
+              errorMessage={voiceProblem}
+              onConfirm={async () => {
+                await deleteChatVoiceConnection({
+                  path: { provider: provider.provider },
+                  query: { revision: connection.revision ?? 0 },
+                  headers: sameOriginMutationHeaders,
+                  throwOnError: true,
+                });
+                await onChanged();
+              }}
+            />
+          )}
+        </>
+      }
+    >
       <VoiceProviderDialog
         open={open}
         onOpenChange={setOpen}
@@ -182,6 +181,6 @@ export function VoiceProviderCard({
         autoSelect={autoSelect}
         onSaved={onChanged}
       />
-    </li>
+    </ProviderCard>
   );
 }

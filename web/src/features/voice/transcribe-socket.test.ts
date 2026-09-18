@@ -75,14 +75,34 @@ describe("voice transcription socket", () => {
     expect(socket().binaryType).toBe("arraybuffer");
     const audio = new ArrayBuffer(4);
     transcription.send(audio);
-    socket().receive({ type: "transcript", text: "xin", isFinal: false });
+    socket().receive({ type: "transcript", text: "xin", isFinal: false, revision: 1 });
     expect(onInterim).toHaveBeenCalledWith("xin");
     const final = transcription.finish();
     expect(socket().sent).toEqual([audio, JSON.stringify({ type: "end" })]);
     transcription.send(new ArrayBuffer(2));
-    socket().receive({ type: "transcript", text: "xin chào", isFinal: true });
+    socket().receive({ type: "transcript", text: "xin chào", isFinal: true, revision: 2 });
     await expect(final).resolves.toBe("xin chào");
     expect(socket().sent).toHaveLength(2);
+  });
+
+  it("ignores delayed transcript revisions without regressing the composer", async () => {
+    const { opening, socket, onInterim } = connect();
+    socket().open();
+    await opening;
+    socket().receive({ type: "transcript", text: "xin chào", isFinal: false, revision: 2 });
+    socket().receive({ type: "transcript", text: "xin", isFinal: false, revision: 1 });
+    socket().receive({ type: "transcript", text: "invalid", isFinal: false, revision: "3" });
+    socket().receive({ type: "transcript", text: "legacy delayed", isFinal: false });
+    expect(onInterim).toHaveBeenCalledTimes(1);
+    expect(onInterim).toHaveBeenCalledWith("xin chào");
+  });
+
+  it("does not publish an unsolicited final transcript as interim text", async () => {
+    const { opening, socket, onInterim } = connect();
+    socket().open();
+    await opening;
+    socket().receive({ type: "transcript", text: "unexpected final", isFinal: true, revision: 1 });
+    expect(onInterim).not.toHaveBeenCalled();
   });
 
   it("keeps the latest interim text when the final transcript does not arrive in time", async () => {

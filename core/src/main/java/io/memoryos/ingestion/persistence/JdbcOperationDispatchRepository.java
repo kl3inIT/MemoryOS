@@ -46,14 +46,21 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
               AND pair.status <> 'DELETING'
               AND item.status <> 'DELETING'
               AND item.current_version_id = attempt.connector_item_version_id
-              AND (item.provider_file_id IS NULL OR connector.connector_type <> 'GOOGLE_DRIVE' OR EXISTS (
-                  SELECT 1 FROM google_drive_membership m
-                  JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
-                  JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
-                  WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
-                    AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
-                    AND v.scope_revision = s.revision
-              ))
+              AND (item.provider_file_id IS NULL
+                OR (connector.connector_type = 'GOOGLE_DRIVE' AND EXISTS (
+                    SELECT 1 FROM google_drive_membership m
+                    JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
+                    JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                    WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
+                      AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
+                      AND v.scope_revision = s.revision
+                ))
+                OR (connector.connector_type = 'SHAREPOINT' AND EXISTS (
+                    SELECT 1 FROM sharepoint_sources s
+                    JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                    WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id
+                      AND v.scope_revision = s.scope_revision
+                )))
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (

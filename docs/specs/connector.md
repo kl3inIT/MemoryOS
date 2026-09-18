@@ -64,6 +64,8 @@ The Source catalog's settings/Manage shortcut is rendered only when that row's `
 
 Google grant lifecycle, revision-fenced provider sessions, and root configuration/sync scheduling belong to `DefaultGoogleDriveAuthorizationService`, `DefaultGoogleDriveConnectionService`, and `DefaultGoogleDriveSourceService`. They use capability-owned persistence and public IAM/storage services. Google acquisition uses `ObjectWriteService`, never a fabricated browser-upload receipt.
 
+Provider synchronization and acquisition remain explicit implementations, while indexing after snapshot adoption is shared. `ProviderAuthorityService` is the provider boundary for publication and replay: its default dispatcher routes only the implemented `GOOGLE_DRIVE` and `SHAREPOINT` types to their owning connection service, and a provider-backed `FILE` or unknown mapping fails closed. The indexing repository verifies the captured provider scope before calling that authority. Google additionally requires current eligible, non-excluded membership; SharePoint requires the current `sharepoint_sources.scope_revision`. Both require the version's captured credential revision to remain usable and current. The generic Source lock orders Tenant → attached Credential → Source for every credential kind. Terminal supersession recomputes aggregate Source status, so a Source with no remaining live attempts cannot remain `INDEXING`.
+
 ## Source summaries and Files pages
 
 `GET /api/sources/{sourceId}` and `POST /api/sources/file` return `SourceSummary` directly, without an embedded item list or a one-field detail wrapper, including the nullable `managerActorId`. Reads require global `SOURCES_READ` or the permitted scoped browse policy; FILE creation requires global or scoped `SOURCES_MANAGE`.

@@ -4,12 +4,13 @@ import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Globe2, LockKeyhole, Pencil } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Select } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   useApplicationSession,
@@ -205,17 +206,19 @@ function SharePointSourceSetup() {
     draft.scopeMode === "ALL_SITES" ? 0 : parseSharePointLines(draft.siteUrlsText).length;
 
   return (
-    <SettingsLayout className="max-w-3xl">
-      <Button asChild prominence="tertiary" disabled={busy}>
-        <Link to="/admin/sources/new">
-          <ArrowLeft />
-          {ui("Exit setup")}
-        </Link>
-      </Button>
+    <SettingsLayout wide>
       <PageHeader
         icon={<SharePointIcon />}
         title={ui("SharePoint")}
         description={ui("Index sites, document libraries and pages from SharePoint Online.")}
+        actions={
+          <Button asChild prominence="secondary" disabled={busy}>
+            <Link to="/admin/sources/new">
+              <ArrowLeft />
+              {ui("Exit setup")}
+            </Link>
+          </Button>
+        }
       />
       {!canManage ? (
         <p role="alert">{ui("You do not have permission to manage credentials and Sources.")}</p>
@@ -290,16 +293,18 @@ function SharePointSourceSetup() {
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-col gap-8 md:flex-row">
-        <SourceSetupSteps
-          current={STEPS.indexOf(current)}
-          steps={[
-            { label: "Credential", complete: Boolean(ready) },
-            { label: "Content", complete: !scopeError },
-            { label: "Access", complete: Boolean(sourceName.trim()) },
-            { label: "Review" },
-          ]}
-        />
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+        <aside className="rounded-2xl border border-border-subtle bg-surface-raised p-3 lg:sticky lg:top-6">
+          <SourceSetupSteps
+            current={STEPS.indexOf(current)}
+            steps={[
+              { label: "Credential", complete: Boolean(ready) },
+              { label: "Content", complete: !scopeError },
+              { label: "Access", complete: Boolean(sourceName.trim()) },
+              { label: "Review" },
+            ]}
+          />
+        </aside>
         <div className="min-w-0 flex-1 space-y-6">
           {current === "credential" ? (
             <>
@@ -384,30 +389,53 @@ function SharePointSourceSetup() {
                   className="mt-2"
                 />
               </div>
-              <div className="space-y-2">
-                <label htmlFor="sharepoint-source-access" className="font-secondary-action">
-                  {ui("Visibility")}
-                </label>
+              <fieldset className="space-y-2" disabled={controlsDisabled}>
+                <legend className="font-secondary-action">{ui("Visibility")}</legend>
                 {scoped ? (
-                  <p className="font-secondary-body text-content-muted">
+                  <p className="rounded-xl border border-border-subtle bg-surface-sunken p-4 font-secondary-body text-content-muted">
                     {ui(
                       "Private · only members of the selected groups can search and read these files.",
                     )}
                   </p>
                 ) : (
-                  <Select
-                    id="sharepoint-source-access"
+                  <RadioGroup
                     value={access}
-                    disabled={controlsDisabled}
-                    onChange={(event) =>
-                      editProposal(() => setAccess(event.target.value as "PUBLIC" | "RESTRICTED"))
+                    className="grid gap-3 sm:grid-cols-2"
+                    onValueChange={(value) =>
+                      editProposal(() => setAccess(value as "PUBLIC" | "RESTRICTED"))
                     }
                   >
-                    <option value="PUBLIC">{ui("Public · everyone in this Tenant")}</option>
-                    <option value="RESTRICTED">{ui("Private · selected group members")}</option>
-                  </Select>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
+                      <RadioGroupItem value="PUBLIC" className="mt-1" />
+                      <Globe2 className="mt-0.5 size-4.5 shrink-0 text-content-secondary" />
+                      <span>
+                        <span className="block font-main-ui-action text-content-primary">
+                          {ui("Public · everyone in this Tenant")}
+                        </span>
+                        <span className="mt-1 block font-secondary-body text-content-muted">
+                          {ui(
+                            "Every active member with Search access can discover imported content.",
+                          )}
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
+                      <RadioGroupItem value="RESTRICTED" className="mt-1" />
+                      <LockKeyhole className="mt-0.5 size-4.5 shrink-0 text-content-secondary" />
+                      <span>
+                        <span className="block font-main-ui-action text-content-primary">
+                          {ui("Private · selected group members")}
+                        </span>
+                        <span className="mt-1 block font-secondary-body text-content-muted">
+                          {ui(
+                            "Only members of the groups selected below can discover imported content.",
+                          )}
+                        </span>
+                      </span>
+                    </label>
+                  </RadioGroup>
                 )}
-              </div>
+              </fieldset>
               <GroupAccessPicker
                 load={(query) => listSourceGroupOptionsOptions({ query })}
                 description={appText(
@@ -437,52 +465,117 @@ function SharePointSourceSetup() {
               }}
             >
               <h2 className="font-heading-h3">{ui("Review and create")}</h2>
-              <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-content-muted">{ui("Source name")}</dt>
-                  <dd className="mt-1 wrap-anywhere text-content-primary">
-                    {sourceName.trim() || ui("Not set")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-content-muted">{ui("Credential")}</dt>
-                  <dd className="mt-1 wrap-anywhere text-content-primary">
-                    {selected?.name ?? ui("Not selected")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-content-muted">{ui("Scope")}</dt>
-                  <dd className="mt-1 text-content-primary">
-                    {draft.scopeMode === "ALL_SITES"
-                      ? ui("All sites")
-                      : ui("{{count}} addresses", { count: rootCount })}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-content-muted">{ui("Collects")}</dt>
-                  <dd className="mt-1 text-content-primary">
-                    {draft.includeDocuments && draft.includePages
-                      ? ui("Documents and site pages")
-                      : draft.includePages
-                        ? ui("Site pages")
-                        : ui("Documents")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-content-muted">{ui("Visibility")}</dt>
-                  <dd className="mt-1 text-content-primary">
-                    {access === "PUBLIC"
-                      ? ui("Public · everyone in this Tenant")
-                      : ui("Private · selected group members")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-content-muted">{ui("Access groups")}</dt>
-                  <dd className="mt-1 text-content-primary">
-                    {groupIds.size > 0 ? ui("{{v1}} selected", { v1: groupIds.size }) : ui("None")}
-                  </dd>
-                </div>
-              </dl>
+              <div className="grid gap-3">
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{ui("Credential")}</CardTitle>
+                    <CardAction>
+                      <Button
+                        size="sm"
+                        prominence="tertiary"
+                        disabled={busy || frozen}
+                        onClick={() => go("credential")}
+                      >
+                        <Pencil /> {ui("Edit")}
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-content-muted">{ui("Name")}</dt>
+                        <dd className="mt-1 wrap-anywhere text-content-primary">
+                          {selected?.name ?? ui("Not selected")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-content-muted">{ui("SharePoint host")}</dt>
+                        <dd className="mt-1 wrap-anywhere text-content-primary">
+                          {selected?.tenantHost ?? ui("Not resolved yet")}
+                        </dd>
+                      </div>
+                    </dl>
+                  </CardContent>
+                </Card>
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{ui("Content")}</CardTitle>
+                    <CardAction>
+                      <Button
+                        size="sm"
+                        prominence="tertiary"
+                        disabled={busy || frozen}
+                        onClick={() => go("content")}
+                      >
+                        <Pencil /> {ui("Edit")}
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-content-muted">{ui("Scope")}</dt>
+                        <dd className="mt-1 text-content-primary">
+                          {draft.scopeMode === "ALL_SITES"
+                            ? ui("All sites")
+                            : ui("{{count}} addresses", { count: rootCount })}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-content-muted">{ui("Collects")}</dt>
+                        <dd className="mt-1 text-content-primary">
+                          {draft.includeDocuments && draft.includePages
+                            ? ui("Documents and site pages")
+                            : draft.includePages
+                              ? ui("Site pages")
+                              : ui("Documents")}
+                        </dd>
+                      </div>
+                    </dl>
+                  </CardContent>
+                </Card>
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{ui("Name and access")}</CardTitle>
+                    <CardAction>
+                      <Button
+                        size="sm"
+                        prominence="tertiary"
+                        disabled={busy || frozen}
+                        onClick={() => go("access")}
+                      >
+                        <Pencil /> {ui("Edit")}
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-content-muted">{ui("Source name")}</dt>
+                        <dd className="mt-1 wrap-anywhere text-content-primary">
+                          {sourceName.trim() || ui("Not set")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-content-muted">{ui("Visibility")}</dt>
+                        <dd className="mt-1 text-content-primary">
+                          {access === "PUBLIC"
+                            ? ui("Public · everyone in this Tenant")
+                            : ui("Private · selected group members")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-content-muted">{ui("Access groups")}</dt>
+                        <dd className="mt-1 text-content-primary">
+                          {groupIds.size > 0
+                            ? ui("{{v1}} selected", { v1: groupIds.size })
+                            : ui("None")}
+                        </dd>
+                      </div>
+                    </dl>
+                  </CardContent>
+                </Card>
+              </div>
               <SharePointScheduleFields
                 draft={draft}
                 disabled={controlsDisabled}

@@ -1941,10 +1941,14 @@ class ChatSessionApiIntegrationTest {
             assertEquals("transcript", interim.path("type").asText());
             assertEquals("xin chào 1", interim.path("text").asText());
             assertFalse(interim.path("isFinal").asBoolean());
+            assertFalse(interim.path("utteranceEnd").asBoolean());
+            assertEquals(1, interim.path("revision").asLong());
             session.sendMessage(new TextMessage("{\"type\":\"end\"}"));
             var completed = Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS));
             assertEquals("xin chào 2", completed.path("text").asText());
             assertTrue(completed.path("isFinal").asBoolean());
+            assertFalse(completed.path("utteranceEnd").asBoolean());
+            assertEquals(2, completed.path("revision").asLong());
             assertEquals(CloseStatus.NORMAL.getCode(), closed.get(10, TimeUnit.SECONDS).getCode());
 
             assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, headers,

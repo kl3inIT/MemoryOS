@@ -1,8 +1,8 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
-import io.memoryos.chat.voice.ChunkedTranscriber;
 import io.memoryos.chat.voice.Transcript;
+import io.memoryos.chat.voice.TranscriptionSession;
 import io.memoryos.chat.voice.VoiceTranscriptionService;
 import io.memoryos.iam.identity.ActorId;
 import java.time.Duration;
@@ -14,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
@@ -48,16 +49,18 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
 
     private static final class Live {
         private final WebSocketSession socket;
-        private final ChunkedTranscriber transcriber;
+        private final TranscriptionSession transcriber;
+        private final AtomicLong revisions;
         private final long startedNanos = System.nanoTime();
         private final AtomicBoolean ending = new AtomicBoolean();
         private volatile long lastAudioNanos = startedNanos;
         private long bytes;
         private @Nullable ScheduledFuture<?> check;
 
-        private Live(WebSocketSession socket, ChunkedTranscriber transcriber) {
+        private Live(WebSocketSession socket, TranscriptionSession transcriber, AtomicLong revisions) {
             this.socket = socket;
             this.transcriber = transcriber;
+            this.revisions = revisions;
         }
     }
 
@@ -69,14 +72,16 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
         var socket = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MILLIS, SEND_BUFFER_BYTES);
         var actor = (ActorId) session.getAttributes().get(VoiceHandshakeInterceptor.ACTOR);
         var language = (String) session.getAttributes().get(VoiceHandshakeInterceptor.LANGUAGE);
-        ChunkedTranscriber transcriber;
+        var revisions = new AtomicLong();
+        TranscriptionSession transcriber;
         try {
-            transcriber = transcription.open(actor, language, transcript -> send(socket, transcript));
+            transcriber = transcription.open(actor, language,
+                    transcript -> send(socket, transcript, revisions.incrementAndGet()));
         } catch (BusinessException refused) {
             VoiceSockets.refuse(socket, refused);
             return;
         }
-        var live = new Live(socket, transcriber);
+        var live = new Live(socket, transcriber, revisions);
         sessions.put(session.getId(), live);
         live.check = watchdog.scheduleWithFixedDelay(() -> expire(live), 5, 5, TimeUnit.SECONDS);
     }
@@ -122,7 +127,7 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
                 VoiceSockets.fail(live.socket, "VOICE_PROVIDER_FAILED", CloseStatus.SERVER_ERROR);
                 return;
             }
-            send(live.socket, new Transcript(text, true));
+            send(live.socket, new Transcript(text, true, false), live.revisions.incrementAndGet());
             VoiceSockets.close(live.socket, CloseStatus.NORMAL);
         });
     }
@@ -154,11 +159,13 @@ class TranscribeWebSocketHandler extends AbstractWebSocketHandler implements Dis
             VoiceSockets.fail(live.socket, "VOICE_IDLE", CloseStatus.POLICY_VIOLATION);
     }
 
-    private static void send(WebSocketSession socket, Transcript transcript) {
+    private static void send(WebSocketSession socket, Transcript transcript, long revision) {
         var body = new LinkedHashMap<String, Object>();
         body.put("type", "transcript");
         body.put("text", transcript.text());
         body.put("isFinal", transcript.isFinal());
+        body.put("utteranceEnd", transcript.utteranceEnd());
+        body.put("revision", revision);
         VoiceSockets.write(socket, body);
     }
 }

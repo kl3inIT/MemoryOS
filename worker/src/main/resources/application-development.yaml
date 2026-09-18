@@ -3,10 +3,7 @@ spring:
     url: ${MEMORYOS_DATABASE_URL:jdbc:postgresql://localhost:55432/arconia}
     username: ${MEMORYOS_DATABASE_USERNAME:arconia}
     password: ${MEMORYOS_DATABASE_PASSWORD:arconia}
-
-arconia:
-  dev:
-    services:
-      redis:
-        port: 56379
-        shared: true
+  data:
+    redis:
+      host: ${MEMORYOS_REDIS_HOST:localhost}
+      port: ${MEMORYOS_REDIS_PORT:56379}

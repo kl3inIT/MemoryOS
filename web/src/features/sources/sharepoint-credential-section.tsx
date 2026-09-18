@@ -2,12 +2,20 @@ import { uiLocale } from "@/i18n/format";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ellipsis, KeyRound, X } from "lucide-react";
+import { Ellipsis, KeyRound } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -547,140 +555,149 @@ export function SharePointCredentialSection({
         </Button>
       </section>
 
-      <Dialog.Root open={modalOpen} onOpenChange={changeModal}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
-          <Dialog.Content
-            aria-describedby="sharepoint-credential-modal-description"
-            onCloseAutoFocus={(event) => {
+      <Dialog open={modalOpen} onOpenChange={changeModal}>
+        <DialogContent
+          className="sm:max-w-4xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            modalTrigger.current?.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {replacing
+                ? ui("Replace SharePoint authentication")
+                : ui("Create a SharePoint credential")}
+            </DialogTitle>
+            <DialogDescription>
+              {ui(
+                "The credential is verified with Microsoft before it is stored, so what Entra rejects is never saved.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="grid gap-5"
+            onSubmit={(event) => {
               event.preventDefault();
-              modalTrigger.current?.focus();
+              void save();
             }}
-            onEscapeKeyDown={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            onPointerDownOutside={(event) => {
-              if (busy) event.preventDefault();
-            }}
-            className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-base shadow-2xl outline-none md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
           >
-            <header className="flex shrink-0 items-center gap-3 px-6 py-4">
-              <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
-              <Dialog.Title className="min-w-0 flex-1 font-heading-h3">
-                {replacing
-                  ? ui("Replace SharePoint authentication")
-                  : ui("Create a SharePoint credential")}
-              </Dialog.Title>
-              <Dialog.Close asChild>
-                <IconButton
-                  prominence="tertiary"
-                  aria-label={ui("Close credential dialog")}
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
+              <aside className="h-fit rounded-xl border border-border-subtle bg-surface-base p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="grid size-8 place-items-center rounded-lg bg-surface-sunken text-content-secondary">
+                    <KeyRound className="size-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="font-main-ui-action text-content-primary">
+                      {ui("Microsoft Entra prerequisite")}
+                    </h3>
+                    <p className="font-secondary-body text-content-muted">
+                      {ui("Create and consent the application before entering its identifiers.")}
+                    </p>
+                  </div>
+                </div>
+                <SharePointEntraGuide />
+              </aside>
+              <div className="min-w-0 space-y-5">
+                <div>
+                  <label
+                    htmlFor="sharepoint-credential-name"
+                    className="font-secondary-action text-content-primary"
+                  >
+                    {ui("Credential name")}
+                  </label>
+                  <Input
+                    id="sharepoint-credential-name"
+                    value={name}
+                    maxLength={120}
+                    required
+                    disabled={busy}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder={ui("e.g. Contoso SharePoint")}
+                    autoComplete="off"
+                    className="mt-2"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="sharepoint-directory-id"
+                      className="font-secondary-action text-content-primary"
+                    >
+                      {ui("Directory (tenant) ID")}
+                    </label>
+                    <Input
+                      id="sharepoint-directory-id"
+                      value={directoryId}
+                      required
+                      disabled={busy || Boolean(replacing)}
+                      readOnly={Boolean(replacing)}
+                      onChange={(event) => setDirectoryId(event.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="mt-2 font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="sharepoint-client-id"
+                      className="font-secondary-action text-content-primary"
+                    >
+                      {ui("Application (client) ID")}
+                    </label>
+                    <Input
+                      id="sharepoint-client-id"
+                      value={clientId}
+                      required
+                      disabled={busy || Boolean(replacing)}
+                      readOnly={Boolean(replacing)}
+                      onChange={(event) => setClientId(event.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="mt-2 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                {replacing ? (
+                  <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                    {ui("Replacing authentication affects all")} {replacing.sourceCount}{" "}
+                    {ui(
+                      "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.",
+                    )}
+                  </p>
+                ) : null}
+                <SharePointCredentialInput
+                  ref={credentialInput}
+                  method={method}
                   disabled={busy}
-                >
-                  <X />
-                </IconButton>
-              </Dialog.Close>
-            </header>
-            <form
-              className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void save();
-              }}
-            >
-              <Dialog.Description
-                id="sharepoint-credential-modal-description"
-                className="text-sm text-content-secondary"
-              >
-                {ui(
-                  "The credential is verified with Microsoft before it is stored, so what Entra rejects is never saved.",
-                )}
-              </Dialog.Description>
-              <SharePointEntraGuide />
-              <div>
-                <label
-                  htmlFor="sharepoint-credential-name"
-                  className="font-secondary-action text-content-primary"
-                >
-                  {ui("Credential name")}
-                </label>
-                <Input
-                  id="sharepoint-credential-name"
-                  value={name}
-                  maxLength={120}
-                  required
-                  disabled={busy}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={ui("e.g. Contoso SharePoint")}
-                  autoComplete="off"
-                  className="mt-2"
+                  onMethodChange={setMethod}
+                  onReadyChange={setAuthenticationReady}
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="sharepoint-directory-id"
-                    className="font-secondary-action text-content-primary"
-                  >
-                    {ui("Directory (tenant) ID")}
-                  </label>
-                  <Input
-                    id="sharepoint-directory-id"
-                    value={directoryId}
-                    required
-                    disabled={busy || Boolean(replacing)}
-                    readOnly={Boolean(replacing)}
-                    onChange={(event) => setDirectoryId(event.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="mt-2 font-mono text-xs"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="sharepoint-client-id"
-                    className="font-secondary-action text-content-primary"
-                  >
-                    {ui("Application (client) ID")}
-                  </label>
-                  <Input
-                    id="sharepoint-client-id"
-                    value={clientId}
-                    required
-                    disabled={busy || Boolean(replacing)}
-                    readOnly={Boolean(replacing)}
-                    onChange={(event) => setClientId(event.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="mt-2 font-mono text-xs"
-                  />
-                </div>
-              </div>
-              {replacing ? (
-                <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                  {ui("Replacing authentication affects all")} {replacing.sourceCount}{" "}
-                  {ui(
-                    "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.",
-                  )}
-                </p>
-              ) : null}
-              <SharePointCredentialInput
-                ref={credentialInput}
-                method={method}
-                disabled={busy}
-                onMethodChange={setMethod}
-                onReadyChange={setAuthenticationReady}
-              />
-              {error ? (
-                <p
-                  role="alert"
-                  className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-                >
-                  {ui(error)}
-                </p>
-              ) : null}
+            </div>
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
+              >
+                {ui(error)}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button prominence="secondary" disabled={busy}>
+                  {ui("Cancel")}
+                </Button>
+              </DialogClose>
               <Button
                 type="submit"
                 pending={saving}
@@ -688,10 +705,10 @@ export function SharePointCredentialSection({
               >
                 {ui("Verify and save")}
               </Button>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

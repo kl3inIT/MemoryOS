@@ -1520,6 +1520,10 @@ Object.assign(englishUi, {
   "e.g. Finance SharePoint": "ví dụ: SharePoint Tài chính",
   "Group members can search and read what this Source imports. SharePoint's own per-item permissions are not synchronized.":
     "Thành viên nhóm được tìm kiếm và đọc nội dung Nguồn này nhập về. Quyền theo từng mục của SharePoint không được đồng bộ.",
+  "Every active member with Search access can discover imported content.":
+    "Mọi thành viên đang hoạt động có quyền Tìm kiếm đều có thể tìm thấy nội dung đã nhập.",
+  "Only members of the groups selected below can discover imported content.":
+    "Chỉ thành viên của các nhóm được chọn bên dưới mới có thể tìm thấy nội dung đã nhập.",
   Content: "Nội dung",
   "Review and create": "Xem lại và tạo",
   "Not set": "Chưa đặt",
@@ -1570,6 +1574,9 @@ Object.assign(englishUi, {
   "Create a SharePoint credential": "Tạo credential SharePoint",
   "The credential is verified with Microsoft before it is stored, so what Entra rejects is never saved.":
     "Credential được xác minh với Microsoft trước khi lưu, nên thứ Entra từ chối sẽ không bao giờ được lưu.",
+  "Microsoft Entra prerequisite": "Điều kiện Microsoft Entra",
+  "Create and consent the application before entering its identifiers.":
+    "Tạo ứng dụng và cấp admin consent trước khi nhập các mã định danh.",
   "e.g. Contoso SharePoint": "ví dụ: SharePoint Contoso",
   "Directory (tenant) ID": "Directory (tenant) ID",
   "Application (client) ID": "Application (client) ID",
@@ -1646,6 +1653,8 @@ Object.assign(englishUi, {
     "Dán địa chỉ như hiển thị trên trình duyệt: một site, một thư viện tài liệu của nó, hoặc thư mục trong thư viện. Liên kết chia sẻ và địa chỉ dạng xem thư viện được chấp nhận và quy về đường dẫn gốc.",
   "A library is matched by the path in its URL, not by its displayed name, so a site created in another language resolves like any other. Every address must be on the same SharePoint host, and no address may sit inside another.":
     "Thư viện được khớp theo đường dẫn trong URL chứ không theo tên hiển thị, nên site tạo bằng ngôn ngữ khác vẫn xác minh như thường. Mọi địa chỉ phải cùng một máy chủ SharePoint, và không địa chỉ nào được nằm trong địa chỉ khác.",
+  "Works with Sites.Selected or Sites.Read.All": "Hoạt động với Sites.Selected hoặc Sites.Read.All",
+  "Sites.Read.All": "Sites.Read.All",
   "Addresses are verified with Microsoft after you submit. Nothing is saved when one of them does not resolve.":
     "Địa chỉ được xác minh với Microsoft sau khi bạn gửi. Không gì được lưu nếu một địa chỉ không xác minh được.",
   "Specific sites": "Site cụ thể",
@@ -2389,6 +2398,12 @@ Object.assign(vietnameseUi, {
   "Giọng nói": "Voice",
   "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.":
     "Connect providers so members can speak instead of typing and hear answers read aloud. Audio passes only through the MemoryOS server and is never stored.",
+  "Âm thanh không được lưu": "Audio is never stored",
+  "Mặc định: {{name}}": "Default: {{name}}",
+  "Chưa chọn nhà cung cấp mặc định": "No default provider selected",
+  "Đang hoạt động": "Active",
+  "Chưa cấu hình": "Not configured",
+  "Cần thiết lập": "Setup required",
   "Không tải được cấu hình giọng nói.": "Voice configuration could not be loaded.",
   "Chuyển giọng nói thành văn bản": "Speech to text",
   "Đọc văn bản thành giọng nói": "Text to speech",
@@ -2419,6 +2434,14 @@ Object.assign(vietnameseUi, {
   "Dùng để nhận dạng giọng nói trong Chat và Tìm kiếm.":
     "Used to transcribe speech in Chat and Search.",
   "Dùng để đọc câu trả lời thành tiếng.": "Used to read answers aloud.",
+  "Thông tin kết nối": "Connection",
+  "MemoryOS xác minh nhà cung cấp trước khi lưu cấu hình và mã hóa khóa API.":
+    "MemoryOS verifies the provider before saving the configuration and encrypts the API key.",
+  "Mô hình và giọng": "Model and voice",
+  "Chọn mô hình dùng cho bản ghi cuối cùng và đường dự phòng.":
+    "Choose the model used for final transcripts and fallback processing.",
+  "Chọn mô hình và giọng mặc định cho câu trả lời được đọc thành tiếng.":
+    "Choose the default model and voice for spoken answers.",
   "Địa chỉ máy chủ": "Server address",
   "Địa chỉ API": "API address",
   "Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.":
@@ -2466,6 +2489,8 @@ Object.assign(vietnameseUi, {
   "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
   "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
     "Your question is sent as soon as the transcript is ready, without pressing Send.",
+  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.":
+    "Control how the microphone and spoken answers work together in a conversation.",
   "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
   "Đọc thành tiếng": "Read aloud",
   "Dừng đọc": "Stop reading",

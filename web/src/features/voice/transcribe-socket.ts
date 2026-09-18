@@ -57,6 +57,8 @@ export function openTranscriptionSocket(
     let opened = false;
     let finishing = false;
     let latest = "";
+    let latestRevision = 0;
+    let revisionsObserved = false;
     let settleFinal: ((text: string) => void) | undefined;
     let failure: VoiceStreamError | undefined;
 
@@ -108,8 +110,20 @@ export function openTranscriptionSocket(
         return;
       }
       if (!message || typeof message !== "object") return;
-      const { type, text, isFinal, code } = message as Record<string, unknown>;
+      const { type, text, isFinal, revision, code } = message as Record<string, unknown>;
       if (type === "transcript" && typeof text === "string") {
+        if (revision === undefined) {
+          if (revisionsObserved) return;
+        } else {
+          if (
+            typeof revision !== "number" ||
+            !Number.isSafeInteger(revision) ||
+            revision <= latestRevision
+          )
+            return;
+          revisionsObserved = true;
+          latestRevision = revision;
+        }
         latest = text;
         if (isFinal === true) settleFinal?.(text);
         else if (!finishing) options.onInterim(text);

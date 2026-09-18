@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
@@ -59,7 +60,7 @@ public class VoiceTranscriptionService {
     }
 
     /** Opens one transcription session for an authorized member; each member has at most one at a time. */
-    public ChunkedTranscriber open(ActorId actor, @Nullable String language, Consumer<Transcript> listener) {
+    public TranscriptionSession open(ActorId actor, @Nullable String language, Consumer<Transcript> listener) {
         requireAccess(actor);
         if (language != null && !LANGUAGES.contains(language)) throw ChatException.invalid("Unsupported voice language.");
         var connection = connections.resolve(actor).stt();
@@ -70,10 +71,20 @@ public class VoiceTranscriptionService {
             active.remove(actor);
             throw ChatException.busy();
         }
-        return new ChunkedTranscriber(wav -> transcribe(connection, key, language, wav), listener, () -> {
+        Runnable release = () -> {
             sessions.release();
             active.remove(actor);
-        });
+        };
+        Function<byte[], String> batch = wav -> transcribe(connection, key, language, wav);
+        if (connection.provider() == VoiceProvider.OPENAI && connection.endpoint().isEmpty()) {
+            try {
+                return OpenAiRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key, language,
+                        actor.value().toString(), batch, listener, release, meters);
+            } catch (RuntimeException unavailable) {
+                meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.OPENAI.name()).increment();
+            }
+        }
+        return new ChunkedTranscriber(batch, listener, release);
     }
 
     /** Transcribes one 24 kHz WAV upload with the connection's provider. */
@@ -113,8 +124,7 @@ public class VoiceTranscriptionService {
             if (language != null) options.language(language);
             var model = OpenAiAudioTranscriptionModel.builder().openAiClient(client).openAiClientAsync(async)
                     .options(options.build()).build();
-            String text = model.call(new AudioTranscriptionPrompt(new NamedAudio(wav))).getResult().getOutput();
-            return text == null ? "" : text;
+            return model.call(new AudioTranscriptionPrompt(new NamedAudio(wav))).getResult().getOutput();
         } finally {
             try { async.close(); } finally { client.close(); }
         }

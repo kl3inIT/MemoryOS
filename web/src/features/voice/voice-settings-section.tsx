@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Gauge, Mic2, Volume2 } from "lucide-react";
+import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -46,84 +48,91 @@ export function VoiceSettingsSection() {
   const speed = speedDraft ?? pending?.playbackSpeed ?? saved?.playbackSpeed ?? 1;
   const disabled = !settings.isSuccess || mutation.isPending;
   return (
-    <section aria-labelledby="voice-settings-heading" className="flex max-w-2xl flex-col gap-6">
-      <h2 id="voice-settings-heading" className="font-heading-h3 text-content-primary">
-        {ui("Giọng nói")}
-      </h2>
-      {dictation && (
-        <div className="flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <label htmlFor="voice-auto-send" className="font-main-ui-body text-content-primary">
-              {ui("Tự động gửi khi dừng ghi âm")}
-            </label>
-            <p id="voice-auto-send-description" className="mt-1 text-content-muted">
-              {ui("Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.")}
-            </p>
-          </div>
-          <Switch
-            id="voice-auto-send"
-            aria-describedby="voice-auto-send-description"
-            checked={autoSend}
-            disabled={disabled}
-            onCheckedChange={(checked) => mutation.mutate({ autoSend: checked })}
+    <section aria-labelledby="voice-settings-heading" className="flex max-w-2xl flex-col gap-4">
+      <div>
+        <h2 id="voice-settings-heading" className="font-heading-h3 text-content-primary">
+          {ui("Giọng nói")}
+        </h2>
+        <p className="mt-1 font-secondary-body text-content-muted">
+          {ui("Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.")}
+        </p>
+      </div>
+      <SettingRows>
+        {dictation && (
+          <SettingRow
+            htmlFor="voice-auto-send"
+            descriptionId="voice-auto-send-description"
+            icon={<Mic2 />}
+            title={ui("Tự động gửi khi dừng ghi âm")}
+            description={ui("Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.")}
+            control={
+              <Switch
+                id="voice-auto-send"
+                aria-describedby="voice-auto-send-description"
+                checked={autoSend}
+                disabled={disabled}
+                onCheckedChange={(checked) => mutation.mutate({ autoSend: checked })}
+              />
+            }
           />
-        </div>
-      )}
-      {readAloud && (
-        <div className="flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <label htmlFor="voice-auto-playback" className="font-main-ui-body text-content-primary">
-              {ui("Tự động đọc câu trả lời")}
-            </label>
-            <p id="voice-auto-playback-description" className="mt-1 text-content-muted">
-              {ui(
-                "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.",
-              )}
-            </p>
-          </div>
-          <Switch
-            id="voice-auto-playback"
-            aria-describedby="voice-auto-playback-description"
-            checked={autoPlayback}
-            disabled={disabled}
-            onCheckedChange={(checked) => mutation.mutate({ autoPlayback: checked })}
+        )}
+        {readAloud && (
+          <SettingRow
+            htmlFor="voice-auto-playback"
+            descriptionId="voice-auto-playback-description"
+            icon={<Volume2 />}
+            title={ui("Tự động đọc câu trả lời")}
+            description={ui(
+              "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.",
+            )}
+            control={
+              <Switch
+                id="voice-auto-playback"
+                aria-describedby="voice-auto-playback-description"
+                checked={autoPlayback}
+                disabled={disabled}
+                onCheckedChange={(checked) => mutation.mutate({ autoPlayback: checked })}
+              />
+            }
           />
-        </div>
-      )}
-      {readAloud && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <p className="font-main-ui-body text-content-primary">{ui("Tốc độ đọc")}</p>
-              <p id="voice-speed-description" className="mt-1 text-content-muted">
-                {ui("Áp dụng khi đọc câu trả lời thành tiếng.")}
-              </p>
-            </div>
-            <output
-              htmlFor="voice-speed"
-              className="shrink-0 font-main-ui-action text-content-primary tabular-nums"
-            >
-              {speedLabel(speed)}
-            </output>
-          </div>
-          <Slider
-            id="voice-speed"
-            aria-label={ui("Tốc độ đọc")}
-            aria-describedby="voice-speed-description"
-            className="max-w-sm"
-            min={0.5}
-            max={2}
-            step={0.1}
-            value={[speed]}
-            disabled={disabled}
-            onValueChange={([value]) => setSpeedDraft(tenths(value))}
-            onValueCommit={([value]) => {
-              if (tenths(value) === saved?.playbackSpeed) setSpeedDraft(undefined);
-              else mutation.mutate({ playbackSpeed: tenths(value) });
-            }}
+        )}
+        {readAloud && (
+          <SettingRow
+            htmlFor="voice-speed"
+            descriptionId="voice-speed-description"
+            icon={<Gauge />}
+            title={ui("Tốc độ đọc")}
+            description={ui("Áp dụng khi đọc câu trả lời thành tiếng.")}
+            className="flex-col items-stretch sm:flex-row sm:items-center"
+            control={
+              <div className="flex w-full items-center gap-3 sm:w-64">
+                <Slider
+                  id="voice-speed"
+                  aria-label={ui("Tốc độ đọc")}
+                  aria-describedby="voice-speed-description"
+                  className="min-w-0 flex-1"
+                  min={0.5}
+                  max={2}
+                  step={0.1}
+                  value={[speed]}
+                  disabled={disabled}
+                  onValueChange={([value]) => setSpeedDraft(tenths(value))}
+                  onValueCommit={([value]) => {
+                    if (tenths(value) === saved?.playbackSpeed) setSpeedDraft(undefined);
+                    else mutation.mutate({ playbackSpeed: tenths(value) });
+                  }}
+                />
+                <output
+                  htmlFor="voice-speed"
+                  className="w-10 shrink-0 text-right font-main-ui-action text-content-primary tabular-nums"
+                >
+                  {speedLabel(speed)}
+                </output>
+              </div>
+            }
           />
-        </div>
-      )}
+        )}
+      </SettingRows>
       {settings.isError && (
         <div role="alert" className="flex flex-wrap items-center gap-3">
           <p className="text-content-secondary">{ui("Không tải được cài đặt giọng nói.")}</p>

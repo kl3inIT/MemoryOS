@@ -27,6 +27,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 **Tenant:** Microsoft 365 Business Standard dùng thử, hết hạn **15/10/2026**.
 
 **Người dùng chuẩn bị:**
+
 1. Một site tạo bằng tiếng Việt, có vài file.
 2. Upload một certificate lên app Entra (Certificates & secrets → Certificates).
 3. File thông tin đăng nhập nằm ngoài repo, gồm Directory ID, Application ID, secret, đường dẫn `.pfx` và mật khẩu. Script spike đọc file này mà không in giá trị.
@@ -60,6 +61,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 ## Giai đoạn 1 — Credential Entra app
 
 **Backend**
+
 - [x] Migration: kind `SHAREPOINT_APP` trong CHECK `ck_credentials_kind`; bảng `sharepoint_credentials` (design §5.1).
 - [x] Tách cipher AES-GCM dùng chung khỏi `GoogleDriveCredentialCipher` (Q7). Migrate caller Google trong cùng commit; dữ liệu Drive đã mã hóa vẫn giải được.
 - [x] Cấu hình key `memoryos.sharepoint.credential-encryption-key` và `credential-key-version` cho API và worker; thiếu thì SharePoint fail closed. Cập nhật runbook biến môi trường và tên key Infisical, không kèm giá trị.
@@ -77,6 +79,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 - [x] API `SharePointCredentialController` + DTO trong `api/.../source/contract/`; OpenAPI; hey-api.
 
 **Test**
+
 - [x] Unit:
   - PFX: hợp lệ, sai mật khẩu, không có key, nhiều key, RSA 1024, hết hạn, quá 16 KiB, không phải PKCS12;
   - GUID; phân loại AADSTS; `toString` đã che.
@@ -102,6 +105,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 ## Giai đoạn 2 — Source, xác minh phạm vi, refresh và prune thư viện
 
 **Backend**
+
 - [x] Migration:
   - `SHAREPOINT` trong `ck_connectors_type`;
   - `sharepoint_sources`, `sharepoint_roots`, `sharepoint_exclusions`;
@@ -144,8 +148,10 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 - **Trang site** (`includePages`) được lưu trong cấu hình nhưng chưa đồng bộ; đó là [Giai đoạn 3](#giai-đoạn-3--trang-site).
 - **Hai lỗi nền tảng do test bắt được:** `source_sync_attempts` có khóa ngoại tới `google_drive_sources` nên Source SharePoint không thể có lượt chạy; và activation enqueue qua repository của Drive nên Source mới không bao giờ khởi động. Cả hai đã sửa.
 - Bảng `source_sync_attempts` dùng chung: `DefaultConnectorSyncService` định tuyến lượt chạy theo `SourceType` của Source.
+- Đường indexing dùng chung giờ định tuyến authority theo `SourceType`: SharePoint tự kiểm `scope_revision` và `credential_revision` thay vì bị gọi nhầm qua `GoogleDriveConnectionService`. Dispatch chỉ nhận scope của provider đã triển khai; terminal supersede tính lại trạng thái Source nên không còn kẹt `INDEXING`.
 
 **Test**
+
 - [x] Unit:
   - `SharePointUrl` với các loại URL thật (share link `/:f:/r/`, `/teams/`, `/personal/`, thư mục lồng, `%20`, host sai tenant, `http://`);
   - glob;
@@ -181,7 +187,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 - [x] Refresh: liệt kê metadata trang → lấy canvas cho trang có `lastModifiedDateTime` trong cửa sổ → snapshot JSON. Prune: gỡ trang không còn.
 - [x] `SharePointPageSourceContentExtractor` (jsoup) đăng ký trong `SourceContentExtractorRouter`.
 - [x] Bật/tắt `includePages` đi qua cập nhật phạm vi và fence.
-**Ghi chú thực hiện (16/09/2026)**
+      **Ghi chú thực hiện (16/09/2026)**
 
 - Snapshot trang là JSON `memoryos-sharepoint-page-v1`: tiêu đề, `textAboveTitle`, mô tả, HTML của từng `textWebPart` và `searchablePlainTexts` của các web part khác. Bố cục và cấu hình web part không được lưu.
 - Reader dùng jsoup giữ heading, paragraph, list item và table thành canonical block; trang rỗng vẫn ra tiêu đề.
@@ -196,12 +202,16 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 
 ## Giai đoạn 4 — Giao diện (shadcn)
 
-- [x] Đối chiếu component đã có sau MEM-106. Cài phần còn thiếu bằng `pnpm exec shadcn add` và chuyển về token/`ui()`; ghi deviation vào [ui-references §8](ui-references.md#8-control-shadcn).
-  **Làm trước MEM-106**: MEM-106 chưa tổng quát hoá credential Drive, nên đã tự tách phần chung
-  (`source-selection-operation.ts` cho receipt/khôi phục/poll; `SharePointCredentialSection` riêng).
-  Khi MEM-106 merge phải đối chiếu lại component credential/access và gỡ phần trùng.
+- [x] Đối chiếu component đã có sau MEM-106. Cài phần còn thiếu bằng `pnpm exec shadcn add` và chuyển về token/`ui()`; ghi deviation vào [ui-references §9](ui-references.md#9-control-shadcn).
+      **Làm trước MEM-106**: MEM-106 chưa tổng quát hoá credential Drive, nên đã tự tách phần chung
+      (`source-selection-operation.ts` cho receipt/khôi phục/poll; `SharePointCredentialSection` riêng).
+      Khi MEM-106 merge phải đối chiếu lại component credential/access và gỡ phần trùng.
 - [x] Catalog: thêm SharePoint vào `source-provider-catalog.ts`; provider mark SharePoint (`sharepoint-icon.tsx`).
 - [x] Route `_authenticated.admin.sources.new.sharepoint.tsx`; trang tạo với setup rail Credential → Content → Access → Review (`create-sharepoint-source-page.tsx`).
+- [x] Rà soát enterprise ngày 18/09/2026 theo Mobbin và Glean:
+  - setup rộng với rail bước sticky; scope và visibility là radio-card có hệ quả quyền ngay tại lựa chọn;
+  - credential dùng `Dialog` shadcn, tách hướng dẫn Entra khỏi identifiers/authentication;
+  - review và trang chi tiết dùng `Card` theo capability, có hành động sửa tại chỗ.
 - [x] Credential:
   - danh sách/picker theo mẫu Drive #4a, bản SharePoint riêng vì MEM-106 chưa tổng quát hoá;
   - hộp thoại `RadioGroup` card, secret, upload `.pfx` + mật khẩu (`sharepoint-credential-input.tsx`);
@@ -228,8 +238,8 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
     Entra từ chối để giao diện dịch được;
   - run history hiện cột Kind (REFRESH/PRUNE) trong `source-run-history.tsx`.
 - [x] Search/Chat: icon SharePoint qua `findSourceProvider` trong `document-source-icon.tsx`;
-  `ProviderLink` nhận `provider` thay vì hardcode "Google Drive". Deep link SharePoint vẫn chờ
-  quyết định webUrl (điểm mở đã ghi) — chưa bịa liên kết.
+      `ProviderLink` nhận `provider` thay vì hardcode "Google Drive". Deep link SharePoint vẫn chờ
+      quyết định webUrl (điểm mở đã ghi) — chưa bịa liên kết.
 - [x] Nhãn tiếng Anh viết trong code, bản dịch vi trong catalog; `pnpm check:i18n` sạch.
 - [x] **Test:**
   - Vitest: `sharepoint-scope.test.ts` (parse, coverage, per-line problems, policy, schedule),
@@ -237,7 +247,7 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
     `sharepoint-panel.test.tsx` (mock hey-api theo mẫu `google-drive-panel.test.tsx`).
   - Playwright `web/tests/e2e/sharepoint-source-setup.spec.ts`: luồng 4 bước với receipt 202 và
     lỗi địa chỉ theo dòng, mock API bằng `page.route`.
-  - Ảnh chụp desktop/mobile, sáng/tối qua Orca: **chưa** — chờ chạy app thật.
+  - Playwright SharePoint: 2/2 đạt. Kiểm trực quan trên app fixture thật ở 1440 px và 390 px: review có ba card, rail bước responsive và không tràn ngang; chưa chụp đủ ma trận sáng/tối.
 
 ## Giai đoạn 5 — Hợp nhất tài liệu và nghiệm thu
 
@@ -257,16 +267,16 @@ Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao di�
 
 Đã chạy, xem [ma trận Connector](../../../tests/connector.md#mem-126-sharepoint-connector--2026-09-16).
 
-| Contract | Boundary | Test | Trạng thái |
-| --- | --- | --- | --- |
-| PFX, GUID, URL, glob, phân loại lỗi | Unit | `SharePointCertificateTest`, `SharePointUrlTest`, `SharePointGlobTest`, `CredentialCipherTest` | Xong |
-| Token, delta timestamp, children, 410, host download, redirect, giới hạn byte, trang | Provider HTTP giả | `RestSharePointProviderTest`, `MsalSharePointTokenSourceTest` | Xong |
-| Mã hóa, revision, activation, cửa sổ, prune hoàn tất/không hoàn tất, fence, counter, cô lập Tenant | PostgreSQL + Flyway | `PostgresSharePointCredentialTest`, `PostgresSharePointSelectionTest`, `PostgresSharePointSyncTest` | Xong |
-| Reader trang | Unit với fixture | `SharePointPageExtractionTest` | Xong |
-| Quyền HTTP, `If-Match`, `202`, problem details, OpenAPI | MVC/API | `SharePointCredentialApiTest`, `SharePointSourceApiTest`, `OpenApiContractTest` | Xong |
-| Ingest → Document → Search thấy tài liệu | Full context worker | `SharePointSourceIngestionTest` | **Chưa**: acquisition và index attempt đã được kiểm ở `PostgresSharePointSyncTest`; còn thiếu chặng Document → Search |
-| Luồng tạo, lỗi, responsive, bàn phím | Vitest + Playwright | `sharepoint-scope.test.ts`, `sharepoint-credential-input.test.tsx`, `sharepoint-panel.test.tsx`, `sharepoint-source-setup.spec.ts` | Xong (unit); E2E đã viết, chờ chạy trên app thật |
-| Kiến trúc | ArchUnit/Modulith | `ProviderDependencyRulesTest`, `ModulithArchitectureTest` | Chạy trong gate hiện có, chưa mở rộng riêng cho SharePoint |
+| Contract                                                                                           | Boundary            | Test                                                                                                                               | Trạng thái                                                                                                            |
+| -------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| PFX, GUID, URL, glob, phân loại lỗi                                                                | Unit                | `SharePointCertificateTest`, `SharePointUrlTest`, `SharePointGlobTest`, `CredentialCipherTest`                                     | Xong                                                                                                                  |
+| Token, delta timestamp, children, 410, host download, redirect, giới hạn byte, trang               | Provider HTTP giả   | `RestSharePointProviderTest`, `MsalSharePointTokenSourceTest`                                                                      | Xong                                                                                                                  |
+| Mã hóa, revision, activation, cửa sổ, prune hoàn tất/không hoàn tất, fence, counter, cô lập Tenant | PostgreSQL + Flyway | `PostgresSharePointCredentialTest`, `PostgresSharePointSelectionTest`, `PostgresSharePointSyncTest`                                | Xong                                                                                                                  |
+| Reader trang                                                                                       | Unit với fixture    | `SharePointPageExtractionTest`                                                                                                     | Xong                                                                                                                  |
+| Quyền HTTP, `If-Match`, `202`, problem details, OpenAPI                                            | MVC/API             | `SharePointCredentialApiTest`, `SharePointSourceApiTest`, `OpenApiContractTest`                                                    | Xong                                                                                                                  |
+| Ingest → Document → Search thấy tài liệu                                                           | Full context worker | `SharePointSourceIngestionTest`                                                                                                    | **Chưa**: acquisition và index attempt đã được kiểm ở `PostgresSharePointSyncTest`; còn thiếu chặng Document → Search |
+| Luồng tạo, lỗi, responsive, bàn phím                                                               | Vitest + Playwright | `sharepoint-scope.test.ts`, `sharepoint-credential-input.test.tsx`, `sharepoint-panel.test.tsx`, `sharepoint-source-setup.spec.ts` | Xong (unit); E2E đã viết, chờ chạy trên app thật                                                                      |
+| Kiến trúc                                                                                          | ArchUnit/Modulith   | `ProviderDependencyRulesTest`, `ModulithArchitectureTest`                                                                          | Chạy trong gate hiện có, chưa mở rộng riêng cho SharePoint                                                            |
 
 ## Spike ledger
 
@@ -274,18 +284,18 @@ Chạy **16/09/2026** trên tenant thử `memoryosvadan` (M365 Business Standard
 Quyền lúc chạy: `Sites.Read.All` và `Sites.ReadWrite.All` (Application). `Sites.ReadWrite.All` **chỉ để tạo dữ liệu thử**; connector chỉ cần `Sites.Read.All` ([design §5.1](design.md#51-credential)).
 Script chạy ngoài repo, đọc credential từ file ngoài repo, không in giá trị. Dữ liệu thử đã dọn sau khi chạy.
 
-| Mục | Kết quả |
-| --- | --- |
-| S0.1 Xác thực | **Đạt** |
-| S0.2 Quyền và phạm vi | **Một phần** — `Sites.Selected` chưa kiểm |
-| S0.3 Delta theo timestamp | **Đạt, có 2 phát hiện ngược giả định** |
-| S0.4 410 | **Đạt, tái hiện được** |
-| S0.5 Tải nội dung | **Đạt** |
-| S0.6 Site tiếng Việt | **Đạt, xác nhận Q3** |
-| S0.7 Trang site | **Đạt** |
-| S0.8 URL `/personal/` | **Đạt** |
-| S0.9 Throttling | **Không gặp** |
-| S0.10 Baseline Onyx Cloud | **Chưa chạy** |
+| Mục                       | Kết quả                                   |
+| ------------------------- | ----------------------------------------- |
+| S0.1 Xác thực             | **Đạt**                                   |
+| S0.2 Quyền và phạm vi     | **Một phần** — `Sites.Selected` chưa kiểm |
+| S0.3 Delta theo timestamp | **Đạt, có 2 phát hiện ngược giả định**    |
+| S0.4 410                  | **Đạt, tái hiện được**                    |
+| S0.5 Tải nội dung         | **Đạt**                                   |
+| S0.6 Site tiếng Việt      | **Đạt, xác nhận Q3**                      |
+| S0.7 Trang site           | **Đạt**                                   |
+| S0.8 URL `/personal/`     | **Đạt**                                   |
+| S0.9 Throttling           | **Không gặp**                             |
+| S0.10 Baseline Onyx Cloud | **Chưa chạy**                             |
 
 ### S0.1 — msal4j / client credentials
 
@@ -293,12 +303,12 @@ Script chạy ngoài repo, đọc credential từ file ngoài repo, không in gi
 - Certificate tự ký RSA-2048 SHA-256, upload public key `.cer` lên app; private key chỉ nằm ở máy chạy spike.
 - Mã lỗi ghi được, dùng cho phân loại lỗi credential ở [design §5.6](design.md#56-lỗi-và-bảo-mật-provider):
 
-| Trường hợp | HTTP | Mã |
-| --- | --- | --- |
-| Secret sai | 401 | `AADSTS7000215` (thông điệp nhắc gửi nhầm Secret ID thay vì Value) |
-| Tenant không hợp lệ | 400 | `AADSTS900021` |
-| Certificate chưa upload lên app | 401 | `AADSTS700027` |
-| Sai mật khẩu PFX | — | lỗi cục bộ khi mở PKCS#12, chưa gọi mạng |
+| Trường hợp                      | HTTP | Mã                                                                 |
+| ------------------------------- | ---- | ------------------------------------------------------------------ |
+| Secret sai                      | 401  | `AADSTS7000215` (thông điệp nhắc gửi nhầm Secret ID thay vì Value) |
+| Tenant không hợp lệ             | 400  | `AADSTS900021`                                                     |
+| Certificate chưa upload lên app | 401  | `AADSTS700027`                                                     |
+| Sai mật khẩu PFX                | —    | lỗi cục bộ khi mở PKCS#12, chưa gọi mạng                           |
 
 ### S0.2 — quyền và phạm vi
 
@@ -313,14 +323,14 @@ Script chạy ngoài repo, đọc credential từ file ngoài repo, không in gi
 
 Thí nghiệm trên thư viện `Tài liệu` của site `MemoryOSVi`: tạo thư mục và file, sửa nội dung, đổi tên, di chuyển giữa hai thư mục, xóa file, xóa thư mục có 2 file con. Sau mỗi thao tác gọi `GET /drives/{id}/root/delta?token=<ISO-8601>` với mốc lấy ngay trước thao tác.
 
-| Thao tác | Delta có trả item? | `lastModifiedDateTime` |
-| --- | --- | --- |
-| Tạo file, tạo thư mục | Có, kèm `root` | mới |
-| Sửa nội dung | Có | mới, `quickXorHash` đổi |
-| Đổi tên | Có, tên mới | **đổi** |
-| Di chuyển sang thư mục khác | **Có** | **không đổi** |
-| Xóa file | **Có, dạng tombstone** | không có |
-| Xóa thư mục có con | **Có: tombstone cho cả thư mục và từng file con** | không có |
+| Thao tác                    | Delta có trả item?                                | `lastModifiedDateTime`  |
+| --------------------------- | ------------------------------------------------- | ----------------------- |
+| Tạo file, tạo thư mục       | Có, kèm `root`                                    | mới                     |
+| Sửa nội dung                | Có                                                | mới, `quickXorHash` đổi |
+| Đổi tên                     | Có, tên mới                                       | **đổi**                 |
+| Di chuyển sang thư mục khác | **Có**                                            | **không đổi**           |
+| Xóa file                    | **Có, dạng tombstone**                            | không có                |
+| Xóa thư mục có con          | **Có: tombstone cho cả thư mục và từng file con** | không có                |
 
 **Phát hiện 1 — timestamp token vẫn trả bản ghi xóa.** Tombstone có `deleted: {state: "deleted"}`, `id`, `parentReference` (driveId, siteId, id thư mục cha), `cTag` với version `-1`, `size: 0`, `file.hashes.quickXorHash` toàn `A`; **không có `name`**. Xóa một thư mục có 2 file con trả đủ 3 tombstone. Nghĩa là **phát hiện xóa không bắt buộc phải chờ lượt prune**, khác giả định trong [tham chiếu Onyx](onyx-sharepoint-reference.md) và khác hệ quả đã ghi cho Q1.
 
@@ -332,13 +342,13 @@ Thí nghiệm trên thư viện `Tài liệu` của site `MemoryOSVi`: tạo th�
 
 **Tái hiện được, và đo được ngưỡng.** Cùng một thư viện, token thời gian càng cũ càng bị từ chối:
 
-| Mốc token | Kết quả |
-| --- | --- |
-| −1 ngày → −60 ngày | 200, trả đủ item |
-| −61 ngày trở về trước (thử tới −730 ngày) | **410 `resyncRequired`** |
+| Mốc token                                 | Kết quả                                                  |
+| ----------------------------------------- | -------------------------------------------------------- |
+| −1 ngày → −60 ngày                        | 200, trả đủ item                                         |
+| −61 ngày trở về trước (thử tới −730 ngày) | **410 `resyncRequired`**                                 |
 | Chuỗi không phải thời gian (`not-a-date`) | 400 `invalidRequest`, "Provided sync token is malformed" |
-| Chuỗi giống token nhưng sai | 400 `invalidRequest` |
-| `token=latest` | 200, 0 item, có `@odata.deltaLink` |
+| Chuỗi giống token nhưng sai               | 400 `invalidRequest`                                     |
+| `token=latest`                            | 200, 0 item, có `@odata.deltaLink`                       |
 
 Ngưỡng ~60 ngày chưa chắc là hằng số của dịch vụ, nhưng đủ để kết luận: **Source bị tạm dừng lâu sẽ buộc phải quét lại toàn bộ**. Nhánh 410 trong design là bắt buộc, không phải phòng xa.
 

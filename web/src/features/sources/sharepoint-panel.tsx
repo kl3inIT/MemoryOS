@@ -8,6 +8,7 @@ import { FolderTree, KeyRound, RefreshCw } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
@@ -423,54 +424,56 @@ export function SharePointPanel({
         </p>
       ) : null}
 
-      <section className="space-y-3 border-b border-border-subtle pb-5">
-        <div className="flex items-center gap-3">
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-3 border-b border-border-subtle">
           <SourceSectionIcon icon={KeyRound} />
           <h2 className="font-heading-h3 text-content-primary">{ui("Credential")}</h2>
-        </div>
-        <dl className="grid gap-4 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-content-muted">{ui("Name")}</dt>
-            <dd className="mt-1 wrap-anywhere text-content-primary">
-              {configuration.credentialName}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-content-muted">{ui("Authentication")}</dt>
-            <dd className="mt-1 text-content-primary">
-              {credential?.authMethod === "CERTIFICATE" ? ui("Certificate") : ui("Client secret")}
-              {credential?.certificateNotAfter ? (
-                <span className="mt-1 block text-xs text-content-muted">
-                  {ui("Expires {{v1}}", {
-                    v1: new Date(credential.certificateNotAfter).toLocaleDateString(uiLocale()),
-                  })}
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-content-muted">{ui("SharePoint host")}</dt>
-            <dd className="mt-1 wrap-anywhere text-content-primary">
-              {configuration.tenantHost ?? ui("Not resolved yet")}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-content-muted">{ui("Last prune")}</dt>
-            <dd className="mt-1 text-content-primary">
-              {configuration.lastPrunedAt ? (
-                <time dateTime={configuration.lastPrunedAt}>
-                  {new Date(configuration.lastPrunedAt).toLocaleString(uiLocale())}
-                </time>
-              ) : (
-                ui("Not yet")
-              )}
-            </dd>
-          </div>
-        </dl>
-      </section>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-content-muted">{ui("Name")}</dt>
+              <dd className="mt-1 wrap-anywhere text-content-primary">
+                {configuration.credentialName}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-content-muted">{ui("Authentication")}</dt>
+              <dd className="mt-1 text-content-primary">
+                {credential?.authMethod === "CERTIFICATE" ? ui("Certificate") : ui("Client secret")}
+                {credential?.certificateNotAfter ? (
+                  <span className="mt-1 block text-xs text-content-muted">
+                    {ui("Expires {{v1}}", {
+                      v1: new Date(credential.certificateNotAfter).toLocaleDateString(uiLocale()),
+                    })}
+                  </span>
+                ) : null}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-content-muted">{ui("SharePoint host")}</dt>
+              <dd className="mt-1 wrap-anywhere text-content-primary">
+                {configuration.tenantHost ?? ui("Not resolved yet")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-content-muted">{ui("Last prune")}</dt>
+              <dd className="mt-1 text-content-primary">
+                {configuration.lastPrunedAt ? (
+                  <time dateTime={configuration.lastPrunedAt}>
+                    {new Date(configuration.lastPrunedAt).toLocaleString(uiLocale())}
+                  </time>
+                ) : (
+                  ui("Not yet")
+                )}
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Card>
+        <CardHeader>
           <div className="flex items-center gap-3">
             <SourceSectionIcon icon={FolderTree} />
             <h2 className="font-heading-h3 text-content-primary">{ui("Saved scope")}</h2>
@@ -496,60 +499,61 @@ export function SharePointPanel({
               {ui("Edit scope")}
             </Button>
           ) : null}
-        </div>
-
-        {scopeDraft ? (
-          <form
-            className="space-y-5 rounded-xl border border-border-subtle p-4 sm:p-5"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!scopeError) run("scope", saveScope);
-            }}
-          >
-            <SharePointScopeFields
-              draft={scopeDraft}
-              policy={policy.data}
-              disabled={busy}
-              onChange={setScopeDraft}
-            />
-            {roots.data && roots.data.total > roots.data.roots.length ? (
-              <p role="alert" className="text-sm text-status-warning-content">
+        </CardHeader>
+        <CardContent>
+          {scopeDraft ? (
+            <form
+              className="space-y-5 rounded-xl border border-border-subtle p-4 sm:p-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!scopeError) run("scope", saveScope);
+              }}
+            >
+              <SharePointScopeFields
+                draft={scopeDraft}
+                policy={policy.data}
+                disabled={busy}
+                onChange={setScopeDraft}
+              />
+              {roots.data && roots.data.total > roots.data.roots.length ? (
+                <p role="alert" className="text-sm text-status-warning-content">
+                  {ui(
+                    "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.",
+                    { count: roots.data.roots.length },
+                  )}
+                </p>
+              ) : null}
+              {scopeError ? (
+                <p role="alert" className="text-sm text-status-danger-content">
+                  {ui(scopeError)}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  pending={activeAction === "scope"}
+                  disabled={busy || Boolean(scopeError)}
+                >
+                  {ui("Save scope")}
+                </Button>
+                <Button prominence="tertiary" disabled={busy} onClick={() => setScopeDraft(null)}>
+                  {ui("Cancel")}
+                </Button>
+              </div>
+              <p className="text-sm text-content-muted">
                 {ui(
-                  "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.",
-                  { count: roots.data.roots.length },
+                  "Saving answers with a receipt and resolves every address with Microsoft. The running synchronization is cancelled and the Source reads its content again.",
                 )}
               </p>
-            ) : null}
-            {scopeError ? (
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui(scopeError)}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="submit"
-                pending={activeAction === "scope"}
-                disabled={busy || Boolean(scopeError)}
-              >
-                {ui("Save scope")}
-              </Button>
-              <Button prominence="tertiary" disabled={busy} onClick={() => setScopeDraft(null)}>
-                {ui("Cancel")}
-              </Button>
-            </div>
-            <p className="text-sm text-content-muted">
-              {ui(
-                "Saving answers with a receipt and resolves every address with Microsoft. The running synchronization is cancelled and the Source reads its content again.",
-              )}
-            </p>
-          </form>
-        ) : (
-          <SavedScope configuration={configuration} roots={roots} />
-        )}
-      </section>
+            </form>
+          ) : (
+            <SavedScope configuration={configuration} roots={roots} />
+          )}
+        </CardContent>
+      </Card>
 
-      <section className="space-y-4 border-t border-border-subtle pt-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <h2 className="font-heading-h3 text-content-primary">{ui("Schedule")}</h2>
           {canSchedule && !scheduleDraft ? (
             <Button
@@ -566,40 +570,46 @@ export function SharePointPanel({
               {ui("Edit intervals")}
             </Button>
           ) : null}
-        </div>
-        {scheduleDraft ? (
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!scheduleError) run("schedule", saveSchedule);
-            }}
-          >
-            <SharePointScheduleFields
-              draft={scheduleDraft}
-              disabled={busy}
-              onChange={(next) => setScheduleDraft({ ...scheduleDraft, ...next })}
-            />
-            {scheduleError ? (
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui(scheduleError)}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="submit"
-                pending={activeAction === "schedule"}
-                disabled={busy || Boolean(scheduleError)}
-              >
-                {ui("Save intervals")}
-              </Button>
-              <Button prominence="tertiary" disabled={busy} onClick={() => setScheduleDraft(null)}>
-                {ui("Cancel")}
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </section>
+        </CardHeader>
+        <CardContent>
+          {scheduleDraft ? (
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!scheduleError) run("schedule", saveSchedule);
+              }}
+            >
+              <SharePointScheduleFields
+                draft={scheduleDraft}
+                disabled={busy}
+                onChange={(next) => setScheduleDraft({ ...scheduleDraft, ...next })}
+              />
+              {scheduleError ? (
+                <p role="alert" className="text-sm text-status-danger-content">
+                  {ui(scheduleError)}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  pending={activeAction === "schedule"}
+                  disabled={busy || Boolean(scheduleError)}
+                >
+                  {ui("Save intervals")}
+                </Button>
+                <Button
+                  prominence="tertiary"
+                  disabled={busy}
+                  onClick={() => setScheduleDraft(null)}
+                >
+                  {ui("Cancel")}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </CardContent>
+      </Card>
     </section>
   );
 }

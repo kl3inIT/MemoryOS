@@ -9,6 +9,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.ProviderAuthorityService;
 import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointSourceService.Scope;
@@ -18,6 +19,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
+import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
 import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
@@ -25,6 +27,11 @@ import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.persistence.SharePointCredentialConfiguration;
+import io.memoryos.document.DocumentId;
+import io.memoryos.ingestion.OperationDispatchPort;
+import io.memoryos.ingestion.OperationWorkload;
+import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -33,6 +40,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Base64;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +69,9 @@ class PostgresSharePointSyncTest {
     private JdbcSharePointSyncRepository runs;
     private JdbcSharePointSourceRepository sharePoint;
     private JdbcSourceSyncRepository attempts;
+    private JdbcIndexAttemptRepository indexing;
+    private ProviderAuthorityService authority;
+    private OperationDispatchPort dispatch;
     private DefaultSharePointSyncService service;
     private org.springframework.transaction.support.TransactionTemplate tx;
 
@@ -84,11 +95,18 @@ class PostgresSharePointSyncTest {
         var sources = new JdbcSourceRepository(jdbc, event -> { });
         var documents = new JdbcSourceDocumentRepository(jdbc);
         var items = new JdbcSourceItemRepository(jdbc);
-        var indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents,
-                mock(io.memoryos.connector.GoogleDriveConnectionService.class));
         attempts = new JdbcSourceSyncRepository(jdbc);
         runs = new JdbcSharePointSyncRepository(jdbc, attempts);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sources);
+        var credentialRows = new JdbcSharePointCredentialRepository(jdbc, sources,
+                new SharePointCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"));
+        var currentConnections = new DefaultSharePointConnectionService(credentialRows, sharePoint,
+                mock(SharePointProvider.class), manager);
+        authority = new DefaultProviderAuthorityService(
+                mock(io.memoryos.connector.GoogleDriveConnectionService.class), currentConnections);
+        indexing = new JdbcIndexAttemptRepository(jdbc, sources, documents, authority);
+        dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc),
+                OperationDispatchPort.class, manager);
 
         session = mock(SharePointProvider.Session.class);
         when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
@@ -121,6 +139,44 @@ class PostgresSharePointSyncTest {
         service = new DefaultSharePointSyncService(runs, sharePoint, sources, items, indexing, documents,
                 connections, writes, manager);
         seedSource();
+    }
+
+    @Test
+    void currentSharePointVersionCanReplayAndPublish() {
+        var file = file("file-current", "Current.pdf", Instant.now());
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+        when(session.item(DRIVE, "file-current")).thenReturn(file);
+        when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
+                .thenReturn(new SharePointProvider.Content("Current.pdf", "application/pdf", "current".getBytes()));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        UUID version = jdbc.sql("""
+                SELECT version.id FROM connector_item_versions version
+                JOIN connector_items item ON item.tenant_id = version.tenant_id AND item.current_version_id = version.id
+                WHERE item.tenant_id = :tenant AND item.provider_file_id = 'file-current'
+                """).param("tenant", tenant.value()).query(UUID.class).single();
+        assertTrue(Boolean.TRUE.equals(tx.execute(_ -> indexing.canReplay(tenant, source, version))));
+
+        var delivery = dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery();
+        SourceOperationId operation = delivery.operationId();
+        var work = Objects.requireNonNull(tx.execute(_ ->
+                indexing.claim(tenant, operation, delivery.deliveryId()).orElseThrow()));
+        DocumentId document = new DocumentId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO documents(id,tenant_id,status) VALUES(:id,:tenant,'ELIGIBLE')")
+                .param("id", document.value()).param("tenant", tenant.value()).update();
+
+        assertTrue(Boolean.TRUE.equals(tx.execute(_ -> indexing.complete(work, document))));
+        assertEquals("SUCCEEDED", jdbc.sql("SELECT status FROM index_attempts WHERE id=:id")
+                .param("id", operation.value()).query(String.class).single());
+        assertEquals("INDEXED", status("file-current"));
+        assertEquals("ACTIVE", jdbc.sql("SELECT status FROM connector_credential_pairs WHERE id=:id")
+                .param("id", source.value()).query(String.class).single());
+        jdbc.sql("""
+                UPDATE sharepoint_credentials SET credential_revision = credential_revision + 1
+                WHERE tenant_id = :tenant AND credential_id = :credential
+                """).param("tenant", tenant.value()).param("credential", credential.value()).update();
+        assertFalse(Boolean.TRUE.equals(tx.execute(_ -> indexing.canReplay(tenant, source, version))));
     }
 
     @Test

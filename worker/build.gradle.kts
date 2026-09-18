@@ -25,7 +25,7 @@ dependencies {
     runtimeOnly(libs.postgresql)
     runtimeOnly(libs.commons.pool2)
     testAndDevelopmentOnly(platform(libs.arconia.bom))
-    testAndDevelopmentOnly(libs.arconia.dev.services.redis)
+    testAndDevelopmentOnly(libs.arconia.spring.boot)
     testImplementation(platform(libs.aws.sdk.bom))
     testImplementation(libs.aws.sdk.s3)
     testImplementation(libs.aws.sdk.auth)

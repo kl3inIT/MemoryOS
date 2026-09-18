@@ -10,6 +10,9 @@ public interface SharePointConnectionService {
 
     Connection openCredential(TenantId tenantId, CredentialId credentialId);
 
+    /** True only while the Source still owns the usable credential revision captured by a version. */
+    boolean current(TenantId tenantId, SourceId sourceId, long credentialRevision);
+
     /** Marks the credential as needing an update after Microsoft rejected it. */
     void authenticationFailed(TenantId tenantId, CredentialId credentialId, long credentialRevision);
 

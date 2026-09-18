@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AudioLines } from "lucide-react";
+import { AudioLines, Mic2, ShieldCheck, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -52,13 +61,19 @@ export function VoiceAdminPage() {
     );
   const changed = () => cache.invalidateQueries({ queryKey: voiceQueryKey });
   return (
-    <SettingsLayout>
+    <SettingsLayout wide>
       <PageHeader
         title={ui("Giọng nói")}
         icon={<AudioLines />}
         description={ui(
           "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.",
         )}
+        actions={
+          <StatusBadge tone="neutral" className="gap-1.5">
+            <ShieldCheck className="size-3.5" aria-hidden="true" />
+            {ui("Âm thanh không được lưu")}
+          </StatusBadge>
+        }
       />
       {providers.isError || connections.isError ? (
         <div
@@ -89,15 +104,47 @@ export function VoiceAdminPage() {
           ))}
         </div>
       ) : (
-        (["STT", "TTS"] as const).map((fn) => (
-          <VoiceFunctionSection
-            key={fn}
-            fn={fn}
-            providers={providers.data}
-            connections={connections.data}
-            onChanged={changed}
-          />
-        ))
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(["STT", "TTS"] as const).map((fn) => {
+              const active = connections.data.find((connection) => isDefault(connection, fn));
+              const Icon = fn === "STT" ? Mic2 : Volume2;
+              return (
+                <Card key={fn} size="sm" className="bg-surface-base">
+                  <CardHeader className="grid-cols-[auto_1fr_auto] items-center gap-x-3">
+                    <span className="grid size-9 place-items-center rounded-lg bg-surface-sunken text-content-secondary">
+                      <Icon className="size-4.5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <CardTitle>
+                        {fn === "STT"
+                          ? ui("Chuyển giọng nói thành văn bản")
+                          : ui("Đọc văn bản thành giọng nói")}
+                      </CardTitle>
+                      <CardDescription className="truncate">
+                        {active
+                          ? ui("Mặc định: {{name}}", { name: providerLabel(active.provider) })
+                          : ui("Chưa chọn nhà cung cấp mặc định")}
+                      </CardDescription>
+                    </div>
+                    <StatusBadge tone={active ? "success" : "warning"}>
+                      {active ? ui("Đang hoạt động") : ui("Chưa cấu hình")}
+                    </StatusBadge>
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
+          {(["STT", "TTS"] as const).map((fn) => (
+            <VoiceFunctionSection
+              key={fn}
+              fn={fn}
+              providers={providers.data}
+              connections={connections.data}
+              onChanged={changed}
+            />
+          ))}
+        </>
       )}
     </SettingsLayout>
   );
@@ -138,56 +185,80 @@ function VoiceFunctionSection({
     }
   }
   return (
-    <section aria-label={title} className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-heading-h3 text-content-primary">{title}</h2>
-          <p className="mt-1 text-sm text-content-muted">
-            {fn === "STT"
-              ? ui("Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.")
-              : ui("Đọc câu trả lời của trợ lý thành tiếng.")}
-          </p>
-        </div>
-        {active && (
-          <Button
-            size="sm"
-            prominence="secondary"
-            pending={pending}
-            onClick={() => void select(null)}
-          >
-            {fn === "STT" ? ui("Tắt nhận dạng giọng nói") : ui("Tắt đọc thành tiếng")}
-          </Button>
+    <section aria-label={title}>
+      <Card className="bg-surface-base">
+        <CardHeader className="border-b border-border-subtle">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle>{title}</CardTitle>
+              <CardDescription className="mt-1">
+                {fn === "STT"
+                  ? ui("Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.")
+                  : ui("Đọc câu trả lời của trợ lý thành tiếng.")}
+              </CardDescription>
+            </div>
+            {active && (
+              <Button
+                size="sm"
+                prominence="secondary"
+                pending={pending}
+                onClick={() => void select(null)}
+              >
+                {fn === "STT" ? ui("Tắt nhận dạng giọng nói") : ui("Tắt đọc thành tiếng")}
+              </Button>
+            )}
+          </div>
+          {!active && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-status-warning-surface px-3 py-2 text-sm text-status-warning-content">
+              <StatusBadge tone="warning">{ui("Cần thiết lập")}</StatusBadge>
+              <p>
+                {fn === "STT"
+                  ? ui("Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.")
+                  : ui("Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.")}
+              </p>
+            </div>
+          )}
+        </CardHeader>
+        <CardContent>
+          <ul className="grid gap-3 xl:grid-cols-2">
+            {providers.map((provider) => {
+              const connection = connections.find((item) => item.provider === provider.provider);
+              return (
+                <VoiceProviderCard
+                  key={`${provider.provider}:${connection?.revision ?? "new"}`}
+                  fn={fn}
+                  provider={provider}
+                  connection={connection}
+                  autoSelect={!active}
+                  disabled={pending}
+                  onSelect={select}
+                  onChanged={onChanged}
+                />
+              );
+            })}
+          </ul>
+        </CardContent>
+        {error && (
+          <CardFooter>
+            <p role="alert" className="text-sm text-status-danger-content">
+              {problemMessage(error)}
+            </p>
+          </CardFooter>
         )}
-      </div>
-      {!active && (
-        <p className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary">
-          {fn === "STT"
-            ? ui("Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.")
-            : ui("Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.")}
-        </p>
-      )}
-      <ul className="divide-y divide-border-subtle overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
-        {providers.map((provider) => {
-          const connection = connections.find((item) => item.provider === provider.provider);
-          return (
-            <VoiceProviderCard
-              key={`${provider.provider}:${connection?.revision ?? "new"}`}
-              fn={fn}
-              provider={provider}
-              connection={connection}
-              autoSelect={!active}
-              disabled={pending}
-              onSelect={select}
-              onChanged={onChanged}
-            />
-          );
-        })}
-      </ul>
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
+      </Card>
     </section>
   );
+}
+
+function providerLabel(provider: VoiceProviderId) {
+  switch (provider) {
+    case "OPENAI":
+      return "OpenAI";
+    case "ELEVENLABS":
+      return "ElevenLabs";
+    case "AZURE":
+      return "Azure AI Speech";
+    default:
+      return "OpenAI-compatible";
+  }
 }

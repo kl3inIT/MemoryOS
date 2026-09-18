@@ -87,7 +87,7 @@ public class JdbcSourceRepository {
                 .param("tenant", tenantId.value()).query(UUID.class).optional();
         jdbcClient.sql("""
                 SELECT credential.id FROM credentials credential
-                WHERE credential.tenant_id = :tenant AND credential.credential_kind = 'GOOGLE_OAUTH'
+                WHERE credential.tenant_id = :tenant
                   AND credential.id = (SELECT credential_id FROM connector_credential_pairs
                     WHERE tenant_id = :tenant AND id = :source)
                 FOR UPDATE
@@ -116,7 +116,7 @@ public class JdbcSourceRepository {
                 .param("tenant", tenantId.value()).query(UUID.class).optional();
         jdbcClient.sql("""
                 SELECT credential.id FROM credentials credential
-                WHERE credential.tenant_id = :tenant AND credential.credential_kind = 'GOOGLE_OAUTH'
+                WHERE credential.tenant_id = :tenant
                   AND credential.id = (SELECT credential_id FROM connector_credential_pairs
                     WHERE tenant_id = :tenant AND id = :source)
                 FOR UPDATE

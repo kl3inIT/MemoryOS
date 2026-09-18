@@ -13,6 +13,7 @@ import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveAuthorizationService.Grant;
 import io.memoryos.connector.GoogleDriveConnectionService;
+import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.GoogleDriveProvider;
@@ -124,7 +125,8 @@ class GoogleDriveCredentialAuthorityTest {
         provider = mock(GoogleDriveProvider.class);
         connections = TestDatabase.transactionalProxy(new DefaultGoogleDriveConnectionService(credentials, provider, manager),
                 GoogleDriveConnectionService.class, manager);
-        var attempts = new JdbcIndexAttemptRepository(jdbc, sources, documents, connections);
+        var attempts = new JdbcIndexAttemptRepository(jdbc, sources, documents,
+                new DefaultProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials,
                 authorization, new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc),
                         new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)))), GoogleDriveAuthorizationService.class, manager);
@@ -811,7 +813,7 @@ class GoogleDriveCredentialAuthorityTest {
             return result;
         }).when(access).require(owner, IamCapability.SOURCES_MANAGE, command.equals("schedule"));
         var documents = new JdbcSourceDocumentRepository(jdbc);
-        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, connections), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(access, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
+        var service = new DefaultGoogleDriveSourceService(access, connections, roots, sources, sync, new JdbcIndexAttemptRepository(jdbc, sources, documents, new DefaultProviderAuthorityService(connections, mock(SharePointConnectionService.class))), documents, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), java.util.Objects.requireNonNull(transactions.getTransactionManager()), selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(access, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))));
         try (var executor = Executors.newSingleThreadExecutor()) {
             var update = transactions.execute(_ -> {
                 sources.lock(tenant, source);

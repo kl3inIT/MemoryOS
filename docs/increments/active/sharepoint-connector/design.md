@@ -1,6 +1,7 @@
 # MEM-126 — SharePoint connector theo logic Onyx
 
 **Liên kết**
+
 - Tracking: [MEM-126](https://linear.app/memory-os/issue/MEM-126), issue con của [MEM-118](https://linear.app/memory-os/issue/MEM-118).
 - Tham chiếu hành vi: [onyx-sharepoint-reference.md](onyx-sharepoint-reference.md). Tham chiếu giao diện: [ui-references.md](ui-references.md). Kế hoạch: [plan.md](plan.md).
 - Liên quan:
@@ -11,6 +12,7 @@
 **Trạng thái:** kế hoạch đã chốt hướng, chưa triển khai (16/09/2026). Các quyết định nằm ở §7.
 
 **Baseline:** Onyx SharePoint connector, `onyx-dot-app/onyx@5715699`. Ngày 16/09/2026 người dùng yêu cầu:
+
 - xây tính năng kết nối SharePoint theo logic của Onyx;
 - nghiên cứu giao diện qua Mobbin;
 - dựng giao diện bằng component shadcn.
@@ -61,11 +63,11 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
 
 ### Phụ thuộc chưa merge (16/09/2026)
 
-| Nhánh / issue | SharePoint cần gì | Giai đoạn phụ thuộc |
-| --- | --- | --- |
-| MEM-105 `nhuxuanviet/mem-105-source-access-modes` (PR #166) | `SourceAccess` PUBLIC/PRIVATE cho nguồn không phải FILE; luật SQL truy cập dùng chung | 2 |
-| MEM-106 (PR #173) | Màn Nguồn trên shadcn, bản đồ 14 màn, component registry còn thiếu | 4 |
-| Source pause/resume (trên nhánh MEM-105) | Pause/Resume dùng chung | 2 (dùng contract có sẵn lúc triển khai) |
+| Nhánh / issue                                               | SharePoint cần gì                                                                     | Giai đoạn phụ thuộc                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------- |
+| MEM-105 `nhuxuanviet/mem-105-source-access-modes` (PR #166) | `SourceAccess` PUBLIC/PRIVATE cho nguồn không phải FILE; luật SQL truy cập dùng chung | 2                                       |
+| MEM-106 (PR #173)                                           | Màn Nguồn trên shadcn, bản đồ 14 màn, component registry còn thiếu                    | 4                                       |
+| Source pause/resume (trên nhánh MEM-105)                    | Pause/Resume dùng chung                                                               | 2 (dùng contract có sẵn lúc triển khai) |
 
 - **Vì sao giai đoạn 2 phải chờ MEM-105:** trên main, Drive `RESTRICTED` bị loại khỏi Search/Chat. SharePoint lên trước MEM-105 thì tài liệu index xong vẫn không tìm được. Giai đoạn 0–1 không phụ thuộc gì.
 - **MEM-88** (ACL Google Drive) không còn là phụ thuộc, vì Auto Sync ngoài phạm vi.
@@ -81,23 +83,23 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
   - **[Qn]:** quyết định đã chốt ở §7.
 - **Đổi tên:**
 
-| Onyx | MemoryOS |
-| --- | --- |
-| `DocumentSource.SHAREPOINT`, `SharepointConnector` | `SourceType.SHAREPOINT`; `DefaultSharePointSourceService`, `DefaultSharePointSyncService`; provider `RestSharePointProvider` |
+| Onyx                                                                                                                                        | MemoryOS                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DocumentSource.SHAREPOINT`, `SharepointConnector`                                                                                          | `SourceType.SHAREPOINT`; `DefaultSharePointSourceService`, `DefaultSharePointSyncService`; provider `RestSharePointProvider`                                                          |
 | credential JSON `sp_client_id`, `sp_directory_id`, `sp_client_secret`, `sp_private_key`, `sp_certificate_password`, `authentication_method` | bảng `sharepoint_credentials`: `client_id`, `directory_id`, secret đã mã hóa, private key + certificate đã mã hóa (không lưu mật khẩu), `auth_method` `CLIENT_SECRET` / `CERTIFICATE` |
-| `sites`, `excluded_sites`, `excluded_paths` | `siteUrls` (root), `excludedSites`, `excludedPaths` |
-| `include_site_documents`, `include_site_pages` | `includeDocuments`, `includePages` |
-| `authority_host`, `graph_api_host`, `sharepoint_domain_suffix` | enum `cloud`; host cố định theo từng cloud |
-| `refresh_freq` (mặc định 30 phút) | `syncIntervalMinutes` (mặc định 30) |
-| `prune_freq` (`DEFAULT_PRUNING_FREQ` = 7 ngày; 0 là tắt) | `pruneIntervalHours` (mặc định 168; 0 là tắt) |
-| `POLL_CONNECTOR_OFFSET` = 30 phút | độ chồng lấn cửa sổ refresh, property triển khai `memoryos.sharepoint.poll-overlap=PT30M` |
-| `poll_range_start` / `poll_range_end` của index attempt | cửa sổ refresh gắn với lượt đồng bộ (§5.3) |
-| `indexing_start` | không có (tiền lệ Drive) |
-| access `private` / `public` | `PRIVATE` / `PUBLIC` (MEM-105) |
-| access `sync`, `treat_sharing_link_as_public` | không có: Auto Sync ngoài phạm vi (Q4) |
-| `ConnectorFailure` | `source_run_errors` với mã `SOURCE_SHAREPOINT_*` |
-| hierarchy node SITE/DRIVE/FOLDER | không có: không có consumer (ADR 0002) |
-| `reindex()` theo link, gọi lại provider | Reindex item trên snapshot đã lưu (contract hiện có) |
+| `sites`, `excluded_sites`, `excluded_paths`                                                                                                 | `siteUrls` (root), `excludedSites`, `excludedPaths`                                                                                                                                   |
+| `include_site_documents`, `include_site_pages`                                                                                              | `includeDocuments`, `includePages`                                                                                                                                                    |
+| `authority_host`, `graph_api_host`, `sharepoint_domain_suffix`                                                                              | enum `cloud`; host cố định theo từng cloud                                                                                                                                            |
+| `refresh_freq` (mặc định 30 phút)                                                                                                           | `syncIntervalMinutes` (mặc định 30)                                                                                                                                                   |
+| `prune_freq` (`DEFAULT_PRUNING_FREQ` = 7 ngày; 0 là tắt)                                                                                    | `pruneIntervalHours` (mặc định 168; 0 là tắt)                                                                                                                                         |
+| `POLL_CONNECTOR_OFFSET` = 30 phút                                                                                                           | độ chồng lấn cửa sổ refresh, property triển khai `memoryos.sharepoint.poll-overlap=PT30M`                                                                                             |
+| `poll_range_start` / `poll_range_end` của index attempt                                                                                     | cửa sổ refresh gắn với lượt đồng bộ (§5.3)                                                                                                                                            |
+| `indexing_start`                                                                                                                            | không có (tiền lệ Drive)                                                                                                                                                              |
+| access `private` / `public`                                                                                                                 | `PRIVATE` / `PUBLIC` (MEM-105)                                                                                                                                                        |
+| access `sync`, `treat_sharing_link_as_public`                                                                                               | không có: Auto Sync ngoài phạm vi (Q4)                                                                                                                                                |
+| `ConnectorFailure`                                                                                                                          | `source_run_errors` với mã `SOURCE_SHAREPOINT_*`                                                                                                                                      |
+| hierarchy node SITE/DRIVE/FOLDER                                                                                                            | không có: không có consumer (ADR 0002)                                                                                                                                                |
+| `reindex()` theo link, gọi lại provider                                                                                                     | Reindex item trên snapshot đã lưu (contract hiện có)                                                                                                                                  |
 
 ## 4. Domain story và thuật ngữ
 
@@ -113,6 +115,7 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
 8. Khi secret hết hạn hoặc app mất quyền, lượt đồng bộ ghi lỗi có mã, Source hiện cảnh báo và quản trị viên cập nhật credential.
 
 **Tình huống lỗi và phục hồi cần thiết kế:**
+
 - chưa admin consent;
 - tenant không có Microsoft 365;
 - site ngôn ngữ khác tiếng Anh;
@@ -125,20 +128,20 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
 
 ### Thuật ngữ
 
-| Thuật ngữ | Nghĩa trong increment | Quan hệ |
-| --- | --- | --- |
-| Entra app | App registration trong tenant Microsoft của khách hàng | Được một hoặc nhiều credential tham chiếu |
-| Credential SharePoint | Credential thuộc Tenant MemoryOS, giữ Application ID, Directory ID và secret hoặc certificate | 1 credential → n Source |
-| Microsoft tenant host | `{tenant}.sharepoint.com` và `{tenant}-my.sharepoint.com` theo cloud | Suy từ URL site hoặc `/sites/root`; mọi URL và mọi download phải thuộc host này |
-| Site | Site collection hoặc subsite (`/sites/`, `/teams/`, `/personal/`) | 1 site → n thư viện |
-| Thư viện | Document library, tức Graph `drive` | Được liệt kê theo delta ở root |
-| Thư mục | `driveItem` có facet `folder` | Root có thể là thư mục |
-| File | `driveItem` có facet `file` | → Item → Document |
-| Trang site | `sitePage` trong thư viện Site Pages | → Item → Document |
-| Root | URL site/thư viện/thư mục đã được xác minh, lưu bằng ID ổn định | Thuộc một Source |
-| Lượt refresh | Lượt `SOURCE_SYNC` lấy item mới hoặc đã sửa trong một cửa sổ thời gian | Không xóa item |
-| Cửa sổ refresh | `[cuối cửa sổ của lượt refresh thành công trước − 30 phút, lúc bắt đầu lượt]`; lượt đầu bắt đầu từ epoch | Thuộc một lượt refresh |
-| Lượt prune | Lượt `SOURCE_SYNC` liệt kê đầy đủ phạm vi, chỉ metadata, gỡ item không còn | Chỉ xóa khi liệt kê hoàn tất |
+| Thuật ngữ             | Nghĩa trong increment                                                                                    | Quan hệ                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Entra app             | App registration trong tenant Microsoft của khách hàng                                                   | Được một hoặc nhiều credential tham chiếu                                       |
+| Credential SharePoint | Credential thuộc Tenant MemoryOS, giữ Application ID, Directory ID và secret hoặc certificate            | 1 credential → n Source                                                         |
+| Microsoft tenant host | `{tenant}.sharepoint.com` và `{tenant}-my.sharepoint.com` theo cloud                                     | Suy từ URL site hoặc `/sites/root`; mọi URL và mọi download phải thuộc host này |
+| Site                  | Site collection hoặc subsite (`/sites/`, `/teams/`, `/personal/`)                                        | 1 site → n thư viện                                                             |
+| Thư viện              | Document library, tức Graph `drive`                                                                      | Được liệt kê theo delta ở root                                                  |
+| Thư mục               | `driveItem` có facet `folder`                                                                            | Root có thể là thư mục                                                          |
+| File                  | `driveItem` có facet `file`                                                                              | → Item → Document                                                               |
+| Trang site            | `sitePage` trong thư viện Site Pages                                                                     | → Item → Document                                                               |
+| Root                  | URL site/thư viện/thư mục đã được xác minh, lưu bằng ID ổn định                                          | Thuộc một Source                                                                |
+| Lượt refresh          | Lượt `SOURCE_SYNC` lấy item mới hoặc đã sửa trong một cửa sổ thời gian                                   | Không xóa item                                                                  |
+| Cửa sổ refresh        | `[cuối cửa sổ của lượt refresh thành công trước − 30 phút, lúc bắt đầu lượt]`; lượt đầu bắt đầu từ epoch | Thuộc một lượt refresh                                                          |
+| Lượt prune            | Lượt `SOURCE_SYNC` liệt kê đầy đủ phạm vi, chỉ metadata, gỡ item không còn                               | Chỉ xóa khi liệt kê hoàn tất                                                    |
 
 Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../specs/connector.md).
 
@@ -147,6 +150,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 ### 5.1 Credential
 
 **Dữ liệu** (`sharepoint_credentials`, JDBC):
+
 - `credential_id` (FK `credentials`, kind mới `SHAREPOINT_APP`), `tenant_id`, `owner_actor_id`, `name`;
 - `directory_id`, `client_id`: GUID. Directory ID chỉ nhận GUID, không nhận tên miền, để pin đúng tenant [MemoryOS].
 - `cloud`: `GLOBAL` (Q9);
@@ -156,6 +160,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - `tenant_host` (nullable, ghi khi đã resolve), `status` (`ACTIVE`, `NEEDS_UPDATE`), `credential_revision`, thời điểm tạo/cập nhật.
 
 **Certificate** (giữ như Onyx; Onyx dùng nó chủ yếu cho permission sync, nhưng index cũng chạy được):
+
 - Nhận PFX base64 ≤ 16 KiB cùng mật khẩu. Server giải bằng `KeyStore` PKCS12, yêu cầu:
   - đúng một private key có certificate;
   - RSA ≥ 2048 bit;
@@ -164,16 +169,19 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - Response trả `thumbprint`, `notAfter` và `authMethod`; không bao giờ trả key hay secret. Chỉ trả `secretConfigured`.
 
 **Mã hóa** (Q7):
+
 - Tách thuật toán AES-GCM đang có của `GoogleDriveCredentialCipher` thành cipher dùng chung. AAD gắn format, tenant, credential, kind, key version và purpose.
 - Key cấu hình riêng: `memoryos.sharepoint.credential-encryption-key` và `credential-key-version`.
 - Thiếu cấu hình thì chỉ SharePoint fail closed; FILE và Drive không bị ảnh hưởng.
 
 **Token** (provider bundle, msal4j, Q2):
+
 - `ConfidentialClientApplication`, authority `https://login.microsoftonline.com/{directoryId}`, scope `https://graph.microsoft.com/.default`.
 - Token chỉ nằm trong bộ nhớ của một session provider, không dùng chung giữa Tenant.
 - Increment này không dùng SharePoint REST; REST chỉ cần cho Auto Sync.
 
 **Kiểm tra credential** [MemoryOS, như voice/web]:
+
 - **Luồng lưu:** tạo mới hoặc thay secret/certificate thì kiểm bản nháp với Microsoft **ngoài transaction** trước. Microsoft từ chối thì không lưu gì.
 - **`POST …/{credentialId}/test`** kiểm credential đã lưu:
   1. lấy token;
@@ -185,6 +193,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - **Giới hạn:** deadline 15 s, tối đa 2 kiểm tra đồng thời mỗi tiến trình API.
 
 **Vòng đời:**
+
 - tạo; đổi tên; thay secret/certificate (`If-Match` revision); xóa khi không còn Source gắn với credential;
 - không có "revoke" vì app-only không có grant để thu hồi, giống Onyx;
 - thay secret/certificate tăng `credential_revision` và fence mọi Source dùng credential đó, như Drive.
@@ -194,6 +203,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 ### 5.2 Source và phạm vi
 
 **Tạo:** `POST /api/sources/sharepoint` trả `202 {sourceId, operation}`. Body:
+
 - `requestId`, `name`, `credentialId`;
 - `scopeMode` (`ALL_SITES` | `SPECIFIC`), `siteUrls[]`;
 - `excludedSites[]`, `excludedPaths[]`;
@@ -202,6 +212,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - `access` (`PUBLIC` | `PRIVATE`), `groupIds`.
 
 **Kiểm tra đồng bộ ngay trong API** (không gọi Microsoft):
+
 - phải bật ít nhất một trong `includeDocuments`/`includePages`; copy của Onyx;
 - `SPECIFIC` cần ít nhất 1 URL; `ALL_SITES` gửi `siteUrls: []`;
 - URL:
@@ -216,6 +227,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - quota theo `SharePointSelectionPolicy`: mặc định 1.000 root và 3 MiB request, như Drive.
 
 **Xác minh bất đồng bộ** (workload `SHAREPOINT_SELECTION_VALIDATION`; gọi provider ngoài transaction; checkpoint và retry như Drive):
+
 - **Site:** `GET /sites/{host}:/{server-relative-path}`, lưu `siteId`.
 - **Thư viện:** liệt kê `GET /sites/{siteId}/drives`. Đoạn URL sau site được so với path của `drive.webUrl`, là URL nội bộ của thư viện, không so tên hiển thị [Sửa lỗi O2, Q3; spike S0.6].
   - Site `/personal/`: thư viện chính tên `OneDrive` và path là `/Documents`, không phải `/Shared Documents`; drive `PersonalCacheLibrary` của site đó bị bỏ [spike S0.8].
@@ -224,6 +236,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - **Activation transaction:** kiểm lại Tenant, credential revision, quyền và claim, rồi tạo Source, root và lượt đồng bộ đầu một cách nguyên tử. Mọi thất bại để lại receipt truy vấn được, không để lại Source tạo dở.
 
 **Sửa phạm vi:**
+
 - Mode chọn một lần lúc tạo, theo tiền lệ Drive.
 - Root, loại trừ và cờ include sửa qua `PUT …/sharepoint/scope` với `If-Match` scope revision. Request đi qua cùng luồng xác minh bất đồng bộ và fence công việc cũ.
 - Sau khi đổi phạm vi thành công:
@@ -233,6 +246,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 ### 5.3 Đồng bộ thư viện (Q1 giữ mô hình Onyx; Q11, Q12 sửa theo spike)
 
 **Tập drive của một lượt:**
+
 - `SPECIFIC`:
   - root là site → mọi document library của site, như Onyx;
   - root là thư viện hoặc thư mục → drive chứa root đó.
@@ -243,6 +257,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
   - áp `excludedSites`, rồi lấy drive của từng site.
 
 **Lượt refresh** (theo Automatic interval, và khi bấm Synchronize now):
+
 - **Cửa sổ** theo `connector_document_extraction` của Onyx:
   - `start` = cuối cửa sổ của lượt refresh **thành công** gần nhất trừ độ chồng lấn 30 phút;
   - lượt đầu, hoặc root mới thêm, bắt đầu từ epoch;
@@ -261,6 +276,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - **Lượt refresh gỡ item ngay khi delta trả tombstone** [Q11]. Những gì delta không thấy — app mất quyền đọc site, item bị chuyển ra khỏi thư mục root, item rơi khỏi phạm vi sau 410 — vẫn chờ lượt prune.
 
 **Lượt prune** (theo Prune Frequency; `0` là tắt, như Onyx) — lưới an toàn cho những gì lượt refresh không thấy [Q11]:
+
 - Liệt kê đầy đủ phạm vi hiện hành, **chỉ metadata, không tải nội dung**:
   - thư viện: delta không token;
   - thư mục root: BFS;
@@ -271,16 +287,19 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - Refresh và prune của cùng một Source không chạy song song: cùng một claim `SOURCE_SYNC` theo Source. Nếu cả hai đến hạn, prune chạy trước.
 
 **Phiên bản nội dung:**
+
 - Delta trên SharePoint không trả `cTag`, nên phiên bản so sánh là `file.hashes.quickXorHash` + `size`.
 - Không có hash thì dùng `eTag` + `lastModifiedDateTime`, và giữ quy tắc hiện có "bytes và tên giống thì không tạo version mới" (spike S0.3).
 - Đổi tên làm đổi tên file, nên tạo version mới theo quy tắc hiện có.
 
 **Lọc trước khi tải:**
+
 - chỉ file có định dạng mà router extraction hiện có hỗ trợ;
 - kích thước ≤ 100 MiB, giới hạn FILE/Drive hiện hành [MemoryOS; Onyx 20 MB].
 - File khác được ghi `skipped` với mã `SOURCE_SHAREPOINT_UNSUPPORTED_FORMAT` hoặc `SOURCE_SHAREPOINT_TOO_LARGE`, không coi là thành công rỗng.
 
 **Tải nội dung:**
+
 - `GET /drives/{d}/items/{i}?$select=id,name,size,file,eTag,@microsoft.graph.downloadUrl`.
 - Chỉ tải `downloadUrl` khi host đúng tenant host; không theo redirect; stream có giới hạn byte và thời gian.
 - Không lấy được `downloadUrl` thì gọi `/content`: chấp nhận đúng một redirect, và host đích qua cùng phép kiểm tra.
@@ -288,12 +307,14 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - Ghi qua `ObjectWriteService.stage` → adopt → INDEX, giống hệt Drive.
 
 **Throttling và retry** [Sửa lỗi O9, O14]:
+
 - Mọi lời gọi Graph đi qua một HTTP adapter chung với các giới hạn: connect 3 s, mỗi request 30 s, số request và thời gian có giới hạn cho mỗi bước.
 - 429/503: đọc `Retry-After`, ghi `next_dispatch_at = now + Retry-After` (có trần), trả claim thay vì sleep trong worker.
 - 5xx/lỗi mạng: backoff 1 s rồi 30 s như sync Drive; thất bại vượt ngân sách thì ghi lỗi của lượt.
 - Header `User-Agent: ISV|MemoryOS|SharePointConnector/<version>` theo hướng dẫn chống throttling của Microsoft [MemoryOS].
 
 **Lịch sử lượt chạy:**
+
 - Dùng lại `source_sync_attempts` và các counter hiện có. Thêm loại lượt `REFRESH` / `PRUNE` cùng cửa sổ refresh, để UI phân biệt và để tính `start`.
 - `removed` xuất hiện ở cả lượt refresh (theo tombstone) và lượt prune (theo đối chiếu đầy đủ). `No changes` của lượt refresh nghĩa là không có thay đổi nào trong cửa sổ, không có nghĩa phạm vi đã được đối chiếu đầy đủ.
 
@@ -322,17 +343,17 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 
 **Mã lỗi an toàn**, với stage theo `SourceRunErrorStage`:
 
-| Mã | Khi nào | Hành động gợi ý |
-| --- | --- | --- |
-| `SOURCE_SHAREPOINT_AUTH_INVALID_SECRET` / `_SECRET_EXPIRED` / `_CERTIFICATE_REJECTED` | AADSTS7000215 / 7000222 / 700027 và các mã tương đương | Cập nhật credential |
-| `SOURCE_SHAREPOINT_CONSENT_MISSING` | AADSTS65001, hoặc 403 do app chưa có role | Admin consent |
-| `SOURCE_SHAREPOINT_PERMISSION_MISSING` | 403 trên site/drive | Cấp `Sites.Read.All` hoặc cấp site qua `Sites.Selected` |
-| `SOURCE_SHAREPOINT_ALL_SITES_FORBIDDEN` | `getAllSites` bị 403 | Cấp `Sites.Read.All` hoặc chọn Site cụ thể |
-| `SOURCE_SHAREPOINT_SITE_NOT_FOUND` / `_LIBRARY_NOT_FOUND` / `_FOLDER_NOT_FOUND` | Xác minh hoặc đồng bộ gặp 404/410 trên tài nguyên | Sửa phạm vi |
-| `SOURCE_SHAREPOINT_HOST_MISMATCH` | URL hoặc download ngoài tenant host | Sửa URL |
-| `SOURCE_SHAREPOINT_THROTTLED` | Hết ngân sách retry vì 429/503 | Tự thử lại ở lượt sau |
-| `SOURCE_SHAREPOINT_PRUNE_INCOMPLETE` | Lượt prune không liệt kê được toàn phạm vi | Xem lỗi đi kèm; lượt sau thử lại |
-| `SOURCE_SHAREPOINT_UNSUPPORTED_FORMAT` / `_TOO_LARGE` / `_PAGE_UNREADABLE` | Theo từng file hoặc trang | Không cần làm gì |
+| Mã                                                                                    | Khi nào                                                | Hành động gợi ý                                         |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
+| `SOURCE_SHAREPOINT_AUTH_INVALID_SECRET` / `_SECRET_EXPIRED` / `_CERTIFICATE_REJECTED` | AADSTS7000215 / 7000222 / 700027 và các mã tương đương | Cập nhật credential                                     |
+| `SOURCE_SHAREPOINT_CONSENT_MISSING`                                                   | AADSTS65001, hoặc 403 do app chưa có role              | Admin consent                                           |
+| `SOURCE_SHAREPOINT_PERMISSION_MISSING`                                                | 403 trên site/drive                                    | Cấp `Sites.Read.All` hoặc cấp site qua `Sites.Selected` |
+| `SOURCE_SHAREPOINT_ALL_SITES_FORBIDDEN`                                               | `getAllSites` bị 403                                   | Cấp `Sites.Read.All` hoặc chọn Site cụ thể              |
+| `SOURCE_SHAREPOINT_SITE_NOT_FOUND` / `_LIBRARY_NOT_FOUND` / `_FOLDER_NOT_FOUND`       | Xác minh hoặc đồng bộ gặp 404/410 trên tài nguyên      | Sửa phạm vi                                             |
+| `SOURCE_SHAREPOINT_HOST_MISMATCH`                                                     | URL hoặc download ngoài tenant host                    | Sửa URL                                                 |
+| `SOURCE_SHAREPOINT_THROTTLED`                                                         | Hết ngân sách retry vì 429/503                         | Tự thử lại ở lượt sau                                   |
+| `SOURCE_SHAREPOINT_PRUNE_INCOMPLETE`                                                  | Lượt prune không liệt kê được toàn phạm vi             | Xem lỗi đi kèm; lượt sau thử lại                        |
+| `SOURCE_SHAREPOINT_UNSUPPORTED_FORMAT` / `_TOO_LARGE` / `_PAGE_UNREADABLE`            | Theo từng file hoặc trang                              | Không cần làm gì                                        |
 
 - Mã AADSTS là mã công khai của Microsoft, được lưu và hiện trong "Chi tiết kỹ thuật". Response và log không chứa secret, token, `downloadUrl` hay nội dung PFX.
 - **Endpoint provider cố định theo cloud.** URL người dùng nhập chỉ dùng để tách host và path, rồi dựng lời gọi Graph `sites/{host}:/{path}`. MemoryOS không fetch URL tùy ý.
@@ -348,21 +369,21 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 
 Theo tiền lệ Drive; `operationId`, tag "Sources"/"Credentials". Mọi lệnh ghi dùng mutation guard hiện có.
 
-| Endpoint | Quyền | Ghi chú |
-| --- | --- | --- |
-| `GET /api/credentials/sharepoint` | global `SOURCES_MANAGE`, hoặc chủ sở hữu theo phạm vi | Metadata, `secretConfigured`, `thumbprint`, `notAfter`, `status`, `credentialRevision`, số Source gắn |
-| `POST /api/credentials/sharepoint` | như trên | Kiểm với Microsoft trước khi lưu; body không vào log |
-| `PUT /api/credentials/sharepoint/{credentialId}` | như trên + `If-Match` | Đổi tên; secret/certificate dạng KEEP/REPLACE |
-| `POST /api/credentials/sharepoint/{credentialId}/test` | như trên | Deadline 15 s |
-| `DELETE /api/credentials/sharepoint/{credentialId}` | như trên + `If-Match` | Chỉ khi không còn Source gắn |
-| `POST /api/sources/sharepoint` | như tạo Source Drive | `202 {sourceId, operation}` |
-| `GET /api/sources/sharepoint/selection-policy` | global `SOURCES_MANAGE` | Quota |
-| `GET /api/sources/sharepoint/selection-requests/{requestId}` | người khởi tạo | Khôi phục receipt bị mất |
-| `GET /api/sources/{sourceId}/sharepoint` | `SOURCES_READ` | Mode, cờ, số root, credential, interval, prune interval, lượt refresh/prune gần nhất, schedule/scope revision, lỗi hiện tại, `pendingSelectionOperation`; `no-store` |
-| `GET /api/sources/{sourceId}/sharepoint/roots` | `SOURCES_READ` | Cursor, size mặc định 25, tối đa 100 |
-| `PUT /api/sources/{sourceId}/sharepoint/scope` | global `SOURCES_MANAGE` + `If-Match` | `202`, xác minh bất đồng bộ |
-| `PUT /api/sources/{sourceId}/sharepoint/schedule` | quyền vận hành theo phạm vi + `If-Match` | `{syncIntervalMinutes, pruneIntervalHours}` |
-| `POST /api/sources/{sourceId}/sharepoint/sync` | quyền vận hành theo phạm vi | `202` `SYNC_SOURCE`, lượt refresh |
+| Endpoint                                                     | Quyền                                                 | Ghi chú                                                                                                                                                              |
+| ------------------------------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/credentials/sharepoint`                            | global `SOURCES_MANAGE`, hoặc chủ sở hữu theo phạm vi | Metadata, `secretConfigured`, `thumbprint`, `notAfter`, `status`, `credentialRevision`, số Source gắn                                                                |
+| `POST /api/credentials/sharepoint`                           | như trên                                              | Kiểm với Microsoft trước khi lưu; body không vào log                                                                                                                 |
+| `PUT /api/credentials/sharepoint/{credentialId}`             | như trên + `If-Match`                                 | Đổi tên; secret/certificate dạng KEEP/REPLACE                                                                                                                        |
+| `POST /api/credentials/sharepoint/{credentialId}/test`       | như trên                                              | Deadline 15 s                                                                                                                                                        |
+| `DELETE /api/credentials/sharepoint/{credentialId}`          | như trên + `If-Match`                                 | Chỉ khi không còn Source gắn                                                                                                                                         |
+| `POST /api/sources/sharepoint`                               | như tạo Source Drive                                  | `202 {sourceId, operation}`                                                                                                                                          |
+| `GET /api/sources/sharepoint/selection-policy`               | global `SOURCES_MANAGE`                               | Quota                                                                                                                                                                |
+| `GET /api/sources/sharepoint/selection-requests/{requestId}` | người khởi tạo                                        | Khôi phục receipt bị mất                                                                                                                                             |
+| `GET /api/sources/{sourceId}/sharepoint`                     | `SOURCES_READ`                                        | Mode, cờ, số root, credential, interval, prune interval, lượt refresh/prune gần nhất, schedule/scope revision, lỗi hiện tại, `pendingSelectionOperation`; `no-store` |
+| `GET /api/sources/{sourceId}/sharepoint/roots`               | `SOURCES_READ`                                        | Cursor, size mặc định 25, tối đa 100                                                                                                                                 |
+| `PUT /api/sources/{sourceId}/sharepoint/scope`               | global `SOURCES_MANAGE` + `If-Match`                  | `202`, xác minh bất đồng bộ                                                                                                                                          |
+| `PUT /api/sources/{sourceId}/sharepoint/schedule`            | quyền vận hành theo phạm vi + `If-Match`              | `{syncIntervalMinutes, pruneIntervalHours}`                                                                                                                          |
+| `POST /api/sources/{sourceId}/sharepoint/sync`               | quyền vận hành theo phạm vi                           | `202` `SYNC_SOURCE`, lượt refresh                                                                                                                                    |
 
 - **Endpoint chung dùng lại:** summary, items, runs (thêm loại lượt), index-attempts, access (MEM-105), groups, delete, source-operations, pause/resume (theo contract hiện hành lúc triển khai).
 - **Contract:** OpenAPI và client hey-api được sinh lại trong cùng thay đổi.
@@ -372,16 +393,16 @@ Theo tiền lệ Drive; `operationId`, tag "Sources"/"Credentials". Mọi lệnh
 
 Tên dưới đây là dự kiến; SQL nằm trong repository `JdbcSharePoint*` của `core/connector/persistence`.
 
-| Bảng / cột | Nội dung |
-| --- | --- |
-| `credentials` / `connectors` (CHECK) | kind `SHAREPOINT_APP`, connector type `SHAREPOINT` |
-| `sharepoint_credentials` | §5.1 |
-| `sharepoint_sources` | `pair_id`, `scope_mode`, `include_documents`, `include_pages`, `sync_interval_minutes`, `prune_interval_hours`, `schedule_revision`, `scope_revision`, `next_sync_at`, `next_prune_at` |
-| `sharepoint_roots` | `source_id`, `kind` SITE/LIBRARY/FOLDER, `url`, `site_id`, `drive_id`, `item_id`, `display_name`, `position`, `full_refresh_pending` (root mới thêm cần refresh từ epoch) |
-| `sharepoint_exclusions` | `source_id`, `kind` SITE/PATH, `pattern`, `position` |
-| `sharepoint_selection_operations` (+ entries) | Intent, receipt và checkpoint xác minh, như Drive V30 |
-| `sharepoint_sync_runs` | `source_sync_attempt_id`, `kind` REFRESH/PRUNE, `window_start`, `window_end`, tiến độ drive/site trong lượt (checkpoint) |
-| `sharepoint_items` | `source_id`, `provider_file_id`, `kind` FILE/PAGE, `content_version`, `e_tag`, `last_seen_prune_run` |
+| Bảng / cột                                    | Nội dung                                                                                                                                                                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `credentials` / `connectors` (CHECK)          | kind `SHAREPOINT_APP`, connector type `SHAREPOINT`                                                                                                                                     |
+| `sharepoint_credentials`                      | §5.1                                                                                                                                                                                   |
+| `sharepoint_sources`                          | `pair_id`, `scope_mode`, `include_documents`, `include_pages`, `sync_interval_minutes`, `prune_interval_hours`, `schedule_revision`, `scope_revision`, `next_sync_at`, `next_prune_at` |
+| `sharepoint_roots`                            | `source_id`, `kind` SITE/LIBRARY/FOLDER, `url`, `site_id`, `drive_id`, `item_id`, `display_name`, `position`, `full_refresh_pending` (root mới thêm cần refresh từ epoch)              |
+| `sharepoint_exclusions`                       | `source_id`, `kind` SITE/PATH, `pattern`, `position`                                                                                                                                   |
+| `sharepoint_selection_operations` (+ entries) | Intent, receipt và checkpoint xác minh, như Drive V30                                                                                                                                  |
+| `sharepoint_sync_runs`                        | `source_sync_attempt_id`, `kind` REFRESH/PRUNE, `window_start`, `window_end`, tiến độ drive/site trong lượt (checkpoint)                                                               |
+| `sharepoint_items`                            | `source_id`, `provider_file_id`, `kind` FILE/PAGE, `content_version`, `e_tag`, `last_seen_prune_run`                                                                                   |
 
 - `provider_file_id` là drive item id; lượt refresh khớp tombstone của delta theo cột này [Q11], nên cần unique index theo `(tenant_id, source_id, provider_file_id)`.
 
@@ -409,11 +430,14 @@ Chi tiết và lý do nằm ở [ui-references.md](ui-references.md).
 - **Catalog:** thêm SharePoint vào `source-provider-catalog.ts`, dùng provider mark có quyền sử dụng.
 - **Route** `/admin/sources/new/sharepoint`, setup rail Credential → Phạm vi → Truy cập → Xem lại.
   - Bước "Connector" của Onyx được tách thành Phạm vi và Truy cập, theo MEM-106.
+  - Bố cục rộng; rail bước ở bề mặt riêng và sticky trên desktop, chuyển thành hàng ngang trên mobile.
+  - Phạm vi và visibility dùng radio-card có mô tả cùng hệ quả quyền tại lựa chọn.
   - Bước "Advanced" của Onyx còn Refresh Frequency và Prune Frequency (không có Indexing Start Date), đặt ở bước Xem lại.
-- **Credential:** danh sách credential theo MEM-106 #4a; hộp thoại tạo/sửa; hướng dẫn Entra có bước đánh số và bảng quyền; kiểm tra kết nối.
-- **Chi tiết Source:** bố cục MEM-106, thêm:
+- **Credential:** danh sách credential theo MEM-106 #4a; `Dialog` tạo/sửa chia hướng dẫn Entra và identifiers/authentication; kiểm tra kết nối trước khi lưu.
+- **Xem lại:** ba `Card` Credential, Content, Name and access, mỗi card có hành động sửa quay về đúng bước.
+- **Chi tiết Source:** các capability Credential, Saved scope và Schedule nằm trong `Card`; cảnh báo có hướng xử lý nằm trước vùng bị ảnh hưởng.
   - Đồng bộ: interval, prune interval, lượt refresh/prune gần nhất;
-  - Phạm vi: root, sửa trong `Sheet`;
+  - Phạm vi: root, sửa inline theo pattern panel Drive;
   - Credential: phương thức, hạn certificate;
   - `Alert` theo mã lỗi §5.6.
 - **Chung:**
@@ -429,28 +453,28 @@ Chi tiết và lý do nằm ở [ui-references.md](ui-references.md).
 
 ## 6. Khác biệt so với Onyx
 
-| # | Onyx | MemoryOS | Loại |
-| --- | --- | --- | --- |
-| 1 | Credential JSON không có ràng buộc Tenant; lưu cả PFX lẫn mật khẩu | AES-GCM gắn Tenant/credential; PFX giải một lần, chỉ lưu key và certificate, không lưu mật khẩu | MemoryOS |
-| 2 | Không kiểm credential khi tạo; lỗi chỉ lộ khi index | Lấy token trước khi lưu; có nút Test | MemoryOS |
-| 3 | Host authority/Graph/suffix nhập tự do; còn Germany | Enum `cloud`, host cố định; chỉ `GLOBAL` | MemoryOS, Sửa lỗi O15, Q9 |
-| 4 | Khớp thư viện theo tên + map 3 ngôn ngữ | Khớp theo path của `drive.webUrl` | Sửa lỗi O2, Q3 |
-| 5 | Slim listing bỏ qua site lỗi, nên có thể xóa nhầm tài liệu của site đó | Prune chỉ gỡ khi liệt kê toàn phạm vi hoàn tất | MemoryOS |
-| 6 | Document id = driveItem id | `drive:{driveId}:{itemId}`, `page:{siteId}:{pageId}` | Sửa lỗi O6 |
-| 7 | Expand canvas mọi trang; regex bỏ HTML; metadata site sai | Metadata cho mọi trang, canvas cho trang trong cửa sổ; reader jsoup giữ cấu trúc; đúng tên site | MemoryOS, Sửa lỗi O7, O13 |
-| 8 | Ngưỡng 20 MB | 100 MiB như FILE/Drive; định dạng theo router | MemoryOS |
-| 9 | Retry bằng sleep trong luồng; một số lời gọi SDK không retry | `Retry-After` → `next_dispatch_at`; mọi lời gọi qua một adapter có ngân sách | MemoryOS, Sửa lỗi O9, O14 |
-| 10 | Lọc OneDrive bằng `-my.sharepoint` | So với host tenant theo cloud | Sửa lỗi O8 |
-| 11 | Có Indexing Start Date | Không có | MemoryOS (tiền lệ Drive) |
-| 12 | Hierarchy node | Không có | MemoryOS (ADR 0002) |
-| 13 | Reindex theo link, gọi lại provider | Reindex trên snapshot đã lưu | MemoryOS |
-| 14 | Access cần gói Business; có Auto Sync | Public/Private; không có Auto Sync | MemoryOS (MEM-105), Q4 |
-| 15 | Mô tả phương thức xác thực không hiện | Hiện trong card `RadioGroup` | Sửa lỗi O12 |
-| 16 | Form sinh động theo cấu hình | Các bước shadcn theo MEM-106 và Mobbin | MemoryOS |
-| 17 | Không có User-Agent riêng | `ISV\|MemoryOS\|SharePointConnector/<version>` | MemoryOS |
-| 18 | Toast hiện lỗi thô | Mã lỗi đã dịch; AADSTS nằm trong chi tiết kỹ thuật | MemoryOS |
-| 19 | Docs và code mâu thuẫn về quyền client secret | Bảng quyền đúng theo code trong hướng dẫn và connector spec | Sửa lỗi O1 |
-| 20 | Cửa sổ poll gắn với index attempt | Cửa sổ gắn với lượt `SOURCE_SYNC`, kèm loại REFRESH/PRUNE trong run history | MemoryOS |
+| #   | Onyx                                                                   | MemoryOS                                                                                        | Loại                      |
+| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------- |
+| 1   | Credential JSON không có ràng buộc Tenant; lưu cả PFX lẫn mật khẩu     | AES-GCM gắn Tenant/credential; PFX giải một lần, chỉ lưu key và certificate, không lưu mật khẩu | MemoryOS                  |
+| 2   | Không kiểm credential khi tạo; lỗi chỉ lộ khi index                    | Lấy token trước khi lưu; có nút Test                                                            | MemoryOS                  |
+| 3   | Host authority/Graph/suffix nhập tự do; còn Germany                    | Enum `cloud`, host cố định; chỉ `GLOBAL`                                                        | MemoryOS, Sửa lỗi O15, Q9 |
+| 4   | Khớp thư viện theo tên + map 3 ngôn ngữ                                | Khớp theo path của `drive.webUrl`                                                               | Sửa lỗi O2, Q3            |
+| 5   | Slim listing bỏ qua site lỗi, nên có thể xóa nhầm tài liệu của site đó | Prune chỉ gỡ khi liệt kê toàn phạm vi hoàn tất                                                  | MemoryOS                  |
+| 6   | Document id = driveItem id                                             | `drive:{driveId}:{itemId}`, `page:{siteId}:{pageId}`                                            | Sửa lỗi O6                |
+| 7   | Expand canvas mọi trang; regex bỏ HTML; metadata site sai              | Metadata cho mọi trang, canvas cho trang trong cửa sổ; reader jsoup giữ cấu trúc; đúng tên site | MemoryOS, Sửa lỗi O7, O13 |
+| 8   | Ngưỡng 20 MB                                                           | 100 MiB như FILE/Drive; định dạng theo router                                                   | MemoryOS                  |
+| 9   | Retry bằng sleep trong luồng; một số lời gọi SDK không retry           | `Retry-After` → `next_dispatch_at`; mọi lời gọi qua một adapter có ngân sách                    | MemoryOS, Sửa lỗi O9, O14 |
+| 10  | Lọc OneDrive bằng `-my.sharepoint`                                     | So với host tenant theo cloud                                                                   | Sửa lỗi O8                |
+| 11  | Có Indexing Start Date                                                 | Không có                                                                                        | MemoryOS (tiền lệ Drive)  |
+| 12  | Hierarchy node                                                         | Không có                                                                                        | MemoryOS (ADR 0002)       |
+| 13  | Reindex theo link, gọi lại provider                                    | Reindex trên snapshot đã lưu                                                                    | MemoryOS                  |
+| 14  | Access cần gói Business; có Auto Sync                                  | Public/Private; không có Auto Sync                                                              | MemoryOS (MEM-105), Q4    |
+| 15  | Mô tả phương thức xác thực không hiện                                  | Hiện trong card `RadioGroup`                                                                    | Sửa lỗi O12               |
+| 16  | Form sinh động theo cấu hình                                           | Các bước shadcn theo MEM-106 và Mobbin                                                          | MemoryOS                  |
+| 17  | Không có User-Agent riêng                                              | `ISV\|MemoryOS\|SharePointConnector/<version>`                                                  | MemoryOS                  |
+| 18  | Toast hiện lỗi thô                                                     | Mã lỗi đã dịch; AADSTS nằm trong chi tiết kỹ thuật                                              | MemoryOS                  |
+| 19  | Docs và code mâu thuẫn về quyền client secret                          | Bảng quyền đúng theo code trong hướng dẫn và connector spec                                     | Sửa lỗi O1                |
+| 20  | Cửa sổ poll gắn với index attempt                                      | Cửa sổ gắn với lượt `SOURCE_SYNC`, kèm loại REFRESH/PRUNE trong run history                     | MemoryOS                  |
 
 Giữ nguyên hành vi Onyx (Q1), dù đã xác định là điểm yếu: timestamp token không lưu `deltaLink` (O4); root thư mục duyệt BFS `children` (O5); xóa và chuyển ra khỏi phạm vi chỉ phản ánh ở lượt prune.
 
@@ -458,20 +482,20 @@ Giữ nguyên hành vi Onyx (Q1), dù đã xác định là điểm yếu: times
 
 Người dùng chốt Q1–Q10 ngày 16/09/2026, và chốt Q11–Q12 cùng ngày sau khi Giai đoạn 0 đo trên tenant thật. Các câu ghi "theo khuyến nghị" được đề xuất và người dùng không phản đối.
 
-| # | Quyết định | Hệ quả |
-| --- | --- | --- |
-| Q1 | **Giữ mô hình theo dõi thay đổi của Onyx**: refresh theo timestamp token (chồng lấn 30 phút), không lưu `deltaLink`; prune theo Prune Frequency (mặc định 7 ngày, 0 là tắt) | Có thêm cấu hình prune interval (khác tiền lệ Drive). Không có bảng cursor. Việc xóa được xử lý theo Q11, không chờ prune |
-| Q2 | Gọi Graph bằng HTTP adapter JDK + msal4j (theo khuyến nghị) | Cùng mẫu `RestGoogleDriveProvider`; tự map vài resource JSON |
-| Q3 | **Khớp thư viện theo path của URL** | Hỗ trợ site tiếng Việt; xác nhận bằng spike S0.6 |
-| Q4 | **Chưa làm Auto Sync** | Không có REST SharePoint, role assignment, mở rộng group, `SYNC`, link chia sẻ công khai. MEM-88 không còn là phụ thuộc |
-| Q5 | Bỏ: thuộc Auto Sync | — |
-| Q6 | Automatic interval mặc định 30 phút (theo khuyến nghị, như Onyx) | — |
-| Q7 | Cipher AES-GCM dùng chung, key SharePoint riêng (theo khuyến nghị) | Refactor nhỏ; test giải mã dữ liệu Drive cũ |
-| Q8 | **Tạo [MEM-126](https://linear.app/memory-os/issue/MEM-126)** dưới MEM-118, nhánh `anhnd05122004/mem-126-sharepoint-connector-ket-noi-sharepoint-online-theo-logic` | Đã làm |
-| Q9 | Chỉ cloud `GLOBAL` (theo khuyến nghị) | Enum đã chừa chỗ cho cloud khác |
-| Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị) | Đã kiểm ở [spike S0.8](plan.md#s08--url-personal-q10): thư viện chính tên `OneDrive`, path `/Documents`; lọc `ALL_SITES` theo cờ `isPersonalSite` |
-| Q11 | **Lượt refresh gỡ tài liệu ngay theo tombstone của delta**; prune trở thành lưới an toàn | Phải lưu `provider_file_id` để khớp tombstone, vì tombstone không có `name`. Tài liệu đã xóa chỉ còn tìm được tối đa một chu kỳ refresh thay vì 7 ngày. Bằng chứng: [spike S0.3](plan.md#s03--delta-theo-timestamp-token) |
-| Q12 | **Bỏ bộ lọc cửa sổ phía client ở nhánh delta**; nhánh BFS `children` vẫn lọc | Sửa lỗi O4/O5: item được di chuyển vào phạm vi được index ngay thay vì chờ tới khi có người sửa nội dung. Cửa sổ chỉ còn dùng để dựng token |
+| #   | Quyết định                                                                                                                                                                  | Hệ quả                                                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | **Giữ mô hình theo dõi thay đổi của Onyx**: refresh theo timestamp token (chồng lấn 30 phút), không lưu `deltaLink`; prune theo Prune Frequency (mặc định 7 ngày, 0 là tắt) | Có thêm cấu hình prune interval (khác tiền lệ Drive). Không có bảng cursor. Việc xóa được xử lý theo Q11, không chờ prune                                                                                                 |
+| Q2  | Gọi Graph bằng HTTP adapter JDK + msal4j (theo khuyến nghị)                                                                                                                 | Cùng mẫu `RestGoogleDriveProvider`; tự map vài resource JSON                                                                                                                                                              |
+| Q3  | **Khớp thư viện theo path của URL**                                                                                                                                         | Hỗ trợ site tiếng Việt; xác nhận bằng spike S0.6                                                                                                                                                                          |
+| Q4  | **Chưa làm Auto Sync**                                                                                                                                                      | Không có REST SharePoint, role assignment, mở rộng group, `SYNC`, link chia sẻ công khai. MEM-88 không còn là phụ thuộc                                                                                                   |
+| Q5  | Bỏ: thuộc Auto Sync                                                                                                                                                         | —                                                                                                                                                                                                                         |
+| Q6  | Automatic interval mặc định 30 phút (theo khuyến nghị, như Onyx)                                                                                                            | —                                                                                                                                                                                                                         |
+| Q7  | Cipher AES-GCM dùng chung, key SharePoint riêng (theo khuyến nghị)                                                                                                          | Refactor nhỏ; test giải mã dữ liệu Drive cũ                                                                                                                                                                               |
+| Q8  | **Tạo [MEM-126](https://linear.app/memory-os/issue/MEM-126)** dưới MEM-118, nhánh `anhnd05122004/mem-126-sharepoint-connector-ket-noi-sharepoint-online-theo-logic`         | Đã làm                                                                                                                                                                                                                    |
+| Q9  | Chỉ cloud `GLOBAL` (theo khuyến nghị)                                                                                                                                       | Enum đã chừa chỗ cho cloud khác                                                                                                                                                                                           |
+| Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị)                                                                                                | Đã kiểm ở [spike S0.8](plan.md#s08--url-personal-q10): thư viện chính tên `OneDrive`, path `/Documents`; lọc `ALL_SITES` theo cờ `isPersonalSite`                                                                         |
+| Q11 | **Lượt refresh gỡ tài liệu ngay theo tombstone của delta**; prune trở thành lưới an toàn                                                                                    | Phải lưu `provider_file_id` để khớp tombstone, vì tombstone không có `name`. Tài liệu đã xóa chỉ còn tìm được tối đa một chu kỳ refresh thay vì 7 ngày. Bằng chứng: [spike S0.3](plan.md#s03--delta-theo-timestamp-token) |
+| Q12 | **Bỏ bộ lọc cửa sổ phía client ở nhánh delta**; nhánh BFS `children` vẫn lọc                                                                                                | Sửa lỗi O4/O5: item được di chuyển vào phạm vi được index ngay thay vì chờ tới khi có người sửa nội dung. Cửa sổ chỉ còn dùng để dựng token                                                                               |
 
 ## 8. Ngoài phạm vi
 

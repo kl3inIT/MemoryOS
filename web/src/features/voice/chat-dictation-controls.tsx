@@ -67,7 +67,7 @@ export function ChatDictationStrip() {
     <div
       role="group"
       aria-label={ui("Ghi âm")}
-      className="flex items-center gap-2 rounded-xl bg-surface-sunken py-1 pr-1 pl-3"
+      className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-raised py-1.5 pr-1.5 pl-3 shadow-xs"
     >
       <span
         aria-hidden="true"
@@ -78,10 +78,15 @@ export function ChatDictationStrip() {
             : "bg-content-muted",
         )}
       />
-      <span role="status" className="shrink-0 font-secondary-body text-content-secondary">
+      <span
+        role="status"
+        className="flex shrink-0 items-center gap-2 font-secondary-body text-content-secondary"
+      >
         {running ? (
           <>
-            <span className="sr-only">{voice.muted ? ui("Micro đang tắt") : ui("Đang nghe…")}</span>
+            <span className="hidden sm:inline">
+              {voice.muted ? ui("Micro đang tắt") : ui("Đang nghe…")}
+            </span>
             <ElapsedTime since={voice.startedAt} />
           </>
         ) : finishing ? (

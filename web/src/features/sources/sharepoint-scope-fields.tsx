@@ -1,5 +1,6 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ChevronDown, Globe2, ListTree } from "lucide-react";
 import { useId } from "react";
 import { inputVariants } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -59,38 +60,60 @@ export function SharePointScopeFields({
       <fieldset disabled={disabled} className="space-y-2">
         <legend className="font-secondary-action text-content-primary">{ui("Scope")}</legend>
         <RadioGroup
-          className="flex flex-wrap gap-3"
+          className="grid gap-3 sm:grid-cols-2"
           value={draft.scopeMode}
           onValueChange={(mode) =>
             onChange({ ...draft, scopeMode: mode as SharePointScopeDraft["scopeMode"] })
           }
         >
-          {(["SPECIFIC", "ALL_SITES"] as const).map((mode) => (
-            <label
-              key={mode}
-              className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border-default px-3 has-checked:bg-surface-subtle has-disabled:cursor-default"
-            >
-              <RadioGroupItem value={mode} aria-describedby={`${id}-scope-description`} />
-              {mode === "ALL_SITES" ? ui("All sites") : ui("Specific sites")}
-            </label>
-          ))}
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
+            <RadioGroupItem value="SPECIFIC" className="mt-1" />
+            <ListTree
+              className="mt-0.5 size-4.5 shrink-0 text-content-secondary"
+              aria-hidden="true"
+            />
+            <span className="min-w-0">
+              <span className="block font-main-ui-action text-content-primary">
+                {ui("Specific sites")}
+              </span>
+              <span className="mt-1 block font-secondary-body text-content-muted">
+                {ui(
+                  "Only the sites, libraries and folders you paste{{v1}}, including everything inside them.",
+                  {
+                    v1: policy
+                      ? ui(" (up to {{count}})", {
+                          count: policy.maxRootsPerSource.toLocaleString(uiLocale()),
+                        })
+                      : "",
+                  },
+                )}
+              </span>
+              <span className="mt-2 block font-mono text-xs text-content-secondary">
+                {ui("Works with Sites.Selected or Sites.Read.All")}
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
+            <RadioGroupItem value="ALL_SITES" className="mt-1" />
+            <Globe2
+              className="mt-0.5 size-4.5 shrink-0 text-content-secondary"
+              aria-hidden="true"
+            />
+            <span className="min-w-0">
+              <span className="block font-main-ui-action text-content-primary">
+                {ui("All sites")}
+              </span>
+              <span className="mt-1 block font-secondary-body text-content-muted">
+                {ui(
+                  "Every site the Entra application can read in this directory, minus the exclusions below. New sites are picked up as they appear.",
+                )}
+              </span>
+              <span className="mt-2 block font-mono text-xs text-content-secondary">
+                {ui("Sites.Read.All")}
+              </span>
+            </span>
+          </label>
         </RadioGroup>
-        <p id={`${id}-scope-description`} className="text-sm text-content-secondary">
-          {draft.scopeMode === "ALL_SITES"
-            ? ui(
-                "Every site the Entra application can read in this directory, minus the exclusions below. New sites are picked up as they appear.",
-              )
-            : ui(
-                "Only the sites, libraries and folders you paste{{v1}}, including everything inside them.",
-                {
-                  v1: policy
-                    ? ui(" (up to {{count}})", {
-                        count: policy.maxRootsPerSource.toLocaleString(uiLocale()),
-                      })
-                    : "",
-                },
-              )}
-        </p>
       </fieldset>
 
       {draft.scopeMode === "SPECIFIC" ? (
@@ -131,11 +154,16 @@ export function SharePointScopeFields({
       ) : null}
 
       <Collapsible className="rounded-xl border border-border-subtle bg-surface-raised">
-        <CollapsibleTrigger className="w-full cursor-pointer rounded-xl px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30">
-          <span className="block font-secondary-action text-content-primary">{ui("Advanced")}</span>
-          <span className="mt-0.5 block font-secondary-body text-content-muted">
-            {ui("What to collect, and what to leave out")}
+        <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/30">
+          <span className="min-w-0 flex-1">
+            <span className="block font-secondary-action text-content-primary">
+              {ui("Advanced")}
+            </span>
+            <span className="mt-0.5 block font-secondary-body text-content-muted">
+              {ui("What to collect, and what to leave out")}
+            </span>
           </span>
+          <ChevronDown className="size-4 shrink-0 text-content-muted transition-transform group-data-open:rotate-180 motion-reduce:transition-none" />
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="space-y-5 border-t border-border-subtle p-4 sm:p-5">

@@ -45,14 +45,28 @@ async function mockVoice(page: Page, autoSend: boolean) {
         stream.audioBytes += message.length;
         if (!interim && stream.audioBytes >= 24_000) {
           interim = true;
-          socket.send(JSON.stringify({ type: "transcript", text: "hello", isFinal: false }));
+          socket.send(
+            JSON.stringify({
+              type: "transcript",
+              text: "hello",
+              isFinal: false,
+              utteranceEnd: false,
+              revision: 1,
+            }),
+          );
         }
         return;
       }
       if (JSON.parse(message).type !== "end") return;
       stream.ended = true;
       socket.send(
-        JSON.stringify({ type: "transcript", text: "hello from the microphone", isFinal: true }),
+        JSON.stringify({
+          type: "transcript",
+          text: "hello from the microphone",
+          isFinal: true,
+          utteranceEnd: false,
+          revision: 2,
+        }),
       );
       socket.close();
     });

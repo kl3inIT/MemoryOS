@@ -43,7 +43,7 @@ HTTP(S) endpoints are supported, including internal HTTP and private/loopback ho
 
 The deployment import accepts explicit `memoryos.chat.provider.max-completion-tokens`, `tool-calling`, `vision` and `reasoning` booleans. Unset properties retain the legacy GPT-5 defaults; explicit values override them for differently named deployments. These settings initialize the catalog once and supply platform-default metadata; they do not overwrite subsequent admin catalog edits. A finite deployment cost budget with unknown deployment pricing fails at startup, while selected catalog models are also checked per turn.
 
-Web search and image generation remain separately configured tools. Vision input capability does not mean image generation support. Neither tool is implemented by this catalog change.
+Web search, image generation and [Voice](../increments/active/mem-91-chat-voice/design.md) remain separately configured Chat capabilities. Vision input capability does not mean image generation support. None of those provider connections is owned by the LLM catalog.
 
 ## Backend API
 

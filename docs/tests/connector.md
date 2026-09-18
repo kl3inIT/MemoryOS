@@ -21,7 +21,7 @@ Main V1–V20 remains byte-identical; the twelve Drive migrations moved from V18
 
 Backend evidence for the SharePoint connector as implemented on the MEM-126 branch. This is automated proof against real PostgreSQL with Microsoft replaced by doubles; it is not live-tenant acceptance and covers no browser surface, which waits on MEM-106.
 
-82 SharePoint cases pass, all executed:
+86 SharePoint and provider-authority cases pass, all executed:
 
 | Boundary | Cases | What they establish |
 | --- | --- | --- |
@@ -33,10 +33,11 @@ Backend evidence for the SharePoint connector as implemented on the MEM-126 bran
 | `SharePointPageExtractionTest` | 4 | A text web part keeps its headings, list items and table cells as canonical blocks; other web parts contribute their searchable text; an empty page still carries its title; a snapshot that does not match the item being read is refused |
 | `PostgresSharePointCredentialTest` | 8 | Verification precedes storage and a rejected credential stores nothing; revisions fence rename, replacement and deletion; Tenants are isolated; a scoped manager sees only their own; an attached Source blocks deletion; a missing key fails closed before any provider call |
 | `PostgresSharePointSelectionTest` | 4 | A resolved scope creates the Source with the library its URL path names and starts its first run; an unknown library fails without storing anything; a repeated request identifier recovers its receipt; replacing a scope needs both current revisions |
-| `PostgresSharePointSyncTest` | 7 | A tombstone removes the document it names; an item the change log reports survives a window older than its timestamp; content is stored and queued for indexing once; a complete prune listing removes what it did not see while an incomplete one removes nothing; site pages are collected and pruned |
+| `PostgresSharePointSyncTest` | 8 | A tombstone removes the document it names; an item the change log reports survives a window older than its timestamp; content is stored and queued for indexing once; a current SharePoint scope and credential revision passes replay, dispatch and Document publication while a changed credential revision fails replay; a complete prune listing removes what it did not see while an incomplete one removes nothing; site pages are collected and pruned |
+| `DefaultProviderAuthorityServiceTest` | 3 | Explicit dispatch routes Google Drive and SharePoint to their own connection authority and fails closed if a FILE version unexpectedly carries provider identity |
 | `SharePointCredentialApiTest`, `SharePointSourceApiTest` | 16 | Routing, CSRF, `If-Match` revisions, `202` receipts and ETags; responses never carry a secret or key; a denial from the application service surfaces as `403` and provider text never reaches a problem body |
 
-Two defects these tests found are fixed in the same branch: `source_sync_attempts` referenced `google_drive_sources`, so a SharePoint Source could not have a run at all, and activation enqueued its first run through Drive's repository, so a new Source never started. A third, `ck_item_versions_input`, refused the page input format.
+Two defects these tests found are fixed in the same branch: `source_sync_attempts` referenced `google_drive_sources`, so a SharePoint Source could not have a run at all, and activation enqueued its first run through Drive's repository, so a new Source never started. A third, `ck_item_versions_input`, refused the page input format. The provider-authority follow-up also fixes SharePoint index publication being checked through `GoogleDriveConnectionService` and terminal supersession leaving the Source aggregate in `INDEXING`.
 
 Not established here: live acceptance against the trial tenant (the spike ledger in the increment holds what was measured against real Microsoft), `Sites.Selected` behaviour, throttling limits, and the access model after MEM-105, which this work still reads as `PUBLIC`/`RESTRICTED`.
 

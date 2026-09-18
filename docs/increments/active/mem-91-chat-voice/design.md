@@ -3,11 +3,13 @@
 Tracking: [MEM-91](https://linear.app/memory-os/issue/MEM-91). Tham chiếu hành vi Onyx: [onyx-voice-reference.md](onyx-voice-reference.md). Kế hoạch: [plan.md](plan.md). Liên quan: [MEM-77 catalog](../mem-77-provider-backend/design.md), [MEM-97 image connection](../../completed/mem-97-chat-image-generation/design.md), [Chat Web search](../chat-web-search/design.md).
 
 Trạng thái: **đang triển khai** (15/09/2026).
-- **Đã có code và test:** giai đoạn 1–4 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; đọc thành tiếng và tốc độ đọc; Auto-Playback và auto-listen; ElevenLabs và Azure AI Speech qua REST.
-- **Chưa làm:** chữ chạy theo tiếng, ElevenLabs realtime (Scribe realtime, `stream-input`), OpenAI Realtime.
+
+- **Đã có code và test:** giai đoạn 1–5 — voice connection, vé, WebSocket nhập bằng giọng nói, cài đặt; trang `/admin/voice`, mic trong Chat và Search, Auto-Send; OpenAI Realtime cho chữ nhập chạy theo lời nói và batch fallback; đọc thành tiếng và tốc độ đọc; Auto-Playback và auto-listen; ElevenLabs và Azure AI Speech qua REST.
+- **Chưa làm:** đồng bộ chữ của câu trả lời theo audio đang đọc, ElevenLabs realtime (Scribe realtime, `stream-input`).
 - **Tiến độ chi tiết:** xem [plan.md](plan.md). Tham chiếu giao diện Mobbin: [ui-references.md](ui-references.md).
 
 **Baseline: Onyx Voice (`06aa2b0`).** Người thực hiện chọn hướng này ngày 15/09/2026: làm một tính năng giống Voice của Onyx. Bản này thay bản đề xuất trước cùng ngày. Các ý sau đã bị bỏ để theo Onyx:
+
 - VAD phía client;
 - TTS HTTP theo đoạn phát bằng Web Audio;
 - nút Voice mode riêng;
@@ -27,6 +29,7 @@ MemoryOS có tính năng tương đương Onyx Voice:
 - **Mục Giọng nói trong Cài đặt:** ba giá trị, lưu phía server.
 
 Nguyên tắc của MEM-91 giữ nguyên:
+
 - Âm thanh chỉ đi theo đường trình duyệt → MemoryOS API → provider của Tenant.
 - Không dùng Web Speech API / `speechSynthesis`.
 - Không lưu âm thanh.
@@ -77,16 +80,16 @@ Nguyên tắc của MEM-91 giữ nguyên:
   - **[Sửa lỗi]** lỗi Onyx đã được chứng minh ở [tham chiếu §6](onyx-voice-reference.md#6-lỗi-và-điểm-yếu-đã-xác-định).
 - **Đổi tên** (theo tiền lệ Web/Image của MemoryOS):
 
-  | Onyx | MemoryOS |
-  | --- | --- |
-  | `voice_provider` | `chat_voice_connection` |
-  | `provider_type` | `provider` |
-  | `api_base` | `endpoint` |
-  | `default_voice` | `tts_voice` |
-  | `is_default_stt/tts` | `stt_active/tts_active` |
+  | Onyx                       | MemoryOS                       |
+  | -------------------------- | ------------------------------ |
+  | `voice_provider`           | `chat_voice_connection`        |
+  | `provider_type`            | `provider`                     |
+  | `api_base`                 | `endpoint`                     |
+  | `default_voice`            | `tts_voice`                    |
+  | `is_default_stt/tts`       | `stt_active/tts_active`        |
   | `/api/voice/*`, `ws-token` | `/api/chat/voice/*`, `tickets` |
-  | activate/deactivate | `PUT /selection` |
-  | `is_final` | `isFinal` (JSON camelCase) |
+  | activate/deactivate        | `PUT /selection`               |
+  | `is_final`                 | `isFinal` (JSON camelCase)     |
 
 ## 4. Thiết kế
 
@@ -94,42 +97,43 @@ Nguyên tắc của MEM-91 giữ nguyên:
 
 **`chat_voice_connection`** — V77, Chat sở hữu, JPA `VoiceConnectionEntity`:
 
-| Cột | Onyx | Ghi chú |
-| --- | --- | --- |
-| `id` UUID, `tenant_id` | `id` | Theo Tenant [MemoryOS] |
-| `provider` | `provider_type` | Enum `VoiceProvider`. Hiện có `OPENAI`, `OPENAI_COMPATIBLE`; CHECK có tên `ck_chat_voice_connection_provider` và chỉ được nới khi adapter của provider hoàn thành. `UNIQUE (tenant_id, provider)`, vì Onyx thực tế cũng mỗi loại một dòng |
-| `endpoint` | `api_base` | Bắt buộc với OpenAI-compatible; rỗng nghĩa là API công khai của provider; kiểm bằng `validateEndpoint` |
-| `credential` | `api_key` | `ProviderCredentials` gắn Tenant/connection [MemoryOS]; OpenAI-compatible cho phép không có key |
-| `stt_model`, `tts_model`, `tts_voice` | `stt_model`, `tts_model`, `default_voice` | Chuỗi rỗng nghĩa là chức năng đó chưa dùng được; model/giọng gợi ý nằm trong enum [Sửa lỗi: Onyx dùng chung `whisper-1`] |
-| `stt_active`, `tts_active` | `is_default_stt/tts` | Partial unique index theo Tenant; CHECK active phải có model (TTS có cả giọng) |
-| `revision` | — | JPA `@Version`, chống ghi đè [MEM-91] |
+| Cột                                   | Onyx                                      | Ghi chú                                                                                                                                                                                                                                   |
+| ------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id` UUID, `tenant_id`                | `id`                                      | Theo Tenant [MemoryOS]                                                                                                                                                                                                                    |
+| `provider`                            | `provider_type`                           | Enum `VoiceProvider`. Hiện có `OPENAI`, `OPENAI_COMPATIBLE`; CHECK có tên `ck_chat_voice_connection_provider` và chỉ được nới khi adapter của provider hoàn thành. `UNIQUE (tenant_id, provider)`, vì Onyx thực tế cũng mỗi loại một dòng |
+| `endpoint`                            | `api_base`                                | Bắt buộc với OpenAI-compatible; rỗng nghĩa là API công khai của provider; kiểm bằng `validateEndpoint`                                                                                                                                    |
+| `credential`                          | `api_key`                                 | `ProviderCredentials` gắn Tenant/connection [MemoryOS]; OpenAI-compatible cho phép không có key                                                                                                                                           |
+| `stt_model`, `tts_model`, `tts_voice` | `stt_model`, `tts_model`, `default_voice` | Chuỗi rỗng nghĩa là chức năng đó chưa dùng được; model/giọng gợi ý nằm trong enum [Sửa lỗi: Onyx dùng chung `whisper-1`]                                                                                                                  |
+| `stt_active`, `tts_active`            | `is_default_stt/tts`                      | Partial unique index theo Tenant; CHECK active phải có model (TTS có cả giọng)                                                                                                                                                            |
+| `revision`                            | —                                         | JPA `@Version`, chống ghi đè [MEM-91]                                                                                                                                                                                                     |
 
 - Azure dùng endpoint của tài nguyên Speech (Target URI) nên không cần cột region. Nhận dạng theo ngôn ngữ giao diện nên không lưu Spoken Languages. Model hiển thị `default` (STT) và `neural` (TTS) như Onyx.
 
 **`chat_voice_settings`** — V78, JDBC `JdbcVoiceSettingsRepository`:
+
 - **Cột:** `tenant_id`, `actor_id` (khóa ngoại tới `tenant_memberships`), `auto_send` (false), `auto_playback` (false), `playback_speed` (1.0, CHECK 0.5–2.0).
 - **Ghi dữ liệu:** partial update nguyên tử bằng `INSERT … ON CONFLICT DO UPDATE SET x = COALESCE(:x, x)`, không đọc rồi ghi.
 - **Khác Onyx:** Onyx lưu thành cột trên bảng `user`. MemoryOS để bảng này thuộc Chat, không ghi vào bảng IAM [MemoryOS].
 
 ### 4.2 API
 
-| Onyx | MemoryOS | Quyền và ghi chú |
-| --- | --- | --- |
-| `GET /voice/status` | `GET /api/chat/voice` | Membership đang active; `{sttAvailable, ttsAvailable}` (có mặc định dùng được) |
-| — | `GET /api/chat/voice/providers` | `MODELS_MANAGE`; provider đã có adapter, endpoint mặc định, model và giọng gợi ý |
-| `GET /admin/voice/providers` | `GET /api/chat/voice/connections` | `MODELS_MANAGE`; trả `credentialConfigured`, không trả key đã mask [MemoryOS] |
-| `POST /admin/voice/providers`, `POST …/providers/test` | `PUT /api/chat/voice/connections/{provider}` | Upsert có revision; credential KEEP/REPLACE/REMOVE. Kiểm key nháp với provider **ngoài transaction** rồi mới lưu; provider từ chối thì không lưu gì. `activate: STT\|TTS` chỉ áp dụng khi tạo mới |
-| `DELETE /admin/voice/providers/{id}` | `DELETE /api/chat/voice/connections/{provider}?revision=` | Xóa cả dòng như Onyx |
-| activate/deactivate STT/TTS | `PUT /api/chat/voice/selection` | `{function, provider \| null, model?}`; `model` chỉ dùng cho TTS; gỡ mặc định cũ trong cùng Tenant |
-| — (Onyx chỉ test khi lưu) | `POST /api/chat/voice/connections/{provider}/test` | Kiểm connection đã lưu [MEM-91]; tối đa 2 kiểm tra đồng thời, deadline 15 s |
-| `GET /admin/voice/voices?provider_type=` | (trong `/providers`) | Danh sách tĩnh |
-| `GET /admin/voice/providers/{id}/voices` | — | Bỏ: không có caller (ADR 0002) |
-| `POST /voice/transcribe` | — | Bỏ: Onyx không có caller ở frontend (ADR 0002) |
-| `POST /voice/ws-token` | `POST /api/chat/voice/tickets` | Body tùy chọn `{purpose: TRANSCRIBE\|SYNTHESIZE}` (mặc định TRANSCRIBE); nghe cần `CHAT_WRITE` hoặc `SEARCH_READ`, đọc cần `CHAT_READ`; header CSRF; vé chỉ mở đúng WebSocket của mục đích [MEM-91] |
-| WS `/voice/transcribe/stream` | WS `/api/chat/voice/transcribe/stream` | Kiểm lại quyền khi handshake |
-| `PATCH /voice/settings` | `GET` + `PATCH /api/chat/voice/settings` | Membership đang active; cần `GET` vì MemoryOS không có endpoint preferences chung [MemoryOS] |
-| `POST /voice/synthesize` | `POST /api/chat/voice/synthesize` | Giai đoạn 3; `CHAT_READ`; có giới hạn độ dài [Sửa lỗi] |
-| WS `/voice/synthesize/stream` | WS `/api/chat/voice/synthesize/stream` | Giai đoạn 4; `CHAT_READ` |
+| Onyx                                                   | MemoryOS                                                  | Quyền và ghi chú                                                                                                                                                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /voice/status`                                    | `GET /api/chat/voice`                                     | Membership đang active; `{sttAvailable, ttsAvailable}` (có mặc định dùng được)                                                                                                                      |
+| —                                                      | `GET /api/chat/voice/providers`                           | `MODELS_MANAGE`; provider đã có adapter, endpoint mặc định, model và giọng gợi ý                                                                                                                    |
+| `GET /admin/voice/providers`                           | `GET /api/chat/voice/connections`                         | `MODELS_MANAGE`; trả `credentialConfigured`, không trả key đã mask [MemoryOS]                                                                                                                       |
+| `POST /admin/voice/providers`, `POST …/providers/test` | `PUT /api/chat/voice/connections/{provider}`              | Upsert có revision; credential KEEP/REPLACE/REMOVE. Kiểm key nháp với provider **ngoài transaction** rồi mới lưu; provider từ chối thì không lưu gì. `activate: STT\|TTS` chỉ áp dụng khi tạo mới   |
+| `DELETE /admin/voice/providers/{id}`                   | `DELETE /api/chat/voice/connections/{provider}?revision=` | Xóa cả dòng như Onyx                                                                                                                                                                                |
+| activate/deactivate STT/TTS                            | `PUT /api/chat/voice/selection`                           | `{function, provider \| null, model?}`; `model` chỉ dùng cho TTS; gỡ mặc định cũ trong cùng Tenant                                                                                                  |
+| — (Onyx chỉ test khi lưu)                              | `POST /api/chat/voice/connections/{provider}/test`        | Kiểm connection đã lưu [MEM-91]; tối đa 2 kiểm tra đồng thời, deadline 15 s                                                                                                                         |
+| `GET /admin/voice/voices?provider_type=`               | (trong `/providers`)                                      | Danh sách tĩnh                                                                                                                                                                                      |
+| `GET /admin/voice/providers/{id}/voices`               | —                                                         | Bỏ: không có caller (ADR 0002)                                                                                                                                                                      |
+| `POST /voice/transcribe`                               | —                                                         | Bỏ: Onyx không có caller ở frontend (ADR 0002)                                                                                                                                                      |
+| `POST /voice/ws-token`                                 | `POST /api/chat/voice/tickets`                            | Body tùy chọn `{purpose: TRANSCRIBE\|SYNTHESIZE}` (mặc định TRANSCRIBE); nghe cần `CHAT_WRITE` hoặc `SEARCH_READ`, đọc cần `CHAT_READ`; header CSRF; vé chỉ mở đúng WebSocket của mục đích [MEM-91] |
+| WS `/voice/transcribe/stream`                          | WS `/api/chat/voice/transcribe/stream`                    | Kiểm lại quyền khi handshake                                                                                                                                                                        |
+| `PATCH /voice/settings`                                | `GET` + `PATCH /api/chat/voice/settings`                  | Membership đang active; cần `GET` vì MemoryOS không có endpoint preferences chung [MemoryOS]                                                                                                        |
+| `POST /voice/synthesize`                               | `POST /api/chat/voice/synthesize`                         | Giai đoạn 3; `CHAT_READ`; có giới hạn độ dài [Sửa lỗi]                                                                                                                                              |
+| WS `/voice/synthesize/stream`                          | WS `/api/chat/voice/synthesize/stream`                    | Giai đoạn 4; `CHAT_READ`                                                                                                                                                                            |
 
 - **Map quyền:** `FULL_ADMIN_PANEL_ACCESS` → `MODELS_MANAGE` (cùng quyền với Models và Web search). `BASIC_ACCESS` → membership đang active cộng capability của nơi dùng [MemoryOS].
 - **Lỗi HTTP:** dùng lại mã Chat có sẵn (`CHAT_PROVIDER_UNAVAILABLE`, `CHAT_CAPACITY_EXCEEDED`, `CHAT_CONFLICT`, `CHAT_INVALID_REQUEST`), không kèm văn bản provider [MemoryOS].
@@ -141,22 +145,26 @@ Nguyên tắc của MEM-91 giữ nguyên:
 **Điều hướng và header:** theo `MODELS_MANAGE`, nằm cạnh Models và Web search. Header "Giọng nói / Voice" kèm mô tả dịch từ Onyx.
 
 **Section Speech to Text** ("Chọn model chuyển giọng nói thành chữ trong chat"):
+
 - Card: Whisper (OpenAI), OpenAI-compatible [MEM-91], ElevenLabs, Azure Speech.
 - Card của một provider chỉ xuất hiện khi adapter đã có.
 
 **Section Text to Speech:** card nhóm theo provider.
+
 - **OpenAI:** TTS-1, TTS-1 HD.
 - **OpenAI-compatible:** một card [MEM-91].
 - **ElevenLabs** và **Azure.**
 - Mỗi section có banner khi chưa có mặc định.
 
 **Card** — giữ đúng Onyx:
+
 - Ba trạng thái disconnected / connected / selected, với nút Connect / Set as Default / Current Default.
 - Bấm thân card thực hiện hành động chính (selected thì bỏ chọn).
 - Khi hover hiện Edit và Disconnect, thêm **Test** [MEM-91].
 - Trạng thái tính theo loại provider; TTS selected khi `tts_model` trùng card.
 
 **Modal Set up / Configure:**
+
 - Trường giữ như Onyx: Target URI (Azure), API Key, Spoken Languages (Azure STT, tối đa 10 cloud / 4 tự host), Default Model (TTS OpenAI), Voice (combobox cho nhập ID).
 - Thêm:
   - **Base URL** cho OpenAI-compatible [MEM-91].
@@ -164,22 +172,27 @@ Nguyên tắc của MEM-91 giữ nguyên:
 - **API Key:** để trống là KEEP ("Để trống để giữ key hiện tại"), nhập mới là REPLACE. "Xóa key" (REMOVE) chỉ có với OpenAI-compatible.
 
 **Luồng lưu** — giữ như Onyx:
+
 1. Server kiểm key nháp với provider trước khi lưu; provider từ chối thì không lưu gì.
 2. Kết nối lần đầu từ card nào thì tự thành mặc định của phần đó; sửa thì giữ nguyên mặc định.
 
 Sửa lỗi kèm theo:
+
 - `tts_model` không bị ghi đè khi sửa từ card STT [Sửa lỗi].
 - Xung đột revision báo và giữ bản nháp không chứa bí mật [MEM-91].
 
 **Disconnect:**
+
 - Dùng `ConfirmDialog` với copy của Onyx. Nội dung nêu rõ mất cả STT lẫn TTS.
 - Cảnh báo "không còn provider thay thế" tính **theo từng phần** [Sửa lỗi].
 
 **Chọn / bỏ chọn:** có trạng thái đang xử lý và báo lỗi [Sửa lỗi]. Sau mọi thay đổi, invalidate query status [Sửa lỗi].
 
 **Giao diện đã dựng** (`web/src/features/voice/voice-admin-page.tsx`, `voice-provider-card.tsx`, `voice-provider-dialog.tsx`), theo [tham chiếu Mobbin](ui-references.md):
-- Mỗi chức năng là một danh sách có viền, một dòng cho mỗi provider; hành động luôn hiện thay cho hover [MemoryOS: truy cập bằng bàn phím và cảm ứng].
-- Test nằm trong hộp thoại; TTS chọn model và giọng trong hộp thoại thay cho card theo model.
+
+- Header có trust badge "Âm thanh không được lưu"; hai capability card tóm tắt provider mặc định và trạng thái trước phần cấu hình chi tiết.
+- Mỗi chức năng nằm trong `Card`, provider là lưới responsive; hành động luôn hiện thay cho hover [MemoryOS: truy cập bằng bàn phím và cảm ứng].
+- Dialog chia Connection và Model and voice; test nằm trong footer. TTS chọn model và giọng trong dialog thay cho card theo model.
 - Copy Disconnect chung cho cả hai chức năng, chưa có cảnh báo "không còn provider thay thế".
 - Đang tải dùng `Skeleton`; lỗi tải có nút Tải lại.
 
@@ -194,7 +207,7 @@ Sửa lỗi kèm theo:
   - Search không còn `SpeechRecognition` của trình duyệt; mic dùng `voice-dictation.ts`.
 - **Mic bị disable** khi câu trả lời đang chạy (TTS đang tải/phát: giai đoạn 4).
 - **Placeholder:** "Đang nghe…"; "MemoryOS đang nói..." ở giai đoạn 4.
-- **Dải ghi âm** (`chat-dictation-controls.tsx`): chấm đỏ, đồng hồ `m:ss`, 40 thanh theo mức âm lượng thật, nút tắt mic, nút dừng. Trạng thái trình bày (mức âm, mute, lỗi) nằm trong `VoiceSessionStore`; văn bản nháp và trạng thái dictation vẫn do runtime assistant-ui giữ.
+- **Dải ghi âm** (`chat-dictation-controls.tsx`): chấm đỏ, nhãn trạng thái nhìn thấy được, đồng hồ `m:ss`, 40 thanh theo mức âm lượng thật, nút tắt mic, nút dừng. Trạng thái trình bày (mức âm, mute, lỗi) nằm trong `VoiceSessionStore`; văn bản nháp và trạng thái dictation vẫn do runtime assistant-ui giữ.
 - **Logic** (đã có, `web/src/features/voice`):
   - `capture/pcm-capture.worklet.ts`: AudioWorklet cùng origin, resample 24 kHz, chunk 100 ms kèm mức âm lượng, không bỏ âm thanh khi luồng chính chậm [Sửa lỗi].
   - `capture/audio-capture.ts`: xin quyền mic trước, khử vọng/khử ồn, tắt mic, dọn dẹp track và context.
@@ -216,13 +229,13 @@ Sửa lỗi kèm theo:
   - Tiêu vé đúng actor, kiểm lại `CHAT_WRITE` hoặc `SEARCH_READ`.
 - **Giao thức** (`TranscribeWebSocketHandler`):
 
-  | Chiều | Message |
-  | --- | --- |
-  | Client → server | Binary PCM16 LE mono 24 kHz; `{"type":"end"}` |
-  | Server → client | `{"type":"transcript","text","isFinal"}`; `{"type":"error","code"}` rồi đóng |
-
+  | Chiều           | Message                                                                                                |
+  | --------------- | ------------------------------------------------------------------------------------------------------ |
+  | Client → server | Binary PCM16 LE mono 24 kHz; `{"type":"end"}`                                                          |
+  | Server → client | `{"type":"transcript","text","isFinal","utteranceEnd","revision"}`; `{"type":"error","code"}` rồi đóng |
   - Mã lỗi: `VOICE_BUSY`, `VOICE_UNAVAILABLE`, `VOICE_INVALID_REQUEST`, `VOICE_INVALID_AUDIO`, `VOICE_INVALID_MESSAGE`, `VOICE_AUDIO_TOO_LARGE`, `VOICE_IDLE`, `VOICE_SESSION_TOO_LONG`, `VOICE_PROVIDER_FAILED`.
   - `reset` của Onyx chỉ phục vụ provider có final giữa chừng, nên chưa làm.
+
 - **Giới hạn:**
   - Như Onyx: 64 KiB/frame binary, 25 MiB/kết nối.
   - Thêm: 16 KiB/frame text (đặt trên từng session), 60 s không có âm thanh, 10 phút/phiên, close code theo loại lỗi [MEM-91, Sửa lỗi].
@@ -238,9 +251,13 @@ Sửa lỗi kèm theo:
   - PCM được bọc thành WAV, filename `audio.wav`; ngôn ngữ `vi`/`en`.
   - Server không cần key vẫn nhận một bearer giữ chỗ hợp lệ.
 - **OpenAI Realtime:**
-  - Chưa làm; chờ spike với key thật (Q3).
-  - Khi thêm adapter live đầu tiên, tạo interface phiên live chung cho nó và `ChunkedTranscriber`. Chưa tạo interface khi mới có một implementation.
-  - Hiện OpenAI dùng đường chunked, nên chỉ gửi khi bấm dừng, giống hành vi Onyx với OpenAI.
+  - `TranscriptionSession` là contract chung cho phiên live và `ChunkedTranscriber`; handler WebSocket không biết provider dùng streaming hay REST.
+  - Provider `OPENAI` mở Realtime WebSocket từ API tới provider, dùng session `type: transcription`, model `gpt-live-transcribe`, PCM16 24 kHz, `delay: low` và `languages: [vi|en]` theo [hướng dẫn OpenAI hiện hành](https://developers.openai.com/api/docs/guides/realtime-transcription). Provider `OPENAI_COMPATIBLE` vẫn dùng REST vì không thể giả định endpoint tương thích Realtime.
+  - Mỗi `conversation.item.input_audio_transcription.delta` được cộng vào transcript hiện tại và đẩy ngay về composer. `completed` hoàn tất lượt sau khi client gửi `end` và API gửi `input_audio_buffer.commit`.
+  - `isFinal` chỉ đánh dấu transcript đã commit; `utteranceEnd` là ranh giới VAD riêng. Adapter OpenAI đầu tiên tắt turn detection nên final do Stop có `utteranceEnd:false`; không tuyên bố Auto-Send theo khoảng lặng.
+  - `revision` tăng đơn điệu trên kết nối MemoryOS; browser bỏ update cũ. `item_id` của provider chỉ nằm trong phiên backend và không lộ ra client.
+  - Audio vẫn được giữ tối đa 25 MiB trong RAM của phiên để nếu mở stream, gửi audio, chờ final hoặc provider lỗi thì phát lại toàn bộ qua `ChunkedTranscriber`; không ghi đĩa, database, log hay trace. Streaming và fallback dùng chung giới hạn phiên hiện có.
+  - Model STT do admin chọn tiếp tục là model của REST final/fallback; `gpt-live-transcribe` là transport live cố định như Onyx tách model live khỏi model batch.
 - **Auto-Send:**
   - Có final sau khi bấm dừng, cài đặt bật, composer rảnh (không đang trả lời, tệp đính kèm sẵn sàng) → gửi tin (`ChatDictationAutoSend`).
   - Đường chunked chỉ có final khi bấm dừng, nên "gửi khi ngừng nói" và timer 10 s của Onyx chỉ áp dụng khi có adapter live có VAD [MemoryOS].
@@ -264,6 +281,7 @@ Sửa lỗi kèm theo:
   - CSP thêm `media-src 'self' blob:` [MemoryOS].
 
 **Đã triển khai:**
+
 - **Server** (`VoiceSynthesisService`, `VoiceSynthesisController`):
   - `CHAT_READ`; tối đa 8 luồng mỗi tiến trình API, vượt thì `CHAT_CAPACITY_EXCEEDED`.
   - Dùng `OpenAiAudioSpeechModel.stream` của Spring AI; mỗi đoạn là một request tuần tự, chunk MP3 được ghi ngay ra response.
@@ -294,6 +312,7 @@ Sửa lỗi kèm theo:
 - **Auto-listen** (như Onyx): TTS đã thực sự phát và nay rảnh, `auto_playback` bật, người dùng đã bấm mic tay trong phiên, lần dừng trước không phải dừng tay → sau 400 ms bắt đầu ghi. Có guard phiên 5 phút.
 
 **Đã triển khai:**
+
 - **Server:** `StreamingSynthesizer` và `SynthesizeWebSocketHandler`.
   - Mỗi phần là một request speech tuần tự; audio ghi ra socket ngay khi có.
   - Tối đa 4096 ký tự mỗi phần, 32 000 ký tự mỗi phiên; không nhận text sau 5 phút rảnh, phiên tối đa 10 phút.
@@ -310,6 +329,7 @@ Sửa lỗi kèm theo:
 ### 4.7 Cài đặt
 
 Mục "Giọng nói" trong `/settings/general`:
+
 - Switch "Tự gửi khi ngừng nói".
 - Switch "Tự đọc câu trả lời".
 - Slider "Tốc độ phát" 0.5–2.0, bước 0.1 (shadcn `Switch`/`Slider`); server làm tròn tới 0,1.
@@ -317,6 +337,7 @@ Mục "Giọng nói" trong `/settings/general`:
 Lưu optimistic, toast đã dịch. Mỗi điều khiển chỉ xuất hiện khi hành vi tương ứng đã được triển khai.
 
 Hiện có (`voice-settings-section.tsx`):
+
 - Switch "Tự động gửi khi dừng ghi âm", chỉ hiện khi Tenant có STT.
 - Switch "Tự động đọc câu trả lời", chỉ hiện khi Tenant có TTS.
 - Slider "Tốc độ đọc" 0.5–2.0 bước 0.1 kèm giá trị `1.0×`, chỉ hiện khi Tenant có TTS; chỉ lưu khi thả tay hoặc sau mỗi phím.
@@ -324,12 +345,12 @@ Hiện có (`voice-settings-section.tsx`):
 
 ### 4.8 Provider
 
-| Provider | STT chunked/batch | STT live | TTS | Kiểm credential |
-| --- | --- | --- | --- | --- |
-| OpenAI | Spring AI transcription (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) — **đã có** | Realtime GA, server VAD — chờ spike | Spring AI speech (tts-1, tts-1-hd; alloy…) | `GET {base}/models` — **đã có** |
-| OpenAI-compatible [MEM-91] | Spring AI với `baseUrl` — **đã có** | Không, dùng chunked | Spring AI speech | `GET {base}/models` — **đã có** |
-| ElevenLabs | REST Scribe (WAV, `language_code` theo UI) — **đã có** | Scribe realtime — chưa làm | REST stream, `voice_settings.speed` 0,7–1,2 — **đã có**; `stream-input` chưa làm | `GET /v1/models` với `xi-api-key` — **đã có** |
-| Azure | REST short-audio (16 kHz, phần ≤ 55 s, `vi-VN`/`en-US`) — **đã có** | Không (Q1) | REST SSML có escape, MP3 24 kHz — **đã có** | `GET /tts/cognitiveservices/voices/list` — **đã có** |
+| Provider                   | STT chunked/batch                                                                          | STT live                                                                                                              | TTS                                                                              | Kiểm credential                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| OpenAI                     | Spring AI transcription (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) — **đã có** | Realtime transcription `gpt-live-transcribe`, manual commit khi Stop, batch fallback — **đã có**; server VAD chưa bật | Spring AI speech (tts-1, tts-1-hd; alloy…)                                       | `GET {base}/models` — **đã có**                      |
+| OpenAI-compatible [MEM-91] | Spring AI với `baseUrl` — **đã có**                                                        | Không, dùng chunked                                                                                                   | Spring AI speech                                                                 | `GET {base}/models` — **đã có**                      |
+| ElevenLabs                 | REST Scribe (WAV, `language_code` theo UI) — **đã có**                                     | Scribe realtime — chưa làm                                                                                            | REST stream, `voice_settings.speed` 0,7–1,2 — **đã có**; `stream-input` chưa làm | `GET /v1/models` với `xi-api-key` — **đã có**        |
+| Azure                      | REST short-audio (16 kHz, phần ≤ 55 s, `vi-VN`/`en-US`) — **đã có**                        | Không (Q1)                                                                                                            | REST SSML có escape, MP3 24 kHz — **đã có**                                      | `GET /tts/cognitiveservices/voices/list` — **đã có** |
 
 Kiểm credential đòi phản hồi 2xx có mảng `data`, không theo redirect và không đọc body lỗi.
 
@@ -343,50 +364,51 @@ Kiểm credential đòi phản hồi 2xx có mảng `data`, không theo redirect
 
 ### 4.10 Quan sát và riêng tư
 
-- **Meter:** `memoryos.chat.voice.request` (tag `provider`, `operation` = `verify|transcribe`, sau này `synthesize`, `outcome`).
+- **Meter:** `memoryos.chat.voice.request` (tag `provider`, `operation` = `verify|transcribe|synthesize`, `outcome`) và `memoryos.chat.voice.realtime.fallback` (tag `provider`).
 - **Không ghi:** transcript, văn bản TTS, âm thanh hay lỗi provider vào log, trace hoặc message exception [Sửa lỗi, MemoryOS].
 - Các record chứa key hay vé đều có `toString` đã che.
 
 ## 5. Khác biệt so với Onyx
 
-| # | Onyx | MemoryOS | Loại |
-| --- | --- | --- | --- |
-| 1 | `FULL_ADMIN_PANEL_ACCESS`, `BASIC_ACCESS` | `MODELS_MANAGE`; membership + capability, kiểm lại khi handshake | MemoryOS |
-| 2 | Bảng toàn cục, không revision, trả key đã mask | Theo Tenant, `ProviderCredentials`, revision, `credentialConfigured` | MemoryOS, MEM-91 |
-| 3 | Ticket trong Redis, cửa sổ trượt | Bộ nhớ tiến trình API, dùng một lần, cửa sổ cố định | MemoryOS, Sửa lỗi |
-| 4 | Không có base URL cho OpenAI; private network chỉ cho Azure | Provider OpenAI-compatible, cho phép endpoint nội bộ theo chính sách catalog | MEM-91 (cùng hướng PR #14304) |
-| 5 | Test chỉ khi lưu; validate trong transaction | Hành động Test trên card; kiểm key nháp ngoài transaction trước khi lưu | MEM-91, MemoryOS |
-| 6 | Model STT không chọn được; `tts_model` bị ghi đè | Danh sách model + nhập tự do; không ghi đè | Sửa lỗi, MEM-91 |
-| 7 | `hasAlternatives` bỏ qua mode; chọn/bỏ chọn không báo lỗi; status cache không invalidate | Tính theo phần; pending + lỗi; invalidate | Sửa lỗi |
-| 8 | ScriptProcessorNode, bỏ âm thanh khi tồn | AudioWorklet, không bỏ | Sửa lỗi |
-| 9 | OpenAI không có VAD | Bật server VAD (chờ spike Q3) | Sửa lỗi |
-| 10 | Lỗi giữa chừng fallback, mất âm thanh | Lỗi có kiểu, đóng | Sửa lỗi |
-| 11 | Không giới hạn thời gian rảnh/phiên; REST TTS không giới hạn độ dài | 60 s, 10 phút, 32 000 ký tự | MEM-91, Sửa lỗi |
-| 12 | Bỏ markdown hai lần, không bỏ citation | Một chỗ ở client, bỏ citation | Sửa lỗi |
-| 13 | Đọc tay tốc độ 1.0; nhiều player chồng; bỏ qua `error` WS; thiếu MSE thì kẹt | Dùng tốc độ đã cài; một player; xử lý lỗi; báo không khả dụng | Sửa lỗi |
-| 14 | Gõ phím hay Send trong lúc ghi bị ghi đè / không dừng | Chặn Send tới khi có final; giữ chữ gõ | Sửa lỗi |
-| 15 | Log/trace chứa văn bản; lỗi provider hiện nguyên văn | Không ghi nội dung; lỗi có mã | MemoryOS, Sửa lỗi |
-| 16 | Endpoint batch `transcribe`, `providers/{id}/voices` | Không làm (không có caller) | MemoryOS (ADR 0002) |
-| 17 | UI tự dựng, không có tiếng Việt | Primitive assistant-ui, control shadcn, vi/en | MemoryOS |
-| 18 | Ảnh hưởng hạ tầng Onyx | nginx WebSocket, CSP `media-src`, Vite `ws` | MemoryOS |
-| 19 | Chờ final 3 s rồi giữ interim | Chờ final 15 s | MemoryOS |
-| 20 | Card, hành động hiện khi hover; hai card TTS theo model | Danh sách dòng, hành động luôn hiện; model và giọng chọn trong hộp thoại ([ui-references.md](ui-references.md)) | MemoryOS |
-| 21 | Search không có trong Onyx | Mic trong Search dùng cùng WebSocket, bỏ `SpeechRecognition` | MEM-91 |
-| 22 | Một ws-token cho mọi socket; không có MSE thì Auto-Playback không phát | Vé theo mục đích; không có MSE thì phát sau khi tải xong; chưa có chữ chạy theo tiếng | MemoryOS, Sửa lỗi |
+| #   | Onyx                                                                                     | MemoryOS                                                                                                        | Loại                          |
+| --- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 1   | `FULL_ADMIN_PANEL_ACCESS`, `BASIC_ACCESS`                                                | `MODELS_MANAGE`; membership + capability, kiểm lại khi handshake                                                | MemoryOS                      |
+| 2   | Bảng toàn cục, không revision, trả key đã mask                                           | Theo Tenant, `ProviderCredentials`, revision, `credentialConfigured`                                            | MemoryOS, MEM-91              |
+| 3   | Ticket trong Redis, cửa sổ trượt                                                         | Bộ nhớ tiến trình API, dùng một lần, cửa sổ cố định                                                             | MemoryOS, Sửa lỗi             |
+| 4   | Không có base URL cho OpenAI; private network chỉ cho Azure                              | Provider OpenAI-compatible, cho phép endpoint nội bộ theo chính sách catalog                                    | MEM-91 (cùng hướng PR #14304) |
+| 5   | Test chỉ khi lưu; validate trong transaction                                             | Hành động Test trên card; kiểm key nháp ngoài transaction trước khi lưu                                         | MEM-91, MemoryOS              |
+| 6   | Model STT không chọn được; `tts_model` bị ghi đè                                         | Danh sách model + nhập tự do; không ghi đè                                                                      | Sửa lỗi, MEM-91               |
+| 7   | `hasAlternatives` bỏ qua mode; chọn/bỏ chọn không báo lỗi; status cache không invalidate | Tính theo phần; pending + lỗi; invalidate                                                                       | Sửa lỗi                       |
+| 8   | ScriptProcessorNode, bỏ âm thanh khi tồn                                                 | AudioWorklet, không bỏ                                                                                          | Sửa lỗi                       |
+| 9   | OpenAI live không có VAD                                                                 | Tách `isFinal` khỏi `utteranceEnd`; bản đầu manual commit khi Stop, không phát ranh giới VAD giả                | Sửa lỗi                       |
+| 10  | Lỗi live giữa chừng làm mất âm thanh                                                     | Giữ audio có giới hạn trong RAM và phát lại toàn bộ qua batch fallback                                          | Sửa lỗi                       |
+| 11  | Không giới hạn thời gian rảnh/phiên; REST TTS không giới hạn độ dài                      | 60 s, 10 phút, 32 000 ký tự                                                                                     | MEM-91, Sửa lỗi               |
+| 12  | Bỏ markdown hai lần, không bỏ citation                                                   | Một chỗ ở client, bỏ citation                                                                                   | Sửa lỗi                       |
+| 13  | Đọc tay tốc độ 1.0; nhiều player chồng; bỏ qua `error` WS; thiếu MSE thì kẹt             | Dùng tốc độ đã cài; một player; xử lý lỗi; báo không khả dụng                                                   | Sửa lỗi                       |
+| 14  | Gõ phím hay Send trong lúc ghi bị ghi đè / không dừng                                    | Chặn Send tới khi có final; giữ chữ gõ                                                                          | Sửa lỗi                       |
+| 15  | Log/trace chứa văn bản; lỗi provider hiện nguyên văn                                     | Không ghi nội dung; lỗi có mã                                                                                   | MemoryOS, Sửa lỗi             |
+| 16  | Endpoint batch `transcribe`, `providers/{id}/voices`                                     | Không làm (không có caller)                                                                                     | MemoryOS (ADR 0002)           |
+| 17  | UI tự dựng, không có tiếng Việt                                                          | Primitive assistant-ui, control shadcn, vi/en                                                                   | MemoryOS                      |
+| 18  | Ảnh hưởng hạ tầng Onyx                                                                   | nginx WebSocket, CSP `media-src`, Vite `ws`                                                                     | MemoryOS                      |
+| 19  | Chờ final 3 s rồi giữ interim                                                            | Chờ final 15 s                                                                                                  | MemoryOS                      |
+| 20  | Card, hành động hiện khi hover; hai card TTS theo model                                  | Danh sách dòng, hành động luôn hiện; model và giọng chọn trong hộp thoại ([ui-references.md](ui-references.md)) | MemoryOS                      |
+| 21  | Search không có trong Onyx                                                               | Mic trong Search dùng cùng WebSocket, bỏ `SpeechRecognition`                                                    | MEM-91                        |
+| 22  | Một ws-token cho mọi socket; không có MSE thì Auto-Playback không phát                   | Vé theo mục đích; không có MSE thì phát sau khi tải xong; chưa có chữ chạy theo tiếng                           | MemoryOS, Sửa lỗi             |
 
 ## 6. Quyết định
 
 Người thực hiện yêu cầu triển khai ngay theo các giả định trong [plan.md](plan.md) (15/09/2026):
+
 - **Q2 — Nơi cấu hình:**
   - Đã triển khai bảng `chat_voice_connection` riêng, theo Onyx và tiền lệ Web/Image.
   - Văn bản issue ghi "mở rộng catalog MEM-77", nên vẫn cần báo người tạo issue.
-- **Q3 — OpenAI server VAD:** giả định bật nếu spike với key thật đạt. Chưa có key, nên OpenAI tạm dùng đường chunked.
+- **Q3 — OpenAI server VAD:** OpenAI Realtime đã dùng cho delta và manual commit; chưa bật server VAD khi chưa có nghiệm thu provider thật. `utteranceEnd` vì vậy vẫn false và Auto-Send không dựa vào sự kiện này.
 - **Q1 — Azure:** giả định chỉ dùng REST; streaming Azure (Speech SDK native) để sau.
 
 ## 7. Thứ tự giao
 
 1. **Provider và `/admin/voice`:** OpenAI, OpenAI-compatible; kèm endpoint availability.
-2. **Nhập bằng giọng nói:** vé, STT WebSocket (chunked; OpenAI Realtime sau spike), mic trong Chat và Search, bảng cài đặt và Auto-Send.
+2. **Nhập bằng giọng nói:** vé, STT WebSocket (OpenAI Realtime với batch fallback; provider khác chunked), mic trong Chat và Search, bảng cài đặt và Auto-Send.
 3. **Đọc thành tiếng:** REST synthesize, player MSE, tốc độ phát.
 4. **Hội thoại rảnh tay:** Auto-Playback (TTS WebSocket, tách đoạn, chữ theo tiếng) và auto-listen.
 5. **ElevenLabs và Azure** (theo Q1).
@@ -408,7 +430,7 @@ Người thực hiện yêu cầu triển khai ngay theo các giả định tron
 - **Chữ chạy theo tiếng:** map vị trí với renderer markdown/citation của MemoryOS có thể phức tạp.
 - **Vé nằm trong bộ nhớ một tiến trình API:** chạy nhiều tiến trình API cần sticky session hoặc kho vé dùng chung.
 - **AudioWorklet không có output** được giả định vẫn xử lý khi chỉ nối nguồn vào; cần kiểm trên Chrome, Firefox và Safari (S0.6).
-- **Chưa xác minh với provider thật:** OpenAI Realtime GA với server VAD; Spring AI audio với server OpenAI-compatible (mới kiểm bằng fixture loopback); giới hạn 4096 ký tự của OpenAI speech; server OpenAI-compatible có chấp nhận `stream_format: "audio"` mà Spring AI gửi khi stream TTS hay không.
+- **Chưa xác minh với provider thật:** OpenAI Realtime (manual commit và fallback đã kiểm bằng WebSocket fixture; server VAD chưa bật); Spring AI audio với server OpenAI-compatible (mới kiểm bằng fixture loopback); giới hạn 4096 ký tự của OpenAI speech; server OpenAI-compatible có chấp nhận `stream_format: "audio"` mà Spring AI gửi khi stream TTS hay không.
 - **Chi phí provider:** Auto-Playback đọc mọi câu trả lời mới và chưa có quota.
 - **Playwright:** dùng mic giả của Chromium, `routeWebSocket` và MP3 im lặng; mic thật, loa thật và Safari chưa được kiểm.
 - **Chính sách tự phát âm thanh:** Auto-Playback bắt đầu vài giây sau thao tác gửi. Trình duyệt chặn phát thì composer báo không phát được âm thanh.

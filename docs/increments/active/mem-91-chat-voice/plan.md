@@ -4,14 +4,14 @@ Design: [design.md](design.md). Tham chiếu: [onyx-voice-reference.md](onyx-voi
 
 **Viết tắt đường dẫn:**
 
-| Viết tắt | Đường dẫn |
-| --- | --- |
-| `core:` | `core/src/main/java/io/memoryos/` |
-| `core-test:` | `core/src/test/java/io/memoryos/` |
-| `api:` | `api/src/main/java/io/memoryos/api/` |
-| `api-test:` | `api/src/test/java/io/memoryos/api/` |
-| `mig:` | `core/src/main/resources/db/migration/` |
-| `web:` | `web/src/` |
+| Viết tắt     | Đường dẫn                               |
+| ------------ | --------------------------------------- |
+| `core:`      | `core/src/main/java/io/memoryos/`       |
+| `core-test:` | `core/src/test/java/io/memoryos/`       |
+| `api:`       | `api/src/main/java/io/memoryos/api/`    |
+| `api-test:`  | `api/src/test/java/io/memoryos/api/`    |
+| `mig:`       | `core/src/main/resources/db/migration/` |
+| `web:`       | `web/src/`                              |
 
 **Ký hiệu:** `[x]` đã làm và có test; `[ ]` chưa làm.
 
@@ -19,29 +19,29 @@ Design: [design.md](design.md). Tham chiếu: [onyx-voice-reference.md](onyx-voi
 
 Người thực hiện yêu cầu triển khai ngay ngày 15/09/2026, nên các giả định dưới đây đang được dùng. Đổi giả định nào thì sửa design.md và mục liên quan trước.
 
-| Câu hỏi | Giả định | Trạng thái |
-| --- | --- | --- |
-| Q2 — Nơi cấu hình | Bảng riêng `chat_voice_connection` theo Onyx và tiền lệ Web/Image | Đã triển khai; còn phải báo người tạo issue |
-| Q3 — OpenAI server VAD | Bật nếu spike với key thật đạt; không đạt thì giữ đúng Onyx | Chưa có key; OpenAI tạm dùng đường chunked |
-| Q1 — Azure | Chỉ REST; streaming Azure để sau | Chưa làm |
+| Câu hỏi                | Giả định                                                          | Trạng thái                                  |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| Q2 — Nơi cấu hình      | Bảng riêng `chat_voice_connection` theo Onyx và tiền lệ Web/Image | Đã triển khai; còn phải báo người tạo issue |
+| Q3 — OpenAI server VAD | Bật nếu spike với key thật đạt; không đạt thì giữ đúng Onyx       | Chưa có key; OpenAI tạm dùng đường chunked  |
+| Q1 — Azure             | Chỉ REST; streaming Azure để sau                                  | Chưa làm                                    |
 
 ## Cách chia PR
 
 Mỗi PR đưa vào main một năng lực dùng được thật. Không merge trang cấu hình khi chưa có nơi dùng ([ADR 0002](../../../decisions/0002-no-speculative-operational-surfaces.md)).
 
-| PR | Giai đoạn | Người dùng có gì sau khi merge |
-| --- | --- | --- |
-| A | 1 + 2 | Model manager cấu hình provider; thành viên nói để nhập trong Chat và Search; Auto-Send |
-| B | 3 | Nút đọc thành tiếng, tốc độ phát |
-| C | 4 | Auto-Playback, chữ chạy theo tiếng, auto-listen |
-| D | 5 | ElevenLabs, Azure |
+| PR  | Giai đoạn | Người dùng có gì sau khi merge                                                          |
+| --- | --------- | --------------------------------------------------------------------------------------- |
+| A   | 1 + 2     | Model manager cấu hình provider; thành viên nói để nhập trong Chat và Search; Auto-Send |
+| B   | 3         | Nút đọc thành tiếng, tốc độ phát                                                        |
+| C   | 4         | Auto-Playback, chữ chạy theo tiếng, auto-listen                                         |
+| D   | 5         | ElevenLabs, Azure                                                                       |
 
 ## Giai đoạn 0 — Spike và chốt
 
 - [x] **S0.1** Giả định Q1–Q3 được áp dụng theo yêu cầu triển khai. [ ] Comment Linear báo người tạo issue về Q2 (chỉ đăng khi được đồng ý).
 - [x] **S0.2 (fixture)** Spring AI transcription gửi multipart có `filename="audio.wav"`, `model`, `language` và bearer tới endpoint OpenAI-protocol loopback; lỗi provider không lộ payload (`VoiceTranscriptionServiceTest`). Kiểm credential bằng `GET /models` (`VoiceProviderClientTest`).
 - [ ] **S0.2 (thật)** Kiểm với OpenAI thật và một server OpenAI-compatible (Speaches): xử lý `/v1`, định dạng phản hồi, `speed`, giới hạn 4096 ký tự, chi phí dựng client.
-- [ ] **S0.3** OpenAI Realtime GA transcription với server VAD (cần key).
+- [x] **S0.3 (fixture)** OpenAI Realtime transcription `gpt-live-transcribe`: session/audio/delta/completed/manual commit, batch fallback và thứ tự revision. [ ] Provider thật và server VAD vẫn cần key.
 - [x] **S0.4** Thay bằng kho vé trong bộ nhớ tiến trình: tiêu vé nguyên tử bằng `ConcurrentHashMap.remove`, handshake qua chain `/api/**` (`VoiceTicketStoreTest`, test WebSocket tích hợp).
 - [x] **S0.5 (runtime giả)** `DictationAdapter`: final phát trước khi `stop()` settle, `status` cập nhật tại chỗ, hủy khi đang khởi động (`memoryos-dictation-adapter.test.ts`).
 - [x] **S0.5 (composer thật)** Playwright `voice-dictation.spec.ts` chạy adapter trong composer Chat thật: interim, final, Auto-Send.
@@ -68,7 +68,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 - [x] Nghiên cứu Mobbin (Braintrust, Retool, Vercel, Adaline, Vapi, ChatGPT, Mistral, WhatsApp…); tham chiếu và quyết định trình bày trong [ui-references.md](ui-references.md).
 - [x] `web:routes/_authenticated.admin.voice.tsx`; mục "Giọng nói" trong `web:routes/_authenticated.admin.tsx` và `web:components/app-shell/app-shell.tsx` (`MODELS_MANAGE`).
-- [x] `web:features/voice/voice-admin-page.tsx`, `voice-provider-card.tsx` (ngắt kết nối bằng `ConfirmDialog`, không cần file dialog riêng), `voice-provider-dialog.tsx`, `voice-providers.ts`, `use-voice-availability.ts`; `web:components/ui/dialog.tsx` từ registry shadcn.
+- [x] `web:features/voice/voice-admin-page.tsx`, `voice-provider-card.tsx`, `voice-provider-dialog.tsx`, `voice-providers.ts`, `use-voice-availability.ts`; overview theo capability, trust badge không lưu audio, provider grid responsive và dialog shadcn chia Connection / Model and voice.
 - [x] i18n vi/en trong `web:i18n/app-translations.ts`; mã lỗi `voiceProviderUnavailable` trong `en.ts`/`vi.ts`.
 - [x] **Test:**
   - `voice-admin-page.test.tsx` (4 ca): kết nối lần đầu thành mặc định qua lần lưu có kiểm key; đổi mặc định và chỉ xóa sau khi xác nhận; key bị từ chối thì giữ hộp thoại với copy theo mã, không lộ văn bản provider; không có quyền thì không đọc cấu hình.
@@ -83,7 +83,8 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 - [x] `core:chat/voice/Pcm16.java`, `Transcript.java`, `ChunkedTranscriber.java`, `VoiceTranscriptionService.java`.
 - [x] `api:chat/VoiceTicketStore.java`, `VoiceSessionController.java` (`/tickets`, `/settings`), `VoiceHandshakeInterceptor.java`, `TranscribeWebSocketHandler.java`, `VoiceWebSocketConfiguration.java`; contract `VoiceTicketResponse`, `VoiceSettings{Request,Response}`.
 - [x] `web/nginx.conf`: location WebSocket nhập bằng giọng nói. `web/vite.config.ts`: `ws: true` và giữ `X-Forwarded-Proto: http` khi Vite nâng cấp kết nối để kiểm tra same-origin của API chấp nhận Origin cục bộ.
-- [ ] Adapter live OpenAI Realtime (chờ S0.3) và interface phiên live chung khi có implementation thứ hai.
+- [x] `TranscriptionSession` dùng chung cho live/chunked; adapter OpenAI Realtime `gpt-live-transcribe` phát transcript delta, commit khi Stop và fallback sang batch với toàn bộ audio đã nhận.
+- [x] Protocol transcript tách `isFinal`/`utteranceEnd`, có `revision` tăng đơn điệu; web bỏ message cũ. Bản đầu không bật VAD nên `utteranceEnd:false`; Auto-Send vẫn chạy sau final của manual Stop/client pause hiện có.
 - [x] **Test:**
   - `core-test:chat/voice/Pcm16Test` (4 ca), `ChunkedTranscriberTest` (4 ca), `VoiceTranscriptionServiceTest` (2 ca).
   - `api-test:chat/VoiceTicketStoreTest` (3 ca).
@@ -98,7 +99,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
   - Vitest 11 ca.
 - [x] **Giao diện** (`web:features/voice/chat-dictation-controls.tsx`):
   - Mic cạnh Send (`ComposerPrimitive.Dictate`), disabled khi đang trả lời; model manager chưa có provider thấy link tới `/admin/voice`.
-  - Dải ghi âm (`ComposerPrimitive.StopDictation`): chấm đỏ, đồng hồ, mức âm lượng thật, tắt mic; placeholder "Đang nghe…"; lỗi đã dịch có nút đóng.
+  - Dải ghi âm (`ComposerPrimitive.StopDictation`): chấm đỏ, đồng hồ, nhãn trạng thái nhìn thấy được, mức âm lượng thật, tắt mic; placeholder "Đang nghe…"; lỗi đã dịch có nút đóng.
   - `chat-composer.tsx` chặn Send và Enter khi đang dictation; `ChatDictationAutoSend` gửi sau final khi bật Auto-Send.
   - Trạng thái trình bày trong `voice-session-store.ts`; copy lỗi và vé trong `voice-failure.ts`.
 - [x] `web:features/chat/chat-runtime-provider.tsx`: `use-chat-dictation-adapter.ts` chỉ trả adapter khi `sttAvailable`.
@@ -117,10 +118,26 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 - Playwright `voice-administration.spec.ts` và `voice-dictation.spec.ts`: 6/6 đạt.
 - `gradlew clean check` toàn repo chưa có kết quả mới: lần chạy 15/09/2026 bị dừng giữa `:core:test` vì máy còn khoảng 0,5 GB RAM. Backend không đổi từ lần kiểm trước (voice core 15/15, API voice và `OpenApiContractTest` đạt; lỗi `ChunkedTranscriberTest` đã sửa). Cần chạy lại trước khi mở PR.
 
+### Bằng chứng OpenAI Realtime (17/09/2026)
+
+- `:core:test --tests io.memoryos.chat.voice.*`: 10 lớp, 40 ca đạt; gồm fixture WebSocket kiểm URI/header/session, delta cộng dồn, message phân mảnh, manual commit và replay batch khi stream lỗi.
+- `:api:test --tests io.memoryos.api.chat.ChatSessionApiIntegrationTest.voiceTranscriptionStreamsInterimAndFinalTextOverATicketedSameOriginWebSocket`: đạt với PostgreSQL thật; interim/final có `revision` 1/2 và `utteranceEnd:false`.
+- Vitest ba file dictation/socket: 12 ca đạt; TypeScript, oxlint và oxfmt của protocol sạch. Client bỏ revision đến trễ và vẫn tương thích response cũ chưa có revision.
+- `:core:check` và toàn bộ API `voice*` + `VoiceTicketStoreTest`: đạt; Playwright `voice-dictation` + `voice-conversation`: 5/5; production build/route check đạt.
+- `pnpm check`: các bước trước unit test đạt, toàn bộ 40 ca Voice đạt; 1/392 ca preview file Chat không liên quan bị trượt do timing và đạt 11/11 khi chạy riêng. Chưa tính là full Web gate xanh.
+- Chưa nghiệm thu với API key OpenAI thật; server VAD chưa bật. Batch fallback và lỗi stream dùng fixture kiểm soát, không phải phép đo latency provider.
+
+### Bằng chứng đợt thiết kế lại (18/09/2026)
+
+- Rà soát bổ sung Mobbin (Vapi, Hume AI, ChatGPT, Mistral, Grok, Copilot) và giữ Onyx làm baseline hành vi; quyết định cập nhật nằm trong [ui-references.md](ui-references.md).
+- `tsc -b`, `oxlint --deny-warnings`, `check:i18n`: sạch; 7/7 Vitest mục tiêu cho admin và cài đặt Voice đạt.
+- 9/9 ca Playwright Voice đạt (`voice-administration`, `voice-dictation`, `voice-read-aloud`, `voice-conversation`), gồm desktop/mobile, mic giả, WebSocket và phát MP3.
+- Kiểm trực quan app fixture thật ở 1440 px: overview và bốn provider card không tràn ngang; dialog Connection / Model and voice hiển thị đầy đủ. Playwright tiếp tục bao phủ admin ở 390 px.
+
 ### Tài liệu trong PR A
 
 - [x] `design.md`, `plan.md` cập nhật theo phần đã triển khai.
-- [ ] `docs/specs/chat.md` (mục Voice), `docs/specs/chat-models.md` (liên kết), `docs/tests/chat.md`, `ARCHITECTURE.md`, `verification.md`.
+- [x] `docs/specs/chat.md` (mục Voice), `docs/specs/chat-models.md` (liên kết), `docs/tests/chat.md`, `ARCHITECTURE.md`, `verification.md`.
 
 ## Giai đoạn 3 — Đọc thành tiếng (PR B)
 
@@ -144,6 +161,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
   - Playwright `voice-read-aloud.spec.ts`: câu trả lời thật từ fixture, request có CSRF và văn bản đã bỏ markdown, phát MP3 qua MediaSource của Chromium tới hết, dừng giữa chừng.
 
 **Bằng chứng giai đoạn 3 (15/09/2026):**
+
 - Gradle `:core:test --tests io.memoryos.chat.voice.*`: đạt.
 - Gradle `:api:test` với `OpenApiContractTest` (có `MEMORYOS_OPENAPI_WRITE=true`) và `ChatSessionApiIntegrationTest.voice*`: BUILD SUCCESSFUL; `openapi.yml` và client hey-api được tạo lại.
 - Web: `tsc -b`, `oxlint`, `oxfmt`, `check:i18n` sạch; Vitest voice, chat, identity, search, i18n, components: 37 file, 195 ca, cộng `voice-settings-section.test.tsx` 3 ca, đều đạt.
@@ -178,6 +196,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
   - Playwright `voice-conversation.spec.ts`: nói → tự gửi → tự đọc trong lúc stream (bỏ code) → mic tự bật lại; dừng đọc bằng tay thì mic không bật lại.
 
 **Bằng chứng giai đoạn 4 (16/09/2026):**
+
 - Gradle `:core:test --tests io.memoryos.chat.voice.*`: đạt.
 - Gradle `:api:test` với `VoiceTicketStoreTest`, `OpenApiContractTest` (`MEMORYOS_OPENAPI_WRITE=true`) và `ChatSessionApiIntegrationTest.voice*`: BUILD SUCCESSFUL. `openapi.yml` và client hey-api được tạo lại.
 - Web: `tsc -b`, `oxlint`, `oxfmt`, `check:i18n` sạch.
@@ -208,6 +227,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
   - `ChatSessionApiIntegrationTest` kiểm danh sách bốn provider.
 
 **Bằng chứng giai đoạn 5 (16/09/2026, trước lần đồng bộ `main` mới nhất; migration khi đó là V63/V64):**
+
 - Gradle `:core:test --tests io.memoryos.chat.voice.*`: 9 lớp, 37 ca đạt (`AzureSpeechTest` 3, `ElevenLabsVoiceTest` 3, `HttpAudioStreamTest` 2, `Pcm16Test` 5, `VoiceProviderClientTest` 7, `VoiceSynthesisServiceTest` 6, `VoiceTranscriptionServiceTest` 3, `ChunkedTranscriberTest` 4, `StreamingSynthesizerTest` 4).
 - Gradle `:api:test`: `ChatSessionApiIntegrationTest.voice*` 5 ca, `OpenApiContractTest` 1, `VoiceTicketStoreTest` 4, đều đạt. `openapi.yml` được tạo lại với hai giá trị provider mới; client hey-api được tạo lại.
 - Web: `tsc -b`, `oxlint`, `oxfmt`, `check:i18n` sạch; Vitest thư mục voice 12 file, 40 ca đạt.
@@ -232,13 +252,13 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
 
 ## Rủi ro và cách giảm
 
-| Rủi ro | Cách giảm |
-| --- | --- |
-| Schema OpenAI Realtime GA thay đổi | S0.3; fixture test ghim message; lỗi có kiểu thay vì fallback âm thầm |
-| Vé trong bộ nhớ một tiến trình API | Ghi trong spec; nhiều tiến trình cần sticky session hoặc kho vé dùng chung |
-| iOS Safari không có MediaSource | Nút đọc dùng Blob; Auto-Playback báo không khả dụng |
-| Chữ chạy theo tiếng khó map với markdown/citation | Tách riêng `text-reveal.ts` có test; fallback 5 s |
-| API speech/dictation của assistant-ui còn thử nghiệm | Ghim 0.15.18; test adapter theo contract; kiểm composer thật (S0.5) |
-| AudioWorklet không output có thể không chạy ở vài trình duyệt | S0.6; nếu cần, nối qua `GainNode` tắt tiếng |
-| Chi phí provider do Auto-Playback | Meter theo provider/operation/outcome; quota nằm ngoài phạm vi |
-| Playwright với mic và WebSocket | Chromium fake media, WebSocket mock; mic thật kiểm tay ở giai đoạn 6 |
+| Rủi ro                                                        | Cách giảm                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Schema OpenAI Realtime GA thay đổi                            | S0.3; fixture test ghim message; lỗi phát lại audio qua batch và tăng meter fallback |
+| Vé trong bộ nhớ một tiến trình API                            | Ghi trong spec; nhiều tiến trình cần sticky session hoặc kho vé dùng chung           |
+| iOS Safari không có MediaSource                               | Nút đọc dùng Blob; Auto-Playback báo không khả dụng                                  |
+| Chữ chạy theo tiếng khó map với markdown/citation             | Tách riêng `text-reveal.ts` có test; fallback 5 s                                    |
+| API speech/dictation của assistant-ui còn thử nghiệm          | Ghim 0.15.18; test adapter theo contract; kiểm composer thật (S0.5)                  |
+| AudioWorklet không output có thể không chạy ở vài trình duyệt | S0.6; nếu cần, nối qua `GainNode` tắt tiếng                                          |
+| Chi phí provider do Auto-Playback                             | Meter theo provider/operation/outcome; quota nằm ngoài phạm vi                       |
+| Playwright với mic và WebSocket                               | Chromium fake media, WebSocket mock; mic thật kiểm tay ở giai đoạn 6                 |
