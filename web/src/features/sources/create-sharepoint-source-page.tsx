@@ -1,22 +1,20 @@
-import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Globe2, LockKeyhole, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
-import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import { ApiError } from "@/lib/api";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
@@ -24,7 +22,6 @@ import {
   getSharePointSelectionPolicyOptions,
   getSharePointSelectionRequestOptions,
   listSharePointCredentialsOptions,
-  listSourceGroupOptionsOptions,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CreateSharePointSourceData } from "@/lib/hey-api/types.gen";
@@ -40,11 +37,10 @@ import {
   sharePointScopeRequest,
   type SharePointScopeDraft,
 } from "./sharepoint-scope";
-import { SourceSetupSteps } from "./source-setup-steps";
+import { SourceAccessChoice } from "./source-access-choice";
+import { SourceGroupPicker } from "./source-group-picker";
+import { sharePointSetupSteps, type SharePointSetupStep } from "./sharepoint-setup-search";
 import { useSourceSelectionOperation } from "./source-selection-operation";
-
-const STEPS = ["credential", "content", "access", "review"] as const;
-type Step = (typeof STEPS)[number];
 
 export function CreateSharePointSourcePage() {
   const session = useApplicationSession();
@@ -66,7 +62,11 @@ function SharePointSourceSetup() {
   const authority = useCapabilityAuthority("SOURCES_MANAGE");
   const scoped = authority === "scoped";
   const canManage = authority !== "none";
-  const current: Step = step ?? "credential";
+  const current: SharePointSetupStep = step ?? "credential";
+  const currentIndex = Math.max(
+    0,
+    sharePointSetupSteps.findIndex((entry) => entry.id === current),
+  );
   const credentials = useQuery({
     ...listSharePointCredentialsOptions(),
     enabled: canManage,
@@ -107,7 +107,7 @@ function SharePointSourceSetup() {
     credentialId: selected?.id ?? "",
     scope: sharePointScopeRequest(draft),
     access,
-    ...(groupIds.size > 0 ? { groupIds: [...groupIds] } : {}),
+    ...(access === "PRIVATE" && groupIds.size > 0 ? { groupIds: [...groupIds] } : {}),
   };
   const scopeError = sharePointScopeError(draft, policy.data, proposal);
   const controlsDisabled = busy || unavailable || frozen || Boolean(createdSourceId);
@@ -158,7 +158,7 @@ function SharePointSourceSetup() {
     handleTerminalOperation();
   }, [tracking.operation, tracking.terminal]);
 
-  function go(next: Step) {
+  function go(next: SharePointSetupStep) {
     setError(null);
     void navigate({ search: { credentialId, step: next } });
   }
@@ -293,18 +293,15 @@ function SharePointSourceSetup() {
         </div>
       ) : null}
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
-        <aside className="rounded-2xl border border-border-subtle bg-surface-raised p-3 lg:sticky lg:top-6">
-          <SourceSetupSteps
-            current={STEPS.indexOf(current)}
-            steps={[
-              { label: "Credential", complete: Boolean(ready) },
-              { label: "Content", complete: !scopeError },
-              { label: "Access", complete: Boolean(sourceName.trim()) },
-              { label: "Review" },
-            ]}
-          />
-        </aside>
+      <div className="min-w-0">
+        {/* The shell sidebar shows the steps; it is hidden on small screens, so say where the flow stands. */}
+        <p className="mb-4 font-secondary-body text-content-muted md:hidden">
+          {ui("Step {{number}} of {{count}} · {{step}}", {
+            number: currentIndex + 1,
+            count: sharePointSetupSteps.length,
+            step: ui(sharePointSetupSteps[currentIndex].label),
+          })}
+        </p>
         <div className="min-w-0 flex-1 space-y-6">
           {current === "credential" ? (
             <>
@@ -374,9 +371,7 @@ function SharePointSourceSetup() {
             >
               <h2 className="font-heading-h3">{ui("Name and access")}</h2>
               <div>
-                <label htmlFor="sharepoint-source-name" className="font-secondary-action">
-                  {ui("Source name")}
-                </label>
+                <Label htmlFor="sharepoint-source-name">{ui("Source name")}</Label>
                 <Input
                   id="sharepoint-source-name"
                   value={sourceName}
@@ -389,62 +384,37 @@ function SharePointSourceSetup() {
                   className="mt-2"
                 />
               </div>
-              <fieldset className="space-y-2" disabled={controlsDisabled}>
-                <legend className="font-secondary-action">{ui("Visibility")}</legend>
-                {scoped ? (
-                  <p className="rounded-xl border border-border-subtle bg-surface-sunken p-4 font-secondary-body text-content-muted">
+              <div className="space-y-2">
+                <Label id="sharepoint-source-access-label">{ui("Visibility")}</Label>
+                <SourceAccessChoice
+                  id="sharepoint-source-access"
+                  labelledBy="sharepoint-source-access-label"
+                  modes={scoped ? ["PRIVATE"] : ["PRIVATE", "PUBLIC"]}
+                  value={access}
+                  disabled={controlsDisabled}
+                  onValueChange={(next) =>
+                    editProposal(() => setAccess(next === "PUBLIC" ? "PUBLIC" : "PRIVATE"))
+                  }
+                />
+              </div>
+              {access === "PRIVATE" ? (
+                <div className="space-y-2">
+                  <SourceGroupPicker
+                    label={ui("Access groups")}
+                    placeholder={
+                      scoped ? ui("Select at least one group you manage.") : ui("Select groups")
+                    }
+                    selected={groupIds}
+                    disabled={controlsDisabled}
+                    onChange={(ids) => editProposal(() => setGroupIds(ids))}
+                  />
+                  <p className="font-secondary-body text-content-muted">
                     {ui(
-                      "Private · only members of the selected groups can search and read these files.",
+                      "Group members can search and read what this Source imports. SharePoint's own per-item permissions are not synchronized.",
                     )}
                   </p>
-                ) : (
-                  <RadioGroup
-                    value={access}
-                    className="grid gap-3 sm:grid-cols-2"
-                    onValueChange={(value) =>
-                      editProposal(() => setAccess(value as "PUBLIC" | "PRIVATE"))
-                    }
-                  >
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
-                      <RadioGroupItem value="PUBLIC" className="mt-1" />
-                      <Globe2 className="mt-0.5 size-4.5 shrink-0 text-content-secondary" />
-                      <span>
-                        <span className="block font-main-ui-action text-content-primary">
-                          {ui("Public · everyone in this Tenant")}
-                        </span>
-                        <span className="mt-1 block font-secondary-body text-content-muted">
-                          {ui(
-                            "Every active member with Search access can discover imported content.",
-                          )}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-default p-4 has-checked:border-border-strong has-checked:bg-surface-sunken has-disabled:cursor-default">
-                      <RadioGroupItem value="PRIVATE" className="mt-1" />
-                      <LockKeyhole className="mt-0.5 size-4.5 shrink-0 text-content-secondary" />
-                      <span>
-                        <span className="block font-main-ui-action text-content-primary">
-                          {ui("Private · selected group members")}
-                        </span>
-                        <span className="mt-1 block font-secondary-body text-content-muted">
-                          {ui(
-                            "Only members of the groups selected below can discover imported content.",
-                          )}
-                        </span>
-                      </span>
-                    </label>
-                  </RadioGroup>
-                )}
-              </fieldset>
-              <GroupAccessPicker
-                load={(query) => listSourceGroupOptionsOptions({ query })}
-                description={appText(
-                  "Group members can search and read what this Source imports. SharePoint's own per-item permissions are not synchronized.",
-                )}
-                selected={groupIds}
-                disabled={controlsDisabled}
-                onChange={(ids) => editProposal(() => setGroupIds(ids))}
-              />
+                </div>
+              ) : null}
               <footer className="flex flex-wrap justify-between gap-3">
                 <Button prominence="secondary" disabled={busy} onClick={() => go("content")}>
                   <ArrowLeft /> {ui("Content")}

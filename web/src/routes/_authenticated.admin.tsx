@@ -1,6 +1,7 @@
-import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatchRoute, useRouterState } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShell, type SourceSetupProgress } from "@/components/app-shell/app-shell";
+import { sharePointSetupSteps } from "@/features/sources/sharepoint-setup-search";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { useAdminAccess } from "@/features/identity/application-session-context";
 import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
@@ -18,14 +19,33 @@ export const Route = createFileRoute("/_authenticated/admin")({
       canManageAgents,
     } = useAdminAccess();
     const matchRoute = useMatchRoute();
-    const sourceSetupStep = matchRoute({
+    const sharePointStep = useRouterState({
+      select: (state) =>
+        state.location.pathname === "/admin/sources/new/sharepoint"
+          ? ((state.location.search as { step?: string }).step ?? "credential")
+          : undefined,
+    });
+    const sourceSetup: SourceSetupProgress | undefined = matchRoute({
       to: "/admin/sources/new/google-drive",
-      search: { step: "connector" },
-      includeSearch: true,
     })
-      ? 1
-      : matchRoute({ to: "/admin/sources/new/google-drive" })
-        ? 0
+      ? {
+          steps: ["Credential", "Connector"],
+          current: matchRoute({
+            to: "/admin/sources/new/google-drive",
+            search: { step: "connector" },
+            includeSearch: true,
+          })
+            ? 1
+            : 0,
+        }
+      : sharePointStep !== undefined
+        ? {
+            steps: sharePointSetupSteps.map((step) => step.label),
+            current: Math.max(
+              0,
+              sharePointSetupSteps.findIndex((step) => step.id === sharePointStep),
+            ),
+          }
         : undefined;
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
@@ -108,7 +128,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
                               ? "Quản lý trợ lý"
                               : "Sources",
         )}
-        sourceSetupStep={sourceSetupStep}
+        sourceSetup={sourceSetup}
       >
         <SourceUploadRecoveryProvider>
           <Outlet />

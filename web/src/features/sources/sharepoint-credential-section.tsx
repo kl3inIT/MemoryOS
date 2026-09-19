@@ -1,3 +1,4 @@
+import { appText } from "@/i18n/app-text";
 import { uiLocale } from "@/i18n/format";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -217,8 +218,10 @@ export function SharePointCredentialSection({
       notify({
         title: "Credential works",
         description: result.allSitesReadable
-          ? `${credential.name} can read this Tenant's sites.`
-          : `${credential.name} works, but it cannot list every site. Name each site in the scope.`,
+          ? appText("{{v1}} can read this Tenant's sites.", { v1: credential.name })
+          : appText("{{v1}} works, but it cannot list every site. Name each site in the scope.", {
+              v1: credential.name,
+            }),
         tone: result.allSitesReadable ? "success" : "info",
       });
     } catch (cause) {
@@ -256,7 +259,9 @@ export function SharePointCredentialSection({
     if (!active.current) return;
     notify({
       title: "Credential deleted",
-      description: `${credential.name} and its stored authentication were deleted.`,
+      description: appText("{{v1}} and its stored authentication were deleted.", {
+        v1: credential.name,
+      }),
       tone: "success",
     });
     await Promise.all([

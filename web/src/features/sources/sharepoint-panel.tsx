@@ -33,6 +33,7 @@ import type {
   SourceOperation,
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
+import { formatSyncInterval } from "./sync-interval";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
 import { SourceSummaryCard } from "./source-summary-card";
@@ -112,7 +113,9 @@ export function SharePointPanel({
   const busy = Boolean(activeAction) || observing;
   const stale = sourceStale || configurationQuery.isError;
   const verifying = Boolean(tracking.operation && !tracking.terminal);
-  const controlsDisabled = disabled || busy || stale || verifying;
+  // Source-level pause (the header menu) outranks the schedule's own pause and blocks every change here.
+  const sourcePaused = source.status === "PAUSED" || source.status === "PAUSING";
+  const controlsDisabled = disabled || busy || stale || verifying || sourcePaused;
 
   useLayoutEffect(() => {
     active.current = true;
@@ -133,7 +136,7 @@ export function SharePointPanel({
     setSettled(terminal.id);
     if (terminal.status !== "SUCCEEDED")
       setError(
-        terminal.status === "SUPERSEDED"
+        terminal.status === "SUPERSEDED" || terminal.status === "CANCELLED"
           ? "This scope change was superseded or cancelled. The saved scope is unchanged."
           : sourceStatusMessage(terminal.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED"),
       );
@@ -322,7 +325,7 @@ export function SharePointPanel({
         <div className="min-w-0">
           <dt className="text-content-muted">{ui("Synchronization interval")}</dt>
           <dd className="mt-2 text-content-primary">
-            {ui("{{count}} minutes", { count: configuration.syncIntervalMinutes })}
+            {formatSyncInterval(configuration.syncIntervalMinutes)}
             <span className="mt-1 block text-xs text-content-muted">
               {configuration.pruneIntervalHours === 0
                 ? ui("Pruning disabled")
@@ -333,7 +336,11 @@ export function SharePointPanel({
         <div>
           <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
           <dd className="mt-2 text-content-primary">
-            {configuration.syncPaused ? ui("Paused") : ui("Enabled")}
+            {sourcePaused
+              ? ui("Paused with the Source")
+              : configuration.syncPaused
+                ? ui("Paused")
+                : ui("Enabled")}
           </dd>
         </div>
       </SourceSummaryCard>

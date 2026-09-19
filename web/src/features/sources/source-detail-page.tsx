@@ -145,7 +145,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     refetchInterval: (query) =>
       query.state.data?.pendingWork
         ? 1_500
-        : query.state.data?.type === "GOOGLE_DRIVE"
+        : query.state.data?.type === "GOOGLE_DRIVE" || query.state.data?.type === "SHAREPOINT"
           ? 5_000
           : false,
   });
@@ -167,7 +167,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           item.searchStatus === "INDEXING",
       )
         ? 1_500
-        : sourceQuery.data?.type === "GOOGLE_DRIVE"
+        : sourceQuery.data?.type === "GOOGLE_DRIVE" || sourceQuery.data?.type === "SHAREPOINT"
           ? 5_000
           : false,
   });
@@ -771,9 +771,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               ? "Files may have been removed. Return to the previous page or refresh this page."
               : detail.type === "GOOGLE_DRIVE"
                 ? "Files appear here after synchronization acquires them from Google Drive."
-                : canUpload
-                  ? "Upload one supported file to start indexing."
-                  : "No files are indexed in this Source."
+                : detail.type === "SHAREPOINT"
+                  ? "Files appear here after synchronization acquires them from SharePoint."
+                  : canUpload
+                    ? "Upload one supported file to start indexing."
+                    : "No files are indexed in this Source."
           }
         />
       ) : itemsQuery.data ? (
@@ -922,7 +924,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         </p>
       ) : null}
 
-      {sourceQuery.isError && detail && detail.type !== "GOOGLE_DRIVE" ? (
+      {sourceQuery.isError && detail && !providerPanel(detail.type) ? (
         <div className="mt-5 space-y-3">
           <p role="alert" className="text-sm text-status-danger-content">
             {ui("Source status could not be refreshed. Displayed values may be out of date.")}
@@ -971,7 +973,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           <Tabs value={section} onValueChange={setSection} className="block">
             <PageHeader
               icon={<ProviderIcon />}
-              iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
+              iconSize={providerPanel(detail.type) ? "lg" : "sm"}
               title={detail.name}
               description={
                 <span className="flex flex-wrap items-center gap-2">
@@ -1022,10 +1024,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 onSaved={refreshAuthorityViews}
               />
             ) : null}
-            {detail.type !== "GOOGLE_DRIVE" ? (
+            {!providerPanel(detail.type) ? (
               <SourceSummaryCard source={detail} className="my-6" />
             ) : null}
-            {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
+            {detail.errorCode && !providerPanel(detail.type) ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
@@ -1247,6 +1249,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       </div>
     </SettingsLayout>
   );
+}
+
+/** Provider Sources render their own summary, stale and error banners inside their panel. */
+function providerPanel(type: string) {
+  return type === "GOOGLE_DRIVE" || type === "SHAREPOINT";
 }
 
 function isSystemIndexFailure(errorCode: string) {

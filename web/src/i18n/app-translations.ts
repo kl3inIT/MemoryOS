@@ -3121,6 +3121,116 @@ Object.assign(englishUi, {
   "The operation was discarded.": "Thao tác đã bị hủy.",
 });
 
+// SharePoint setup, synchronization and failures (PR #230 review).
+Object.assign(englishUi, {
+  Review: "Xem lại",
+  "Step {{number}} of {{count}} · {{step}}": "Bước {{number}}/{{count}} · {{step}}",
+  "Paused with the Source": "Tạm dừng cùng Nguồn",
+  "Files appear here after synchronization acquires them from SharePoint.":
+    "Tệp sẽ xuất hiện ở đây sau khi đồng bộ lấy chúng từ SharePoint.",
+  "Synchronization and indexing continue from the retained state.":
+    "Đồng bộ và lập chỉ mục tiếp tục từ trạng thái đã lưu.",
+  "This scope change was superseded or cancelled. The saved scope is unchanged.":
+    "Thay đổi phạm vi này đã bị thay thế hoặc hủy. Phạm vi đã lưu không đổi.",
+  "Credential works": "Credential hoạt động",
+  "Credential updated": "Đã cập nhật credential",
+  "{{v1}} can read this Tenant's sites.": "{{v1}} đọc được các site của Tenant này.",
+  "{{v1}} works, but it cannot list every site. Name each site in the scope.":
+    "{{v1}} hoạt động nhưng không liệt kê được mọi site. Hãy ghi rõ từng site trong phạm vi.",
+  "{{v1}} and its stored authentication were deleted.":
+    "Đã xóa {{v1}} cùng thông tin xác thực đã lưu.",
+  "Supply the Directory (tenant) ID and Application (client) ID as GUIDs.":
+    "Nhập Directory (tenant) ID và Application (client) ID dạng GUID.",
+  "Paste the client secret Value before saving.": "Dán giá trị client secret trước khi lưu.",
+  "Paste the client secret Value, at most 256 characters.":
+    "Dán giá trị client secret, tối đa 256 ký tự.",
+  "Choose a .pfx or .p12 keystore between 1 byte and 16 KiB.":
+    "Chọn keystore .pfx hoặc .p12 có dung lượng từ 1 byte đến 16 KiB.",
+  "The keystore could not be read. Choose the file again.":
+    "Không đọc được keystore. Hãy chọn lại tệp.",
+  "Files in the document libraries covered by this scope, in the formats MemoryOS already supports.":
+    "Tệp trong các thư viện tài liệu thuộc phạm vi này, ở các định dạng MemoryOS đã hỗ trợ.",
+  "Published SharePoint pages, read from their canvas: headings, paragraphs, list items and tables.":
+    "Các trang SharePoint đã xuất bản, đọc từ canvas: tiêu đề, đoạn văn, mục danh sách và bảng.",
+  "Enter whole hours from 0 to 8760; 0 disables pruning.":
+    "Nhập số giờ nguyên từ 0 đến 8760; 0 là tắt dọn dẹp.",
+  "Selection limits are unavailable. Refresh them before submitting.":
+    "Chưa có giới hạn lựa chọn. Hãy làm mới trước khi gửi.",
+  "Paste at least one site, library or folder address.":
+    "Dán ít nhất một địa chỉ site, thư viện hoặc thư mục.",
+  "Fix the addresses marked below before continuing.":
+    "Sửa các địa chỉ được đánh dấu bên dưới trước khi tiếp tục.",
+  "Each exclusion must contain 1 to 512 characters.":
+    "Mỗi mục loại trừ phải có từ 1 đến 512 ký tự.",
+  "Collect documents, site pages, or both.": "Chọn thu thập tài liệu, trang site hoặc cả hai.",
+  "The schedule changed in another session. Reload the saved intervals before trying again.":
+    "Lịch đã được thay đổi ở phiên khác. Hãy tải lại chu kỳ đã lưu trước khi thử lại.",
+  "Enter minutes from 1 to 2147483647 and prune hours from 0 to 8760.":
+    "Nhập số phút từ 1 đến 2147483647 và số giờ dọn dẹp từ 0 đến 8760.",
+  "This credential or scope changed in another session. Refresh before trying again.":
+    "Credential hoặc phạm vi này đã thay đổi ở phiên khác. Hãy làm mới trước khi thử lại.",
+  "This Source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.":
+    "Nguồn hoặc credential này đã thay đổi, hoặc credential vẫn đang được một Nguồn sử dụng. Hãy làm mới trạng thái trước khi thử lại.",
+  "The request exceeds the server request-size limit. Paste fewer addresses.":
+    "Yêu cầu vượt giới hạn kích thước của máy chủ. Hãy dán ít địa chỉ hơn.",
+  "This credential is no longer available. Refresh and select another one.":
+    "Credential này không còn khả dụng. Hãy làm mới và chọn credential khác.",
+  "Check the credential name, the directory and application GUIDs, the authentication, and the pasted addresses.":
+    "Kiểm tra tên credential, GUID của directory và application, thông tin xác thực và các địa chỉ đã dán.",
+  "SharePoint is not configured on this server. Contact an administrator.":
+    "Máy chủ này chưa cấu hình SharePoint. Hãy liên hệ quản trị viên.",
+  "Supply the client secret Value, between 1 and 256 characters.":
+    "Nhập giá trị client secret, từ 1 đến 256 ký tự.",
+  "Upload a PKCS#12 keystore of at most 16 KiB holding exactly one RSA key of at least 2048 bits with an unexpired certificate, and its password.":
+    "Tải lên keystore PKCS#12 tối đa 16 KiB chứa đúng một khóa RSA từ 2048 bit trở lên kèm chứng chỉ còn hạn, cùng mật khẩu của nó.",
+  "Microsoft rejected the client secret. Copy the secret Value, not the Secret ID.":
+    "Microsoft từ chối client secret. Hãy sao chép Value của secret, không phải Secret ID.",
+  "The client secret has expired. Create a new secret in Entra and replace the authentication.":
+    "Client secret đã hết hạn. Hãy tạo secret mới trong Entra và thay thông tin xác thực.",
+  "Upload this certificate to the Entra app registration before saving it here.":
+    "Hãy tải chứng chỉ này lên app registration trong Entra trước khi lưu ở đây.",
+  "Microsoft does not know this Directory (tenant) ID. Copy it from the app's Overview page.":
+    "Microsoft không nhận ra Directory (tenant) ID này. Hãy sao chép từ trang Overview của app.",
+  "Microsoft does not know this Application (client) ID in that directory.":
+    "Microsoft không nhận ra Application (client) ID này trong directory đó.",
+  "Grant admin consent for Sites.Read.All in Entra, then save again.":
+    "Hãy cấp admin consent cho Sites.Read.All trong Entra rồi lưu lại.",
+  "Microsoft rejected these credentials. Check the directory, application and authentication in Entra.":
+    "Microsoft từ chối thông tin này. Hãy kiểm tra directory, application và thông tin xác thực trong Entra.",
+  "This credential needs updating. Replace its authentication before continuing.":
+    "Credential này cần cập nhật. Hãy thay thông tin xác thực trước khi tiếp tục.",
+  "Paste SharePoint site, library or folder addresses on your organization's host, containing /sites/, /teams/ or /personal/.":
+    "Dán địa chỉ site, thư viện hoặc thư mục SharePoint trên máy chủ của tổ chức, có chứa /sites/, /teams/ hoặc /personal/.",
+  "Select either a site, library or folder, not one inside another.":
+    "Chọn site, thư viện hoặc thư mục, không chọn mục nằm trong mục khác.",
+  "Every address must be on the same SharePoint host.":
+    "Mọi địa chỉ phải trên cùng một máy chủ SharePoint.",
+  "Each exclusion must contain 1 to 512 characters, with at most 100 exclusions of each kind.":
+    "Mỗi mục loại trừ phải có từ 1 đến 512 ký tự, tối đa 100 mục cho mỗi loại.",
+  "Microsoft did not answer. Try again in a moment.":
+    "Microsoft không phản hồi. Hãy thử lại sau ít phút.",
+  "The SharePoint run failed unexpectedly. Review this run and synchronize again.":
+    "Lượt SharePoint thất bại ngoài dự kiến. Hãy xem lại lượt này và đồng bộ lại.",
+  "The SharePoint credential is unavailable. Test it and replace its authentication if needed.":
+    "Credential SharePoint không khả dụng. Hãy kiểm tra và thay thông tin xác thực nếu cần.",
+  "Address verification failed. The active scope is unchanged. Check the addresses and the credential's permissions before submitting again.":
+    "Xác minh địa chỉ thất bại. Phạm vi đang dùng không đổi. Hãy kiểm tra địa chỉ và quyền của credential trước khi gửi lại.",
+  "Synchronization stopped because Microsoft rejected the credential. Test it and replace its authentication.":
+    "Đồng bộ đã dừng vì Microsoft từ chối credential. Hãy kiểm tra và thay thông tin xác thực.",
+  "The Entra application is not allowed to read this content. Check its permissions and admin consent.":
+    "Ứng dụng Entra không được phép đọc nội dung này. Hãy kiểm tra quyền và admin consent.",
+  "This item is no longer available to the Entra application.":
+    "Ứng dụng Entra không còn truy cập được mục này.",
+  "Microsoft no longer accepts the saved change token; this library is read again in full.":
+    "Microsoft không còn chấp nhận change token đã lưu; thư viện này được đọc lại toàn bộ.",
+  "Microsoft is limiting requests. Wait before trying again.":
+    "Microsoft đang giới hạn yêu cầu. Hãy chờ rồi thử lại.",
+  "Microsoft returned an answer that could not be read. Try again.":
+    "Microsoft trả về phản hồi không đọc được. Hãy thử lại.",
+  "The credential was deleted while the addresses were being verified. The saved scope is unchanged.":
+    "Credential đã bị xóa trong lúc xác minh địa chỉ. Phạm vi đã lưu không đổi.",
+});
+
 const unchanged = [
   "Account ID",
   "Google Sheets",

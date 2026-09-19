@@ -2,6 +2,7 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChevronDown, Globe2, ListTree } from "lucide-react";
 import { useId } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { inputVariants } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { HelpPopover } from "@/components/ui/help-popover";
@@ -121,7 +122,7 @@ export function SharePointScopeFields({
           <label htmlFor={`${id}-roots`} className="font-secondary-action text-content-primary">
             {ui("Site, library or folder addresses")}
           </label>
-          <textarea
+          <Textarea
             id={`${id}-roots`}
             rows={5}
             value={draft.siteUrlsText}
@@ -131,7 +132,7 @@ export function SharePointScopeFields({
             spellCheck={false}
             aria-describedby={`${id}-roots-count${problems.length ? ` ${id}-roots-problems` : ""}`}
             aria-invalid={problems.length > 0}
-            className={cn(inputVariants(), "mt-2 h-auto min-h-28 resize-y py-2")}
+            className={cn(inputVariants(), "mt-2 h-auto min-h-28 resize-y py-2 field-sizing-fixed")}
             placeholder="https://contoso.sharepoint.com/sites/Finance"
             onChange={(event) => onChange({ ...draft, siteUrlsText: event.target.value })}
           />
@@ -267,7 +268,7 @@ function ExclusionField({
         {label}
       </label>
       <p className="mt-1 font-secondary-body text-content-muted">{help}</p>
-      <textarea
+      <Textarea
         id={id}
         rows={3}
         value={value}
@@ -277,7 +278,7 @@ function ExclusionField({
         spellCheck={false}
         aria-describedby={`${id}-count${problems.length ? ` ${id}-problems` : ""}`}
         aria-invalid={problems.length > 0 || overLimit}
-        className={cn(inputVariants(), "mt-2 h-auto min-h-20 resize-y py-2")}
+        className={cn(inputVariants(), "mt-2 h-auto min-h-20 resize-y py-2 field-sizing-fixed")}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
       />

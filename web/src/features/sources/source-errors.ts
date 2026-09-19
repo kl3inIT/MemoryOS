@@ -137,6 +137,8 @@ const statusMessages: Record<string, string> = {
     "Grant admin consent for Sites.Read.All in Entra, then save again.",
   SOURCE_SHAREPOINT_CREDENTIAL_REJECTED:
     "Microsoft rejected these credentials. Check the directory, application and authentication in Entra.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CHANGED:
+    "The credential was deleted while the addresses were being verified. The saved scope is unchanged.",
   SOURCE_SHAREPOINT_NEEDS_UPDATE:
     "This credential needs updating. Replace its authentication before continuing.",
   SOURCE_SHAREPOINT_ROOT_URL_INVALID:
