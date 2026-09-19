@@ -28,6 +28,10 @@ public final class ChatModelResolver {
     public Resolved resolve(ActorId actor, UUID session, @Nullable UUID requested) {
         return acquire(catalog.resolve(actor, session, requested));
     }
+    /** The Tenant model for this flow, or the conversation model when the flow has none that is usable. */
+    public Resolved resolveFlow(ActorId actor, UUID session, ModelFlow flow) {
+        return acquire(catalog.resolveFlow(actor, session, flow));
+    }
     public Resolved forValidation(ActorId actor, UUID model) { return acquire(catalog.validationSelection(actor, model)); }
 
     /**

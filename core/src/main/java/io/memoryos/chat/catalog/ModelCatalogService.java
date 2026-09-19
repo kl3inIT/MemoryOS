@@ -54,7 +54,8 @@ public class ModelCatalogService {
 
     public record Deployment(String baseUrl, String modelName, ModelSettings settings) {}
     public record ProviderInput(String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
-                                Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential) {
+                                Set<UUID> groupIds, Set<UUID> personaIds, ProviderCredentials.Change credential,
+                                DataBoundary dataBoundary) {
         @Override public @NonNull String toString() { return "ProviderInput[redacted]"; }
     }
     /** Resolved connection for one provider call; the secret never reaches toString(). */
@@ -63,7 +64,10 @@ public class ModelCatalogService {
     }
     public record ModelInput(String modelName, String displayName, boolean visible, ModelSettings settings) {}
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
-                               Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision) {}
+                               Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision,
+                               DataBoundary dataBoundary) {}
+    /** A flow model is unavailable when it is set but no longer eligible; its flow then uses the conversation model. */
+    public record FlowView(ModelFlow flow, @Nullable UUID modelConfigurationId, boolean available, long revision) {}
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
                                  ModelSettings.Capabilities capabilities, int contextWindow, int maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
@@ -188,6 +192,24 @@ public class ModelCatalogService {
             throw ChatException.invalid("Chat default must be visible and available to the Tenant without Group or Persona restrictions.");
         catalog.setDefault(tenant, id, revision);
         return catalog.defaultModel(tenant);
+    }
+
+    @Transactional
+    public List<FlowView> flowDefaults(ActorId actor) {
+        UUID tenant = admin(actor, false);
+        initialize(tenant);
+        return catalog.flowDefaults(tenant).stream().map(value -> flowView(tenant, value)).toList();
+    }
+
+    /** Sets or, with no model, clears a flow model; eligibility is the Chat default rule. */
+    @Transactional
+    public FlowView setFlowDefault(ActorId actor, ModelFlow flow, @Nullable UUID id, long revision) {
+        UUID tenant = admin(actor, true);
+        initialize(tenant);
+        if (id != null && flowSelection(tenant, id) == null)
+            throw ChatException.invalid("A task model must be visible and available to the Tenant without Group or Persona restrictions.");
+        catalog.setFlowDefault(tenant, flow, id, revision);
+        return flowView(tenant, catalog.flowDefault(tenant, flow));
     }
 
     /** Groups a model manager may associate with a provider; scoped managers see only their own. */
@@ -321,6 +343,20 @@ public class ModelCatalogService {
         return new Selection(fallback.model(), fallback.provider(), "SELECTION_UNAVAILABLE", contextRevision);
     }
 
+    /** The flow model when it is set and still eligible; otherwise exactly the conversation model {@link #resolve} picks. */
+    @Transactional
+    public Selection resolveFlow(ActorId actor, UUID sessionId, ModelFlow flow) {
+        var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
+        UUID tenant = membership.tenantId().value();
+        chats.lockOwner(membership.tenantId(), actor);
+        chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        initialize(tenant);
+        UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
+        var selection = id == null ? null : flowSelection(tenant, id);
+        if (selection == null) return resolve(actor, sessionId, null);
+        return new Selection(selection.model(), selection.provider(), null, chats.persona(sessionId, true, agentsManage(actor)).revision());
+    }
+
     @Transactional
     public Selection validationSelection(ActorId actor, UUID id) {
         UUID tenant = admin(actor, false);
@@ -340,6 +376,16 @@ public class ModelCatalogService {
         return available(provider, personaId, manager, groups) ? new Selection(model, provider, null) : null;
     }
 
+    private @Nullable Selection flowSelection(UUID tenant, UUID id) {
+        var model = catalog.model(tenant, id).orElse(null);
+        if (model == null || !model.visible()) return null;
+        var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
+        return usableDefaultProvider(provider) ? new Selection(model, provider, null) : null;
+    }
+    private FlowView flowView(UUID tenant, ModelCatalogRepository.FlowDefault value) {
+        UUID id = value.modelConfigurationId();
+        return new FlowView(value.flow(), id, id == null || flowSelection(tenant, id) != null, value.revision());
+    }
     private boolean available(Provider p, UUID personaId, boolean manager, Set<UUID> groups) {
         if (!p.enabled() || !credentialUsable(p) || (!p.personaIds().isEmpty() && !p.personaIds().contains(personaId))) return false;
         // Onyx can_user_access_llm_provider: an agent-restricted provider without Groups is usable through its agents.
@@ -365,16 +411,17 @@ public class ModelCatalogService {
         if (!catalog.initialize(tenant)) return;
         UUID providerId = UUID.randomUUID();
         var provider = new Provider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
-                ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of());
+                ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
         validateEndpoint(provider.baseUrl());
         validateModel(provider, deployment.modelName(), deployment.settings());
         catalog.insertProvider(provider, "deployment");
         var model = new Model(UUID.randomUUID(), tenant, providerId, deployment.modelName(), deployment.modelName(), true, deployment.settings(), 1);
         catalog.insertModel(model);
         catalog.setDefault(tenant, model.id(), 1);
+        catalog.initializeFlows(tenant);
     }
     private Provider validated(UUID tenant, UUID id, ProviderInput input, @Nullable String previous, long revision) {
-        if (input == null) throw ChatException.invalid("Provider configuration is required.");
+        if (input == null || input.dataBoundary() == null) throw ChatException.invalid("Provider configuration is required.");
         requireText(input.name(), 200);
         requireText(input.adapterType(), 64);
         validateEndpoint(input.baseUrl());
@@ -389,7 +436,8 @@ public class ModelCatalogService {
             throw ChatException.invalid("This adapter does not accept credentials.");
         if (input.enabled() && adapter.credentialRequirement() == ChatProviderAdapter.CredentialRequirement.REQUIRED && !credentials.configured(stored))
             throw ChatException.invalid("An enabled provider requires credentials.");
-        return new Provider(id, tenant, input.name(), input.adapterType(), input.baseUrl(), input.enabled(), input.isPublic(), stored, revision, groups, personas);
+        return new Provider(id, tenant, input.name(), input.adapterType(), input.baseUrl(), input.enabled(), input.isPublic(), stored, revision, groups, personas,
+                input.dataBoundary());
     }
     private Model validated(UUID tenant, UUID id, Provider provider, ModelInput input, long revision) {
         if (input == null) throw ChatException.invalid("Model configuration is required.");
@@ -407,7 +455,7 @@ public class ModelCatalogService {
     }
     private ProviderView view(Provider p) {
         return new ProviderView(p.id(), p.name(), p.adapterType(), p.baseUrl(), p.enabled(), p.isPublic(), p.groupIds(), p.personaIds(),
-                credentials.configured(p.credential()), p.revision());
+                credentials.configured(p.credential()), p.revision(), p.dataBoundary());
     }
     public static void validateEndpoint(String url) {
         requireText(url, 2048);

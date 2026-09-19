@@ -1574,6 +1574,41 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void taskModelFlowsAcceptOnlyTenantWideModelsAndProvidersRecordTheirDataBoundary() throws Exception {
+        grantModelManagement();
+        var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(1, flows.size());
+        var naming = flows.get(0);
+        assertEquals("CHAT_NAMING", naming.path("flow").asText());
+        assertTrue(naming.path("modelConfigurationId").isNull());
+        assertTrue(naming.path("available").asBoolean());
+        mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
+        var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");
+        var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(internal.toString()))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.dataBoundary").value("INTERNAL"))
+                .andReturn().getResponse().getContentAsString());
+        String mini = createConfiguredModel(provider, "flow-mini", 0.2).path("id").asText();
+        String restricted = createConfiguredModel(createProvider("http://flow-private.internal/v1", false), "flow-private", 0.2)
+                .path("id").asText();
+        String revision = naming.path("revision").asText();
+        mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision).param("modelConfigurationId", restricted)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/model-flows/UNKNOWN").param("revision", revision).param("modelConfigurationId", mini)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+        var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
+                        .param("modelConfigurationId", mini).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(mini, set.path("modelConfigurationId").asText());
+        mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", revision)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+        mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", set.path("revision").asText())
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+    }
+
+    @Test
     void changingModelOptionsWhileRunningAffectsOnlyTheNextTurn() throws Exception {
         grantModelManagement();
         var configured = createConfiguredModel(createProvider("http://revision.internal/v1", true), "revision-model", 0.1);
@@ -2641,7 +2676,7 @@ class ChatSessionApiIntegrationTest {
 
     private ObjectNode providerBody(String url, boolean isPublic) {
         var body = Json.mapper().createObjectNode().put("name", "Provider " + UUID.randomUUID()).put("adapterType", "openai")
-                .put("baseUrl", url).put("enabled", true).put("isPublic", isPublic);
+                .put("baseUrl", url).put("enabled", true).put("isPublic", isPublic).put("dataBoundary", "EXTERNAL");
         body.putArray("groupIds");
         body.putArray("personaIds");
         body.putObject("credential").put("action", "REPLACE").put("value", "fixture-byok");

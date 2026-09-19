@@ -6,6 +6,7 @@ import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
+import { DataBoundaryTag } from "./data-boundary";
 import type { ManagedModel, ManagedProvider } from "./model-catalog";
 
 export type ModelPickerOption = {
@@ -22,9 +23,12 @@ export function ModelPicker({
   disabled,
   placeholder,
   ariaLabel,
+  emptyLabel,
   onChange,
 }: {
   value: string;
+  /** A clearable selection offers this first choice, which selects the empty value. */
+  emptyLabel?: string;
   options: ModelPickerOption[];
   disabled?: boolean;
   placeholder: string;
@@ -84,6 +88,8 @@ export function ModelPicker({
                 {selected.model.displayName}
               </span>
             </>
+          ) : !value && emptyLabel ? (
+            <span className="min-w-0 flex-1 truncate font-medium">{emptyLabel}</span>
           ) : (
             <span className="min-w-0 flex-1 truncate text-content-muted">{placeholder}</span>
           )}
@@ -112,6 +118,21 @@ export function ModelPicker({
           />
         </div>
         <div className="max-h-72 overflow-y-auto">
+          {emptyLabel && !query.trim() && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-main-ui-body hover:bg-surface-base"
+            >
+              <span className="min-w-0 flex-1 truncate">{emptyLabel}</span>
+              {!value && (
+                <Check className="size-4 shrink-0 text-content-primary" aria-hidden="true" />
+              )}
+            </button>
+          )}
           {groups.map((group) => {
             const isCollapsed = collapsed[group.provider.id] ?? false;
             return (
@@ -133,6 +154,7 @@ export function ModelPicker({
                     <ChevronDown className="size-4" aria-hidden="true" />
                   )}
                   <span className="min-w-0 flex-1 truncate">{group.provider.name}</span>
+                  <DataBoundaryTag boundary={group.provider.dataBoundary} />
                 </button>
                 {!isCollapsed &&
                   group.options.map((option) => (

@@ -83,6 +83,8 @@ class OpenApiContractTest {
             "/api/chat/interpreter",
             "/api/chat/interpreter/health",
             "/api/chat/model-default",
+            "/api/chat/model-flows",
+            "/api/chat/model-flows/{flow}",
             "/api/chat/models",
             "/api/chat/models/{modelId}",
             "/api/chat/models/{modelId}/validate",

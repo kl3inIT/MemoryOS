@@ -368,6 +368,7 @@ export type ProviderInput = {
     groupIds: Array<string>;
     personaIds: Array<string>;
     credential: Change;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
 };
 
 export type ProviderView = {
@@ -381,6 +382,7 @@ export type ProviderView = {
     personaIds: Array<string>;
     credentialConfigured: boolean;
     revision: number;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
 };
 
 export type ShortcutInput = {
@@ -626,6 +628,19 @@ export type ModelSettings = {
 export type Pricing = {
     inputPerMillion: number;
     outputPerMillion: number;
+};
+
+/**
+ * Tenant model for one task; no model uses the conversation model
+ */
+export type ModelFlow = {
+    flow: 'CHAT_NAMING';
+    modelConfigurationId: string | null;
+    /**
+     * False when the model is set but no longer eligible; the task then uses the conversation model
+     */
+    available: boolean;
+    revision: number;
 };
 
 export type Default = {
@@ -4493,6 +4508,62 @@ export type UpdateChatModelResponses = {
 };
 
 export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatModelResponses];
+
+export type SetChatModelFlowData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        flow: 'CHAT_NAMING';
+    };
+    query: {
+        modelConfigurationId?: string;
+        revision: number;
+    };
+    url: '/api/chat/model-flows/{flow}';
+};
+
+export type SetChatModelFlowErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SetChatModelFlowError = SetChatModelFlowErrors[keyof SetChatModelFlowErrors];
+
+export type SetChatModelFlowResponses = {
+    /**
+     * Successful result
+     */
+    200: ModelFlow;
+};
+
+export type SetChatModelFlowResponse = SetChatModelFlowResponses[keyof SetChatModelFlowResponses];
 
 export type GetChatModelDefaultData = {
     body?: never;
@@ -9425,6 +9496,51 @@ export type ListChatModelPersonasResponses = {
 };
 
 export type ListChatModelPersonasResponse = ListChatModelPersonasResponses[keyof ListChatModelPersonasResponses];
+
+export type ListChatModelFlowsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/model-flows';
+};
+
+export type ListChatModelFlowsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatModelFlowsError = ListChatModelFlowsErrors[keyof ListChatModelFlowsErrors];
+
+export type ListChatModelFlowsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<ModelFlow>;
+};
+
+export type ListChatModelFlowsResponse = ListChatModelFlowsResponses[keyof ListChatModelFlowsResponses];
 
 export type GetChatInterpreterHealthData = {
     body?: never;
