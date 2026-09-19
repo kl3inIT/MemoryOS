@@ -137,3 +137,19 @@ export function remarkCitations() {
     walk(tree);
   };
 }
+
+/**
+ * Models trained on ChatGPT prefix the links to files they generated with `sandbox:`, which the link hardener shows as
+ * "[blocked]". The prefix is dropped: the file_link run_python returned then opens its preview, and any other path
+ * stays plain text as every model-written path does.
+ */
+export function remarkSandboxLinks() {
+  return (tree: Root) => {
+    function walk(node: Root | RootContent) {
+      if (node.type === "link" && /^sandbox:\//.test(node.url))
+        node.url = node.url.slice("sandbox:".length);
+      if ("children" in node) for (const child of node.children) walk(child);
+    }
+    walk(tree);
+  };
+}
