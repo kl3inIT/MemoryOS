@@ -6,9 +6,11 @@ import io.memoryos.chat.catalog.ModelSettings;
 @Schema(name = "PricingInput")
 public record ChatModelPricingRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double inputPerMillion,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double outputPerMillion
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double outputPerMillion,
+        @Schema(nullable = true, description = "USD per million input tokens served from the prompt cache; omitted means the input rate")
+        @org.jspecify.annotations.Nullable Double cachedInputPerMillion
 ) {
     public ModelSettings.Pricing toInput() {
-        return new ModelSettings.Pricing(inputPerMillion, outputPerMillion);
+        return new ModelSettings.Pricing(inputPerMillion, outputPerMillion, cachedInputPerMillion);
     }
 }

@@ -72,8 +72,12 @@ public class SearchInfrastructureConfiguration {
     }
 
     @Bean
-    ValidatedEmbeddingService validatedEmbeddingService(@Lazy EmbeddingModel model, SearchProperties properties) {
+    ValidatedEmbeddingService validatedEmbeddingService(@Lazy EmbeddingModel model, SearchProperties properties,
+            org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage,
+            @org.springframework.beans.factory.annotation.Value("${memoryos.search.embedding-input-price-per-million:}") String price) {
+        // Embedding pricing is deployment configuration, as the model is; without it the calls count as unknown cost.
         return new ValidatedEmbeddingService(model, properties.model(), properties.dimensions(),
-                properties.embeddingBatchSize(), properties.embeddingConcurrency());
+                properties.embeddingBatchSize(), properties.embeddingConcurrency(), usage.getIfAvailable(),
+                java.net.URI.create(properties.embeddingEndpoint()).getHost(), price.isBlank() ? null : Double.valueOf(price));
     }
 }

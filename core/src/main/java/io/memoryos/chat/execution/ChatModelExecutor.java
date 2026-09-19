@@ -90,7 +90,29 @@ public final class ChatModelExecutor {
         this.meters = meters;
     }
 
-    public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost) {}
+    /**
+     * Usage of one turn or naming call. {@code used} is false when no model call was admitted, so nothing is billed;
+     * unknown totals stay null and are never presented as zero.
+     */
+    public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used) {
+        public static final Accounting NONE = new Accounting(null, null, null, 0, false);
+
+        static Accounting of(java.util.List<ChatModelGuard> guards, com.embabel.agent.core.AgentProcess process,
+                             com.embabel.common.ai.model.LlmMetadata metadata) {
+            var used = guards.stream().filter(ChatModelGuard::used).toList();
+            if (used.isEmpty()) return NONE;
+            boolean known = used.stream().allMatch(ChatModelGuard::usageKnown);
+            var usage = process.usage();
+            long cached = used.stream().mapToLong(ChatModelGuard::cacheReadTokens).sum();
+            Double cost = known && metadata.getPricingModel() != null ? process.cost() : null;
+            // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate.
+            if (cost != null && metadata.getPricingModel() instanceof io.memoryos.chat.catalog.ChatModelPricing pricing)
+                cost = Math.max(0, cost - pricing.cacheDiscount(cached));
+            return new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
+                    known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
+                    cost, known ? cached : 0, true);
+        }
+    }
 
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
@@ -102,9 +124,16 @@ public final class ChatModelExecutor {
 
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
+        return generateTitle(selected, history, ignored -> {});
+    }
+
+    /** As {@link #generateTitle(ChatModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
+    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
+                                Consumer<Accounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         var deadline = Instant.now().plusSeconds(10);
+        ChatModelGuard admitted = null;
         try {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
@@ -112,6 +141,7 @@ public final class ChatModelExecutor {
                     () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
                     selected.policy(), Math.min(3000, selected.contextWindow() - selected.outputAtMost(128)), selected.finalRequest());
             guard.outputLimit(selected.outputAtMost(128));
+            admitted = guard;
             var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
             runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(selected.outputAtMost(128)).withTimeout(Duration.ofSeconds(10)));
             var text = new StringBuilder();
@@ -130,7 +160,10 @@ public final class ChatModelExecutor {
             String title = output.toString().strip().replaceAll("[\\r\\n\\t]+", " ").replaceAll("^[\"'`]+|[\"'`]+$", "");
             if (title.isBlank()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
             return title.substring(0, title.offsetByCodePoints(0, Math.min(80, title.codePointCount(0, title.length()))));
-        } finally { processes.delete(process); }
+        } finally {
+            try { accounting.accept(admitted == null ? Accounting.NONE : Accounting.of(List.of(admitted), process, selected.service())); }
+            finally { processes.delete(process); }
+        }
     }
 
     /** One research agent's tools: its own evidence, step identity and guard; the turn's search, Web and file access. */
@@ -262,7 +295,7 @@ public final class ChatModelExecutor {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, Integer.MAX_VALUE)));
+                        setup.actor(), setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, Integer.MAX_VALUE)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
@@ -294,16 +327,10 @@ public final class ChatModelExecutor {
             var drained = CompletableFuture.allOf(drains.toArray(CompletableFuture[]::new));
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
-                if (!drained.isDone()) accounting.accept(new Accounting(null, null, null));
-                else {
-                    // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
-                    var used = guards.stream().filter(ChatModelGuard::used).toList();
-                    boolean known = !used.isEmpty() && used.stream().allMatch(ChatModelGuard::usageKnown);
-                    var usage = process.usage();
-                    accounting.accept(new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
-                            known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
-                            known && metadata.getPricingModel() != null ? process.cost() : null));
-                }
+                if (!drained.isDone())
+                    accounting.accept(new Accounting(null, null, null, 0, guards.stream().anyMatch(ChatModelGuard::used)));
+                // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
+                else accounting.accept(Accounting.of(guards, process, metadata));
             } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }
     }

@@ -139,6 +139,22 @@ class VoiceSynthesisServiceTest {
     }
 
     @Test
+    void streamingSpeechReportsProviderCallsOnlyOnceTextIsSent() throws Exception {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        try (var unused = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
+                calls::incrementAndGet)) {
+            // Closed before any answer text: the provider was never called.
+        }
+        assertEquals(0, calls.get());
+        try (var speech = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
+                calls::incrementAndGet)) {
+            speech.append("Một.");
+            speech.finish().get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        assertEquals(1, calls.get());
+    }
+
+    @Test
     void elevenLabsSpeechStreamsThroughItsRestEndpoint() throws IOException {
         var path = new AtomicReference<String>();
         server.createContext("/v1/text-to-speech/", exchange -> {

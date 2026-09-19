@@ -114,6 +114,8 @@ export type ModelDraft = {
   reasoningEffort: string;
   inputPrice: string;
   outputPrice: string;
+  /** Blank means cached input is billed at the input price. */
+  cachedInputPrice: string;
 };
 
 const optionText = (value: unknown) =>
@@ -144,6 +146,10 @@ export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): Mo
     reasoningEffort: optionText(settings?.options.reasoningEffort),
     inputPrice: settings?.pricing == null ? "" : String(settings.pricing.inputPerMillion),
     outputPrice: settings?.pricing == null ? "" : String(settings.pricing.outputPerMillion),
+    cachedInputPrice:
+      settings?.pricing?.cachedInputPerMillion == null
+        ? ""
+        : String(settings.pricing.cachedInputPerMillion),
   };
 }
 
@@ -199,7 +205,11 @@ export function matchesKnownModel(draft: ModelDraft, known: KnownModel | undefin
     draft.vision === known.capabilities.vision &&
     draft.reasoning === known.capabilities.reasoning &&
     draft.inputPrice === String(known.pricing.inputPerMillion) &&
-    draft.outputPrice === String(known.pricing.outputPerMillion)
+    draft.outputPrice === String(known.pricing.outputPerMillion) &&
+    draft.cachedInputPrice ===
+      (known.pricing.cachedInputPerMillion == null
+        ? ""
+        : String(known.pricing.cachedInputPerMillion))
   );
 }
 
@@ -241,6 +251,10 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       } else next.reasoningEffort = "";
       next.inputPrice = String(known.pricing.inputPerMillion);
       next.outputPrice = String(known.pricing.outputPerMillion);
+      next.cachedInputPrice =
+        known.pricing.cachedInputPerMillion == null
+          ? ""
+          : String(known.pricing.cachedInputPerMillion);
     } else if (matchesKnownModel(draft, previous)) {
       // Limits, capabilities and prices describe the model named before, never the one typed now.
       next.displayName = draft.displayName === previous?.modelName ? "" : draft.displayName;
@@ -252,6 +266,7 @@ export function changeModelDraft<K extends keyof ModelDraft>(
       next.reasoningEffort = "";
       next.inputPrice = "";
       next.outputPrice = "";
+      next.cachedInputPrice = "";
     }
   }
   return next;
@@ -276,7 +291,9 @@ export function modelDraftError(
     return "Maximum output must be at least 1 and strictly below the context window.";
   if ((draft.inputPrice.trim() === "") !== (draft.outputPrice.trim() === ""))
     return "Enter both prices or leave both blank for Unknown pricing.";
-  for (const value of [draft.inputPrice, draft.outputPrice]) {
+  if (draft.cachedInputPrice.trim() && draft.inputPrice.trim() === "")
+    return "Enter input and output prices before a cache-read price.";
+  for (const value of [draft.inputPrice, draft.outputPrice, draft.cachedInputPrice]) {
     if (value.trim() && (!Number.isFinite(Number(value)) || Number(value) < 0))
       return "Prices must be finite, nonnegative USD per million tokens.";
   }
@@ -338,6 +355,8 @@ export function modelBody(draft: ModelDraft): ModelBody {
           : {
               inputPerMillion: Number(draft.inputPrice),
               outputPerMillion: Number(draft.outputPrice),
+              cachedInputPerMillion:
+                draft.cachedInputPrice.trim() === "" ? null : Number(draft.cachedInputPrice),
             },
     },
   };

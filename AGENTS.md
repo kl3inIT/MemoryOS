@@ -18,7 +18,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - Classify knowledge before writing: current implementation in `ARCHITECTURE.md` or `docs/specs/`; product intent in `docs/vision.md`; cross-cutting engineering policy in `docs/conventions.md` or `docs/guidelines/`; change-local reasoning in the active increment.
 - Treat `core` as capability implementation, not a framework-free domain layer. Capability code may use Spring, `JdbcClient`, transactions, or JPA when they reduce real complexity; forbid dependency inversion violations and speculative layers, not framework use.
 - Keep SQL, row mapping, locks, claims, and bulk persistence mechanics in concrete capability `persistence` repositories. Application services own authorization, validation, orchestration, and cross-repository transaction boundaries; do not add single-implementation repository interfaces. See [persistence policy](docs/guidelines/persistence.md).
-- Keep `core` limited to implemented capabilities. Current modules are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, and `mcp`; IAM owns identity, Tenant membership, invitations, Users, Groups, and authorization. The shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
+- Keep `core` limited to implemented capabilities. Current modules are `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `mcp`, and `usage` (AI usage and costs); IAM owns identity, Tenant membership, invitations, Users, Groups, and authorization. The shared `connector` Gradle integration bundle is organized by provider folders. Never predeclare empty future capability or provider packages.
 - Start non-trivial work with an increment directory containing `design.md` and `plan.md`. Update both as scope changes.
 - Preserve accepted MemoryOS contracts and scope while delivering production quality from the start. Scope control must not remove necessary hardening. Before proposing a departure, apply [reference-based design and scope control](docs/conventions.md#reference-based-design-and-scope-control) and the relevant capability spec. Do not turn comparative research or speculative improvements into requirements.
 - Record an ADR only after the decision is accepted and implementation has started. ADRs are append-only; supersede them with a new ADR.
@@ -41,6 +41,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-130 — Model discovery](docs/increments/active/mem-130-model-discovery/design.md) owns provider-reported model specs, catalog breadth and honest output-limit and Deep research model errors.
 - [Chat limits as Onyx](docs/increments/active/chat-onyx-limits/design.md) owns input budgets from the model window, Onyx search sizes and cycle-bounded tool calls; operational bounds are excluded.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
+- [MEM-98 — AI usage and costs](docs/increments/active/mem-98-ai-costs/design.md) owns the daily AI usage ledger for every AI flow, cache-read pricing, and the "Chi phí AI" administration page; limits (MEM-123), export (MEM-139) and external-data records (MEM-134) are excluded.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
 - [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
@@ -63,6 +64,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Chat provider/model catalog](docs/specs/chat-models.md) and [backend adapter handoff](docs/increments/active/mem-77-provider-backend/adapter-handoff.md)
 - Provider endpoint review must preserve the [accepted internal HTTP and trusted model-manager policy](docs/specs/chat-models.md#credentials-and-provider-extension).
 - [Chat verification matrix](docs/tests/chat.md)
+- [AI usage and costs contract](docs/specs/ai-usage.md) and [verification matrix](docs/tests/ai-usage.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](docs/roadmap.md)

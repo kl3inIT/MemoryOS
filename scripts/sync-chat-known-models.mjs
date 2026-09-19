@@ -57,6 +57,10 @@ for (const [modelName, entry] of Object.entries(source)) {
     reasoning: entry.supports_reasoning === true,
     inputPerMillion: Number((input * 1e6).toFixed(6)),
     outputPerMillion: Number((output * 1e6).toFixed(6)),
+    // Prompt-cache reads are billed at their own rate; absent means the input rate applies.
+    ...(typeof entry.cache_read_input_token_cost === "number"
+      ? { cachedInputPerMillion: Number((entry.cache_read_input_token_cost * 1e6).toFixed(6)) }
+      : {}),
   });
 }
 models.sort((left, right) => left.modelName.localeCompare(right.modelName, "en"));

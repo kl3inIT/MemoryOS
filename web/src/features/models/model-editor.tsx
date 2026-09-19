@@ -117,6 +117,17 @@ function Prices({ draft, change }: { draft: ModelDraft; change: Change }) {
             onChange={(event) => change("outputPrice", event.target.value)}
           />
         </label>
+        <label className="block space-y-1 sm:col-span-2">
+          {ui("Cache-read price (optional)")}
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            placeholder={ui("Defaults to input price")}
+            value={draft.cachedInputPrice}
+            onChange={(event) => change("cachedInputPrice", event.target.value)}
+          />
+        </label>
       </div>
     </fieldset>
   );
@@ -376,6 +387,14 @@ export function ModelEditor({
                 <dt className="text-content-muted">{ui("Output price")}</dt>
                 <dd className="tabular-nums">
                   {millionTokenPrice(Number(draft.outputPrice)) ?? ui("Unknown")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-content-muted">{ui("Cache-read price")}</dt>
+                <dd className="tabular-nums">
+                  {draft.cachedInputPrice === ""
+                    ? ui("Defaults to input price")
+                    : millionTokenPrice(Number(draft.cachedInputPrice))}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 sm:col-span-2">
