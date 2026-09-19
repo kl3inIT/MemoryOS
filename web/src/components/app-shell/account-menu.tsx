@@ -1,4 +1,4 @@
-import { LogOut, Moon, Settings2, Sun } from "lucide-react";
+import { LogOut, Moon, Settings, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Popover } from "radix-ui";
@@ -103,7 +103,7 @@ export function AccountMenu({
             {canAccessAdmin ? (
               <MenuItem
                 to={adminEntryPath}
-                icon={<Settings2 className="size-4.5" />}
+                icon={<Settings className="size-4.5" />}
                 onClick={() => {
                   setMenuOpen(false);
                   onNavigate?.();

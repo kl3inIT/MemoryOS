@@ -51,4 +51,4 @@ The tab lists the MCP servers the member may use with per-user authentication an
 
 ## Out of scope
 
-Smooth streaming, default temperature and reasoning, chat background, Memory (MEM-116), LLM Gateway and personal access tokens (MEM-146), password changes (Keycloak), setting budgets (MEM-123).
+Smooth streaming, default temperature, per-chat reasoning (MEM-147), chat background, Memory (MEM-116), LLM Gateway and personal access tokens (MEM-146), password changes (Keycloak), setting budgets (MEM-123).

@@ -112,7 +112,7 @@ function CreateShortcutLink() {
   const ui = useAppTranslation();
   return (
     <Link
-      to="/settings/general"
+      to="/settings/chat"
       hash="prompt-shortcuts"
       className="flex items-center gap-2 rounded-lg px-3 py-2 font-main-ui-body text-content-secondary outline-none hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-focus-ring/40"
     >
