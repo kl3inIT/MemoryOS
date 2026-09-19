@@ -130,6 +130,8 @@ class OpenAiResponsesChatModelTest {
         assertEquals("\n\nChecking the policy.\n\n**Answering**", events.stream().map(event -> ((ChatReasoningDelta) event).text()).reduce("", String::concat));
         var request = requests.getFirst();
         assertEquals("auto", request.path("reasoning").path("summary").asString());
+        // No configured effort: Onyx's AUTO, "medium" for OpenAI; GPT-5.1+ would otherwise not reason at all.
+        assertEquals("medium", request.path("reasoning").path("effort").asString());
         assertEquals(List.of("function"), types(request.path("tools")));
     }
 

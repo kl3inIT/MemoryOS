@@ -89,6 +89,25 @@ public final class WebProviderClient {
         return List.copyOf(results);
     }
 
+    /**
+     * 9Router lists its Web engines at {@code GET /v1/models/web}: connected search and fetch providers and combos.
+     * Only search engines are returned; a fetch-only entry ({@code kind: webFetch}) cannot answer a query.
+     */
+    public List<String> nineRouterEngines(String endpoint, String key) throws IOException {
+        return measured(WebProvider.NINEROUTER.name(), "engines", () -> {
+            String base = endpoint.replaceAll("/+$", "").replaceAll("/search$", "");
+            var root = json("GET", base + "/models/web", bearer(key), null);
+            var engines = new ArrayList<String>();
+            for (var item : root.path("data")) {
+                if ("webFetch".equals(item.path("kind").asString(""))) continue;
+                String id = item.path("id").asString("");
+                if (!id.isBlank() && id.length() <= 200 && !engines.contains(id)) engines.add(id);
+                if (engines.size() >= 200) break;
+            }
+            return List.copyOf(engines);
+        });
+    }
+
     public Result read(WebConnectionService.@Nullable Connection connection, String url, Runnable checkActive) throws IOException {
         return measured(connection == null ? "BUILT_IN" : connection.provider().name(), "read", () -> readRequest(connection, url, checkActive));
     }

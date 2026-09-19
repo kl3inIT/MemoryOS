@@ -21,7 +21,7 @@ import {
   ChatSourcesProvider,
   ChatSourcesWorkspace,
 } from "./chat-sources";
-import { remarkCitations } from "./chat-evidence";
+import { remarkCitations, remarkSandboxLinks } from "./chat-evidence";
 import { cn } from "@/lib/utils";
 import { useChatPreferences } from "@/features/identity/chat-preferences";
 import { IconButton } from "@/components/ui/icon-button";
@@ -56,7 +56,7 @@ const activityGroups = groupPartByType({
   reasoning: ["group-activity"],
   "tool-call": ["group-activity"],
 });
-const answerPlugins = [remarkCitations];
+const answerPlugins = [remarkCitations, remarkSandboxLinks];
 const answerComponents = { a: ChatMarkdownLink };
 import {
   ChatComposerQuote,

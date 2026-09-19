@@ -1,3 +1,4 @@
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Cpu, Globe, Settings2, Telescope } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   listChatProviderAdapters,
   listChatProviders,
   listChatWebConnections,
+  listChatWebEngines,
   listConfiguredChatModels,
   saveChatSettings,
   saveChatWebConnection,
@@ -254,6 +256,28 @@ function ConnectionCard({
   const [saveError, setSaveError] = useState<ErrorMessage>();
   const [testError, setTestError] = useState<ErrorMessage>();
   const [tested, setTested] = useState(false);
+  // 9Router lists its connected search engines; the field stays free text for anything it does not report.
+  const [engines, setEngines] = useState<string[]>();
+  const [enginesError, setEnginesError] = useState<ErrorMessage>();
+  async function loadEngines() {
+    setPending(true);
+    setEnginesError(undefined);
+    try {
+      const { data } = await listChatWebEngines({
+        path: { provider },
+        body: { endpoint, key: key || null },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+      setEngines(data.engines);
+      if (!engineId && data.engines.length === 1) setEngineId(data.engines[0]!);
+    } catch (failed) {
+      setEngines(undefined);
+      setEnginesError(webProblem(failed));
+    } finally {
+      setPending(false);
+    }
+  }
   function changeOpen(next: boolean) {
     if (pending) return;
     if (!next) {
@@ -406,15 +430,51 @@ function ConnectionCard({
                   </label>
                 )}
                 {provider === "NINEROUTER" && (
-                  <label className="block space-y-1">
-                    <span>{ui("Engine tìm kiếm")}</span>
-                    <Input
-                      value={engineId}
-                      onChange={(e) => setEngineId(e.target.value)}
-                      required
-                      maxLength={200}
-                    />
-                  </label>
+                  <div className="space-y-1">
+                    <label className="block space-y-1">
+                      <span>{ui("Engine tìm kiếm")}</span>
+                      <div className="flex gap-2">
+                        <Input
+                          value={engineId}
+                          onChange={(e) => setEngineId(e.target.value)}
+                          required
+                          maxLength={200}
+                          list="nine-router-engines"
+                          className="min-w-0 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          prominence="secondary"
+                          disabled={pending || !endpoint.trim()}
+                          onClick={() => void loadEngines()}
+                        >
+                          {ui("Lấy danh sách")}
+                        </Button>
+                      </div>
+                    </label>
+                    <datalist id="nine-router-engines">
+                      {engines?.map((engine) => (
+                        <option key={engine} value={engine} />
+                      ))}
+                    </datalist>
+                    {engines && (
+                      <p role="status" className="text-xs text-content-muted">
+                        {engines.length > 0
+                          ? ui("9Router có {{count}} engine: {{names}}", {
+                              count: engines.length,
+                              names: engines.slice(0, 6).join(", "),
+                            })
+                          : ui(
+                              "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.",
+                            )}
+                      </p>
+                    )}
+                    {enginesError && (
+                      <p role="alert" className="text-xs text-status-danger-content">
+                        {problemMessage(enginesError)}
+                      </p>
+                    )}
+                  </div>
                 )}
                 <label className="block space-y-1">
                   <span>{ui("Khóa API")}</span>
@@ -433,10 +493,10 @@ function ConnectionCard({
                 </label>
               </fieldset>
               {tested && (
-                <p role="status" className="mt-4 flex items-center gap-1 text-sm">
-                  <CheckCircle2 className="size-4" />
-                  {ui("Kiểm tra kết nối thành công")}
-                </p>
+                <Alert variant="success" role="status" className="mt-4">
+                  <CheckCircle2 aria-hidden="true" />
+                  <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
+                </Alert>
               )}
               {(saveError || testError) && (
                 <p role="alert" className="mt-4 text-sm text-status-danger-content">

@@ -3145,6 +3145,41 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void nineRouterEnginesAreListedWithTheTypedKeyForModelManagersOnly() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models/web", exchange -> {
+            assertEquals("Bearer typed-9router-key", exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] body = "{\"data\":[{\"id\":\"brave-search\"},{\"id\":\"reader\",\"kind\":\"webFetch\"}]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        try {
+            String endpoint = "http://localhost:" + server.getAddress().getPort() + "/v1";
+            var typed = Json.mapper().createObjectNode().put("endpoint", endpoint).put("key", "typed-9router-key").toString();
+            var engines = post("/api/chat/web/connections/NINEROUTER/engines");
+            mockMvc.perform(engines.with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(typed)).andExpect(status().isForbidden());
+            grantModelManagement();
+            mockMvc.perform(post("/api/chat/web/connections/NINEROUTER/engines").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(typed))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.engines[0]").value("brave-search"))
+                    .andExpect(jsonPath("$.engines.length()").value(1));
+            // Without a typed key there is no saved connection whose key could be reused.
+            var blank = Json.mapper().createObjectNode().put("endpoint", endpoint).toString();
+            mockMvc.perform(post("/api/chat/web/connections/NINEROUTER/engines").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(blank))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/chat/web/connections/BRAVE/engines").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(typed))
+                    .andExpect(status().isBadRequest());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent() throws Exception {
         mockMvc.perform(get("/api/chat/web/connections").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/web").with(authentication(actor))).andExpect(status().isOk());

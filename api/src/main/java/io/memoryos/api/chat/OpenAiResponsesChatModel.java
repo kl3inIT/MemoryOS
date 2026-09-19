@@ -139,9 +139,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         if (options.getTemperature() != null) builder.temperature(options.getTemperature());
         if (options.getTopP() != null) builder.topP(options.getTopP());
         var reasoningOptions = new LinkedHashMap<String, Object>();
-        if (options.getReasoningEffort() != null) reasoningOptions.put("effort", options.getReasoningEffort());
+        // Onyx ReasoningEffort.AUTO is "medium" for OpenAI (onyx/llm/models.py). Omitting it lets GPT-5.1 and later
+        // default to no reasoning, so a reasoning model neither thought nor streamed a summary while it worked.
+        String effort = options.getReasoningEffort() != null ? options.getReasoningEffort() : reasoning ? "medium" : null;
+        if (effort != null) reasoningOptions.put("effort", effort);
         // As Onyx, summaries accompany every reasoning request, so the stream carries packets while the model thinks.
-        if (summaries && !"none".equals(options.getReasoningEffort())) reasoningOptions.put("summary", "auto");
+        if (summaries && !"none".equals(effort)) reasoningOptions.put("summary", "auto");
         if (!reasoningOptions.isEmpty()) builder.putAdditionalBodyProperty("reasoning", JsonValue.from(reasoningOptions));
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {

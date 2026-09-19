@@ -6827,6 +6827,84 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/web/connections/{provider}/engines:
+    post:
+      tags:
+      - Chat Web
+      summary: "List the search engines a 9Router gateway offers, with the typed key\
+        \ or the saved one for the same endpoint"
+      operationId: listChatWebEngines
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - NINEROUTER
+          - FIRECRAWL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebEnginesRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebEnginesResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/tickets:
     post:
       tags:
@@ -16544,6 +16622,30 @@ components:
       properties:
         search:
           type: boolean
+    WebEnginesRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        key:
+          type:
+          - string
+          - "null"
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+    WebEnginesResponse:
+      type: object
+      properties:
+        engines:
+          type: array
+          items:
+            type: string
+      required:
+      - engines
     VoiceTicketRequest:
       type: object
       properties:
