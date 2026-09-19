@@ -82,7 +82,7 @@ class SearchToolTest {
 
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, List<UUID> sourceIds) {
         var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
-                new ChatSearchProperties(30, 10, 6000, 8000, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
+                new ChatSearchProperties(30, 10, 6000, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
                 }, () -> availableTokens, events::add, Mono.never(), List.of(new UserMessage("policy")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP), sourceIds);
         tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("tool-1", "search_knowledge", "{}")));
@@ -309,7 +309,7 @@ class SearchToolTest {
         });
         when(runner.createObject(anyList(), eq(SearchTool.KeywordQueries.class))).thenReturn(new SearchTool.KeywordQueries(List.of("AX-7")));
         try (var tool = new SearchTool(search, new ActorId(UUID.randomUUID()), runner, new JTokkitTokenCountEstimator(),
-                new ChatSearchProperties(30, 10, 6000, 8000, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
+                new ChatSearchProperties(30, 10, 6000, Duration.ofSeconds(5), false, Duration.ofSeconds(1)), () -> {}, () -> 8000, events::add, Mono.never(),
                 List.of(new UserMessage("Tell me about AX-7"), new AssistantMessage("AX-7 is our internal system."),
                         new UserMessage("How do I set it up?")), new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP))) {
             tool.activity().beforeToolCall(new BeforeToolCallContext(new ToolCall("follow-up", "search_knowledge", "{}")));

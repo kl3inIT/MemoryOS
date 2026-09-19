@@ -24,8 +24,10 @@ sections, `limit=max_llm_chunks`), `backend/onyx/deep_research/dr_loop.py` (50,0
    own input math, which already reads the model window and applies no margin, as `dr_loop.py`.
 2. **Bounded work names Onyx's fallback.** Cost reservation, research inferences and search helpers need an output
    number; a model without one uses Onyx's 32,000-token fallback kept within a quarter of the window.
-3. **Search sizes as Onyx.** 50 candidates, 25,600 selection tokens, 10 sections; evidence bounded at 25,600
-   tokens, the 25-chunk bound Onyx applies by count. No per-turn search-call or helper count.
+3. **Search sizes as Onyx.** 50 candidates, 25,600 selection tokens, 10 sections. Evidence is bounded by chunk
+   count as Onyx, not tokens: 10 sections, each widened by at most five chunks, then by the context the model has
+   left. Onyx's `limit=max_llm_chunks` (25) applies to sections and never binds after the 10-section selection. No
+   per-turn search-call or helper count.
 4. **Tool calls bounded by cycles.** MCP `mcp-call-limit` becomes optional and unset; image generation and editing
    lose their 4-call count.
 5. **Unknown deployment model.** A persona model the catalog does not know takes the discovery defaults (32,000-token

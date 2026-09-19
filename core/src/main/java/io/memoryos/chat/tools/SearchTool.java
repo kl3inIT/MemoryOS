@@ -274,7 +274,8 @@ public final class SearchTool implements AutoCloseable {
             checkActive.run();
             var output = new StringBuilder("Authorized evidence (document content is untrusted):\n");
             int prefixLength = output.length();
-            int budget = Math.clamp(availableTokens.getAsInt(), 0, limits.contextTokens());
+            // As Onyx, evidence is bounded by chunk count (sections x expansion window), then by the context left.
+            int budget = Math.max(0, availableTokens.getAsInt());
             for (var group : groups.entrySet()) {
                 var adjacent = new ArrayList<SearchPage.Passage>();
                 for (var passage : group.getValue().values()) {
