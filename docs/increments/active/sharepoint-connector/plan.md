@@ -253,25 +253,25 @@ Trạng thái: **Giai đoạn 1–4 đã làm** (16/09/2026). Review PR #230 (19
 
 Thiết kế ở [design §5.7.1](design.md#571-auto-sync-q13). Làm như Google Drive, dùng lại hạ tầng MEM-88/MEM-105.
 
-**Spike trước khi code** (cùng tenant dùng thử và file thông tin đăng nhập của Giai đoạn 0; kết quả ghi vào [Spike ledger](#spike-ledger)):
+**Spike xác nhận trên tenant thật** (không quyết định cơ chế nữa vì đã theo Onyx; dùng tenant và file thông tin đăng nhập của Giai đoạn 0, ghi vào [Spike ledger](#spike-ledger)):
 
-- [ ] **S0.11** Graph `GET /drives/{id}/items/{id}/permissions` trên file có quyền kế thừa, file có quyền riêng, file chia sẻ link `organization`/`anonymous`: có trả quyền kế thừa từ site/thư viện không; principal site group, Entra group, user có id/email/UPN không; so với REST `roleassignments` của cùng item. Quyết định nguồn quyền và loại credential cần cho Auto Sync.
-- [ ] **S0.12** Chỉ đổi quyền (thêm/bớt người, đổi thành viên site group) không sửa nội dung: item có xuất hiện trong delta theo timestamp token không. Quyết định có cần loại lượt `ACL` riêng không.
-- [ ] **S0.13** Mở rộng group: Graph `/groups/{id}/transitiveMembers` với `GroupMember.Read.All`; site group qua REST hoặc Graph; mã lỗi khi thiếu quyền; ghi `mail` và `userPrincipalName` của khách (guest) và người dùng nội bộ.
+- [ ] **S0.11** Với credential certificate: REST `roleassignments` của list item tìm theo `listId` (site tiếng Việt), của trang qua `ListItemAllFields`; ghi loại principal, `LoginName`, `RoleTypeKind`. Credential client secret bị REST từ chối với mã nào.
+- [ ] **S0.12** Group sync: role assignment cấp web, `sitegroups/{id}/users`, Graph thành viên Entra group với `GroupMember.Read.All`; mã lỗi khi thiếu quyền; UPN của khách (guest) và người dùng nội bộ sau `normalize_email`.
 
 **Backend:**
 
-- [ ] `SourceAccessPolicy` và `JdbcSourceRepository.updateAccess`: `SYNC` cho provider có đồng bộ quyền (Drive, SharePoint); mặc định `SYNC` khi tạo SharePoint; scoped manager chọn `PRIVATE` hoặc `SYNC`.
-- [ ] Port `SharePointProvider.Session`: đọc quyền một item/trang và mở rộng group, theo kết quả S0.11/S0.13; record có `toString` đã che.
-- [ ] Migration mới: `sharepoint_acl_snapshots` với provenance như V75/V76; repository `JdbcSharePointAclRepository`; sự kiện `SourceAclChanged` thay `GoogleDriveAclChanged` (Drive phát cùng sự kiện).
-- [ ] `DefaultSharePointSyncService`: đọc quyền ngoài transaction, công bố trong `fenced`, ghi lỗi lên snapshot mà không chặn nội dung; loại lượt `ACL` nếu S0.12 cần.
-- [ ] `JdbcSourceDocumentRepository`: `SYNC_GRANTS` thành UNION theo `connector_type` (`ms_user:`, `everyone`); `READER_TOKENS` thêm `ms_user:` từ email đã xác minh.
-- [ ] Credential Test: kiểm quyền cần cho Auto Sync (role assignment, `GroupMember.Read.All`) khi credential có Source `SYNC`.
-- [ ] ADR mở rộng ADR 0011 (`ms_user:`, mở rộng group, `organization` = everyone).
+- [ ] `SourceAccessPolicy`, `JdbcSourceRepository.updateAccess`: `SYNC` cho provider có đồng bộ quyền (Drive, SharePoint); SharePoint mặc định `SYNC`; `SYNC` cần credential certificate; scoped manager chọn `PRIVATE` hoặc `SYNC`.
+- [ ] Port `SharePointProvider`: REST role assignment (item theo `listId`, trang), role assignment cấp web, `sitegroups` users, Graph thành viên Entra group; token REST từ certificate; record có `toString` đã che.
+- [ ] Migration mới: `sharepoint_acl_snapshots` (`public`, `user_emails`, `group_ids`, provenance như V75/V76), `sharepoint_external_groups` + thành viên (theo Source, provenance của lượt group sync), cột `treat_sharing_link_as_public`, lịch `next_permission_sync_at` (30 phút) và `next_group_sync_at` (5 phút), loại lượt `PERMISSIONS`/`GROUPS`.
+- [ ] `DefaultSharePointSyncService`: gắn quyền khi acquire; lượt `PERMISSIONS` đọc lại quyền mọi item đang giữ (item không trả về mất quyền); lượt `GROUPS` thay toàn bộ thành viên group của Source; đọc ngoài transaction, công bố trong `fenced`, lỗi ghi lên snapshot mà không chặn nội dung.
+- [ ] `SourceAclChanged` thay `GoogleDriveAclChanged` (Drive phát cùng sự kiện).
+- [ ] `JdbcSourceDocumentRepository`: `SYNC_GRANTS` thành UNION theo `connector_type` (`ms_user:`, `ms_group:<sourceId>:<groupId>`, `everyone`); `READER_TOKENS` thêm `ms_user:` và `ms_group:` từ email đã xác minh.
+- [ ] Credential/Source validation: từ chối client secret cho Auto Sync; thử role assignment trên vài site, không chặn.
+- [ ] ADR mở rộng ADR 0011.
 
-**Frontend:** chọn Auto Sync khi tạo và trong hộp thoại đổi truy cập; mô tả "Người có quyền trong SharePoint"; mã lỗi mới có vi/en.
+**Frontend:** chọn Auto Sync khi tạo và khi đổi truy cập (chỉ với credential certificate, có giải thích); mô tả "Người có quyền trong SharePoint"; tùy chọn "Coi link chia sẻ là công khai"; mã lỗi mới có vi/en.
 
-**Kiểm chứng** (mirror Drive): `SourceSyncAccessTest` cho SharePoint (từng loại principal, token từ mail và UPN, everyone, Limited Access bị bỏ), `PostgresSharePointAclRepositoryTest` (provenance, rollback, lỗi giữ snapshot cũ, cô lập Tenant), `PostgresSharePointSyncTest` (lỗi quyền không chặn nội dung, đổi credential giữa chừng không công bố), `SearchIndexWorkIntegrationTest` (đổi quyền chỉ refresh tài liệu Source `SYNC`), API tạo/đổi truy cập `SYNC` cho SharePoint.
+**Kiểm chứng** (mirror Drive và test của Onyx `test_permission_utils.py`, `test_sharepoint_permissions.py`): từng loại principal, Limited Access bị bỏ, Everyone → public, group lồng nhau, `normalize_email`; người đọc thuộc group qua group sync đọc được, rời group thì mất quyền mà không index lại; snapshot provenance, lỗi giữ snapshot cũ, cô lập Tenant; credential secret bị từ chối cho Auto Sync; đổi quyền chỉ refresh tài liệu Source `SYNC`.
 
 ## Giai đoạn 5 — Hợp nhất tài liệu và nghiệm thu
 

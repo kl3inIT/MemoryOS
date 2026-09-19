@@ -367,23 +367,46 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 
 #### 5.7.1 Auto Sync (Q13)
 
-Theo Onyx EE ([tham chiếu §7–§8](onyx-sharepoint-reference.md#7-đồng-bộ-quyền-ee)), dùng lại hạ tầng MEM-88/MEM-105: `SourceDocumentAccessResolver`, `READ_SCOPE`, `DocumentAccess`, trường `access_public`/`access_control_list` và refresh ACCESS tại chỗ của OpenSearch, `enqueueDocumentAccess`.
+Làm theo Onyx EE (`onyx@711a047`: `ee/onyx/external_permissions/sharepoint/permission_utils.py`, `doc_sync.py`, `group_sync.py`, `sync_params.py`; `onyx/connectors/sharepoint/connector.py`). Phía MemoryOS dùng lại hạ tầng MEM-88/MEM-105: `SourceDocumentAccessResolver`, `READ_SCOPE`, `DocumentAccess`, trường `access_public`/`access_control_list` và refresh ACCESS tại chỗ của OpenSearch, `enqueueDocumentAccess`.
 
-- **Nguồn quyền:** chọn sau spike S0.11 (plan):
-  - nếu Graph `GET /drives/{id}/items/{id}/permissions` trả quyền **kế thừa** và principal site group/Entra group có id: chỉ dùng Graph, credential client secret vẫn đủ;
-  - nếu không: REST `roleassignments` như Onyx (`$expand=Member,RoleDefinitionBindings`), cần **credential certificate** và `Sites.FullControl.All` (hoặc full control từng site với `Sites.Selected`). Khi đó Auto Sync chỉ chọn được với credential certificate, và nút Test kiểm luôn quyền này.
-- **Khi nào đọc quyền:** mỗi lượt đọc lại quyền của item mà lượt đó chạm tới. Delta chỉ trả item đổi nội dung, nên nếu S0.12 cho thấy đổi quyền không hiện trong delta thì thêm loại lượt `ACL` có chu kỳ riêng (Onyx: doc sync 30 phút) đọc quyền của mọi item đang giữ, chỉ metadata.
-- **Mở rộng group lúc thu thập** (khác Drive: Drive không cấp gì cho `group`): quyền SharePoint chủ yếu qua site group (Owners/Members/Visitors) chứa Entra group, không mở rộng thì gần như không ai đọc được.
-  - Entra group: Graph `/groups/{id}/transitiveMembers` (`GroupMember.Read.All`), có giới hạn số thành viên và độ sâu;
-  - SharePoint site group: REST `sitegroups/{id}/users` (hoặc Graph nếu S0.11 cho phép), thành viên là Entra group thì mở rộng tiếp;
-  - bỏ assignment chỉ có Limited Access (`role_type_kind` 1 hoặc 9), như Onyx.
-- **Token:**
-  - grant `ms_user:` + địa chỉ viết thường, phát từ **cả** `mail` **và** `userPrincipalName` của mỗi người, để khớp email đăng nhập đã xác minh theo ADR 0011 dù UPN khác email; không bỏ `.onmicrosoft`;
-  - `READER_TOKENS` thêm `ms_user:` từ cùng email đã xác minh; giữ nguyên `google_user:` để không phải sửa lại index đã có;
-  - "Everyone" (`c:0(.s|true`), "Everyone except external users" (`spo-grid-all-users`), link chia sẻ `anonymous`/`organization` → `everyone` (`PUBLIC_GRANT`): mọi người đọc MemoryOS đều là thành viên Tenant, nên `organization` tương đương everyone.
-- **Lưu trữ:** bảng `sharepoint_acl_snapshots` (migration mới) cùng cột provenance như V75/V76 (`observation_revision`, `status`, `attempt_*`, `success_*`, `error_code`, `error_message`); `SYNC_GRANTS` thành UNION theo `connector_type`; sự kiện `GoogleDriveAclChanged` tổng quát thành `SourceAclChanged` (người nghe duy nhất đã generic). Không gộp bảng Drive (MEM-88 đã merge).
-- **Lỗi:** thiếu `GroupMember.Read.All` hoặc quyền đọc role assignment ghi `SOURCE_SHAREPOINT_AUTHORIZATION` lên snapshot; tài liệu chưa có snapshot thành công thì không ai đọc được, nhưng việc lấy nội dung không bị chặn (như Drive).
-- **ADR:** mở rộng ADR 0011 cho `ms_user:` và việc mở rộng group, ghi khi đã bắt đầu triển khai.
+**Credential (như Onyx):**
+
+- Quyền đọc qua **SharePoint REST**, và REST chỉ nhận token app-only từ **certificate**. Chọn Auto Sync với credential client secret bị từ chối, với thông báo như Onyx ("Recreate the credential with Certificate Authentication, or turn permission sync off").
+- Quyền Entra cần: SharePoint `Sites.FullControl.All` (hoặc full control từng site với `Sites.Selected`) và Graph `GroupMember.Read.All`.
+- Khi kiểm tra Source Auto Sync, thử đọc role assignment trên tối đa vài site; lỗi thì báo nhưng không chặn, như Onyx.
+
+**Quyền của một tài liệu (doc sync):**
+
+- File: lấy list item của file rồi đọc `roleassignments` với `$expand=Member,RoleDefinitionBindings`, 100 mục mỗi trang. Trang site: `GetFileByServerRelativeUrl(path)/ListItemAllFields`, giữ nguyên percent-encoding của path như Onyx.
+  - Onyx tìm list theo **tiêu đề** thư viện (lỗi O3 với site không phải tiếng Anh); MemoryOS tìm theo `sharepointIds.listId`, cùng lý do như Q3.
+- Bỏ assignment chỉ có Limited Access (`RoleTypeKind` 1 hoặc 9).
+- Principal:
+  - **User** (loại 1): email là `UserPrincipalName` sau khi bỏ `.onmicrosoft` (`normalize_email` của Onyx), viết thường.
+  - **Entra group** (loại 4) và **SharePoint group** (loại 8): ghi **id group**, không ghi thành viên. Entra: `{displayName}_{groupId}`; SharePoint: `{siteUrl}::{title}`; viết thường. Mở rộng các group lồng bên trong và ghi luôn id của chúng (`_resolve_document_groups`), có cache trong một lượt.
+  - Login name chứa `c:0-.f|rolemanager|spo-grid-all-users/` (Everyone except external users) hoặc `c:0(.s|true` (Everyone): tài liệu **public**.
+- Tùy chọn của Source `treatSharingLinkAsPublic` (mặc định tắt, như Onyx): link chia sẻ `anonymous`/`organization` làm tài liệu public.
+- Kết quả mỗi tài liệu là `{public, userEmails, groupIds}`, lưu thành snapshot có provenance như Drive (V75/V76).
+
+**Thành viên group (group sync):**
+
+- Mỗi site trong phạm vi: đọc role assignment **cấp web**, lấy các group (bỏ Limited Access), mở rộng đệ quy: SharePoint group qua REST `sitegroups`, Entra group qua Graph; group Entra không còn (404) thì bỏ qua. Kết quả: mỗi group → **email thành viên trực tiếp**. Group public không được lưu.
+- Tùy chọn triển khai `exhaustiveAdEnumeration` (mặc định tắt, như Onyx): duyệt thêm mọi group Entra trong tenant, dừng ở 100.000 group.
+
+**Lịch (như `sync_params.py`):**
+
+- Doc sync mỗi **30 phút**: đọc lại quyền của mọi tài liệu Source đang giữ; tài liệu không còn trả về thì mất quyền. Lượt đầu cũng gắn quyền khi index (`initial_index_should_sync`).
+- Group sync mỗi **5 phút**.
+- Hai lịch này tách khỏi refresh/prune: thêm loại lượt `PERMISSIONS` và `GROUPS` với `next_*_at` riêng, không đổi hành vi refresh/prune.
+
+**Đối chiếu với người đọc (MemoryOS):**
+
+- Grant của tài liệu thành token: `ms_user:<email>`, `ms_group:<sourceId>:<groupId>`, hoặc `everyone` khi public. Group gắn theo Source vì Onyx đồng bộ group theo từng cc-pair (`group_sync_is_cc_pair_agnostic=False`).
+- Token của người đọc (`READER_TOKENS`) thêm `ms_user:` từ email đăng nhập đã xác minh (ADR 0011), và `ms_group:` của mọi group SharePoint có email đó trong danh sách thành viên. Như Onyx, đổi thành viên group không phải index lại tài liệu; đổi quyền tài liệu thì refresh ACCESS tại chỗ qua sự kiện `SourceAclChanged` (tổng quát hóa `GoogleDriveAclChanged`).
+- Giữ nguyên `google_user:`/`google_domain:` của Drive để không phải sửa index đã có.
+
+**Lỗi:** không đọc được quyền (thiếu quyền Entra, 403) thì ghi `SOURCE_SHAREPOINT_AUTHORIZATION` lên snapshot; tài liệu chưa có snapshot thành công thì không ai đọc được, nhưng việc lấy nội dung không bị chặn (như Drive).
+
+**ADR:** mở rộng ADR 0011 cho `ms_user:`/`ms_group:` và việc đối chiếu email sau `normalize_email`, ghi khi đã bắt đầu triển khai.
 
 ### 5.8 API
 
@@ -488,7 +511,7 @@ Chi tiết và lý do nằm ở [ui-references.md](ui-references.md).
 | 11  | Có Indexing Start Date                                                 | Không có                                                                                        | MemoryOS (tiền lệ Drive)  |
 | 12  | Hierarchy node                                                         | Không có                                                                                        | MemoryOS (ADR 0002)       |
 | 13  | Reindex theo link, gọi lại provider                                    | Reindex trên snapshot đã lưu                                                                    | MemoryOS                  |
-| 14  | Access cần gói Business; có Auto Sync                                  | Public/Private/Auto Sync; Auto Sync mở rộng group lúc thu thập, token từ cả mail và UPN         | MemoryOS (MEM-105), Q13   |
+| 14  | Access cần gói Business; có Auto Sync                                  | Public/Private/Auto Sync như Onyx; tìm list theo `listId` thay vì tiêu đề                      | MemoryOS (MEM-105), Q13   |
 | 15  | Mô tả phương thức xác thực không hiện                                  | Hiện trong card `RadioGroup`                                                                    | Sửa lỗi O12               |
 | 16  | Form sinh động theo cấu hình                                           | Các bước shadcn theo MEM-106 và Mobbin                                                          | MemoryOS                  |
 | 17  | Không có User-Agent riêng                                              | `ISV\|MemoryOS\|SharePointConnector/<version>`                                                  | MemoryOS                  |
@@ -516,7 +539,7 @@ Người dùng chốt Q1–Q10 ngày 16/09/2026, và chốt Q11–Q12 cùng ngà
 | Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị)                                                                                                | Đã kiểm ở [spike S0.8](plan.md#s08--url-personal-q10): thư viện chính tên `OneDrive`, path `/Documents`; lọc `ALL_SITES` theo cờ `isPersonalSite`                                                                         |
 | Q11 | **Lượt refresh gỡ tài liệu ngay theo tombstone của delta**; prune trở thành lưới an toàn                                                                                    | Phải lưu `provider_file_id` để khớp tombstone, vì tombstone không có `name`. Tài liệu đã xóa chỉ còn tìm được tối đa một chu kỳ refresh thay vì 7 ngày. Bằng chứng: [spike S0.3](plan.md#s03--delta-theo-timestamp-token) |
 | Q12 | **Bỏ bộ lọc cửa sổ phía client ở nhánh delta**; nhánh BFS `children` vẫn lọc                                                                                                | Sửa lỗi O4/O5: item được di chuyển vào phạm vi được index ngay thay vì chờ tới khi có người sửa nội dung. Cửa sổ chỉ còn dùng để dựng token                                                                               |
-| Q13 | **Làm Auto Sync theo quyền SharePoint như Google Drive** (người dùng chốt 19/09/2026, thay Q4) | §5.7.1. Nguồn quyền (Graph hay REST + certificate) và loại lượt `ACL` chốt sau spike S0.11–S0.13. Mặc định `SYNC` như Drive |
+| Q13 | **Làm Auto Sync theo quyền SharePoint như Google Drive** (người dùng chốt 19/09/2026, thay Q4) | §5.7.1, **làm theo Onyx**: REST `roleassignments` với credential certificate; doc sync 30 phút và group sync 5 phút; group gắn theo id, thành viên đồng bộ riêng. Mặc định `SYNC` như Drive |
 
 ## 8. Ngoài phạm vi
 
