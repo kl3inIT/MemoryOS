@@ -24,7 +24,9 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
+                description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -74,6 +76,7 @@ public record ChatMessageResponse(
                 new Research(message.research().clarification(), message.research().plan(), message.research().agents().stream()
                         .map(agent -> new Agent(agent.toolCallId(), agent.cycle(), agent.tabIndex(), agent.task(), agent.status().name(),
                                 agent.durationMs(), agent.report(), agent.citations().stream()
-                                .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()));
+                                .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()),
+                message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null);
     }
 }

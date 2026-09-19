@@ -1,0 +1,6694 @@
+{
+  "models": [
+    {
+      "modelName": "aion-labs/aion-2.0",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 1.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "aion-labs/aion-3.0",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "aion-labs/aion-3.0-mini",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.7,
+        "outputPerMillion": 1.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "aion-labs/aion-rp-llama-3.1-8b",
+      "contextWindow": 32768,
+      "maxOutputTokens": 29491,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 1.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "amazon/nova-2-lite-v1",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65535,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "amazon/nova-lite-v1",
+      "contextWindow": 300000,
+      "maxOutputTokens": 5120,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.24
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "amazon/nova-micro-v1",
+      "contextWindow": 128000,
+      "maxOutputTokens": 5120,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.035,
+        "outputPerMillion": 0.14
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "amazon/nova-premier-v1",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "amazon/nova-pro-v1",
+      "contextWindow": 300000,
+      "maxOutputTokens": 5120,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 3.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthracite-org/magnum-v4-72b",
+      "contextWindow": 32768,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-3-haiku",
+      "contextWindow": 200000,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-fable-5",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-fable-5.1",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-fable-5.1:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-fable-5:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-haiku-4.5",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-haiku-4.5:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4",
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 75.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.1",
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 75.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.1:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 7.5,
+        "outputPerMillion": 37.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.5",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.5:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.6",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.6:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.7",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.7:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.8",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-4.8:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-5",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-opus-5:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 12.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-4",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-4.5",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-4.5:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.5,
+        "outputPerMillion": 7.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-4.6",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-4.6:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.5,
+        "outputPerMillion": 7.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-5",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "anthropic/claude-sonnet-5:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "arcee-ai/trinity-large-thinking",
+      "contextWindow": 262144,
+      "maxOutputTokens": 80000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 0.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "baidu/ernie-4.5-vl-424b-a47b",
+      "contextWindow": 123000,
+      "maxOutputTokens": 16000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.42,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-1.6",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-1.6-flash",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-2-1-turbo",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-2.0-code",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-2.0-lite",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance-seed/seed-2.0-mini",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "bytedance/ui-tars-1.5-7b",
+      "contextWindow": 128000,
+      "maxOutputTokens": 2048,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cohere/command-a",
+      "contextWindow": 256000,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cohere/command-r-08-2024",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cohere/command-r-plus-08-2024",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cohere/command-r7b-12-2024",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.0375,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "cohere/north-mini-code:free",
+      "contextWindow": 256000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-chat",
+      "contextWindow": 163840,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.32,
+        "outputPerMillion": 0.89
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-chat-v3-0324",
+      "contextWindow": 163840,
+      "maxOutputTokens": 147456,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-chat-v3.1",
+      "contextWindow": 163840,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 0.95
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-r1",
+      "contextWindow": 64000,
+      "maxOutputTokens": 16000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.7,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-r1-0528",
+      "contextWindow": 163840,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 2.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-r1-distill-llama-70b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 7372,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 0.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v3.1-terminus",
+      "contextWindow": 163840,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.27,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v3.2",
+      "contextWindow": 163840,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.269,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v3.2-exp",
+      "contextWindow": 163840,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.27,
+        "outputPerMillion": 0.41
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 384000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.04564,
+        "outputPerMillion": 0.09128
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash-0731",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.04,
+        "outputPerMillion": 0.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash-0731:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.11,
+        "outputPerMillion": 0.33
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash-0731:free",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 393216,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash-vision-exp",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 262144,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2156,
+        "outputPerMillion": 0.6468
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-flash-vision-exp:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.11,
+        "outputPerMillion": 0.33
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-pro",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 384000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.533832,
+        "outputPerMillion": 1.067664
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-pro-0813",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 393216,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.57816,
+        "outputPerMillion": 1.73448
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4-pro-0813:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.66,
+        "outputPerMillion": 1.98
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "deepseek/deepseek-v4.1-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 384000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "dots-studio/dots-3-note-preview:free",
+      "contextWindow": 512000,
+      "maxOutputTokens": 460800,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-flash-image",
+      "contextWindow": 32768,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-flash-lite:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-pro",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-pro-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-2.5-pro:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.625,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3-flash-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3-flash-preview:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3-pro-image",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3-pro-image-preview",
+      "contextWindow": 65536,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-image",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-image-preview",
+      "contextWindow": 65536,
+      "maxOutputTokens": 58982,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-lite-image",
+      "contextWindow": 65536,
+      "maxOutputTokens": 58982,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-lite-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-flash-lite:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.125,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-pro-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-pro-preview-customtools",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.1-pro-preview:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.5-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.5,
+        "outputPerMillion": 9.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.5-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.5-flash-lite:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.5-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 4.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.6-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 3.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.6-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.375,
+        "outputPerMillion": 1.875
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.7-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 3.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.7-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.375,
+        "outputPerMillion": 1.875
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.8-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 3.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemini-3.8-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.375,
+        "outputPerMillion": 1.875
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-2-27b-it",
+      "contextWindow": 8192,
+      "maxOutputTokens": 2048,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.65,
+        "outputPerMillion": 0.65
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-3-12b-it",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-3-27b-it",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.08,
+        "outputPerMillion": 0.45
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-3-4b-it",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-4-26b-a4b-it",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-4-26b-a4b-it:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-4-31b-it",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 0.34
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/gemma-4-31b-it:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/lyria-3-clip-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "google/lyria-3-pro-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "gryphe/mythomax-l2-13b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 3686,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.08,
+        "outputPerMillion": 0.11
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "ibm-granite/granite-4.0-h-micro",
+      "contextWindow": 131000,
+      "maxOutputTokens": 117900,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.017,
+        "outputPerMillion": 0.112
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "ibm-granite/granite-4.2-8b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inception/mercury-2",
+      "contextWindow": 128000,
+      "maxOutputTokens": 50000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inception/mercury-2.5",
+      "contextWindow": 260000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.04,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.021,
+        "outputPerMillion": 0.063
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash-fin",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.18
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash-fin:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash-sante:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash-vl",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.18
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inclusionai/ling-3.0-flash-vl:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inference-net/schematron-v2-small",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.23
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "inference-net/schematron-v2-turbo",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.03,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "kwaipilot/kat-coder-pro-v2",
+      "contextWindow": 262144,
+      "maxOutputTokens": 144000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "kwaipilot/kat-coder-pro-v2.5",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.74,
+        "outputPerMillion": 2.96
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "liquid/lfm-2.5-2.6b:free",
+      "contextWindow": 65536,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mancer/weaver",
+      "contextWindow": 8000,
+      "maxOutputTokens": 6000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meituan/longcat-2.0",
+      "contextWindow": 1048756,
+      "maxOutputTokens": 262144,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-3.1-70b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-3.1-8b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-3.2-1b-instruct",
+      "contextWindow": 60000,
+      "maxOutputTokens": 54000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.027,
+        "outputPerMillion": 0.201
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-3.2-3b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.33
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-3.3-70b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.32
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-4-maverick",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1875,
+        "outputPerMillion": 0.6525
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-4-scout",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta-llama/llama-guard-4-12b",
+      "contextWindow": 163840,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.18,
+        "outputPerMillion": 0.18
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-glimmer-30b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.35,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-glimmer-30b:batch",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.175,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-spark-1.1",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 4.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-spark-1.2",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 4.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-spark-1.2-contributor",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-spark-1.3",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 4.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "meta/muse-spark-1.3-contributor",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "microsoft/phi-4",
+      "contextWindow": 16384,
+      "maxOutputTokens": 14745,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.07,
+        "outputPerMillion": 0.14
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "microsoft/wizardlm-2-8x22b",
+      "contextWindow": 65535,
+      "maxOutputTokens": 8000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.62,
+        "outputPerMillion": 0.62
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-01",
+      "contextWindow": 1000192,
+      "maxOutputTokens": 900172,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m1",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 40000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m2",
+      "contextWindow": 204800,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.255,
+        "outputPerMillion": 1.02
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m2-her",
+      "contextWindow": 65536,
+      "maxOutputTokens": 2048,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m2.1",
+      "contextWindow": 204800,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m2.5",
+      "contextWindow": 204800,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.27,
+        "outputPerMillion": 1.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m2.7",
+      "contextWindow": 204800,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m3",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 512000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "minimax/minimax-m3:batch",
+      "contextWindow": 524288,
+      "maxOutputTokens": 471859,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/codestral-2508",
+      "contextWindow": 256000,
+      "maxOutputTokens": 204800,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 0.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/codestral-2508:batch",
+      "contextWindow": 256000,
+      "maxOutputTokens": 204800,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.45
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/devstral-2512",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/ministral-14b-2512",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/ministral-3b-2512",
+      "contextWindow": 131072,
+      "maxOutputTokens": 104857,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/ministral-8b-2512",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/ministral-8b-2512:batch",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.075
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-large",
+      "contextWindow": 128000,
+      "maxOutputTokens": 102400,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-large-2407",
+      "contextWindow": 131072,
+      "maxOutputTokens": 104857,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-large-2512:batch",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-medium-3",
+      "contextWindow": 131072,
+      "maxOutputTokens": 104857,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-medium-3-5",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.5,
+        "outputPerMillion": 7.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-medium-3-5:batch",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 3.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-medium-3.1",
+      "contextWindow": 131072,
+      "maxOutputTokens": 104857,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-medium-3.1:batch",
+      "contextWindow": 131072,
+      "maxOutputTokens": 104857,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-nemo",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.019,
+        "outputPerMillion": 0.03
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-saba",
+      "contextWindow": 32768,
+      "maxOutputTokens": 26214,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-small-24b-instruct-2501",
+      "contextWindow": 32768,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-small-2603",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-small-2603:batch",
+      "contextWindow": 262144,
+      "maxOutputTokens": 209715,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-small-3.1-24b-instruct",
+      "contextWindow": 128000,
+      "maxOutputTokens": 102400,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.351,
+        "outputPerMillion": 0.555
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mistral-small-3.2-24b-instruct",
+      "contextWindow": 256000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.09375,
+        "outputPerMillion": 0.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/mixtral-8x22b-instruct",
+      "contextWindow": 65536,
+      "maxOutputTokens": 52428,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "mistralai/voxtral-small-24b-2507",
+      "contextWindow": 32768,
+      "maxOutputTokens": 26214,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2",
+      "contextWindow": 131072,
+      "maxOutputTokens": 98304,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.57,
+        "outputPerMillion": 2.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2-0905",
+      "contextWindow": 262144,
+      "maxOutputTokens": 98304,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2-thinking",
+      "contextWindow": 262144,
+      "maxOutputTokens": 98304,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2.5",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.45,
+        "outputPerMillion": 2.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2.6",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.95,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k2.7-code",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.7062,
+        "outputPerMillion": 3.21
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k3",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.7,
+        "outputPerMillion": 8.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "moonshotai/kimi-k3:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "morph/morph-v3-fast",
+      "contextWindow": 81920,
+      "maxOutputTokens": 38000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "morph/morph-v3-large",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.9,
+        "outputPerMillion": 1.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nex-agi/nex-n2.5-mini:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nex-agi/nex-n2.5-pro:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nousresearch/hermes-3-llama-3.1-405b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nousresearch/hermes-3-llama-3.1-70b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.7,
+        "outputPerMillion": 0.7
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nousresearch/hermes-4-405b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-nano-30b-a3b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.24
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "contextWindow": 256000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-super-120b-a12b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.08,
+        "outputPerMillion": 0.45
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-super-120b-a12b:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-ultra-550b-a55b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 182520,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 2.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3.5-content-safety",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3.5-content-safety:free",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3.5-lightning",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.07,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "nvidia/nemotron-3.5-lightning:free",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-3.5-turbo",
+      "contextWindow": 16385,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.5,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-3.5-turbo-0613",
+      "contextWindow": 4095,
+      "maxOutputTokens": 3685,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-3.5-turbo-16k",
+      "contextWindow": 16385,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-3.5-turbo-instruct",
+      "contextWindow": 4095,
+      "maxOutputTokens": 3685,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.5,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-3.5-turbo:batch",
+      "contextWindow": 16385,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4",
+      "contextWindow": 8191,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 30.0,
+        "outputPerMillion": 60.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4-turbo",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 30.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4-turbo:batch",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1-mini",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 1.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1-mini:batch",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1-nano",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1-nano:batch",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4.1:batch",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-2024-05-13",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-2024-08-06",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-2024-11-20",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-mini",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-mini-2024-07-18",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o-mini:batch",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-4o:batch",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-image",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-image-mini",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-mini",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-mini:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.125,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-nano",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.05,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-nano:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.025,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-pro",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 120.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5-pro:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 7.5,
+        "outputPerMillion": 60.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.1",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.1-codex",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.1-codex-max",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.1-codex-mini",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.25,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.1:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.625,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.75,
+        "outputPerMillion": 14.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2-chat",
+      "contextWindow": 128000,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.75,
+        "outputPerMillion": 14.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2-codex",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.75,
+        "outputPerMillion": 14.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2-pro",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 21.0,
+        "outputPerMillion": 168.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2-pro:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.5,
+        "outputPerMillion": 84.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.2:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.875,
+        "outputPerMillion": 7.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.3-codex",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.75,
+        "outputPerMillion": 14.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-image-2",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 8.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-mini",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 4.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-mini:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.375,
+        "outputPerMillion": 2.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-nano",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-nano:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.625
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 30.0,
+        "outputPerMillion": 180.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 90.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.4:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 7.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.5",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 30.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.5-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 30.0,
+        "outputPerMillion": 180.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.5-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 90.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.5:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-luna",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-luna-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-luna-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-luna:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-sol",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-sol-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-sol-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-sol:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-terra",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-terra-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-terra-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5.6-terra:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-5:batch",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.625,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-6-astra",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-6-astra-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-6-astra-pro:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-6-astra:batch",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-audio",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-audio-mini",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 2.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-chat-latest",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 30.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-oss-120b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-oss-120b:batch",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-oss-20b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.03,
+        "outputPerMillion": 0.13
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/gpt-oss-safeguard-20b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o1",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 15.0,
+        "outputPerMillion": 60.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o1-pro",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 150.0,
+        "outputPerMillion": 600.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3-mini",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.1,
+        "outputPerMillion": 4.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3-mini-high",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.1,
+        "outputPerMillion": 4.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3-mini:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.55,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3-pro",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 20.0,
+        "outputPerMillion": 80.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o3:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o4-mini",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.1,
+        "outputPerMillion": 4.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o4-mini-high",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.1,
+        "outputPerMillion": 4.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openai/o4-mini:batch",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.55,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/auto",
+      "contextWindow": 2000000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": null,
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/auto-beta",
+      "contextWindow": 2000000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": null,
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/bodybuilder",
+      "contextWindow": 128000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": null,
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/free",
+      "contextWindow": 200000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/fusion",
+      "contextWindow": 1000000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": null,
+      "source": "provider"
+    },
+    {
+      "modelName": "openrouter/pareto-code",
+      "contextWindow": 2000000,
+      "maxOutputTokens": null,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": null,
+      "source": "provider"
+    },
+    {
+      "modelName": "perceptron/perceptron-mk1",
+      "contextWindow": 32768,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 1.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "perplexity/sonar",
+      "contextWindow": 127072,
+      "maxOutputTokens": 114364,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "perplexity/sonar-deep-research",
+      "contextWindow": 128000,
+      "maxOutputTokens": 115200,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "perplexity/sonar-pro",
+      "contextWindow": 200000,
+      "maxOutputTokens": 8000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "perplexity/sonar-pro-search",
+      "contextWindow": 200000,
+      "maxOutputTokens": 8000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "perplexity/sonar-reasoning-pro",
+      "contextWindow": 128000,
+      "maxOutputTokens": 115200,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "poolside/laguna-s-2.1",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 0.18
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "poolside/laguna-s-2.1:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "poolside/laguna-xs-2.1",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.06,
+        "outputPerMillion": 0.12
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "poolside/laguna-xs-2.1:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "prism-ml/ternary-bonsai-2-27b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen-2.5-72b-instruct",
+      "contextWindow": 32768,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.36,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen-2.5-7b-instruct",
+      "contextWindow": 32768,
+      "maxOutputTokens": 29491,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen-2.5-coder-32b-instruct",
+      "contextWindow": 32768,
+      "maxOutputTokens": 29491,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.66,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen-plus",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.26,
+        "outputPerMillion": 0.78
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen-plus-2025-07-28",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.26,
+        "outputPerMillion": 0.78
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen2.5-vl-72b-instruct",
+      "contextWindow": 128000,
+      "maxOutputTokens": 115200,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-14b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.12,
+        "outputPerMillion": 0.24
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-235b-a22b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.455,
+        "outputPerMillion": 1.82
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-235b-a22b-2507",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.0875,
+        "outputPerMillion": 0.35
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-235b-a22b-thinking-2507",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.23,
+        "outputPerMillion": 2.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-30b-a3b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.12,
+        "outputPerMillion": 0.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-30b-a3b-instruct-2507",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.04815,
+        "outputPerMillion": 0.19305
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-30b-a3b-thinking-2507",
+      "contextWindow": 81920,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 2.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-32b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.08,
+        "outputPerMillion": 0.28
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-8b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.117,
+        "outputPerMillion": 0.455
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-coder",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-coder-30b-a3b-instruct",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.07,
+        "outputPerMillion": 0.28
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-coder-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.195,
+        "outputPerMillion": 0.975
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-coder-next",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.12,
+        "outputPerMillion": 0.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-coder-plus",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.65,
+        "outputPerMillion": 3.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-max",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.78,
+        "outputPerMillion": 3.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-max-thinking",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.78,
+        "outputPerMillion": 3.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-next-80b-a3b-instruct",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 1.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-next-80b-a3b-thinking",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-235b-a22b-instruct",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.21,
+        "outputPerMillion": 1.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-235b-a22b-thinking",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-30b-a3b-instruct",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.7
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-30b-a3b-thinking",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 2.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-32b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.104,
+        "outputPerMillion": 0.416
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-8b-instruct",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.117,
+        "outputPerMillion": 0.455
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3-vl-8b-thinking",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.18,
+        "outputPerMillion": 2.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-122b-a10b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.26,
+        "outputPerMillion": 2.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-27b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.195,
+        "outputPerMillion": 1.56
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-35b-a3b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1625,
+        "outputPerMillion": 1.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-397b-a17b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.55,
+        "outputPerMillion": 3.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-9b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-9b:batch",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.17,
+        "outputPerMillion": 0.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-flash-02-23",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.065,
+        "outputPerMillion": 0.26
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-plus-02-15",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.26,
+        "outputPerMillion": 1.56
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.5-plus-20260420",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.6-27b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.6-35b-a3b",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.6-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1875,
+        "outputPerMillion": 1.125
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.6-max-preview",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.027,
+        "outputPerMillion": 6.162
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.6-plus",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.325,
+        "outputPerMillion": 1.95
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.7-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.03,
+        "outputPerMillion": 0.13
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.7-max",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.475,
+        "outputPerMillion": 4.425
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.7-plus",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.32,
+        "outputPerMillion": 1.28
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-2.4t-a95b",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-2.4t-a95b:batch",
+      "contextWindow": 1010000,
+      "maxOutputTokens": 909000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-27b",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.214,
+        "outputPerMillion": 2.55
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-27b:free",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.47
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "qwen/qwen3.8-max-0902",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "rekaai/reka-edge",
+      "contextWindow": 16384,
+      "maxOutputTokens": 14745,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.1
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "rekaai/reka-flash-3",
+      "contextWindow": 65536,
+      "maxOutputTokens": 58982,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "relace/relace-apply-3",
+      "contextWindow": 256000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.85,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "relace/relace-search",
+      "contextWindow": 256000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 3.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sakana/fugu-max",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sakana/fugu-ultra",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 30.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sakana/fugu-ultra-v2",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 30.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sakana/sakana-namazu",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.95,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sao10k/l3-lunaris-8b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 7372,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.04,
+        "outputPerMillion": 0.05
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sao10k/l3.1-euryale-70b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.85,
+        "outputPerMillion": 0.85
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "sao10k/l3.3-euryale-70b",
+      "contextWindow": 131072,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.65,
+        "outputPerMillion": 0.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "stepfun/step-3.5-flash",
+      "contextWindow": 262144,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.1,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "stepfun/step-3.7-flash",
+      "contextWindow": 262144,
+      "maxOutputTokens": 230400,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.15
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hunyuan-a13b-instruct",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.14,
+        "outputPerMillion": 0.57
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy-mt2-1.8b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.044,
+        "outputPerMillion": 0.177
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy-mt2-30b-a3b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.074,
+        "outputPerMillion": 0.295
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy-mt2-7b",
+      "contextWindow": 8192,
+      "maxOutputTokens": 4096,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.074,
+        "outputPerMillion": 0.295
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy3",
+      "contextWindow": 262144,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.132,
+        "outputPerMillion": 0.528
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy3-preview",
+      "contextWindow": 262144,
+      "maxOutputTokens": 235929,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.18,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "tencent/hy4-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.834,
+        "outputPerMillion": 2.501
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thedrummer/cydonia-24b-v4.1",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 0.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thedrummer/skyfall-36b-v2",
+      "contextWindow": 32768,
+      "maxOutputTokens": 29491,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.55,
+        "outputPerMillion": 0.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thedrummer/unslopnemo-12b",
+      "contextWindow": 1024000,
+      "maxOutputTokens": 819200,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thinkingmachines/inkling",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 471859,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 4.05
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thinkingmachines/inkling-small",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 262144,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.45,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thinkingmachines/inkling-small:free",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 262144,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thinkingmachines/inkling:batch",
+      "contextWindow": 524288,
+      "maxOutputTokens": 471859,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 4.05
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "thinkingmachines/inkling:free",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 262144,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "unbiased/pareto",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 2.5,
+        "outputPerMillion": 7.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "undi95/remm-slerp-l2-13b",
+      "contextWindow": 6144,
+      "maxOutputTokens": 5529,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.35,
+        "outputPerMillion": 0.65
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "upstage/solar-pro-3",
+      "contextWindow": 131072,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.15,
+        "outputPerMillion": 0.6
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "upstage/solar-pro4",
+      "contextWindow": 524288,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 0.36
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "writer/palmyra-x5",
+      "contextWindow": 1040000,
+      "maxOutputTokens": 8192,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": false
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.20",
+      "contextWindow": 2000000,
+      "maxOutputTokens": 1800000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.20-multi-agent",
+      "contextWindow": 2000000,
+      "maxOutputTokens": 1800000,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.3",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 900000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.25,
+        "outputPerMillion": 2.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.3:batch",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 900000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.5",
+      "contextWindow": 500000,
+      "maxOutputTokens": 450000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-4.6",
+      "contextWindow": 500000,
+      "maxOutputTokens": 450000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "x-ai/grok-build-0.1",
+      "contextWindow": 256000,
+      "maxOutputTokens": 230400,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 2.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "xiaomi/mimo-v2.5",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.14,
+        "outputPerMillion": 0.28
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "xiaomi/mimo-v2.5-pro",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.435,
+        "outputPerMillion": 0.87
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.5",
+      "contextWindow": 131072,
+      "maxOutputTokens": 98304,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.5-air",
+      "contextWindow": 131072,
+      "maxOutputTokens": 98304,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.13,
+        "outputPerMillion": 0.85
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.5v",
+      "contextWindow": 65536,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 1.8
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.6",
+      "contextWindow": 204800,
+      "maxOutputTokens": 16384,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.43,
+        "outputPerMillion": 1.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.6v",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 0.9
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.7",
+      "contextWindow": 204800,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.4,
+        "outputPerMillion": 1.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-4.7-flash",
+      "contextWindow": 200000,
+      "maxOutputTokens": 117964,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0605,
+        "outputPerMillion": 0.4
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5",
+      "contextWindow": 204800,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.6,
+        "outputPerMillion": 1.92
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5-turbo",
+      "contextWindow": 202752,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.2,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.1",
+      "contextWindow": 204800,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.966,
+        "outputPerMillion": 3.036
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.2",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.5544,
+        "outputPerMillion": 1.7424
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.2:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.7,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.2:free",
+      "contextWindow": 32768,
+      "maxOutputTokens": 29491,
+      "capabilities": {
+        "toolCalling": false,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.0,
+        "outputPerMillion": 0.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.3",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.91,
+        "outputPerMillion": 2.86
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.3-flash",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.09,
+        "outputPerMillion": 0.3
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.3-flash:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.3-flashx",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.37,
+        "outputPerMillion": 1.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5.3:batch",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.7,
+        "outputPerMillion": 2.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "z-ai/glm-5v-turbo",
+      "contextWindow": 202752,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.2,
+        "outputPerMillion": 4.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~anthropic/claude-fable-latest",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~anthropic/claude-haiku-latest",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 5.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~anthropic/claude-opus-latest",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 5.0,
+        "outputPerMillion": 25.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~anthropic/claude-sonnet-latest",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~deepseek/deepseek-flash-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.13,
+        "outputPerMillion": 0.52
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~deepseek/deepseek-pro-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 393216,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.57816,
+        "outputPerMillion": 1.73448
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~deepseek/deepseek-v4-flash-latest",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.04,
+        "outputPerMillion": 0.08
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~google/gemini-flash-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 3.75
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~google/gemini-pro-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~moonshotai/kimi-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 1.7,
+        "outputPerMillion": 8.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~openai/gpt-astra-latest",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 10.0,
+        "outputPerMillion": 50.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~openai/gpt-luna-latest",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 1.2
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~openai/gpt-mini-latest",
+      "contextWindow": 400000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.75,
+        "outputPerMillion": 4.5
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~openai/gpt-sol-latest",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 10.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~openai/gpt-terra-latest",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 12.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~x-ai/grok-latest",
+      "contextWindow": 500000,
+      "maxOutputTokens": 450000,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 6.0
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~z-ai/glm-flash-latest",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.075,
+        "outputPerMillion": 0.25
+      },
+      "source": "provider"
+    },
+    {
+      "modelName": "~z-ai/glm-latest",
+      "contextWindow": 1310720,
+      "maxOutputTokens": 131072,
+      "capabilities": {
+        "toolCalling": true,
+        "vision": false,
+        "reasoning": true
+      },
+      "pricing": {
+        "inputPerMillion": 0.8918,
+        "outputPerMillion": 2.8028
+      },
+      "source": "provider"
+    }
+  ]
+}

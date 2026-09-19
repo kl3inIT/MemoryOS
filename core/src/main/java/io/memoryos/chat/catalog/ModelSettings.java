@@ -4,12 +4,15 @@ import io.memoryos.chat.ChatException;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Declared deployment limits/capabilities, not capabilities inferred from a model name. */
-public record ModelSettings(int contextWindow, int maxOutputTokens, Capabilities capabilities,
+/**
+ * Declared deployment limits/capabilities, not capabilities inferred from a model name. A {@code null} output limit
+ * means the provider publishes none: as Onyx, no output cap is sent and the provider's own default applies.
+ */
+public record ModelSettings(int contextWindow, @Nullable Integer maxOutputTokens, Capabilities capabilities,
                             Map<String, Object> options, @Nullable Pricing pricing, String tokenizerProfile) {
     public ModelSettings {
-        if (contextWindow < 256 || contextWindow > 10000000 || maxOutputTokens < 1
-                || maxOutputTokens >= contextWindow || capabilities == null || options == null || options.size() > 32)
+        if (contextWindow < 256 || contextWindow > 10000000
+                || maxOutputTokens != null && (maxOutputTokens < 1 || maxOutputTokens >= contextWindow) || capabilities == null || options == null || options.size() > 32)
             throw ChatException.invalid("Invalid model limits or capabilities.");
         if (tokenizerProfile == null || tokenizerProfile.isBlank())
             throw ChatException.invalid("A tokenizer profile is required.");

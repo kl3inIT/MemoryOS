@@ -752,6 +752,12 @@ export const vietnameseUi: Record<string, string> = {
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
   "Chưa kết nối mô hình tạo ảnh.": "No image model connected.",
+  "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.":
+    "The model stopped at the output limit in its configuration. Raise the model's output limit or pick another model.",
+  "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.":
+    "The conversation exceeds the model's context window. Start a new conversation or pick a model with a larger context.",
+  "Mô hình này không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token.":
+    "This model cannot run Deep research: it needs tool calling and at least 50,000 tokens of context.",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",
@@ -2585,14 +2591,6 @@ Object.assign(englishUi, {
 });
 Object.assign(vietnameseUi, {
   "Giọng nói": "Voice",
-  "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.":
-    "Connect providers so members can speak instead of typing and hear answers read aloud. Audio passes only through the MemoryOS server and is never stored.",
-  "Âm thanh không được lưu": "Audio is never stored",
-  "Mặc định: {{name}}": "Default: {{name}}",
-  "Chưa chọn nhà cung cấp mặc định": "No default provider selected",
-  "Đang hoạt động": "Active",
-  "Chưa cấu hình": "Not configured",
-  "Cần thiết lập": "Setup required",
   "Không tải được cấu hình giọng nói.": "Voice configuration could not be loaded.",
   "Chuyển giọng nói thành văn bản": "Speech to text",
   "Đọc văn bản thành giọng nói": "Text to speech",
@@ -2610,7 +2608,6 @@ Object.assign(vietnameseUi, {
   "TTS-1 và TTS-1 HD": "TTS-1 and TTS-1 HD",
   "Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches":
     "Self-hosted server with an OpenAI-compatible audio API, such as Speaches",
-  "Mặc định": "Default",
   "Cần cấu hình thêm": "Needs setup",
   "Ngắt kết nối {{name}}": "Disconnect {{name}}",
   "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
@@ -2624,13 +2621,7 @@ Object.assign(vietnameseUi, {
     "Used to transcribe speech in Chat and Search.",
   "Dùng để đọc câu trả lời thành tiếng.": "Used to read answers aloud.",
   "Thông tin kết nối": "Connection",
-  "MemoryOS xác minh nhà cung cấp trước khi lưu cấu hình và mã hóa khóa API.":
-    "MemoryOS verifies the provider before saving the configuration and encrypts the API key.",
   "Mô hình và giọng": "Model and voice",
-  "Chọn mô hình dùng cho bản ghi cuối cùng và đường dự phòng.":
-    "Choose the model used for final transcripts and fallback processing.",
-  "Chọn mô hình và giọng mặc định cho câu trả lời được đọc thành tiếng.":
-    "Choose the default model and voice for spoken answers.",
   "Địa chỉ máy chủ": "Server address",
   "Địa chỉ API": "API address",
   "Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.":
@@ -2638,8 +2629,6 @@ Object.assign(vietnameseUi, {
   "Để trống để dùng địa chỉ mặc định của nhà cung cấp.":
     "Leave empty to use the provider's default address.",
   "Khóa API (không bắt buộc)": "API key (optional)",
-  "Khóa được mã hóa khi lưu và không bao giờ được gửi lại trình duyệt.":
-    "The key is encrypted when saved and is never sent back to the browser.",
   "Xóa khóa đã lưu": "Remove saved key",
   "Mô hình nhận dạng": "Transcription model",
   "Mô hình giọng nói": "Speech model",
@@ -2648,7 +2637,6 @@ Object.assign(vietnameseUi, {
   "Giọng đọc": "Voice",
   "Nhập đúng tên giọng mà máy chủ cung cấp.":
     "Enter the voice name exactly as the server lists it.",
-  "Nhà cung cấp đã chấp nhận cấu hình đã lưu.": "The provider accepted the saved configuration.",
   "Đang kiểm tra khóa…": "Verifying key…",
   "Nhập bằng giọng nói": "Dictate",
   "Cấu hình nhập bằng giọng nói": "Set up dictation",
@@ -3160,12 +3148,15 @@ Object.assign(englishUi, {
   "Output price": "Giá output",
   Capabilities: "Capabilities",
   "Advanced options": "Tuỳ chọn nâng cao",
-  "Fetch models from the provider": "Lấy mô hình từ nhà cung cấp",
-  "Models reported by the provider": "Mô hình nhà cung cấp báo về",
-  "The provider did not answer.": "Nhà cung cấp không phản hồi.",
-  "This endpoint reported no models.": "Endpoint này không báo về mô hình nào.",
-  "Add manually": "Thêm thủ công",
-  "Add {{count}} models": "Thêm {{count}} mô hình",
+  "Fetch models from the provider": "Lấy danh sách model từ provider",
+  "Models reported by the provider": "Model có trên provider",
+  "The provider did not answer.": "Provider không phản hồi.",
+  "This endpoint reported no models.": "Endpoint này không trả về model nào.",
+  "Edit first": "Sửa trước khi thêm",
+  "Provider default": "Mặc định của provider",
+  "Add {{count}} models": "Thêm {{count}} model",
+  "{{shown}} of {{total}} models": "{{shown}}/{{total}} model",
+  Output: "Output",
   "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.":
     "Danh mục đã thay đổi hoặc xung đột. Đồng bộ revision đã lưu, kiểm tra lại bản nháp và thử lại thủ công.",
   "Reconcile saved model": "Đồng bộ mô hình đã lưu",
@@ -3175,8 +3166,8 @@ Object.assign(englishUi, {
   Close: "Đóng",
   "Validate saved connection": "Kiểm tra kết nối đã lưu",
   "Save model": "Lưu mô hình",
-  "Search models…": "Tìm mô hình…",
-  "Search models": "Tìm mô hình",
+  "Search models…": "Tìm model…",
+  "Search models": "Tìm model",
   "No matching models.": "Không có mô hình nào khớp.",
   "saved; hidden or unavailable": "đã lưu; đang ẩn hoặc không khả dụng",
   "draft no longer eligible": "bản nháp không còn hợp lệ",
@@ -3229,6 +3220,11 @@ Object.assign(englishUi, {
   "Provider unavailable": "Nhà cung cấp không khả dụng",
   "Model unavailable": "Mô hình không khả dụng",
   "The operation was discarded.": "Thao tác đã bị hủy.",
+});
+
+Object.assign(vietnameseUi, {
+  "Cấu hình nhà cung cấp nhận dạng giọng nói và đọc câu trả lời thành tiếng.":
+    "Configure speech-to-text and text-to-speech providers for voice input and spoken answers.",
 });
 
 // SharePoint setup, synchronization and failures (PR #230 review).

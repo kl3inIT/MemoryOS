@@ -3034,7 +3034,7 @@ export const searchChatSessions = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * List the model names the provider endpoint reports; requires model management
+ * List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management
  */
 export const listReportedProviderModels = <ThrowOnError extends boolean = false>(options: Options<ListReportedProviderModelsData, ThrowOnError>): RequestResult<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError> => (options.client ?? client).get<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

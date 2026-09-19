@@ -56,7 +56,6 @@ failing, timing out or rejecting credentials is visible before people report it.
 
 ## Limits
 
-A turn offers at most 8 servers and 64 tools. `memoryos.chat.execution.mcp-call-limit` and
-`mcp-call-timeout` bound the calls in one turn; a turn has no total deadline, so the timeout alone bounds each
-call. The shipped defaults of 10 calls and 60 seconds are provisional and have not been
-measured against a live provider.
+A turn offers at most 8 servers and 64 tools. As Onyx, the cycle limit (`max-cycles`, 6) bounds the calls in one
+turn; `memoryos.chat.execution.mcp-call-limit` is an optional per-turn cap, unset by default. `mcp-call-timeout`
+(60 seconds) bounds each call, since a turn has no total deadline; it has not been measured against a live provider.

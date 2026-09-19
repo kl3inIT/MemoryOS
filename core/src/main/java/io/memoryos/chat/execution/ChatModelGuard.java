@@ -96,6 +96,9 @@ public final class ChatModelGuard implements ChatModel {
 
     public void evidenceAvailable(BooleanSupplier value) { this.hasEvidence = value; }
 
+    /** Onyx has no helper-call count: tool work is bounded by the cycle limit and the turn's budgets. */
+    public static final int UNBOUNDED_HELPERS = Integer.MAX_VALUE;
+
     public void synchronousLimit(int value) {
         if (value < 1) throw new IllegalArgumentException("Invalid helper inference limit");
         this.synchronousLimit = value;

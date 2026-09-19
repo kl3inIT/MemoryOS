@@ -139,11 +139,11 @@ public final class ChatModelExecutor {
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
                     () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
-                    selected.policy(), Math.min(3000, selected.contextWindow() - Math.min(128, selected.maxOutputTokens())), selected.finalRequest());
-            guard.outputLimit(Math.min(128, selected.maxOutputTokens()));
+                    selected.policy(), Math.min(3000, selected.contextWindow() - selected.outputAtMost(128)), selected.finalRequest());
+            guard.outputLimit(selected.outputAtMost(128));
             admitted = guard;
             var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(Math.min(128, selected.maxOutputTokens())).withTimeout(Duration.ofSeconds(10)));
+            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(selected.outputAtMost(128)).withTimeout(Duration.ofSeconds(10)));
             var text = new StringBuilder();
             for (var message : history) {
                 String content = message.content() == null ? "" : message.content();
@@ -170,7 +170,7 @@ public final class ChatModelExecutor {
     private ResearchExecutor.AgentTools agentTools(ExecutingOperationContext context, ChatTurnSetup setup, ResearchExecutor.AgentScope agent,
             Mono<?> cancellation, io.memoryos.retrieval.SearchTasks.Scope fileWork, int maxOutput) {
         var selected = setup.binding();
-        agent.guard().synchronousLimit(searchLimits.helperCallLimit());
+        agent.guard().synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         Runnable active = () -> { fileWork.checkActive(); agent.checkActive().run(); };
         var tools = new java.util.ArrayList<Tool>();
         SearchTool searchTool = null;
@@ -207,22 +207,24 @@ public final class ChatModelExecutor {
         var process = context.getProcessContext().getAgentProcess();
         // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
         // reasoning tokens count toward it, so a small deployment cap cut long tool calls off mid-stream.
-        // max-output-tokens still reserves room for the answer when the input budget is computed.
-        int maxOutput = selected.maxOutputTokens();
-        int outputReserve = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
+        // max-output-tokens still reserves room for the answer when the input budget is computed. A model without a
+        // published output limit sends no cap (Onyx); bounded work uses Onyx's fallback output limit instead.
+        Integer maxOutput = selected.maxOutputTokens();
+        int outputBound = selected.outputBound();
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
                 && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
         if (delegate instanceof ChatModelTurns turns)
             delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
-        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - outputReserve);
+        int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
-        guard.outputLimit(maxOutput);
-        guard.synchronousLimit(searchLimits.helperCallLimit());
+        guard.outputLimit(outputBound);
+        // Onyx bounds tool work only by MAX_LLM_CYCLES: search helpers have no count of their own.
+        guard.synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         guard.taskPrompt(setup.options().taskPrompt());
         var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new java.util.concurrent.CopyOnWriteArrayList<CompletableFuture<Void>>();
@@ -241,8 +243,8 @@ public final class ChatModelExecutor {
                     conversation = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
                 }
                 research.run(new ResearchExecutor.Turn(setup, conversation, metadata.getChatModel(), process,
-                        new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), checkActive, cancellation, fileWork, maxOutput,
-                        output, events, agent -> agentTools(context, setup, agent, cancellation, fileWork, maxOutput), guards::add, drains::add));
+                        new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), checkActive, cancellation, fileWork, outputBound,
+                        output, events, agent -> agentTools(context, setup, agent, cancellation, fileWork, outputBound), guards::add, drains::add));
                 return;
             }
             guards.add(guard);
@@ -252,7 +254,8 @@ public final class ChatModelExecutor {
             // Date was frozen into the admitted system message. Override Embabel's automatic date by role.
             var runner = context.promptRunner(new LlmOptions(), Set.of(), List.of(),
                     List.of(PromptContributor.fixed("", new CurrentDate().getRole())), List.of(), false).withLlmService(service);
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(maxOutput))
+            var answerLlm = Objects.requireNonNull(runner.getLlm());
+            runner = runner.withLlm(maxOutput != null ? answerLlm.withMaxTokens(maxOutput) : answerLlm)
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             java.util.List<com.embabel.chat.Message> messages;
             try (var ignored = fileWork.enter()) {
@@ -281,7 +284,7 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
-                        .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
+                        .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity)
                         .knowledgeCutoff(setup.options().knowledgeCutoff());
@@ -292,13 +295,13 @@ public final class ChatModelExecutor {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.actor(), setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
+                        setup.actor(), setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, Integer.MAX_VALUE)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
-                        fileActive, imageEvents, 4)));
+                        fileActive, imageEvents, Integer.MAX_VALUE)));
             }
             if (python) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
@@ -307,7 +310,7 @@ public final class ChatModelExecutor {
             }
             if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
                 var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,
-                        limits.mcpCallTimeout(), limits.mcpCallLimit(), events::accept, activity,
+                        limits.mcpCallTimeout(), limits.mcpCallCap(), events::accept, activity,
                         guard::availableContextTokens, selected.policy().tokens(), meters);
                 for (var tool : mcpTools.tools()) runner = runner.withTools(java.util.List.of(tool));
             }

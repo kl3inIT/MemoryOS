@@ -14,7 +14,7 @@ public record AvailableChatModelResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatModelCapabilitiesResponse capabilities,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int contextWindow,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int maxOutputTokens,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}) @Nullable Integer maxOutputTokens,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable ChatModelPricingResponse pricing,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isDefault
 ) {

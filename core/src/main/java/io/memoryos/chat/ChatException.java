@@ -29,6 +29,12 @@ public final class ChatException extends BusinessException {
                 "Chat provider is not configured or available.");
     }
 
+    /** The selected model cannot run Deep research: it lacks tool calling or the minimum context window. */
+    public static ChatException researchModelUnsupported() {
+        return new ChatException("CHAT_RESEARCH_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The selected model cannot run Deep research.");
+    }
+
     /** Deep research was requested while the Tenant administrator has turned it off. */
     public static ChatException researchUnavailable() {
         return new ChatException("CHAT_RESEARCH_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,

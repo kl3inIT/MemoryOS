@@ -723,7 +723,10 @@ export type ModelInput = {
 
 export type ModelSettingsInput = {
     contextWindow: number;
-    maxOutputTokens: number;
+    /**
+     * Omitted when the provider publishes no output limit; no cap is then sent
+     */
+    maxOutputTokens?: number | null;
     capabilities: CapabilitiesInput;
     options: {
         [key: string]: unknown;
@@ -761,7 +764,7 @@ export type Model = {
 
 export type ModelSettings = {
     contextWindow: number;
-    maxOutputTokens: number;
+    maxOutputTokens: number | null;
     capabilities: Capabilities;
     options: {
         [key: string]: unknown;
@@ -1820,6 +1823,10 @@ export type ChatMessage = {
     images: Array<ImageRef>;
     generatedFiles: Array<GeneratedFileRef>;
     research: ChatMessageResearch;
+    /**
+     * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
+     */
+    failureCode: string | null;
 };
 
 export type ChatMessageResearch = {
@@ -2057,8 +2064,31 @@ export type ChatSessionSearchPage = {
     hasMore: boolean;
 };
 
+export type ChatReportedModel = {
+    modelName: string;
+    contextWindow: number;
+    maxOutputTokens: number | null;
+    capabilities: ChatReportedModelCapabilities;
+    pricing: ChatReportedModelPricing;
+    /**
+     * Where the specs come from: the endpoint itself, the installed catalog, or Onyx's defaults
+     */
+    source: 'provider' | 'catalog' | 'none';
+};
+
+export type ChatReportedModelCapabilities = {
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning: boolean;
+};
+
+export type ChatReportedModelPricing = {
+    inputPerMillion: number;
+    outputPerMillion: number;
+};
+
 export type ChatReportedModels = {
-    models: Array<string>;
+    models: Array<ChatReportedModel>;
 };
 
 export type Descriptor = {
@@ -2090,7 +2120,7 @@ export type AvailableModel = {
     displayName: string;
     capabilities: Capabilities;
     contextWindow: number;
-    maxOutputTokens: number;
+    maxOutputTokens: number | null;
     pricing: Pricing | null;
     isDefault: boolean;
 };

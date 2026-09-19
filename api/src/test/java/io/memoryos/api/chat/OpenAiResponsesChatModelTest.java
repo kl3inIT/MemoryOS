@@ -256,6 +256,22 @@ class OpenAiResponsesChatModelTest {
     }
 
     @Test
+    void anAnswerCutOffBeforeAnyTextOrCompletedCallReportsTheModelOutputLimit() {
+        // Staging 2026-09-19: gpt-5.6-luna declared 4096 output tokens and stopped inside a long run_python call.
+        var cut = Map.<String, Object>of("type", "function_call", "id", "fc_1", "call_id", "call_1", "name", "run_python",
+                "arguments", "{\"code\":\"import pan", "status", "incomplete");
+        bodies.add(sse(event("response.incomplete", Map.of("sequence_number", 1, "response", Map.of("id", "resp_1",
+                "object", "response", "status", "incomplete", "incomplete_details", Map.of("reason", "max_output_tokens"),
+                "output", List.of(cut))))));
+        var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
+
+        var failure = assertThrows(IllegalStateException.class,
+                () -> model.stream(new Prompt(List.of(new UserMessage("Báo cáo")), options(true))).collectList().block());
+
+        assertEquals("CHAT_MODEL_OUTPUT_LIMIT", failure.getMessage());
+    }
+
+    @Test
     void turnsWithoutWebAndHelperCallsUseTheChatCompletionsDelegate() {
         var completions = mock(ChatModel.class);
         var prompt = new Prompt("Helper", options(true));

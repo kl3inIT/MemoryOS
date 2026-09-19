@@ -381,7 +381,8 @@ class OpenApiContractTest {
         }
         var settingsRequired = new TreeSet<String>();
         schemas.path("ModelSettingsInput").path("required").forEach(value -> settingsRequired.add(value.asText()));
-        assertEquals(Set.of("contextWindow", "maxOutputTokens", "capabilities", "options", "tokenizerProfile"), settingsRequired);
+        // maxOutputTokens is optional: a provider that publishes no output limit gets no cap (Onyx).
+        assertEquals(Set.of("contextWindow", "capabilities", "options", "tokenizerProfile"), settingsRequired);
         for (String requiredField : Set.of("ProviderInput.enabled", "ProviderInput.isPublic", "ModelInput.visible",
                 "CapabilitiesInput.toolCalling", "CapabilitiesInput.vision", "CapabilitiesInput.reasoning",
                 "PricingInput.inputPerMillion", "PricingInput.outputPerMillion")) {

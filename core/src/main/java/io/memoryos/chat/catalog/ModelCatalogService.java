@@ -69,7 +69,7 @@ public class ModelCatalogService {
     /** A flow model is unavailable when it is set but no longer eligible; its flow then uses the conversation model. */
     public record FlowView(ModelFlow flow, @Nullable UUID modelConfigurationId, boolean available, long revision) {}
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
-                                 ModelSettings.Capabilities capabilities, int contextWindow, int maxOutputTokens,
+                                 ModelSettings.Capabilities capabilities, int contextWindow, @Nullable Integer maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
         public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }

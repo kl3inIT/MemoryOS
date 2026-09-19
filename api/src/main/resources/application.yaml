@@ -132,10 +132,11 @@ memoryos:
       lease-renewal: 60s
       provider-read-timeout: 60s
       max-cycles: 6
-      max-output-tokens: 4096
-      context-token-limit: 32000
+      # Room reserved for the answer when the input budget is computed (Onyx GEN_AI_NUM_RESERVED_OUTPUT_TOKENS).
+      # As Onyx, input is bounded by the model's window; context-token-limit and mcp-call-limit are optional caps.
+      max-output-tokens: 1024
+      # Bounds the Redis replay buffer, not the model.
       max-answer-characters: 1000000
-      mcp-call-limit: 10
       mcp-call-timeout: 60s
     interpreter:
       # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.

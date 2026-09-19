@@ -8,7 +8,9 @@ import java.util.Map;
 @Schema(name = "ModelSettingsInput")
 public record ChatModelSettingsRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "256", maximum = "10000000") int contextWindow,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1") int maxOutputTokens,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, types = {"integer", "null"}, minimum = "1",
+                description = "Omitted when the provider publishes no output limit; no cap is then sent")
+        @Nullable Integer maxOutputTokens,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatModelCapabilitiesRequest capabilities,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Map<String, Object> options,
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) @Nullable ChatModelPricingRequest pricing,

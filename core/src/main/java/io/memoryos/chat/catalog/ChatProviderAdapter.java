@@ -24,10 +24,11 @@ public interface ChatProviderAdapter {
     default boolean supportsNativeWebSearch(ModelSettings settings) { return false; }
 
     /**
-     * Model names the connected endpoint reports. Contacting the provider is the point, so callers
-     * treat a failure as provider unavailability and never echo the provider's payload.
+     * Models the connected endpoint reports, with any limits, capabilities and prices it publishes (OpenRouter,
+     * vLLM, Mistral and Groq do; OpenAI only names them). Contacting the provider is the point, so callers treat a
+     * failure as provider unavailability and never echo the provider's payload.
      */
-    default List<String> reportedModels(Connection connection, Duration timeout) {
+    default List<ReportedModel> reportedModels(Connection connection, Duration timeout) {
         throw io.memoryos.chat.ChatException.invalid("This adapter cannot list provider models.");
     }
 
@@ -56,6 +57,25 @@ public interface ChatProviderAdapter {
                     || pricing == null || contextWindow < 256 || contextWindow > 10000000
                     || maxOutputTokens < 1 || maxOutputTokens >= contextWindow)
                 throw new IllegalArgumentException("Invalid known model metadata");
+        }
+    }
+
+    /**
+     * A model an endpoint reports. Every field but the name is what the endpoint published, or null; a published
+     * capability flag is authoritative only when true or explicitly false.
+     */
+    record ReportedModel(String modelName, @org.jspecify.annotations.Nullable Integer contextWindow,
+                         @org.jspecify.annotations.Nullable Integer maxOutputTokens,
+                         @org.jspecify.annotations.Nullable Boolean toolCalling,
+                         @org.jspecify.annotations.Nullable Boolean vision,
+                         @org.jspecify.annotations.Nullable Boolean reasoning,
+                         ModelSettings.@org.jspecify.annotations.Nullable Pricing pricing) {
+        public ReportedModel {
+            if (modelName == null) throw new IllegalArgumentException("Invalid reported model");
+        }
+
+        public static ReportedModel named(String modelName) {
+            return new ReportedModel(modelName, null, null, null, null, null, null);
         }
     }
 
