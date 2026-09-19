@@ -12,42 +12,43 @@ import javax.crypto.spec.SecretKeySpec;
 
 import io.memoryos.iam.tenant.TenantId;
 
-public final class GoogleDriveCredentialCipher {
+/**
+ * AES-GCM envelope shared by connector credential kinds. The credential kind belongs to the additional
+ * authenticated data, so an envelope of one kind never decrypts under another kind's key.
+ */
+public final class CredentialCipher {
 
     private static final int KEY_BYTES = 32;
     private static final int NONCE_BYTES = 12;
     private static final int TAG_BITS = 128;
     private static final String CIPHER = "AES/GCM/NoPadding";
-    private static final String CREDENTIAL_KIND = "GOOGLE_OAUTH";
     private static final int FORMAT_VERSION = 1;
 
     private final SecretKeySpec key;
     private final String keyVersion;
+    private final String credentialKind;
     private final SecureRandom secureRandom;
 
-    public GoogleDriveCredentialCipher(byte[] key, String keyVersion) {
-        this(key, keyVersion, new SecureRandom());
+    public CredentialCipher(byte[] key, String keyVersion, String credentialKind) {
+        this(key, keyVersion, credentialKind, new SecureRandom());
     }
 
-    GoogleDriveCredentialCipher(byte[] key, String keyVersion, SecureRandom secureRandom) {
+    CredentialCipher(byte[] key, String keyVersion, String credentialKind, SecureRandom secureRandom) {
         Objects.requireNonNull(key, "key must not be null");
         if (key.length != KEY_BYTES) {
-            throw new IllegalArgumentException("Google Drive credential key must contain exactly 32 bytes");
+            throw new IllegalArgumentException("Credential key must contain exactly 32 bytes");
         }
         this.key = new SecretKeySpec(key, "AES");
         this.keyVersion = requireText(keyVersion, "keyVersion");
+        this.credentialKind = requireText(credentialKind, "credentialKind");
         this.secureRandom = Objects.requireNonNull(secureRandom, "secureRandom must not be null");
     }
 
-    public EncryptedCredential encrypt(TenantId tenantId, UUID credentialId, byte[] refreshToken) {
-        return encrypt(tenantId, credentialId, "refresh-token", refreshToken);
-    }
-
-    public EncryptedCredential encrypt(TenantId tenantId, UUID credentialId, String purpose, byte[] refreshToken) {
+    public EncryptedCredential encrypt(TenantId tenantId, UUID credentialId, String purpose, byte[] plaintext) {
         requireContext(tenantId, credentialId);
-        Objects.requireNonNull(refreshToken, "refreshToken must not be null");
-        if (refreshToken.length == 0) {
-            throw new IllegalArgumentException("refreshToken must not be empty");
+        Objects.requireNonNull(plaintext, "plaintext must not be null");
+        if (plaintext.length == 0) {
+            throw new IllegalArgumentException("plaintext must not be empty");
         }
         byte[] nonce = new byte[NONCE_BYTES];
         secureRandom.nextBytes(nonce);
@@ -55,21 +56,17 @@ public final class GoogleDriveCredentialCipher {
             Cipher cipher = Cipher.getInstance(CIPHER);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, nonce));
             cipher.updateAAD(aad(tenantId, credentialId, purpose));
-            return new EncryptedCredential(cipher.doFinal(refreshToken), nonce, keyVersion);
+            return new EncryptedCredential(cipher.doFinal(plaintext), nonce, keyVersion);
         } catch (GeneralSecurityException exception) {
-            throw new IllegalStateException("Google Drive credential encryption failed", exception);
+            throw new IllegalStateException("Credential encryption failed", exception);
         }
-    }
-
-    public byte[] decrypt(TenantId tenantId, UUID credentialId, EncryptedCredential credential) {
-        return decrypt(tenantId, credentialId, "refresh-token", credential);
     }
 
     public byte[] decrypt(TenantId tenantId, UUID credentialId, String purpose, EncryptedCredential credential) {
         requireContext(tenantId, credentialId);
         Objects.requireNonNull(credential, "credential must not be null");
         if (!keyVersion.equals(credential.keyVersion())) {
-            throw new IllegalStateException("Stored Google Drive credential uses an unavailable key version");
+            throw new IllegalStateException("Stored credential uses an unavailable key version");
         }
         try {
             Cipher cipher = Cipher.getInstance(CIPHER);
@@ -77,12 +74,12 @@ public final class GoogleDriveCredentialCipher {
             cipher.updateAAD(aad(tenantId, credentialId, purpose));
             return cipher.doFinal(credential.ciphertext);
         } catch (GeneralSecurityException exception) {
-            throw new IllegalStateException("Stored Google Drive credential could not be decrypted", exception);
+            throw new IllegalStateException("Stored credential could not be decrypted", exception);
         }
     }
 
     private byte[] aad(TenantId tenantId, UUID credentialId, String purpose) {
-        return (FORMAT_VERSION + "|" + tenantId.value() + "|" + credentialId + "|" + CREDENTIAL_KIND + "|" + keyVersion + "|" + purpose)
+        return (FORMAT_VERSION + "|" + tenantId.value() + "|" + credentialId + "|" + credentialKind + "|" + keyVersion + "|" + purpose)
                 .getBytes(StandardCharsets.UTF_8);
     }
 
@@ -120,6 +117,6 @@ public final class GoogleDriveCredentialCipher {
             return nonce.clone();
         }
 
-        @Override public String toString() { return "EncryptedGoogleCredential[redacted]"; }
+        @Override public String toString() { return "EncryptedCredential[redacted]"; }
     }
 }

@@ -307,6 +307,9 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       {ui("Status")}
                     </TableHead>
                     <TableHead scope="col" className="px-4 font-medium">
+                      {ui("Kind")}
+                    </TableHead>
+                    <TableHead scope="col" className="px-4 font-medium">
                       {ui("Trigger")}
                     </TableHead>
                     <TableHead scope="col" className="px-4 font-medium">
@@ -348,6 +351,15 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       <TableCell className="px-4 py-3">
                         <RunOutcome run={run} />
                       </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3">
+                        {run.runKind ? (
+                          <StatusBadge tone="neutral">
+                            {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
+                          </StatusBadge>
+                        ) : (
+                          <span className="text-content-muted">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3 text-content-secondary">
                         <RunTrigger run={run} />
                       </TableCell>
@@ -375,7 +387,7 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                   ))}
                   {!history.data.items.length ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="px-4 py-8 text-center text-content-muted">
+                      <TableCell colSpan={7} className="px-4 py-8 text-center text-content-muted">
                         {ui("No Source executions on this page.")}
                       </TableCell>
                     </TableRow>
@@ -634,6 +646,11 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
             <DetailRow icon={Zap} label={ui("Trigger")}>
               <RunTrigger run={run} />
             </DetailRow>
+            {run.runKind ? (
+              <DetailRow icon={RefreshCw} label={ui("Kind")}>
+                {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
+              </DetailRow>
+            ) : null}
             <DetailRow icon={CalendarClock} label={ui("Started")}>
               <HistoryTime value={run.startedAt} />
             </DetailRow>

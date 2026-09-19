@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { uiLocale } from "@/i18n/format";
 import { historyDuration, historyRelativeTime, runHasNoChanges } from "./source-history";
 import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
 import { SourceRunHistory } from "./source-run-history";
@@ -211,7 +212,7 @@ describe("Source execution and current-file history", () => {
   it("exposes full local times accessibly and never measures processing duration from queued fallback", () => {
     const result = render(<HistoryTime value={run.startedAt} />);
     const time = result.container.querySelector("time")!;
-    const full = new Date(run.startedAt!).toLocaleString(undefined, {
+    const full = new Date(run.startedAt!).toLocaleString(uiLocale(), {
       dateStyle: "full",
       timeStyle: "long",
     });

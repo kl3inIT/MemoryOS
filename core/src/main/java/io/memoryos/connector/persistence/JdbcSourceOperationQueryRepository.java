@@ -73,6 +73,13 @@ public class JdbcSourceOperationQueryRepository {
                                    selection.actor_id AS scope_owner_actor_id
                             FROM google_drive_selection_operations selection
                             WHERE selection.tenant_id = :tenantId AND selection.id = :operationId
+                            UNION ALL
+                            SELECT sharepoint.id, sharepoint.tenant_id, sharepoint.source_id,
+                                   'VALIDATE_SHAREPOINT_SELECTION' AS operation, sharepoint.status,
+                                   sharepoint.created_at, sharepoint.completed_at, sharepoint.error_code,
+                                   sharepoint.actor_id AS scope_owner_actor_id
+                            FROM sharepoint_selection_operations sharepoint
+                            WHERE sharepoint.tenant_id = :tenantId AND sharepoint.id = :operationId
                         ) operation_row
                         WHERE EXISTS (
                             SELECT 1

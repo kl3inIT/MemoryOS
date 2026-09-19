@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public final class GoogleDriveCredentialConfiguration {
     private final String encodedKey;
     private final String keyVersion;
-    private volatile GoogleDriveCredentialCipher cipher;
+    private volatile CredentialCipher cipher;
 
     public GoogleDriveCredentialConfiguration(
             @Value("${memoryos.google-drive.credential-encryption-key:}") String encodedKey,
@@ -19,7 +19,7 @@ public final class GoogleDriveCredentialConfiguration {
         this.keyVersion = keyVersion;
     }
 
-    public GoogleDriveCredentialCipher cipher() {
+    public CredentialCipher cipher() {
         var existing = cipher;
         if (existing != null) return existing;
         synchronized (this) {
@@ -28,7 +28,7 @@ public final class GoogleDriveCredentialConfiguration {
                 try {
                     if (keyVersion.isBlank() || keyVersion.length() > 64) throw GoogleDriveException.notConfigured();
                     key = Base64.getDecoder().decode(encodedKey);
-                    cipher = new GoogleDriveCredentialCipher(key, keyVersion);
+                    cipher = new CredentialCipher(key, keyVersion, "GOOGLE_OAUTH");
                 } catch (IllegalArgumentException exception) {
                     throw GoogleDriveException.notConfigured();
                 } finally {

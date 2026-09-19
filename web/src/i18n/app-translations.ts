@@ -52,8 +52,8 @@ export const vietnameseUi: Record<string, string> = {
   "Nguồn {{number}}": "Source {{number}}",
   "Trang {{pages}}": "Page {{pages}}",
   "Trang tính {{name}}": "Sheet {{name}}",
-  "Mở trong Google Drive": "Open in Google Drive",
-  "Mở {{title}} trong Google Drive": "Open {{title}} in Google Drive",
+  "Mở trong {{provider}}": "Open in {{provider}}",
+  "Mở {{title}} trong {{provider}}": "Open {{title}} in {{provider}}",
   "Đoạn trích": "Passages",
   "Trang PDF": "PDF pages",
   "Cách xem bằng chứng": "Evidence view",
@@ -1452,8 +1452,6 @@ Object.assign(englishUi, {
   "Stop voice search": "Dừng tìm kiếm bằng giọng nói",
   "Search by voice": "Tìm bằng giọng nói",
   "Stop listening": "Dừng nghe",
-  "Voice search is not supported in this browser":
-    "Trình duyệt này không hỗ trợ tìm kiếm bằng giọng nói",
   "Search is loading": "Đang tải tìm kiếm",
   "Searching documents": "Đang tìm tài liệu",
   Filters: "Bộ lọc",
@@ -1659,6 +1657,193 @@ Object.assign(englishUi, {
   Connected: "Đã kết nối",
 });
 
+Object.assign(englishUi, {
+  SharePoint: "SharePoint",
+  "Index sites, document libraries and pages from SharePoint Online.":
+    "Lập chỉ mục site, thư viện tài liệu và trang từ SharePoint Online.",
+  "Microsoft is resolving every address in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.":
+    "Microsoft đang xác minh mọi địa chỉ trong phạm vi này. Nguồn của bạn chưa hoạt động. Rời trang này không hủy việc xác minh; quay lại đây để khôi phục trạng thái.",
+  "Retry selection limits": "Thử lại giới hạn lựa chọn",
+  "Choose what to synchronize": "Chọn nội dung cần đồng bộ",
+  "Credential:": "Thông tin kết nối:",
+  "{{v1}} selected": "Đã chọn {{v1}}",
+  "Resume automatic sync": "Tiếp tục đồng bộ tự động",
+  "Pause automatic sync": "Tạm dừng đồng bộ tự động",
+  " (up to {{count}})": " (tối đa {{count}})",
+  "Select a verified credential before choosing content. Return to the credential step to test or replace it.":
+    "Chọn một credential đã xác minh trước khi chọn nội dung. Quay lại bước credential để kiểm tra hoặc thay thế.",
+  "Name and access": "Tên và quyền truy cập",
+  "e.g. Finance SharePoint": "ví dụ: SharePoint Tài chính",
+  "Group members can search and read what this Source imports. SharePoint's own per-item permissions are not synchronized.":
+    "Thành viên nhóm được tìm kiếm và đọc nội dung Nguồn này nhập về. Quyền theo từng mục của SharePoint không được đồng bộ.",
+  "Every active member with Search access can discover imported content.":
+    "Mọi thành viên đang hoạt động có quyền Tìm kiếm đều có thể tìm thấy nội dung đã nhập.",
+  "Only members of the groups selected below can discover imported content.":
+    "Chỉ thành viên của các nhóm được chọn bên dưới mới có thể tìm thấy nội dung đã nhập.",
+  Content: "Nội dung",
+  "Review and create": "Xem lại và tạo",
+  "Not set": "Chưa đặt",
+  "All sites": "Tất cả site",
+  "{{count}} addresses": "{{count}} địa chỉ",
+  Collects: "Thu thập",
+  "Documents and site pages": "Tài liệu và trang site",
+  "Site pages": "Trang site",
+  Documents: "Tài liệu",
+  "Creating answers immediately with a receipt. Every address is then resolved with Microsoft, and the Source starts its first run once they all resolve.":
+    "Tạo xong trả lời ngay bằng một biên nhận. Sau đó mọi địa chỉ được xác minh với Microsoft, và Nguồn bắt đầu lượt chạy đầu tiên khi tất cả đều xác minh xong.",
+  "SharePoint authentication": "Xác thực SharePoint",
+  Authentication: "Xác thực",
+  Certificate: "Chứng chỉ",
+  "Fastest to set up; Entra expires it on its own schedule.":
+    "Thiết lập nhanh nhất; Entra tự hết hạn nó theo lịch của Entra.",
+  "Upload a PKCS#12 keystore whose certificate is registered on the app.":
+    "Tải lên keystore PKCS#12 có chứng chỉ đã đăng ký trên ứng dụng.",
+  "Client secret Value": "Giá trị client secret",
+  "Paste the secret Value, not the Secret ID": "Dán giá trị secret, không phải Secret ID",
+  "Hide secret": "Ẩn secret",
+  "Show secret": "Hiện secret",
+  "Keystore (.pfx or .p12)": "Keystore (.pfx hoặc .p12)",
+  "No keystore chosen": "Chưa chọn keystore",
+  "Clear keystore": "Xóa keystore",
+  "Choose keystore": "Chọn keystore",
+  "Keystore password": "Mật khẩu keystore",
+  "Leave empty when the keystore has no password": "Để trống nếu keystore không có mật khẩu",
+  "Sent once to MemoryOS, stored encrypted, and never returned. It is not kept in browser storage and is cleared when you submit or leave this dialog.":
+    "Gửi một lần tới MemoryOS, lưu dưới dạng mã hóa và không bao giờ trả về. Không giữ trong bộ nhớ trình duyệt và bị xóa khi bạn gửi hoặc rời hộp thoại này.",
+  "Maximum 16 KiB, exactly one RSA key of at least 2048 bits with an unexpired certificate. Only the private key and certificate are stored; the uploaded keystore and its password are not.":
+    "Tối đa 16 KiB, đúng một khóa RSA ít nhất 2048 bit kèm chứng chỉ còn hạn. Chỉ khóa riêng và chứng chỉ được lưu; keystore đã tải lên và mật khẩu của nó thì không.",
+  "Reading keystore…": "Đang đọc keystore…",
+  "MemoryOS signs in as an Entra application, so there is no consent screen and no reader account.":
+    "MemoryOS đăng nhập với tư cách ứng dụng Entra, nên không có màn hình đồng ý và không có tài khoản đọc.",
+  "SharePoint credentials": "Credential SharePoint",
+  "SharePoint host": "Máy chủ SharePoint",
+  "Needs update": "Cần cập nhật",
+  "Verified just now": "Vừa xác minh",
+  "Expires {{v1}}": "Hết hạn {{v1}}",
+  "Not resolved yet": "Chưa xác minh",
+  Test: "Kiểm tra",
+  Rename: "Đổi tên",
+  "Replace authentication": "Thay xác thực",
+  "Permanently delete this unused credential and its stored authentication. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn credential chưa dùng này cùng xác thực đã lưu. Credential đang gắn với một Nguồn không thể xóa.",
+  "Replace SharePoint authentication": "Thay xác thực SharePoint",
+  "Create a SharePoint credential": "Tạo credential SharePoint",
+  "The credential is verified with Microsoft before it is stored, so what Entra rejects is never saved.":
+    "Credential được xác minh với Microsoft trước khi lưu, nên thứ Entra từ chối sẽ không bao giờ được lưu.",
+  "Microsoft Entra prerequisite": "Điều kiện Microsoft Entra",
+  "Create and consent the application before entering its identifiers.":
+    "Tạo ứng dụng và cấp admin consent trước khi nhập các mã định danh.",
+  "e.g. Contoso SharePoint": "ví dụ: SharePoint Contoso",
+  "Directory (tenant) ID": "Directory (tenant) ID",
+  "Application (client) ID": "Application (client) ID",
+  "Replacing authentication affects all": "Thay xác thực ảnh hưởng tới tất cả",
+  "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.":
+    "Nguồn đang dùng credential này. Directory và ứng dụng giữ nguyên; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Verify and save": "Xác minh và lưu",
+  "In the Microsoft Entra admin center, register an application for MemoryOS. No redirect URI is needed: MemoryOS signs in as the application, not as a person.":
+    "Trong trung tâm quản trị Microsoft Entra, đăng ký một ứng dụng cho MemoryOS. Không cần redirect URI: MemoryOS đăng nhập với tư cách ứng dụng, không phải con người.",
+  "Copy the Directory (tenant) ID and the Application (client) ID from the app's Overview page. Both are GUIDs.":
+    "Sao chép Directory (tenant) ID và Application (client) ID từ trang Overview của ứng dụng. Cả hai đều là GUID.",
+  "Add the application permissions below under API permissions → Microsoft Graph → Application permissions, then use Grant admin consent.":
+    "Thêm các quyền ứng dụng dưới đây trong API permissions → Microsoft Graph → Application permissions, rồi dùng Grant admin consent.",
+  "Create a client secret and copy its Value, or upload a certificate to the app and keep the matching PKCS#12 keystore for the next step.":
+    "Tạo client secret và sao chép giá trị của nó, hoặc tải chứng chỉ lên ứng dụng và giữ keystore PKCS#12 tương ứng cho bước tiếp theo.",
+  Permission: "Quyền",
+  Type: "Loại",
+  Why: "Vì sao",
+  "Write access is never requested. A credential limited to selected sites still works; the catalog of all sites is then unavailable and the scope must name each site.":
+    "Không bao giờ yêu cầu quyền ghi. Credential giới hạn ở các site đã chọn vẫn hoạt động; khi đó danh mục mọi site không khả dụng và phạm vi phải nêu tên từng site.",
+  "Copy {{v1}}": "Sao chép {{v1}}",
+  "{{v1}}: content is synchronized. Indexing may still be running.":
+    "{{v1}}: nội dung đã đồng bộ. Việc lập chỉ mục có thể vẫn đang chạy.",
+  "Synchronization interval": "Chu kỳ đồng bộ",
+  "Loading SharePoint configuration…": "Đang tải cấu hình SharePoint…",
+  "SharePoint configuration": "Cấu hình SharePoint",
+  "{{count}} minutes": "{{count}} phút",
+  "Pruning disabled": "Đã tắt dọn dẹp",
+  "Prune every {{count}} hours": "Dọn dẹp mỗi {{count}} giờ",
+  "A refresh reads each library's change log from where the previous run stopped, with a thirty-minute overlap, and applies deletions the log reports.":
+    "Một lượt làm mới đọc nhật ký thay đổi của từng thư viện từ chỗ lượt trước dừng, chồng lấn ba mươi phút, và áp dụng các xóa mà nhật ký báo.",
+  "A prune lists the whole scope and removes what it no longer finds, but only after the listing completes.":
+    "Một lượt dọn dẹp liệt kê toàn bộ phạm vi và xóa những gì không còn tìm thấy, nhưng chỉ sau khi việc liệt kê hoàn tất.",
+  "This credential needs updating. Replace its authentication in SharePoint setup; saved scope and documents are retained.":
+    "Credential này cần cập nhật. Thay xác thực của nó trong thiết lập SharePoint; phạm vi và tài liệu đã lưu được giữ lại.",
+  "Microsoft is resolving the submitted addresses. The saved scope still applies.":
+    "Microsoft đang xác minh các địa chỉ đã gửi. Phạm vi đã lưu vẫn được áp dụng.",
+  "Last prune": "Dọn dẹp gần nhất",
+  "Saved scope": "Phạm vi đã lưu",
+  "Edit scope": "Sửa phạm vi",
+  "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.":
+    "Chỉ hiển thị {{count}} địa chỉ đầu tiên. Lưu sẽ thay toàn bộ phạm vi bằng những gì liệt kê ở đây.",
+  "Save scope": "Lưu phạm vi",
+  "Saving answers with a receipt and resolves every address with Microsoft. The running synchronization is cancelled and the Source reads its content again.":
+    "Lưu trả lời bằng một biên nhận và xác minh mọi địa chỉ với Microsoft. Lượt đồng bộ đang chạy bị hủy và Nguồn đọc lại nội dung của nó.",
+  Schedule: "Lịch chạy",
+  "Edit intervals": "Sửa chu kỳ",
+  "Save intervals": "Lưu chu kỳ",
+  "All sites the Entra application can read": "Mọi site ứng dụng Entra có thể đọc",
+  "{{count}} sites, libraries or folders": "{{count}} site, thư viện hoặc thư mục",
+  "Loading saved addresses…": "Đang tải địa chỉ đã lưu…",
+  "Saved addresses could not be loaded. Refresh status before editing the scope.":
+    "Không tải được địa chỉ đã lưu. Làm mới trạng thái trước khi sửa phạm vi.",
+  Site: "Site",
+  Library: "Thư viện",
+  Folder: "Thư mục",
+  "{{sites}} site and {{paths}} path exclusions":
+    "{{sites}} loại trừ site và {{paths}} loại trừ đường dẫn",
+  "Synchronization interval in minutes": "Chu kỳ đồng bộ tính bằng phút",
+  "Each run reads the change log from where the previous one stopped, with a thirty-minute overlap.":
+    "Mỗi lượt chạy đọc nhật ký thay đổi từ chỗ lượt trước dừng, chồng lấn ba mươi phút.",
+  "Prune interval in hours": "Chu kỳ dọn dẹp tính bằng giờ",
+  "A prune lists the whole scope and removes what it no longer finds. It only removes after recording that the listing finished, so a site that cannot answer leaves its documents in place.":
+    "Một lượt dọn dẹp liệt kê toàn bộ phạm vi và xóa những gì không còn tìm thấy. Nó chỉ xóa sau khi ghi nhận việc liệt kê đã xong, nên site không trả lời được sẽ giữ nguyên tài liệu.",
+  "A deleted file is normally removed by the next synchronization, because the change log reports it. Pruning covers what the change log cannot: an item the application loses permission to read, one moved out of a selected folder, and anything missed when a stale change token forces a full rescan.":
+    "Tệp bị xóa thường được gỡ ở lượt đồng bộ kế tiếp vì nhật ký thay đổi báo nó. Dọn dẹp xử lý những gì nhật ký không báo: mục ứng dụng mất quyền đọc, mục bị chuyển ra khỏi thư mục đã chọn, và những gì bị bỏ sót khi change token cũ buộc quét lại toàn bộ.",
+  "0 disables pruning. The first prune runs one interval after creation.":
+    "0 tắt dọn dẹp. Lượt dọn dẹp đầu tiên chạy sau một chu kỳ kể từ khi tạo.",
+  "Pruning is disabled. Only what the change log reports is removed.":
+    "Dọn dẹp đang tắt. Chỉ những gì nhật ký thay đổi báo mới bị gỡ.",
+  "Documents deleted outside the change log are found by the next prune.":
+    "Tài liệu bị xóa ngoài nhật ký thay đổi sẽ được lượt dọn dẹp kế tiếp phát hiện.",
+  "Paste addresses as they appear in the browser: a site, one of its document libraries, or a folder inside a library. Sharing links and library view addresses are accepted and reduced to the underlying path.":
+    "Dán địa chỉ như hiển thị trên trình duyệt: một site, một thư viện tài liệu của nó, hoặc thư mục trong thư viện. Liên kết chia sẻ và địa chỉ dạng xem thư viện được chấp nhận và quy về đường dẫn gốc.",
+  "A library is matched by the path in its URL, not by its displayed name, so a site created in another language resolves like any other. Every address must be on the same SharePoint host, and no address may sit inside another.":
+    "Thư viện được khớp theo đường dẫn trong URL chứ không theo tên hiển thị, nên site tạo bằng ngôn ngữ khác vẫn xác minh như thường. Mọi địa chỉ phải cùng một máy chủ SharePoint, và không địa chỉ nào được nằm trong địa chỉ khác.",
+  "Works with Sites.Selected or Sites.Read.All": "Hoạt động với Sites.Selected hoặc Sites.Read.All",
+  "Sites.Read.All": "Sites.Read.All",
+  "Addresses are verified with Microsoft after you submit. Nothing is saved when one of them does not resolve.":
+    "Địa chỉ được xác minh với Microsoft sau khi bạn gửi. Không gì được lưu nếu một địa chỉ không xác minh được.",
+  "Specific sites": "Site cụ thể",
+  "Every site the Entra application can read in this directory, minus the exclusions below. New sites are picked up as they appear.":
+    "Mọi site ứng dụng Entra đọc được trong directory này, trừ các loại trừ bên dưới. Site mới được nhận vào khi xuất hiện.",
+  "Only the sites, libraries and folders you paste{{v1}}, including everything inside them.":
+    "Chỉ các site, thư viện và thư mục bạn dán{{v1}}, gồm mọi thứ bên trong chúng.",
+  "Site, library or folder addresses": "Địa chỉ site, thư viện hoặc thư mục",
+  "{{count}} of {{max}} addresses · one per line":
+    "{{count}} trên {{max}} địa chỉ · mỗi dòng một địa chỉ",
+  "{{count}} addresses · one per line": "{{count}} địa chỉ · mỗi dòng một địa chỉ",
+  Advanced: "Nâng cao",
+  "What to collect, and what to leave out": "Thu thập gì, và bỏ qua gì",
+  "{{count}} of {{max}} patterns": "{{count}} trên {{max}} mẫu",
+  "{{count}} patterns": "{{count}} mẫu",
+  "Line {{line}}: {{message}}": "Dòng {{line}}: {{message}}",
+  "Select at most {{count}} sites, libraries or folders.":
+    "Chọn tối đa {{count}} site, thư viện hoặc thư mục.",
+  "Use at most {{count}} exclusions of each kind.": "Dùng tối đa {{count}} loại trừ cho mỗi loại.",
+  "The request exceeds the server's {{count}}-byte limit. Paste fewer addresses.":
+    "Yêu cầu vượt giới hạn {{count}} byte của máy chủ. Dán ít địa chỉ hơn.",
+  "Excluded sites": "Site bị loại trừ",
+  "Excluded paths": "Đường dẫn bị loại trừ",
+  "One address or wildcard pattern per line, matched against site addresses. Example: https://contoso.sharepoint.com/sites/Archive*":
+    "Mỗi dòng một địa chỉ hoặc mẫu wildcard, khớp với địa chỉ site. Ví dụ: https://contoso.sharepoint.com/sites/Archive*",
+  "One wildcard pattern per line, matched case-insensitively against the path of each item. Example: */Archive/*":
+    "Mỗi dòng một mẫu wildcard, khớp không phân biệt hoa thường với đường dẫn của từng mục. Ví dụ: */Archive/*",
+  Kind: "Loại",
+  Prune: "Dọn dẹp",
+  "No SharePoint credentials yet": "Chưa có credential SharePoint",
+  "Register the Entra application once, then every SharePoint Source in this Tenant can use it.":
+    "Đăng ký ứng dụng Entra một lần, rồi mọi Nguồn SharePoint trong Tenant này đều dùng được.",
+});
 Object.assign(englishUi, {
   "Manage connection": "Quản lý kết nối",
   Breadcrumb: "Đường dẫn phân cấp",
@@ -1956,6 +2141,7 @@ Object.assign(englishUi, {
   "Connect Google Drive or upload files. MemoryOS keeps them indexed, so Search and Chat can cite them.":
     "Kết nối Google Drive hoặc tải tệp lên. MemoryOS sẽ lập chỉ mục để Tìm kiếm và Trò chuyện trích dẫn được.",
   "Connect Google Drive": "Kết nối Google Drive",
+  "Connect SharePoint": "Kết nối SharePoint",
   "Upload files": "Tải tệp lên",
   "Ask a workspace manager to add a source.":
     "Hãy nhờ người quản trị không gian làm việc thêm nguồn.",
@@ -2272,12 +2458,10 @@ Object.assign(englishUi, {
   Text: "Văn bản",
   "Untitled document": "Tài liệu chưa đặt tên",
   "Best match": "Phù hợp nhất",
-  "Voice search is not supported in this browser.":
-    "Trình duyệt không hỗ trợ tìm kiếm bằng giọng nói.",
+  "Starting the microphone…": "Đang bật micro…",
   "Listening… Speak now, then review your query.":
     "Đang nghe… Hãy nói rồi kiểm tra lại câu tìm kiếm.",
-  "Microphone access was not granted. Enable it in your browser and try again.":
-    "Chưa được cấp quyền micro. Bật quyền trong trình duyệt rồi thử lại.",
+  "Finishing the transcript…": "Đang hoàn tất văn bản…",
   "Voice search stopped unexpectedly. Please try again.":
     "Tìm kiếm giọng nói dừng ngoài dự kiến. Hãy thử lại.",
   "Voice search is ready.": "Sẵn sàng tìm kiếm bằng giọng nói.",
@@ -2398,6 +2582,132 @@ Object.assign(englishUi, {
     "{{v1}}: yêu cầu đã được thay thế bởi công việc mới hơn. Làm mới trước khi thử lại.",
   "{{v1}}: the unfinished object will expire automatically.":
     "{{v1}}: đối tượng chưa hoàn tất sẽ tự hết hạn.",
+});
+Object.assign(vietnameseUi, {
+  "Giọng nói": "Voice",
+  "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.":
+    "Connect providers so members can speak instead of typing and hear answers read aloud. Audio passes only through the MemoryOS server and is never stored.",
+  "Âm thanh không được lưu": "Audio is never stored",
+  "Mặc định: {{name}}": "Default: {{name}}",
+  "Chưa chọn nhà cung cấp mặc định": "No default provider selected",
+  "Đang hoạt động": "Active",
+  "Chưa cấu hình": "Not configured",
+  "Cần thiết lập": "Setup required",
+  "Không tải được cấu hình giọng nói.": "Voice configuration could not be loaded.",
+  "Chuyển giọng nói thành văn bản": "Speech to text",
+  "Đọc văn bản thành giọng nói": "Text to speech",
+  "Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.":
+    "Transcribes speech when members use the microphone in Chat and Search.",
+  "Đọc câu trả lời của trợ lý thành tiếng.": "Reads assistant answers aloud.",
+  "Tắt nhận dạng giọng nói": "Turn off speech to text",
+  "Tắt đọc thành tiếng": "Turn off text to speech",
+  "Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.":
+    "No default provider is selected, so the microphone in Chat and Search is off.",
+  "Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.":
+    "No default provider is selected, so text to speech is off.",
+  "Tương thích OpenAI": "OpenAI-compatible",
+  "Whisper và GPT-4o Transcribe": "Whisper and GPT-4o Transcribe",
+  "TTS-1 và TTS-1 HD": "TTS-1 and TTS-1 HD",
+  "Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches":
+    "Self-hosted server with an OpenAI-compatible audio API, such as Speaches",
+  "Mặc định": "Default",
+  "Cần cấu hình thêm": "Needs setup",
+  "Ngắt kết nối {{name}}": "Disconnect {{name}}",
+  "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
+  "Khóa và cấu hình của {{name}} sẽ bị xóa khỏi cả nhận dạng giọng nói lẫn đọc thành tiếng. Chức năng đang dùng {{name}} làm mặc định sẽ tắt cho đến khi bạn chọn nhà cung cấp khác.":
+    "The key and settings for {{name}} are removed from both speech to text and text to speech. Any function that uses {{name}} as its default turns off until you choose another provider.",
+  "Ngắt kết nối": "Disconnect",
+  "Đang ngắt kết nối…": "Disconnecting…",
+  "Cấu hình {{name}}": "Configure {{name}}",
+  "Kết nối {{name}}": "Connect {{name}}",
+  "Dùng để nhận dạng giọng nói trong Chat và Tìm kiếm.":
+    "Used to transcribe speech in Chat and Search.",
+  "Dùng để đọc câu trả lời thành tiếng.": "Used to read answers aloud.",
+  "Thông tin kết nối": "Connection",
+  "MemoryOS xác minh nhà cung cấp trước khi lưu cấu hình và mã hóa khóa API.":
+    "MemoryOS verifies the provider before saving the configuration and encrypts the API key.",
+  "Mô hình và giọng": "Model and voice",
+  "Chọn mô hình dùng cho bản ghi cuối cùng và đường dự phòng.":
+    "Choose the model used for final transcripts and fallback processing.",
+  "Chọn mô hình và giọng mặc định cho câu trả lời được đọc thành tiếng.":
+    "Choose the default model and voice for spoken answers.",
+  "Địa chỉ máy chủ": "Server address",
+  "Địa chỉ API": "API address",
+  "Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.":
+    "Base address of the OpenAI-compatible API, usually ending in /v1.",
+  "Để trống để dùng địa chỉ mặc định của nhà cung cấp.":
+    "Leave empty to use the provider's default address.",
+  "Khóa API (không bắt buộc)": "API key (optional)",
+  "Khóa được mã hóa khi lưu và không bao giờ được gửi lại trình duyệt.":
+    "The key is encrypted when saved and is never sent back to the browser.",
+  "Xóa khóa đã lưu": "Remove saved key",
+  "Mô hình nhận dạng": "Transcription model",
+  "Mô hình giọng nói": "Speech model",
+  "Nhập đúng tên mô hình mà máy chủ cung cấp.":
+    "Enter the model name exactly as the server lists it.",
+  "Giọng đọc": "Voice",
+  "Nhập đúng tên giọng mà máy chủ cung cấp.":
+    "Enter the voice name exactly as the server lists it.",
+  "Nhà cung cấp đã chấp nhận cấu hình đã lưu.": "The provider accepted the saved configuration.",
+  "Đang kiểm tra khóa…": "Verifying key…",
+  "Nhập bằng giọng nói": "Dictate",
+  "Cấu hình nhập bằng giọng nói": "Set up dictation",
+  "Chưa có nhà cung cấp nhận dạng giọng nói. Mở trang cấu hình Giọng nói.":
+    "No speech-to-text provider is set up. Open Voice settings.",
+  "Ghi âm": "Recording",
+  "Micro đang tắt": "Microphone muted",
+  "Đang nghe…": "Listening…",
+  "Đang hoàn tất văn bản…": "Finishing transcript…",
+  "Đang bật micro…": "Starting microphone…",
+  "Bật micro": "Unmute microphone",
+  "Tắt micro": "Mute microphone",
+  "Dừng ghi âm": "Stop recording",
+  "Trình duyệt chưa cho phép dùng micro. Hãy cho phép quyền micro rồi thử lại.":
+    "Microphone access is not allowed in this browser. Allow it, then try again.",
+  "Không mở được micro. Kiểm tra thiết bị ghi âm rồi thử lại.":
+    "The microphone could not be opened. Check your recording device, then try again.",
+  "Nhận dạng giọng nói đang bận. Hãy thử lại sau ít phút.":
+    "Speech to text is busy. Try again in a few minutes.",
+  "Bản ghi đã đạt giới hạn độ dài nên đã dừng.":
+    "The recording reached its length limit and stopped.",
+  "Đã dừng ghi âm vì không nhận được âm thanh.": "Recording stopped because no audio was received.",
+  "Nhà cung cấp giọng nói không trả về văn bản. Hãy thử lại.":
+    "The voice provider returned no text. Try again.",
+  "Không kết nối được dịch vụ nhận dạng giọng nói. Hãy thử lại.":
+    "Could not connect to speech to text. Try again.",
+  "Tự động gửi khi dừng ghi âm": "Auto-send when recording stops",
+  "Câu hỏi được gửi ngay khi văn bản nhận dạng xong, không cần bấm Gửi.":
+    "Your question is sent as soon as the transcript is ready, without pressing Send.",
+  "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.":
+    "Control how the microphone and spoken answers work together in a conversation.",
+  "Không tải được cài đặt giọng nói.": "Voice settings could not be loaded.",
+  "Đọc thành tiếng": "Read aloud",
+  "Dừng đọc": "Stop reading",
+  "Đang tải âm thanh…": "Loading audio…",
+  "Tốc độ đọc": "Reading speed",
+  "Áp dụng khi đọc câu trả lời thành tiếng.": "Used when answers are read aloud.",
+  "Đọc thành tiếng đang bận. Hãy thử lại sau ít phút.":
+    "Read aloud is busy. Try again in a few minutes.",
+  "Câu trả lời này không có nội dung để đọc.": "This answer has nothing to read aloud.",
+  "Trình duyệt không phát được âm thanh của câu trả lời.":
+    "The browser could not play the answer's audio.",
+  "Không đọc được câu trả lời vì nhà cung cấp giọng nói không phản hồi.":
+    "The answer could not be read aloud because the voice provider did not respond.",
+  "Tự động đọc câu trả lời": "Auto-play answers",
+  "Câu trả lời mới được đọc ngay khi đang được tạo. Nếu bạn vừa hỏi bằng micro, micro sẽ tự bật lại sau khi đọc xong.":
+    "New answers are read aloud while they are written. If you just asked with the microphone, it turns on again when reading ends.",
+  "Đọc tự động": "Auto-playback",
+  "MemoryOS đang đọc câu trả lời": "MemoryOS is reading the answer",
+  "Đang chuẩn bị giọng đọc…": "Preparing the voice…",
+  "MemoryOS đang đọc…": "MemoryOS is reading…",
+  "Bật tiếng": "Unmute",
+  "Tắt tiếng": "Mute",
+  "Nhận dạng tiếng Việt và tiếng Anh qua REST": "Vietnamese and English recognition over REST",
+  "Giọng Neural tiếng Việt và tiếng Anh": "Vietnamese and English neural voices",
+  "Địa chỉ tài nguyên Speech": "Speech resource endpoint",
+  "Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.":
+    "The Azure AI Speech resource endpoint, shown under Keys and Endpoint.",
+  "Voice ID trong thư viện giọng của ElevenLabs.": "A voice ID from your ElevenLabs voice library.",
 });
 Object.assign(vietnameseUi, {
   "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.":
@@ -2811,6 +3121,116 @@ Object.assign(englishUi, {
   "The operation was discarded.": "Thao tác đã bị hủy.",
 });
 
+// SharePoint setup, synchronization and failures (PR #230 review).
+Object.assign(englishUi, {
+  Review: "Xem lại",
+  "Step {{number}} of {{count}} · {{step}}": "Bước {{number}}/{{count}} · {{step}}",
+  "Paused with the Source": "Tạm dừng cùng Nguồn",
+  "Files appear here after synchronization acquires them from SharePoint.":
+    "Tệp sẽ xuất hiện ở đây sau khi đồng bộ lấy chúng từ SharePoint.",
+  "Synchronization and indexing continue from the retained state.":
+    "Đồng bộ và lập chỉ mục tiếp tục từ trạng thái đã lưu.",
+  "This scope change was superseded or cancelled. The saved scope is unchanged.":
+    "Thay đổi phạm vi này đã bị thay thế hoặc hủy. Phạm vi đã lưu không đổi.",
+  "Credential works": "Credential hoạt động",
+  "Credential updated": "Đã cập nhật credential",
+  "{{v1}} can read this Tenant's sites.": "{{v1}} đọc được các site của Tenant này.",
+  "{{v1}} works, but it cannot list every site. Name each site in the scope.":
+    "{{v1}} hoạt động nhưng không liệt kê được mọi site. Hãy ghi rõ từng site trong phạm vi.",
+  "{{v1}} and its stored authentication were deleted.":
+    "Đã xóa {{v1}} cùng thông tin xác thực đã lưu.",
+  "Supply the Directory (tenant) ID and Application (client) ID as GUIDs.":
+    "Nhập Directory (tenant) ID và Application (client) ID dạng GUID.",
+  "Paste the client secret Value before saving.": "Dán giá trị client secret trước khi lưu.",
+  "Paste the client secret Value, at most 256 characters.":
+    "Dán giá trị client secret, tối đa 256 ký tự.",
+  "Choose a .pfx or .p12 keystore between 1 byte and 16 KiB.":
+    "Chọn keystore .pfx hoặc .p12 có dung lượng từ 1 byte đến 16 KiB.",
+  "The keystore could not be read. Choose the file again.":
+    "Không đọc được keystore. Hãy chọn lại tệp.",
+  "Files in the document libraries covered by this scope, in the formats MemoryOS already supports.":
+    "Tệp trong các thư viện tài liệu thuộc phạm vi này, ở các định dạng MemoryOS đã hỗ trợ.",
+  "Published SharePoint pages, read from their canvas: headings, paragraphs, list items and tables.":
+    "Các trang SharePoint đã xuất bản, đọc từ canvas: tiêu đề, đoạn văn, mục danh sách và bảng.",
+  "Enter whole hours from 0 to 8760; 0 disables pruning.":
+    "Nhập số giờ nguyên từ 0 đến 8760; 0 là tắt dọn dẹp.",
+  "Selection limits are unavailable. Refresh them before submitting.":
+    "Chưa có giới hạn lựa chọn. Hãy làm mới trước khi gửi.",
+  "Paste at least one site, library or folder address.":
+    "Dán ít nhất một địa chỉ site, thư viện hoặc thư mục.",
+  "Fix the addresses marked below before continuing.":
+    "Sửa các địa chỉ được đánh dấu bên dưới trước khi tiếp tục.",
+  "Each exclusion must contain 1 to 512 characters.":
+    "Mỗi mục loại trừ phải có từ 1 đến 512 ký tự.",
+  "Collect documents, site pages, or both.": "Chọn thu thập tài liệu, trang site hoặc cả hai.",
+  "The schedule changed in another session. Reload the saved intervals before trying again.":
+    "Lịch đã được thay đổi ở phiên khác. Hãy tải lại chu kỳ đã lưu trước khi thử lại.",
+  "Enter minutes from 1 to 2147483647 and prune hours from 0 to 8760.":
+    "Nhập số phút từ 1 đến 2147483647 và số giờ dọn dẹp từ 0 đến 8760.",
+  "This credential or scope changed in another session. Refresh before trying again.":
+    "Credential hoặc phạm vi này đã thay đổi ở phiên khác. Hãy làm mới trước khi thử lại.",
+  "This Source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.":
+    "Nguồn hoặc credential này đã thay đổi, hoặc credential vẫn đang được một Nguồn sử dụng. Hãy làm mới trạng thái trước khi thử lại.",
+  "The request exceeds the server request-size limit. Paste fewer addresses.":
+    "Yêu cầu vượt giới hạn kích thước của máy chủ. Hãy dán ít địa chỉ hơn.",
+  "This credential is no longer available. Refresh and select another one.":
+    "Credential này không còn khả dụng. Hãy làm mới và chọn credential khác.",
+  "Check the credential name, the directory and application GUIDs, the authentication, and the pasted addresses.":
+    "Kiểm tra tên credential, GUID của directory và application, thông tin xác thực và các địa chỉ đã dán.",
+  "SharePoint is not configured on this server. Contact an administrator.":
+    "Máy chủ này chưa cấu hình SharePoint. Hãy liên hệ quản trị viên.",
+  "Supply the client secret Value, between 1 and 256 characters.":
+    "Nhập giá trị client secret, từ 1 đến 256 ký tự.",
+  "Upload a PKCS#12 keystore of at most 16 KiB holding exactly one RSA key of at least 2048 bits with an unexpired certificate, and its password.":
+    "Tải lên keystore PKCS#12 tối đa 16 KiB chứa đúng một khóa RSA từ 2048 bit trở lên kèm chứng chỉ còn hạn, cùng mật khẩu của nó.",
+  "Microsoft rejected the client secret. Copy the secret Value, not the Secret ID.":
+    "Microsoft từ chối client secret. Hãy sao chép Value của secret, không phải Secret ID.",
+  "The client secret has expired. Create a new secret in Entra and replace the authentication.":
+    "Client secret đã hết hạn. Hãy tạo secret mới trong Entra và thay thông tin xác thực.",
+  "Upload this certificate to the Entra app registration before saving it here.":
+    "Hãy tải chứng chỉ này lên app registration trong Entra trước khi lưu ở đây.",
+  "Microsoft does not know this Directory (tenant) ID. Copy it from the app's Overview page.":
+    "Microsoft không nhận ra Directory (tenant) ID này. Hãy sao chép từ trang Overview của app.",
+  "Microsoft does not know this Application (client) ID in that directory.":
+    "Microsoft không nhận ra Application (client) ID này trong directory đó.",
+  "Grant admin consent for Sites.Read.All in Entra, then save again.":
+    "Hãy cấp admin consent cho Sites.Read.All trong Entra rồi lưu lại.",
+  "Microsoft rejected these credentials. Check the directory, application and authentication in Entra.":
+    "Microsoft từ chối thông tin này. Hãy kiểm tra directory, application và thông tin xác thực trong Entra.",
+  "This credential needs updating. Replace its authentication before continuing.":
+    "Credential này cần cập nhật. Hãy thay thông tin xác thực trước khi tiếp tục.",
+  "Paste SharePoint site, library or folder addresses on your organization's host, containing /sites/, /teams/ or /personal/.":
+    "Dán địa chỉ site, thư viện hoặc thư mục SharePoint trên máy chủ của tổ chức, có chứa /sites/, /teams/ hoặc /personal/.",
+  "Select either a site, library or folder, not one inside another.":
+    "Chọn site, thư viện hoặc thư mục, không chọn mục nằm trong mục khác.",
+  "Every address must be on the same SharePoint host.":
+    "Mọi địa chỉ phải trên cùng một máy chủ SharePoint.",
+  "Each exclusion must contain 1 to 512 characters, with at most 100 exclusions of each kind.":
+    "Mỗi mục loại trừ phải có từ 1 đến 512 ký tự, tối đa 100 mục cho mỗi loại.",
+  "Microsoft did not answer. Try again in a moment.":
+    "Microsoft không phản hồi. Hãy thử lại sau ít phút.",
+  "The SharePoint run failed unexpectedly. Review this run and synchronize again.":
+    "Lượt SharePoint thất bại ngoài dự kiến. Hãy xem lại lượt này và đồng bộ lại.",
+  "The SharePoint credential is unavailable. Test it and replace its authentication if needed.":
+    "Credential SharePoint không khả dụng. Hãy kiểm tra và thay thông tin xác thực nếu cần.",
+  "Address verification failed. The active scope is unchanged. Check the addresses and the credential's permissions before submitting again.":
+    "Xác minh địa chỉ thất bại. Phạm vi đang dùng không đổi. Hãy kiểm tra địa chỉ và quyền của credential trước khi gửi lại.",
+  "Synchronization stopped because Microsoft rejected the credential. Test it and replace its authentication.":
+    "Đồng bộ đã dừng vì Microsoft từ chối credential. Hãy kiểm tra và thay thông tin xác thực.",
+  "The Entra application is not allowed to read this content. Check its permissions and admin consent.":
+    "Ứng dụng Entra không được phép đọc nội dung này. Hãy kiểm tra quyền và admin consent.",
+  "This item is no longer available to the Entra application.":
+    "Ứng dụng Entra không còn truy cập được mục này.",
+  "Microsoft no longer accepts the saved change token; this library is read again in full.":
+    "Microsoft không còn chấp nhận change token đã lưu; thư viện này được đọc lại toàn bộ.",
+  "Microsoft is limiting requests. Wait before trying again.":
+    "Microsoft đang giới hạn yêu cầu. Hãy chờ rồi thử lại.",
+  "Microsoft returned an answer that could not be read. Try again.":
+    "Microsoft trả về phản hồi không đọc được. Hãy thử lại.",
+  "The credential was deleted while the addresses were being verified. The saved scope is unchanged.":
+    "Credential đã bị xóa trong lúc xác minh địa chỉ. Phạm vi đã lưu không đổi.",
+});
+
 const unchanged = [
   "Account ID",
   "Google Sheets",
@@ -2834,6 +3254,8 @@ const unchanged = [
   " ({{v1}})",
   " +{{v1}}",
   "{{percent}}%",
+  "*/Archive/*",
+  "https://contoso.sharepoint.com/sites/Archive*",
 ];
 export const appEn: Record<string, string> = Object.fromEntries([
   ...Object.keys(englishUi).map((key) => [key, key]),

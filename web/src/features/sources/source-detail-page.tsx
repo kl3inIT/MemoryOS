@@ -56,6 +56,7 @@ import { FileTypeIcon } from "./file-type-icon";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { GoogleDrivePanel } from "./google-drive-panel";
+import { SharePointPanel } from "./sharepoint-panel";
 import { waitForSourceOperation } from "./source-operations";
 import { SourceItemHistory } from "./source-item-history";
 import { SourceRunHistory } from "./source-run-history";
@@ -144,7 +145,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     refetchInterval: (query) =>
       query.state.data?.pendingWork
         ? 1_500
-        : query.state.data?.type === "GOOGLE_DRIVE"
+        : query.state.data?.type === "GOOGLE_DRIVE" || query.state.data?.type === "SHAREPOINT"
           ? 5_000
           : false,
   });
@@ -166,7 +167,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           item.searchStatus === "INDEXING",
       )
         ? 1_500
-        : sourceQuery.data?.type === "GOOGLE_DRIVE"
+        : sourceQuery.data?.type === "GOOGLE_DRIVE" || sourceQuery.data?.type === "SHAREPOINT"
           ? 5_000
           : false,
   });
@@ -770,9 +771,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
               ? "Files may have been removed. Return to the previous page or refresh this page."
               : detail.type === "GOOGLE_DRIVE"
                 ? "Files appear here after synchronization acquires them from Google Drive."
-                : canUpload
-                  ? "Upload one supported file to start indexing."
-                  : "No files are indexed in this Source."
+                : detail.type === "SHAREPOINT"
+                  ? "Files appear here after synchronization acquires them from SharePoint."
+                  : canUpload
+                    ? "Upload one supported file to start indexing."
+                    : "No files are indexed in this Source."
           }
         />
       ) : itemsQuery.data ? (
@@ -921,7 +924,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         </p>
       ) : null}
 
-      {sourceQuery.isError && detail && detail.type !== "GOOGLE_DRIVE" ? (
+      {sourceQuery.isError && detail && !providerPanel(detail.type) ? (
         <div className="mt-5 space-y-3">
           <p role="alert" className="text-sm text-status-danger-content">
             {ui("Source status could not be refreshed. Displayed values may be out of date.")}
@@ -970,7 +973,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           <Tabs value={section} onValueChange={setSection} className="block">
             <PageHeader
               icon={<ProviderIcon />}
-              iconSize={detail.type === "GOOGLE_DRIVE" ? "lg" : "sm"}
+              iconSize={providerPanel(detail.type) ? "lg" : "sm"}
               title={detail.name}
               description={
                 <span className="flex flex-wrap items-center gap-2">
@@ -1021,10 +1024,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 onSaved={refreshAuthorityViews}
               />
             ) : null}
-            {detail.type !== "GOOGLE_DRIVE" ? (
+            {!providerPanel(detail.type) ? (
               <SourceSummaryCard source={detail} className="my-6" />
             ) : null}
-            {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
+            {detail.errorCode && !providerPanel(detail.type) ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
@@ -1065,6 +1068,34 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   className="mt-5 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
                 >
                   <SourceRunHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+              </>
+            ) : detail.type === "SHAREPOINT" ? (
+              <>
+                <SourceSectionTabs sections={fileSections} />
+                <TabsContent value="content" className="space-y-6 outline-none">
+                  <SharePointPanel
+                    source={detail}
+                    sourceStale={sourceQuery.isError}
+                    disabled={managementBusy || detail.status === "DELETING"}
+                    onBusyChange={setDriveBusy}
+                  />
+                  {filesPanel}
+                </TabsContent>
+                <TabsContent
+                  value="history"
+                  className="mt-5 space-y-6 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
+                >
+                  <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} />
+                  <SourceItemHistory key={selectedId} sourceId={selectedId} />
+                </TabsContent>
+                <TabsContent value="settings" className="mt-5 outline-none">
+                  <SourceGroupsSection
+                    sourceId={selectedId}
+                    editable={canManageGroups}
+                    restricted={detail.access !== "PUBLIC"}
+                    onAuthorityChanged={refreshAuthorityViews}
+                  />
                 </TabsContent>
               </>
             ) : (
@@ -1218,6 +1249,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       </div>
     </SettingsLayout>
   );
+}
+
+/** Provider Sources render their own summary, stale and error banners inside their panel. */
+function providerPanel(type: string) {
+  return type === "GOOGLE_DRIVE" || type === "SHAREPOINT";
 }
 
 function isSystemIndexFailure(errorCode: string) {

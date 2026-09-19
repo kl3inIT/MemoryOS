@@ -1136,7 +1136,8 @@ class SourceApiIntegrationTest {
         var receipt = io.swagger.v3.core.util.Json.mapper().readTree(receiptBody);
         var metrics = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
-            var processor = new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, scheduler, metrics);
+            var processor = new io.memoryos.ingestion.application.SelectionValidationProcessor(selections,
+                    org.mockito.Mockito.mock(io.memoryos.connector.SharePointSelectionProcessor.class), scheduler, metrics);
             for (int batch = 0; batch < 256; batch++) {
                 var claims = operationDispatch.claim(OperationWorkload.GOOGLE_DRIVE_SELECTION_VALIDATION, 8);
                 if (claims.isEmpty()) break;
@@ -1601,7 +1602,8 @@ class SourceApiIntegrationTest {
                     extractionArtifacts,
                     metrics,
                     new io.memoryos.ingestion.application.SourceSyncProcessor(sourceSync, leaseScheduler, metrics),
-                    new io.memoryos.ingestion.application.SelectionValidationProcessor(selections, leaseScheduler, metrics)
+                    new io.memoryos.ingestion.application.SelectionValidationProcessor(selections,
+                            org.mockito.Mockito.mock(io.memoryos.connector.SharePointSelectionProcessor.class), leaseScheduler, metrics)
             );
             for (OperationWorkload workload : List.of(OperationWorkload.INGESTION, OperationWorkload.CLEANUP)) {
                 operationDispatch.claim(workload, 8)

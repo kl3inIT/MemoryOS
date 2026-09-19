@@ -13,5 +13,30 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: [localhost:9090]
+  # Native metrics bypass Collector privacy transforms: retain only this allowlist.
+  # Engine port also serves inference routes; only authorized Prometheus joins its network.
+  - job_name: memoryos-inference
+    scrape_interval: 15s
+    scrape_timeout: 5s
+    body_size_limit: 1MB
+    sample_limit: 500
+    target_limit: 1
+    label_limit: 8
+    label_name_length_limit: 64
+    label_value_length_limit: 128
+    static_configs:
+      - targets: [vllm:8000]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc|generation_tokens_total|request_success_total|(time_to_first_token_seconds|e2e_request_latency_seconds|request_queue_time_seconds)_(bucket|sum|count))'
+        action: keep
+      - source_labels: [model_name]
+        regex: 'HuggingFaceTB/SmolLM2-135M-Instruct'
+        action: keep
+      - source_labels: [engine]
+        regex: '0'
+        action: keep
+      - action: labelkeep
+        regex: '__name__|job|instance|model_name|engine|le|finished_reason'
 rule_files:
   - /etc/prometheus/alerts.yaml

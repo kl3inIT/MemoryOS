@@ -27,7 +27,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSourceDocumentRepository {
     private static final ObjectMapper METADATA_MAPPER = new ObjectMapper();
-    private static final String SEARCHABLE_SOURCE = "c.connector_type IN ('FILE','GOOGLE_DRIVE')";
+    private static final String SEARCHABLE_SOURCE = "c.connector_type IN ('FILE','GOOGLE_DRIVE','SHAREPOINT')";
     /** A provider grant that admits every active Tenant member; it is indexed as {@code access_public}. */
     private static final String PUBLIC_GRANT = "everyone";
     /**

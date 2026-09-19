@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  AudioLines,
   Blocks,
   Bot,
   Globe,
@@ -36,6 +37,7 @@ export type AdminPage =
   | "users"
   | "groups"
   | "web"
+  | "voice"
   | "images"
   | "interpreter"
   | "providers"
@@ -46,7 +48,7 @@ export type AdminPage =
 type AppShellProps = {
   area?: AppShellArea;
   adminPage?: AdminPage;
-  sourceSetupStep?: 0 | 1;
+  sourceSetup?: SourceSetupProgress;
   pageTitle: string;
   headerActions?: ReactNode;
   children: ReactNode;
@@ -55,33 +57,36 @@ type AppShellProps = {
 type SidebarContentsProps = {
   area: AppShellArea;
   adminPage?: AdminPage;
-  sourceSetupStep?: 0 | 1;
+  sourceSetup?: SourceSetupProgress;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   onNavigate?: () => void;
   mobile?: boolean;
 };
 
-function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
+/** Steps of a connector setup flow, shown in place of navigation while the flow is open. */
+export type SourceSetupProgress = { steps: readonly string[]; current: number };
+
+function SourceSetupSidebarSteps({ steps, current }: SourceSetupProgress) {
   const ui = useAppTranslation();
 
   return (
-    <ol className="relative mx-2 mt-2 flex flex-col" aria-label={ui("Connector setup progress")}>
-      {["Credential", "Connector"].map((label, index) => (
+    <ol className="mx-2 mt-2 flex flex-col" aria-label={ui("Connector setup progress")}>
+      {steps.map((label, index) => (
         <li
           key={label}
-          aria-current={step === index ? "step" : undefined}
+          aria-current={current === index ? "step" : undefined}
           className={cn(
-            "flex h-9 items-center gap-0.5 font-main-ui-body",
-            index > step ? "text-content-muted" : "text-content-primary",
+            "relative flex h-9 items-center gap-0.5 font-main-ui-body",
+            index > current ? "text-content-muted" : "text-content-primary",
           )}
         >
-          {index === 1 && (
+          {index > 0 && (
             <span
               aria-hidden="true"
               className={cn(
-                "absolute top-4.5 left-2 h-9 w-0.5",
-                step === 1 ? "bg-status-info-content" : "bg-border-default",
+                "absolute -top-4.5 left-2 h-9 w-0.5",
+                index <= current ? "bg-status-info-content" : "bg-border-default",
               )}
             />
           )}
@@ -92,15 +97,19 @@ function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
             <span
               className={cn(
                 "z-10 flex size-3.5 shrink-0 items-center justify-center rounded-full",
-                index > step ? "bg-border-default" : "bg-status-info-content",
+                index > current ? "bg-border-default" : "bg-status-info-content",
               )}
             >
-              {step === index && <span className="size-1.5 rounded-full bg-(--neutral-00)" />}
+              {current === index && <span className="size-1.5 rounded-full bg-(--neutral-00)" />}
             </span>
           </span>
           <span>{ui(label)}</span>
           <span className="sr-only">
-            {index < step ? ui("Completed") : index > step ? ui("Not started") : ui("Current step")}
+            {index < current
+              ? ui("Completed")
+              : index > current
+                ? ui("Not started")
+                : ui("Current step")}
           </span>
         </li>
       ))}
@@ -111,7 +120,7 @@ function SourceSetupSidebarSteps({ step }: { step: 0 | 1 }) {
 function SidebarContents({
   area,
   adminPage = "sources",
-  sourceSetupStep,
+  sourceSetup,
   collapsed = false,
   onCollapseToggle,
   onNavigate,
@@ -137,7 +146,7 @@ function SidebarContents({
       <header
         className={cn(
           "flex shrink-0 gap-2",
-          sourceSetupStep !== undefined ? "items-start pt-3" : "min-h-13 items-center pt-1",
+          sourceSetup !== undefined ? "items-start pt-3" : "min-h-13 items-center pt-1",
           collapsed ? "px-1" : "px-3",
         )}
       >
@@ -165,7 +174,7 @@ function SidebarContents({
             >
               <Brand />
             </Link>
-            {appArea && sourceSetupStep === undefined ? (
+            {appArea && sourceSetup === undefined ? (
               <ChatHistorySearch variant="icon" onNavigate={onNavigate} />
             ) : null}
             {mobile ? (
@@ -174,7 +183,7 @@ function SidebarContents({
                   <X />
                 </IconButton>
               </Dialog.Close>
-            ) : sourceSetupStep === undefined ? (
+            ) : sourceSetup === undefined ? (
               <IconButton
                 prominence="internal"
                 size="sm"
@@ -192,19 +201,16 @@ function SidebarContents({
 
       <nav
         aria-label={
-          sourceSetupStep !== undefined
+          sourceSetup !== undefined
             ? ui("Connector setup")
             : appArea
               ? ui("Primary navigation")
               : ui("Administration navigation")
         }
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-2",
-          sourceSetupStep === undefined && "pt-4",
-        )}
+        className={cn("min-h-0 flex-1 overflow-y-auto px-2", sourceSetup === undefined && "pt-4")}
       >
-        {sourceSetupStep !== undefined ? (
-          <SourceSetupSidebarSteps step={sourceSetupStep} />
+        {sourceSetup !== undefined ? (
+          <SourceSetupSidebarSteps {...sourceSetup} />
         ) : appArea ? (
           <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
         ) : (
@@ -228,6 +234,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tìm kiếm Web")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/voice"
+                  icon={<AudioLines className="size-4" />}
+                  selected={adminPage === "voice"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Giọng nói")}
                 </SidebarTab>
                 <SidebarTab
                   to="/admin/image-generation"
@@ -331,7 +346,7 @@ function SidebarContents({
 
       <footer className="shrink-0 px-2 pt-4">
         {!collapsed && <div className="mx-2 mb-2 border-t border-border-subtle" />}
-        {sourceSetupStep !== undefined ? (
+        {sourceSetup !== undefined ? (
           <SidebarTab
             to="/admin/sources/new"
             icon={<X className="size-4" />}
@@ -351,7 +366,7 @@ function SidebarContents({
             {ui("Back to MemoryOS")}
           </SidebarTab>
         ) : null}
-        {sourceSetupStep === undefined && appArea && canAccessAdmin ? (
+        {sourceSetup === undefined && appArea && canAccessAdmin ? (
           <div className="mb-1">
             <SidebarTab
               to={adminEntryPath}
@@ -364,9 +379,7 @@ function SidebarContents({
             </SidebarTab>
           </div>
         ) : null}
-        {sourceSetupStep === undefined && (
-          <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />
-        )}
+        {sourceSetup === undefined && <AccountMenu collapsed={collapsed} onNavigate={onNavigate} />}
       </footer>
     </div>
   );
@@ -375,7 +388,7 @@ function SidebarContents({
 export function AppShell({
   area = "app",
   adminPage = "sources",
-  sourceSetupStep,
+  sourceSetup,
   pageTitle,
   headerActions,
   children,
@@ -384,7 +397,7 @@ export function AppShell({
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
-  const sidebarCollapsed = sourceSetupStep === undefined && collapsed;
+  const sidebarCollapsed = sourceSetup === undefined && collapsed;
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
@@ -397,7 +410,7 @@ export function AppShell({
 
       <aside
         aria-label={
-          sourceSetupStep !== undefined
+          sourceSetup !== undefined
             ? ui("Connector setup sidebar")
             : area === "app"
               ? ui("Application sidebar")
@@ -411,7 +424,7 @@ export function AppShell({
         <SidebarContents
           area={area}
           adminPage={adminPage}
-          sourceSetupStep={sourceSetupStep}
+          sourceSetup={sourceSetup}
           collapsed={sidebarCollapsed}
           onCollapseToggle={() => setCollapsed((current) => !current)}
         />
@@ -423,7 +436,7 @@ export function AppShell({
             role="banner"
             className={cn(
               "flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-base px-3",
-              sourceSetupStep === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
+              sourceSetup === undefined && area === "app" ? "h-14" : "h-13 md:hidden",
             )}
           >
             <Dialog.Trigger asChild>
@@ -455,7 +468,7 @@ export function AppShell({
               <SidebarContents
                 area={area}
                 adminPage={adminPage}
-                sourceSetupStep={sourceSetupStep}
+                sourceSetup={sourceSetup}
                 mobile
                 onNavigate={() => setMobileNavigationOpen(false)}
               />

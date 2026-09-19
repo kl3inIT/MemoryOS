@@ -9,5 +9,7 @@ public record SourceRun(
         SourceRunStatus status, SourceRunStatus acquisitionStatus, SourceRunIndexingStatus indexingStatus,
         Instant createdAt, @Nullable Instant startedAt, @Nullable Instant acquisitionCompletedAt,
         @Nullable Instant completedAt, long scopeRevision, long credentialRevision,
-        @Nullable Instant nextRetryAt, @Nullable String errorCode, boolean detailsExpired, SourceRunCounts counts
+        @Nullable Instant nextRetryAt, @Nullable String errorCode, boolean detailsExpired,
+        /** {@code REFRESH} or {@code PRUNE} for SharePoint; null where a connector has one kind of run. */
+        @Nullable String runKind, SourceRunCounts counts
 ) {}

@@ -149,7 +149,8 @@ class PostgresGoogleDriveSyncTest {
             GoogleDriveProvider.AcquiredContent content = invocation.getArgument(0);
             return links.getOrDefault(content.descriptor().providerFileId(), List.of());
         });
-        attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings, connections);
+        attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings,
+                new DefaultProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         storage = mock(ObjectStorage.class);
         doAnswer(i -> {
@@ -1191,8 +1192,9 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private DefaultConnectorSyncService service() {
-        return new DefaultConnectorSyncService(syncRows, sources, roots, new JdbcGoogleDriveAclRepository(jdbc, published::add),
-                items, attempts, mappings, connections, writes, manager);
+        return new DefaultConnectorSyncService(syncRows, sources, roots,
+                new JdbcGoogleDriveAclRepository(jdbc, published::add), items, attempts, mappings, connections, writes,
+                org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
     }
 
     private SourceOperationId enqueue() {

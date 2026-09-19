@@ -59,6 +59,10 @@ public class JdbcSourceRunHistoryRepository {
                     WHEN status = 'NOT_STARTED' AND error_code IS NOT NULL THEN 'RETRY_SCHEDULED'
                     WHEN status = 'NOT_STARTED' THEN 'QUEUED'
                     ELSE status END AS acquisition_state
+                -- A SharePoint attempt is either a refresh or a prune; other connectors have one kind of run.
+                , (SELECT r.kind FROM sharepoint_sync_runs r
+                    WHERE r.tenant_id = a.tenant_id AND r.source_sync_attempt_id = a.id
+                    ORDER BY r.created_at DESC LIMIT 1) AS run_kind
                 FROM source_sync_attempts a WHERE tenant_id = :tenant AND source_id = :source
             ) phase_state
             """;
@@ -181,7 +185,7 @@ public class JdbcSourceRunHistoryRepository {
                 JdbcSourceRepository.instant(r, "run_completed_at"), r.getLong("scope_revision"), r.getLong("credential_revision"),
                 "RETRY_SCHEDULED".equals(acquisition) ? JdbcSourceRepository.instant(r, "next_dispatch_at")
                         : JdbcSourceRepository.instant(r, "next_index_retry_at"),
-                r.getString("current_error_code"), r.getTimestamp("details_expired_at") != null,
+                r.getString("current_error_code"), r.getTimestamp("details_expired_at") != null, r.getString("run_kind"),
                 new SourceRunCounts(r.getObject("scanned", Long.class), r.getObject("acquired", Long.class),
                         r.getObject("published", Long.class), r.getObject("unchanged", Long.class),
                         r.getObject("already_pending", Long.class), r.getObject("acquisition_failed", Long.class),

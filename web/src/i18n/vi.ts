@@ -167,6 +167,8 @@ export const vi = {
       "Mục này đã thay đổi. Hãy tải lại phiên bản mới nhất trước khi thử lại. Bản nháp được giữ nguyên.",
     notFound: "Mục này không còn khả dụng.",
     unavailable: "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
+    voiceProviderUnavailable:
+      "Không kết nối được nhà cung cấp giọng nói hoặc khóa bị từ chối. Kiểm tra địa chỉ, khóa và mô hình rồi thử lại.",
     chatProviderUnavailable:
       "Nhà cung cấp mô hình từ chối yêu cầu hoặc không kết nối được. Kiểm tra nhà cung cấp và mô hình rồi gửi lại.",
     chatWebUnavailable:

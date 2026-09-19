@@ -17,7 +17,7 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 - `WebProviderClientTest`: response mappings for every external search provider including the 9Router gateway (engine sent as `model`, snippet with `content` fallback, endpoint ending in `/search` normalized), shared Tavily connection, Exa/Firecrawl extraction, HTML sanitization, error redaction and bounded-label request metrics. Fixtures are not live-provider acceptance.
 - `WebPdfReaderTest`: the normal provider read path extracts real generated PDF text without credentials/OCR; page/output bounds are labeled, textless/malformed PDFs fail, and canceled reads propagate cancellation.
 - `WebToolsTest`: shared citation IDs, per-turn duplicate suppression, user-supplied URL reading without search, serialized token bounds and Stop before network I/O; overlapping batch calls, partial provider failures, input bounds and actual annotation-based `open_url` array binding.
-- `ChatWebPromptsTest`: actual-tool guidance for Web/internal/combined/off, preserved Persona and original prompt, conditional post-search reminder, no stale-history reminder and final-cycle behavior.
+- `ChatWebPromptsTest`: actual-tool guidance for Web/internal/combined/off, mandatory internal grounding for explicit document/source requests only when `search_knowledge` is callable, preserved Persona and original prompt, conditional post-search reminder, no stale-history reminder and final-cycle behavior.
 - `ChatWebPromptsTest` also checks the supported/unsupported `site:` guidance and its absence when search is unavailable. `chat-web-preference.test.ts` checks reload restoration, owner/session isolation, new-chat defaults, invalid values and denied storage through the actual transport.
 - `ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent`: real security filters, PostgreSQL/JPA migration/encrypted storage, explicit activation, HTTP provider fixture through the native tool loop with query arrays and actual prompt/reminder assertions, Send/Edit/Regenerate and off, persisted URL evidence and replay conflicts.
 - `chat-web.test.tsx` / `chat-transport.test.ts`: tool-capability-aware controls, unconfigured state, actual status/results, URL identity validation and immutable send intent. Browser CLI checks cover desktop/mobile controls, separate settings and the existing source panel with synthetic evidence. Exact receipts and open gates: [verification](../increments/active/chat-web-search/verification.md).
@@ -101,6 +101,19 @@ Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/M
 | Closed capability and persistence ownership | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
 
 API tests use synthetic Actor/OIDC fixtures; the SSE replay/lease and Nginx tests authenticate signed JWTs through the actual resource-server filter and binding/membership lookup. They do not certify live Keycloak browser login. The optional live-model check delegates to the product provider composition. Browser Chat acceptance remains Phase 2.4. Missing-buffer/expiry tests establish the reset/fallback contract, not process recovery or token durability. No two-replica deployment or load acceptance is claimed. Phase 1 probes are not substituted for product checks; see the [current plan](../increments/completed/mem-11-production-chat/plan.md).
+
+## Voice (MEM-91)
+
+| Contract | Verification |
+| --- | --- |
+| OpenAI Realtime uses the official transcription session shape, bearer and hashed safety identifier; PCM append produces cumulative deltas, Stop commits, fragmented provider messages reassemble | `OpenAiRealtimeTranscriberTest.streamsCumulativeDeltasAndCommitsTheFinalTranscript`, `fragmentedProviderMessagesAreReassembledBeforeParsing`: controlled JDK WebSocket boundary |
+| A provider stream failure replays all received PCM through bounded batch transcription, increments the fallback meter and releases the session once | `OpenAiRealtimeTranscriberTest.replaysBufferedAudioThroughBatchWhenTheProviderStreamFails`; `ChunkedTranscriberTest` covers silence, interim ordering, final retry and close |
+| Ticketed same-origin transcription enforces authorization and one-use tickets; interim/final responses have monotonic revisions and do not claim a VAD boundary | `ChatSessionApiIntegrationTest.voiceTranscriptionStreamsInterimAndFinalTextOverATicketedSameOriginWebSocket`: full API/security, real PostgreSQL and controlled transcriber |
+| Browser socket sends PCM/end, applies current cumulative text, ignores delayed/invalid revisions, retains interim on final timeout and maps server/handshake errors | `transcribe-socket.test.ts` |
+| assistant-ui dictation keeps the draft, exposes live interim text, settles final text and Auto-Send behavior | `memoryos-dictation-adapter.test.ts`, `voice-dictation.test.ts`, `voice-dictation.spec.ts` with Chromium fake media and mocked WebSocket |
+| Voice provider administration, settings, read-aloud, streaming synthesis, Auto-Playback and auto-listen | Core/API/Vitest/Playwright cases enumerated in [MEM-91 verification](../increments/active/mem-91-chat-voice/verification.md) |
+
+The controlled OpenAI fixture verifies MemoryOS protocol construction and fallback, not live service acceptance, latency, billing or server VAD. Live OpenAI, OpenAI-compatible, ElevenLabs/Azure, actual microphones/speakers and Safari remain explicit acceptance gates.
 
 ## Editors, projects, assistants and sharing (V36)
 
@@ -217,6 +230,7 @@ Standalone native/Models measurements below retain their original evidence bound
 | CPU compiler scratch execution boundary | A real UID1654/readonly-root native-library load from `/tmp` fails with Docker's implicit noexec mount and passes with explicit engine-only `exec`, retaining mode0700, nosuid/nodev and the256MiB bound. Real vLLM startup/generation then pass. Release mutation checks reject missing engine exec and executable gateway scratch; no broader security or memory relaxation. |
 
 Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-runtime gates are in [MEM-77 verification](../increments/active/mem-77-provider-backend/verification.md#implementation-and-controlled-evidence--2026-09-11). The [staging runbook](../runbooks/ci-cd.md#managed-inference-operations) owns protected prerequisites and cleanup. No staging/model workload is launched while available host RAM is below the declared floor; re-measure after restoring Docker rather than reusing the pre-engine-loss snapshot. Denied SSH and absent target/operator authorization remain blockers. All [A1–A20 acceptance gates](../increments/active/mem-77-provider-backend/plan.md#acceptance-checklist), including real API/model, load/co-load, rotation and compatible rollback, remain independently required.
+
 ## Citation and evidence presentation (MEM-87)
 
 | Contract | Evidence |

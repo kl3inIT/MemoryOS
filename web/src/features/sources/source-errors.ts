@@ -10,6 +10,9 @@ type SourceMutation =
   | "google-drive"
   | "google-drive-discovery"
   | "google-drive-schedule"
+  | "sharepoint"
+  | "sharepoint-credential"
+  | "sharepoint-schedule"
   | "metadata"
   | "associations";
 
@@ -113,6 +116,56 @@ const statusMessages: Record<string, string> = {
     "Input storage is misconfigured. Ask an administrator to correct the storage configuration.",
   SOURCE_STORAGE_WRITE_MISCONFIGURED:
     "Output storage is misconfigured. Ask an administrator to correct the storage configuration.",
+  SOURCE_SHAREPOINT_NOT_CONFIGURED:
+    "SharePoint is not configured on this server. Contact an administrator.",
+  SOURCE_SHAREPOINT_DIRECTORY_INVALID:
+    "Supply the Directory (tenant) ID and Application (client) ID as GUIDs.",
+  SOURCE_SHAREPOINT_SECRET_INVALID: "Supply the client secret Value, between 1 and 256 characters.",
+  SOURCE_SHAREPOINT_CERTIFICATE_INVALID:
+    "Upload a PKCS#12 keystore of at most 16 KiB holding exactly one RSA key of at least 2048 bits with an unexpired certificate, and its password.",
+  SOURCE_SHAREPOINT_CREDENTIAL_SECRET_REJECTED:
+    "Microsoft rejected the client secret. Copy the secret Value, not the Secret ID.",
+  SOURCE_SHAREPOINT_CREDENTIAL_SECRET_EXPIRED:
+    "The client secret has expired. Create a new secret in Entra and replace the authentication.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CERTIFICATE_UNKNOWN:
+    "Upload this certificate to the Entra app registration before saving it here.",
+  SOURCE_SHAREPOINT_CREDENTIAL_DIRECTORY_UNKNOWN:
+    "Microsoft does not know this Directory (tenant) ID. Copy it from the app's Overview page.",
+  SOURCE_SHAREPOINT_CREDENTIAL_APPLICATION_UNKNOWN:
+    "Microsoft does not know this Application (client) ID in that directory.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CONSENT_REQUIRED:
+    "Grant admin consent for Sites.Read.All in Entra, then save again.",
+  SOURCE_SHAREPOINT_CREDENTIAL_REJECTED:
+    "Microsoft rejected these credentials. Check the directory, application and authentication in Entra.",
+  SOURCE_SHAREPOINT_CREDENTIAL_CHANGED:
+    "The credential was deleted while the addresses were being verified. The saved scope is unchanged.",
+  SOURCE_SHAREPOINT_NEEDS_UPDATE:
+    "This credential needs updating. Replace its authentication before continuing.",
+  SOURCE_SHAREPOINT_ROOT_URL_INVALID:
+    "Paste SharePoint site, library or folder addresses on your organization's host, containing /sites/, /teams/ or /personal/.",
+  SOURCE_SHAREPOINT_ROOTS_OVERLAP:
+    "Select either a site, library or folder, not one inside another.",
+  SOURCE_SHAREPOINT_ROOTS_MIXED_TENANTS: "Every address must be on the same SharePoint host.",
+  SOURCE_SHAREPOINT_EXCLUSION_INVALID:
+    "Each exclusion must contain 1 to 512 characters, with at most 100 exclusions of each kind.",
+  SOURCE_SHAREPOINT_UNAVAILABLE: "Microsoft did not answer. Try again in a moment.",
+  SOURCE_SHAREPOINT_INTERNAL:
+    "The SharePoint run failed unexpectedly. Review this run and synchronize again.",
+  SOURCE_SHAREPOINT_CONNECTION_UNAVAILABLE:
+    "The SharePoint credential is unavailable. Test it and replace its authentication if needed.",
+  SOURCE_SHAREPOINT_SELECTION_FAILED:
+    "Address verification failed. The active scope is unchanged. Check the addresses and the credential's permissions before submitting again.",
+  SOURCE_SHAREPOINT_AUTHENTICATION:
+    "Synchronization stopped because Microsoft rejected the credential. Test it and replace its authentication.",
+  SOURCE_SHAREPOINT_AUTHORIZATION:
+    "The Entra application is not allowed to read this content. Check its permissions and admin consent.",
+  SOURCE_SHAREPOINT_NOT_FOUND: "This item is no longer available to the Entra application.",
+  SOURCE_SHAREPOINT_RESYNC_REQUIRED:
+    "Microsoft no longer accepts the saved change token; this library is read again in full.",
+  SOURCE_SHAREPOINT_QUOTA: "Microsoft is limiting requests. Wait before trying again.",
+  SOURCE_SHAREPOINT_MALFORMED: "Microsoft returned an answer that could not be read. Try again.",
+  SOURCE_SHAREPOINT_LIMIT_EXCEEDED:
+    "This item exceeds the supported acquisition limits and was not imported.",
   SOURCE_PUBLICATION_INTERNAL:
     "Extracted content could not be published. Retry the affected file after checking the Source status.",
   SOURCE_MANAGER_NOT_ELIGIBLE:
@@ -154,6 +207,25 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
         return "The selection exceeds the server request-size limit. Reduce the submitted links or linked approvals.";
       if (error.status === 400 || error.status === 422)
         return "Check the credential or Source name, OAuth client JSON, unique non-overlapping HTTPS Google file or folder links within the displayed limits, and your linked-document selection.";
+    }
+    if (mutation.startsWith("sharepoint")) {
+      if (mutation === "sharepoint-schedule") {
+        if (error.status === 412 || error.status === 428)
+          return "The schedule changed in another session. Reload the saved intervals before trying again.";
+        if (error.status === 400 || error.status === 422)
+          return "Enter minutes from 1 to 2147483647 and prune hours from 0 to 8760.";
+      }
+      if (error.status === 412 || error.status === 428)
+        return "This credential or scope changed in another session. Refresh before trying again.";
+      if (error.status === 409)
+        return "This Source or credential changed, or the credential is still used by a Source. Refresh its status before trying again.";
+      if (error.status === 413)
+        return "The request exceeds the server request-size limit. Paste fewer addresses.";
+      if (error.status === 503) return statusMessages.SOURCE_SHAREPOINT_UNAVAILABLE;
+      if (error.status === 404 && mutation === "sharepoint-credential")
+        return "This credential is no longer available. Refresh and select another one.";
+      if (error.status === 400 || error.status === 422)
+        return "Check the credential name, the directory and application GUIDs, the authentication, and the pasted addresses.";
     }
     if (error.status === 403) return "You do not have permission to manage this Source.";
     if (mutation === "google-drive" && error.status === 404)

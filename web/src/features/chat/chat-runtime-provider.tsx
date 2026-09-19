@@ -9,6 +9,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
+import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
 import { chatSessionsKey, type ChatUiMessage } from "./chat-api";
 import { createChatAttachmentAdapter } from "./chat-files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
@@ -107,6 +109,8 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const [attachments] = useState(() => createChatAttachmentAdapter(controller.setAttachmentError));
   const [history] = useState(() => chatHistoryAdapter(controller));
+  const dictation = useChatDictationAdapter();
+  const speech = useChatSpeechAdapter();
   const chat = useChat<ChatUiMessage>({
     id,
     transport: controller.transport,
@@ -117,7 +121,7 @@ function useChatThreadRuntime(registry: ChatThreadRegistry) {
     onError: (cause) => controller.markUnfinished(cause),
   });
   const runtime = useAISDKRuntime(chat, {
-    adapters: { attachments, history },
+    adapters: { attachments, history, dictation, speech },
     isSendDisabled: state.connection !== "ready" || state.unavailable || state.checking,
   });
   useEffect(() => {

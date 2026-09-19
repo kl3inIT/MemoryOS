@@ -9,6 +9,7 @@ import io.memoryos.provider.file.DoclingSourceContentExtractor;
 import io.memoryos.provider.file.SpreadsheetSourceContentExtractor;
 import io.memoryos.provider.google.GoogleDocsSourceContentExtractor;
 import io.memoryos.provider.google.GoogleSheetsSourceContentExtractor;
+import io.memoryos.provider.sharepoint.SharePointPageSourceContentExtractor;
 import java.io.InputStream;
 import java.util.Locale;
 import org.apache.tika.Tika;
@@ -19,12 +20,14 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
     private final SpreadsheetSourceContentExtractor spreadsheets;
     private final GoogleSheetsSourceContentExtractor sheets;
     private final GoogleDocsSourceContentExtractor docs;
+    private final SharePointPageSourceContentExtractor sharePointPages;
 
     public SourceContentExtractorRouter(DoclingSourceContentExtractor docling, ObjectMapper mapper) {
         this.docling = docling;
         spreadsheets = new SpreadsheetSourceContentExtractor(mapper);
         sheets = new GoogleSheetsSourceContentExtractor(mapper);
         docs = new GoogleDocsSourceContentExtractor(mapper);
+        sharePointPages = new SharePointPageSourceContentExtractor(mapper);
     }
 
     @Override public DocumentContent extract(InputStream content, long size, String filename,
@@ -32,6 +35,7 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
         return switch (input.format()) {
             case GOOGLE_SHEETS -> sheets.extract(content, size, filename, input);
             case GOOGLE_DOCS -> docs.extract(content, size, filename, input);
+            case SHAREPOINT_PAGE -> sharePointPages.extract(content, size, filename, input);
             case BINARY -> binary(content, size, filename, input);
         };
     }

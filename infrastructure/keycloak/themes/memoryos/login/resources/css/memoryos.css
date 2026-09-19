@@ -1,308 +1,705 @@
-/*
- * MemoryOS login theme. Extends keycloak.v2 and only restyles it: a centered white card with the
- * MemoryOS wordmark on a flat page, with solid colours and no gradients, soft shadows or glows.
- * Every page keeps the keycloak.v2 markup and behaviour.
- */
-
 :root {
-  --memoryos-navy: #083372;
-  --memoryos-navy-strong: #052452;
-  --memoryos-blue: #1f55b8;
-  --memoryos-text: #0f172a;
-  --memoryos-text-secondary: #334155;
-  --memoryos-muted: #64748b;
-  --memoryos-border: #dde2ea;
-  --memoryos-border-strong: #c3cad6;
-  --memoryos-font:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --keycloak-card-top-color: transparent;
-  --pf-v5-global--FontFamily--text: var(--memoryos-font);
-  --pf-v5-global--FontFamily--heading: var(--memoryos-font);
+  --memoryos-ink: #15161a;
+  --memoryos-muted: #686b75;
+  --memoryos-soft: #9599a4;
+  --memoryos-line: #c7cad3;
+  --memoryos-paper: #f8f7f2;
+  --memoryos-night: #0c101a;
+  --memoryos-night-soft: #171d2d;
+  --memoryos-indigo: #6672e5;
+  --memoryos-indigo-strong: #5360d7;
+  --memoryos-danger: #c53b47;
+  --memoryos-danger-soft: #fff0f1;
+  --memoryos-success: #247c5c;
+  --memoryos-success-soft: #eaf8f2;
+  --memoryos-font: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --memoryos-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
 
-.login-pf body {
-  min-height: 100%;
-  background: #f4f6f9;
-  color: var(--memoryos-text);
+* {
+  box-sizing: border-box;
+}
+
+html.login-pf,
+html.login-pf body {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.login-pf body#keycloak-bg {
+  position: relative;
+  margin: 0;
+  color: var(--memoryos-ink);
+  background:
+    radial-gradient(circle at 39% 43%, rgb(102 114 229 / 22%), transparent 24%),
+    radial-gradient(circle at 7% 93%, rgb(125 211 176 / 10%), transparent 27%),
+    linear-gradient(145deg, var(--memoryos-night-soft) 0%, #101521 58%, var(--memoryos-night) 100%);
   font-family: var(--memoryos-font);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Page and card */
+body#keycloak-bg::before {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: url("../img/meaning-network.svg") center / cover no-repeat;
+}
+
+body#keycloak-bg::after {
+  position: fixed;
+  z-index: 0;
+  right: -190px;
+  bottom: -430px;
+  width: 640px;
+  height: 640px;
+  border: 1px solid rgb(102 114 229 / 20%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 96px rgb(102 114 229 / 2.5%),
+    0 0 0 192px rgb(125 211 176 / 1.8%);
+  content: "";
+  pointer-events: none;
+}
 
 .pf-v5-c-login {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 2rem 1rem;
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  background: transparent;
 }
 
 .pf-v5-c-login__container {
-  display: flex;
-  flex-direction: column;
   width: 100%;
-  max-width: 26rem;
-  margin: 0 auto;
-  padding: 2rem 2rem 1.75rem;
-  background: #ffffff;
-  border: 1px solid #e7e9ee;
-  border-radius: 0.875rem;
+  max-width: none;
+  min-height: 100dvh;
+  padding: clamp(20px, 4vh, 52px) clamp(32px, 5vw, 72px);
+  display: grid;
+  grid-template-columns: minmax(0, 500px) 468px;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "header main";
+  align-items: center;
+  justify-content: center;
+  gap: clamp(56px, 5vw, 96px);
 }
 
-.pf-v5-c-login__header {
-  margin: 0 0 1rem;
-  padding: 0;
+#kc-header {
+  position: relative;
+  z-index: 1;
+  grid-area: header;
+  align-self: center;
+  justify-self: start;
+  width: min(560px, 100%);
+  padding: 44px 0 72px;
+  color: #f8f9fc;
+  transform: translateX(56px);
+}
+
+#kc-header::before {
+  position: absolute;
+  top: 0;
+  left: 77px;
+  color: #aab4ff;
+  content: "YOUR PRIVATE KNOWLEDGE SYSTEM";
+  font: 500 10px/1 var(--memoryos-mono);
+  letter-spacing: 0.16em;
+}
+
+#kc-header::after {
+  position: absolute;
+  bottom: 0;
+  left: 26px;
+  max-width: 48ch;
+  color: #b8bfd0;
+  content: "Turn the sources you trust into durable memory — structured, private, and grounded in evidence.";
+  font-size: 15px;
+  line-height: 1.65;
+  text-align: center;
 }
 
 #kc-header-wrapper {
-  width: 9.5rem;
-  height: 1.4rem;
-  margin: 0 auto;
-  background: url("../img/memoryos-wordmark.svg") center / contain no-repeat;
-  color: transparent !important;
-  font-size: 0;
-  letter-spacing: 0;
+  min-height: 58px;
+  padding-left: 77px;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  background: url("../img/memoryos-mark.svg") left center / 58px 58px no-repeat;
+  font-size: clamp(46px, 5vw, 64px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  text-transform: none;
 }
 
-/* PatternFly aligns the main panel to the start; stretch it so short forms keep the card width. */
 .pf-v5-c-login__main {
-  align-self: stretch;
-  width: 100%;
-  margin: 0;
-  background: transparent;
-  box-shadow: none;
+  grid-area: main;
+  align-self: center;
+  justify-self: end;
+  width: 468px;
+  max-width: 100%;
+  height: min(610px, calc(100dvh - 40px));
+  min-height: min(520px, calc(100dvh - 40px));
+  max-height: calc(100dvh - 40px);
+  padding: clamp(34px, 6vh, 62px) 42px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 78%);
+  border-radius: 24px;
+  color: var(--memoryos-ink);
+  background: rgb(250 249 245 / 97%);
+  box-shadow:
+    0 34px 90px rgb(2 5 12 / 42%),
+    0 2px 8px rgb(2 5 12 / 18%);
+  scrollbar-color: #c7cad3 transparent;
+  scrollbar-width: thin;
 }
 
 .pf-v5-c-login__main-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 0 1.5rem;
   padding: 0;
-  border-top: 0;
+  display: block;
+  border: 0;
+  background: transparent;
 }
 
 #kc-page-title {
   margin: 0;
-  color: var(--memoryos-text);
-  font-size: 1.125rem;
+  color: var(--memoryos-ink);
+  font-family: var(--memoryos-font);
+  font-size: 35px;
   font-weight: 600;
-  line-height: 1.4;
-  text-align: center;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
 }
 
-.pf-v5-c-login__main-body,
-.pf-v5-c-login__main-footer {
+#kc-page-title::before {
+  margin-bottom: 18px;
+  display: block;
+  color: var(--memoryos-indigo-strong);
+  content: "SECURE ACCESS";
+  font: 500 10px/1 var(--memoryos-mono);
+  letter-spacing: 0.14em;
+}
+
+#kc-page-title::after {
+  margin-top: 14px;
+  max-width: 42ch;
+  display: block;
+  color: var(--memoryos-muted);
+  content: "Continue securely with your MemoryOS account.";
+  font-size: 14.5px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: normal;
+}
+
+body:has(#kc-form-login) #kc-page-title::before {
+  content: "WELCOME BACK";
+}
+
+body:has(#kc-form-login) #kc-page-title::after {
+  content: "Sign in with the account connected to your MemoryOS workspace.";
+}
+
+body:has(#kc-passwd-update-form) #kc-page-title::before {
+  content: "INVITATION · FINAL STEP";
+}
+
+body:has(#kc-passwd-update-form) #kc-page-title::after {
+  content: "Choose a secure password to finish activating your MemoryOS access.";
+}
+
+body[data-page-id*="reset-password"] #kc-page-title::before,
+body[data-page-id*="forgot-credentials"] #kc-page-title::before {
+  content: "ACCOUNT RECOVERY";
+}
+
+body[data-page-id*="reset-password"] #kc-page-title::after,
+body[data-page-id*="forgot-credentials"] #kc-page-title::after {
+  content: "Enter your email address and Keycloak will send a secure recovery link.";
+}
+
+body[data-page-id*="verify-email"] #kc-page-title::before,
+body:has(#kc-verify-email-form) #kc-page-title::before {
+  content: "VERIFY YOUR EMAIL";
+}
+
+body[data-page-id*="verify-email"] #kc-page-title::after,
+body:has(#kc-verify-email-form) #kc-page-title::after {
+  content: "Use the secure link in your inbox to continue.";
+}
+
+body[data-page-id="login-info"] #kc-page-title::before {
+  content: "EMAIL VERIFIED";
+}
+
+body[data-page-id="login-info"] #kc-page-title::after {
+  content: "Your identity is confirmed. You can continue to MemoryOS.";
+}
+
+body[data-page-id="login-error"] #kc-page-title::before {
+  color: var(--memoryos-danger);
+  content: "ACTION UNAVAILABLE";
+}
+
+body[data-page-id="login-error"] #kc-page-title::after {
+  content: "The request may be invalid, expired, or already used.";
+}
+
+.pf-v5-c-login__main-body {
+  margin-top: 28px;
   padding: 0;
+  color: var(--memoryos-ink);
 }
 
-/* Fields */
-
-.pf-v5-c-form {
-  --pf-v5-c-form--GridGap: 1rem;
+.pf-v5-c-form,
+#kc-form-login,
+#kc-form,
+#kc-form-wrapper {
+  width: 100%;
 }
 
-.pf-v5-c-form__label-text {
-  color: var(--memoryos-text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 500;
+.pf-v5-c-form__group {
+  margin: 0 0 14px;
+}
+
+.pf-v5-c-form__group:last-child {
+  margin-bottom: 0;
+}
+
+.pf-v5-c-form__group:has(#password) {
+  position: relative;
+}
+
+.pf-v5-c-form__group:has(#password) > .pf-v5-c-form__helper-text {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+}
+
+.pf-v5-c-form__group-label,
+.pf-v5-c-form__label {
+  margin: 0 0 8px;
+  color: #393b42;
+  font-family: var(--memoryos-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .pf-v5-c-form-control {
-  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-border);
-  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-border);
-  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-border);
-  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-border);
-  --pf-v5-c-form-control--before--BorderBottomWidth: 1px;
-  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
-  --pf-v5-c-form-control--hover--after--BorderBottomColor: transparent;
-  --pf-v5-c-form-control--focus--after--BorderBottomColor: transparent;
-  min-height: 2.5rem;
-  border-radius: 0.5rem;
-  color: var(--memoryos-text);
+  width: 100%;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--memoryos-line);
+  border-radius: 11px;
+  color: var(--memoryos-ink);
+  background: rgb(255 255 255 / 82%);
+  box-shadow: 0 1px 0 rgb(10 12 18 / 2%);
 }
 
-.pf-v5-c-form-control::before,
-.pf-v5-c-form-control::after {
-  border-radius: inherit;
-}
-
-.pf-v5-c-form-control:hover {
-  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-border-strong);
-  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-border-strong);
-  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-border-strong);
-  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-border-strong);
-}
-
-/* The blue border below replaces the square browser outline on the inner input. */
-.pf-v5-c-form-control > input:focus,
-.pf-v5-c-form-control > input:focus-visible {
+.pf-v5-c-form-control input,
+.pf-v5-c-form-control select,
+.pf-v5-c-form-control textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 15px;
+  border: 0;
   outline: none;
-}
-
-.pf-v5-c-form-control:focus-within {
-  --pf-v5-c-form-control--before--BorderTopColor: var(--memoryos-blue);
-  --pf-v5-c-form-control--before--BorderRightColor: var(--memoryos-blue);
-  --pf-v5-c-form-control--before--BorderBottomColor: var(--memoryos-blue);
-  --pf-v5-c-form-control--before--BorderLeftColor: var(--memoryos-blue);
-}
-
-/* The password field and its visibility toggle read as one control. */
-.pf-v5-c-input-group > .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control {
-  border-start-end-radius: 0;
-  border-end-end-radius: 0;
-}
-
-.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
-  --pf-v5-c-button--BorderRadius: 0 0.5rem 0.5rem 0;
-  --pf-v5-c-button--after--BorderRadius: 0 0.5rem 0.5rem 0;
-  --pf-v5-c-button--after--BorderColor: var(--memoryos-border);
-  --pf-v5-c-button--m-control--after--BorderBottomColor: var(--memoryos-border);
-  min-height: 2.5rem;
-  color: var(--memoryos-muted);
-}
-
-.pf-v5-c-form__helper-text a,
-#kc-info-wrapper a {
-  color: var(--memoryos-blue);
-  font-size: 0.8125rem;
-}
-
-/* Buttons: flat fills; hover and keyboard focus turn to a stronger navy. */
-
-.pf-v5-c-login .pf-v5-c-button {
-  --pf-v5-c-button--BorderRadius: 0.5rem;
-  --pf-v5-c-button--after--BorderRadius: 0.5rem;
-  font-weight: 600;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-.pf-v5-c-login .pf-v5-c-button.pf-m-primary {
-  --pf-v5-c-button--m-primary--BackgroundColor: var(--memoryos-navy);
-  min-height: 2.5rem;
-}
-
-.pf-v5-c-login .pf-v5-c-button.pf-m-primary:hover,
-.pf-v5-c-login .pf-v5-c-button.pf-m-primary:focus-visible {
-  background-color: var(--memoryos-navy-strong);
-}
-
-.pf-v5-c-login .pf-v5-c-button.pf-m-secondary {
-  --pf-v5-c-button--m-secondary--Color: var(--memoryos-text);
-  --pf-v5-c-button--m-secondary--BackgroundColor: #ffffff;
-  --pf-v5-c-button--m-secondary--after--BorderColor: var(--memoryos-border);
-  --pf-v5-c-button--after--BorderWidth: 1px;
-  --pf-v5-c-button--hover--after--BorderWidth: 1px;
-  min-height: 2.5rem;
+  color: var(--memoryos-ink);
+  background: transparent;
+  font-family: var(--memoryos-font);
+  font-size: 14px;
   font-weight: 500;
 }
 
-.pf-v5-c-login .pf-v5-c-button:focus-visible {
-  outline: 2px solid var(--memoryos-blue);
-  outline-offset: 2px;
+.pf-v5-c-form-control:hover {
+  border-color: #aeb2bd;
+  background: #fff;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pf-v5-c-login .pf-v5-c-button {
-    transition: none;
-  }
+.pf-v5-c-form-control:has(input:focus-visible),
+.pf-v5-c-form-control:has(select:focus-visible),
+.pf-v5-c-form-control:has(textarea:focus-visible) {
+  border-color: var(--memoryos-indigo);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(102 114 229 / 13%);
 }
 
-/* Identity providers: "Or continue with" divider, then one full-width button per provider, so any
-   configured display name stays readable. */
+.pf-v5-c-form-control:has([aria-invalid="true"]) {
+  border-color: var(--memoryos-danger);
+  background: #fffafa;
+}
 
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) {
+.pf-v5-c-input-group {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.pf-v5-c-input-group__item.pf-m-fill {
+  min-width: 0;
+  flex: 1;
+}
+
+.pf-v5-c-input-group .pf-v5-c-form-control input {
+  padding-right: 50px;
+}
+
+.pf-v5-c-input-group__item:last-child {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  right: 7px;
+}
+
+button[data-password-toggle] {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #737780;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+button[data-password-toggle]::after {
+  border: 0 !important;
+}
+
+button[data-password-toggle]:hover {
+  color: var(--memoryos-ink);
+  background: #f0f1f5;
+}
+
+#kc-form-options {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#kc-form-options:has(> :only-child) {
+  justify-content: flex-end;
+}
+
+.pf-v5-c-form__helper-text .pf-v5-c-helper-text {
+  justify-content: flex-end;
+}
+
+#kc-form-options a,
+.pf-v5-c-login__main a {
+  color: var(--memoryos-indigo-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pf-v5-c-login__main a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#kc-form-buttons {
+  margin-top: 4px;
+}
+
+.pf-v5-c-button.pf-m-primary,
+input.pf-v5-c-button.pf-m-primary,
+button.pf-v5-c-button.pf-m-primary {
   width: 100%;
-  margin: 1.5rem 0 1rem;
+  min-height: 50px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  background: var(--memoryos-ink);
+  font-family: var(--memoryos-font);
+  font-size: 14px;
+  font-weight: 650;
+  box-shadow: 0 8px 20px rgb(21 22 26 / 14%);
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-button.pf-m-primary:focus {
+  color: #fff;
+  background: #2c2e35;
+}
+
+.pf-v5-c-button.pf-m-secondary,
+.pf-v5-c-button.pf-m-link {
+  min-height: 44px;
+  border-radius: 10px;
+  color: var(--memoryos-ink);
+  border-color: var(--memoryos-line);
+  background: #fff;
+}
+
+.pf-v5-c-login__main :focus-visible {
+  outline: 3px solid var(--memoryos-indigo);
+  outline-offset: 3px;
+}
+
+.pf-v5-c-alert {
+  margin-bottom: 18px;
+  padding: 12px 13px;
+  border: 1px solid #f0c7cb;
+  border-radius: 10px;
+  color: #8f2832;
+  background: var(--memoryos-danger-soft);
+  box-shadow: none;
+}
+
+.pf-v5-c-alert.pf-m-success {
+  border-color: #b8dfd0;
+  color: var(--memoryos-success);
+  background: var(--memoryos-success-soft);
+}
+
+.kc-feedback-text,
+.pf-v5-c-helper-text__item-text.pf-m-error {
+  color: var(--memoryos-danger);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.instruction {
+  margin: 0;
+  color: var(--memoryos-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#kc-info,
+.pf-v5-c-login__main-footer-band {
+  margin-top: 20px;
   padding: 0;
   border: 0;
+  background: transparent;
 }
 
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::before,
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers)::after {
-  flex: 1;
-  height: 1px;
-  background: #e7e9ee;
-  content: "";
-}
-
-.pf-v5-c-login__main-footer-band:has(+ #kc-social-providers) .pf-v5-c-login__main-footer-band-item {
-  color: var(--memoryos-muted);
-  font-size: 0.8125rem;
-  white-space: nowrap;
-}
-
-#kc-social-providers {
-  width: 100%;
-}
-
-#kc-social-providers ul {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-}
-
-#kc-social-providers li {
-  grid-column: auto;
-  min-width: 0;
-  padding: 0;
-}
-
-#kc-social-providers a {
-  justify-content: center !important;
-  gap: 0.5rem;
-  padding-inline: 0.75rem;
-}
-
-#kc-social-providers a:hover,
-#kc-social-providers a:focus-visible {
-  --pf-v5-c-button--after--BorderColor: var(--memoryos-navy);
-  background-color: var(--memoryos-navy);
-  color: #ffffff;
-}
-
-#kc-social-providers a > span {
-  overflow: hidden;
-  margin: 0 !important;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#kc-social-providers svg {
-  flex: none;
-  width: 1rem;
-  height: 1rem;
-}
-
-#kc-social-providers svg:not(.google) {
-  fill: currentColor;
-  filter: none;
-}
-
-/* Tasco: the logo follows the display name configured in Keycloak (for example "Đăng nhập với").
-   It sits inline on the text baseline at cap height so it lines up with the letters, painted in the
-   button text colour (dark at rest, white on hover). Keyed to the `tasco` identity-provider alias;
-   other providers keep the default icon and their display name. */
-#social-tasco > svg {
+.pf-v5-c-login__main > .pf-v5-c-login__main-footer:empty {
   display: none;
 }
 
-#social-tasco > span::after {
-  display: inline-block;
-  height: 0.7em;
-  aspect-ratio: 859 / 125;
-  margin-inline-start: 0.4em;
-  background-color: currentColor;
-  vertical-align: baseline;
-  content: "";
-  -webkit-mask: url("../img/tasco-logo.png") center / contain no-repeat;
-  mask: url("../img/tasco-logo.png") center / contain no-repeat;
+.pf-v5-c-login__main::after {
+  margin: 18px auto 0;
+  padding-left: 19px;
+  min-height: 14px;
+  display: block;
+  flex: none;
+  color: #8c909a;
+  background: url("../img/lock.svg") left center / 13px 13px no-repeat;
+  content: "Protected by Keycloak";
+  font-size: 11px;
+  line-height: 14px;
+}
+
+@media (max-width: 1180px) {
+  .pf-v5-c-login__container {
+    padding-right: 28px;
+    padding-left: 28px;
+    grid-template-columns: minmax(0, 440px) 440px;
+    justify-content: center;
+    gap: clamp(36px, 5vw, 64px);
+  }
+
+  #kc-header-wrapper {
+    padding-left: 65px;
+    background-size: 50px 50px;
+    font-size: clamp(38px, 4.8vw, 52px);
+  }
+
+  #kc-header {
+    transform: translateX(28px);
+  }
+
+  #kc-header::before {
+    left: 65px;
+  }
+
+  #kc-header::after {
+    left: 8px;
+    font-size: 13px;
+  }
+
+  .pf-v5-c-login__main {
+    width: 440px;
+    padding-right: 36px;
+    padding-left: 36px;
+  }
+}
+
+@media (max-width: 920px) and (min-width: 761px) {
+  .pf-v5-c-login__container {
+    padding-right: 22px;
+    padding-left: 22px;
+    grid-template-columns: minmax(0, 380px) 400px;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  #kc-header {
+    transform: none;
+  }
+
+  #kc-header-wrapper {
+    padding-left: 56px;
+    background-size: 44px 44px;
+    font-size: 38px;
+  }
+
+  #kc-header::before {
+    left: 56px;
+    font-size: 8px;
+  }
+
+  #kc-header::after {
+    max-width: 34ch;
+    font-size: 12px;
+  }
+
+  .pf-v5-c-login__main {
+    width: 400px;
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+
+  #kc-page-title {
+    font-size: 31px;
+  }
+}
+
+@media (max-width: 760px) {
+  body#keycloak-bg::before {
+    opacity: 0.42;
+    background-position: 42% top;
+  }
+
+  .pf-v5-c-login__container {
+    min-height: 100dvh;
+    padding: 18px 14px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "main";
+    justify-items: center;
+    gap: 16px;
+  }
+
+  #kc-header {
+    width: auto;
+    padding: 0;
+    justify-self: center;
+  }
+
+  #kc-header::before,
+  #kc-header::after {
+    display: none;
+  }
+
+  #kc-header-wrapper {
+    min-height: 38px;
+    padding-left: 50px;
+    background-size: 38px 38px;
+    font-size: 28px;
+  }
+
+  .pf-v5-c-login__main {
+    align-self: stretch;
+    justify-self: center;
+    width: min(468px, 100%);
+    height: auto;
+    min-height: 0;
+    max-height: calc(100dvh - 88px);
+    padding: 26px 24px 22px;
+    border-radius: 20px;
+  }
+
+  .pf-v5-c-login__main-body {
+    margin-top: 24px;
+  }
+
+  #kc-page-title {
+    font-size: 30px;
+  }
+
+  #kc-page-title::before {
+    margin-bottom: 14px;
+  }
+
+  #kc-page-title::after {
+    margin-top: 11px;
+    font-size: 13.5px;
+  }
+}
+
+@media (max-width: 390px) {
+  .pf-v5-c-login__container {
+    padding: 12px 8px;
+    gap: 12px;
+  }
+
+  .pf-v5-c-login__main {
+    max-height: calc(100dvh - 70px);
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  #kc-header-wrapper {
+    min-height: 34px;
+    padding-left: 44px;
+    background-size: 34px 34px;
+    font-size: 25px;
+  }
+
+  #kc-page-title {
+    font-size: 28px;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 761px) {
+  .pf-v5-c-login__main {
+    padding-top: 28px;
+    padding-bottom: 22px;
+  }
+
+  #kc-page-title::before {
+    margin-bottom: 12px;
+  }
+
+  #kc-page-title::after {
+    margin-top: 10px;
+  }
+
+  .pf-v5-c-login__main-body {
+    margin-top: 22px;
+  }
+
+  .pf-v5-c-login__main::after {
+    margin-top: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

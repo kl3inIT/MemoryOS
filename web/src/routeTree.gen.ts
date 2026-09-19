@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
 import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
@@ -43,6 +44,7 @@ import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
 import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
 import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
+import { Route as AuthenticatedAdminSourcesNewSharepointRouteImport } from './routes/_authenticated.admin.sources.new.sharepoint'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -136,6 +138,11 @@ const AuthenticatedAdminModelsRoute =
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminVoiceRoute = AuthenticatedAdminVoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const AuthenticatedAdminWebSearchRoute =
@@ -234,6 +241,12 @@ const AuthenticatedAdminSourcesNewGoogleDriveRoute =
     path: '/google-drive',
     getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
   } as any)
+const AuthenticatedAdminSourcesNewSharepointRoute =
+  AuthenticatedAdminSourcesNewSharepointRouteImport.update({
+    id: '/sharepoint',
+    path: '/sharepoint',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedChatIndexRoute
@@ -251,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -267,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesByTo {
@@ -283,6 +298,7 @@ export interface FileRoutesByTo {
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -298,6 +314,7 @@ export interface FileRoutesByTo {
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesById {
@@ -318,6 +335,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -335,6 +353,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/_authenticated/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
   '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRouteTypes {
@@ -355,6 +374,7 @@ export interface FileRouteTypes {
     | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
+    | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
     | '/settings/general'
@@ -371,6 +391,7 @@ export interface FileRouteTypes {
     | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/sharepoint'
     | '/admin/sources/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -387,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/mcp'
     | '/admin/models'
     | '/admin/users'
+    | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
     | '/settings/general'
@@ -402,6 +424,7 @@ export interface FileRouteTypes {
     | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/sharepoint'
     | '/admin/sources/new'
   id:
     | '__root__'
@@ -421,6 +444,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/models'
     | '/_authenticated/admin/users'
+    | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
     | '/_authenticated/agents_/create'
     | '/_authenticated/settings/general'
@@ -438,6 +462,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
+    | '/_authenticated/admin/sources/new/sharepoint'
     | '/_authenticated/admin/sources/new/'
   fileRoutesById: FileRoutesById
 }
@@ -575,6 +600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/voice': {
+      id: '/_authenticated/admin/voice'
+      path: '/voice'
+      fullPath: '/admin/voice'
+      preLoaderRoute: typeof AuthenticatedAdminVoiceRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/web-search': {
       id: '/_authenticated/admin/web-search'
       path: '/web-search'
@@ -687,6 +719,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRouteImport
       parentRoute: typeof AuthenticatedAdminSourcesNewRoute
     }
+    '/_authenticated/admin/sources/new/sharepoint': {
+      id: '/_authenticated/admin/sources/new/sharepoint'
+      path: '/sharepoint'
+      fullPath: '/admin/sources/new/sharepoint'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewSharepointRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
   }
 }
 
@@ -727,6 +766,7 @@ const AuthenticatedAdminGroupsRouteWithChildren =
 interface AuthenticatedAdminSourcesNewRouteChildren {
   AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
   AuthenticatedAdminSourcesNewGoogleDriveRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  AuthenticatedAdminSourcesNewSharepointRoute: typeof AuthenticatedAdminSourcesNewSharepointRoute
   AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 
@@ -736,6 +776,8 @@ const AuthenticatedAdminSourcesNewRouteChildren: AuthenticatedAdminSourcesNewRou
       AuthenticatedAdminSourcesNewFileRoute,
     AuthenticatedAdminSourcesNewGoogleDriveRoute:
       AuthenticatedAdminSourcesNewGoogleDriveRoute,
+    AuthenticatedAdminSourcesNewSharepointRoute:
+      AuthenticatedAdminSourcesNewSharepointRoute,
     AuthenticatedAdminSourcesNewIndexRoute:
       AuthenticatedAdminSourcesNewIndexRoute,
   }
@@ -754,6 +796,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
@@ -772,6 +815,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminSourcesSourceIdRoute:

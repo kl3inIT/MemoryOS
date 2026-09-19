@@ -95,9 +95,9 @@ class GoogleDriveOAuthClientMigrationTest {
                         .param("t", tenant).update();
                 seedSource(jdbc, tenant, drive, true);
                 seedSource(jdbc, tenant, file, false);
-                var cipher = new GoogleDriveCredentialCipher(new byte[32], "preserved-key");
+                var cipher = new CredentialCipher(new byte[32], "preserved-key", "GOOGLE_OAUTH");
                 byte[] plaintext = "preserved-refresh-token".getBytes(StandardCharsets.UTF_8);
-                var token = cipher.encrypt(new TenantId(tenant), drive, plaintext);
+                var token = cipher.encrypt(new TenantId(tenant), drive, "refresh-token", plaintext);
                 var client = cipher.encrypt(new TenantId(tenant), drive, "oauth-client", new byte[64]);
                 jdbc.sql("""
                         INSERT INTO google_drive_credentials (tenant_id, credential_id, account_subject, account_email,

@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MemoryOS AI Models — redesign proposal</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f4f4f5;
+      --sidebar: #efeff1;
+      --surface: #ffffff;
+      --subtle: #f7f7f8;
+      --sunken: #ececee;
+      --text: #171719;
+      --text-2: #49494f;
+      --muted: #74747c;
+      --line: #e2e2e5;
+      --line-strong: #cacacf;
+      --primary: #171719;
+      --primary-fg: #ffffff;
+      --hover: #e8e8eb;
+      --green-bg: #e7f4eb;
+      --green: #176c39;
+      --amber-bg: #fff2d8;
+      --amber: #85560b;
+      --blue-bg: #eaf0ff;
+      --blue: #345fb4;
+      --red-bg: #fde9e7;
+      --red: #b52b26;
+      --shadow: 0 18px 55px rgba(22, 22, 29, .15), 0 2px 8px rgba(22, 22, 29, .08);
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #18181c;
+      --sidebar: #222227;
+      --surface: #202024;
+      --subtle: #27272c;
+      --sunken: #2d2d33;
+      --text: #f2f2f3;
+      --text-2: #d0d0d4;
+      --muted: #96969f;
+      --line: #36363d;
+      --line-strong: #4a4a53;
+      --primary: #f2f2f3;
+      --primary-fg: #171719;
+      --hover: #303036;
+      --green-bg: #153522;
+      --green: #7bd69a;
+      --amber-bg: #3d2d11;
+      --amber: #efc66f;
+      --blue-bg: #172b4e;
+      --blue: #9bb8f4;
+      --red-bg: #401a18;
+      --red: #ff8f86;
+      --shadow: 0 22px 65px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 14px 10px 12px;
+      display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--sidebar);
+    }
+    .brand { display: flex; align-items: center; gap: 9px; padding: 8px 8px 22px; font-weight: 650; letter-spacing: -.01em; }
+    .brand-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; background: var(--primary); color: var(--primary-fg); font-size: 12px; }
+    .nav-label { margin: 13px 10px 5px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+    .nav-item:hover { background: var(--hover); }
+    .nav-item.active { background: var(--primary); color: var(--primary-fg); font-weight: 600; }
+    .nav-icon { width: 17px; text-align: center; opacity: .9; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+    .avatar { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--sunken); font-size: 9px; font-weight: 700; }
+    .main { min-width: 0; background: var(--canvas); }
+    .mobile-topbar { display: none; }
+    .content { width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding: 38px 0 72px; }
+    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .title-wrap { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .title-icon { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+    h1 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -.025em; font-weight: 650; }
+    h2 { margin: 0; font-size: 18px; line-height: 1.35; letter-spacing: -.015em; font-weight: 650; }
+    h3 { margin: 0; font-size: 14px; font-weight: 650; }
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .button { height: 36px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .button:hover { background: var(--subtle); }
+    .button.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .button.primary:hover { filter: brightness(.9); }
+    .button.ghost { border-color: transparent; background: transparent; }
+    .button.danger { color: var(--red); border-color: transparent; background: transparent; }
+    .button.icon { width: 36px; padding: 0; }
+    .button.small { height: 32px; padding: 0 11px; font-size: 13px; }
+    .tabs { display: flex; align-items: center; gap: 24px; margin-top: 22px; border-bottom: 1px solid var(--line); }
+    .tab { position: relative; padding: 0 1px 12px; border: 0; background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; }
+    .tab.active { color: var(--text); }
+    .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--text); }
+    .view { display: none; }
+    .view.active { display: block; }
+    .catalog { display: grid; grid-template-columns: 286px minmax(0, 1fr); gap: 18px; margin-top: 22px; align-items: start; }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+    .panel-head { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .provider-list { padding: 7px; }
+    .provider-item { width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
+    .provider-item:hover { background: var(--subtle); }
+    .provider-item.active { background: var(--sunken); }
+    .provider-logo { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-weight: 700; }
+    .provider-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 620; }
+    .provider-meta { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-bg); }
+    .dot.off { background: var(--muted); box-shadow: 0 0 0 3px var(--sunken); }
+    .provider-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 16px; }
+    .provider-title { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+    .provider-title .provider-logo { width: 40px; height: 40px; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .badge { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 6px; background: var(--sunken); color: var(--text-2); font-size: 12px; font-weight: 600; }
+    .badge.success { background: var(--green-bg); color: var(--green); }
+    .badge.warning { background: var(--amber-bg); color: var(--amber); }
+    .badge.info { background: var(--blue-bg); color: var(--blue); }
+    .metadata { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(120px, .8fr) minmax(150px, 1fr); gap: 1px; margin: 0 20px 18px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--line); }
+    .meta-cell { min-width: 0; padding: 11px 12px; background: var(--subtle); }
+    .meta-label { display: block; margin-bottom: 3px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .meta-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 13px; }
+    .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }
+    .models-section { border-top: 1px solid var(--line); }
+    .models-toolbar { min-height: 54px; padding: 10px 16px 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th { padding: 10px 14px; background: var(--subtle); color: var(--muted); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .045em; text-align: left; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    td { padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: var(--subtle); }
+    .model-name { display: block; font-weight: 620; }
+    .model-api { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .caps { display: flex; gap: 5px; flex-wrap: wrap; }
+    .cap { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-2); font-size: 11px; }
+    .muted { color: var(--muted); }
+    .defaults { margin-top: 22px; display: grid; gap: 18px; }
+    .default-card { padding: 20px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+    .form-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+    label { display: grid; gap: 6px; color: var(--text-2); font-size: 13px; font-weight: 600; }
+    input, select { width: 100%; height: 38px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--text); }
+    input::placeholder { color: var(--muted); }
+    .assistants-table { min-width: 680px; }
+    .info-row { display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; padding: 10px 11px; border-radius: 8px; background: var(--blue-bg); color: var(--blue); font-size: 12px; }
+    .drawer-layer { position: fixed; inset: 0; z-index: 20; display: none; }
+    .drawer-layer.open { display: block; }
+    .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.42); backdrop-filter: blur(1px); }
+    .drawer { position: absolute; top: 0; right: 0; width: min(640px, 100vw); height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--surface); box-shadow: var(--shadow); }
+    .drawer-head { min-height: 72px; padding: 17px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); }
+    .drawer-title { display: flex; align-items: center; gap: 10px; }
+    .drawer-body { overflow-y: auto; padding: 22px 20px 32px; }
+    .drawer-footer { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); background: var(--subtle); }
+    .form-section { padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .form-section:last-child { margin-bottom: 0; border-bottom: 0; }
+    .form-section h3 { margin-bottom: 14px; }
+    .fields { display: grid; gap: 14px; }
+    .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .field-note { color: var(--muted); font-size: 12px; font-weight: 400; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--subtle); }
+    .switch-label { font-weight: 600; }
+    .switch { width: 36px; height: 20px; padding: 2px; border: 0; border-radius: 99px; background: var(--line-strong); cursor: pointer; }
+    .switch::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .16s ease; }
+    .switch.on { background: var(--green); }
+    .switch.on::after { transform: translateX(16px); }
+    .cap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .danger-zone { padding: 14px; border: 1px solid color-mix(in srgb, var(--red) 32%, transparent); border-radius: 10px; background: var(--red-bg); }
+    .danger-zone .button { margin-top: 10px; background: transparent; border-color: color-mix(in srgb, var(--red) 42%, transparent); color: var(--red); }
+    .prototype-note { position: fixed; right: 16px; bottom: 14px; z-index: 10; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--muted); font-size: 11px; backdrop-filter: blur(8px); }
+    @media (max-width: 980px) {
+      .content { width: min(100% - 36px, 900px); }
+      .catalog { grid-template-columns: 230px minmax(0, 1fr); }
+      .metadata { grid-template-columns: 1fr 1fr; }
+      .meta-cell:first-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 760px) {
+      .app { display: block; }
+      .sidebar { display: none; }
+      .mobile-topbar { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--sidebar); }
+      .mobile-topbar .brand { padding: 0; }
+      .content { width: auto; padding: 22px 16px 56px; }
+      .page-head { align-items: flex-start; padding-bottom: 18px; }
+      .page-head .button.icon { display: none; }
+      h1 { font-size: 22px; }
+      .title-icon { display: none; }
+      .tabs { margin-top: 18px; }
+      .catalog { display: block; }
+      .provider-panel { margin-bottom: 14px; }
+      .provider-list { display: flex; gap: 7px; overflow-x: auto; padding: 8px; }
+      .provider-item { min-width: 220px; }
+      .provider-detail-head { padding: 16px; }
+      .provider-detail-head > .actions { display: none; }
+      .metadata { margin: 0 16px 16px; grid-template-columns: 1fr; }
+      .meta-cell:first-child { grid-column: auto; }
+      .models-toolbar { padding-left: 16px; }
+      .models-section table { min-width: 0; }
+      .models-section thead { display: none; }
+      .models-section tbody, .models-section tr, .models-section td { display: block; }
+      .models-section tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 9px 14px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .models-section tr:last-child { border-bottom: 0; }
+      .models-section td { padding: 0; border: 0; }
+      .models-section td:nth-child(2) { grid-column: 2; grid-row: 1; }
+      .models-section td:nth-child(3) { grid-column: 1 / -1; }
+      .models-section td:nth-child(4), .models-section td:nth-child(5) { color: var(--text-2); font-size: 13px; }
+      .models-section td:nth-child(4)::before, .models-section td:nth-child(5)::before {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .models-section td:nth-child(4)::before { content: "Context / output"; }
+      .models-section td:nth-child(5)::before { content: "Pricing / 1M"; }
+      .models-section td:nth-child(6) { display: none; }
+      .assistants-table { min-width: 0; }
+      .assistants-table thead { display: none; }
+      .assistants-table tbody, .assistants-table tr, .assistants-table td { display: block; }
+      .assistants-table tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .assistants-table tr:last-child { border-bottom: 0; }
+      .assistants-table td { padding: 0; border: 0; }
+      .assistants-table td:nth-child(2) { grid-column: 1; color: var(--muted); }
+      .assistants-table td:nth-child(3) { grid-column: 1; }
+      .assistants-table td:nth-child(4) { grid-column: 2; grid-row: 1; }
+      .assistants-table td:nth-child(5) { grid-column: 2; grid-row: 2 / span 2; align-self: center; }
+      .assistants-table td:nth-child(2)::before, .assistants-table td:nth-child(3)::before {
+        margin-right: 5px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .assistants-table td:nth-child(2)::before { content: "Type"; }
+      .assistants-table td:nth-child(3)::before { content: "Model"; }
+      .form-grid { grid-template-columns: 1fr; }
+      .two-col, .cap-grid { grid-template-columns: 1fr; }
+      .drawer { width: 100vw; }
+      .drawer-head { min-height: 62px; padding: 13px 16px; }
+      .drawer-body { padding: 18px 16px 28px; }
+      .drawer-footer { padding: 11px 16px; }
+      .prototype-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">M</span>MemoryOS</div>
+      <div class="nav-label">Tenant</div>
+      <button class="nav-item"><span class="nav-icon">◎</span>Users</button>
+      <button class="nav-item"><span class="nav-icon">◇</span>Groups</button>
+      <div class="nav-label">Knowledge</div>
+      <button class="nav-item"><span class="nav-icon">⌁</span>Sources</button>
+      <div class="nav-label">AI</div>
+      <button class="nav-item active"><span class="nav-icon">✣</span>Models</button>
+      <div class="sidebar-bottom">
+        <button class="nav-item"><span class="nav-icon">←</span>Back to MemoryOS</button>
+        <button class="nav-item"><span class="avatar">VE</span>Vadan Enterprise</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="mobile-topbar">
+        <div class="brand"><span class="brand-mark">M</span>MemoryOS</div>
+        <button class="button icon ghost" aria-label="Open navigation">☰</button>
+      </div>
+      <div class="content">
+        <header class="page-head">
+          <div class="title-wrap">
+            <span class="title-icon">✣</span>
+            <h1>AI Models</h1>
+          </div>
+          <div class="actions">
+            <button class="button icon" id="themeButton" aria-label="Toggle theme" title="Toggle theme">◐</button>
+            <button class="button primary" data-open="provider">＋ Add provider</button>
+          </div>
+        </header>
+
+        <nav class="tabs" aria-label="AI Models sections">
+          <button class="tab active" data-tab="catalog">Catalog</button>
+          <button class="tab" data-tab="defaults">Defaults</button>
+        </nav>
+
+        <section class="view active" id="catalogView">
+          <div class="catalog">
+            <section class="panel provider-panel" aria-label="Providers">
+              <div class="panel-head"><h2>Providers</h2><button class="button icon ghost small" aria-label="Refresh providers" title="Refresh">↻</button></div>
+              <div class="provider-list">
+                <button class="provider-item active">
+                  <span class="provider-logo">O</span>
+                  <span><span class="provider-name">OpenAI Production</span><span class="provider-meta">2 models</span></span>
+                  <span class="dot" aria-label="Enabled"></span>
+                </button>
+                <button class="provider-item">
+                  <span class="provider-logo">S</span>
+                  <span><span class="provider-name">Private CPU Gateway</span><span class="provider-meta">1 model</span></span>
+                  <span class="dot" aria-label="Enabled"></span>
+                </button>
+                <button class="provider-item">
+                  <span class="provider-logo">A</span>
+                  <span><span class="provider-name">Azure OpenAI</span><span class="provider-meta">Disabled</span></span>
+                  <span class="dot off" aria-label="Disabled"></span>
+                </button>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Selected provider">
+              <div class="provider-detail-head">
+                <div class="provider-title">
+                  <span class="provider-logo">O</span>
+                  <div>
+                    <h2>OpenAI Production</h2>
+                    <div class="badge-row">
+                      <span class="badge success">Enabled</span>
+                      <span class="badge info">Public</span>
+                      <span class="badge">Credential ready</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="button small" data-open="provider">Edit provider</button>
+                  <button class="button small" data-open="model">＋ Add model</button>
+                  <button class="button icon ghost small" aria-label="More provider actions">•••</button>
+                </div>
+              </div>
+              <div class="metadata">
+                <div class="meta-cell"><span class="meta-label">Endpoint</span><span class="meta-value mono">https://api.openai.com/v1</span></div>
+                <div class="meta-cell"><span class="meta-label">Adapter</span><span class="meta-value">OpenAI</span></div>
+                <div class="meta-cell"><span class="meta-label">Provider ID</span><span class="meta-value mono">10000000…0001</span></div>
+              </div>
+              <div class="models-section">
+                <div class="models-toolbar"><h2>Models</h2><button class="button small" data-open="model">＋ Add model</button></div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Model</th><th>Status</th><th>Capabilities</th><th>Context / output</th><th>Pricing / 1M</th><th></th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td><span class="model-name">GPT-5 Mini</span><span class="model-api mono">gpt-5-mini</span></td>
+                        <td><span class="badge success">Visible</span></td>
+                        <td><span class="caps"><span class="cap">Tools</span><span class="cap">Vision</span><span class="cap">Reasoning</span></span></td>
+                        <td><strong>128k</strong> <span class="muted">/ 16k</span></td>
+                        <td>$0.25 <span class="muted">/ $2.00</span></td>
+                        <td><button class="button icon ghost small" data-open="model" aria-label="Edit GPT-5 Mini">•••</button></td>
+                      </tr>
+                      <tr>
+                        <td><span class="model-name">GPT-4.1 Mini</span><span class="model-api mono">gpt-4.1-mini</span></td>
+                        <td><span class="badge warning">Hidden</span></td>
+                        <td><span class="caps"><span class="cap">Tools</span><span class="cap">Vision</span></span></td>
+                        <td><strong>128k</strong> <span class="muted">/ 8k</span></td>
+                        <td>$0.40 <span class="muted">/ $1.60</span></td>
+                        <td><button class="button icon ghost small" data-open="model" aria-label="Edit GPT-4.1 Mini">•••</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="defaultsView">
+          <div class="defaults">
+            <section class="panel default-card">
+              <div class="section-head"><h2>Tenant default</h2><span class="badge success">Configured</span></div>
+              <div class="form-grid">
+                <label>Default model
+                  <select><option>GPT-5 Mini — OpenAI Production</option><option>GPT-4.1 Mini — OpenAI Production</option></select>
+                </label>
+                <button class="button primary">Save default</button>
+              </div>
+              <div class="info-row"><span>ⓘ</span><span>Only models currently eligible for Tenant-wide use appear here.</span></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2>Assistant defaults</h2><div class="actions"><input aria-label="Search assistants" placeholder="Search assistants" style="width:220px" /></div></div>
+              <div class="table-wrap">
+                <table class="assistants-table">
+                  <thead><tr><th>Assistant</th><th>Type</th><th>Model selection</th><th>Access</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="model-name">Research analyst</span></td><td>Built-in</td><td>GPT-5 Mini</td><td><span class="badge info">Eligible</span></td><td><button class="button small">Change</button></td></tr>
+                    <tr><td><span class="model-name">Executive assistant</span></td><td>Private</td><td><span class="muted">Inherit Tenant default</span></td><td><span class="badge info">Eligible</span></td><td><button class="button small">Change</button></td></tr>
+                    <tr><td><span class="model-name">Local model evaluation</span></td><td>Private</td><td>SmolLM2 135M</td><td><span class="badge warning">Manager only</span></td><td><button class="button small">Change</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="drawer-layer" id="providerDrawer" role="dialog" aria-modal="true" aria-labelledby="providerDrawerTitle">
+    <div class="scrim" data-close></div>
+    <section class="drawer">
+      <header class="drawer-head">
+        <div class="drawer-title"><span class="provider-logo">O</span><div><h2 id="providerDrawerTitle">Edit provider</h2><div class="badge-row"><span class="badge success">Enabled</span><span class="badge info">Public</span></div></div></div>
+        <button class="button icon ghost" data-close aria-label="Close provider editor">×</button>
+      </header>
+      <div class="drawer-body">
+        <section class="form-section">
+          <h3>Connection</h3>
+          <div class="fields">
+            <label>Provider name<input value="OpenAI Production" /></label>
+            <div class="fields two-col">
+              <label>Adapter<select disabled><option>OpenAI</option></select></label>
+              <label>Provider ID<input class="mono" value="10000000…0001" disabled /></label>
+            </div>
+            <label>Endpoint URL<input value="https://api.openai.com/v1" /></label>
+          </div>
+        </section>
+        <section class="form-section">
+          <h3>Authentication</h3>
+          <div class="switch-row"><span><span class="switch-label">API key configured</span><span class="provider-meta">Stored encrypted and never displayed</span></span><button class="button small">Replace key</button></div>
+        </section>
+        <section class="form-section">
+          <h3>Availability</h3>
+          <div class="switch-row"><span><span class="switch-label">Provider enabled</span><span class="provider-meta">Available to eligible model selections</span></span><button class="switch on" aria-label="Provider enabled"></button></div>
+          <div class="info-row"><span>ⓘ</span><span>Access rules are preserved. They are managed outside this editor.</span></div>
+        </section>
+        <section class="danger-zone">
+          <h3>Delete provider</h3>
+          <span class="field-note">Deletes its model configurations. Transcript history is retained.</span><br />
+          <button class="button small">Delete provider</button>
+        </section>
+      </div>
+      <footer class="drawer-footer"><span class="muted">Revision 6</span><div class="actions"><button class="button" data-close>Cancel</button><button class="button primary">Save changes</button></div></footer>
+    </section>
+  </div>
+
+  <div class="drawer-layer" id="modelDrawer" role="dialog" aria-modal="true" aria-labelledby="modelDrawerTitle">
+    <div class="scrim" data-close></div>
+    <section class="drawer">
+      <header class="drawer-head">
+        <div class="drawer-title"><span class="provider-logo">G</span><div><h2 id="modelDrawerTitle">Edit model</h2><div class="badge-row"><span class="badge success">Saved</span><span class="badge">OpenAI Production</span></div></div></div>
+        <button class="button icon ghost" data-close aria-label="Close model editor">×</button>
+      </header>
+      <div class="drawer-body">
+        <section class="form-section">
+          <h3>Identity</h3>
+          <div class="fields two-col">
+            <label>Display name<input value="GPT-5 Mini" /></label>
+            <label>API model name<input class="mono" value="gpt-5-mini" /></label>
+          </div>
+        </section>
+        <section class="form-section">
+          <h3>Token limits</h3>
+          <div class="fields">
+            <label>Tokenizer profile<select><option>OpenAI O200K</option><option>SmolLM2 135M</option></select></label>
+            <div class="fields two-col">
+              <label>Context window<input type="number" value="128000" /></label>
+              <label>Maximum output<input type="number" value="16384" /></label>
+            </div>
+          </div>
+        </section>
+        <section class="form-section">
+          <h3>Capabilities</h3>
+          <div class="cap-grid">
+            <div class="switch-row"><span class="switch-label">Visible</span><button class="switch on" aria-label="Visible"></button></div>
+            <div class="switch-row"><span class="switch-label">Tool calling</span><button class="switch on" aria-label="Tool calling"></button></div>
+            <div class="switch-row"><span class="switch-label">Vision input</span><button class="switch on" aria-label="Vision input"></button></div>
+            <div class="switch-row"><span class="switch-label">Reasoning</span><button class="switch on" aria-label="Reasoning"></button></div>
+          </div>
+        </section>
+        <section class="form-section">
+          <h3>Request options</h3>
+          <div class="switch-row"><span><span class="switch-label">Completion-token options</span><span class="provider-meta">Sampling controls are omitted</span></span><button class="switch on" aria-label="Completion-token options"></button></div>
+          <div class="fields two-col" style="margin-top:14px"><label>Reasoning effort<select><option>Minimal</option><option>Low</option><option>Medium</option><option>High</option></select></label></div>
+        </section>
+        <section class="form-section">
+          <h3>Pricing</h3>
+          <div class="fields two-col">
+            <label>Input / 1M tokens<input type="number" value="0.25" /></label>
+            <label>Output / 1M tokens<input type="number" value="2.00" /></label>
+          </div>
+        </section>
+        <section class="danger-zone">
+          <h3>Delete model</h3>
+          <span class="field-note">Assistant defaults are cleared. Transcript history is retained.</span><br />
+          <button class="button small">Delete model</button>
+        </section>
+      </div>
+      <footer class="drawer-footer"><button class="button">Validate saved model</button><div class="actions"><button class="button" data-close>Cancel</button><button class="button primary">Save changes</button></div></footer>
+    </section>
+  </div>
+
+  <div class="prototype-note">Interactive design proposal · no product code</div>
+
+  <script>
+    const root = document.documentElement;
+    const tabs = [...document.querySelectorAll('[data-tab]')];
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      tabs.forEach(item => item.classList.toggle('active', item === tab));
+      document.getElementById('catalogView').classList.toggle('active', tab.dataset.tab === 'catalog');
+      document.getElementById('defaultsView').classList.toggle('active', tab.dataset.tab === 'defaults');
+    }));
+    document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => {
+      document.getElementById(button.dataset.open + 'Drawer').classList.add('open');
+    }));
+    document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => {
+      button.closest('.drawer-layer').classList.remove('open');
+    }));
+    document.querySelectorAll('.switch').forEach(button => button.addEventListener('click', () => button.classList.toggle('on')));
+    document.getElementById('themeButton').addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'dark' ? '' : 'dark';
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') document.querySelectorAll('.drawer-layer.open').forEach(layer => layer.classList.remove('open'));
+    });
+  </script>
+</body>
+</html>
