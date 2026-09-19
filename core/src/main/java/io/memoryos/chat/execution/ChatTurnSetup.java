@@ -31,7 +31,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
  */
 public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                             String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
-                            Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
+                            Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
                             io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
                             io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess,
                             Research research, io.memoryos.mcp.@org.jspecify.annotations.Nullable McpTurnTools mcp) {
@@ -45,36 +45,31 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts,
+                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
                          io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
                          io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts,
+        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
                 webSearch, webAccess, image, imageAccess, Research.OFF, null);
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence, io.memoryos.chat.ChatArtifacts artifacts) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts,
+                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
+        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
                 io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null),
                 io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null), Research.OFF, null);
     }
     public ChatTurnSetup withWeb(io.memoryos.chat.WebSearchMode intent, io.memoryos.chat.web.WebConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, intent, access, image, imageAccess, research, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp);
     }
     public ChatTurnSetup withImage(io.memoryos.chat.ImageMode intent, io.memoryos.chat.image.ImageConnectionService.Access access) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, intent, access, research, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp);
     }
     public ChatTurnSetup withResearch(Research value) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, image, imageAccess, value, mcp);
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp);
     }
     /** The turn owns the opened MCP sessions and closes them when it ends. */
     public ChatTurnSetup withMcp(io.memoryos.mcp.McpTurnTools tools) {
-        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, artifacts, webSearch, webAccess, image, imageAccess, research, tools);
-    }
-    public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
-                         Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
-        this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, new io.memoryos.chat.ChatArtifacts());
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
     public static final int IMAGE_INPUT_TOKENS = 4096;

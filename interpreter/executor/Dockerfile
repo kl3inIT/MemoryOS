@@ -65,6 +65,10 @@ RUN mkdir -p /opt/matplotlib \
     && MPLCONFIGDIR=/opt/matplotlib python -c "import matplotlib.font_manager as fm; fm.fontManager.findfont('DejaVu Sans')" \
     && chmod -R a+rX /opt/matplotlib
 
+# Models trained on ChatGPT's Code Interpreter write outputs to /mnt/data, which did not exist here and failed the run
+# with FileNotFoundError. It points at the per-run /workspace tmpfs, so those files are returned like any other.
+RUN mkdir -p /mnt && ln -s /workspace /mnt/data
+
 # recalc-xlsx: formula values for workbooks written with openpyxl or xlsxwriter (LibreOffice Calc, installed above).
 COPY recalc_xlsx.py /usr/local/bin/recalc-xlsx
 RUN chmod 0755 /usr/local/bin/recalc-xlsx

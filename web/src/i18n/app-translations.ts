@@ -31,8 +31,6 @@ export const vietnameseUi: Record<string, string> = {
   "Đã đọc tệp": "Read files",
   "Đang tìm trong tệp…": "Searching files…",
   "Đã tìm trong tệp": "Searched files",
-  "Đang tạo thẻ trình bày…": "Creating a visual card…",
-  "Đã tạo thẻ trình bày": "Created a visual card",
   "Đang dùng công cụ…": "Using a tool…",
   "Đã dùng công cụ": "Used a tool",
   "Đang dùng {{tool}}…": "Using {{tool}}…",

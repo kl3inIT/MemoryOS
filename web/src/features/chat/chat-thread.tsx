@@ -272,15 +272,11 @@ function UserMessage({ readOnly }: { readOnly: boolean }) {
 }
 
 /**
- * While the run is live and nothing is streaming — before the first part, or after a step finished while the model
- * writes its next tool call — the answer still shows that it is working, as Onyx does; a running step already says so.
+ * Before the first part arrives. Afterwards the last activity group stays live while the model writes its next
+ * call (ChatActivityGroup), so the answer never shows a finished header above a run that is still working.
  */
 function ChatPendingIndicator() {
   const ui = useAppTranslation();
-  const stepRunning = useAuiState(
-    (state) => state.message.parts.at(-1)?.status?.type === "running",
-  );
-  if (stepRunning) return null;
   return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
@@ -298,7 +294,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
-        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="no-text">
+        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="empty">
           {({ part, children }) => {
             switch (part.type) {
               case "group-activity":
@@ -351,7 +347,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                 : ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
           </p>
         )}
-        <ActionBarPrimitive.Root className="mt-3 flex flex-wrap items-center gap-1">
+        <ActionBarPrimitive.Root hideWhenRunning className="mt-3 flex flex-wrap items-center gap-1">
           <AuiIf
             condition={(state) =>
               state.message.parts.some(

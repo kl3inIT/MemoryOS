@@ -418,12 +418,12 @@ function ImagePreview({ blob, alt, zoom }: { blob: Blob; alt: string; zoom: numb
 }
 
 function PdfPreview({ blob }: { blob: Blob }) {
-  const url = useObjectUrl(blob);
-  return url ? (
+  // pdf.js reads the Blob directly; a blob: URL would be fetched, which connect-src 'self' refuses.
+  return (
     <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-      <DocumentPdfView url={url} pages={[]} boxes={[]} />
+      <DocumentPdfView url={blob} pages={[]} boxes={[]} />
     </div>
-  ) : null;
+  );
 }
 
 function ZoomControls({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) => void }) {
@@ -571,6 +571,7 @@ function DocxPreview({
     let current = true;
     const bodyElement = body.current;
     const styleElement = styles.current;
+    let adopted: CSSStyleSheet[] = [];
     void (async () => {
       try {
         const { renderAsync } = await import("docx-preview");
@@ -592,9 +593,21 @@ function DocxPreview({
         });
         if (!current) return;
         bodyElement.innerHTML = sanitizeDocxHtml(renderedBody.innerHTML);
-        styleElement.replaceChildren(
-          ...Array.from(renderedStyles.children).filter((child) => child.tagName === "STYLE"),
-        );
+        // The deployment CSP (style-src 'self') ignores style attributes parsed from markup and inline <style>
+        // elements; the same rules are applied through CSSOM, which the policy allows.
+        for (const element of bodyElement.querySelectorAll<HTMLElement>("[style]"))
+          element.style.cssText = element.getAttribute("style") ?? "";
+        adopted = Array.from(renderedStyles.querySelectorAll("style")).flatMap((style) => {
+          try {
+            const sheet = new CSSStyleSheet();
+            sheet.replaceSync(style.textContent ?? "");
+            return [sheet];
+          } catch {
+            return [];
+          }
+        });
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...adopted];
+        styleElement.replaceChildren();
         const text = bodyElement.innerText ?? "";
         onLoadRef.current({ words: text.split(/\s+/).filter(Boolean).length, text });
         setState("done");
@@ -604,6 +617,9 @@ function DocxPreview({
     })();
     return () => {
       current = false;
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+        (sheet) => !adopted.includes(sheet),
+      );
     };
   }, [blob]);
   const ui = useAppTranslation();
