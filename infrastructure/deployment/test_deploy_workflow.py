@@ -86,25 +86,14 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
 
-    def test_published_release_carries_what_staging_verifies(self):
-        # A merge once dropped these from CI while the deployment kept checking them, so no release could deploy.
+    def test_release_contract_has_no_model_serving(self):
+        # Managed model serving was removed until a qualified environment exists (MEM-77).
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
-        self.assertIn("servingManifestSha256", WORKFLOW)
-        self.assertIn("servingManifestSha256: $serving", publish)
-        self.assertIn("release/serving.sha256", WORKFLOW)
-        self.assertIn("--write-checksums release/serving.sha256", publish)
-        self.assertIn("serving.sha256 > SHA256SUMS", publish)
-
-    def test_managed_inference_is_operator_opt_in(self):
-        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
-        self.assertIn('if [[ -e "$root/inference.env" ]]; then', deploy)
-        # Only an opted-in host joins the application to the serving network.
-        self.assertIn('if [[ "$inference_enabled" == true ]]; then compose_files+=(compose.inference.application.yaml); fi', deploy)
-        self.assertNotIn("compose.search.staging.yaml compose.inference.application.yaml", deploy)
-        self.assertIn('if [[ "$inference_enabled" == true ]]; then inference_prepare; fi', deploy)
-        # Removing the opt-in cannot silently abandon accepted serving.
-        self.assertLess(deploy.index('elif [[ -f "$state/current.inference.source" ]]; then'),
-                        deploy.index('printf \'%s\\n\' "$release" > "$state/pending"'))
+        for text in (WORKFLOW, publish, SCRIPT):
+            self.assertNotIn("serving", text)
+            self.assertNotIn("inference", text)
+        self.assertIn("sha256sum configuration.tar images.env > SHA256SUMS", publish)
+        self.assertIn("{manifest.json,configuration.tar,images.env,SHA256SUMS}", SCRIPT)
 
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
         compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
@@ -157,8 +146,6 @@ class StagingDeploymentContractTest(unittest.TestCase):
         (self.tx / "database.dump").write_bytes(b"operator-owned-backup")
         self.backup = (self.tx / "database.dump").read_bytes()
         (self.tx / "writers-changing").touch()
-        # Existing cases describe a host that opted into managed inference.
-        (self.tx / "candidate.inference.source").write_text("prepared\n")
         for target, sha in (("candidate", "a" * 40), ("previous", "b" * 40)):
             (self.tx / f"{target}.env").write_text("".join(
                 f"MEMORYOS_{component.upper()}_IMAGE={target}-{component}\n"
@@ -181,20 +168,6 @@ class StagingDeploymentContractTest(unittest.TestCase):
             source = source.replace(original, replacement, 1)
         self.script = self.root / "deploy-staging.sh"
         self.script.write_text(source)
-        self.control = self.root / "control"
-        self.control.mkdir()
-        helpers = self.tx / "source/infrastructure/deployment"
-        helpers.mkdir(parents=True)
-        # Serving internals have their own behavioral suite. Here a failed serving
-        # readiness check must prevent the application transaction from committing.
-        (helpers / "inference-operations.sh").write_text('''inference_paths() {
-  serving_control=$MEMORYOS_TEST_ROOT/control
-}
-inference_accept() {
-  [[ ! -e "$serving_control/maintenance" && "$SERVING_READY" == true ]]
-}
-inference_compose() { docker inference-compose "$@"; }
-''')
         binaries = self.root / "bin"
         binaries.mkdir()
         docker = binaries / "docker"
@@ -213,7 +186,7 @@ elif args[0] == "inspect":
     print(json.dumps([json.loads((root / "runtime.json").read_text())[args[1]]]))
 elif args[:2] == ["exec", "memoryos-postgres"]:
     print((root / "schema").read_text(), end="")
-elif args[0] in ("compose", "inference-compose"):
+elif args[0] == "compose":
     pass
 else:
     sys.exit("Unexpected Docker operation: " + repr(args))
@@ -224,7 +197,6 @@ else:
                if not key.startswith(("STAGING_SMOKE", "MEMORYOS_SMOKE"))},
             "PATH": str(binaries) + os.pathsep + os.environ["PATH"],
             "MEMORYOS_TEST_ROOT": str(self.root),
-            "SERVING_READY": "true",
         }
 
     def set_runtime(self, target="candidate", unhealthy=None, wrong_revision=None):
@@ -253,12 +225,11 @@ else:
         self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
-    def test_failed_application_or_serving_verification_retains_reservation(self):
-        for failure in ("health", "revision", "serving"):
+    def test_failed_application_verification_retains_reservation(self):
+        for failure in ("health", "revision"):
             with self.subTest(failure=failure):
                 self.set_runtime(unhealthy="worker" if failure == "health" else None,
                                  wrong_revision="web" if failure == "revision" else None)
-                self.environment["SERVING_READY"] = "false" if failure == "serving" else "true"
                 result = self.operate("finish")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.pending.read_text().strip(), self.release)
@@ -280,7 +251,6 @@ else:
         calls = self.docker_calls()
         self.assertTrue(any("stop" in call and "api" in call and "worker" in call for call in calls))
         self.assertFalse(any("up" in call or "pg_restore" in call for call in calls))
-        self.assertTrue((self.control / "maintenance").exists())
         self.assertEqual(self.pending.read_text().strip(), self.release)
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
@@ -298,31 +268,6 @@ else:
         self.assertFalse(any("pg_restore" in call for call in self.docker_calls()))
         self.assertEqual((self.tx / "database.dump").read_bytes(), self.backup)
 
-    def test_finish_without_managed_inference_commits_the_application_only(self):
-        (self.tx / "candidate.inference.source").unlink()
-        # No serving exists to accept, so its readiness cannot hold the application back.
-        self.environment["SERVING_READY"] = "false"
-        result = self.operate("finish")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(self.pending.exists())
-        self.assertEqual((self.state / "current.env").read_bytes(), (self.tx / "candidate.env").read_bytes())
-
-    def test_rollback_without_managed_inference_leaves_serving_untouched(self):
-        (self.tx / "candidate.inference.source").unlink()
-        self.set_runtime(target="previous")
-        result = self.operate("rollback")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse((self.control / "maintenance").exists())
-        self.assertFalse(any(call[:1] == ["inference-compose"] for call in self.docker_calls()))
-        self.assertTrue(any("up" in call for call in self.docker_calls()))
-
-    def test_application_rollback_cannot_take_over_a_serving_operation(self):
-        (self.tx / "active-operation").write_text("operation-123\n")
-        result = self.operate("rollback")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.pending.read_text().strip(), self.release)
-        self.assertEqual((self.tx / "active-operation").read_text(), "operation-123\n")
-        self.assertEqual(self.docker_calls(), [])
 
 
 if __name__ == "__main__":
