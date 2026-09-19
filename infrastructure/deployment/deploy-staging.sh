@@ -28,6 +28,12 @@ image_reference() {
   sed -n "s/^$(image_key "$1")=//p" "$2"
 }
 
+# Managed inference is operator opt-in: a host without inference.env deploys only the application.
+# Within a transaction the prepared serving files record the decision for rollback and finish.
+serving_prepared() {
+  [[ -f "$tx/$1.inference.source" ]]
+}
+
 # A runtime accepted before MEM-110 has no interpreter.
 has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
@@ -103,13 +109,21 @@ if [[ "$mode" == deploy ]]; then
   done
   [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]]
   cp "$tx/images.env" "$tx/candidate.env"
+  inference_enabled=false
+  if [[ -e "$root/inference.env" ]]; then
+    inference_enabled=true
+  elif [[ -f "$state/current.inference.source" ]]; then
+    echo 'Accepted managed inference has no inference.env; restore it or retire serving before deploying' >&2; exit 1
+  fi
   mkdir "$tx/source"
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
   # These tracked mounts contain no secrets. Extraction follows umask077, but serving/monitoring run as non-root.
   chmod -R a+rX "$tx/source/infrastructure/inference/managed" "$tx/source/infrastructure/observability"
   # shellcheck disable=SC1091
   source "$tx/source/infrastructure/deployment/inference-operations.sh"
-  for file in compose.base.yaml compose.staging.yaml compose.search.staging.yaml compose.inference.application.yaml; do
+  compose_files=(compose.base.yaml compose.staging.yaml compose.search.staging.yaml)
+  if [[ "$inference_enabled" == true ]]; then compose_files+=(compose.inference.application.yaml); fi
+  for file in "${compose_files[@]}"; do
     printf '%s\n' "$tx/source/infrastructure/deployment/$file" >> "$tx/candidate.compose"
   done
 
@@ -152,7 +166,7 @@ if [[ "$mode" == deploy ]]; then
     # First promotion captures the existing operator-managed configuration.
     cp "$root/.env.staging" "$tx/previous.base.env"
   fi
-  inference_prepare
+  if [[ "$inference_enabled" == true ]]; then inference_prepare; fi
   target=previous; compose config --quiet
   target=candidate; compose config --quiet
   # Compose config accepts a missing secret file, and rollout would then fail after the reservation.
@@ -179,10 +193,12 @@ if [[ "$mode" == deploy ]]; then
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
   done
-  profile=$(jq -er '.model.tokenizerProfile' "$tx/source/infrastructure/inference/managed/manifest.json")
-  api_reference=$(sed -n 's/^MEMORYOS_API_IMAGE=//p' "$tx/candidate.env")
-  supported=$(docker image inspect "$api_reference" | jq -er '.[0].Config.Labels["io.memoryos.chat.tokenizer-profiles"]')
-  [[ ",$supported," == *",$profile,"* ]] || { echo 'Candidate API image lacks the managed tokenizer profile' >&2; exit 1; }
+  if [[ "$inference_enabled" == true ]]; then
+    profile=$(jq -er '.model.tokenizerProfile' "$tx/source/infrastructure/inference/managed/manifest.json")
+    api_reference=$(sed -n 's/^MEMORYOS_API_IMAGE=//p' "$tx/candidate.env")
+    supported=$(docker image inspect "$api_reference" | jq -er '.[0].Config.Labels["io.memoryos.chat.tokenizer-profiles"]')
+    [[ ",$supported," == *",$profile,"* ]] || { echo 'Candidate API image lacks the managed tokenizer profile' >&2; exit 1; }
+  fi
   database_size=$(docker exec memoryos-postgres sh -c \
     'exec psql -U "$POSTGRES_USER" -d memoryos -At -c "SELECT pg_database_size(current_database())"')
   [[ "$database_size" =~ ^[0-9]+$ ]]
@@ -203,8 +219,10 @@ if [[ "$mode" == deploy ]]; then
   docker exec -i memoryos-postgres pg_restore --list < "$tx/database.dump" > "$tx/backup.catalogue"
   [[ -s "$tx/backup.catalogue" ]]
   sha256sum "$tx/database.dump" > "$tx/backup.sha256"
-  serving_target=candidate; inference_start; inference_resume
-  inference_monitoring_apply
+  if [[ "$inference_enabled" == true ]]; then
+    serving_target=candidate; inference_start; inference_resume
+    inference_monitoring_apply
+  fi
   target=candidate; rollout; verify_runtime
   echo 'Candidate healthy; finish records deployment, not business acceptance'
 elif [[ "$mode" == rollback ]]; then
@@ -218,8 +236,10 @@ elif [[ "$mode" == rollback ]]; then
     rm -- "$state/pending"
     echo 'No writers changed; prior admission restored'; exit 2
   fi
-  serving_target=candidate; inference_paths
-  touch "$serving_control/maintenance"; chmod 644 "$serving_control/maintenance"
+  if serving_prepared candidate; then
+    serving_target=candidate; inference_paths
+    touch "$serving_control/maintenance"; chmod 644 "$serving_control/maintenance"
+  fi
   target=candidate; compose stop --timeout 45 worker api
   schema > "$tx/schema.after-failure"
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
@@ -229,7 +249,7 @@ elif [[ "$mode" == rollback ]]; then
     serving_target=candidate; inference_drain
     serving_target=previous; inference_compatible_restore
     inference_start; inference_resume; inference_monitoring_apply
-  else
+  elif serving_prepared candidate; then
     serving_target=candidate; inference_paths
     touch "$serving_control/maintenance"; chmod 644 "$serving_control/maintenance"
     inference_compose stop --timeout 150 inference-gateway vllm
@@ -261,7 +281,7 @@ elif [[ "$mode" == finish ]]; then
   if [[ -f "$tx/serving-only" ]]; then
     inference_monitoring_apply
     inference_accept
-  elif [[ "$target" == candidate || -f "$tx/previous.inference.source" ]]; then
+  elif serving_prepared "$target"; then
     serving_target=$target; inference_paths
     inference_accept
   fi
