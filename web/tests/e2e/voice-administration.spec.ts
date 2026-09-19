@@ -119,7 +119,7 @@ for (const width of [1440, 390]) {
     await expect(
       speechToText
         .getByRole("listitem", { name: "OpenAI", exact: true })
-        .getByText("Default", { exact: true }),
+        .getByText("Active", { exact: true }),
     ).toBeVisible();
     await expect(
       page
