@@ -1,5 +1,7 @@
 # MEM-66 design: AI gateway and CPU vLLM research with a small model
 
+> **2026-09-19 — parked.** The research runtime (`compose.inference-research.yaml`, `infrastructure/inference/*`, the research runbook) was removed from `main` together with MEM-77 managed serving; the last commit containing it is `965d4a66`. Resume when a qualified environment exists.
+
 ## Why this increment exists
 
 MemoryOS stores documents and extracts their text, but no component generates
