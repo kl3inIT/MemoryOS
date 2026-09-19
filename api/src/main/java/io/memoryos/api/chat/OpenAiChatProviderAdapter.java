@@ -134,7 +134,9 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         Boolean tools = parameters.isArray() ? Boolean.valueOf(contains(parameters, "tools")) : flag(capabilities, "function_calling");
         Boolean reasoning = parameters.isArray() ? Boolean.valueOf(contains(parameters, "reasoning")) : flag(capabilities, "reasoning");
         Boolean vision = modalities.isArray() ? Boolean.valueOf(contains(modalities, "image")) : flag(capabilities, "vision");
-        // Anthropic nests {supported} flags (image_input, thinking) and has no tool flag; Gemini reports thinking.
+        // 9Router reports capabilities.tools; Anthropic nests {supported} flags (image_input, thinking) and has no
+        // tool flag; Gemini reports thinking.
+        if (tools == null) tools = flag(capabilities, "tools");
         if (vision == null) vision = flag(capabilities.path("image_input"), "supported");
         if (reasoning == null) reasoning = flag(capabilities.path("thinking"), "supported");
         if (reasoning == null) reasoning = flag(item, "thinking");

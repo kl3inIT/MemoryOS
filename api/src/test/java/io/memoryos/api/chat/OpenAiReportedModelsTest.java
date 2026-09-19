@@ -46,6 +46,27 @@ class OpenAiReportedModelsTest {
     }
 
     @Test
+    void nineRouterReportsPerRouteLimitsAndCapabilities() throws Exception {
+        // Live 9Router 0.5.81 on staging (2026-09-19): the Codex route caps gpt-5.6-luna at 272,000 tokens while the
+        // OpenAI API serves 922,000, so the route's own limits are the ones to keep.
+        var luna = parse("""
+                {"id":"cx/gpt-5.6-luna","object":"model","owned_by":"cx","context_length":272000,
+                 "max_completion_tokens":128000,
+                 "capabilities":{"tools":true,"vision":true,"reasoning":true,"contextWindow":272000,"maxOutput":128000}}""");
+        assertEquals(272_000, luna.contextWindow());
+        assertEquals(128_000, luna.maxOutputTokens());
+        assertEquals(true, luna.toolCalling());
+        assertEquals(true, luna.vision());
+        assertEquals(true, luna.reasoning());
+        var spec = ChatModelResolver.spec(luna, ChatKnownModels.models());
+        assertTrue(spec.complete());
+        assertEquals(272_000, spec.contextWindow());
+        // A 9Router combo names a routing rule, not a model: nothing is published, so it is added by hand.
+        assertFalse(ChatModelResolver.spec(parse("{\"id\":\"oc\",\"object\":\"model\",\"owned_by\":\"combo\"}"),
+                ChatKnownModels.models()).complete());
+    }
+
+    @Test
     void vllmGroqMistralAnthropicAndGeminiFieldsAreRead() throws Exception {
         assertEquals(32_768, parse("{\"id\":\"qwen\",\"max_model_len\":32768}").contextWindow());
         var groq = parse("{\"id\":\"llama\",\"context_window\":131072,\"max_completion_tokens\":32768}");

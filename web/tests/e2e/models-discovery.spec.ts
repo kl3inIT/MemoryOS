@@ -11,7 +11,7 @@ import type {
 const openRouter: ChatReportedModels = JSON.parse(
   readFileSync(new URL("../fixtures/openrouter-reported-models.json", import.meta.url), "utf8"),
 );
-// A gateway that only names models: the installed catalog fills known names, the rest open the editor.
+// A provider that only names some models: the installed catalog fills known names, the rest open the editor.
 const gateway: ChatReportedModels = {
   models: [
     {
