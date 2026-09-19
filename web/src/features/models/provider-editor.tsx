@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, PlugZap } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   type ManagedProvider,
   type ProviderBody,
 } from "./model-catalog";
+import { useProviderTest } from "./provider-test";
 import { useModelAction } from "./use-model-action";
 
 export function ProviderEditor({
@@ -68,6 +70,7 @@ export function ProviderEditor({
   const secret = useRef("");
   const [keyReady, setKeyReady] = useState(false);
   const [saved, setSaved] = useState(false);
+  const connection = useProviderTest();
   const adapter = adapters.find((entry) => entry.type === adapterType);
   const latest = baseline && providers.find((provider) => provider.id === baseline.id);
   const stale = Boolean(baseline && (!latest || latest.revision !== baseline.revision));
@@ -84,6 +87,31 @@ export function ProviderEditor({
     credentialMissing ||
     (!isPublic && groupIds.size === 0) ||
     (credentialAction === "REPLACE" && !keyReady);
+
+  // A draft can be checked once it names an endpoint and has a key to send: a typed one, or the saved one kept.
+  const testable =
+    Boolean(adapter && baseUrl.trim()) &&
+    (credentialAction === "REPLACE"
+      ? keyReady
+      : credentialAction === "KEEP" && Boolean(baseline?.credentialConfigured));
+
+  function changed() {
+    setSaved(false);
+    connection.reset();
+  }
+
+  async function testConnection() {
+    if (!testable || action.pending || connection.pending) return;
+    await connection.run({
+      adapterType,
+      baseUrl: baseUrl.trim(),
+      providerId: baseline?.id,
+      credential:
+        credentialAction === "REPLACE"
+          ? { action: "REPLACE", value: secret.current }
+          : { action: "KEEP" },
+    });
+  }
 
   function clearSecret() {
     secret.current = "";
@@ -122,7 +150,7 @@ export function ProviderEditor({
           : { action: credentialAction },
     };
     clearSecret();
-    setSaved(false);
+    changed();
     try {
       await action.run(async (signal) => {
         const result = baseline
@@ -218,7 +246,7 @@ export function ProviderEditor({
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
-                setSaved(false);
+                changed();
               }}
             />
           </label>
@@ -232,7 +260,7 @@ export function ProviderEditor({
                 onChange={(event) => {
                   setAdapterType(event.target.value);
                   clearSecret();
-                  setSaved(false);
+                  changed();
                 }}
               >
                 {!adapter && (
@@ -260,7 +288,7 @@ export function ProviderEditor({
               value={baseUrl}
               onChange={(event) => {
                 setBaseUrl(event.target.value);
-                setSaved(false);
+                changed();
               }}
             />
           </label>
@@ -270,7 +298,7 @@ export function ProviderEditor({
               checked={enabled}
               onCheckedChange={(checked) => {
                 setEnabled(checked);
-                setSaved(false);
+                changed();
               }}
             />
           </label>
@@ -280,7 +308,7 @@ export function ProviderEditor({
               value={isPublic ? "public" : "groups"}
               onValueChange={(value) => {
                 setIsPublic(value === "public");
-                setSaved(false);
+                changed();
               }}
             >
               <label className={`${radioCard} items-center font-main-ui-body`}>
@@ -303,7 +331,7 @@ export function ProviderEditor({
                 )}
                 onChange={(next) => {
                   setGroupIds(next);
-                  setSaved(false);
+                  changed();
                 }}
               />
             )}
@@ -312,7 +340,7 @@ export function ProviderEditor({
             value={dataBoundary}
             onChange={(next) => {
               setDataBoundary(next);
-              setSaved(false);
+              changed();
             }}
           />
           <label className="block space-y-1">
@@ -322,7 +350,7 @@ export function ProviderEditor({
               onChange={(event) => {
                 setCredentialAction(event.target.value as CredentialAction);
                 clearSecret();
-                setSaved(false);
+                changed();
               }}
             >
               <option value="KEEP">{ui("Keep existing key")}</option>
@@ -341,7 +369,7 @@ export function ProviderEditor({
               onChange={(event) => {
                 secret.current = event.target.value;
                 setKeyReady(Boolean(secret.current.trim()));
-                setSaved(false);
+                changed();
               }}
             />
           </label>
@@ -369,9 +397,42 @@ export function ProviderEditor({
             </Button>
           </div>
         )}
+        {connection.outcome?.ok && (
+          <p
+            role="status"
+            className="flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
+          >
+            <CheckCircle2 className="size-4" aria-hidden="true" />
+            {ui(connection.outcome.message)}
+          </p>
+        )}
+        {connection.outcome && !connection.outcome.ok && (
+          <p
+            role="alert"
+            className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
+          >
+            {ui(connection.outcome.message)}
+          </p>
+        )}
         {action.error && <p role="alert">{ui(action.error)}</p>}
-        {saved && <p role="status">{ui("Provider saved. No connectivity claim has been made.")}</p>}
+        {saved && (
+          <p role="status">
+            {enabled
+              ? ui("Provider saved.")
+              : ui("Provider saved. No connectivity claim has been made.")}
+          </p>
+        )}
         <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            prominence="secondary"
+            className="mr-auto"
+            pending={connection.pending}
+            disabled={!testable || action.pending}
+            onClick={() => void testConnection()}
+          >
+            <PlugZap aria-hidden="true" />
+            {ui("Test connection")}
+          </Button>
           <Button
             prominence="secondary"
             onClick={() => {
@@ -382,7 +443,11 @@ export function ProviderEditor({
           >
             {ui("Close")}
           </Button>
-          <Button type="submit" pending={action.pending} disabled={invalid || conflicted}>
+          <Button
+            type="submit"
+            pending={action.pending}
+            disabled={invalid || conflicted || connection.pending}
+          >
             {ui("Save provider")}
           </Button>
         </div>

@@ -133,6 +133,7 @@ class OpenApiContractTest {
             "/api/chat/providers/{providerId}",
             "/api/chat/providers/{providerId}/models",
             "/api/chat/providers/{providerId}/reported-models",
+            "/api/chat/providers/test",
             "/api/chat/sessions",
             "/api/chat/sessions/search",
             "/api/chat/sessions/{sessionId}",

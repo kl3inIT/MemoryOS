@@ -18,7 +18,7 @@ const identity = {
   scopedCapabilities: [],
 };
 
-test("shows the concrete inherited Luna model without deployment labels", async ({ page }) => {
+test("shows the concrete inherited Luna model grouped under its provider", async ({ page }) => {
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: identity }));
   await page.route("**/api/chat/models*", (route) =>
     route.fulfill({
@@ -38,7 +38,12 @@ test("shows the concrete inherited Luna model without deployment labels", async 
   const picker = page.getByRole("combobox", { name: "Chọn mô hình" });
   await expect(picker).toContainText("GPT-5.6 Luna");
   await picker.click();
-  await expect(page.getByText("Deployment OpenAI", { exact: true })).toHaveCount(0);
+  // Two providers are listed under their names, as Onyx groups models; options carry no provider label.
+  await expect(page.getByText("Deployment OpenAI", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Office inference", { exact: true })).toHaveCount(1);
+  await expect(page.getByRole("option", { name: /GPT-5.6 Luna/ })).not.toContainText(
+    "Deployment OpenAI",
+  );
   await expect(page.getByRole("option", { name: "Tự động", exact: true })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /GPT-5.6 Luna/ })).not.toContainText(/36[.,]096/);
   await page.screenshot({ path: "../output/playwright/model-selector-desktop.png" });

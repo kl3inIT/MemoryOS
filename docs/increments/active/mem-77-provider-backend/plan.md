@@ -266,6 +266,14 @@ Regenerate the backend snapshot using `MEMORYOS_OPENAPI_WRITE=true` and `:api:te
 - [x] Show declared specs read-only behind an override disclosure in the model dialog, keep typed fields for an undeclared model, and clear the previously declared limits/capabilities/prices when the API name changes.
 - [x] Remove the duplicated Persona default block from the catalog page; the Persona editor already owns the per-Persona override, so its eligibility helper and the picker's inherit affordance are removed with it.
 
+### Provider connection check, vendor marks and picker groups
+
+- [x] `POST /api/chat/providers/test` with typed or stored key, named failures and latency; save checks an enabled provider whose endpoint or key changed. Verified by `providerTestAndSaveCheckTheEndpointAndKeyBeforeStoringThem`.
+- [x] Test connection in the provider dialog and a quick check on each saved provider row.
+- [x] Vendor marks by model name in the Chat picker, Persona editor, provider model list and discovery.
+- [x] Chat picker grouped by provider when there is more than one.
+- [x] Screens reviewed at 1280 px with realistic fixtures (dialog success and rejection, provider rows, discovery, Chat picker).
+
 ## Acceptance checklist
 
 | ID | Required observable result | Owning phase / evidence boundary |

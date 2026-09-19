@@ -1305,6 +1305,18 @@ export type Cancellation = {
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
 };
 
+export type ProviderTestInput = {
+    adapterType: string;
+    baseUrl: string;
+    credential: Change;
+    providerId?: string | null;
+};
+
+export type ProviderTestResult = {
+    modelCount: number | null;
+    latencyMillis: number;
+};
+
 export type ProjectConversation = {
     title: string;
 };
@@ -8234,6 +8246,57 @@ export type CreateChatModelResponses = {
 };
 
 export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatModelResponses];
+
+export type TestChatProviderData = {
+    body: ProviderTestInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/providers/test';
+};
+
+export type TestChatProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestChatProviderError = TestChatProviderErrors[keyof TestChatProviderErrors];
+
+export type TestChatProviderResponses = {
+    /**
+     * The provider accepted the endpoint and key
+     */
+    200: ProviderTestResult;
+};
+
+export type TestChatProviderResponse = TestChatProviderResponses[keyof TestChatProviderResponses];
 
 export type ListChatPromptShortcutsData = {
     body?: never;

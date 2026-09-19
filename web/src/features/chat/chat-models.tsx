@@ -17,17 +17,25 @@ export function useChatModels(sessionId?: string) {
       (await listAvailableChatModels({ query: { sessionId }, signal, throwOnError: true })).data,
     retry: false,
   });
-  const models = (catalog.data ?? []).flatMap((model) =>
+  const entries = (catalog.data ?? []).flatMap((model) =>
     model.id
       ? [
           {
-            id: model.id,
-            name: model.displayName || model.modelName || ui("Model"),
-            keywords: [model.modelName ?? "", model.providerName ?? ""],
-            icon: <ChatModelLogo modelName={model.modelName ?? ""} />,
+            provider: model.providerName ?? "",
+            option: {
+              id: model.id,
+              name: model.displayName || model.modelName || ui("Model"),
+              keywords: [model.modelName ?? "", model.providerName ?? ""],
+              icon: <ChatModelLogo modelName={model.modelName ?? ""} />,
+            },
           },
         ]
       : [],
   );
-  return { catalog, models };
+  const models = entries.map((entry) => entry.option);
+  // Onyx groupLlmOptions: one group per provider, sorted by its name.
+  const groups = [...Map.groupBy(entries, (entry) => entry.provider)]
+    .map(([provider, members]) => ({ provider, models: members.map((entry) => entry.option) }))
+    .sort((a, b) => a.provider.localeCompare(b.provider));
+  return { catalog, models, groups };
 }

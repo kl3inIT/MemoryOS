@@ -25,7 +25,7 @@ export function ChatModelPicker({
 }) {
   const ui = useAppTranslation();
 
-  const { catalog, models } = useChatModels(sessionId);
+  const { catalog, models, groups } = useChatModels(sessionId);
   if (catalog.isError)
     return (
       <Button size="sm" prominence="internal" onClick={() => void catalog.refetch()}>
@@ -56,11 +56,22 @@ export function ChatModelPicker({
         <ModelSelectorSearch aria-label={ui("Tìm mô hình")} placeholder={ui("Tìm mô hình…")} />
         <ModelSelectorList>
           <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>
-          <ModelSelectorGroup>
-            {models.map((model) => (
-              <ModelSelectorItem key={model.id} model={model} />
-            ))}
-          </ModelSelectorGroup>
+          {/* As Onyx, a lone provider needs no heading; several are grouped under their names. */}
+          {groups.length > 1 ? (
+            groups.map((group) => (
+              <ModelSelectorGroup key={group.provider} heading={group.provider}>
+                {group.models.map((model) => (
+                  <ModelSelectorItem key={model.id} model={model} />
+                ))}
+              </ModelSelectorGroup>
+            ))
+          ) : (
+            <ModelSelectorGroup>
+              {models.map((model) => (
+                <ModelSelectorItem key={model.id} model={model} />
+              ))}
+            </ModelSelectorGroup>
+          )}
         </ModelSelectorList>
       </ModelSelectorContent>
     </ModelSelectorRoot>

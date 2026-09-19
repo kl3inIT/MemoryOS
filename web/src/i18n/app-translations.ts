@@ -3117,6 +3117,17 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  "Test connection": "Kiểm tra kết nối",
+  "Test connection {{name}}": "Kiểm tra kết nối {{name}}",
+  "Connection succeeded · {{latency}} ms": "Kết nối thành công · {{latency}} ms",
+  "Connection succeeded · {{latency}} ms · {{count}} models":
+    "Kết nối thành công · {{latency}} ms · {{count}} model",
+  "The provider rejected the API key": "Nhà cung cấp từ chối khóa API",
+  "Could not reach the provider before the timeout":
+    "Không kết nối được tới nhà cung cấp trước khi hết thời gian chờ",
+  "The provider response was not OpenAI-compatible":
+    "Phản hồi của nhà cung cấp không tương thích OpenAI",
+  "Provider saved.": "Đã lưu nhà cung cấp.",
   // Model editor
   "Saved connection reached the model. This does not certify model quality, capabilities or cancellation.":
     "Kết nối đã lưu đến được mô hình. Điều này không chứng nhận chất lượng, khả năng hay việc hủy của mô hình.",
