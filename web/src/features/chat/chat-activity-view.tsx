@@ -264,6 +264,14 @@ function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state: ToolSt
   );
 }
 
+function readingKey(source: {
+  citationId: number;
+  documentId?: string | null;
+  web?: { url: string } | null;
+}) {
+  return source.web ? source.web.url : (source.documentId ?? String(source.citationId));
+}
+
 /** One disclosure for adjacent reasoning and tool steps; open while working, collapsed once the answer starts. */
 export function ChatActivityGroup({
   indices,
@@ -282,6 +290,12 @@ export function ChatActivityGroup({
       (part, index) => index > last && part.type === "text" && part.text.trim().length > 0,
     ),
   );
+  // The last group stays live while the run continues with nothing after it: the model is writing its next call,
+  // and "Thought for 3 seconds" there reads as a stalled answer.
+  const pending = useAuiState(
+    (state) => state.message.status?.type === "running" && state.message.parts.length - 1 === last,
+  );
+  const live = running || (pending && !answerStarted);
   const [manual, setManual] = useState<boolean>();
   const group = useMemo(
     () => indices.flatMap((index) => (parts[index] ? [parts[index]] : [])),
@@ -294,7 +308,7 @@ export function ChatActivityGroup({
       toolState(tool, running) === "failed" &&
       toolProgress(tool.args).failure === "AUTHORIZATION_REQUIRED",
   );
-  const open = manual ?? ((running && !answerStarted) || actionable);
+  const open = manual ?? ((live && !answerStarted) || actionable);
   const stopped = useAuiState(
     (state) =>
       state.message.status?.type === "incomplete" ||
@@ -306,7 +320,7 @@ export function ChatActivityGroup({
     0,
   );
   let label: string;
-  if (running) {
+  if (live) {
     const current = tools.findLast((tool) => toolState(tool, running) === "running");
     label = current ? liveTitle(ui, current) : ui("Đang suy nghĩ…");
   } else if (stopped) {
@@ -320,7 +334,7 @@ export function ChatActivityGroup({
   const steps = indices.length === 1 ? ui("1 bước") : ui("{{n}} bước", { n: indices.length });
   return (
     <ActivityGroupRoot open={open} onOpenChange={setManual}>
-      <ActivityGroupTrigger label={label} active={running} steps={running ? undefined : steps} />
+      <ActivityGroupTrigger label={label} active={live} steps={live ? undefined : steps} />
       <ActivityGroupContent>{children}</ActivityGroupContent>
     </ActivityGroupRoot>
   );
@@ -378,20 +392,26 @@ export function ChatToolStep({ part }: { part: ToolPart }) {
         }))
       : part.toolName === "read_file"
         ? []
-        : cited.map((source) => ({
-            key: String(source.citationId),
-            icon: source.web ? (
-              <SourceIcon domain={hostname(source.web.url)} fallback="globe" />
-            ) : (
-              <DocumentSourceIcon
-                size="xs"
-                mediaType={source.mediaType}
-                sourceTypes={source.sourceTypes}
-              />
-            ),
-            label: source.web ? hostname(source.web.url) : source.title,
-            title: source.title,
-          }));
+        : // One chip per document or page: several passages of one file are one thing read, not twenty.
+          cited
+            .filter(
+              (source, index) =>
+                cited.findIndex((other) => readingKey(other) === readingKey(source)) === index,
+            )
+            .map((source) => ({
+              key: String(source.citationId),
+              icon: source.web ? (
+                <SourceIcon domain={hostname(source.web.url)} fallback="globe" />
+              ) : (
+                <DocumentSourceIcon
+                  size="xs"
+                  mediaType={source.mediaType}
+                  sourceTypes={source.sourceTypes}
+                />
+              ),
+              label: source.web ? hostname(source.web.url) : source.title,
+              title: source.title,
+            }));
   const mcp = parseMcpToolName(part.toolName);
   if (mcp)
     return <ChatMcpToolStep slug={mcp.slug} tool={mcp.tool} progress={progress} state={state} />;

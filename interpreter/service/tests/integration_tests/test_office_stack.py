@@ -208,3 +208,16 @@ print(json.dumps(result, ensure_ascii=False))
     assert "Miền Bắc tăng 22,1%" in result["text"]
     assert result["refused"] == 1
     assert result["refusal"] == {"converted": False, "error": "only .pptx files are supported"}
+
+
+def test_files_written_to_mnt_data_are_returned() -> None:
+    """ChatGPT-trained models save to /mnt/data; it is the workspace, so the file comes back."""
+    client = TestClient(create_app())
+    payload = _execute(
+        client,
+        "open('/mnt/data/bao-cao.txt', 'w', encoding='utf-8').write('Q3')
+print('ok')",
+    )
+
+    files = cast(list[dict[str, Any]], payload["files"])
+    assert [file["path"] for file in files] == ["bao-cao.txt"]
