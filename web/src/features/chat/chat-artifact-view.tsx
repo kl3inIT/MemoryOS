@@ -1,4 +1,5 @@
 import { GenerativeUIRender, useAuiState } from "@assistant-ui/react";
+import { StatTile } from "@/components/composites/stat-strip";
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelsTopLeft } from "lucide-react";
@@ -22,10 +23,11 @@ const components = {
     <p className="whitespace-pre-wrap break-words text-sm leading-6">{text}</p>
   ),
   Metric: ({ label, value }: { label?: string; value?: string }) => (
-    <dl className="rounded-xl border border-border-subtle p-4">
-      <dt className="break-words text-sm text-content-muted">{label}</dt>
-      <dd className="mt-1 break-words text-xl font-semibold tabular-nums">{value}</dd>
-    </dl>
+    <StatTile
+      label={label}
+      value={<span className="break-words">{value}</span>}
+      className="rounded-2xl border border-border-subtle"
+    />
   ),
   Table: ({ children }: { children?: ReactNode }) => (
     <div className="max-w-full overflow-x-auto rounded-lg border border-border-subtle">

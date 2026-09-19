@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { appText } from "@/i18n/app-text";
+import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   getMyAiCostsOptions,
@@ -14,12 +16,15 @@ import { count, money, period } from "./ai-costs";
 const perMillion = (value: number | null | undefined) =>
   value == null
     ? "—"
-    : new Intl.NumberFormat(undefined, {
+    : new Intl.NumberFormat(uiLocale(), {
         style: "currency",
         currency: "USD",
         minimumFractionDigits: 2,
         maximumFractionDigits: 3,
       }).format(value);
+
+const day = (iso: string) =>
+  formatUiDate(`${iso}T00:00:00Z`, { day: "numeric", month: "numeric", timeZone: "UTC" });
 
 /** Onyx Settings › Usage: the member's own spend this period, tokens per model and the prices they pay. */
 export function MyUsagePage() {
@@ -42,8 +47,8 @@ export function MyUsagePage() {
           appText(
             "This month ({{from}} – {{to}}). Costs are estimated from recorded model usage.",
             {
-              from: range.from,
-              to: range.to,
+              from: day(range.from),
+              to: day(range.to),
             },
           ),
         )}
@@ -60,53 +65,30 @@ export function MyUsagePage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <section
-            aria-labelledby="budget-heading"
-            className="min-w-0 rounded-2xl border border-border-subtle bg-surface-raised p-4"
-          >
-            <h2 id="budget-heading" className="font-secondary-body text-content-muted">
-              {ui("Budget")}
-            </h2>
-            <p className="mt-1 font-heading-h3 text-content-primary">{ui("No budget set")}</p>
-            <p className="font-secondary-body text-content-muted">
-              {ui("Your administrator has not set a spending limit for you.")}
-            </p>
-          </section>
-          <section
-            aria-labelledby="period-heading"
-            aria-busy={usage.isPending}
-            className="min-w-0 rounded-2xl border border-border-subtle bg-surface-raised p-4"
-          >
-            <h2 id="period-heading" className="font-secondary-body text-content-muted">
-              {ui("Usage this period")}
-            </h2>
-            <p className="mt-1 font-heading-h3 tabular-nums text-content-primary">
-              {summary ? ui(appText("{{amount}} spent", { amount: money(summary.cost) })) : "—"}
-            </p>
-            {summary && (
-              <>
-                <p className="font-secondary-body tabular-nums text-content-muted">
-                  {ui(
-                    appText("{{calls}} requests · {{tokens}} tokens", {
-                      calls: count(summary.calls),
-                      tokens: count(summary.inputTokens + summary.outputTokens),
-                    }),
-                  )}
-                </p>
-                <p className="font-secondary-body tabular-nums text-content-muted">
-                  {ui(
+        <StatStrip columns={4}>
+          <StatTile label={ui("Est. spend")} value={summary ? money(summary.cost) : "—"} />
+          <StatTile label={ui("Requests")} value={summary ? count(summary.calls) : "—"} />
+          <StatTile
+            label={ui("Total tokens")}
+            value={summary ? count(summary.inputTokens + summary.outputTokens) : "—"}
+            hint={
+              summary
+                ? ui(
                     appText("{{input}} in · {{output}} out · {{cached}} cache reads", {
                       input: count(summary.inputTokens),
                       output: count(summary.outputTokens),
                       cached: count(summary.cacheReadTokens),
                     }),
-                  )}
-                </p>
-              </>
-            )}
-          </section>
-        </div>
+                  )
+                : undefined
+            }
+          />
+          <StatTile
+            label={ui("Budget")}
+            value={ui("No budget set")}
+            hint={ui("Your administrator has not set a spending limit for you.")}
+          />
+        </StatStrip>
       )}
 
       {usage.isSuccess && (

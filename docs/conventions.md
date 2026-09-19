@@ -142,7 +142,7 @@ Domain Story and Consumer
 
 ### Composites
 
-- `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. They carry no data fetching or authorization.
+- `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `StatStrip`/`StatTile`/`StatToggleTile`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. Every figure summary (costs, usage, counts, generated metrics) uses `StatStrip`; a stat that must stay in a table cell uses its `statLabelClass`/`statValueClass`. They carry no data fetching or authorization.
 - Hover-revealed actions stay reachable: they appear on `focus-within` and are always visible on devices without hover.
 
 ## shadcn/ui registry

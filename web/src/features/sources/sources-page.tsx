@@ -1,4 +1,6 @@
 import { uiLocale } from "@/i18n/format";
+import { cn } from "@/lib/utils";
+import { statLabelClass, statValueClass } from "@/components/composites/stat-strip";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -438,10 +440,8 @@ function SourceGroupBody({
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
     <TableCell className="border-y border-border-subtle px-4">
-      <span className="block text-sm whitespace-nowrap text-content-muted">{label}</span>
-      <span className="mt-1 block text-xl font-semibold tabular-nums text-content-primary">
-        {value}
-      </span>
+      <span className={cn("block whitespace-nowrap", statLabelClass)}>{label}</span>
+      <span className={cn("mt-1 block", statValueClass)}>{value}</span>
     </TableCell>
   );
 }

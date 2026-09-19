@@ -84,7 +84,7 @@ function mount(calls: number) {
 describe("personal usage", () => {
   it("shows the member's own spend, tokens per model and the prices of the models they may use", async () => {
     const requested = mount(412);
-    expect(await screen.findByText("$3.12 spent")).toBeVisible();
+    expect((await screen.findAllByText("$3.12"))[0]).toBeVisible();
     expect(requested).toContain("/api/ai-costs/mine");
     expect(screen.getByText("No budget set")).toBeVisible();
     expect(screen.getByText("1.7M in · 250K out · 310K cache reads")).toBeVisible();
@@ -101,7 +101,7 @@ describe("personal usage", () => {
   it("explains an empty period instead of an empty table", async () => {
     mount(0);
     expect(await screen.findByText("No usage recorded yet")).toBeVisible();
-    expect(screen.getByText("$0.00 spent")).toBeVisible();
+    expect(screen.getByText("$0.00")).toBeVisible();
   });
 });
 

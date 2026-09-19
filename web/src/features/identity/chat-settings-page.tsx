@@ -16,7 +16,9 @@ export function ChatSettingsPage() {
       />
       <ChatPreferencesSections />
       <VoiceSettingsSection />
-      <PersonalPromptShortcuts />
+      <div className="max-w-2xl">
+        <PersonalPromptShortcuts />
+      </div>
     </SettingsLayout>
   );
 }
