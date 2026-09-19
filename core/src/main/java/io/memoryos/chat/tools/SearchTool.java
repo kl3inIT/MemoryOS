@@ -63,7 +63,6 @@ public final class SearchTool implements AutoCloseable {
     private final Consumer<ChatToolEvent> events;
     private final io.memoryos.chat.ChatEvidence evidence;
     private final io.memoryos.chat.ChatToolActivity activity;
-    private int calls;
     private final SearchTasks.Scope work;
     private final Disposable cancellation;
     private final List<Message> history;
@@ -181,7 +180,6 @@ public final class SearchTool implements AutoCloseable {
 
     private String executeSearch(List<String> queries, @Nullable SearchFilters requestedFilters) {
         checkActive.run();
-        if (++calls > limits.maxCalls()) return "Search call limit reached. Answer only from evidence already returned.";
         if (queries == null || queries.isEmpty() || queries.size() > 3)
             return "Invalid search arguments: provide 1-3 focused queries.";
         try {

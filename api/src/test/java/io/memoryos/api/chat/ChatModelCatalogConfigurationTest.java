@@ -43,7 +43,9 @@ class ChatModelCatalogConfigurationTest {
         persona.setModel("custom-deployment");
         var unknown = new ChatModelCatalogConfiguration().chatDeploymentModel(persona, limits(null),
                 "http://model.internal/v1", -1, -1, null, null, null, null);
-        assertEquals(4096 + 1024, unknown.settings().contextWindow());
+        // Onyx's defaults, as for a discovered model nobody describes: a 32,000-token window and no output cap.
+        assertEquals(32_000, unknown.settings().contextWindow());
+        assertNull(unknown.settings().maxOutputTokens());
         assertNull(unknown.settings().pricing());
     }
 

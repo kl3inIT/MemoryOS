@@ -34,6 +34,27 @@ public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt>
             throw new IllegalArgumentException("Invalid model limits");
     }
 
+    /** Onyx {@code GEN_AI_INPUT_TOKEN_SAFETY_MARGIN}: estimates can undercount the provider's tokenizer. */
+    public static final double INPUT_SAFETY_MARGIN = 0.05;
+    /** Onyx {@code GEN_AI_MODEL_FALLBACK_MAX_TOKENS}, its output limit for a model nobody describes. */
+    public static final int FALLBACK_OUTPUT_TOKENS = 32_000;
+
+    /**
+     * As Onyx {@code llm_loop}: the model's input window, less the answer reserve, held {@link #INPUT_SAFETY_MARGIN}
+     * below it. No deployment cap applies unless one is configured.
+     */
+    public int inputLimit(int outputReserve) {
+        return (int) ((contextWindow - outputAtMost(outputReserve)) * (1 - INPUT_SAFETY_MARGIN));
+    }
+
+    /**
+     * A number for work that must name an output bound (cost reservation, research inferences, helpers): the model's
+     * own limit, else Onyx's 32,000-token fallback kept to a quarter of the window.
+     */
+    public int outputBound() {
+        return maxOutputTokens != null ? maxOutputTokens : Math.min(FALLBACK_OUTPUT_TOKENS, contextWindow / 4);
+    }
+
     /** {@code bound}, lowered to the model's output limit when it publishes one. */
     public int outputAtMost(int bound) {
         return maxOutputTokens == null ? bound : Math.min(bound, maxOutputTokens);

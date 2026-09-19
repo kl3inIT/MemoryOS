@@ -137,7 +137,7 @@ public final class ChatModelExecutor {
     private ResearchExecutor.AgentTools agentTools(ExecutingOperationContext context, ChatTurnSetup setup, ResearchExecutor.AgentScope agent,
             Mono<?> cancellation, io.memoryos.retrieval.SearchTasks.Scope fileWork, int maxOutput) {
         var selected = setup.binding();
-        agent.guard().synchronousLimit(searchLimits.helperCallLimit());
+        agent.guard().synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         Runnable active = () -> { fileWork.checkActive(); agent.checkActive().run(); };
         var tools = new java.util.ArrayList<Tool>();
         SearchTool searchTool = null;
@@ -175,23 +175,23 @@ public final class ChatModelExecutor {
         // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
         // reasoning tokens count toward it, so a small deployment cap cut long tool calls off mid-stream.
         // max-output-tokens still reserves room for the answer when the input budget is computed. A model without a
-        // published output limit sends no cap (Onyx), and the reserve stands in for it in budgets and bounded helpers.
+        // published output limit sends no cap (Onyx); bounded work uses Onyx's fallback output limit instead.
         Integer maxOutput = selected.maxOutputTokens();
-        int outputReserve = selected.outputAtMost(limits.maxOutputTokens());
-        int outputBound = maxOutput != null ? maxOutput : outputReserve;
+        int outputBound = selected.outputBound();
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
                 && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
         if (delegate instanceof ChatModelTurns turns)
             delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
-        int contextLimit = Math.min(limits.contextTokenLimit(), selected.contextWindow() - outputReserve);
+        int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
         guard.outputLimit(outputBound);
-        guard.synchronousLimit(searchLimits.helperCallLimit());
+        // Onyx bounds tool work only by MAX_LLM_CYCLES: search helpers have no count of their own.
+        guard.synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         guard.taskPrompt(setup.options().taskPrompt());
         var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new java.util.concurrent.CopyOnWriteArrayList<CompletableFuture<Void>>();
@@ -262,13 +262,13 @@ public final class ChatModelExecutor {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
+                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, Integer.MAX_VALUE)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));
                 runner = runner.withTools(Tool.fromInstance(new EditImageTool(image, connection, imageArtifacts, fileContent,
                         setup.actor(), setup.tenant(), setup.sessionId(), setup.assistantMessageId(), setup.fileIds(), names,
-                        fileActive, imageEvents, 4)));
+                        fileActive, imageEvents, Integer.MAX_VALUE)));
             }
             if (python) {
                 runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.RunPythonTool(interpreter, interpreterSettings,
@@ -277,7 +277,7 @@ public final class ChatModelExecutor {
             }
             if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
                 var mcpTools = new io.memoryos.chat.tools.McpTools(setup.mcp(), fileActive,
-                        limits.mcpCallTimeout(), limits.mcpCallLimit(), events::accept, activity,
+                        limits.mcpCallTimeout(), limits.mcpCallCap(), events::accept, activity,
                         guard::availableContextTokens, selected.policy().tokens(), meters);
                 for (var tool : mcpTools.tools()) runner = runner.withTools(java.util.List.of(tool));
             }

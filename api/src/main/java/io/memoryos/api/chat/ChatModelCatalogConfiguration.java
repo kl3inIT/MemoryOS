@@ -49,8 +49,10 @@ class ChatModelCatalogConfiguration {
         // capabilities and prices (MEM-130): the execution limits are runtime bounds, never the model's context window.
         boolean gpt5 = persona.getModel().startsWith("gpt-5");
         var known = io.memoryos.chat.catalog.ChatModelResolver.findKnown(persona.getModel(), ChatKnownModels.models());
-        int contextWindow = known != null ? known.contextWindow() : limits.contextTokenLimit() + limits.maxOutputTokens();
-        int maxOutput = known != null ? known.maxOutputTokens() : limits.maxOutputTokens();
+        // A model the catalog does not know takes Onyx's defaults, as a discovered one does: a 32,000-token window
+        // and no output cap.
+        int contextWindow = known != null ? known.contextWindow() : io.memoryos.chat.catalog.ChatModelResolver.FALLBACK_CONTEXT_WINDOW;
+        Integer maxOutput = known != null ? Integer.valueOf(known.maxOutputTokens()) : null;
         boolean defaultCapability = known == null && gpt5;
         var settings = new ModelSettings(contextWindow, maxOutput,
                 new ModelSettings.Capabilities(true,

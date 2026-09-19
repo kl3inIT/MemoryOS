@@ -48,7 +48,7 @@ final class ChatModelValidation {
                     options = openAi.mutate().toolCallbacks(List.of(PROBE_TOOL)).toolChoice("none").build();
                 var prompt = binding.policy().request(binding.finalRequest().apply(
                         new Prompt(List.of(new UserMessage("Reply OK.")), options)),
-                        Math.min(limits.contextTokenLimit(), binding.contextWindow() - output));
+                        binding.contextWindow() - output);
                 var finished = new AtomicBoolean();
                 binding.service().getChatModel().stream(prompt).doOnNext(response -> {
                     binding.policy().response().accept(response);

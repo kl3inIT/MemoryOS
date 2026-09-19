@@ -188,7 +188,7 @@ public final class ChatTurnService implements AutoCloseable {
                 imageAccess = images.resolve(actor);
                 if (imageAccess.generate() == null) throw ChatException.providerUnavailable();
             }
-            int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - binding.outputAtMost(limits.maxOutputTokens()));
+            int contextLimit = Math.min(limits.contextCap(), binding.inputLimit(limits.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));

@@ -69,7 +69,7 @@ public final class ChatModelResolver {
         }
     }
 
-    static final int FALLBACK_CONTEXT_WINDOW = 32_000;
+    public static final int FALLBACK_CONTEXT_WINDOW = 32_000;
 
     public static ReportedModelSpec spec(ChatProviderAdapter.ReportedModel reported, java.util.List<ChatProviderAdapter.KnownModel> known) {
         var catalogModel = findKnown(reported.modelName(), known);
