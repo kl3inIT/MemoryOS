@@ -1,8 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Brain, Eye, Pencil, Search, Wrench } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -19,22 +22,23 @@ import { listReportedProviderModelsOptions } from "@/lib/hey-api/@tanstack/react
 import { createChatModel } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
-  changeModelDraft,
   compactTokens,
-  findKnownModel,
   millionTokenPrice,
   modelBody,
-  modelDraft,
   refreshModelCatalog,
+  reportedDraft,
   type InstalledAdapter,
   type ManagedModel,
   type ManagedProvider,
+  type ReportedModel,
 } from "./model-catalog";
 import { useModelAction } from "./use-model-action";
 
 /**
- * The provider endpoint reports which models it serves; the installed catalog supplies their limits
- * and prices. A model the catalog does not declare still needs those typed, so it opens the editor.
+ * The provider endpoint reports which models it serves, with the limits, capabilities and prices it publishes
+ * (OpenRouter, 9Router, vLLM, Mistral, Groq) or the installed catalog declares by name (OpenAI, Anthropic, Gemini,
+ * xAI, DeepSeek). As Onyx, every model is added without typing: an unknown output limit sends no cap, and a model
+ * nobody describes takes Onyx's defaults, marked for review with an option to edit before adding (MEM-130).
  */
 export function ModelDiscovery({
   provider,
@@ -46,13 +50,14 @@ export function ModelDiscovery({
   provider: ManagedProvider;
   adapter?: InstalledAdapter;
   models: ManagedModel[];
-  onManual: (modelName: string) => void;
+  onManual: (reported: ReportedModel) => void;
   onClose: () => void;
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
   const action = useModelAction();
   const [selected, setSelected] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
   const reported = useQuery({
     ...listReportedProviderModelsOptions({ path: { providerId: provider.id } }),
     retry: false,
@@ -60,20 +65,23 @@ export function ModelDiscovery({
     gcTime: 0,
   });
   const configured = new Set(models.map((model) => model.modelName));
+  const reportedModels = reported.data?.models;
+  const all = useMemo(() => reportedModels ?? [], [reportedModels]);
+  const shown = useMemo(() => {
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return terms.length
+      ? all.filter((model) => terms.every((term) => model.modelName.toLowerCase().includes(term)))
+      : all;
+  }, [all, query]);
 
   async function add() {
+    const chosen = all.filter((model) => selected.includes(model.modelName));
     try {
       await action.run(async (signal) => {
-        for (const modelName of selected) {
-          const draft = changeModelDraft(
-            modelDraft(undefined, adapter),
-            "modelName",
-            modelName,
-            adapter,
-          );
+        for (const model of chosen) {
           await createChatModel({
             path: { providerId: provider.id },
-            body: modelBody(draft),
+            body: modelBody(reportedDraft(model, adapter)),
             headers: sameOriginMutationHeaders,
             signal,
             throwOnError: true,
@@ -101,7 +109,7 @@ export function ModelDiscovery({
       <div className="space-y-4">
         {reported.isPending && <p role="status">{ui("Loading…")}</p>}
         {reported.isError && <p role="alert">{ui("The provider did not answer.")}</p>}
-        {reported.data && reported.data.models.length === 0 && (
+        {reported.data && all.length === 0 && (
           <Empty className="gap-3 py-6">
             <EmptyMedia variant="icon">
               <span aria-hidden="true">·</span>
@@ -111,71 +119,117 @@ export function ModelDiscovery({
             </EmptyTitle>
           </Empty>
         )}
-        {reported.data && reported.data.models.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{ui("Model")}</TableHead>
-                <TableHead className="text-right">{ui("Context")}</TableHead>
-                <TableHead className="hidden text-right sm:table-cell">{ui("In / 1M")}</TableHead>
-                <TableHead className="hidden text-right sm:table-cell">{ui("Out / 1M")}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reported.data.models.map((modelName) => {
-                const known = findKnownModel(adapter, modelName);
-                const alreadyConfigured = configured.has(modelName);
-                return (
-                  <TableRow key={modelName}>
-                    <TableCell className="font-main-ui-body">
-                      {known && !alreadyConfigured ? (
-                        <label className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selected.includes(modelName)}
-                            disabled={action.pending}
-                            onCheckedChange={(checked) =>
-                              setSelected((current) =>
-                                checked === true
-                                  ? [...current, modelName]
-                                  : current.filter((name) => name !== modelName),
-                              )
-                            }
-                          />
-                          {modelName}
-                        </label>
-                      ) : (
-                        modelName
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {known ? compactTokens(known.contextWindow) : "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                      {known ? millionTokenPrice(known.pricing.inputPerMillion) : "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                      {known ? millionTokenPrice(known.pricing.outputPerMillion) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {alreadyConfigured ? (
-                        <StatusBadge tone="success">{ui("Configured")}</StatusBadge>
-                      ) : known ? null : (
-                        <Button
-                          prominence="secondary"
-                          size="sm"
-                          disabled={action.pending}
-                          onClick={() => onManual(modelName)}
-                        >
-                          {ui("Add manually")}
-                        </Button>
-                      )}
-                    </TableCell>
+        {all.length > 0 && (
+          <>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-content-muted"
+                aria-hidden="true"
+              />
+              <Input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={ui("Search models…")}
+                aria-label={ui("Search models")}
+                className="pl-8"
+              />
+            </div>
+            <p className="text-xs text-content-muted">
+              {ui(
+                appText("{{shown}} of {{total}} models", {
+                  shown: shown.length,
+                  total: all.length,
+                }),
+              )}
+            </p>
+            <div className="max-h-[55dvh] overflow-y-auto rounded-lg border border-border-subtle">
+              <Table>
+                <TableHeader className="sticky top-0 bg-surface-subtle">
+                  <TableRow>
+                    <TableHead>{ui("Model")}</TableHead>
+                    <TableHead className="text-right">{ui("Context")}</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">
+                      {ui("Output")}
+                    </TableHead>
+                    <TableHead className="hidden text-right md:table-cell">
+                      {ui("In / 1M")}
+                    </TableHead>
+                    <TableHead className="hidden text-right md:table-cell">
+                      {ui("Out / 1M")}
+                    </TableHead>
+                    <TableHead />
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((model) => {
+                    const alreadyConfigured = configured.has(model.modelName);
+                    return (
+                      <TableRow key={model.modelName}>
+                        <TableCell className="max-w-44 font-main-ui-body sm:max-w-72">
+                          {!alreadyConfigured ? (
+                            <label className="flex min-w-0 items-center gap-2">
+                              <Checkbox
+                                checked={selected.includes(model.modelName)}
+                                disabled={action.pending}
+                                onCheckedChange={(checked) =>
+                                  setSelected((current) =>
+                                    checked === true
+                                      ? [...current, model.modelName]
+                                      : current.filter((name) => name !== model.modelName),
+                                  )
+                                }
+                              />
+                              <ModelName model={model} />
+                            </label>
+                          ) : (
+                            <ModelName model={model} />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {compactTokens(model.contextWindow)}
+                          {model.source === "none" && (
+                            <span className="block text-xs text-content-muted">
+                              {ui("Default")}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums sm:table-cell">
+                          {model.maxOutputTokens == null ? (
+                            <span className="text-content-muted">{ui("Default")}</span>
+                          ) : (
+                            compactTokens(model.maxOutputTokens)
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {millionTokenPrice(model.pricing?.inputPerMillion) ?? "—"}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {millionTokenPrice(model.pricing?.outputPerMillion) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {alreadyConfigured ? (
+                            <StatusBadge tone="success">{ui("Configured")}</StatusBadge>
+                          ) : model.source === "none" ? (
+                            <IconButton
+                              prominence="tertiary"
+                              size="sm"
+                              aria-label={ui("Edit first")}
+                              title={ui("Edit first")}
+                              disabled={action.pending}
+                              onClick={() => onManual(model)}
+                            >
+                              <Pencil />
+                            </IconButton>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
         {action.error && <p role="alert">{ui(action.error)}</p>}
         <div className="flex flex-wrap justify-end gap-2">
@@ -200,5 +254,32 @@ export function ModelDiscovery({
         </div>
       </div>
     </CatalogDialog>
+  );
+}
+
+/** The model id with the capabilities the endpoint or catalog published, as compact icons. */
+function ModelName({ model }: { model: ReportedModel }) {
+  const ui = useAppTranslation();
+  const capabilities = model.capabilities;
+  const flags = [
+    capabilities.toolCalling && { icon: Wrench, label: ui("Tool calling") },
+    capabilities.vision && { icon: Eye, label: ui("Vision input") },
+    capabilities.reasoning && { icon: Brain, label: ui("Reasoning") },
+  ].filter((flag) => flag !== false);
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate" title={model.modelName}>
+        {model.modelName}
+      </span>
+      {flags.length > 0 && (
+        <span className="flex gap-1.5 text-content-muted">
+          {flags.map(({ icon: Icon, label }) => (
+            <Icon key={label} className="size-3.5" aria-label={label} role="img">
+              <title>{label}</title>
+            </Icon>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }

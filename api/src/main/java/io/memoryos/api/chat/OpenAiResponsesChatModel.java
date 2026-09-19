@@ -228,6 +228,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         private ChatToolEvent.@Nullable Call lastSearch;
         private boolean searched;
         private boolean finished;
+        private boolean streamedText;
         private boolean separate;
 
         StreamState(Turn turn, FluxSink<ChatResponse> sink) {
@@ -238,6 +239,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
         void accept(ResponseStreamEvent event) {
             turn.checkActive().run();
             event.outputTextDelta().ifPresent(delta -> {
+                if (!delta.delta().isEmpty()) streamedText = true;
                 if (!delta.delta().isEmpty()) sink.next(new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(delta.delta()).build()))));
             });
             // Every summary part opens with a bold heading. Parts of a new reasoning item or of the next inference
@@ -255,6 +257,9 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
                 String reason = response.incompleteDetails().flatMap(details -> details.reason())
                         .map(value -> value.asString()).orElse("unknown");
                 LOG.warn("OpenAI response {} ended incomplete: {}", response.id(), reason);
+                // As Onyx, an answer that produced nothing before the model's output limit reports that reason.
+                if ("max_output_tokens".equals(reason) && !streamedText && !hasCompletedCall(response))
+                    throw new IllegalStateException("CHAT_MODEL_OUTPUT_LIMIT");
                 finish(response, "max_output_tokens".equals(reason) ? "length" : reason);
             });
             if (event.failed().isPresent() || event.error().isPresent())
@@ -319,6 +324,11 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
                     }
                 }
             }
+        }
+
+        private static boolean hasCompletedCall(com.openai.models.responses.Response response) {
+            return response.output().stream().anyMatch(item -> item.functionCall()
+                    .flatMap(call -> call.status()).map(status -> status.asString()).filter("completed"::equals).isPresent());
         }
 
         private void complete(com.openai.models.responses.Response response) {

@@ -54,6 +54,7 @@ import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
 import { DataBoundaryTag } from "./data-boundary";
 import {
+  type ReportedModel,
   compactTokens,
   millionTokenPrice,
   refreshModelCatalog,
@@ -71,7 +72,13 @@ type Editor =
       baseUrl?: string;
       name?: string;
     }
-  | { kind: "model"; providerId: string; initial?: ManagedModel; modelName?: string }
+  | {
+      kind: "model";
+      providerId: string;
+      initial?: ManagedModel;
+      modelName?: string;
+      reported?: ReportedModel;
+    }
   | { kind: "discovery"; providerId: string };
 type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
@@ -290,7 +297,9 @@ function ConnectionCard({
                       {compactTokens(model.settings.contextWindow)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums whitespace-nowrap">
-                      {compactTokens(model.settings.maxOutputTokens)}
+                      {model.settings.maxOutputTokens == null
+                        ? ui("Provider default")
+                        : compactTokens(model.settings.maxOutputTokens)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums whitespace-nowrap">
                       {millionTokenPrice(model.settings.pricing?.inputPerMillion) ?? ui("Unknown")}
@@ -743,9 +752,10 @@ function ModelsAdministration() {
       )}
       {editor?.kind === "model" && modelProvider && (
         <ModelEditor
-          key={editor.modelName ?? editor.initial?.id ?? "new"}
+          key={editor.reported?.modelName ?? editor.modelName ?? editor.initial?.id ?? "new"}
           initial={editor.initial}
           modelName={editor.modelName}
+          reported={editor.reported}
           models={models}
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
@@ -757,8 +767,8 @@ function ModelsAdministration() {
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
           models={models.filter((model) => model.providerId === modelProvider.id)}
-          onManual={(modelName) =>
-            setEditor({ kind: "model", providerId: modelProvider.id, modelName })
+          onManual={(reported) =>
+            setEditor({ kind: "model", providerId: modelProvider.id, reported })
           }
           onClose={() => setEditor(null)}
         />

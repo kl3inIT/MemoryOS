@@ -124,10 +124,10 @@ class ChatModelCatalogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/providers/{providerId}/reported-models")
     @Operation(operationId = "listReportedProviderModels",
-            summary = "List the model names the provider endpoint reports; requires model management")
+            summary = "List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management")
     ChatReportedModelsResponse reportedModels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID providerId) {
-        return new ChatReportedModelsResponse(models.reportedModels(identity.actorId(), providerId));
+        return ChatReportedModelsResponse.from(models.reportedModels(identity.actorId(), providerId));
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)

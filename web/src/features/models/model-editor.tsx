@@ -16,6 +16,8 @@ import {
 import { createChatModel, updateChatModel, validateChatModel } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
+  reportedDraft,
+  type ReportedModel,
   compactTokens,
   findKnownModel,
   matchesKnownModel,
@@ -56,9 +58,9 @@ function Specs({ draft, change }: { draft: ModelDraft; change: Change }) {
           {ui("Maximum output (tokens)")}
           <Input
             type="number"
-            required
             min={1}
             step={1}
+            placeholder={ui("Provider default")}
             value={draft.maxOutputTokens}
             onChange={(event) => change("maxOutputTokens", event.target.value)}
           />
@@ -124,6 +126,7 @@ type ValidationObservation = { providerRevision: number; modelRevision: number; 
 export function ModelEditor({
   initial,
   modelName,
+  reported,
   models,
   provider,
   adapter,
@@ -131,6 +134,8 @@ export function ModelEditor({
 }: {
   initial?: ManagedModel;
   modelName?: string;
+  /** A provider-reported model: its published limits, capabilities and prices prefill the form (MEM-130). */
+  reported?: ReportedModel;
   models: ManagedModel[];
   provider: ManagedProvider;
   adapter?: InstalledAdapter;
@@ -141,9 +146,11 @@ export function ModelEditor({
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
   const [draft, setDraft] = useState(() =>
-    modelName
-      ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
-      : modelDraft(initial, adapter),
+    reported
+      ? reportedDraft(reported, adapter)
+      : modelName
+        ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
+        : modelDraft(initial, adapter),
   );
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationObservation | null>(null);
@@ -353,7 +360,11 @@ export function ModelEditor({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-content-muted">{ui("Maximum output (tokens)")}</dt>
-                <dd className="tabular-nums">{compactTokens(Number(draft.maxOutputTokens))}</dd>
+                <dd className="tabular-nums">
+                  {draft.maxOutputTokens.trim() === ""
+                    ? ui("Provider default")
+                    : compactTokens(Number(draft.maxOutputTokens))}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-content-muted">{ui("Input price")}</dt>

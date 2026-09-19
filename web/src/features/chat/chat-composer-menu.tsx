@@ -60,6 +60,8 @@ export function ChatComposerMenu({
   research?: {
     value: boolean;
     onChange: (enabled: boolean) => void;
+    /** Why the selected model cannot research (MEM-130); the toggle is disabled with this reason. */
+    unsupported?: string;
   };
   disabled: boolean;
   /** Tools the conversation's agent allows (Onyx per-agent tools); absent means all. */
@@ -183,9 +185,9 @@ export function ChatComposerMenu({
           type="button"
           size="sm"
           prominence={research.value ? "secondary" : "internal"}
-          aria-pressed={research.value}
-          title={ui("Deep research")}
-          disabled={disabled}
+          aria-pressed={research.value && !research.unsupported}
+          title={research.unsupported ?? ui("Deep research")}
+          disabled={disabled || Boolean(research.unsupported)}
           onClick={() => research.onChange(!research.value)}
         >
           <Telescope className="size-4" aria-hidden="true" />

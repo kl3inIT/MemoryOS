@@ -10785,8 +10785,8 @@ paths:
     get:
       tags:
       - Chat models
-      summary: List the model names the provider endpoint reports; requires model
-        management
+      summary: "List the models the provider endpoint reports with the limits, capabilities\
+        \ and prices it or the installed catalog publishes; requires model management"
       operationId: listReportedProviderModels
       parameters:
       - name: providerId
@@ -14625,8 +14625,12 @@ components:
           maximum: 10000000
           minimum: 256
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
+          description: Omitted when the provider publishes no output limit; no cap
+            is then sent
           minimum: 1
         capabilities:
           $ref: "#/components/schemas/CapabilitiesInput"
@@ -14643,7 +14647,6 @@ components:
       required:
       - capabilities
       - contextWindow
-      - maxOutputTokens
       - options
       - tokenizerProfile
     PricingInput:
@@ -14713,7 +14716,9 @@ components:
           type: integer
           format: int32
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
         capabilities:
           $ref: "#/components/schemas/Capabilities"
@@ -17855,11 +17860,18 @@ components:
             $ref: "#/components/schemas/GeneratedFileRef"
         research:
           $ref: "#/components/schemas/ChatMessageResearch"
+        failureCode:
+          type:
+          - string
+          - "null"
+          description: "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT;\
+            \ null otherwise"
       required:
       - activity
       - artifacts
       - content
       - createdAt
+      - failureCode
       - files
       - finishedAt
       - generatedFiles
@@ -18527,6 +18539,67 @@ components:
       required:
       - hasMore
       - items
+    ChatReportedModel:
+      type: object
+      additionalProperties: false
+      properties:
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/ChatReportedModelCapabilities"
+        pricing:
+          type: "null"
+          $ref: "#/components/schemas/ChatReportedModelPricing"
+        source:
+          type: string
+          description: "Where the specs come from: the endpoint itself, the installed\
+            \ catalog, or Onyx's defaults"
+          enum:
+          - provider
+          - catalog
+          - none
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - modelName
+      - pricing
+      - source
+    ChatReportedModelCapabilities:
+      type: object
+      additionalProperties: false
+      properties:
+        toolCalling:
+          type: boolean
+        vision:
+          type: boolean
+        reasoning:
+          type: boolean
+      required:
+      - reasoning
+      - toolCalling
+      - vision
+    ChatReportedModelPricing:
+      type: object
+      additionalProperties: false
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
     ChatReportedModels:
       type: object
       additionalProperties: false
@@ -18534,7 +18607,7 @@ components:
         models:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/ChatReportedModel"
       required:
       - models
     Descriptor:
@@ -18616,7 +18689,9 @@ components:
           type: integer
           format: int32
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
         pricing:
           oneOf:

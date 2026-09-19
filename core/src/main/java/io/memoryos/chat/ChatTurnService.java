@@ -35,7 +35,7 @@ public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
     private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
             "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS",
-            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT");
+            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT", "CHAT_MODEL_OUTPUT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelResolver models;
@@ -155,8 +155,9 @@ public final class ChatTurnService implements AutoCloseable {
             if (command.deepResearch()) {
                 // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
                 int minimum = research == null ? 50_000 : research.minimumContextTokens();
-                if (!binding.toolCalling() || binding.contextWindow() < minimum || persistence.inProject(actor, session))
-                    throw ChatException.researchUnavailable();
+                // MEM-130: a model that cannot research is not the organization's setting, so it has its own code.
+                if (persistence.inProject(actor, session)) throw ChatException.researchUnavailable();
+                if (!binding.toolCalling() || binding.contextWindow() < minimum) throw ChatException.researchModelUnsupported();
             }
             String contribution = java.util.stream.Stream.concat(
                     java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
@@ -188,7 +189,7 @@ public final class ChatTurnService implements AutoCloseable {
                 imageAccess = images.resolve(actor);
                 if (imageAccess.generate() == null) throw ChatException.providerUnavailable();
             }
-            int contextLimit = Math.min(limits.contextTokenLimit(), binding.contextWindow() - Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
+            int contextLimit = Math.min(limits.contextCap(), binding.inputLimit(limits.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));

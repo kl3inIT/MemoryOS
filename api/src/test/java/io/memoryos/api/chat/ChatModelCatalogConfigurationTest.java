@@ -29,9 +29,32 @@ class ChatModelCatalogConfigurationTest {
     }
 
     @Test
+    void aCatalogModelImportsItsOwnLimitsAndPricesNotTheExecutionBounds() {
+        // MEM-130: staging imported gpt-5-mini as 36096/4096 (context-token-limit + max-output-tokens).
+        var persona = new PersonaProperties();
+        persona.setModel("gpt-5-mini");
+        var known = ChatKnownModels.models().stream().filter(model -> model.modelName().equals("gpt-5-mini")).findFirst().orElseThrow();
+        var deployment = new ChatModelCatalogConfiguration().chatDeploymentModel(persona, limits(null),
+                "http://model.internal/v1", -1, -1, null, null, null, null);
+        assertEquals(known.contextWindow(), deployment.settings().contextWindow());
+        assertEquals(known.maxOutputTokens(), deployment.settings().maxOutputTokens());
+        assertEquals(known.pricing(), deployment.settings().pricing());
+
+        persona.setModel("custom-deployment");
+        var unknown = new ChatModelCatalogConfiguration().chatDeploymentModel(persona, limits(null),
+                "http://model.internal/v1", -1, -1, null, null, null, null);
+        // Onyx's defaults, as for a discovered model nobody describes: a 32,000-token window and no output cap.
+        assertEquals(32_000, unknown.settings().contextWindow());
+        assertNull(unknown.settings().maxOutputTokens());
+        assertNull(unknown.settings().pricing());
+    }
+
+    @Test
     void finiteCostBudgetRequiresDeploymentPricingAtStartup() {
         var config = new ChatModelCatalogConfiguration();
-        assertThrows(IllegalArgumentException.class, () -> config.chatDeploymentModel(new PersonaProperties(), limits(1.0),
+        var unpriced = new PersonaProperties();
+        unpriced.setModel("custom-deployment");
+        assertThrows(IllegalArgumentException.class, () -> config.chatDeploymentModel(unpriced, limits(1.0),
                 "http://model.internal/v1", -1, -1, null, null, null, null));
         assertNotNull(config.chatDeploymentModel(new PersonaProperties(), limits(1.0),
                 "http://model.internal/v1", 0, 0, null, null, null, null).settings().pricing());

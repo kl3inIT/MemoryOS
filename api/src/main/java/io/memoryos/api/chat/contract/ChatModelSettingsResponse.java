@@ -8,7 +8,7 @@ import java.util.Map;
 @Schema(name = "ModelSettings")
 public record ChatModelSettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int contextWindow,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int maxOutputTokens,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}) @Nullable Integer maxOutputTokens,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatModelCapabilitiesResponse capabilities,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Map<String, Object> options,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"object", "null"})

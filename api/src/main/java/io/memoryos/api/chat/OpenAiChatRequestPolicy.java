@@ -27,11 +27,13 @@ final class OpenAiChatRequestPolicy {
                     for (var message : prompt.getInstructions()) checkMessage(message, capabilities.toolCalling(), capabilities.vision());
                     boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
                     Integer requested = completionTokens ? options.getMaxCompletionTokens() : options.getMaxTokens();
-                    int output = requested == null ? settings.maxOutputTokens() : Math.min(requested, settings.maxOutputTokens());
-                    if (output < 1) throw ChatException.invalid("Invalid output token limit.");
+                    Integer limit = settings.maxOutputTokens();
+                    // Neither a request cap nor a published model limit: send none, so the provider default applies (Onyx).
+                    Integer output = requested == null ? limit : limit == null ? requested : Integer.valueOf(Math.min(requested, limit));
+                    if (output != null && output < 1) throw ChatException.invalid("Invalid output token limit.");
                     var builder = options.mutate().maxCompletionTokens(null).maxTokens(null);
-                    if (completionTokens) builder.maxCompletionTokens(output);
-                    else builder.maxTokens(output);
+                    if (output != null && completionTokens) builder.maxCompletionTokens(output);
+                    else if (output != null) builder.maxTokens(output);
                     if (!capabilities.toolCalling()) builder.toolCallbacks(List.of()).toolContext(null).toolChoice(null).parallelToolCalls(null).strict(null);
                     if (!capabilities.reasoning()) builder.reasoningEffort(null);
                     return new Prompt(prompt.getInstructions(), builder.build());

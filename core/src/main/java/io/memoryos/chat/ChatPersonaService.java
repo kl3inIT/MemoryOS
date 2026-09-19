@@ -533,7 +533,7 @@ public class ChatPersonaService {
                 .findFirst().orElseThrow(() -> ChatException.invalid("Choose an available model."));
         Integer contextLimit = entity.contextTokenLimit(), outputLimit = entity.outputTokenLimit();
         if (contextLimit != null && contextLimit >= selected.contextWindow()
-                || outputLimit != null && outputLimit > selected.maxOutputTokens())
+                || outputLimit != null && selected.maxOutputTokens() != null && outputLimit > selected.maxOutputTokens())
             throw ChatException.invalid("Assistant limits exceed the selected model limits.");
     }
 

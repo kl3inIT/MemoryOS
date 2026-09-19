@@ -45,14 +45,24 @@ class ChatModelCatalogConfiguration {
         if (!Double.isFinite(input) || !Double.isFinite(output) || input < -1 || output < -1 || ((input < 0) != (output < 0)))
             throw new IllegalArgumentException("Invalid Chat pricing configuration");
         var pricing = input < 0 ? null : new ModelSettings.Pricing(input, output);
-        if (pricing == null && limits.costCapped())
-            throw new IllegalArgumentException("A Chat cost budget requires configured deployment model pricing");
-        // Compatibility import for the existing deployment. Catalog adapters never infer all model options from a name.
+        // Compatibility import for the existing deployment. The installed catalog supplies the model's own limits,
+        // capabilities and prices (MEM-130): the execution limits are runtime bounds, never the model's context window.
         boolean gpt5 = persona.getModel().startsWith("gpt-5");
-        var settings = new ModelSettings(limits.contextTokenLimit() + limits.maxOutputTokens(), limits.maxOutputTokens(),
-                new ModelSettings.Capabilities(true, toolCalling == null ? gpt5 : toolCalling,
-                        vision == null ? gpt5 : vision, reasoning == null ? gpt5 : reasoning),
-                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens), pricing, "openai-o200k-v1");
+        var known = io.memoryos.chat.catalog.ChatModelResolver.findKnown(persona.getModel(), ChatKnownModels.models());
+        // A model the catalog does not know takes Onyx's defaults, as a discovered one does: a 32,000-token window
+        // and no output cap.
+        int contextWindow = known != null ? known.contextWindow() : io.memoryos.chat.catalog.ChatModelResolver.FALLBACK_CONTEXT_WINDOW;
+        Integer maxOutput = known != null ? Integer.valueOf(known.maxOutputTokens()) : null;
+        boolean defaultCapability = known == null && gpt5;
+        var settings = new ModelSettings(contextWindow, maxOutput,
+                new ModelSettings.Capabilities(true,
+                        toolCalling != null ? toolCalling : known != null ? known.capabilities().toolCalling() : defaultCapability,
+                        vision != null ? vision : known != null ? known.capabilities().vision() : defaultCapability,
+                        reasoning != null ? reasoning : known != null ? known.capabilities().reasoning() : defaultCapability),
+                Map.of("maxCompletionTokens", maxCompletionTokens == null ? gpt5 : maxCompletionTokens),
+                pricing != null ? pricing : known != null ? known.pricing() : null, "openai-o200k-v1");
+        if (settings.pricing() == null && limits.costCapped())
+            throw new IllegalArgumentException("A Chat cost budget requires configured deployment model pricing");
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean

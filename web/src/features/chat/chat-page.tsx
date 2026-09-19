@@ -1,3 +1,4 @@
+import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -192,6 +193,17 @@ function ChatConversation({
     (persona?.tools.includes("search") === true ||
       (persona?.tools.includes("web_search") !== false &&
         webAvailability.data?.searchAvailable === true));
+  // MEM-130: the server rejects research on a model without tool calling or under 50,000 tokens; say so up front.
+  const { catalog: modelCatalog } = useChatModels(session?.id);
+  const selectedModel = modelCatalog.data?.find((candidate) => candidate.id === model.choice.id);
+  const researchUnsupported =
+    selectedModel &&
+    (!selectedModel.capabilities.toolCalling ||
+      selectedModel.contextWindow < RESEARCH_MINIMUM_CONTEXT)
+      ? ui(
+          "Mô hình này không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token.",
+        )
+      : undefined;
   // Until the session agent is known, no tool is sent: a command must never carry a tool the agent forbids.
   const allowedTools = useMemo(
     () =>
@@ -321,7 +333,7 @@ function ChatConversation({
                       modelConfigurationId: model.choice.id,
                       fileIds,
                       webSearch: shownWebSearch,
-                      deepResearch: researchAvailable && deepResearch,
+                      deepResearch: researchAvailable && !researchUnsupported && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
@@ -337,7 +349,7 @@ function ChatConversation({
                       clientRequestId,
                       modelConfigurationId: modelConfigurationId ?? model.choice.id,
                       webSearch: shownWebSearch,
-                      deepResearch: researchAvailable && deepResearch,
+                      deepResearch: researchAvailable && !researchUnsupported && deepResearch,
                     },
                     headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
@@ -408,6 +420,7 @@ function ChatConversation({
                   research={
                     researchAvailable
                       ? {
+                          unsupported: researchUnsupported,
                           value: deepResearch,
                           onChange: (enabled) => {
                             transport.selectResearch(enabled);
