@@ -56,15 +56,18 @@ through the live API (Onyx) with answer metrics (RAGAS).
    `.tmp/rag-benchmark/` (ignored) or a private store, never in Git. The repository holds the code, the dataset
    schema, a synthetic public sample for tests, and summary numbers without content.
 
-## Open decisions
+## Accepted decisions (2026-09-19)
 
-- **Benchmark identity.** The API accepts a Keycloak bearer token; a dedicated benchmark user in the staging tenant
-  needs a non-interactive token (a confidential client with a service account, or a password grant on a test-only
-  client). Choose one before the live layers run.
-- **Corpus.** Staging currently holds 58 HUT/Vietstock documents (about 708K tokens); the six scanned Tasco reports
-  are not indexed there. Start with the staging corpus; add the Tasco set when it is indexed.
-- **Judge and generator model and key.** Default OpenAI `gpt-5-mini` for generation and judging, through the key the
-  deployment already uses for embeddings.
+- **Benchmark identity:** a confidential Keycloak client with a service account, mapped to a dedicated benchmark user
+  in the staging tenant; the runner takes client-credentials tokens, with no interactive login.
+- **Judge and generator:** OpenRouter `qwen/qwen3.8-27b`, temperature 0, with its own key
+  (`RAG_BENCHMARK_OPENROUTER_API_KEY` in Infisical `dev` and `staging`), separate from the deployment's keys. JSON
+  mode verified. Staging also serves this model to Chat, so a chat run scored by it grades its own answers: chat runs
+  record the answering model and prefer another model under test; deterministic metrics stay primary.
+- **Embeddings for the offline chunking layer:** the deployment's `text-embedding-3-large` key
+  (`SPRING_AI_OPENAI_API_KEY`), so offline results match production vectors.
+- **Corpus:** the 58 staging documents first (about 708K tokens; `.md` chunks average 737 tokens, `.docx` 82); the
+  six scanned Tasco reports when they are indexed.
 
 ## Out of scope
 
