@@ -808,6 +808,36 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aiCostsReportTheLedgerOnlyToModelManagers() throws Exception {
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5.1', 'EXTERNAL', 3, 900, 120, 0.05, 1)
+                """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isForbidden());
+        grantModelManagement();
+        mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.calls").value(3)).andExpect(jsonPath("$.unknownCostCalls").value(1))
+                .andExpect(jsonPath("$.externalCost").value(0.05)).andExpect(jsonPath("$.activePeople").value(1));
+        mockMvc.perform(get("/api/ai-costs/breakdown").param("from", today).param("to", today).param("by", "MODEL").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].label").value("gpt-5.1")).andExpect(jsonPath("$[0].detail").value("OpenAI"));
+        mockMvc.perform(get("/api/ai-costs/daily").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].series").value("EXTERNAL"));
+        mockMvc.perform(get("/api/ai-costs/detail").param("from", today).param("to", today)
+                        .param("actorId", actor.getPrincipal().actorId().value().toString()).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(3)).andExpect(jsonPath("$.flows[0].label").value("CHAT"));
+        mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", "2020-01-01").with(authentication(actor)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/ai-costs/breakdown").param("from", today).param("to", today).param("by", "MODEL").param("limit", "500")
+                .with(authentication(actor))).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(other)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata() throws Exception {
         var spec = "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"September\",\"value\":\"125000\"}}}";
         var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Revenue", "spec", spec));
