@@ -39,6 +39,28 @@ const TINTS: Record<DocumentKind, string> = {
   generic: "text-content-secondary",
 };
 
+/** The tinted file-type glyph alone, for rows and chips that draw their own frame. */
+export function DocumentKindIcon({
+  mediaType,
+  filename,
+  className,
+}: {
+  mediaType?: string | null;
+  filename?: string | null;
+  className?: string;
+}) {
+  const kind = documentKind(mediaType, filename);
+  const Icon = ICONS[kind];
+  return (
+    <Icon
+      aria-hidden="true"
+      data-slot="document-kind-icon"
+      data-kind={kind}
+      className={cn("size-4 shrink-0", TINTS[kind], className)}
+    />
+  );
+}
+
 /**
  * File-type glyph with a provider badge. Uploaded files are the default provenance, so only external
  * providers receive a badge. Missing metadata (answers saved before it was recorded) renders the
@@ -46,16 +68,19 @@ const TINTS: Record<DocumentKind, string> = {
  */
 export function DocumentSourceIcon({
   mediaType,
+  filename,
   sourceTypes,
   size = "md",
   className,
 }: {
   mediaType?: string | null;
+  /** The document title, used for the type when the media type is generic (a file sent as octet-stream). */
+  filename?: string | null;
   sourceTypes?: readonly DocumentSourceType[];
   size?: "xs" | "md" | "lg";
   className?: string;
 }) {
-  const kind = documentKind(mediaType);
+  const kind = documentKind(mediaType, filename);
   const Icon = ICONS[kind];
   const badge = sourceTypes?.find((type) => type !== "FILE");
   // At chip size a badge is an unreadable smudge; the adjacent text names the provider instead.

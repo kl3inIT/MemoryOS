@@ -22,6 +22,23 @@ it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => 
   expect(initialChatTitle(" ")).toBe(i18n.t("app:Hội thoại mới", { keySeparator: false }));
   expect(initialChatTitle("😀".repeat(45))).toBe("😀".repeat(40) + "…");
 });
+it("places a question's attached files above its text", () => {
+  const [question] = toUiMessages([
+    {
+      ...row,
+      role: "USER",
+      content: "Từ file dữ liệu đính kèm, hãy tổng hợp doanh thu.",
+      files: [
+        {
+          id: "0f5a3c1e-2b7d-4e8a-9c61-7d2e4b5a6f10",
+          filename: "doanh-thu-2026-theo-mien.xlsx",
+          mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    } as ChatMessage,
+  ]);
+  expect(question?.parts.map((part) => part.type)).toEqual(["file", "text"]);
+});
 it("keeps family emoji and combining marks intact at the title boundary", () => {
   for (const grapheme of ["👨‍👩‍👧‍👦", "e\u0301", "a\u0306\u0301"]) {
     expect(initialChatTitle("A".repeat(39) + grapheme + "x")).toBe("A".repeat(39) + grapheme + "…");

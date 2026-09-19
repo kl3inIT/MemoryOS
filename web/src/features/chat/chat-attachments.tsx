@@ -13,7 +13,7 @@ export function ChatSharedFilePart({
 
   return (
     <FileDisplay.Root className="my-1 max-w-full">
-      <FileDisplay.Icon mimeType={mimeType} />
+      <FileDisplay.Icon mimeType={mimeType} filename={filename} />
       <FileDisplay.Name title={filename}>{filename ?? ui("Tệp đính kèm")}</FileDisplay.Name>
     </FileDisplay.Root>
   );
