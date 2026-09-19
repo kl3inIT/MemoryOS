@@ -7,6 +7,7 @@ export function SettingRow({
   description,
   control,
   htmlFor,
+  descriptionId,
   icon,
   className,
 }: {
@@ -15,6 +16,7 @@ export function SettingRow({
   description?: ReactNode;
   control: ReactNode;
   htmlFor?: string;
+  descriptionId?: string;
   className?: string;
 }) {
   const Title = htmlFor ? "label" : "span";
@@ -33,7 +35,9 @@ export function SettingRow({
           {title}
         </Title>
         {description && (
-          <p className="mt-0.5 font-secondary-body text-content-muted">{description}</p>
+          <p id={descriptionId} className="mt-0.5 font-secondary-body text-content-muted">
+            {description}
+          </p>
         )}
       </div>
       <div className="shrink-0">{control}</div>

@@ -132,6 +132,9 @@ jobs:
       - name: Verify Grafana SSO credential boundary
         run: python3 -m unittest discover -s infrastructure/observability -p 'test_*.py'
 
+      - name: Verify Keycloak theme contract
+        run: python3 -m unittest discover -s infrastructure/keycloak -p 'test_*.py'
+
       - name: Verify Search administration and certificate renewal
         run: python3 -m unittest discover -s infrastructure/opensearch -p 'test_*.py'
 

@@ -16,7 +16,7 @@ The Tenant Chat default must be visible, enabled, credential-ready, public and u
 
 ### Task models
 
-Flyway V80 adds `model_flow_default`, one row per Tenant and flow (Onyx `llm_model_flow`). A flow is a task beside the conversation that may use its own model; `CHAT_NAMING` (conversation titles) is the only flow. A null model means the task uses the conversation model. Rows are seeded with the catalog and backfilled for existing Tenants, and each carries its own revision.
+Flyway V84 adds `model_flow_default`, one row per Tenant and flow (Onyx `llm_model_flow`). A flow is a task beside the conversation that may use its own model; `CHAT_NAMING` (conversation titles) is the only flow. A null model means the task uses the conversation model. Rows are seeded with the catalog and backfilled for existing Tenants, and each carries its own revision.
 
 Setting a flow model uses the Chat default eligibility rule, because flow output is not tied to one actor's model access. Unlike the Chat default, a flow model never blocks catalog changes: deleting its model or provider clears it (`ON DELETE SET NULL`), and hiding the model or disabling or restricting its provider leaves it set but unavailable. `ModelCatalogService.resolveFlow` returns the flow model only while it is still eligible and otherwise exactly the model `resolve` picks for the conversation, without a fallback reason; a flow never fails its task. `ChatTurnService.generateTitle` resolves `CHAT_NAMING`. The Chat default stays in `chat_model_default` because it is mandatory and marks catalog initialization.
 
@@ -53,7 +53,7 @@ HTTP(S) endpoints are supported, including internal HTTP and private/loopback ho
 
 The deployment import accepts explicit `memoryos.chat.provider.max-completion-tokens`, `tool-calling`, `vision` and `reasoning` booleans. Unset properties retain the legacy GPT-5 defaults; explicit values override them for differently named deployments. These settings initialize the catalog once and supply platform-default metadata; they do not overwrite subsequent admin catalog edits. A finite deployment cost budget with unknown deployment pricing fails at startup, while selected catalog models are also checked per turn.
 
-Web search and image generation remain separately configured tools. Vision input capability does not mean image generation support. Neither tool is implemented by this catalog change.
+Web search, image generation and [Voice](../increments/active/mem-91-chat-voice/design.md) remain separately configured Chat capabilities. Vision input capability does not mean image generation support. None of those provider connections is owned by the LLM catalog.
 
 ## Backend API
 

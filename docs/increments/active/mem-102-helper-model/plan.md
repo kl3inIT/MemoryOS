@@ -4,7 +4,7 @@ One pull request on `kl3inIT/mem-102-helper-model`.
 
 ## 1. Schema
 
-- [x] V80: `model_flow_default` (Tenant and flow key, nullable model with `ON DELETE SET NULL`, revision) backfilled with `CHAT_NAMING` for every Tenant that has a Chat default; `llm_provider.data_boundary` (`INTERNAL | EXTERNAL`, default `EXTERNAL`).
+- [x] V84: `model_flow_default` (Tenant and flow key, nullable model with `ON DELETE SET NULL`, revision) backfilled with `CHAT_NAMING` for every Tenant that has a Chat default; `llm_provider.data_boundary` (`INTERNAL | EXTERNAL`, default `EXTERNAL`).
 
 ## 2. Catalog
 

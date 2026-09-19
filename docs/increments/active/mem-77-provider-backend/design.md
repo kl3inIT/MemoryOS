@@ -237,6 +237,37 @@ Validate currently returns only `{reachable, failureCode}`, not revision metadat
 
 Use management provider/model reads for administration/default pickers, not the Persona-scoped Chat-visible list. Tenant default requires visible model and installed, enabled, credential-usable, public, Persona-unrestricted provider; nonempty legacy Group associations do not disqualify a public provider. Persona assignment follows the chosen Persona allowlist even for managers; a manager-only local provider is eligible without granting others access. Retain and label a saved hidden Persona selection instead of silently clearing it. All choices use UUIDs, not labels.
 
+## Proposed AI Models UI redesign — awaiting product approval
+
+The current `/admin/models` surface exposes the correct management contracts but presents provider IDs, revisions, endpoint details, eligibility rules and destructive actions as stacked subtitle paragraphs. The proposal keeps every authorization, secret-lifetime, revision and default-selection invariant while replacing that text-heavy hierarchy with an enterprise catalog workspace. This is a design proposal only; the interactive [HTML prototype](models-ui-redesign-prototype.html) is not product code.
+
+### Information architecture
+
+- Keep one `AI Models` page with two first-level tabs: **Catalog** and **Defaults**. Catalog is the operational inventory; Defaults is selection policy. Provider/model configuration and default assignment no longer compete in one vertical page.
+- Catalog uses a provider master/detail layout on desktop. The provider rail shows only name, model count and enabled state. The selected provider owns a compact header, explicit status badges, endpoint/adapter/ID metadata and one semantic model table.
+- The model table exposes only consumer-relevant comparison fields: display/API name, visibility, capabilities, context/output limits and paired pricing. UUIDs and revisions move out of subtitles into metadata, reconciliation feedback or the editor footer.
+- Defaults gives the Tenant default one compact form and presents assistant overrides as a searchable table. User-facing copy says **Assistant**, while backend contracts retain `Persona`. Inherit, hidden saved selections, manager-only access and eligibility remain explicit states.
+- Provider and model create/edit flows use a right-side sheet on desktop and a full-screen sheet on mobile. The catalog remains visible as context. Long model settings are grouped as Identity, Token limits, Capabilities, Request options and Pricing with a sticky action footer.
+
+### Visual and copy policy
+
+- Preserve the existing monochrome MemoryOS tokens, Hanken Grotesk hierarchy, control sizing, focus treatment and light/dark themes. Do not add a parallel design system or another component dependency.
+- Page headers contain the title and primary action only. Remove the current page description, quota line and generic “hidden/disabled remain editable” copy.
+- Provider and model titles have no UUID, revision, endpoint or state subtitle. Represent state with `StatusBadge`; represent technical identifiers in labeled metadata cells using monospace text.
+- Remove generic instructional subtitles beneath section titles and fields. Retain concise point-of-action help only where omission creates security or data-loss risk: trusted-network HTTP, credential replacement/removal, default eligibility, validation scope, conflict reconciliation and destructive impact.
+- Use one visible primary action per surface. Refresh is icon-only with an accessible name; destructive actions live behind the overflow menu or the existing confirmation dialog, not beside every normal row action.
+
+### Interaction and responsive contract
+
+- Selecting a provider updates the detail pane without navigation. Provider/model overflow menus expose edit and delete; clicking a model row or Edit opens the same model sheet.
+- Validation remains available only for clean saved model settings. Its result stays transient and revision-bound; the catalog must never render it as durable provider health.
+- Desktop at 1280 px and above uses the master/detail catalog and model table. At tablet widths the provider rail narrows without removing metadata. At 760 px and below providers become a horizontal selector, model rows become stacked comparison cards without horizontal document overflow, and sheets occupy the viewport.
+- Loading, stale-data warning, empty, denied, conflict, validation and deletion states retain their existing behavioral contracts. The redesign changes information hierarchy and copy, not API behavior, authorization, default eligibility or secret handling.
+
+### Reuse and implementation boundary
+
+Reuse `SettingsLayout`, `PageHeader` without `description`, `Button`, `IconButton`, `Input`, `Select`, `StatusBadge`, `ConfirmDialog`, existing action state and Radix Dialog behavior. Extend the Models-owned dialog presentation into a sheet rather than introducing another overlay primitive. Keep TanStack Query keys, generated SDK calls, secret refs, revision reconciliation and authority-driven cache purge unchanged. No product implementation begins until the user approves the prototype and information architecture.
+
 ## Cross-increment contracts and completion boundary
 
 - MEM-11 consumes `modelConfigurationId`, authorized model listing and accepted actual-selection/fallback metadata. Its Chat selector and general Persona editor are not implemented here. UUID identity, idempotency, transcript and SSE semantics remain unchanged.

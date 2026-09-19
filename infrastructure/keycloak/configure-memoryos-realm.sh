@@ -182,6 +182,17 @@ find_mapper_uuid() {
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
+require_memoryos_theme() {
+    theme_count=$("$KCADM" get serverinfo \
+        --config "$CONFIG_FILE" |
+        jq -r '[.themes.login[]? | select(.name == "memoryos")] | length')
+    if [ "$theme_count" -ne 1 ]; then
+        echo "MemoryOS login theme is not available to Keycloak" >&2
+        exit 1
+    fi
+    echo "theme=memoryos type=login action=available"
+}
+
 configure_realm() {
     jq -cn '{
         displayName: "MemoryOS",
@@ -211,7 +222,15 @@ configure_realm() {
         "$KCADM" update "realms/$TARGET_REALM" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
-    echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
+    configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
+        --config "$CONFIG_FILE" \
+        --fields loginTheme |
+        jq -r '.loginTheme // empty')
+    if [ "$configured_theme" != "memoryos" ]; then
+        echo "MemoryOS realm login theme did not converge" >&2
+        exit 1
+    fi
+    echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=updated"
 }
 
 configure_provisioning_profile() {
@@ -232,6 +251,7 @@ configure_provisioning_profile() {
     echo "realm=$TARGET_REALM provisioning-provenance=admin-only"
 }
 
+require_memoryos_theme
 configure_realm
 configure_provisioning_profile
 

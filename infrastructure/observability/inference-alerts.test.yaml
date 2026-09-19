@@ -1,0 +1,73 @@
+rule_files:
+  - alerts.yaml
+evaluation_interval: 30s
+tests:
+  - name: Idle engine is not overload or slow generation
+    interval: 30s
+    input_series:
+      - series: 'up{job="memoryos-inference",instance="vllm:8000"}'
+        values: '1+0x20'
+      - series: 'vllm:num_requests_running{job="memoryos-inference"}'
+        values: '0+0x20'
+      - series: 'vllm:num_requests_waiting{job="memoryos-inference"}'
+        values: '0+0x20'
+      - series: 'vllm:kv_cache_usage_perc{job="memoryos-inference"}'
+        values: '0+0x20'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname=~"MemoryOSInference.*",alertstate="firing"}'
+        eval_time: 10m
+        exp_samples: []
+  - name: Single-slot and KV fraction violations trigger warning rules
+    interval: 30s
+    input_series:
+      - series: 'up{job="memoryos-inference",instance="vllm:8000"}'
+        values: '1+0x8'
+      - series: 'vllm:num_requests_running{job="memoryos-inference"}'
+        values: '2+0x8'
+      - series: 'vllm:num_requests_waiting{job="memoryos-inference"}'
+        values: '1+0x8'
+      - series: 'vllm:kv_cache_usage_perc{job="memoryos-inference"}'
+        values: '0.91+0x8'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname=~"MemoryOSInference(Waiting|RunningOverLimit|KVPressure)",alertstate="firing",severity="warning"})'
+        eval_time: 3m
+        exp_samples:
+          - labels: '{}'
+            value: 3
+  - name: Failed native scrape triggers availability warning after two minutes
+    interval: 30s
+    input_series:
+      - series: 'up{job="memoryos-inference",instance="vllm:8000"}'
+        values: '0+0x6'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="MemoryOSInferenceEngineUnavailable",alertstate="firing"}'
+        eval_time: 90s
+        exp_samples: []
+      - expr: 'count(ALERTS{alertname="MemoryOSInferenceEngineUnavailable",alertstate="firing",severity="warning"})'
+        eval_time: 2m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+  - name: Native latency histograms use seconds rather than milliseconds
+    interval: 30s
+    input_series:
+      - series: 'up{job="memoryos-inference",instance="vllm:8000"}'
+        values: '1+0x16'
+      - series: 'vllm:time_to_first_token_seconds_bucket{job="memoryos-inference",le="1"}'
+        values: '0+0x16'
+      - series: 'vllm:time_to_first_token_seconds_bucket{job="memoryos-inference",le="10"}'
+        values: '0+10x16'
+      - series: 'vllm:time_to_first_token_seconds_bucket{job="memoryos-inference",le="+Inf"}'
+        values: '0+10x16'
+      - series: 'vllm:e2e_request_latency_seconds_bucket{job="memoryos-inference",le="10"}'
+        values: '0+0x16'
+      - series: 'vllm:e2e_request_latency_seconds_bucket{job="memoryos-inference",le="30"}'
+        values: '0+10x16'
+      - series: 'vllm:e2e_request_latency_seconds_bucket{job="memoryos-inference",le="+Inf"}'
+        values: '0+10x16'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname=~"MemoryOSInference(FirstTokenSlow|GenerationSlow)",alertstate="firing",severity="warning"})'
+        eval_time: 6m
+        exp_samples:
+          - labels: '{}'
+            value: 2

@@ -39,18 +39,28 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             JOIN connector_items item
               ON item.tenant_id = attempt.tenant_id
              AND item.id = attempt.connector_item_id
+            JOIN connectors connector
+              ON connector.tenant_id = item.tenant_id
+             AND connector.id = item.connector_id
             WHERE tenant.status = 'ACTIVE'
               AND pair.status NOT IN ('DELETING', 'PAUSED')
               AND item.status <> 'DELETING'
               AND item.current_version_id = attempt.connector_item_version_id
-              AND (item.provider_file_id IS NULL OR EXISTS (
-                  SELECT 1 FROM google_drive_membership m
-                  JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
-                  JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
-                  WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
-                    AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
-                    AND v.scope_revision = s.revision
-              ))
+              AND (item.provider_file_id IS NULL
+                OR (connector.connector_type = 'GOOGLE_DRIVE' AND EXISTS (
+                    SELECT 1 FROM google_drive_membership m
+                    JOIN google_drive_sources s ON s.tenant_id = m.tenant_id AND s.source_id = m.source_id
+                    JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                    WHERE m.tenant_id = pair.tenant_id AND m.source_id = pair.id
+                      AND m.file_id = item.provider_file_id AND m.eligible AND NOT m.excluded
+                      AND v.scope_revision = s.revision
+                ))
+                OR (connector.connector_type = 'SHAREPOINT' AND EXISTS (
+                    SELECT 1 FROM sharepoint_sources s
+                    JOIN connector_item_versions v ON v.tenant_id = item.tenant_id AND v.id = item.current_version_id
+                    WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id
+                      AND v.scope_revision = s.scope_revision
+                )))
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (
@@ -82,6 +92,18 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             JOIN tenants tenant ON tenant.id = attempt.tenant_id
             JOIN connector_credential_pairs pair ON pair.tenant_id = attempt.tenant_id AND pair.id = attempt.source_id
             WHERE tenant.status = 'ACTIVE' AND pair.status NOT IN ('DELETING', 'PAUSED')
+              AND attempt.next_dispatch_at <= :now
+              AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
+              AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
+            ORDER BY attempt.created_at, attempt.id LIMIT :limit
+            FOR UPDATE OF attempt SKIP LOCKED
+            """;
+
+    private static final String SHAREPOINT_SELECTION_CANDIDATES = """
+            SELECT attempt.id, attempt.tenant_id, attempt.origin_trace_id, attempt.origin_span_id
+            FROM sharepoint_selection_operations attempt
+            JOIN tenants tenant ON tenant.id = attempt.tenant_id
+            WHERE tenant.status = 'ACTIVE'
               AND attempt.next_dispatch_at <= :now
               AND (attempt.dispatch_token IS NULL OR attempt.dispatch_lease_expires_at < :now)
               AND (attempt.status = 'NOT_STARTED' OR (attempt.status = 'IN_PROGRESS' AND attempt.lease_expires_at < :now))
@@ -321,6 +343,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> "connector_cleanup_attempts";
             case SOURCE_SYNC -> "source_sync_attempts";
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> "google_drive_selection_operations";
+            case SHAREPOINT_SELECTION_VALIDATION -> "sharepoint_selection_operations";
             case SEARCH -> "search_index_operations";
             case USER_FILE -> "chat_file_work";
         };
@@ -332,6 +355,7 @@ public class JdbcOperationDispatchRepository implements OperationDispatchPort {
             case CLEANUP -> CLEANUP_CANDIDATES;
             case SOURCE_SYNC -> SYNC_CANDIDATES;
             case GOOGLE_DRIVE_SELECTION_VALIDATION -> SELECTION_CANDIDATES;
+            case SHAREPOINT_SELECTION_VALIDATION -> SHAREPOINT_SELECTION_CANDIDATES;
             case SEARCH -> SEARCH_CANDIDATES;
             case USER_FILE -> FILE_CANDIDATES;
         };

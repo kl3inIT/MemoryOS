@@ -157,7 +157,7 @@ class PostgresSourceLifecycleTest {
         var sourceRepository = new JdbcSourceRepository(jdbcClient, event -> { });
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class));
+                org.mockito.Mockito.mock(io.memoryos.connector.ProviderAuthorityService.class));
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
@@ -1255,7 +1255,7 @@ class PostgresSourceLifecycleTest {
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
                 new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                        org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class)),
+                        org.mockito.Mockito.mock(io.memoryos.connector.ProviderAuthorityService.class)),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),

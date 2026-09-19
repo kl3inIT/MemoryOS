@@ -133,7 +133,8 @@ class PostgresSourceRunHistoryTest {
         items = new JdbcSourceItemRepository(jdbc);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
-        attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings, connections);
+        attempts = new JdbcIndexAttemptRepository(jdbc, sources, mappings,
+                new DefaultProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
         storage = mock(ObjectStorage.class);
         doAnswer(call -> {
             ObjectKey key = call.getArgument(0);
@@ -156,7 +157,7 @@ class PostgresSourceRunHistoryTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc),
                 new JdbcGoogleDriveAclRepository(jdbc, event -> {}), items, attempts,
-                mappings, connections, writes, manager);
+                mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
         history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));
@@ -491,6 +492,8 @@ class PostgresSourceRunHistoryTest {
         assertThat(settled.counts().indexingSuperseded()).isEqualTo(1);
         assertThat(settled.counts().indexingPending()).isZero();
         assertThat(settled.completedAt()).isNotNull();
+        assertThat(jdbc.sql("SELECT status FROM connector_credential_pairs WHERE id=:source")
+                .param("source", source.value()).query(String.class).single()).isEqualTo("NOT_STARTED");
         var manual = Objects.requireNonNull(tx.execute(_ -> {
             var pair = sources.lock(tenant, source);
             return attempts.create(tenant, pair, items.lockCurrentVersion(tenant, pair, work.itemId()));
