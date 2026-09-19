@@ -458,9 +458,7 @@ function PersonDialog({
         <DialogHeader>
           <DialogTitle>{typeof name === "string" ? name : ui(name)}</DialogTitle>
           <DialogDescription>
-            {person?.detail
-              ? `${person.detail} · ${ui(periodLabels[range.id])}`
-              : ui(periodLabels[range.id])}
+            {[person?.detail, ui(periodLabels[range.id])].filter(Boolean).join(" · ")}
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-6">
