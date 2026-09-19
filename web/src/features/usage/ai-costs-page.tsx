@@ -314,7 +314,11 @@ function DailyChart({
             />
           }
         />
-        <ChartLegend content={<ChartLegendContent />} />
+        <ChartLegend
+          content={
+            <ChartLegendContent className="flex-wrap gap-x-4 gap-y-1 [&>div]:whitespace-nowrap" />
+          }
+        />
         {series.map((_, index) => (
           <Bar
             key={index}
@@ -350,13 +354,13 @@ function Breakdown({
         <thead className="font-secondary-body text-content-muted">
           <tr>
             <th className="py-2 pr-3 font-normal">{ui(columnLabels[dimension])}</th>
-            <th className="px-3 py-2 text-right font-normal">{ui("Requests")}</th>
+            <th className="px-3 py-2 text-right font-normal whitespace-nowrap">{ui("Requests")}</th>
             {!compact && (
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">
                 {ui("Total tokens")}
               </th>
             )}
-            <th className="px-3 py-2 text-right font-normal">{ui("Cost")}</th>
+            <th className="px-3 py-2 text-right font-normal whitespace-nowrap">{ui("Cost")}</th>
             {!compact && (
               <th className="hidden w-40 py-2 pl-3 font-normal sm:table-cell">
                 <span className="sr-only">{ui("Share of cost")}</span>
