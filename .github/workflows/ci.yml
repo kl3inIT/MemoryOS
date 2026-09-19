@@ -128,6 +128,8 @@ jobs:
           MEMORYOS_API_IMAGE: memoryos-api:config-check
           MEMORYOS_WORKER_IMAGE: memoryos-worker:config-check
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
+          MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
+          MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
           MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: config-check-only
