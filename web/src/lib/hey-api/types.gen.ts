@@ -12149,6 +12149,42 @@ export type GetAiCostSummaryResponses = {
 
 export type GetAiCostSummaryResponse = GetAiCostSummaryResponses[keyof GetAiCostSummaryResponses];
 
+export type GetMyAiCostsData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/ai-costs/mine';
+};
+
+export type GetMyAiCostsErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetMyAiCostsError = GetMyAiCostsErrors[keyof GetMyAiCostsErrors];
+
+export type GetMyAiCostsResponses = {
+    /**
+     * Successful result
+     */
+    200: AiCostDetail;
+};
+
+export type GetMyAiCostsResponse = GetMyAiCostsResponses[keyof GetMyAiCostsResponses];
+
 export type GetAiCostDetailData = {
     body?: never;
     path?: never;

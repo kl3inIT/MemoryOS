@@ -12627,6 +12627,50 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/mine:
+    get:
+      tags:
+      - AI costs
+      summary: "The caller's own AI costs by day, model, task and provider; any Chat\
+        \ reader"
+      operationId: getMyAiCosts
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCostDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/detail:
     get:
       tags:

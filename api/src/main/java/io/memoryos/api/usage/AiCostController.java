@@ -127,6 +127,18 @@ class AiCostController {
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @GetMapping("/mine")
+    @Operation(operationId = "getMyAiCosts", summary = "The caller's own AI costs by day, model, task and provider; any Chat reader")
+    Detail mine(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        var detail = costs.mine(identity.actorId(), from, to);
+        return new Detail(Summary.from(detail.totals()), detail.daily().stream().map(Day::from).toList(),
+                detail.models().stream().map(Row::from).toList(), detail.flows().stream().map(Row::from).toList(),
+                detail.providers().stream().map(Row::from).toList());
+    }
+
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/detail")
     @Operation(operationId = "getAiCostDetail", summary = "One person's, or system work's, AI costs by day, model, task and provider; requires model management")
     Detail detail(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,

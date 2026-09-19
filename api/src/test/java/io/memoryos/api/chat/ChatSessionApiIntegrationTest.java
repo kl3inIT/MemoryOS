@@ -814,6 +814,19 @@ class ChatSessionApiIntegrationTest {
                 """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+        // Settings › Usage (MEM-145): any Chat reader sees only their own rows, never another member's.
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5-mini', 'EXTERNAL', 7, 100, 10, 0.01, 0)
+                """).param("tenant", TENANT).param("actor", other.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(3))
+                .andExpect(jsonPath("$.models.length()").value(1)).andExpect(jsonPath("$.models[0].label").value("gpt-5.1"));
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(7));
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND actor_id=:actor").param("tenant", TENANT)
+                .param("actor", other.getPrincipal().actorId().value()).update();
         grantModelManagement();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.calls").value(3)).andExpect(jsonPath("$.unknownCostCalls").value(1))
