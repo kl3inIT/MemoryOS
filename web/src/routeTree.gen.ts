@@ -20,6 +20,7 @@ import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
+import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
@@ -98,6 +99,12 @@ const AuthenticatedAdminAgentsRoute =
   AuthenticatedAdminAgentsRouteImport.update({
     id: '/agents',
     path: '/agents',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAiCostsRoute =
+  AuthenticatedAdminAiCostsRouteImport.update({
+    id: '/ai-costs',
+    path: '/ai-costs',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminCodeInterpreterRoute =
@@ -257,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -292,6 +300,7 @@ export interface FileRoutesByTo {
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -328,6 +337,7 @@ export interface FileRoutesById {
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/agents'
+    | '/admin/ai-costs'
     | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/assistants'
     | '/search'
     | '/admin/agents'
+    | '/admin/ai-costs'
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -437,6 +449,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assistants'
     | '/_authenticated/search'
     | '/_authenticated/admin/agents'
+    | '/_authenticated/admin/ai-costs'
     | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       path: '/agents'
       fullPath: '/admin/agents'
       preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/ai-costs': {
+      id: '/_authenticated/admin/ai-costs'
+      path: '/ai-costs'
+      fullPath: '/admin/ai-costs'
+      preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/code-interpreter': {
@@ -789,6 +809,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
+  AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
@@ -805,6 +826,7 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
+  AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
