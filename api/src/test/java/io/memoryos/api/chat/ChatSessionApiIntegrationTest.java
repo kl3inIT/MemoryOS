@@ -225,6 +225,8 @@ class ChatSessionApiIntegrationTest {
     @BeforeEach
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
+        // Provider fixtures point at endpoints that do not exist; only the connection-check test lists models.
+        org.mockito.Mockito.doReturn(false).when(providerAdapter).listsModels();
         when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
