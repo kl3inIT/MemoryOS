@@ -1,3 +1,4 @@
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, PlugZap } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -398,13 +399,10 @@ export function ProviderEditor({
           </div>
         )}
         {connection.outcome?.ok && (
-          <p
-            role="status"
-            className="flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
-          >
-            <CheckCircle2 className="size-4" aria-hidden="true" />
-            {ui(connection.outcome.message)}
-          </p>
+          <Alert variant="success" role="status">
+            <CheckCircle2 aria-hidden="true" />
+            <AlertTitle>{ui(connection.outcome.message)}</AlertTitle>
+          </Alert>
         )}
         {connection.outcome && !connection.outcome.ok && (
           <p

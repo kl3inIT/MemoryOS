@@ -1232,6 +1232,15 @@ export type WebTestRequest = {
     search?: boolean;
 };
 
+export type WebEnginesRequest = {
+    endpoint: string;
+    key?: string | null;
+};
+
+export type WebEnginesResponse = {
+    engines: Array<string>;
+};
+
 export type VoiceTicketRequest = {
     purpose?: 'TRANSCRIBE' | 'SYNTHESIZE';
 };
@@ -7563,6 +7572,59 @@ export type TestChatWebConnectionResponses = {
 };
 
 export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof TestChatWebConnectionResponses];
+
+export type ListChatWebEnginesData = {
+    body: WebEnginesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
+    };
+    query?: never;
+    url: '/api/chat/web/connections/{provider}/engines';
+};
+
+export type ListChatWebEnginesErrors = {
+    /**
+     * Invalid Web configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Web connection unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Web connection changed
+     */
+    409: ApiProblem;
+    /**
+     * Web provider unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatWebEnginesError = ListChatWebEnginesErrors[keyof ListChatWebEnginesErrors];
+
+export type ListChatWebEnginesResponses = {
+    /**
+     * Successful result
+     */
+    200: WebEnginesResponse;
+};
+
+export type ListChatWebEnginesResponse = ListChatWebEnginesResponses[keyof ListChatWebEnginesResponses];
 
 export type CreateChatVoiceTicketData = {
     body?: VoiceTicketRequest;

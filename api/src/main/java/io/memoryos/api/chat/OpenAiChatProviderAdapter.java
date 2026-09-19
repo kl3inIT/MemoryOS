@@ -112,7 +112,10 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 if (!id.isBlank()) models.add(reported(id, item));
                 if (models.size() >= MAX_REPORTED_MODELS) break;
             }
-            return models;
+            // Ollama and LM Studio publish their limits only on their native APIs (Onyx per-provider fetchers).
+            var local = LocalModelMetadata.recognize(connection.baseUrl(), data, models);
+            return local == null ? models
+                    : LocalModelMetadata.enrich(client, local, connection.baseUrl(), connection.credential(), timeout, models);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw ChatException.providerUnreachable();
