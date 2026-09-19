@@ -39,6 +39,28 @@ class ValidatedEmbeddingServiceTest {
     }
 
     @Test
+    void recordsReportedTokensForAKnownCallerOnlyAndPricesThemWhenConfigured() {
+        var recorder = mock(io.memoryos.usage.AiUsageRecorder.class);
+        var priced = new ValidatedEmbeddingService(model, "text-embedding-3-large", 3, 32, 2, recorder, "api.openai.com", 0.13);
+        var tenant = java.util.UUID.randomUUID();
+        when(model.call(any())).thenReturn(new EmbeddingResponse(List.of(new Embedding(new float[]{1, 0, 0}, 0)),
+                new EmbeddingResponseMetadata("text-embedding-3-large", new org.springframework.ai.chat.metadata.DefaultUsage(1000, 0))));
+        priced.query("quy định", new ValidatedEmbeddingService.Caller(tenant, null, io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING));
+        priced.query("không ghi");
+        var captured = org.mockito.ArgumentCaptor.forClass(io.memoryos.usage.AiUsage.class);
+        org.mockito.Mockito.verify(recorder).record(captured.capture());
+        assertEquals(1000, captured.getValue().inputTokens());
+        assertEquals(0.00013, captured.getValue().cost(), 1e-12);
+        assertEquals(io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING, captured.getValue().flow());
+        assertNull(captured.getValue().actor());
+        when(model.call(any())).thenReturn(response("text-embedding-3-large", new Embedding(new float[]{1, 0, 0}, 0)));
+        priced.query("không có usage", new ValidatedEmbeddingService.Caller(tenant, tenant, io.memoryos.usage.AiUsageFlow.EMBEDDING_QUERY));
+        org.mockito.Mockito.verify(recorder, org.mockito.Mockito.times(2)).record(captured.capture());
+        assertNull(captured.getValue().cost());
+        assertEquals(0, captured.getValue().inputTokens());
+    }
+
+    @Test
     void rejectsWrongModelCountDimensionDuplicateIndexAndInvalidNumbers() {
         var malformed = List.of(
                 response("other-model", new Embedding(new float[]{1, 0, 0}, 0)),

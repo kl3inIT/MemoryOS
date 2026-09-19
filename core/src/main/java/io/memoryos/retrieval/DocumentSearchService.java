@@ -58,7 +58,7 @@ public class DocumentSearchService {
         String outcome = "failed";
         try {
             var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
-            var hits = authorized(actor, tenant, search.search(tenant, request.query(), request.mediaTypes(), request.updatedSince(), tokens));
+            var hits = authorized(actor, tenant, search.search(tenant, actor, request.query(), request.mediaTypes(), request.updatedSince(), tokens));
             requireSearchAccess(actor, tenant);
             var grouped = new LinkedHashMap<UUID, List<SearchHit>>();
             hits.stream()
@@ -129,7 +129,7 @@ public class DocumentSearchService {
         if (query == null || query.isBlank() || query.length() > 2000 || files.size() > 4020) throw new SearchRequestException();
         if (files.isEmpty()) return List.of();
         var generations = fileGenerations(tenant, files);
-        var hits = search.searchFiles(tenant, query, generations, files);
+        var hits = search.searchFiles(tenant, actor, query, generations, files);
         var current = fileGenerations(tenant, files);
         return hits.stream().filter(hit -> hit.generation().equals(current.get(hit.documentId()))).limit(20).toList();
     }
