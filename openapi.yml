@@ -7608,6 +7608,65 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/providers/test:
+    post:
+      tags:
+      - Chat models
+      summary: Check an unsaved or edited provider endpoint and key by listing its
+        models; requires model management
+      operationId: testChatProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderTestInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/prompt-shortcuts:
     get:
       tags:
@@ -16162,6 +16221,24 @@ components:
       required:
       - assistantMessageId
       - status
+    ProviderTestInput:
+      type: object
+      properties:
+        adapterType:
+          type: string
+        baseUrl:
+          type: string
+        credential:
+          $ref: "#/components/schemas/Change"
+        providerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - adapterType
+      - baseUrl
+      - credential
     ProjectConversation:
       type: object
       properties:

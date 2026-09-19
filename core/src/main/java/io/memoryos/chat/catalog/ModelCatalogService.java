@@ -62,6 +62,8 @@ public class ModelCatalogService {
     public record ProviderConnection(String adapterType, String baseUrl, String credential) {
         @Override public @NonNull String toString() { return "ProviderConnection[redacted]"; }
     }
+    /** A connection to verify before saving; {@code changed} is false when an update keeps its endpoint and key. */
+    public record ProviderProbe(ProviderConnection connection, boolean changed) {}
     public record ModelInput(String modelName, String displayName, boolean visible, ModelSettings settings) {}
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision,
@@ -114,6 +116,32 @@ public class ModelCatalogService {
             throw ChatException.invalid("Choose another available public Chat default before restricting this provider.");
         catalog.updateProvider(provider);
         return view(catalog.provider(tenant, id).orElseThrow());
+    }
+
+    /**
+     * The endpoint and key a provider form would use, for a connection check that runs outside this transaction. A
+     * kept key on an existing provider is its stored key, as Onyx tests with the saved key when {@code api_key_changed}
+     * is false.
+     */
+    @Transactional
+    public ProviderProbe probeProvider(ActorId actor, @Nullable UUID providerId, String adapterType, String baseUrl,
+                                       ProviderCredentials.@Nullable Change credential) {
+        UUID tenant = admin(actor, false);
+        requireText(adapterType, 64);
+        validateEndpoint(baseUrl);
+        adapters.require(adapterType);
+        var old = providerId == null ? null : catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
+        if (old != null && !old.adapterType().equals(adapterType))
+            throw ChatException.invalid("Create a new provider to change its adapter type.");
+        var action = credential == null ? ProviderCredentials.Action.KEEP : credential.action();
+        String key = switch (action) {
+            case REPLACE -> credential.value() == null ? "" : credential.value().strip();
+            case KEEP -> old == null ? "" : credentials.resolve(tenant, old.id(), old.credential());
+            case REMOVE -> "";
+        };
+        boolean changed = old == null || !old.baseUrl().equals(baseUrl) || action == ProviderCredentials.Action.REPLACE
+                || (action == ProviderCredentials.Action.REMOVE && old.credential() != null);
+        return new ProviderProbe(new ProviderConnection(adapterType, baseUrl, key), changed);
     }
 
     @Transactional

@@ -73,6 +73,23 @@ public final class ChatModelResolver {
         }
     }
 
+    /**
+     * Verifies an endpoint and key by listing its models, which spends no tokens, and returns how many it reports.
+     * Adapters that cannot list models are not contacted. Call outside any transaction.
+     */
+    public int verifyProvider(ModelCatalogService.ProviderConnection connection) {
+        var adapter = adapters.require(connection.adapterType());
+        if (!adapter.listsModels()) return -1;
+        try {
+            return adapter.reportedModels(new ChatProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
+                    limits.providerReadTimeout()).size();
+        } catch (ChatException expected) { throw expected; }
+        catch (RuntimeException failure) {
+            LOG.warn("Provider connection check failed ({})", failure.getClass().getSimpleName());
+            throw ChatException.providerUnreachable();
+        }
+    }
+
     public static final int FALLBACK_CONTEXT_WINDOW = 32_000;
 
     public static ReportedModelSpec spec(ChatProviderAdapter.ReportedModel reported, java.util.List<ChatProviderAdapter.KnownModel> known) {

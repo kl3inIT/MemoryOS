@@ -1771,6 +1771,88 @@ class ChatSessionApiIntegrationTest {
         } finally { server.stop(0); }
     }
 
+    @Test
+    void providerTestAndSaveCheckTheEndpointAndKeyBeforeStoringThem() throws Exception {
+        grantModelManagement();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            boolean accepted = "Bearer good-key".equals(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] bytes = (accepted
+                    ? "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-5-mini\"},{\"id\":\"qwen/qwen3.8-27b\"}]}"
+                    : "{\"error\":{\"message\":\"account acct-secret-42 key rejected\"}}").getBytes(UTF_8);
+            exchange.sendResponseHeaders(accepted ? 200 : 401, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.createContext("/html/models", exchange -> {
+            byte[] bytes = "<html>login</html>".getBytes(UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.start();
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+        try {
+            doCallRealMethod().when(providerAdapter).listsModels();
+            doCallRealMethod().when(providerAdapter).reportedModels(any(), any());
+            var body = Json.mapper().createObjectNode().put("adapterType", "openai").put("baseUrl", endpoint);
+            body.putObject("credential").put("action", "REPLACE").put("value", "good-key");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelCount").value(2))
+                    .andExpect(jsonPath("$.latencyMillis").isNumber());
+            // A rejected key, a non-API page and a closed port are named without the provider's payload.
+            ((ObjectNode) body.path("credential")).put("value", "wrong-key");
+            var rejected = mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_CREDENTIAL_REJECTED"))
+                    .andReturn().getResponse().getContentAsString();
+            assertFalse(rejected.contains("acct-secret-42"));
+            var html = body.deepCopy().put("baseUrl", endpoint.replace("/v1", "/html"));
+            ((ObjectNode) html.path("credential")).put("value", "good-key");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(html.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_INCOMPATIBLE"));
+            int closed;
+            try (var socket = new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) { closed = socket.getLocalPort(); }
+            var unreachable = html.deepCopy().put("baseUrl", "http://127.0.0.1:" + closed + "/v1");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(unreachable.toString()))
+                    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_UNREACHABLE"));
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(html.toString())).andExpect(status().isForbidden());
+
+            // Saving an enabled provider runs the same check: a rejected key is never stored.
+            int before = Json.mapper().readTree(mockMvc.perform(get("/api/chat/providers").with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).size();
+            var wrong = providerBody(endpoint, true);
+            ((ObjectNode) wrong.path("credential")).put("value", "wrong-key");
+            mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(wrong.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_CREDENTIAL_REJECTED"));
+            assertEquals(before, Json.mapper().readTree(mockMvc.perform(get("/api/chat/providers").with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).size());
+            var good = providerBody(endpoint, true);
+            ((ObjectNode) good.path("credential")).put("value", "good-key");
+            var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(good.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String id = provider.path("id").asText();
+            // Testing a saved provider without typing its key again uses the stored key.
+            var kept = Json.mapper().createObjectNode().put("adapterType", "openai").put("baseUrl", endpoint).put("providerId", id);
+            kept.putObject("credential").put("action", "KEEP");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(kept.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelCount").value(2));
+            server.stop(0);
+            // Renaming while the endpoint is down keeps its endpoint and key, so it is not re-checked.
+            var renamed = good.deepCopy().put("name", "Renamed " + UUID.randomUUID());
+            renamed.putObject("credential").put("action", "KEEP");
+            mockMvc.perform(put("/api/chat/providers/" + id).param("revision", provider.path("revision").asText())
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(renamed.toString()))
+                    .andExpect(status().isOk());
+        } finally { server.stop(0); }
+    }
+
     private String readyImage(byte[] bytes) throws Exception {
         var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
