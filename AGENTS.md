@@ -41,7 +41,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-130 — Model discovery](docs/increments/active/mem-130-model-discovery/design.md) owns provider-reported model specs, catalog breadth and honest output-limit and Deep research model errors.
 - [Chat limits as Onyx](docs/increments/active/chat-onyx-limits/design.md) owns input budgets from the model window, Onyx search sizes and cycle-bounded tool calls; operational bounds are excluded.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
-- [MEM-98 — AI usage and costs](docs/increments/active/mem-98-ai-costs/design.md) owns the daily AI usage ledger for every AI flow, cache-read and image pricing, and the "Chi phí AI" administration page; limits (MEM-123), export (MEM-139) and external-data records (MEM-134) are excluded.
+- [MEM-98 — AI usage and costs](docs/increments/active/mem-98-ai-costs/design.md) owns the daily AI usage ledger for every AI flow, cache-read pricing, and the "Chi phí AI" administration page; limits (MEM-123), export (MEM-139) and external-data records (MEM-134) are excluded.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
 - [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
@@ -64,6 +64,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Chat provider/model catalog](docs/specs/chat-models.md) and [backend adapter handoff](docs/increments/active/mem-77-provider-backend/adapter-handoff.md)
 - Provider endpoint review must preserve the [accepted internal HTTP and trusted model-manager policy](docs/specs/chat-models.md#credentials-and-provider-extension).
 - [Chat verification matrix](docs/tests/chat.md)
+- [AI usage and costs contract](docs/specs/ai-usage.md) and [verification matrix](docs/tests/ai-usage.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](docs/roadmap.md)

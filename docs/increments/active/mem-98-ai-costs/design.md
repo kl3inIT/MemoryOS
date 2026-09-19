@@ -24,49 +24,33 @@ AI spend is recorded only per assistant message (`chat_message.input_tokens`, `o
 
 ## Decisions
 
+The implemented contract, flows and HTTP API are in [AI usage and costs](../../../specs/ai-usage.md); this section keeps the reasoning.
+
 ### Ledger
 
-- `ai_usage`, a daily UTC rollup as in Onyx: one row per `(tenant, actor, day, flow, model_configuration_id, provider_id)`, upserted. Columns: calls, input, output and cache-read tokens, image count, audio seconds, known cost in USD, and the number of calls whose cost is unknown.
+- `ai_usage`, a daily UTC rollup as in Onyx, keyed by Tenant, actor, day, flow, provider name, model name and data boundary (`UNIQUE NULLS NOT DISTINCT`, PostgreSQL 18), upserted.
 - Differences from Onyx, each for a stated reason:
-  - **Written synchronously, never dropped.** MEM-123 blocks spending on these totals, so a lost sample would let a Tenant exceed its limit. Chat writes in the transaction that finishes the turn; other flows write where their call completes.
+  - **Written synchronously, never dropped.** MEM-123 blocks spending on these totals, so a lost sample would let a Tenant exceed its limit.
   - **`data_boundary` is part of the row,** copied from the provider at call time (MEM-102), so a later relabel does not rewrite history and spend splits into Internal and External.
-  - **Unknown cost stays unknown.** A call without pricing adds its tokens and increments `unpriced_calls`; it never adds 0 to the cost. Totals show both.
-- Actor is nullable for system work (document indexing embeddings), `ON DELETE SET NULL`. Model and provider references are kept as IDs plus the model and provider names at call time, so deleting a model keeps its history readable.
-- Per-message `chat_message` usage stays; the ledger is the aggregate, not a replacement.
-
-### Flows
-
-`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`. A new AI task adds a flow value (MEM-129 intent routing, for example).
+  - **Unknown cost stays unknown.** Onyx falls back to `DEFAULT_LLM_INPUT_COST_PER_MTOK` (0 by default), which silently turns every unpriced model, including local ones, into $0. MemoryOS counts `unknown_cost_calls` instead; a manager who wants a local model to be free prices it 0/0.
+- Model and provider are kept as IDs without foreign keys plus their names at call time, so deleting a model keeps its history readable.
 
 ### Capture
 
-- Model calls inside an Embabel agent process (chat, naming, deep research) come from `LlmInvocationEvent`. MemoryOS already runs each of these in a process it creates; the process is tagged with its Tenant, actor and flow when it starts, and a listener accumulates the invocations of that process. The accumulated usage is written when the turn or task settles, including cancelled and failed turns, which keep what they used.
-- Embeddings, image calls and voice calls do not run in an agent process; their services record through the same `AiUsageRecorder` after the provider call returns, using provider-reported usage where it exists (embedding tokens, image count, audio seconds).
-- To verify during implementation: that every chat, naming and research call goes through a tagged process, and which usage the image and voice providers actually report.
+- **Guards, not an Embabel listener.** The design first planned an `AgenticEventListener` on `LlmInvocationEvent`. Every chat, naming and research inference already passes through a `ChatModelGuard`, which sees the provider `Usage` (including `getCacheReadInputTokens()`) and settles with the turn in `ChatTurnPersistence`. Summing the guards writes the ledger in the same transaction as the message and needs no process tagging.
+- Embeddings, image and voice services record after the provider call returns. Image and voice providers report no price, so those calls count as unknown cost; embeddings are priced by `memoryos.search.embedding-input-price-per-million` when set.
 
 ### Pricing
 
-- `ModelSettings.Pricing` gains an optional cache-read rate and an optional per-image rate. Cache-read tokens come from the provider's native usage and are priced once: `(input − cacheRead) × input + cacheRead × cacheReadRate`.
-- A Tenant price override by provider and model name, as Onyx `ModelCostOverride`, takes precedence over the model settings.
+- `ModelSettings.Pricing` gains an optional cache-read rate (Onyx `cache_read_cost_per_mtok`), defaulting to the input rate. The installed catalog carries LiteLLM's cache-read prices. Onyx, Orca, LiteLLM and 9router all treat prompt tokens as cache-inclusive; the cost formula follows them.
+- **No Tenant price-override table.** Onyx needs `ModelCostOverride` because its prices come from LiteLLM; MemoryOS catalog prices are already manager-editable per model.
+- No per-image rate: image providers report no price and the image catalog carries none yet.
 
 ### Administration: "Chi phí AI"
 
-- New sidebar section **"Theo dõi"** (monitoring, like Onyx's performance group) with **"Chi phí AI"** at `/admin/ai-costs`. MEM-134's external-data log and MEM-125's query history join this section later.
-- Summary: cost (with the External share), AI calls, tokens (input, output, cache-read), active people, and **"Chưa tính được giá"** — unpriced calls with a link to the Models page.
-- Daily cost chart, stacked by data boundary or by model.
-- Breakdown tabs **Người dùng / Group / Model / Tác vụ / Nhà cung cấp**, sorted by cost with proportion bars; model and task filters; a person opens a detail sheet (daily cost, by model, by task, by provider).
-- Period: last 7 days, last 30 days, this month, last month. Access: `MODELS_MANAGE` (implied by `SYSTEM_ADMIN`).
-
-## HTTP
-
-| Method and path | Contract |
-| --- | --- |
-| `GET /api/ai-costs/summary?from&to` | totals, External share, unpriced calls, active people; `MODELS_MANAGE` |
-| `GET /api/ai-costs/daily?from&to&split=boundary\|model` | one entry per UTC day |
-| `GET /api/ai-costs/breakdown?from&to&by=actor\|group\|model\|flow\|provider&model&flow&limit` | ranked rows, bounded |
-| `GET /api/ai-costs/actors/{actorId}?from&to` | one person's detail |
-
-Group totals count a person in every Group they belong to at query time; the page says so.
+- Sidebar section "Theo dõi" (monitoring, like Onyx's performance group) with "Chi phí AI" at `/admin/ai-costs`.
+- One summary strip (LangChain, ElevenLabs), daily spend chart (OpenAI Platform), breakdown tabs (LangChain "By …"), per-user centered modal (Onyx `UserUsageDetailModal`) rather than a side sheet.
+- Copy is taken from Onyx, Orca ("Est. spend"), OpenAI ("Requests") and LangChain rather than written fresh; "input", "output" and "cache reads" stay English in Vietnamese.
 
 ## Out of scope
 
