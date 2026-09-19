@@ -51,7 +51,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
       key: `provider:${provider}`,
       node:
         item.providerUrl && provider !== "Tệp tải lên" ? (
-          <ProviderLink href={item.providerUrl} title={title}>
+          <ProviderLink href={item.providerUrl} title={title} provider={provider}>
             {ui(provider)}
           </ProviderLink>
         ) : (

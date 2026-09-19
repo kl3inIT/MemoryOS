@@ -49,12 +49,14 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private final JdbcSourceDocumentRepository documents;
     private final GoogleDriveConnectionService connections;
     private final ObjectWriteService writes;
+    private final DefaultSharePointSyncService sharePoint;
     private final TransactionTemplate transactions;
 
     public DefaultConnectorSyncService(JdbcSourceSyncRepository sync, JdbcSourceRepository sources,
             JdbcGoogleDriveSourceRepository drive, JdbcGoogleDriveAclRepository acls, JdbcSourceItemRepository items,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
-            GoogleDriveConnectionService connections, ObjectWriteService writes, PlatformTransactionManager manager) {
+            GoogleDriveConnectionService connections, ObjectWriteService writes,
+            DefaultSharePointSyncService sharePoint, PlatformTransactionManager manager) {
         this.sync = sync;
         this.sources = sources;
         this.drive = drive;
@@ -64,6 +66,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         this.documents = documents;
         this.connections = connections;
         this.writes = writes;
+        this.sharePoint = sharePoint;
         this.transactions = new TransactionTemplate(manager);
     }
 
@@ -79,7 +82,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
 
     @Override
     public int enqueueDue(int limit) {
-        int count = 0;
+        int count = sharePoint.enqueueDue(limit);
         for (var due : sync.due(limit)) {
             try {
                 boolean accepted = Boolean.TRUE.equals(transactions.execute(_ -> {
@@ -102,6 +105,9 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
 
     @Override
     public Result execute(Work work) {
+        // One attempt table serves every connector, so the run belongs to whichever one owns the Source.
+        var type = Objects.requireNonNull(transactions.execute(_ -> sources.type(work.tenantId(), work.sourceId())));
+        if (type == io.memoryos.connector.SourceType.SHAREPOINT) return sharePoint.execute(work);
         try {
             var scopeMode = fenced(work, () -> drive.scopeMode(work.tenantId(), work.sourceId()));
             try (var connection = connections.open(work.tenantId(), work.sourceId())) {

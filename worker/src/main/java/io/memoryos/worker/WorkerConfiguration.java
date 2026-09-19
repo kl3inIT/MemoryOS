@@ -54,7 +54,8 @@ class WorkerConfiguration {
             DocumentChunkPort chunks,
             SearchIndex searchIndex,
             UserFileWorkPort userFiles,
-            io.memoryos.ingestion.ChatFileExtractor chatFileExtractor
+            io.memoryos.ingestion.ChatFileExtractor chatFileExtractor,
+            io.memoryos.connector.SharePointSelectionProcessor sharePointSelections
     ) {
         var ingestion = new DefaultIngestionCoordinator(
                 indexingPort,
@@ -68,7 +69,7 @@ class WorkerConfiguration {
                 artifacts,
                 registry,
                 new SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry),
-                new SelectionValidationProcessor(selections, claimLeaseScheduler, registry)
+                new SelectionValidationProcessor(selections, sharePointSelections, claimLeaseScheduler, registry)
         );
         var search = new SearchIngestionCoordinator(searchWork, chunks, searchIndex,
                 new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);

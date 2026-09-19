@@ -1,6 +1,7 @@
-import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatchRoute, useRouterState } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShell, type SourceSetupProgress } from "@/components/app-shell/app-shell";
+import { sharePointSetupSteps } from "@/features/sources/sharepoint-setup-search";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { useAdminAccess } from "@/features/identity/application-session-context";
 import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
@@ -18,20 +19,40 @@ export const Route = createFileRoute("/_authenticated/admin")({
       canManageAgents,
     } = useAdminAccess();
     const matchRoute = useMatchRoute();
-    const sourceSetupStep = matchRoute({
+    const sharePointStep = useRouterState({
+      select: (state) =>
+        state.location.pathname === "/admin/sources/new/sharepoint"
+          ? ((state.location.search as { step?: string }).step ?? "credential")
+          : undefined,
+    });
+    const sourceSetup: SourceSetupProgress | undefined = matchRoute({
       to: "/admin/sources/new/google-drive",
-      search: { step: "connector" },
-      includeSearch: true,
     })
-      ? 1
-      : matchRoute({ to: "/admin/sources/new/google-drive" })
-        ? 0
+      ? {
+          steps: ["Credential", "Connector"],
+          current: matchRoute({
+            to: "/admin/sources/new/google-drive",
+            search: { step: "connector" },
+            includeSearch: true,
+          })
+            ? 1
+            : 0,
+        }
+      : sharePointStep !== undefined
+        ? {
+            steps: sharePointSetupSteps.map((step) => step.label),
+            current: Math.max(
+              0,
+              sharePointSetupSteps.findIndex((step) => step.id === sharePointStep),
+            ),
+          }
         : undefined;
     const usersSelected = Boolean(matchRoute({ to: "/admin/users" }));
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
     const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
+    const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
@@ -46,15 +67,17 @@ export const Route = createFileRoute("/_authenticated/admin")({
             ? "models"
             : webSearchSelected
               ? "web"
-              : imageGenerationSelected
-                ? "images"
-                : interpreterSelected
-                  ? "interpreter"
-                  : mcpSelected
-                    ? "mcp"
-                    : agentsSelected
-                      ? "agents"
-                      : "sources";
+              : voiceSelected
+                ? "voice"
+                : imageGenerationSelected
+                  ? "images"
+                  : interpreterSelected
+                    ? "interpreter"
+                    : mcpSelected
+                      ? "mcp"
+                      : agentsSelected
+                        ? "agents"
+                        : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -62,7 +85,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? canReadGroups
           : page === "providers"
             ? canManageProviders
-            : page === "models" || page === "web" || page === "images" || page === "interpreter"
+            : page === "models" ||
+                page === "web" ||
+                page === "voice" ||
+                page === "images" ||
+                page === "interpreter"
               ? canManageModels
               : page === "mcp"
                 ? canManageMcp
@@ -89,17 +116,19 @@ export const Route = createFileRoute("/_authenticated/admin")({
                   ? "Models"
                   : page === "web"
                     ? "Tìm kiếm Web"
-                    : page === "images"
-                      ? "Tạo ảnh"
-                      : page === "interpreter"
-                        ? "Code Interpreter"
-                        : page === "mcp"
-                          ? "Máy chủ MCP"
-                          : page === "agents"
-                            ? "Quản lý trợ lý"
-                            : "Sources",
+                    : page === "voice"
+                      ? "Giọng nói"
+                      : page === "images"
+                        ? "Tạo ảnh"
+                        : page === "interpreter"
+                          ? "Code Interpreter"
+                          : page === "mcp"
+                            ? "Máy chủ MCP"
+                            : page === "agents"
+                              ? "Quản lý trợ lý"
+                              : "Sources",
         )}
-        sourceSetupStep={sourceSetupStep}
+        sourceSetup={sourceSetup}
       >
         <SourceUploadRecoveryProvider>
           <Outlet />

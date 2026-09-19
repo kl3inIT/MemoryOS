@@ -11,6 +11,8 @@ import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.connector.SourceOperationPage;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.ProviderAuthorityService;
+import io.memoryos.connector.SourceType;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
@@ -39,33 +41,40 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private final JdbcClient jdbcClient;
     private final JdbcSourceRepository sources;
     private final JdbcSourceDocumentRepository sourceDocuments;
-    private final io.memoryos.connector.GoogleDriveConnectionService connections;
+    private final ProviderAuthorityService authorities;
 
     public JdbcIndexAttemptRepository(
             JdbcClient jdbcClient,
             JdbcSourceRepository sources,
             JdbcSourceDocumentRepository sourceDocuments,
-            io.memoryos.connector.GoogleDriveConnectionService connections
+            ProviderAuthorityService authorities
     ) {
         this.jdbcClient = Objects.requireNonNull(jdbcClient, "jdbcClient must not be null");
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.sourceDocuments = Objects.requireNonNull(sourceDocuments, "sourceDocuments must not be null");
-        this.connections = Objects.requireNonNull(connections, "connections must not be null");
+        this.authorities = Objects.requireNonNull(authorities, "authorities must not be null");
     }
 
     public boolean canReplay(TenantId tenant, SourceId source, UUID version) {
         return jdbcClient.sql("""
-                SELECT v.provider_file_id, v.credential_revision,
-                  v.scope_revision = s.revision AND m.eligible AND NOT m.excluded AS eligible
+                SELECT v.provider_file_id, v.credential_revision, c.connector_type,
+                  CASE c.connector_type
+                    WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.revision AND m.eligible AND NOT m.excluded
+                    WHEN 'SHAREPOINT' THEN v.scope_revision = sp.scope_revision
+                    ELSE FALSE
+                  END AS eligible
                 FROM connector_item_versions v
                 JOIN connector_credential_pairs p ON p.tenant_id = v.tenant_id AND p.connector_id = v.connector_id
+                JOIN connectors c ON c.tenant_id = v.tenant_id AND c.id = v.connector_id
                 LEFT JOIN google_drive_sources s ON s.tenant_id = p.tenant_id AND s.source_id = p.id
                 LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                   AND m.file_id = v.provider_file_id
+                LEFT JOIN sharepoint_sources sp ON sp.tenant_id = p.tenant_id AND sp.source_id = p.id
                 WHERE v.tenant_id = :tenant AND v.id = :version AND p.id = :source
                 """).param("tenant", tenant.value()).param("version", version).param("source", source.value())
                 .query((r, _) -> r.getString("provider_file_id") == null
-                        || (r.getBoolean("eligible") && connections.current(tenant, source, r.getLong("credential_revision"))))
+                        || (r.getBoolean("eligible") && authorities.current(SourceType.valueOf(r.getString("connector_type")),
+                                tenant, source, r.getLong("credential_revision"))))
                 .optional().orElse(false);
     }
 
@@ -545,18 +554,30 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
     private boolean isCurrent(IndexWork work, boolean requireEligibility) {
         if (!lockSource(work)) return false;
         if (work.input().providerFileId() != null) {
-            var revision = jdbcClient.sql("""
-                    SELECT v.credential_revision FROM index_attempts a
+            record Authority(SourceType sourceType, long credentialRevision) {}
+            var authority = jdbcClient.sql("""
+                    SELECT c.connector_type, v.credential_revision FROM index_attempts a
                     JOIN connector_item_versions v ON v.tenant_id = a.tenant_id AND v.id = a.connector_item_version_id
-                    JOIN google_drive_sources s ON s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
-                    JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
+                    JOIN connectors c ON c.tenant_id = a.tenant_id AND c.id = a.connector_id
+                    LEFT JOIN google_drive_sources s ON c.connector_type = 'GOOGLE_DRIVE'
+                      AND s.tenant_id = a.tenant_id AND s.source_id = a.connector_credential_pair_id
+                    LEFT JOIN google_drive_membership m ON m.tenant_id = s.tenant_id AND m.source_id = s.source_id
                       AND m.file_id = v.provider_file_id
-                    WHERE a.tenant_id = :tenant AND a.id = :id AND v.scope_revision = s.revision
-                      AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
+                    LEFT JOIN sharepoint_sources sp ON c.connector_type = 'SHAREPOINT'
+                      AND sp.tenant_id = a.tenant_id AND sp.source_id = a.connector_credential_pair_id
+                    WHERE a.tenant_id = :tenant AND a.id = :id
+                      AND CASE c.connector_type
+                        WHEN 'GOOGLE_DRIVE' THEN v.scope_revision = s.revision
+                          AND (:ignoreEligibility OR m.eligible) AND NOT m.excluded AND m.root_id IS NOT NULL
+                        WHEN 'SHAREPOINT' THEN v.scope_revision = sp.scope_revision
+                        ELSE FALSE
+                      END
                     """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                     .param("ignoreEligibility", !requireEligibility)
-                    .query(Long.class).optional();
-            if (revision.isEmpty() || !connections.current(work.tenantId(), work.sourceId(), revision.get())) return false;
+                    .query((r, _) -> new Authority(SourceType.valueOf(r.getString("connector_type")),
+                            r.getLong("credential_revision"))).optional();
+            if (authority.isEmpty() || !authorities.current(authority.get().sourceType(), work.tenantId(),
+                    work.sourceId(), authority.get().credentialRevision())) return false;
         }
         return jdbcClient.sql("""
                         SELECT COUNT(*)
@@ -617,7 +638,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                     .param("token", work.claimToken()).update();
             return;
         }
-        jdbcClient.sql("""
+        int updated = jdbcClient.sql("""
                         UPDATE index_attempts attempt
                         SET status = CASE WHEN pair.status = 'PAUSED' THEN 'CANCELLED' ELSE 'SUPERSEDED' END,
                             completed_at = CURRENT_TIMESTAMP,
@@ -635,6 +656,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .param("attemptId", work.operationId().value())
                 .param("claimToken", work.claimToken())
                 .update();
+        if (updated == 1) sources.recomputeStatus(work.tenantId(), work.sourceId(), false);
     }
 
     private static SourceOperationView operation(ResultSet resultSet) throws SQLException {

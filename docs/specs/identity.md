@@ -150,6 +150,12 @@ Realm reconciliation declares `memoryos.provisioned` as an optional, single-valu
 
 The action email returns to the additional exact `/invite/activate` browser URI without an invitation secret, invitation ID, or parallel nonce. The API uses a dedicated realm-local `memoryos-user-provisioner` service account, explicit bounded HTTP-client timeouts, and managed credentials that are never logged or persisted. A Keycloak account alone grants no MemoryOS authority.
 
+## Keycloak browser theme
+
+The `memoryos` realm uses the repository-owned `memoryos` login theme for sign-in, password recovery, required password update, email verification, informational completion, and action-token error pages. It extends the pinned Keycloak 26.7 `keycloak.v2` theme using CSS, messages, and local images only; it does not copy or replace FreeMarker templates. Keycloak therefore remains authoritative for form targets, session and action-token state, validation, password visibility, provider-specific controls, and accessibility semantics.
+
+The shared runtime mounts this theme read-only. Reconciliation fails unless the running server advertises the theme and the realm converges to `loginTheme=memoryos`. This selection applies only to the `memoryos` realm and changes no issuer, subject, client, callback, or application-authorization contract.
+
 ## Runtime configuration
 
 The API requires the OIDC issuer/JWKS/audience, confidential browser client secret, datasource credentials, initial Tenant values, and Keycloak invitation-provisioner values listed in the [development runtime runbook](../runbooks/development-runtime.md). Keycloak reconciliation requires the exact browser callback plus the exact `/invite/activate` return URI and rejects wildcard redirect values. Missing or invalid values fail startup or reconciliation. Plain HTTP JWKS and activation URIs are accepted only for literal loopback test hosts; production uses HTTPS. Session cookies default to `HttpOnly`, `Secure`, and `SameSite=Lax`.

@@ -80,6 +80,21 @@ class ChatWebPromptsTest {
         assertTrue(text.contains("primary sources"));
         assertTrue(text.contains("specific supplied URL"));
     }
+    @Test void explicitInternalDocumentRequestsRequireGroundingOnlyWhenKnowledgeSearchIsCallable() {
+        String internal = ChatPrompts.forInference(prompt(Set.of("search_knowledge"), null), false, false).toString();
+        assertTrue(internal.contains("MUST call search_knowledge before answering"));
+        assertTrue(internal.contains("never substitute general"));
+        assertTrue(internal.contains("model knowledge for the requested documents"));
+
+        String combined = ChatPrompts.forInference(
+                prompt(Set.of("search_knowledge", "web_search", "open_url"), null), false, false).toString();
+        assertTrue(combined.contains("names an internal"));
+        assertTrue(combined.contains("source, connector, provider, or document"));
+
+        String webOnly = ChatPrompts.forInference(prompt(Set.of("web_search", "open_url"), null), false, false).toString();
+        assertFalse(webOnly.contains("MUST call search_knowledge before answering"));
+        assertFalse(webOnly.contains("never substitute general"));
+    }
     @Test void reminderRequiresRecentWebResultAvailableReaderAndAnotherToolCycle() {
         var original = prompt(Set.of("web_search", "open_url"), "web_search");
         assertTrue(Objects.requireNonNull(ChatPrompts.forInference(original, true, false).getInstructions().getLast().getText()).contains("After web_search"));

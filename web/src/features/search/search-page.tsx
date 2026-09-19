@@ -45,6 +45,10 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
+import { uiLanguage } from "@/i18n";
+import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
+import { startVoiceDictation, type VoiceDictation } from "@/features/voice/voice-dictation";
+import { requestVoiceTicket, voiceFailureCopy } from "@/features/voice/voice-failure";
 import type {
   Result as SearchResult,
   SearchRequest,
@@ -81,40 +85,7 @@ const PAGE_SIZE = 10;
 /** `SearchRequest.page` accepts 0–49. */
 const MAX_PAGES = 50;
 
-type SpeechRecognitionAlternativeLike = {
-  transcript: string;
-};
-
-type SpeechRecognitionResultLike = {
-  readonly isFinal: boolean;
-  readonly length: number;
-  readonly [index: number]: SpeechRecognitionAlternativeLike;
-};
-
-type SpeechRecognitionEventLike = {
-  readonly results: ArrayLike<SpeechRecognitionResultLike>;
-};
-
-type SpeechRecognitionErrorEventLike = {
-  readonly error: string;
-};
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onend: (() => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onstart: (() => void) | null;
-  abort: () => void;
-  start: () => void;
-  stop: () => void;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-type VoiceStatus = "idle" | "listening" | "permission-denied" | "error";
+type VoiceStatus = "idle" | "starting" | "listening" | "finishing" | "failed";
 
 export function SearchPage() {
   const ui = useAppTranslation();
@@ -138,7 +109,7 @@ export function SearchPage() {
 
 function AuthorizedSearchPage() {
   const ui = useAppTranslation();
-  const { actorId } = useApplicationSession();
+  const { actorId, uiLanguage: sessionLanguage } = useApplicationSession();
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
@@ -151,12 +122,14 @@ function AuthorizedSearchPage() {
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const dictationRef = useRef<VoiceDictation | null>(null);
+  const voiceAttemptRef = useRef(0);
   const reportedSearchError = useRef<unknown>(null);
   const voiceQueryPrefixRef = useRef("");
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
-  const SpeechRecognition = getSpeechRecognitionConstructor();
-  const voiceSearchSupported = SpeechRecognition !== null;
+  const [voiceFailure, setVoiceFailure] = useState<AppCopy>();
+  // Voice search uses the Tenant's speech-to-text provider through MemoryOS, never browser recognition.
+  const voiceSearchAvailable = useVoiceAvailability().data?.sttAvailable === true;
   const isListening = voiceStatus === "listening";
   const hasRequest = request !== null;
   const result = useQuery({
@@ -197,15 +170,6 @@ function AuthorizedSearchPage() {
     return () => animation.cancel();
   }, [hasRequest]);
 
-  useEffect(
-    () => () => {
-      const recognition = speechRecognitionRef.current;
-      speechRecognitionRef.current = null;
-      recognition?.abort();
-    },
-    [],
-  );
-
   useEffect(() => {
     if (!submitFeedback || result.isFetching) return;
     const timeout = window.setTimeout(() => setSubmitFeedback(false), 180);
@@ -222,46 +186,61 @@ function AuthorizedSearchPage() {
     });
   }, [request, result.error, result.isError]);
 
-  function toggleVoiceSearch() {
-    if (isListening) {
-      speechRecognitionRef.current?.stop();
+  useEffect(
+    () => () => {
+      voiceAttemptRef.current += 1;
+      dictationRef.current?.cancel();
+    },
+    [],
+  );
+
+  function voiceQuery(transcript: string) {
+    return [voiceQueryPrefixRef.current, transcript.trim()].filter(Boolean).join(" ");
+  }
+
+  async function toggleVoiceSearch() {
+    if (voiceStatus === "listening") {
+      const dictation = dictationRef.current;
+      dictationRef.current = null;
+      if (!dictation) return;
+      setVoiceStatus("finishing");
+      const transcript = await dictation.stop();
+      if (transcript) setQuery(voiceQuery(transcript));
+      setVoiceStatus("idle");
+      searchInputRef.current?.focus();
       return;
     }
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
+    if (voiceStatus === "starting" || voiceStatus === "finishing") return;
+    const attempt = ++voiceAttemptRef.current;
+    const current = () => voiceAttemptRef.current === attempt;
     voiceQueryPrefixRef.current = query.trim();
-    recognition.lang = document.documentElement.lang || navigator.language || "vi-VN";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.onstart = () => setVoiceStatus("listening");
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((speechResult) => speechResult[0]?.transcript ?? "")
-        .join(" ")
-        .trim();
-      const prefix = voiceQueryPrefixRef.current;
-      setQuery([prefix, transcript].filter(Boolean).join(" "));
-    };
-    recognition.onerror = (event) => {
-      setVoiceStatus(
-        event.error === "not-allowed" || event.error === "service-not-allowed"
-          ? "permission-denied"
-          : "error",
-      );
-    };
-    recognition.onend = () => {
-      speechRecognitionRef.current = null;
-      setVoiceStatus((current) => (current === "listening" ? "idle" : current));
-      searchInputRef.current?.focus();
-    };
-    speechRecognitionRef.current = recognition;
-    setVoiceStatus("listening");
+    setVoiceFailure(undefined);
+    setVoiceStatus("starting");
     try {
-      recognition.start();
-    } catch {
-      speechRecognitionRef.current = null;
-      setVoiceStatus("error");
+      const dictation = await startVoiceDictation({
+        language: uiLanguage(sessionLanguage),
+        requestTicket: requestVoiceTicket,
+        onInterim: (transcript) => {
+          if (current()) setQuery(voiceQuery(transcript));
+        },
+        onLevel: () => {},
+        onFailure: (error) => {
+          if (!current()) return;
+          dictationRef.current = null;
+          setVoiceFailure(voiceFailureCopy(error));
+          setVoiceStatus("failed");
+        },
+      });
+      if (!current()) {
+        dictation.cancel();
+        return;
+      }
+      dictationRef.current = dictation;
+      setVoiceStatus("listening");
+    } catch (error) {
+      if (!current()) return;
+      setVoiceFailure(voiceFailureCopy(error));
+      setVoiceStatus("failed");
     }
   }
 
@@ -426,29 +405,25 @@ function AuthorizedSearchPage() {
                   <X className="size-3.5" aria-hidden="true" />
                 </button>
               ) : null}
-              <IconButton
-                type="button"
-                size="lg"
-                prominence="internal"
-                tone={isListening ? "danger" : "default"}
-                aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
-                aria-pressed={isListening}
-                aria-describedby="voice-search-status"
-                disabled={!voiceSearchSupported}
-                title={
-                  voiceSearchSupported
-                    ? isListening
-                      ? ui("Stop listening")
-                      : ui("Search by voice")
-                    : ui("Voice search is not supported in this browser")
-                }
-                onClick={toggleVoiceSearch}
-              >
-                <Mic
-                  className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
-                  aria-hidden="true"
-                />
-              </IconButton>
+              {voiceSearchAvailable ? (
+                <IconButton
+                  type="button"
+                  size="lg"
+                  prominence="internal"
+                  tone={isListening ? "danger" : "default"}
+                  aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
+                  aria-pressed={isListening}
+                  aria-describedby="voice-search-status"
+                  pending={voiceStatus === "starting" || voiceStatus === "finishing"}
+                  title={isListening ? ui("Stop listening") : ui("Search by voice")}
+                  onClick={() => void toggleVoiceSearch()}
+                >
+                  <Mic
+                    className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
+                    aria-hidden="true"
+                  />
+                </IconButton>
+              ) : null}
               {isSearchUpdating ? (
                 <IconButton
                   type="button"
@@ -518,17 +493,21 @@ function AuthorizedSearchPage() {
                 ) : null}
               </div>
             ) : null}
-            <p
-              id="voice-search-status"
-              aria-live="polite"
-              className={cn(
-                "px-4 pb-2 font-secondary-body",
-                voiceStatus === "idle" && "sr-only",
-                isListening ? "text-content-secondary" : "text-status-danger-content",
-              )}
-            >
-              {ui(voiceStatusMessage(voiceStatus, voiceSearchSupported))}
-            </p>
+            {voiceSearchAvailable ? (
+              <p
+                id="voice-search-status"
+                aria-live="polite"
+                className={cn(
+                  "px-4 pb-2 font-secondary-body",
+                  voiceStatus === "idle" && "sr-only",
+                  voiceStatus === "failed"
+                    ? "text-status-danger-content"
+                    : "text-content-secondary",
+                )}
+              >
+                {ui(voiceFailure ?? voiceStatusMessage(voiceStatus))}
+              </p>
+            ) : null}
           </form>
 
           {!request ? (
@@ -738,22 +717,11 @@ function AuthorizedSearchPage() {
   );
 }
 
-function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
-  if (typeof window === "undefined") return null;
-  const speechWindow = window as typeof window & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
-}
-
-function voiceStatusMessage(status: VoiceStatus, supported: boolean) {
-  if (!supported) return "Voice search is not supported in this browser.";
+function voiceStatusMessage(status: VoiceStatus) {
+  if (status === "starting") return "Starting the microphone…";
   if (status === "listening") return "Listening… Speak now, then review your query.";
-  if (status === "permission-denied") {
-    return "Microphone access was not granted. Enable it in your browser and try again.";
-  }
-  if (status === "error") return "Voice search stopped unexpectedly. Please try again.";
+  if (status === "finishing") return "Finishing the transcript…";
+  if (status === "failed") return "Voice search stopped unexpectedly. Please try again.";
   return "Voice search is ready.";
 }
 

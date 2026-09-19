@@ -43,6 +43,9 @@ public record SourceRunResponse(
         @Nullable String errorCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         boolean detailsExpired,
+
+        @Schema(description = "REFRESH or PRUNE for SharePoint; absent where a connector has one kind of run")
+        @Nullable String runKind,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         SourceRunCountsResponse counts
 ) {
@@ -64,6 +67,7 @@ public record SourceRunResponse(
                 value.nextRetryAt(),
                 value.errorCode(),
                 value.detailsExpired(),
+                value.runKind(),
                 SourceRunCountsResponse.from(value.counts())
         );
     }

@@ -102,7 +102,8 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     )
                     .map(this::processCleanup).orElse(Outcome.SKIPPED);
             case SOURCE_SYNC -> sourceSync.process(delivery);
-            case GOOGLE_DRIVE_SELECTION_VALIDATION -> selectionValidation.process(delivery);
+            case GOOGLE_DRIVE_SELECTION_VALIDATION, SHAREPOINT_SELECTION_VALIDATION ->
+                    selectionValidation.process(delivery);
         };
     }
 

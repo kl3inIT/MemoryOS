@@ -7,21 +7,31 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ThemeProvider } from "@/features/theme/theme-provider";
+import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
+import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
 import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
+const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
+const startVoiceDictationMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof ChatSdk>()),
   searchDocuments: searchDocumentsMock,
   listChatSessions: vi.fn().mockResolvedValue({ data: [] }),
+  getChatVoiceAvailability: voiceAvailabilityMock,
+}));
+
+vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
+  ...(await importOriginal<typeof VoiceDictationModule>()),
+  startVoiceDictation: startVoiceDictationMock,
 }));
 
 vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
@@ -56,31 +66,8 @@ const OWNER_SESSION: ApplicationSession = {
   scopedCapabilities: [],
 };
 
-class MockSpeechRecognition {
-  static current: MockSpeechRecognition | null = null;
-
-  continuous = false;
-  interimResults = false;
-  lang = "";
-  onend: (() => void) | null = null;
-  onerror: ((event: { error: string }) => void) | null = null;
-  onresult:
-    | ((event: {
-        results: ArrayLike<{
-          readonly isFinal: boolean;
-          readonly length: number;
-          readonly [index: number]: { transcript: string };
-        }>;
-      }) => void)
-    | null = null;
-  onstart: (() => void) | null = null;
-  abort = vi.fn();
-  start = vi.fn(() => this.onstart?.());
-  stop = vi.fn(() => this.onend?.());
-
-  constructor() {
-    MockSpeechRecognition.current = this;
-  }
+function speechToTextAvailable(sttAvailable: boolean) {
+  voiceAvailabilityMock.mockResolvedValue({ data: { sttAvailable, ttsAvailable: false } });
 }
 
 async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
@@ -109,8 +96,10 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   );
 }
 
+beforeEach(() => speechToTextAvailable(false));
+
 afterEach(() => {
-  MockSpeechRecognition.current = null;
+  startVoiceDictationMock.mockReset();
   searchDocumentsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
@@ -135,54 +124,66 @@ describe("SearchPage", () => {
     expect(screen.getByRole("heading", { name: "Search your workspace" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Search documents" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Add to search" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search by voice" })).toBeDisabled();
+    // Without a Tenant speech-to-text provider there is no microphone, and no browser recognition fallback.
+    expect(screen.queryByRole("button", { name: "Search by voice" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("status").some((status) => status.textContent === "")).toBe(true);
     expect(screen.getByRole("button", { name: "Tenant owner" })).toBeInTheDocument();
   });
 
-  it("adds a spoken transcript to the controlled query without searching automatically", async () => {
-    vi.stubGlobal("SpeechRecognition", MockSpeechRecognition);
+  it("adds the MemoryOS transcript to the controlled query without searching automatically", async () => {
+    speechToTextAvailable(true);
+    let options: VoiceDictationModule.VoiceDictationOptions | undefined;
+    const dictation = {
+      setMuted: vi.fn(),
+      stop: vi.fn(async () => "nghỉ phép năm"),
+      cancel: vi.fn(),
+    };
+    startVoiceDictationMock.mockImplementation(
+      async (next: VoiceDictationModule.VoiceDictationOptions) => {
+        options = next;
+        return dictation;
+      },
+    );
     const user = userEvent.setup();
     await renderNewSession();
 
     const input = screen.getByRole("textbox", { name: "Search documents" });
     await user.type(input, "quy định");
-    await user.click(screen.getByRole("button", { name: "Search by voice" }));
+    await user.click(await screen.findByRole("button", { name: "Search by voice" }));
 
-    expect(screen.getByRole("button", { name: "Stop voice search" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Stop voice search" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     expect(screen.getByText("Listening… Speak now, then review your query.")).toBeVisible();
+    expect(options?.language).toBe("en");
 
-    act(() => {
-      MockSpeechRecognition.current?.onresult?.({
-        results: [{ 0: { transcript: "nghỉ phép" }, isFinal: true, length: 1 }],
-      });
-    });
-
+    act(() => options?.onInterim("nghỉ phép"));
     expect(input).toHaveValue("quy định nghỉ phép");
-    expect(searchDocumentsMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Stop voice search" }));
+    await waitFor(() => expect(input).toHaveValue("quy định nghỉ phép năm"));
     expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
     expect(input).toHaveFocus();
+    expect(searchDocumentsMock).not.toHaveBeenCalled();
   });
 
   it("explains how to recover when microphone permission is denied", async () => {
-    vi.stubGlobal("SpeechRecognition", MockSpeechRecognition);
+    speechToTextAvailable(true);
+    startVoiceDictationMock.mockRejectedValue(
+      new MicrophoneUnavailableError(true, new DOMException("denied", "NotAllowedError")),
+    );
     const user = userEvent.setup();
     await renderNewSession();
 
-    await user.click(screen.getByRole("button", { name: "Search by voice" }));
-    act(() => MockSpeechRecognition.current?.onerror?.({ error: "not-allowed" }));
+    await user.click(await screen.findByRole("button", { name: "Search by voice" }));
 
     expect(
-      screen.getByText(
-        "Microphone access was not granted. Enable it in your browser and try again.",
+      await screen.findByText(
+        "Microphone access is not allowed in this browser. Allow it, then try again.",
       ),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Search by voice" })).toHaveAttribute(
