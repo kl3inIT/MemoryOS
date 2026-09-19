@@ -75,6 +75,11 @@ public final class ChatModelResolver {
         Integer output = reported.maxOutputTokens();
         boolean fromProvider = context != null;
         if (context == null && catalogModel != null) context = catalogModel.contextWindow();
+        // The context window is what one request may fill. OpenRouter reports OpenAI's total window (gpt-5-mini
+        // 400,000) where OpenAI caps input at 272,000, and a 1M beta window for Claude: when both know the model,
+        // the smaller window is the one every route accepts.
+        else if (context != null && catalogModel != null && catalogModel.contextWindow() < context)
+            context = catalogModel.contextWindow();
         if (output == null || context == null || output < 1 || output >= context)
             output = catalogModel != null && context != null && catalogModel.maxOutputTokens() < context
                     ? catalogModel.maxOutputTokens() : null;

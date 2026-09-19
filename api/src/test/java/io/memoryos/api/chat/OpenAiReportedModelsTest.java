@@ -58,12 +58,24 @@ class OpenAiReportedModelsTest {
         assertEquals(true, mistral.toolCalling());
         assertEquals(false, mistral.vision());
         assertNull(mistral.reasoning());
-        var anthropic = parse("{\"id\":\"claude\",\"max_input_tokens\":200000,\"max_tokens\":64000}");
+        var anthropic = parse("""
+                {"id":"claude-sonnet-4-5","max_input_tokens":200000,"max_tokens":64000,
+                 "capabilities":{"image_input":{"supported":true},"thinking":{"supported":true}}}""");
         assertEquals(200_000, anthropic.contextWindow());
         assertEquals(64_000, anthropic.maxOutputTokens());
-        var gemini = parse("{\"id\":\"models/gemini-2.5-pro\",\"inputTokenLimit\":1048576,\"outputTokenLimit\":65536}");
+        assertEquals(true, anthropic.vision());
+        assertEquals(true, anthropic.reasoning());
+        assertNull(anthropic.toolCalling(), "Anthropic publishes no tool flag; the catalog decides");
+        var xai = parse("""
+                {"id":"grok-4","context_length":256000,"prompt_text_token_price":20000,"completion_text_token_price":150000}""");
+        assertEquals(256_000, xai.contextWindow());
+        assertEquals(new ModelSettings.Pricing(2.0, 15.0), xai.pricing());
+        assertEquals(new ModelSettings.Pricing(0.88, 0.88),
+                parse("{\"id\":\"llama\",\"context_length\":131072,\"pricing\":{\"input\":0.88,\"output\":0.88}}").pricing());
+        var gemini = parse("{\"id\":\"models/gemini-2.5-pro\",\"inputTokenLimit\":1048576,\"outputTokenLimit\":65536,\"thinking\":true}");
         assertEquals(1_048_576, gemini.contextWindow());
         assertEquals(65_536, gemini.maxOutputTokens());
+        assertEquals(true, gemini.reasoning());
         var openAi = parse("{\"id\":\"gpt-5-mini\",\"object\":\"model\",\"owned_by\":\"openai\"}");
         assertEquals(ReportedModel.named("gpt-5-mini"), openAi);
     }
@@ -81,11 +93,12 @@ class OpenAiReportedModelsTest {
         assertEquals(new ModelSettings.Pricing(0.25, 2.0), openAi.pricing());
         assertTrue(ChatModelResolver.spec(ReportedModel.named("models/gemini-2.5-pro"), known).complete());
 
-        // OpenRouter publishes everything, so its own values win over the catalog entry for the same model.
+        // OpenRouter's own answer limit, capabilities and prices win; its total window (400,000) exceeds OpenAI's
+        // 272,000-token input cap, so the smaller catalog window is kept.
         var routed = ChatModelResolver.spec(new ReportedModel("openai/gpt-5-mini", 400_000, 100_000, true, false, true,
                 new ModelSettings.Pricing(0.3, 2.1)), known);
         assertEquals(ChatModelResolver.ReportedModelSpec.Source.PROVIDER, routed.source());
-        assertEquals(400_000, routed.contextWindow());
+        assertEquals(272_000, routed.contextWindow());
         assertEquals(100_000, routed.maxOutputTokens());
         assertFalse(routed.capabilities().vision());
         assertEquals(new ModelSettings.Pricing(0.3, 2.1), routed.pricing());

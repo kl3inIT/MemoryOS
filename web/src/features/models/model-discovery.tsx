@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Brain, Eye, Search, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -164,9 +164,9 @@ export function ModelDiscovery({
                     const alreadyConfigured = configured.has(model.modelName);
                     return (
                       <TableRow key={model.modelName}>
-                        <TableCell className="max-w-72 font-main-ui-body">
+                        <TableCell className="max-w-44 font-main-ui-body sm:max-w-72">
                           {model.complete && !alreadyConfigured ? (
-                            <label className="flex items-center gap-2">
+                            <label className="flex min-w-0 items-center gap-2">
                               <Checkbox
                                 checked={selected.includes(model.modelName)}
                                 disabled={action.pending}
@@ -178,14 +178,10 @@ export function ModelDiscovery({
                                   )
                                 }
                               />
-                              <span className="truncate" title={model.modelName}>
-                                {model.modelName}
-                              </span>
+                              <ModelName model={model} />
                             </label>
                           ) : (
-                            <span className="block truncate" title={model.modelName}>
-                              {model.modelName}
-                            </span>
+                            <ModelName model={model} />
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
@@ -247,5 +243,34 @@ export function ModelDiscovery({
         </div>
       </div>
     </CatalogDialog>
+  );
+}
+
+/** The model id with the capabilities the endpoint or catalog published, as compact icons. */
+function ModelName({ model }: { model: ReportedModel }) {
+  const ui = useAppTranslation();
+  const capabilities = model.capabilities;
+  const flags = capabilities
+    ? [
+        capabilities.toolCalling && { icon: Wrench, label: ui("Tool calling") },
+        capabilities.vision && { icon: Eye, label: ui("Vision input") },
+        capabilities.reasoning && { icon: Brain, label: ui("Reasoning") },
+      ].filter((flag) => flag !== false)
+    : [];
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate" title={model.modelName}>
+        {model.modelName}
+      </span>
+      {flags.length > 0 && (
+        <span className="flex gap-1.5 text-content-muted">
+          {flags.map(({ icon: Icon, label }) => (
+            <Icon key={label} className="size-3.5" aria-label={label} role="img">
+              <title>{label}</title>
+            </Icon>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }

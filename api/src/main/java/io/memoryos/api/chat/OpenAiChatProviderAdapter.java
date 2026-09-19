@@ -134,15 +134,35 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         Boolean tools = parameters.isArray() ? Boolean.valueOf(contains(parameters, "tools")) : flag(capabilities, "function_calling");
         Boolean reasoning = parameters.isArray() ? Boolean.valueOf(contains(parameters, "reasoning")) : flag(capabilities, "reasoning");
         Boolean vision = modalities.isArray() ? Boolean.valueOf(contains(modalities, "image")) : flag(capabilities, "vision");
-        return new ReportedModel(id, context, output, tools, vision, reasoning, pricing(item.path("pricing")));
+        // Anthropic nests {supported} flags (image_input, thinking) and has no tool flag; Gemini reports thinking.
+        if (vision == null) vision = flag(capabilities.path("image_input"), "supported");
+        if (reasoning == null) reasoning = flag(capabilities.path("thinking"), "supported");
+        if (reasoning == null) reasoning = flag(item, "thinking");
+        var pricing = pricing(item.path("pricing"));
+        if (pricing == null) pricing = xaiPricing(item);
+        return new ReportedModel(id, context, output, tools, vision, reasoning, pricing);
     }
 
-    /** OpenRouter prices per token as decimal strings; -1 or a missing value means variable or unpublished. */
+    /**
+     * OpenRouter prices per token as decimal strings ({@code prompt}, {@code completion}); Together per million tokens
+     * ({@code input}, {@code output}). -1 or a missing value means variable or unpublished.
+     */
     private static ModelSettings.@org.jspecify.annotations.Nullable Pricing pricing(com.fasterxml.jackson.databind.JsonNode pricing) {
         Double prompt = perToken(pricing.path("prompt"));
         Double completion = perToken(pricing.path("completion"));
-        if (prompt == null || completion == null) return null;
-        return new ModelSettings.Pricing(round(prompt * 1_000_000), round(completion * 1_000_000));
+        if (prompt != null && completion != null)
+            return new ModelSettings.Pricing(round(prompt * 1_000_000), round(completion * 1_000_000));
+        Double input = perToken(pricing.path("input"));
+        Double output = perToken(pricing.path("output"));
+        return input == null || output == null ? null : new ModelSettings.Pricing(round(input), round(output));
+    }
+
+    /** xAI prices in US cents per 100 million tokens. */
+    private static ModelSettings.@org.jspecify.annotations.Nullable Pricing xaiPricing(com.fasterxml.jackson.databind.JsonNode item) {
+        Double prompt = perToken(item.path("prompt_text_token_price"));
+        Double completion = perToken(item.path("completion_text_token_price"));
+        return prompt == null || completion == null ? null
+                : new ModelSettings.Pricing(round(prompt / 10_000), round(completion / 10_000));
     }
 
     private static @org.jspecify.annotations.Nullable Double perToken(com.fasterxml.jackson.databind.JsonNode node) {
