@@ -31,6 +31,7 @@ import reactor.core.publisher.Flux;
 /** Text-to-speech for reading answers aloud. Audio is streamed to the caller as the provider produces it and never stored. */
 @Service
 public class VoiceSynthesisService {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VoiceSynthesisService.class);
     /** Longest text one request or streaming speech reads aloud; Onyx has no limit. */
     public static final int MAX_TEXT_LENGTH = 32_000;
     public static final double MIN_SPEED = 0.5;
@@ -45,6 +46,15 @@ public class VoiceSynthesisService {
     private final IamAuthorization authorization;
     private final MeterRegistry meters;
     private final Semaphore streams = new Semaphore(MAX_STREAMS);
+
+    private io.memoryos.usage.@Nullable AiUsageRecorder usage;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
+                                 org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage) {
+        this(connections, authorization, meters);
+        this.usage = usage.getIfAvailable();
+    }
 
     public VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters) {
         this.connections = connections;
@@ -69,7 +79,9 @@ public class VoiceSynthesisService {
         var connection = acquire(actor, speed);
         Runnable release = releaseOnce();
         try {
-            return stream(connection, connections.key(connection), segments(input, MAX_SEGMENT_LENGTH), speed, release);
+            var opened = stream(connection, connections.key(connection), segments(input, MAX_SEGMENT_LENGTH), speed, release);
+            record(connection, actor);
+            return opened;
         } catch (RuntimeException failed) {
             // A key that cannot be decrypted or a provider that cannot be built must not keep the slot.
             release.run();
@@ -83,10 +95,24 @@ public class VoiceSynthesisService {
         var connection = acquire(actor, speed);
         Runnable release = releaseOnce();
         try {
-            return streaming(connection, connections.key(connection), speed, audio, release);
+            var opened = streaming(connection, connections.key(connection), speed, audio, release);
+            record(connection, actor);
+            return opened;
         } catch (RuntimeException failed) {
             release.run();
             throw failed;
+        }
+    }
+
+    /** Counts one read-aloud in the AI usage ledger; providers price by characters, which the ledger does not carry yet. */
+    private void record(VoiceConnectionService.Connection connection, ActorId actor) {
+        if (usage == null) return;
+        try {
+            usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor.value(), io.memoryos.usage.AiUsageFlow.TEXT_TO_SPEECH,
+                    connection.provider().name(), connection.ttsModel(), connection.id(), null, null, 1, 0, 0, 0, 0, 0, null,
+                    java.time.Instant.now()));
+        } catch (RuntimeException failure) {
+            LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
         }
     }
 

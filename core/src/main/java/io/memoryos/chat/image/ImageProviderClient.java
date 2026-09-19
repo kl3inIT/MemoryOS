@@ -28,8 +28,26 @@ public final class ImageProviderClient {
     private final ImageHttp http;
     private final ImageConnectionService connections;
     private final MeterRegistry meters;
+    private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
     public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters) {
-        this.http = http; this.connections = connections; this.meters = meters;
+        this(http, connections, meters, null);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    public ImageProviderClient(ImageHttp http, ImageConnectionService connections, MeterRegistry meters,
+                               io.memoryos.usage.@Nullable AiUsageRecorder usage) {
+        this.http = http; this.connections = connections; this.meters = meters; this.usage = usage;
+    }
+
+    /**
+     * Adds one delivered image to the AI usage ledger. Image connections carry no price, so the cost is unknown;
+     * connection probes are not recorded because only Chat tools call this.
+     */
+    public void recordImage(ImageConnectionService.Connection connection, io.memoryos.iam.identity.@Nullable ActorId actor, boolean edit) {
+        if (usage == null) return;
+        String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL : connection.model();
+        usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor == null ? null : actor.value(),
+                edit ? io.memoryos.usage.AiUsageFlow.IMAGE_EDIT : io.memoryos.usage.AiUsageFlow.IMAGE_GENERATION,
+                connection.provider().name(), model, connection.id(), null, null, 1, 0, 0, 0, 1, 0, null, java.time.Instant.now()));
     }
     public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 

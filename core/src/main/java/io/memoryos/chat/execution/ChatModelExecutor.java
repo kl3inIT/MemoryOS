@@ -288,7 +288,7 @@ public final class ChatModelExecutor {
                 if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
-                        setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
+                        setup.actor(), setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, 4)));
                 // Mask names are known for image attachments admitted to this vision request.
                 var names = new java.util.HashMap<java.util.UUID, String>();
                 setup.images().values().forEach(attached -> attached.forEach(file -> names.putIfAbsent(file.id(), file.filename())));

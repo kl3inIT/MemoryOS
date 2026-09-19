@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 /** Speech-to-text sessions for voice input. Provider requests run on each session's worker, outside transactions. */
 @Service
 public class VoiceTranscriptionService {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VoiceTranscriptionService.class);
     /** Onyx limit per connection: about fourteen minutes of 24 kHz PCM16 audio. */
     public static final int MAX_RECORDING_BYTES = 25 * 1024 * 1024;
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
@@ -43,6 +44,15 @@ public class VoiceTranscriptionService {
     private final MeterRegistry meters;
     private final Semaphore sessions = new Semaphore(MAX_SESSIONS);
     private final Set<ActorId> active = ConcurrentHashMap.newKeySet();
+
+    private io.memoryos.usage.@org.jspecify.annotations.Nullable AiUsageRecorder usage;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
+                                     org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage) {
+        this(connections, authorization, meters);
+        this.usage = usage.getIfAvailable();
+    }
 
     public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters) {
         this.connections = connections;
@@ -78,13 +88,40 @@ public class VoiceTranscriptionService {
         Function<byte[], String> batch = wav -> transcribe(connection, key, language, wav);
         if (connection.provider() == VoiceProvider.OPENAI && connection.endpoint().isEmpty()) {
             try {
-                return OpenAiRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key, language,
-                        actor.value().toString(), batch, listener, release, meters);
+                return metered(OpenAiRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key, language,
+                        actor.value().toString(), batch, listener, release, meters), connection, actor);
             } catch (RuntimeException unavailable) {
                 meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.OPENAI.name()).increment();
             }
         }
-        return new ChunkedTranscriber(batch, listener, release);
+        return metered(new ChunkedTranscriber(batch, listener, release), connection, actor);
+    }
+
+    /** Counts the recorded audio and adds it to the AI usage ledger once, when the session closes. */
+    private TranscriptionSession metered(TranscriptionSession session, VoiceConnectionService.Connection connection, ActorId actor) {
+        if (usage == null) return session;
+        var recorder = usage;
+        var bytes = new java.util.concurrent.atomic.AtomicLong();
+        var recorded = new java.util.concurrent.atomic.AtomicBoolean();
+        return new TranscriptionSession() {
+            @Override public void append(byte[] pcm) { bytes.addAndGet(pcm.length); session.append(pcm); }
+            @Override public java.util.concurrent.CompletableFuture<String> finish() { return session.finish(); }
+            @Override public void close() {
+                try { session.close(); }
+                finally {
+                    // PCM16 mono at 24 kHz is 48,000 bytes per second.
+                    if (bytes.get() > 0 && recorded.compareAndSet(false, true)) {
+                        try {
+                            recorder.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor.value(),
+                                    io.memoryos.usage.AiUsageFlow.SPEECH_TO_TEXT, connection.provider().name(), connection.sttModel(),
+                                    connection.id(), null, null, 1, 0, 0, 0, 0, bytes.get() / 48_000.0, null, java.time.Instant.now()));
+                        } catch (RuntimeException failure) {
+                            LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
+                        }
+                    }
+                }
+            }
+        };
     }
 
     /** Transcribes one 24 kHz WAV upload with the connection's provider. */
