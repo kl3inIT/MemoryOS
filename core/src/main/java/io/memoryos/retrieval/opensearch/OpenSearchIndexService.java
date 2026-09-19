@@ -1,5 +1,6 @@
 package io.memoryos.retrieval.opensearch;
 
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
@@ -136,7 +137,8 @@ public class OpenSearchIndexService implements SearchIndex {
             var found = existing(document, batch);
             var missing = batch.stream().filter(chunk -> !found.containsKey(chunk.contentSha256())).toList();
             if (!missing.isEmpty()) {
-                var generated = embeddings.batch(missing.stream().map(DocumentChunk::content).toList());
+                var generated = embeddings.batch(missing.stream().map(DocumentChunk::content).toList(),
+                        new ValidatedEmbeddingService.Caller(document.tenantId().value(), null, io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING));
                 for (int index = 0; index < missing.size(); index++) found.put(missing.get(index).contentSha256(), generated.get(index));
             }
             var body = new StringBuilder();
@@ -206,8 +208,14 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     public List<SearchHit> search(TenantId tenant, String query, List<String> mediaTypes, Instant since, Collection<String> accessTokens) {
+        return search(tenant, null, query, mediaTypes, since, accessTokens);
+    }
+
+    /** As above; a known actor's query embedding is added to the AI usage ledger. */
+    public List<SearchHit> search(TenantId tenant, @Nullable ActorId actor, String query, List<String> mediaTypes, Instant since,
+                                  Collection<String> accessTokens) {
         if (!gateway.exists("/" + readAlias())) return List.of();
-        return searchPrepared(tenant, query, embeddings.query(query), mediaTypes, since, SearchFilters.NONE, List.of(), accessTokens);
+        return searchPrepared(tenant, query, embeddings.query(query, queryCaller(tenant, actor)), mediaTypes, since, SearchFilters.NONE, List.of(), accessTokens);
     }
 
     /** Resolve the alias and embed each distinct text once for this Search call. */
@@ -220,7 +228,7 @@ public class OpenSearchIndexService implements SearchIndex {
         for (int offset = 0; offset < texts.size(); offset += embeddings.batchSize()) {
             checkActive.run();
             var inputs = texts.subList(offset, Math.min(offset + embeddings.batchSize(), texts.size()));
-            var output = timings.measure(SearchTimings.Stage.EMBEDDING, () -> embeddings.batch(inputs));
+            var output = timings.measure(SearchTimings.Stage.EMBEDDING, () -> embeddings.batch(inputs, queryCaller(scope.tenant(), scope.actor())));
             for (int i = 0; i < inputs.size(); i++) vectors.put(inputs.get(i), output.get(i));
         }
         List<Callable<List<SearchHit>>> tasks = texts.stream().<Callable<List<SearchHit>>>map(text ->
@@ -237,7 +245,15 @@ public class OpenSearchIndexService implements SearchIndex {
         return searchPrepared(tenant, query, vector, mediaTypes, since, restrictions, sourceIds, List.of(), accessTokens);
     }
 
+    private static ValidatedEmbeddingService.@Nullable Caller queryCaller(TenantId tenant, @Nullable ActorId actor) {
+        return actor == null ? null : new ValidatedEmbeddingService.Caller(tenant.value(), actor.value(), io.memoryos.usage.AiUsageFlow.EMBEDDING_QUERY);
+    }
+
     public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
+        return searchFiles(tenant, null, query, generations, files);
+    }
+
+    public List<SearchHit> searchFiles(TenantId tenant, @Nullable ActorId actor, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
         if (generations.isEmpty() || files.isEmpty() || !gateway.exists("/" + readAlias())) return List.of();
         List<Object> allowed = new ArrayList<>();
         files.forEach((file, document) -> {
@@ -247,7 +263,7 @@ public class OpenSearchIndexService implements SearchIndex {
         });
         if (allowed.isEmpty()) return List.of();
         // Owner-private files are authorized by the explicit owner file mappings, not by Source access.
-        return searchPrepared(tenant, query, embeddings.query(query), List.of(), null, SearchFilters.NONE, List.of(), allowed, null);
+        return searchPrepared(tenant, query, embeddings.query(query, queryCaller(tenant, actor)), List.of(), null, SearchFilters.NONE, List.of(), allowed, null);
     }
 
     private List<SearchHit> searchPrepared(TenantId tenant, String query, float[] vector, List<String> mediaTypes, Instant since,

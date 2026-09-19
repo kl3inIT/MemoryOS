@@ -4,7 +4,6 @@ import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
 import com.embabel.agent.openai.ModelCapabilities;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.OptionsConverter;
-import com.embabel.common.ai.model.PricingModel;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
@@ -264,7 +263,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         };
         var price = settings.pricing();
         var service = new SpringAiLlmService(name, "OpenAI", model, converter, null, List.of(),
-                price == null ? null : PricingModel.usdPer1MTokens(price.inputPerMillion(), price.outputPerMillion()), settings.capabilities().reasoning());
+                price == null ? null : io.memoryos.chat.catalog.ChatModelPricing.of(price), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
                 OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
                 settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools);

@@ -18,6 +18,7 @@ import {
   User,
   Users,
   X,
+  ReceiptText,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
@@ -43,7 +44,8 @@ export type AdminPage =
   | "providers"
   | "models"
   | "mcp"
-  | "agents";
+  | "agents"
+  | "costs";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -261,6 +263,19 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Code Interpreter")}
+                </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageModels ? (
+              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
+                <SidebarTab
+                  to="/admin/ai-costs"
+                  icon={<ReceiptText className="size-4" />}
+                  selected={adminPage === "costs"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("AI costs")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

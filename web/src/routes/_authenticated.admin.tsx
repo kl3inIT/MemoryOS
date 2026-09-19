@@ -57,6 +57,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
+    const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
     const page = usersSelected
       ? "users"
       : groupsSelected
@@ -77,7 +78,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                       ? "mcp"
                       : agentsSelected
                         ? "agents"
-                        : "sources";
+                        : costsSelected
+                          ? "costs"
+                          : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -89,7 +92,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 page === "web" ||
                 page === "voice" ||
                 page === "images" ||
-                page === "interpreter"
+                page === "interpreter" ||
+                page === "costs"
               ? canManageModels
               : page === "mcp"
                 ? canManageMcp
@@ -126,7 +130,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                             ? "Máy chủ MCP"
                             : page === "agents"
                               ? "Quản lý trợ lý"
-                              : "Sources",
+                              : page === "costs"
+                                ? "AI costs"
+                                : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

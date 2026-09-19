@@ -90,6 +90,7 @@ public final class EditImageTool {
         try {
             active.run();
             var edited = client.edit(connection, prompt, working);
+            client.recordImage(connection, actor, true);
             active.run();
             var result = selection == null || selection.coverage() >= ImageEditImages.FULL_COVERAGE ? edited
                     : new ImageProviderClient.Result(ImageEditImages.composite(working, edited.bytes(), selection), "image/png", edited.revisedPrompt());

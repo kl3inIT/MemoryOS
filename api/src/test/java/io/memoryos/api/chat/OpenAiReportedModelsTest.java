@@ -112,7 +112,7 @@ class OpenAiReportedModelsTest {
         assertEquals(272_000, openAi.contextWindow());
         assertEquals(128_000, openAi.maxOutputTokens());
         assertTrue(openAi.capabilities().toolCalling());
-        assertEquals(new ModelSettings.Pricing(0.25, 2.0), openAi.pricing());
+        assertEquals(new ModelSettings.Pricing(0.25, 2.0, 0.025), openAi.pricing());
         assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, ChatModelResolver.spec(ReportedModel.named("models/gemini-2.5-pro"), known).source());
 
         // OpenRouter's own answer limit, capabilities and prices win; its total window (400,000) exceeds OpenAI's

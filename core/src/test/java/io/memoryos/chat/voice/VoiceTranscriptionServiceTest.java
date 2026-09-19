@@ -54,6 +54,30 @@ class VoiceTranscriptionServiceTest {
     }
 
     @Test
+    void aClosedSessionAddsItsRecordedSecondsToAiUsageOnce() {
+        var connections = mock(VoiceConnectionService.class);
+        var recorder = mock(io.memoryos.usage.AiUsageRecorder.class);
+        var factory = new org.springframework.beans.factory.support.StaticListableBeanFactory(java.util.Map.of("usage", recorder));
+        var metered = new VoiceTranscriptionService(connections, mock(IamAuthorization.class), meters,
+                factory.getBeanProvider(io.memoryos.usage.AiUsageRecorder.class));
+        var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+        var connection = connection();
+        org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(connection, null));
+        org.mockito.Mockito.when(connections.key(connection)).thenReturn("voice-secret");
+        var session = metered.open(actor, "vi", ignored -> {});
+        session.append(new byte[48_000]);
+        session.append(new byte[24_000]);
+        session.close();
+        session.close();
+        var captured = org.mockito.ArgumentCaptor.forClass(io.memoryos.usage.AiUsage.class);
+        org.mockito.Mockito.verify(recorder).record(captured.capture());
+        assertEquals(1.5, captured.getValue().audioSeconds(), 1e-9);
+        assertEquals(io.memoryos.usage.AiUsageFlow.SPEECH_TO_TEXT, captured.getValue().flow());
+        assertEquals("whisper-1", captured.getValue().modelName());
+        assertEquals(actor.value(), captured.getValue().actor());
+    }
+
+    @Test
     void uploadsNamedWavWithConfiguredModelAndLanguageThroughTheOpenAiProtocol() {
         byte[] pcm = Pcm16Test.tone(0.5, 3000);
         String text = service.transcribe(connection(), "voice-secret", "vi", Pcm16.wav(pcm, 0, pcm.length));
