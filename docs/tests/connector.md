@@ -415,3 +415,17 @@ A scheduled staging run re-acquired six Drive reports whose SHA-256 was unchange
 | A newer provider version with identical bytes and filename stays unchanged: one version (provider version refreshed), one index attempt, no adopted write, unchanged Document; the next run does not download | `PostgresGoogleDriveSyncTest.versionOnlyChangeWithIdenticalContentStaysUnchangedAndKeepsTheIndexedDocument` |
 | Changed content keeps the previous Document retrievable while the new version processes and after it fails | `PostgresGoogleDriveSyncTest.contentChangeKeepsThePreviousDocumentRetrievableWhenTheNewVersionFails` |
 | A Source indexing other items keeps its eligible Documents readable, searchable and in scope; `NOT_STARTED` and `DELETING` Sources stay excluded | `SourceSearchMetadataMigrationTest.privateSourcesRequireCurrentGroupMembershipRegardlessOfManagementOrCreationAuthority`, `backfillsUploadDatesWithoutPipelineDatesAndRechecksEachMappedSourcesAuthority` |
+
+## Source pause and resume — 2026-09-18
+
+Source-level pause/resume (V79) blocks new sync/index work for a `PAUSED` Source, drains in-flight work through the existing claim/current-version fences, and resumes without a forced full reindex.
+
+| Scenario | Evidence |
+| --- | --- |
+| Pause writes `PAUSED`, cancels queued `index_attempts` with `SOURCE_PAUSED`, blocks INGESTION dispatch and rejects upload/reindex | `PostgresSourceLifecycleTest.pauseBlocksNewWorkAndResumeRequeuesCanceledIndexing` |
+| Resume clears `PAUSED`, re-enqueues canceled index attempts, restores dispatch eligibility; resume without pause is a no-op; pause is idempotent | `PostgresSourceLifecycleTest.pauseIsIdempotentAndResumeWithoutPauseIsANoOp` |
+| Paused Sources are excluded from SOURCE_SYNC and INGESTION dispatch candidates and the `due` scheduler | `JdbcOperationDispatchRepository` `pair.status NOT IN ('DELETING','PAUSED')` guards; `JdbcSourceSyncRepository.due` |
+| In-flight SOURCE_SYNC runs settle as `CANCELLED`/`SOURCE_PAUSED` at a safe boundary, not `SUPERSEDED` | `DefaultConnectorSyncService` pause-aware `settle` branch |
+| `POST /api/sources/{sourceId}/pause` and `POST /api/sources/{sourceId}/resume` require `SOURCES_MANAGE`, return updated `SourceSummary`, appear in `openapi.yml` | `SourceController.pauseSource`/`resumeSource`; `OpenApiContractTest` |
+| UI shows Pause/Resume menu items, `Pausing`/`Paused` badges and banner, disables Sync/Reindex while paused | `source-actions-menu.tsx`, `source-status-presentation.ts`, `source-detail-page.tsx`; `pnpm check` |
+| Run history labels pause cancellation distinctly from failure | `source-errors.ts` `SOURCE_PAUSED` message; `source-run-history.tsx` `RESUMED` trigger |

@@ -3,6 +3,7 @@ import {
   Clock3,
   LoaderCircle,
   Lock,
+  Pause,
   RefreshCw,
   Trash2,
   TriangleAlert,
@@ -46,9 +47,10 @@ export const sourceStatusPresentation: Record<string, SourceStatusPresentation> 
   INDEXING: { label: "Indexing", tone: "info", icon: LoaderCircle },
   ACTIVE: { label: "Active", tone: "success", icon: Check },
   FAILED: { label: "Failed", tone: "danger", icon: TriangleAlert },
+  PAUSED: { label: "Paused", tone: "warning", icon: Pause },
+  PAUSING: { label: "Pausing", tone: "warning", icon: LoaderCircle },
   DELETING: { label: "Deleting", tone: "neutral", icon: Trash2 },
 };
-
 /** Onyx colours access too: workspace-wide green, group-restricted amber, Drive-synced blue. */
 export const sourceAccessPresentation: Record<
   SourceSummary["access"],

@@ -126,16 +126,17 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                 .single();
         SourceOperationId attemptId = new SourceOperationId(UUID.randomUUID());
         var trace = SourceOperationTraceContext.current();
-        jdbcClient.sql("""
+        int claimed = jdbcClient.sql("""
                         UPDATE connector_credential_pairs
                         SET pair_sequence = :pairSequence, status = 'INDEXING',
                             error_code = NULL, updated_at = CURRENT_TIMESTAMP
-                        WHERE tenant_id = :tenantId AND id = :pairId
+                        WHERE tenant_id = :tenantId AND id = :pairId AND status <> 'PAUSED'
                         """)
                 .param("pairSequence", pairSequence)
                 .param("tenantId", tenantId.value())
                 .param("pairId", pair.sourceId().value())
                 .update();
+        if (claimed == 0) throw SourceException.conflict("source is paused");
         jdbcClient.sql("""
                         UPDATE connector_items SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP
                         WHERE tenant_id = :tenantId AND id = :itemId
@@ -255,6 +256,103 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                         """)
                 .param("tenantId", tenantId.value())
                 .param("pairId", sourceId.value())
+                .update();
+    }
+
+    /**
+     * Cancels queued (never-claimed) attempts for a paused Source. In-flight attempts are left to
+     * settle through the {@code isCurrent} fence so they record {@code CANCELLED} at a safe boundary.
+     */
+    public void cancelQueuedForPause(TenantId tenantId, SourceId sourceId) {
+        jdbcClient.sql("""
+                        UPDATE index_attempts
+                        SET status = 'CANCELLED', error_code = 'SOURCE_PAUSED',
+                            claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL,
+                            dispatch_token = NULL, dispatch_lease_expires_at = NULL, redis_message_id = NULL,
+                            completed_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId
+                          AND connector_credential_pair_id = :pairId
+                          AND status = 'NOT_STARTED'
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .update();
+    }
+
+    /**
+     * Re-enqueues one attempt per item whose latest attempt was canceled by pause and whose current
+     * version still needs indexing. Returns the number of attempts created.
+     */
+    public int requeuePaused(TenantId tenantId, JdbcSourceRepository.SourcePair pair) {
+        Long base = jdbcClient.sql("""
+                        WITH candidates AS (
+                            SELECT DISTINCT ON (attempt.connector_item_id)
+                                attempt.connector_item_id, attempt.connector_item_version_id,
+                                attempt.status, attempt.error_code
+                            FROM index_attempts attempt
+                            JOIN connector_items item
+                              ON item.tenant_id = attempt.tenant_id AND item.id = attempt.connector_item_id
+                             AND item.current_version_id = attempt.connector_item_version_id
+                             AND item.status <> 'DELETING'
+                            WHERE attempt.tenant_id = :tenantId
+                              AND attempt.connector_credential_pair_id = :pairId
+                            ORDER BY attempt.connector_item_id, attempt.pair_sequence DESC
+                        ),
+                        requeue AS (
+                            SELECT connector_item_id, connector_item_version_id FROM candidates
+                            WHERE status = 'CANCELLED' AND error_code = 'SOURCE_PAUSED'
+                        )
+                        UPDATE connector_credential_pairs
+                        SET pair_sequence = pair_sequence + (SELECT COUNT(*) FROM requeue),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId AND id = :pairId
+                        RETURNING pair_sequence - (SELECT COUNT(*) FROM requeue)
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", pair.sourceId().value())
+                .query(Long.class).optional().orElse(null);
+        if (base == null) return 0;
+        return jdbcClient.sql("""
+                        WITH candidates AS (
+                            SELECT DISTINCT ON (attempt.connector_item_id)
+                                attempt.connector_item_id, attempt.connector_item_version_id,
+                                attempt.status, attempt.error_code
+                            FROM index_attempts attempt
+                            JOIN connector_items item
+                              ON item.tenant_id = attempt.tenant_id AND item.id = attempt.connector_item_id
+                             AND item.current_version_id = attempt.connector_item_version_id
+                             AND item.status <> 'DELETING'
+                            WHERE attempt.tenant_id = :tenantId
+                              AND attempt.connector_credential_pair_id = :pairId
+                            ORDER BY attempt.connector_item_id, attempt.pair_sequence DESC
+                        ),
+                        requeue AS (
+                            SELECT connector_item_id, connector_item_version_id,
+                                ROW_NUMBER() OVER (ORDER BY connector_item_id) AS seq
+                            FROM candidates
+                            WHERE status = 'CANCELLED' AND error_code = 'SOURCE_PAUSED'
+                        ),
+                        pending AS (
+                            UPDATE connector_items item SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP
+                            FROM requeue WHERE item.tenant_id = :tenantId AND item.id = requeue.connector_item_id
+                        )
+                        INSERT INTO index_attempts (
+                            id, tenant_id, connector_id, connector_credential_pair_id,
+                            connector_item_id, connector_item_version_id,
+                            pair_sequence, item_sequence, status
+                        )
+                        SELECT gen_random_uuid(), :tenantId, :connectorId, :pairId,
+                            requeue.connector_item_id, requeue.connector_item_version_id,
+                            :base + requeue.seq,
+                            (SELECT COALESCE(MAX(prior.item_sequence), 0) + 1 FROM index_attempts prior
+                             WHERE prior.tenant_id = :tenantId AND prior.connector_item_id = requeue.connector_item_id),
+                            'NOT_STARTED'
+                        FROM requeue
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("connectorId", pair.connectorId())
+                .param("pairId", pair.sourceId().value())
+                .param("base", base)
                 .update();
     }
 
@@ -497,7 +595,7 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                           AND attempt.claim_token = :claimToken
                           AND attempt.lease_expires_at > CURRENT_TIMESTAMP
                           AND tenant.status = 'ACTIVE'
-                          AND pair.status <> 'DELETING'
+                          AND pair.status NOT IN ('DELETING', 'PAUSED')
                           AND NOT EXISTS (
                               SELECT 1 FROM index_attempts newer
                               WHERE newer.tenant_id = attempt.tenant_id
@@ -541,13 +639,18 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
             return;
         }
         int updated = jdbcClient.sql("""
-                        UPDATE index_attempts
-                        SET status = 'SUPERSEDED', completed_at = CURRENT_TIMESTAMP,
-                            claim_token = NULL, lease_expires_at = NULL
-                        WHERE tenant_id = :tenantId
-                          AND id = :attemptId
-                          AND status = 'IN_PROGRESS'
-                          AND claim_token = :claimToken
+                        UPDATE index_attempts attempt
+                        SET status = CASE WHEN pair.status = 'PAUSED' THEN 'CANCELLED' ELSE 'SUPERSEDED' END,
+                            completed_at = CURRENT_TIMESTAMP,
+                            claim_token = NULL, lease_expires_at = NULL,
+                            error_code = CASE WHEN pair.status = 'PAUSED' THEN 'SOURCE_PAUSED' ELSE attempt.error_code END
+                        FROM connector_credential_pairs pair
+                        WHERE attempt.tenant_id = :tenantId
+                          AND attempt.id = :attemptId
+                          AND attempt.status = 'IN_PROGRESS'
+                          AND attempt.claim_token = :claimToken
+                          AND pair.tenant_id = attempt.tenant_id
+                          AND pair.id = attempt.connector_credential_pair_id
                         """)
                 .param("tenantId", work.tenantId().value())
                 .param("attemptId", work.operationId().value())

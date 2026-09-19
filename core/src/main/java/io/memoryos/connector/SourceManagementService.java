@@ -56,6 +56,10 @@ public interface SourceManagementService {
 
     SourceOperationView reindex(ActorId actorId, SourceId sourceId, SourceItemId itemId);
 
+    SourceSummary pauseSource(ActorId actorId, SourceId sourceId);
+
+    SourceSummary resumeSource(ActorId actorId, SourceId sourceId);
+
     SourceOperationView removeItem(ActorId actorId, SourceId sourceId, SourceItemId itemId);
 
     SourceOperationView deleteSource(ActorId actorId, SourceId sourceId);

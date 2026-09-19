@@ -344,7 +344,7 @@ public class JdbcSourceRepository {
                                 LIMIT 1
                             ),
                             status = CASE
-                                WHEN status = 'DELETING' THEN 'DELETING'
+                                WHEN status IN ('DELETING', 'PAUSED') THEN status
                                 WHEN EXISTS (
                                     SELECT 1 FROM current_attempts
                                     WHERE status IN ('NOT_STARTED', 'IN_PROGRESS')
@@ -371,6 +371,30 @@ public class JdbcSourceRepository {
                 .param("pairId", sourceId.value())
                 .param("indexSucceeded", indexSucceeded)
                 .update();
+    }
+
+    /** Records durable pause intent; returns false when the pair is not in a pausable state. */
+    public boolean setPaused(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql("""
+                        UPDATE connector_credential_pairs
+                        SET status = 'PAUSED', updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId AND id = :pairId AND status <> 'DELETING'
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .update() == 1;
+    }
+
+    /** Clears pause intent so {@link #recomputeStatus} can re-derive the operational status. */
+    public boolean clearPaused(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql("""
+                        UPDATE connector_credential_pairs
+                        SET status = 'NOT_STARTED', updated_at = CURRENT_TIMESTAMP
+                        WHERE tenant_id = :tenantId AND id = :pairId AND status = 'PAUSED'
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("pairId", sourceId.value())
+                .update() == 1;
     }
 
     public boolean lockActiveTenant(TenantId tenantId) {

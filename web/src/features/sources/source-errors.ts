@@ -168,6 +168,7 @@ const statusMessages: Record<string, string> = {
     "Extracted content could not be published. Retry the affected file after checking the Source status.",
   SOURCE_MANAGER_NOT_ELIGIBLE:
     "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
+  SOURCE_PAUSED: "Canceled by pause. Resume the Source to continue synchronization and indexing.",
 };
 
 function sourceStatusMessage(code: string) {

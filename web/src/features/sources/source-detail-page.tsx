@@ -44,6 +44,8 @@ import {
   listSourceItemsQueryKey,
   listSourcesQueryKey,
   reindexSourceItemMutation,
+  pauseSourceMutation,
+  resumeSourceMutation,
   removeSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
@@ -182,6 +184,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const reindexItem = useMutation(reindexSourceItemMutation());
   const removeItem = useMutation(removeSourceItemMutation());
   const deleteSource = useMutation(deleteSourceMutation());
+  const pauseSource = useMutation(pauseSourceMutation());
+  const resumeSource = useMutation(resumeSourceMutation());
 
   async function refresh(sourceId?: string, resetFiles = false) {
     await Promise.all([
@@ -579,6 +583,39 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     }
   }
 
+  async function togglePause(paused: boolean) {
+    if (!selectedId || busy) return;
+    setError(null);
+    const sourceName = detail?.name ?? "Source";
+    try {
+      const summary = await (paused ? resumeSource : pauseSource).mutateAsync({
+        path: { sourceId: selectedId },
+        headers: sameOriginMutationHeaders,
+      });
+      notify({
+        tone: "success",
+        title: paused ? "Source resumed" : "Source paused",
+        description: appText("{{v1}}: {{v2}}", {
+          v1: sourceName,
+          v2: paused
+            ? "Synchronization and indexing continue from the retained state."
+            : "New synchronization and indexing work is blocked; in-flight work is draining.",
+        }),
+      });
+      void refresh(selectedId);
+      return summary;
+    } catch (cause) {
+      notify({
+        tone: "error",
+        title: paused ? "Resume failed" : "Pause failed",
+        description: appText("{{v1}}: {{v2}}", {
+          v1: sourceName,
+          v2: appText(sourceMutationError(cause, "reindex")),
+        }),
+      });
+    }
+  }
+
   async function observeDeletion(
     operation: SourceOperation,
     controller: AbortController,
@@ -635,8 +672,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   }
 
   const detail = sourceQuery.data;
-  const canUpload = detail?.type === "FILE" && can(detail, "edit");
-  const canReindex = can(detail, "edit");
+  const paused = detail?.status === "PAUSED" || detail?.status === "PAUSING";
+  const canUpload = detail?.type === "FILE" && can(detail, "edit") && !paused;
+  const canReindex = can(detail, "edit") && !paused;
   const canRemoveItems = can(detail, "removeItems");
   const canDelete = can(detail, "delete");
   const canManageGroups = can(detail, "edit");
@@ -655,6 +693,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     reindexItem.isPending ||
     removeItem.isPending ||
     deleteSource.isPending ||
+    pauseSource.isPending ||
+    resumeSource.isPending ||
     cleanupPending ||
     sourceQuery.isError;
   const busy = managementBusy || driveBusy;
@@ -945,8 +985,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 <SourceActionsMenu
                   triggerRef={actionsTrigger}
                   disabled={busy || detail.status === "DELETING"}
+                  status={detail.status}
                   onRename={canRename ? () => setSourceDialog("name") : undefined}
                   onChangeAccess={canChangeAccess ? () => setSourceDialog("access") : undefined}
+                  onPause={canRename ? () => void togglePause(false) : undefined}
+                  onResume={canRename ? () => void togglePause(true) : undefined}
                   onDelete={canDelete ? () => setSourceDialog("delete") : undefined}
                 />
               }
@@ -985,6 +1028,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             {detail.errorCode && detail.type !== "GOOGLE_DRIVE" ? (
               <p role="alert" className="mt-4 text-sm text-status-danger-content">
                 {ui(sourceStatusMessage(detail.errorCode))}
+              </p>
+            ) : null}
+            {detail.status === "PAUSED" || detail.status === "PAUSING" ? (
+              <p role="status" className="mt-4 text-sm text-status-warning-content">
+                {detail.status === "PAUSING"
+                  ? ui(
+                      "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.",
+                    )
+                  : ui(
+                      "Automatic synchronization and indexing are paused. Indexed data and permissions may become stale until the Source is resumed.",
+                    )}
               </p>
             ) : null}
 

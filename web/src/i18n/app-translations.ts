@@ -1029,6 +1029,19 @@ export const englishUi: Record<string, string> = {
   "Source settings": "Cài đặt Nguồn",
   "Rename source": "Đổi tên nguồn",
   "Change visibility": "Thay đổi chế độ hiển thị",
+  "Pause source": "Tạm dừng nguồn",
+  "Resume source": "Tiếp tục nguồn",
+  "Pausing…": "Đang tạm dừng…",
+  "Source paused": "Đã tạm dừng nguồn",
+  "Source resumed": "Đã tiếp tục nguồn",
+  "Pause failed": "Tạm dừng thất bại",
+  "Resume failed": "Tiếp tục thất bại",
+  "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.":
+    "Đang tạm dừng — đang chờ xử lý tệp đang chạy hoàn tất. Công việc đồng bộ và lập chỉ mục mới đã bị chặn.",
+  "Automatic synchronization and indexing are paused. Indexed data and permissions may become stale until the Source is resumed.":
+    "Đồng bộ và lập chỉ mục tự động đã tạm dừng. Dữ liệu và quyền đã lập chỉ mục có thể bị lỗi thời cho đến khi Nguồn được tiếp tục.",
+  "Canceled by pause. Resume the Source to continue synchronization and indexing.":
+    "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
   "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
     "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",

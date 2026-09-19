@@ -18,6 +18,7 @@ import {
   Hash,
   History,
   LoaderCircle,
+  Play,
   RefreshCw,
   RotateCw,
   Sparkles,
@@ -127,6 +128,7 @@ const runTriggers: Record<NonNullable<SourceRun["trigger"]>, [label: string, ico
   SCHEDULED: ["Automatic schedule", CalendarClock],
   MANUAL: ["Manual", Hand],
   INITIAL: ["Initial synchronization", Sparkles],
+  RESUMED: ["Resumed after pause", Play],
 };
 
 type StageState = [label: string, tone: StatusTone, icon: LucideIcon];
