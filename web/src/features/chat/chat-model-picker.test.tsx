@@ -64,3 +64,29 @@ it("does not present Luna when the explicit model is unavailable", () => {
   render(<ChatModelPicker value="removed" onChange={vi.fn()} disabled={false} />);
   expect(screen.getByRole("combobox", { name: "Select model" })).not.toHaveTextContent("Luna");
 });
+
+it("groups models under their provider once there is more than one, as Onyx", async () => {
+  const saved = catalog.data;
+  catalog.data = [
+    ...saved,
+    {
+      id: "deepseek",
+      modelName: "ocg/deepseek-v4-flash",
+      displayName: "ocg/deepseek-v4-flash",
+      providerName: "9Router",
+      contextWindow: 1_000_000,
+      isDefault: false,
+    },
+  ];
+  try {
+    render(<ChatModelPicker onChange={vi.fn()} disabled={false} />);
+    await userEvent.click(screen.getByRole("combobox", { name: "Select model" }));
+    const headings = screen
+      .getAllByText(/^(9Router|Deployment OpenAI)$/)
+      .map((node) => node.textContent);
+    expect(headings).toEqual(["9Router", "Deployment OpenAI"]);
+    expect(screen.getByRole("option", { name: /deepseek-v4-flash/ })).toBeInTheDocument();
+  } finally {
+    catalog.data = saved;
+  }
+});
