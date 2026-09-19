@@ -162,7 +162,12 @@ function Citation({ source }: { source: ChatSource }) {
   const icon = webHost ? (
     <SourceIcon domain={webHost} fallback="none" />
   ) : (
-    <DocumentSourceIcon size="xs" mediaType={source.mediaType} sourceTypes={source.sourceTypes} />
+    <DocumentSourceIcon
+      size="xs"
+      mediaType={source.mediaType}
+      filename={source.title}
+      sourceTypes={source.sourceTypes}
+    />
   );
   return (
     <InlineCitation
@@ -184,7 +189,11 @@ function Citation({ source }: { source: ChatSource }) {
                 <SourceIcon domain={webHost!} fallback="globe" />
               </span>
             ) : (
-              <DocumentSourceIcon mediaType={source.mediaType} sourceTypes={source.sourceTypes} />
+              <DocumentSourceIcon
+                mediaType={source.mediaType}
+                filename={source.title}
+                sourceTypes={source.sourceTypes}
+              />
             )}
             <div className="min-w-0 flex-1">
               <p

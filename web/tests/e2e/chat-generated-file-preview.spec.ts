@@ -25,7 +25,8 @@ async function openFiles(page: Page) {
     })
   ).json();
   await page.goto(`/chat/${session.id}`);
-  await expect(page.getByText("12,48 tỷ ₫")).toBeVisible();
+  // The first visit compiles the chat route (KaTeX included) in the dev server.
+  await expect(page.getByText("12,48 tỷ ₫")).toBeVisible({ timeout: 30_000 });
 }
 
 async function preview(page: Page, filename: string) {

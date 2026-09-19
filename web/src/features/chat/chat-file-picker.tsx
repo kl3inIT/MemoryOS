@@ -1,14 +1,7 @@
+import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  CircleAlert,
-  FileText,
-  LoaderCircle,
-  Paperclip,
-  SearchX,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { CircleAlert, LoaderCircle, Paperclip, SearchX, Trash2, Upload } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ChatDialog } from "./chat-dialog";
 import { useQuery } from "@tanstack/react-query";
@@ -137,7 +130,10 @@ function FileStatusIcon({ file }: { file: ChatFile }) {
   const ui = useAppTranslation();
   const label = fileStatusLabel(file, ui);
   const common = "size-4 shrink-0";
-  if (!label) return <FileText aria-hidden="true" className={`${common} text-content-muted`} />;
+  if (!label)
+    return (
+      <DocumentKindIcon mediaType={file.mediaType} filename={file.filename} className={common} />
+    );
   const icon =
     file.status === "PROCESSING" || file.status === "UPLOADING" ? (
       <LoaderCircle aria-hidden="true" className={`${common} animate-spin text-content-muted`} />

@@ -2,7 +2,7 @@
 "use client";
 
 import { type PropsWithChildren, useState, type FC, isValidElement } from "react";
-import { XIcon, FileText, Loader2Icon, AlertCircleIcon } from "lucide-react";
+import { XIcon, Loader2Icon, AlertCircleIcon } from "lucide-react";
 import { AttachmentPrimitive, ComposerPrimitive, useAuiState, useAui } from "@assistant-ui/react";
 import { useTranslation } from "react-i18next";
 import {
@@ -60,6 +60,7 @@ function DialogContent({
 import { IconButton } from "@/components/ui/icon-button";
 import { useAttachmentSrc } from "@/hooks/use-attachment-src";
 import { cn } from "@/lib/utils";
+import { DocumentKindIcon } from "@/features/search/document-source-icon";
 
 type AttachmentPreviewProps = {
   src: string;
@@ -107,6 +108,8 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
 const AttachmentThumb: FC = () => {
   const { t } = useTranslation("attachments");
   const src = useAttachmentSrc();
+  const name = useAuiState((s) => s.attachment.name);
+  const contentType = useAuiState((s) => s.attachment.contentType);
 
   return (
     <Avatar className="aui-attachment-tile-avatar flex h-full w-full items-center justify-center rounded-none">
@@ -116,7 +119,11 @@ const AttachmentThumb: FC = () => {
         className="aui-attachment-tile-image h-full w-full rounded-none object-cover"
       />
       <AvatarFallback className="flex h-full w-full items-center justify-center">
-        <FileText className="aui-attachment-tile-fallback-icon text-muted-foreground/80 size-6 stroke-[1.5]" />
+        <DocumentKindIcon
+          mediaType={contentType}
+          filename={name}
+          className="aui-attachment-tile-fallback-icon size-6 stroke-[1.5]"
+        />
       </AvatarFallback>
     </Avatar>
   );

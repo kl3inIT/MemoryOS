@@ -87,7 +87,12 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
 
   return (
     <article className="flex items-start gap-3.5 py-5">
-      <DocumentSourceIcon mediaType={item.mediaType} sourceTypes={item.sourceTypes} size="lg" />
+      <DocumentSourceIcon
+        mediaType={item.mediaType}
+        filename={item.title}
+        sourceTypes={item.sourceTypes}
+        size="lg"
+      />
       <div className="min-w-0 flex-1">
         <h3 className="font-heading-h3 text-content-primary">
           <button
