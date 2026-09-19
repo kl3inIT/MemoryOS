@@ -35,7 +35,7 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
   - file hoặc trang đã bị xóa được dọn ở lượt prune theo Prune Frequency;
   - tuân thủ throttling của Microsoft.
 - **Tài liệu** đi qua pipeline hiện có: object storage → INGESTION → current Document → Search/Chat. Citation mở đúng file hoặc trang gốc [MEM-118].
-- **Truy cập:** Public/Private như FILE, theo contract của MEM-105. Auto Sync theo quyền SharePoint không thuộc increment này.
+- **Truy cập:** Public/Private như FILE và Auto Sync theo quyền SharePoint như Google Drive, theo contract của MEM-105 [Q13].
 - **Giao diện** trong phần Nguồn:
   - chọn loại nguồn, tạo nguồn qua các bước, trang chi tiết, lịch sử;
   - lỗi có hướng xử lý;
@@ -361,9 +361,29 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 
 ### 5.7 Truy cập tài liệu
 
-- SharePoint có `PUBLIC` và `PRIVATE`, semantics như FILE trong MEM-105. Mặc định `PRIVATE`; `PUBLIC` cần global `SOURCES_MANAGE`.
+- SharePoint có `PUBLIC`, `PRIVATE` và **`SYNC` (Auto Sync) như Google Drive** [Q13, thay Q4]. Mặc định `SYNC` giống Drive; `PUBLIC` cần global `SOURCES_MANAGE`; scoped manager được chọn `PRIVATE` hoặc `SYNC`.
 - `JdbcSourceDocumentRepository` thêm nhánh `SHAREPOINT` vào đúng luật SQL dùng chung.
-- Không có `SYNC` và không có lựa chọn "coi link chia sẻ là công khai" (Q4). Phần nghiên cứu Auto Sync của Onyx vẫn giữ trong [tham chiếu §7–§8](onyx-sharepoint-reference.md#7-đồng-bộ-quyền-ee) để làm issue sau.
+- Kiểm tra "Auto Sync chỉ cho Google Drive" trong `SourceAccessPolicy` và `JdbcSourceRepository.updateAccess` đổi thành "provider có đồng bộ quyền" (Drive, SharePoint), không thêm một loại hard-code thứ hai.
+
+#### 5.7.1 Auto Sync (Q13)
+
+Theo Onyx EE ([tham chiếu §7–§8](onyx-sharepoint-reference.md#7-đồng-bộ-quyền-ee)), dùng lại hạ tầng MEM-88/MEM-105: `SourceDocumentAccessResolver`, `READ_SCOPE`, `DocumentAccess`, trường `access_public`/`access_control_list` và refresh ACCESS tại chỗ của OpenSearch, `enqueueDocumentAccess`.
+
+- **Nguồn quyền:** chọn sau spike S0.11 (plan):
+  - nếu Graph `GET /drives/{id}/items/{id}/permissions` trả quyền **kế thừa** và principal site group/Entra group có id: chỉ dùng Graph, credential client secret vẫn đủ;
+  - nếu không: REST `roleassignments` như Onyx (`$expand=Member,RoleDefinitionBindings`), cần **credential certificate** và `Sites.FullControl.All` (hoặc full control từng site với `Sites.Selected`). Khi đó Auto Sync chỉ chọn được với credential certificate, và nút Test kiểm luôn quyền này.
+- **Khi nào đọc quyền:** mỗi lượt đọc lại quyền của item mà lượt đó chạm tới. Delta chỉ trả item đổi nội dung, nên nếu S0.12 cho thấy đổi quyền không hiện trong delta thì thêm loại lượt `ACL` có chu kỳ riêng (Onyx: doc sync 30 phút) đọc quyền của mọi item đang giữ, chỉ metadata.
+- **Mở rộng group lúc thu thập** (khác Drive: Drive không cấp gì cho `group`): quyền SharePoint chủ yếu qua site group (Owners/Members/Visitors) chứa Entra group, không mở rộng thì gần như không ai đọc được.
+  - Entra group: Graph `/groups/{id}/transitiveMembers` (`GroupMember.Read.All`), có giới hạn số thành viên và độ sâu;
+  - SharePoint site group: REST `sitegroups/{id}/users` (hoặc Graph nếu S0.11 cho phép), thành viên là Entra group thì mở rộng tiếp;
+  - bỏ assignment chỉ có Limited Access (`role_type_kind` 1 hoặc 9), như Onyx.
+- **Token:**
+  - grant `ms_user:` + địa chỉ viết thường, phát từ **cả** `mail` **và** `userPrincipalName` của mỗi người, để khớp email đăng nhập đã xác minh theo ADR 0011 dù UPN khác email; không bỏ `.onmicrosoft`;
+  - `READER_TOKENS` thêm `ms_user:` từ cùng email đã xác minh; giữ nguyên `google_user:` để không phải sửa lại index đã có;
+  - "Everyone" (`c:0(.s|true`), "Everyone except external users" (`spo-grid-all-users`), link chia sẻ `anonymous`/`organization` → `everyone` (`PUBLIC_GRANT`): mọi người đọc MemoryOS đều là thành viên Tenant, nên `organization` tương đương everyone.
+- **Lưu trữ:** bảng `sharepoint_acl_snapshots` (migration mới) cùng cột provenance như V75/V76 (`observation_revision`, `status`, `attempt_*`, `success_*`, `error_code`, `error_message`); `SYNC_GRANTS` thành UNION theo `connector_type`; sự kiện `GoogleDriveAclChanged` tổng quát thành `SourceAclChanged` (người nghe duy nhất đã generic). Không gộp bảng Drive (MEM-88 đã merge).
+- **Lỗi:** thiếu `GroupMember.Read.All` hoặc quyền đọc role assignment ghi `SOURCE_SHAREPOINT_AUTHORIZATION` lên snapshot; tài liệu chưa có snapshot thành công thì không ai đọc được, nhưng việc lấy nội dung không bị chặn (như Drive).
+- **ADR:** mở rộng ADR 0011 cho `ms_user:` và việc mở rộng group, ghi khi đã bắt đầu triển khai.
 
 ### 5.8 API
 
@@ -468,7 +488,7 @@ Chi tiết và lý do nằm ở [ui-references.md](ui-references.md).
 | 11  | Có Indexing Start Date                                                 | Không có                                                                                        | MemoryOS (tiền lệ Drive)  |
 | 12  | Hierarchy node                                                         | Không có                                                                                        | MemoryOS (ADR 0002)       |
 | 13  | Reindex theo link, gọi lại provider                                    | Reindex trên snapshot đã lưu                                                                    | MemoryOS                  |
-| 14  | Access cần gói Business; có Auto Sync                                  | Public/Private; không có Auto Sync                                                              | MemoryOS (MEM-105), Q4    |
+| 14  | Access cần gói Business; có Auto Sync                                  | Public/Private/Auto Sync; Auto Sync mở rộng group lúc thu thập, token từ cả mail và UPN         | MemoryOS (MEM-105), Q13   |
 | 15  | Mô tả phương thức xác thực không hiện                                  | Hiện trong card `RadioGroup`                                                                    | Sửa lỗi O12               |
 | 16  | Form sinh động theo cấu hình                                           | Các bước shadcn theo MEM-106 và Mobbin                                                          | MemoryOS                  |
 | 17  | Không có User-Agent riêng                                              | `ISV\|MemoryOS\|SharePointConnector/<version>`                                                  | MemoryOS                  |
@@ -487,7 +507,7 @@ Người dùng chốt Q1–Q10 ngày 16/09/2026, và chốt Q11–Q12 cùng ngà
 | Q1  | **Giữ mô hình theo dõi thay đổi của Onyx**: refresh theo timestamp token (chồng lấn 30 phút), không lưu `deltaLink`; prune theo Prune Frequency (mặc định 7 ngày, 0 là tắt) | Có thêm cấu hình prune interval (khác tiền lệ Drive). Không có bảng cursor. Việc xóa được xử lý theo Q11, không chờ prune                                                                                                 |
 | Q2  | Gọi Graph bằng HTTP adapter JDK + msal4j (theo khuyến nghị)                                                                                                                 | Cùng mẫu `RestGoogleDriveProvider`; tự map vài resource JSON                                                                                                                                                              |
 | Q3  | **Khớp thư viện theo path của URL**                                                                                                                                         | Hỗ trợ site tiếng Việt; xác nhận bằng spike S0.6                                                                                                                                                                          |
-| Q4  | **Chưa làm Auto Sync**                                                                                                                                                      | Không có REST SharePoint, role assignment, mở rộng group, `SYNC`, link chia sẻ công khai. MEM-88 không còn là phụ thuộc                                                                                                   |
+| Q4  | ~~**Chưa làm Auto Sync**~~ — **thay bằng Q13**                                                                                                                                                      | Không có REST SharePoint, role assignment, mở rộng group, `SYNC`, link chia sẻ công khai. MEM-88 không còn là phụ thuộc                                                                                                   |
 | Q5  | Bỏ: thuộc Auto Sync                                                                                                                                                         | —                                                                                                                                                                                                                         |
 | Q6  | Automatic interval mặc định 30 phút (theo khuyến nghị, như Onyx)                                                                                                            | —                                                                                                                                                                                                                         |
 | Q7  | Cipher AES-GCM dùng chung, key SharePoint riêng (theo khuyến nghị)                                                                                                          | Refactor nhỏ; test giải mã dữ liệu Drive cũ                                                                                                                                                                               |
@@ -496,17 +516,10 @@ Người dùng chốt Q1–Q10 ngày 16/09/2026, và chốt Q11–Q12 cùng ngà
 | Q10 | Nhận URL `/personal/`, không đưa OneDrive vào `ALL_SITES` (theo khuyến nghị)                                                                                                | Đã kiểm ở [spike S0.8](plan.md#s08--url-personal-q10): thư viện chính tên `OneDrive`, path `/Documents`; lọc `ALL_SITES` theo cờ `isPersonalSite`                                                                         |
 | Q11 | **Lượt refresh gỡ tài liệu ngay theo tombstone của delta**; prune trở thành lưới an toàn                                                                                    | Phải lưu `provider_file_id` để khớp tombstone, vì tombstone không có `name`. Tài liệu đã xóa chỉ còn tìm được tối đa một chu kỳ refresh thay vì 7 ngày. Bằng chứng: [spike S0.3](plan.md#s03--delta-theo-timestamp-token) |
 | Q12 | **Bỏ bộ lọc cửa sổ phía client ở nhánh delta**; nhánh BFS `children` vẫn lọc                                                                                                | Sửa lỗi O4/O5: item được di chuyển vào phạm vi được index ngay thay vì chờ tới khi có người sửa nội dung. Cửa sổ chỉ còn dùng để dựng token                                                                               |
+| Q13 | **Làm Auto Sync theo quyền SharePoint như Google Drive** (người dùng chốt 19/09/2026, thay Q4) | §5.7.1. Nguồn quyền (Graph hay REST + certificate) và loại lượt `ACL` chốt sau spike S0.11–S0.13. Mặc định `SYNC` như Drive |
 
 ## 8. Ngoài phạm vi
 
-- **Auto Sync theo quyền SharePoint.** Khi làm, cần:
-  - credential certificate;
-  - REST `roleassignments` theo `sharepointIds.listId` (không theo title, O3);
-  - mở rộng Entra group và SharePoint group;
-  - so email/UPN nguyên văn (O11);
-  - ADR mở rộng ADR 0011;
-  - hạ tầng snapshot quyền của MEM-88.
-  - Chi tiết Onyx ở [tham chiếu §7–§8](onyx-sharepoint-reference.md#7-đồng-bộ-quyền-ee).
 - OneDrive toàn tenant, Teams, SharePoint list (không phải thư viện), Outlook: các nguồn riêng trong MEM-118.
 - OAuth delegated theo người dùng; tự động cấp `Sites.Selected` từ MemoryOS (quản trị viên tự cấp qua Graph).
 - Trình duyệt cây site/thư mục; ghi ngược lên SharePoint; webhook/subscription Graph.
