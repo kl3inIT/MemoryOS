@@ -239,6 +239,7 @@ export async function generatedFileMessages(
     images: [],
     activity: { steps: [], reasoning: [] },
     research: { clarification: false, plan: null, agents: [] },
+    failureCode: null,
   };
   return [
     {

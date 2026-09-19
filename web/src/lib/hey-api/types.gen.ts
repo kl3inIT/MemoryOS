@@ -1572,6 +1572,10 @@ export type ChatMessage = {
     images: Array<ImageRef>;
     generatedFiles: Array<GeneratedFileRef>;
     research: ChatMessageResearch;
+    /**
+     * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
+     */
+    failureCode: string | null;
 };
 
 export type ChatMessageResearch = {
@@ -1809,8 +1813,32 @@ export type ChatSessionSearchPage = {
     hasMore: boolean;
 };
 
+export type ChatReportedModel = {
+    modelName: string;
+    contextWindow: number | null;
+    maxOutputTokens: number | null;
+    capabilities: ChatReportedModelCapabilities;
+    pricing: ChatReportedModelPricing;
+    /**
+     * Where the specs come from: the endpoint itself, the installed catalog, or nowhere
+     */
+    source: 'provider' | 'catalog' | 'none';
+    complete: boolean;
+};
+
+export type ChatReportedModelCapabilities = {
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning: boolean;
+};
+
+export type ChatReportedModelPricing = {
+    inputPerMillion: number;
+    outputPerMillion: number;
+};
+
 export type ChatReportedModels = {
-    models: Array<string>;
+    models: Array<ChatReportedModel>;
 };
 
 export type Descriptor = {

@@ -16,6 +16,8 @@ import {
 import { createChatModel, updateChatModel, validateChatModel } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import {
+  reportedDraft,
+  type ReportedModel,
   compactTokens,
   findKnownModel,
   matchesKnownModel,
@@ -124,6 +126,7 @@ type ValidationObservation = { providerRevision: number; modelRevision: number; 
 export function ModelEditor({
   initial,
   modelName,
+  reported,
   models,
   provider,
   adapter,
@@ -131,6 +134,8 @@ export function ModelEditor({
 }: {
   initial?: ManagedModel;
   modelName?: string;
+  /** A provider-reported model: its published limits, capabilities and prices prefill the form (MEM-130). */
+  reported?: ReportedModel;
   models: ManagedModel[];
   provider: ManagedProvider;
   adapter?: InstalledAdapter;
@@ -141,9 +146,11 @@ export function ModelEditor({
   const action = useModelAction();
   const [baseline, setBaseline] = useState(initial);
   const [draft, setDraft] = useState(() =>
-    modelName
-      ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
-      : modelDraft(initial, adapter),
+    reported
+      ? reportedDraft(reported, adapter)
+      : modelName
+        ? changeModelDraft(modelDraft(initial, adapter), "modelName", modelName, adapter)
+        : modelDraft(initial, adapter),
   );
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationObservation | null>(null);

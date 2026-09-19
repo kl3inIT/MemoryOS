@@ -1683,7 +1683,9 @@ class ChatSessionApiIntegrationTest {
                     {"object":"list","data":[
                       {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"},
                       {"id":"gpt-5","object":"model","created":1,"owned_by":"openai"},
-                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"}]}
+                      {"id":"gpt-4.1-mini","object":"model","created":1,"owned_by":"openai"},
+                      {"id":"qwen/qwen3.8-27b","context_length":1000000,"top_provider":{"max_completion_tokens":131072},
+                       "supported_parameters":["tools"],"pricing":{"prompt":"0.000000214","completion":"0.00000255"}}]}
                     """.getBytes(UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, bytes.length);
@@ -1697,8 +1699,17 @@ class ChatSessionApiIntegrationTest {
             var reported = Json.mapper().readTree(mockMvc.perform(
                             get("/api/chat/providers/" + provider + "/reported-models").with(authentication(actor)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals(List.of("gpt-4.1-mini", "gpt-5"),
-                    reported.path("models").valueStream().map(JsonNode::asText).toList());
+            assertEquals(List.of("gpt-4.1-mini", "gpt-5", "qwen/qwen3.8-27b"),
+                    reported.path("models").valueStream().map(model -> model.path("modelName").asText()).toList());
+            // The catalog fills an OpenAI name; OpenRouter-style metadata comes from the endpoint itself (MEM-130).
+            assertEquals("catalog", reported.path("models").get(0).path("source").asText());
+            assertTrue(reported.path("models").get(0).path("complete").asBoolean());
+            var routed = reported.path("models").get(2);
+            assertEquals("provider", routed.path("source").asText());
+            assertEquals(1000000, routed.path("contextWindow").asInt());
+            assertEquals(131072, routed.path("maxOutputTokens").asInt());
+            assertTrue(routed.path("capabilities").path("toolCalling").asBoolean());
+            assertEquals(2.55, routed.path("pricing").path("outputPerMillion").asDouble());
             assertEquals("Bearer fixture-byok", authorization.get());
             mockMvc.perform(get("/api/chat/providers/" + provider + "/reported-models")
                     .with(authentication(other))).andExpect(status().isForbidden());
@@ -2535,6 +2546,12 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/settings").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"deepResearchEnabled\":true,\"revision\":" + revision + "}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.deepResearchEnabled").value(true));
+        // MEM-130: a model below the 50,000-token research minimum is its own reason, not a disabled setting.
+        var small = createConfiguredModel(createProvider("http://127.0.0.1:9/v1", true), "small-context", 0.2);
+        body.put("clientRequestId", UUID.randomUUID().toString()).put("modelConfigurationId", small.path("id").asText());
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/messages")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_RESEARCH_MODEL_UNSUPPORTED"));
     }
 
     @Test

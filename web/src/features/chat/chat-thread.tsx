@@ -237,6 +237,9 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   const ui = useAppTranslation();
 
   const serverStatus = useAuiState((state) => state.message.metadata.custom.serverStatus);
+  const failureCode = useAuiState(
+    (state) => state.message.metadata.custom.failureCode as string | undefined,
+  );
   const canceled = useAuiState(
     (state) =>
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
@@ -288,7 +291,15 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         )}
         {serverStatus === "FAILED" && (
           <p role="status" className="mt-2 font-secondary-body text-content-secondary">
-            {ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
+            {failureCode === "CHAT_MODEL_OUTPUT_LIMIT"
+              ? ui(
+                  "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.",
+                )
+              : failureCode === "CHAT_CONTEXT_LIMIT"
+                ? ui(
+                    "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.",
+                  )
+                : ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
           </p>
         )}
         <ActionBarPrimitive.Root className="mt-3 flex flex-wrap items-center gap-1">

@@ -14,6 +14,7 @@ const sendProblems = {
   CHAT_INVALID_REQUEST: { key: "chatRejected" },
   CHAT_WEB_UNAVAILABLE: { key: "chatWebUnavailable" },
   CHAT_RESEARCH_UNAVAILABLE: { key: "chatResearchUnavailable" },
+  CHAT_RESEARCH_MODEL_UNSUPPORTED: { key: "chatResearchModelUnsupported" },
 } as const satisfies Record<string, ErrorMessage>;
 
 export type ChatThreadState = {

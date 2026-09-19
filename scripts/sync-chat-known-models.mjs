@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url";
 const SOURCE_REPO = "BerriAI/litellm";
 const SOURCE_FILE = "model_prices_and_context_window.json";
 const SOURCE_COMMIT = process.argv[2] ?? "b1a61f510c90ce7e4533e89247c941fa201ada4f";
-const PROVIDERS = new Set(["openai", "anthropic"]);
+// Vendors whose OpenAI-compatible /models endpoint names models without their limits (MEM-130). LiteLLM keys the
+// non-OpenAI ones as "<provider>/<model>"; the prefix is dropped because the endpoints report the bare name.
+const PROVIDERS = new Set(["openai", "anthropic", "gemini", "xai", "deepseek", "mistral"]);
 const OUTPUT = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -30,7 +32,10 @@ const retrieved = new Date().toISOString().slice(0, 10);
 const models = [];
 for (const [modelName, entry] of Object.entries(source)) {
   if (!entry || typeof entry !== "object" || entry.mode !== "chat") continue;
-  if (!PROVIDERS.has(entry.litellm_provider) || modelName.includes("/")) continue;
+  if (!PROVIDERS.has(entry.litellm_provider)) continue;
+  const prefix = `${entry.litellm_provider}/`;
+  const bareName = modelName.startsWith(prefix) ? modelName.slice(prefix.length) : modelName;
+  if (bareName.includes("/")) continue;
   if (entry.deprecation_date && entry.deprecation_date < retrieved) continue;
   const contextWindow = entry.max_input_tokens;
   const maxOutputTokens = entry.max_output_tokens;
@@ -42,8 +47,9 @@ for (const [modelName, entry] of Object.entries(source)) {
   if (contextWindow < 256 || contextWindow > 10_000_000) continue;
   if (maxOutputTokens < 1 || maxOutputTokens >= contextWindow) continue;
   if (typeof input !== "number" || typeof output !== "number") continue;
+  if (models.some((model) => model.modelName === bareName)) continue;
   models.push({
-    modelName,
+    modelName: bareName,
     contextWindow,
     maxOutputTokens,
     toolCalling: entry.supports_function_calling === true,

@@ -3,11 +3,15 @@
     "repository": "https://github.com/BerriAI/litellm",
     "file": "model_prices_and_context_window.json",
     "commit": "b1a61f510c90ce7e4533e89247c941fa201ada4f",
-    "retrieved": "2026-09-14",
+    "retrieved": "2026-09-19",
     "licence": "MIT (Copyright (c) 2023 Berri AI)",
     "providers": [
       "anthropic",
-      "openai"
+      "deepseek",
+      "gemini",
+      "mistral",
+      "openai",
+      "xai"
     ]
   },
   "models": [
@@ -242,6 +246,96 @@
       "outputPerMillion": 75
     },
     {
+      "modelName": "deepseek-chat",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0.28,
+      "outputPerMillion": 0.42
+    },
+    {
+      "modelName": "deepseek-coder",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0.14,
+      "outputPerMillion": 0.28
+    },
+    {
+      "modelName": "deepseek-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 393216,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 1.2
+    },
+    {
+      "modelName": "deepseek-r1",
+      "contextWindow": 65536,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": true,
+      "inputPerMillion": 0.55,
+      "outputPerMillion": 2.19
+    },
+    {
+      "modelName": "deepseek-reasoner",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": true,
+      "inputPerMillion": 0.28,
+      "outputPerMillion": 0.42
+    },
+    {
+      "modelName": "deepseek-v3",
+      "contextWindow": 65536,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0.27,
+      "outputPerMillion": 1.1
+    },
+    {
+      "modelName": "deepseek-v4-flash",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 393216,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 1.2
+    },
+    {
+      "modelName": "deepseek-v4-flash-vision-exp",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 393216,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 1.2
+    },
+    {
+      "modelName": "deepseek-v4-pro",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 393216,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": true,
+      "inputPerMillion": 1.32,
+      "outputPerMillion": 3.96
+    },
+    {
       "modelName": "ft:gpt-3.5-turbo",
       "contextWindow": 16385,
       "maxOutputTokens": 4096,
@@ -350,6 +444,266 @@
       "reasoning": true,
       "inputPerMillion": 4,
       "outputPerMillion": 16
+    },
+    {
+      "modelName": "gemini-2.5-computer-use-preview-10-2025",
+      "contextWindow": 128000,
+      "maxOutputTokens": 64000,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 1.25,
+      "outputPerMillion": 10
+    },
+    {
+      "modelName": "gemini-2.5-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 2.5
+    },
+    {
+      "modelName": "gemini-2.5-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.1,
+      "outputPerMillion": 0.4
+    },
+    {
+      "modelName": "gemini-2.5-pro",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 1.25,
+      "outputPerMillion": 10
+    },
+    {
+      "modelName": "gemini-2.5-pro-preview-tts",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 1,
+      "outputPerMillion": 20
+    },
+    {
+      "modelName": "gemini-3-flash-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.5,
+      "outputPerMillion": 3
+    },
+    {
+      "modelName": "gemini-3.1-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.25,
+      "outputPerMillion": 1.5
+    },
+    {
+      "modelName": "gemini-3.1-pro-preview",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 2,
+      "outputPerMillion": 12
+    },
+    {
+      "modelName": "gemini-3.1-pro-preview-customtools",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 2,
+      "outputPerMillion": 12
+    },
+    {
+      "modelName": "gemini-3.5-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 1.5,
+      "outputPerMillion": 9
+    },
+    {
+      "modelName": "gemini-3.5-flash-lite",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 2.5
+    },
+    {
+      "modelName": "gemini-3.6-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.75,
+      "outputPerMillion": 3.75
+    },
+    {
+      "modelName": "gemini-3.7-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.75,
+      "outputPerMillion": 3.75
+    },
+    {
+      "modelName": "gemini-3.8-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.75,
+      "outputPerMillion": 3.75
+    },
+    {
+      "modelName": "gemini-exp-1114",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "gemini-exp-1206",
+      "contextWindow": 2097152,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "gemini-flash-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.3,
+      "outputPerMillion": 2.5
+    },
+    {
+      "modelName": "gemini-flash-lite-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0.1,
+      "outputPerMillion": 0.4
+    },
+    {
+      "modelName": "gemini-omni-1.1-flash",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "toolCalling": false,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 1.5,
+      "outputPerMillion": 9
+    },
+    {
+      "modelName": "gemini-omni-flash-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "toolCalling": false,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 1.5,
+      "outputPerMillion": 9
+    },
+    {
+      "modelName": "gemini-pro-latest",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65535,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 1.25,
+      "outputPerMillion": 10
+    },
+    {
+      "modelName": "gemini-robotics-er-2-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 65536,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 2,
+      "outputPerMillion": 10
+    },
+    {
+      "modelName": "gemma-3-27b-it",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "gemma-4-26b-a4b-it",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "gemma-4-31b-it",
+      "contextWindow": 262144,
+      "maxOutputTokens": 32768,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": true,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "glm-5-2",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": true,
+      "inputPerMillion": 1.4,
+      "outputPerMillion": 4.4
     },
     {
       "modelName": "gpt-3.5-turbo",
@@ -932,6 +1286,106 @@
       "outputPerMillion": 2.4
     },
     {
+      "modelName": "labs-leanstral-1-5",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "labs-leanstral-1-5-1",
+      "contextWindow": 262144,
+      "maxOutputTokens": 131072,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "learnlm-1.5-pro-experimental",
+      "contextWindow": 32767,
+      "maxOutputTokens": 8192,
+      "toolCalling": true,
+      "vision": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "lyria-3-clip-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "lyria-3-pro-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "lyria-3.5",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "lyria-3.5-clip-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "lyria-3.5-pro-preview",
+      "contextWindow": 131072,
+      "maxOutputTokens": 8192,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0
+    },
+    {
+      "modelName": "mistral-small",
+      "contextWindow": 32000,
+      "maxOutputTokens": 8191,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0.1,
+      "outputPerMillion": 0.3
+    },
+    {
+      "modelName": "mistral-tiny",
+      "contextWindow": 32000,
+      "maxOutputTokens": 8191,
+      "toolCalling": false,
+      "vision": false,
+      "reasoning": false,
+      "inputPerMillion": 0.25,
+      "outputPerMillion": 0.25
+    },
+    {
       "modelName": "o1",
       "contextWindow": 200000,
       "maxOutputTokens": 100000,
@@ -1009,6 +1463,16 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.1,
+      "outputPerMillion": 4.4
+    },
+    {
+      "modelName": "zai-glm-5-2",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "toolCalling": true,
+      "vision": false,
+      "reasoning": true,
+      "inputPerMillion": 1.4,
       "outputPerMillion": 4.4
     }
   ]

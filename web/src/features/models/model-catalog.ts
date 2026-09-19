@@ -1,3 +1,4 @@
+import type { ChatReportedModel } from "@/lib/hey-api/types.gen";
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { ApiError } from "@/lib/api";
@@ -141,6 +142,31 @@ export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): Mo
 }
 
 export type KnownModel = InstalledAdapter["knownModels"][number];
+export type ReportedModel = ChatReportedModel;
+
+/**
+ * A draft carrying what the provider endpoint or installed catalog published for a reported model (MEM-130), as
+ * Onyx's provider fetchers prefill the form. Anything unpublished stays empty for the administrator to type.
+ */
+export function reportedDraft(reported: ReportedModel, adapter?: InstalledAdapter): ModelDraft {
+  const draft = modelDraft(undefined, adapter);
+  const capabilities = reported.capabilities;
+  const reasoning = capabilities?.reasoning ?? false;
+  return {
+    ...draft,
+    modelName: reported.modelName,
+    displayName: reported.modelName,
+    contextWindow: reported.contextWindow == null ? "" : String(reported.contextWindow),
+    maxOutputTokens: reported.maxOutputTokens == null ? "" : String(reported.maxOutputTokens),
+    toolCalling: capabilities?.toolCalling ?? false,
+    vision: capabilities?.vision ?? false,
+    reasoning,
+    // OpenAI-compatible reasoning models reject max_tokens, so the option family follows the capability.
+    completionTokens: reasoning,
+    inputPrice: reported.pricing == null ? "" : String(reported.pricing.inputPerMillion),
+    outputPrice: reported.pricing == null ? "" : String(reported.pricing.outputPerMillion),
+  };
+}
 
 export function findKnownModel(adapter: InstalledAdapter | undefined, modelName: string) {
   const name = modelName.trim();

@@ -53,6 +53,7 @@ const eventSchema = z.object({
 const textSchema = eventSchema.extend({ text: z.string().max(1_000_000) });
 const outcomeSchema = eventSchema.extend({
   status: z.enum(["COMPLETED", "CANCELED", "FAILED"]),
+  failureCode: z.string().max(100).nullish(),
   hasArtifacts: z.boolean().default(false),
 });
 const codeSchema = eventSchema.extend({
@@ -355,6 +356,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     let codeRuns: Record<string, CodeRun> = {};
     let generatedFiles: GeneratedFile[] = [];
     let outcome: "COMPLETED" | "CANCELED" | "FAILED" | undefined;
+    let failureCode: string | undefined;
     let fallback = false;
     const createdAt = this.runCreatedAt;
     yield {
@@ -424,6 +426,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             } else if (envelope.event === "outcome") {
               const terminal = outcomeSchema.parse(data);
               outcome = terminal.status;
+              failureCode = terminal.failureCode ?? undefined;
               hasArtifacts = terminal.hasArtifacts;
               break;
             } else if (envelope.event === "tool") {
@@ -586,6 +589,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         type: "message-metadata",
         messageMetadata: {
           serverStatus: outcome,
+          failureCode,
           sources,
           artifacts,
           images,

@@ -173,6 +173,8 @@ export const vi = {
       "Tìm kiếm Web chưa dùng được: chưa có nhà cung cấp Web nào đang bật, hoặc mô hình này không gọi được công cụ.",
     chatResearchUnavailable:
       "Deep research đã bị tắt cho tổ chức của bạn. Hãy gửi câu hỏi không dùng Deep research.",
+    chatResearchModelUnsupported:
+      "Mô hình đang chọn không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token. Hãy chọn mô hình khác.",
     chatBusy: "Chat đang quá tải. Chờ một chút rồi gửi lại.",
     chatRejected:
       "Câu hỏi bị từ chối trước khi chạy. Hãy hỏi ngắn hơn hoặc chọn mô hình có context window lớn hơn.",

@@ -4,6 +4,9 @@ import { listAvailableChatModels } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { ChatModelLogo } from "./chat-model-logo";
 
+/** As the server's ResearchProperties.minimumContextTokens (Onyx's Deep research minimum). */
+export const RESEARCH_MINIMUM_CONTEXT = 50_000;
+
 /** The authorized model catalog for a conversation, shared by the picker and regeneration. */
 export function useChatModels(sessionId?: string) {
   const ui = useAppTranslation();

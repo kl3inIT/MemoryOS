@@ -3751,7 +3751,7 @@ export const searchChatSessionsInfiniteOptions = (options?: Options<SearchChatSe
 export const listReportedProviderModelsQueryKey = (options: Options<ListReportedProviderModelsData>) => createQueryKey('listReportedProviderModels', options);
 
 /**
- * List the model names the provider endpoint reports; requires model management
+ * List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management
  */
 export const listReportedProviderModelsOptions = (options: Options<ListReportedProviderModelsData>) => queryOptions<ListReportedProviderModelsResponse, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ReturnType<typeof listReportedProviderModelsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -149,7 +149,11 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
 | Explicit validation hides provider exceptions and handles trailing usage frames | `defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors` |
-| Reported models list the provider endpoint's own names, deduplicated and sorted, carry the stored credential, and stay behind `MODELS_MANAGE` | `reportedModelsListsWhatTheProviderEndpointServes` (local `/v1/models` fixture) |
+| Reported models list the provider endpoint's own names, deduplicated and sorted, carry the stored credential, and stay behind `MODELS_MANAGE`; an OpenAI name gets catalog specs and an OpenRouter entry its own | `reportedModelsListsWhatTheProviderEndpointServes` (local `/v1/models` fixture) |
+| OpenRouter, vLLM, Groq, Mistral, Anthropic and Gemini `/models` fields are read; the catalog fills bare or prefixed names; an answer limit is never guessed; an invalid published limit falls back to the catalog | `OpenAiReportedModelsTest` |
+| The deployment bootstrap model imports its catalog limits and prices, not the execution bounds | `ChatModelCatalogConfigurationTest.aCatalogModelImportsItsOwnLimitsAndPricesNotTheExecutionBounds` |
+| An answer cut off at the model's output limit before any text or completed call fails with `CHAT_MODEL_OUTPUT_LIMIT`, shown as such in the reply | `OpenAiResponsesChatModelTest.anAnswerCutOffBeforeAnyTextOrCompletedCallReportsTheModelOutputLimit` |
+| A research command on a model without tool calling or under 50,000 tokens is rejected with `CHAT_RESEARCH_MODEL_UNSUPPORTED`, not the disabled-setting code | `ChatSessionApiIntegrationTest.deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff` |
 
 Current scope and limits: [catalog spec](../specs/chat-models.md). New local provider acceptance must use its real endpoint; the fixture adapter does not establish its behavior.
 

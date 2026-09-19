@@ -53,6 +53,7 @@ import { ModelEditor } from "./model-editor";
 import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
 import {
+  type ReportedModel,
   compactTokens,
   millionTokenPrice,
   refreshModelCatalog,
@@ -70,7 +71,13 @@ type Editor =
       baseUrl?: string;
       name?: string;
     }
-  | { kind: "model"; providerId: string; initial?: ManagedModel; modelName?: string }
+  | {
+      kind: "model";
+      providerId: string;
+      initial?: ManagedModel;
+      modelName?: string;
+      reported?: ReportedModel;
+    }
   | { kind: "discovery"; providerId: string };
 type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
@@ -727,9 +734,10 @@ function ModelsAdministration() {
       )}
       {editor?.kind === "model" && modelProvider && (
         <ModelEditor
-          key={editor.modelName ?? editor.initial?.id ?? "new"}
+          key={editor.reported?.modelName ?? editor.modelName ?? editor.initial?.id ?? "new"}
           initial={editor.initial}
           modelName={editor.modelName}
+          reported={editor.reported}
           models={models}
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
@@ -741,8 +749,8 @@ function ModelsAdministration() {
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
           models={models.filter((model) => model.providerId === modelProvider.id)}
-          onManual={(modelName) =>
-            setEditor({ kind: "model", providerId: modelProvider.id, modelName })
+          onManual={(reported) =>
+            setEditor({ kind: "model", providerId: modelProvider.id, reported })
           }
           onClose={() => setEditor(null)}
         />

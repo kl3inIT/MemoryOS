@@ -74,10 +74,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         return "native".equals(settings.options().get("webSearch")) && settings.capabilities().toolCalling();
     }
 
-    private static final int MAX_MODEL_LIST_BYTES = 1_048_576;
+    /** OpenRouter's list with descriptions is about 2 MiB; the cap still bounds a hostile endpoint. */
+    private static final int MAX_MODEL_LIST_BYTES = 16 * 1_048_576;
+    private static final int MAX_REPORTED_MODELS = 1000;
 
     @Override
-    public List<String> reportedModels(Connection connection, Duration timeout) {
+    public List<ReportedModel> reportedModels(Connection connection, Duration timeout) {
         ModelCatalogService.validateEndpoint(connection.baseUrl());
         if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
         // A configured endpoint must not redirect this credential elsewhere, and its body is bounded.
@@ -93,13 +95,13 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
             byte[] body;
             try (var stream = response.body()) { body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1); }
             if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw ChatException.providerUnavailable();
-            var names = new java.util.ArrayList<String>();
+            var models = new java.util.ArrayList<ReportedModel>();
             for (var item : new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("data")) {
                 String id = item.path("id").asText("");
-                if (!id.isBlank()) names.add(id);
-                if (names.size() >= 500) break;
+                if (!id.isBlank()) models.add(reported(id, item));
+                if (models.size() >= MAX_REPORTED_MODELS) break;
             }
-            return names;
+            return models;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw ChatException.providerUnavailable();
@@ -109,6 +111,69 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
             // The provider payload may carry account detail; report unavailability instead.
             throw ChatException.providerUnavailable();
         }
+    }
+
+    /**
+     * The limits, capabilities and prices an OpenAI-compatible {@code /models} entry publishes. Field names follow the
+     * vendors that publish them: OpenRouter ({@code context_length}, {@code top_provider.max_completion_tokens},
+     * {@code supported_parameters}, {@code architecture.input_modalities}, per-token {@code pricing}), vLLM
+     * ({@code max_model_len}), Groq ({@code context_window}, {@code max_completion_tokens}), Mistral
+     * ({@code max_context_length}, {@code capabilities}), Anthropic ({@code max_input_tokens}, {@code max_tokens}) and
+     * Gemini ({@code inputTokenLimit}, {@code outputTokenLimit}). Anything absent stays null.
+     */
+    static ReportedModel reported(String id, com.fasterxml.jackson.databind.JsonNode item) {
+        Integer context = firstInt(item, "context_length", "max_model_len", "context_window", "max_context_length",
+                "max_input_tokens", "input_token_limit", "inputTokenLimit");
+        if (context == null) context = firstInt(item.path("top_provider"), "context_length");
+        Integer output = firstInt(item.path("top_provider"), "max_completion_tokens");
+        if (output == null) output = firstInt(item, "max_completion_tokens", "max_output_tokens", "max_tokens",
+                "output_token_limit", "outputTokenLimit");
+        var parameters = item.path("supported_parameters");
+        var capabilities = item.path("capabilities");
+        var modalities = item.path("architecture").path("input_modalities");
+        Boolean tools = parameters.isArray() ? Boolean.valueOf(contains(parameters, "tools")) : flag(capabilities, "function_calling");
+        Boolean reasoning = parameters.isArray() ? Boolean.valueOf(contains(parameters, "reasoning")) : flag(capabilities, "reasoning");
+        Boolean vision = modalities.isArray() ? Boolean.valueOf(contains(modalities, "image")) : flag(capabilities, "vision");
+        return new ReportedModel(id, context, output, tools, vision, reasoning, pricing(item.path("pricing")));
+    }
+
+    /** OpenRouter prices per token as decimal strings; -1 or a missing value means variable or unpublished. */
+    private static ModelSettings.@org.jspecify.annotations.Nullable Pricing pricing(com.fasterxml.jackson.databind.JsonNode pricing) {
+        Double prompt = perToken(pricing.path("prompt"));
+        Double completion = perToken(pricing.path("completion"));
+        if (prompt == null || completion == null) return null;
+        return new ModelSettings.Pricing(round(prompt * 1_000_000), round(completion * 1_000_000));
+    }
+
+    private static @org.jspecify.annotations.Nullable Double perToken(com.fasterxml.jackson.databind.JsonNode node) {
+        if (!node.isTextual() && !node.isNumber()) return null;
+        try {
+            double value = Double.parseDouble(node.asText());
+            return Double.isFinite(value) && value >= 0 ? value : null;
+        } catch (NumberFormatException invalid) {
+            return null;
+        }
+    }
+
+    private static double round(double value) {
+        return java.math.BigDecimal.valueOf(value).setScale(6, java.math.RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private static @org.jspecify.annotations.Nullable Integer firstInt(com.fasterxml.jackson.databind.JsonNode node, String... fields) {
+        for (String field : fields) {
+            var value = node.path(field);
+            if (value.canConvertToInt() && value.asInt() > 0) return value.asInt();
+        }
+        return null;
+    }
+
+    private static @org.jspecify.annotations.Nullable Boolean flag(com.fasterxml.jackson.databind.JsonNode node, String field) {
+        return node.path(field).isBoolean() ? Boolean.valueOf(node.path(field).asBoolean()) : null;
+    }
+
+    private static boolean contains(com.fasterxml.jackson.databind.JsonNode array, String value) {
+        for (var element : array) if (value.equals(element.asText())) return true;
+        return false;
     }
 
     @Override

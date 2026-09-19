@@ -174,6 +174,8 @@ export const en = {
       "Web search is not available: no enabled Web provider, or this model has no tool calling.",
     chatResearchUnavailable:
       "Deep research is turned off for your organization. Send the question without Deep research.",
+    chatResearchModelUnsupported:
+      "The selected model cannot run Deep research: it needs tool calling and at least 50,000 tokens of context. Pick another model.",
     chatBusy: "Chat is at capacity. Wait a moment and send again.",
     chatRejected:
       "The question was rejected before it ran. Shorten it or pick a model with a larger context window.",

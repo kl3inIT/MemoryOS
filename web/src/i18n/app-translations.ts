@@ -752,6 +752,12 @@ export const vietnameseUi: Record<string, string> = {
   "Tạo ảnh": "Create image",
   "Tắt tạo ảnh": "Turn off image generation",
   "Chưa kết nối mô hình tạo ảnh.": "No image model connected.",
+  "Mô hình đã dừng vì chạm giới hạn độ dài output trong cấu hình mô hình. Hãy tăng giới hạn output của mô hình hoặc chọn mô hình khác.":
+    "The model stopped at the output limit in its configuration. Raise the model's output limit or pick another model.",
+  "Hội thoại vượt quá cửa sổ ngữ cảnh của mô hình. Hãy bắt đầu hội thoại mới hoặc chọn mô hình có ngữ cảnh lớn hơn.":
+    "The conversation exceeds the model's context window. Start a new conversation or pick a model with a larger context.",
+  "Mô hình này không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token.":
+    "This model cannot run Deep research: it needs tool calling and at least 50,000 tokens of context.",
   "Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.":
     "The answer was interrupted. Content received so far is preserved.",
   "Sao chép câu trả lời": "Copy answer",
@@ -2746,6 +2752,8 @@ Object.assign(englishUi, {
   "This endpoint reported no models.": "Endpoint này không báo về mô hình nào.",
   "Add manually": "Thêm thủ công",
   "Add {{count}} models": "Thêm {{count}} mô hình",
+  "{{shown}} of {{total}} models": "{{shown}}/{{total}} mô hình",
+  Output: "Đầu ra",
   "The catalog changed or conflicted. Reconcile the saved revision, review your draft, and retry manually.":
     "Danh mục đã thay đổi hoặc xung đột. Đồng bộ revision đã lưu, kiểm tra lại bản nháp và thử lại thủ công.",
   "Reconcile saved model": "Đồng bộ mô hình đã lưu",

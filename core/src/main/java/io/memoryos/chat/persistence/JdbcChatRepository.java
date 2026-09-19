@@ -474,6 +474,7 @@ public class JdbcChatRepository {
                 List.of(JSON.readValue(row.getString("artifacts"), io.memoryos.chat.ChatArtifact[].class)),
                 JSON.readValue(row.getString("activity"), io.memoryos.chat.ChatActivity.class),
                 new io.memoryos.chat.ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
-                        List.of(JSON.readValue(row.getString("research_agents"), io.memoryos.chat.ChatResearch.Agent[].class))));
+                        List.of(JSON.readValue(row.getString("research_agents"), io.memoryos.chat.ChatResearch.Agent[].class))),
+                row.getString("failure_code"));
     }
 }
