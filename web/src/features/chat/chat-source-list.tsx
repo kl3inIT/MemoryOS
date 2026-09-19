@@ -12,7 +12,13 @@ import { sourceLocationLabels, sourceMeta, webDisplayUrl } from "./chat-source-m
 /** File-kind tile for documents and files; site favicon (globe when unavailable) for Web pages. */
 function SourceTile({ source }: { source: ChatSource }) {
   if (!source.web)
-    return <DocumentSourceIcon mediaType={source.mediaType} sourceTypes={source.sourceTypes} />;
+    return (
+      <DocumentSourceIcon
+        mediaType={source.mediaType}
+        filename={source.title}
+        sourceTypes={source.sourceTypes}
+      />
+    );
   return (
     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-subtle">
       <SourceIcon domain={new URL(source.web.url).hostname} fallback="globe" className="size-4" />

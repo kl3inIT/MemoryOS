@@ -37,10 +37,56 @@ const KINDS: Record<string, DocumentKind> = {
   "application/xml": "code",
 };
 
-export function documentKind(mediaType: string | null | undefined): DocumentKind {
+const EXTENSIONS: Record<string, DocumentKind> = {
+  pdf: "pdf",
+  doc: "document",
+  docx: "document",
+  odt: "document",
+  rtf: "document",
+  xls: "spreadsheet",
+  xlsx: "spreadsheet",
+  xlsm: "spreadsheet",
+  ods: "spreadsheet",
+  csv: "spreadsheet",
+  tsv: "spreadsheet",
+  ppt: "presentation",
+  pptx: "presentation",
+  odp: "presentation",
+  md: "text",
+  txt: "text",
+  html: "code",
+  json: "code",
+  xml: "code",
+  py: "code",
+  js: "code",
+  ts: "code",
+  sql: "code",
+  sh: "code",
+  yaml: "code",
+  yml: "code",
+  png: "image",
+  jpg: "image",
+  jpeg: "image",
+  gif: "image",
+  webp: "image",
+  svg: "image",
+};
+
+/**
+ * One file-type classification for every surface (search, sources, chat files, attachments). The media type decides;
+ * a file sent as octet-stream, text/plain or an unknown type falls back to its name's extension, as Onyx getFileIcon does.
+ */
+export function documentKind(
+  mediaType: string | null | undefined,
+  filename?: string | null,
+): DocumentKind {
   const normalized = mediaType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  if (!normalized) return "generic";
-  return KINDS[normalized] ?? (normalized.startsWith("image/") ? "image" : "generic");
+  const byType = KINDS[normalized] ?? (normalized.startsWith("image/") ? "image" : undefined);
+  const extension = filename?.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  const byName = extension ? EXTENSIONS[extension] : undefined;
+  // text/plain is what servers send for many source files; a more specific name (phan_tich.py) wins over it.
+  if (byType && !(byType === "text" && normalized === "text/plain" && byName)) return byType;
+  return byName ?? "generic";
 }
 
 /** Untranslated labels: callers pass them through `ui()`. */

@@ -245,20 +245,43 @@ export function ChatThread({
   );
 }
 
+const noText = () => null;
+const noFile = () => null;
+
+/**
+ * As Onyx, a question's attached files sit above its bubble on the page background, as the same outlined cards as
+ * generated files, instead of blending into the bubble; the bubble holds only the text.
+ */
 function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root data-aui-quote-selectable="false" className="flex flex-col items-end">
-      <ChatUserMessageContent readOnly={readOnly}>
-        <ChatUserMessageQuote />
+      <div className="mb-2 flex max-w-[90%] flex-wrap justify-end gap-2 empty:hidden">
         <MessagePrimitive.Attachments>
           {() => <ChatMessageAttachment readOnly={readOnly} />}
         </MessagePrimitive.Attachments>
         <MessagePrimitive.Parts
-          components={{ Text: ChatUserText, File: readOnly ? ChatSharedFilePart : ChatFilePart }}
+          components={{ Text: noText, File: readOnly ? ChatSharedFilePart : ChatFilePart }}
         />
+      </div>
+      <ChatUserMessageContent readOnly={readOnly}>
+        <ChatUserMessageQuote />
+        <MessagePrimitive.Parts components={{ Text: ChatUserText, File: noFile }} />
       </ChatUserMessageContent>
     </MessagePrimitive.Root>
   );
+}
+
+/**
+ * While the run is live and nothing is streaming — before the first part, or after a step finished while the model
+ * writes its next tool call — the answer still shows that it is working, as Onyx does; a running step already says so.
+ */
+function ChatPendingIndicator() {
+  const ui = useAppTranslation();
+  const stepRunning = useAuiState(
+    (state) => state.message.parts.at(-1)?.status?.type === "running",
+  );
+  if (stepRunning) return null;
+  return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
 function AssistantMessage({ readOnly }: { readOnly: boolean }) {
@@ -275,7 +298,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
-        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="empty">
+        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="no-text">
           {({ part, children }) => {
             switch (part.type) {
               case "group-activity":
@@ -303,9 +326,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                   <ChatResearchView research={part.data as ResearchState} />
                 ) : null;
               case "indicator":
-                return (
-                  <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />
-                );
+                return <ChatPendingIndicator />;
               default:
                 return null;
             }

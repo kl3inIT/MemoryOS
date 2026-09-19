@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
+import { DocumentKindIcon } from "@/features/search/document-source-icon";
 
 const fileVariants = cva(
   "aui-file-root inline-flex items-center gap-3 rounded-lg transition-colors",
@@ -106,9 +107,23 @@ function FileRoot({ className, variant, size, children, ...props }: FileRootProp
 
 type FileIconDisplayProps = React.ComponentProps<"span"> & {
   mimeType?: string;
+  filename?: string;
 };
 
-function FileIconDisplay({ mimeType, className, children, ...props }: FileIconDisplayProps) {
+function FileIconDisplay({
+  mimeType,
+  filename,
+  className,
+  children,
+  ...props
+}: FileIconDisplayProps) {
+  // Chat files use the same tinted file-type glyphs as search results and cited sources.
+  if (!children && (mimeType || filename))
+    return (
+      <span data-slot="file-icon" className={cn("shrink-0", className)} {...props}>
+        <DocumentKindIcon mediaType={mimeType} filename={filename} className="size-5" />
+      </span>
+    );
   const IconComponent = mimeType ? getMimeTypeIcon(mimeType) : FileIcon;
 
   return (

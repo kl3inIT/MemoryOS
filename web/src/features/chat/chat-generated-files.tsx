@@ -32,7 +32,7 @@ export function ChatGeneratedFiles() {
         {files.map((file) => (
           <li key={file.id} className="max-w-full">
             <FileDisplay.Root className="max-w-full">
-              <FileDisplay.Icon mimeType={file.mediaType} />
+              <FileDisplay.Icon mimeType={file.mediaType} filename={file.filename} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <button
                   type="button"

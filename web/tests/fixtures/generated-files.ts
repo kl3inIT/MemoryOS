@@ -248,7 +248,15 @@ export async function generatedFileMessages(
       parentMessageId: rootMessageId,
       latestChildMessageId: assistantId,
       role: "USER",
-      content: "Phân tích doanh thu quý 3 và xuất báo cáo Excel, Word, PDF kèm biểu đồ giúp tôi.",
+      content:
+        "Từ file dữ liệu đính kèm, hãy:\n1. Phân tích doanh thu quý 3 theo miền.\n2. Xuất báo cáo Excel, Word, PDF kèm biểu đồ giúp tôi.",
+      files: [
+        {
+          id: "3c2b1a09-8f7e-4d6c-9b5a-1e2d3c4b5a69",
+          filename: "doanh-thu-2026-theo-mien.xlsx",
+          mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
       generatedFiles: [],
     },
     {
@@ -258,7 +266,14 @@ export async function generatedFileMessages(
       latestChildMessageId: null,
       role: "ASSISTANT",
       content:
-        "Tôi đã phân tích doanh thu quý 3 và tạo các tệp dưới đây. Doanh thu cả quý đạt **12,48 tỷ ₫**, tăng 18,4% so với cùng kỳ.",
+        // Models write LaTeX brackets; the answer renders them as math.
+        String.raw`Tôi đã phân tích doanh thu quý 3 và tạo các tệp dưới đây. Doanh thu cả quý đạt **12,48 tỷ ₫**, tăng 18,4% so với cùng kỳ.
+
+Biên lợi nhuận được tính theo công thức:
+
+\[ \text{Biên lợi nhuận} = \frac{\text{Doanh thu} - \text{Chi phí}}{\text{Doanh thu}} \]
+
+Với miền Bắc, \(\frac{5{,}02 - 3{,}30}{5{,}02} \approx 34{,}3\%\).`,
       generatedFiles: files,
     },
   ];

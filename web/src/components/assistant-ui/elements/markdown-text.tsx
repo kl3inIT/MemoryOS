@@ -2,6 +2,8 @@
 
 import {
   type CodeHeaderProps,
+  escapeCurrencyDollars,
+  normalizeMathDelimiters,
   StreamdownTextPrimitive,
   type StreamdownTextComponents,
   useIsStreamdownCodeBlock,
@@ -12,6 +14,8 @@ import {
   defaultRemarkPlugins,
   type StreamdownProps,
 } from "streamdown";
+import { createMathPlugin } from "@streamdown/math";
+import "katex/dist/katex.min.css";
 import { type ComponentProps, type FC, memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
@@ -32,6 +36,10 @@ type MarkdownTextProps = Partial<TextMessagePartProps> & {
 };
 
 const baseRemarkPlugins = Object.values(defaultRemarkPlugins);
+// As Onyx (remark-math with single-dollar math, rehype-katex): models write \(...\) and \[...\], so delimiters are
+// normalized to dollars first, and currency such as $5 is escaped so it is not read as math.
+const plugins = { math: createMathPlugin({ singleDollarTextMath: true }) };
+const preprocess = (text: string) => escapeCurrencyDollars(normalizeMathDelimiters(text));
 // Streamdown's defaults add rehype-raw; model text never renders raw HTML, as react-markdown did.
 const rehypePlugins = [defaultRehypePlugins.sanitize!, defaultRehypePlugins.harden!];
 
@@ -55,15 +63,17 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
     if (!stableComponents) return defaultComponents;
     return { ...defaultComponents, ...stableComponents };
   }, [stableComponents]);
-  const plugins = useMemo(() => [...baseRemarkPlugins, ...(remarkPlugins ?? [])], [remarkPlugins]);
+  const remark = useMemo(() => [...baseRemarkPlugins, ...(remarkPlugins ?? [])], [remarkPlugins]);
 
   // Block-aware streaming (Streamdown): finished blocks keep their parsed tree and only the growing block is parsed
   // again, as Onyx renders without a per-frame typewriter; re-parsing the whole message on every smoothed frame froze
   // long answers for seconds on slower machines.
   return (
     <StreamdownTextPrimitive
-      remarkPlugins={plugins}
+      remarkPlugins={remark}
       rehypePlugins={rehypePlugins}
+      plugins={plugins}
+      preprocess={preprocess}
       // Streamdown spaces its top-level blocks; a code header and its body are two siblings of one block.
       containerClassName="aui-md [&_.aui-code-header-root+*]:!mt-0"
       components={markdownComponents as StreamdownTextComponents}
