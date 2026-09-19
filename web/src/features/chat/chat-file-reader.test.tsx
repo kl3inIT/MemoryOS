@@ -125,7 +125,10 @@ describe("Private file reader", () => {
       expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
       await user.click(trigger);
       const dialog = await screen.findByRole("dialog", { name: file.filename });
-      expect(await within(dialog).findByText("Private document content")).toBeVisible();
+      // Shiki replaces the plain fallback after it loads, so the text is re-queried rather than held.
+      await waitFor(() =>
+        expect(within(dialog).getByText("Private document content")).toBeVisible(),
+      );
       expect(within(dialog).getByText("24 B · 1 lines")).toBeVisible();
       expect(within(dialog).getByRole("link", { name: "Download" })).toHaveAttribute(
         "href",
