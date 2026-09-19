@@ -418,6 +418,12 @@ public class ChatTurnPersistence {
         return chats.expireRuns();
     }
 
+    @Transactional(readOnly = true)
+    public List<UUID> ownedSessions(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.ownedIds(tenant, actor);
+    }
+
     @Transactional
     public List<UUID> delete(ActorId actor, UUID session) {
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();

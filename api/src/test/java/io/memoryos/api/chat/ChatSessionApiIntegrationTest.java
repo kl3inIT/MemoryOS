@@ -1944,6 +1944,24 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(jsonPath("$.workRole").value("Kế toán trưởng"));
     }
 
+    @Test
+    void deleteAllChatsRemovesOnlyTheCallersConversations() throws Exception {
+        create();
+        create();
+        var theirs = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(other)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Theirs\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/" + theirs.path("id").asText()).with(authentication(other)))
+                .andExpect(status().isOk());
+        // Nothing left is still a success.
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+    }
+
     private String readyImage(byte[] bytes) throws Exception {
         var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));

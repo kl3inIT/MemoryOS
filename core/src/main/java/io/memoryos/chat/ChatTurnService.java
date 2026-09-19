@@ -298,6 +298,23 @@ public final class ChatTurnService implements AutoCloseable {
         } finally { lock.unlock(); }
     }
 
+    /**
+     * Onyx "Delete All Chats": every owned conversation goes exactly as deleting it one by one would, stopping its
+     * active reply. A conversation removed meanwhile is skipped. Returns how many were deleted.
+     */
+    public int deleteAll(ActorId actor) {
+        int deleted = 0;
+        for (UUID session : persistence.ownedSessions(actor)) {
+            try {
+                delete(actor, session);
+                deleted++;
+            } catch (ChatException gone) {
+                if (!"CHAT_UNAVAILABLE".equals(gone.code())) throw gone;
+            }
+        }
+        return deleted;
+    }
+
     private static ChatTurnSetup.Research researchState(ChatTurnPersistence.TurnContext context, ChatTurnSetup setup) {
         // Onyx skips clarification when the previous assistant message was a clarification question.
         boolean skip = context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT).findFirst()

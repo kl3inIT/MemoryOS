@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,10 +51,20 @@ class ChatSessionController {
     private final ChatWorkspaceService workspace;
     private final ImageArtifactService images;
     private final io.memoryos.chat.interpreter.InterpreterService interpreter;
+    private final io.memoryos.chat.ChatTurnService turns;
 
     ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
-            io.memoryos.chat.interpreter.InterpreterService interpreter) {
+            io.memoryos.chat.interpreter.InterpreterService interpreter, io.memoryos.chat.ChatTurnService turns) {
         this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
+        this.turns = turns;
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "deleteAllChatSessions",
+            summary = "Delete every owned conversation as deleting each one would, stopping active replies (Onyx Delete All Chats)")
+    void deleteAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        turns.deleteAll(identity.actorId());
     }
 
     @PostMapping

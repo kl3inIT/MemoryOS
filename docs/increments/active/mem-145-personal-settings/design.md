@@ -39,7 +39,7 @@ As Onyx, the Chat system prompt gets `# User Information` with `## Basic Informa
 
 ### Delete all chats
 
-`DELETE /api/chat/sessions` deletes the caller's own sessions with the same rules as deleting one; it is refused while any of them has a running reply. Confirmation dialog as Onyx ("Delete All Chats").
+`DELETE /api/chat/sessions` deletes the caller's own sessions exactly as deleting each one does, which stops an active reply rather than refusing; a conversation removed meanwhile is skipped. Confirmation dialog as Onyx ("Delete All Chats").
 
 ### Connections
 

@@ -82,6 +82,12 @@ public class JdbcChatRepository {
                 .query(JdbcChatRepository::session).optional();
     }
 
+    /** Every conversation the member owns that is not deleted, for Delete All Chats. */
+    public List<UUID> ownedIds(TenantId tenant, ActorId actor) {
+        return jdbc.sql("SELECT id FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL")
+                .param("tenant", tenant.value()).param("actor", actor.value()).query(UUID.class).list();
+    }
+
     public List<ChatSession> list(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
                         SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL

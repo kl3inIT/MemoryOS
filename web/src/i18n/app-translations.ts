@@ -3115,6 +3115,13 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  "Danger Zone": "Khu vực nguy hiểm",
+  "Delete All Chats": "Xoá mọi cuộc chat",
+  "Permanently delete all your chat sessions.": "Xoá vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
+  "Delete all chats?": "Xoá mọi cuộc chat?",
+  "All your chat sessions and history will be permanently deleted. Deletion cannot be undone.":
+    "Toàn bộ cuộc trò chuyện và lịch sử của bạn sẽ bị xoá vĩnh viễn. Không thể hoàn tác.",
+  "Deleting…": "Đang xoá…",
   "New conversations": "Cuộc trò chuyện mới",
   "Default Model": "Model mặc định",
   "Preselected whenever you start a new chat. An assistant with its own model keeps it.":

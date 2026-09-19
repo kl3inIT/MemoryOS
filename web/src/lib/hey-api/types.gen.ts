@@ -7811,6 +7811,49 @@ export type TestChatVoiceConnectionResponses = {
 
 export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
 
+export type DeleteAllChatSessionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/sessions';
+};
+
+export type DeleteAllChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type DeleteAllChatSessionsError = DeleteAllChatSessionsErrors[keyof DeleteAllChatSessionsErrors];
+
+export type DeleteAllChatSessionsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteAllChatSessionsResponse = DeleteAllChatSessionsResponses[keyof DeleteAllChatSessionsResponses];
+
 export type ListChatSessionsData = {
     body?: never;
     path?: never;

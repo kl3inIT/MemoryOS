@@ -14,6 +14,7 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
 import { AppearanceSection } from "./appearance-section";
 import { ProfileSection } from "./profile-section";
+import { DangerZoneSection } from "./danger-zone-section";
 
 const identityKey = getCurrentIdentityQueryKey();
 
@@ -136,6 +137,7 @@ export function GeneralSettingsPage() {
           </Button>
         ) : null}
       </div>
+      <DangerZoneSection />
     </SettingsLayout>
   );
 }
