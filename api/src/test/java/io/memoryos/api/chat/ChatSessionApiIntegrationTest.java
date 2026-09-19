@@ -1898,6 +1898,52 @@ class ChatSessionApiIntegrationTest {
         } finally { server.stop(0); }
     }
 
+    @Test
+    void personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable() throws Exception {
+        grantModelManagement();
+        var defaults = Json.mapper().readTree(mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals("CHAT", defaults.path("startPage").asText());
+        assertTrue(defaults.path("autoScroll").asBoolean());
+        assertTrue(defaults.path("defaultModelId").isNull());
+        var provider = createProvider("http://preferences.internal/v1", true);
+        String mine = createConfiguredModel(provider, "preferred-mini", 0.3).path("id").asText();
+        var body = Json.mapper().createObjectNode().put("workRole", "Kế toán trưởng")
+                .put("personalPreferences", "Trả lời ngắn gọn.").put("defaultModelId", UUID.randomUUID().toString())
+                .put("startPage", "SEARCH").put("autoScroll", false).put("collapsePastes", true);
+        // A model the member cannot pick is refused; an over-long role is refused.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.deepCopy().put("defaultModelId", mine)
+                        .put("workRole", "x".repeat(201)).toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.put("defaultModelId", mine).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").value(mine))
+                .andExpect(jsonPath("$.startPage").value("SEARCH")).andExpect(jsonPath("$.autoScroll").value(false));
+        // The personal default is what a new conversation inherits.
+        var models = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(mine, models.valueStream().filter(model -> model.path("isDefault").asBoolean()).findFirst()
+                .orElseThrow().path("id").asText());
+        // Nobody else inherits it.
+        assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(other)))
+                .andReturn().getResponse().getContentAsString()).valueStream()
+                .anyMatch(model -> model.path("isDefault").asBoolean() && model.path("id").asText().equals(mine)));
+        // Hidden later: the member falls back to the Tenant default without an error.
+        jdbc.sql("UPDATE model_configuration SET visible = FALSE WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        var fallback = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(fallback.valueStream().filter(model -> model.path("isDefault").asBoolean())
+                .noneMatch(model -> model.path("id").asText().equals(mine)));
+        assertEquals(1, fallback.valueStream().filter(model -> model.path("isDefault").asBoolean()).count());
+        // Deleting the model clears the preference.
+        jdbc.sql("DELETE FROM model_configuration WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").doesNotExist())
+                .andExpect(jsonPath("$.workRole").value("Kế toán trưởng"));
+    }
+
     private String readyImage(byte[] bytes) throws Exception {
         var checksum = new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));

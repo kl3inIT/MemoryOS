@@ -2895,6 +2895,92 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/preferences:
+    get:
+      tags:
+      - Chat Preferences
+      summary: Read the current member's Chat preferences and login profile
+      operationId: getChatPreferences
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The current member's Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Preferences
+      summary: Replace the current member's Chat preferences
+      operationId: saveChatPreferences
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatPreferencesInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/personas/{personaId}:
     get:
       tags:
@@ -14648,6 +14734,73 @@ components:
           items:
             type: string
             format: uuid
+    ChatPreferencesInput:
+      type: object
+      properties:
+        workRole:
+          type: string
+          maxLength: 200
+        personalPreferences:
+          type: string
+          maxLength: 2000
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        startPage:
+          type: string
+          enum:
+          - CHAT
+          - SEARCH
+        autoScroll:
+          type: boolean
+        collapsePastes:
+          type: boolean
+      required:
+      - autoScroll
+      - collapsePastes
+      - personalPreferences
+      - startPage
+      - workRole
+    ChatPreferences:
+      type: object
+      properties:
+        workRole:
+          type: string
+        personalPreferences:
+          type: string
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        startPage:
+          type: string
+          enum:
+          - CHAT
+          - SEARCH
+        autoScroll:
+          type: boolean
+        collapsePastes:
+          type: boolean
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+      required:
+      - autoScroll
+      - collapsePastes
+      - defaultModelId
+      - displayName
+      - email
+      - personalPreferences
+      - startPage
+      - workRole
     PersonaInput:
       type: object
       properties:

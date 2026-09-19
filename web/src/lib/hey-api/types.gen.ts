@@ -571,6 +571,26 @@ export type ProjectView = {
     fileIds?: Array<string>;
 };
 
+export type ChatPreferencesInput = {
+    workRole: string;
+    personalPreferences: string;
+    defaultModelId?: string | null;
+    startPage: 'CHAT' | 'SEARCH';
+    autoScroll: boolean;
+    collapsePastes: boolean;
+};
+
+export type ChatPreferences = {
+    workRole: string;
+    personalPreferences: string;
+    defaultModelId: string | null;
+    startPage: 'CHAT' | 'SEARCH';
+    autoScroll: boolean;
+    collapsePastes: boolean;
+    displayName: string | null;
+    email: string | null;
+};
+
 export type PersonaInput = {
     name?: string;
     description?: string;
@@ -4562,6 +4582,86 @@ export type UpdateChatProjectResponses = {
 };
 
 export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
+
+export type GetChatPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/preferences';
+};
+
+export type GetChatPreferencesErrors = {
+    /**
+     * Invalid preferences
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetChatPreferencesError = GetChatPreferencesErrors[keyof GetChatPreferencesErrors];
+
+export type GetChatPreferencesResponses = {
+    /**
+     * The current member's Chat preferences
+     */
+    200: ChatPreferences;
+};
+
+export type GetChatPreferencesResponse = GetChatPreferencesResponses[keyof GetChatPreferencesResponses];
+
+export type SaveChatPreferencesData = {
+    body: ChatPreferencesInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/preferences';
+};
+
+export type SaveChatPreferencesErrors = {
+    /**
+     * Invalid preferences
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type SaveChatPreferencesError = SaveChatPreferencesErrors[keyof SaveChatPreferencesErrors];
+
+export type SaveChatPreferencesResponses = {
+    /**
+     * Saved Chat preferences
+     */
+    200: ChatPreferences;
+};
+
+export type SaveChatPreferencesResponse = SaveChatPreferencesResponses[keyof SaveChatPreferencesResponses];
 
 export type DeleteChatPersonaData = {
     body?: never;
