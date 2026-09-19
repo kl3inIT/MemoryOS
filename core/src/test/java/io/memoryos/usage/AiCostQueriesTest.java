@@ -93,6 +93,14 @@ class AiCostQueriesTest {
         assertEquals(3, flows.size());
         var providers = queries.breakdown(scope(null, false, null, null), Dimension.PROVIDER, 10);
         assertTrue(providers.stream().anyMatch(row -> row.label().equals("vLLM nội bộ") && "INTERNAL".equals(row.detail())));
+        // A provider relabelled mid-period keeps its External spend visible in its own row.
+        recorder.record(AiUsage.tokens(tenant, ha, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "INTERNAL", 10, 10, 0, 0.5,
+                day.atTime(10, 0).toInstant(java.time.ZoneOffset.UTC)));
+        var relabelled = queries.breakdown(scope(null, false, null, null), Dimension.PROVIDER, 10).stream()
+                .filter(row -> row.label().equals("OpenAI")).toList();
+        assertEquals(2, relabelled.size());
+        assertTrue(relabelled.stream().anyMatch(row -> "EXTERNAL".equals(row.detail())
+                && new BigDecimal("0.03").compareTo(row.cost()) == 0));
     }
 
     private Scope scope(UUID actor, boolean system, String model, AiUsageFlow flow) {

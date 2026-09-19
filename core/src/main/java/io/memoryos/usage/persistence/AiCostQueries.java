@@ -93,8 +93,10 @@ public class AiCostQueries {
                     + SUMS + " FROM ai_usage u WHERE " + FILTER + " GROUP BY u.model_name, u.provider_name";
             case FLOW -> "SELECT u.flow AS key, u.flow AS label, CAST(NULL AS varchar) AS detail," + SUMS
                     + " FROM ai_usage u WHERE " + FILTER + " GROUP BY u.flow";
-            case PROVIDER -> "SELECT u.provider_name AS key, u.provider_name AS label, MAX(u.data_boundary) AS detail," + SUMS
-                    + " FROM ai_usage u WHERE " + FILTER + " GROUP BY u.provider_name";
+            // Boundary is recorded per call, so a provider relabelled mid-period shows one row per boundary.
+            case PROVIDER -> "SELECT u.provider_name || '|' || COALESCE(u.data_boundary, '') AS key, u.provider_name AS label,"
+                    + " u.data_boundary AS detail," + SUMS
+                    + " FROM ai_usage u WHERE " + FILTER + " GROUP BY u.provider_name, u.data_boundary";
         };
         return bind(jdbc.sql(sql + " ORDER BY cost DESC, calls DESC, key LIMIT :limit"), scope).param("limit", limit)
                 .query(AiCostQueries::row).list();

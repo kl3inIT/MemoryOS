@@ -17,8 +17,11 @@ public final class ChatModelPricing implements PricingModel {
 
     @Override public double usdPerOutputToken() { return pricing.outputPerMillion() / 1_000_000; }
 
-    /** What cached input tokens cost less than the input rate: (input − cached rate) × cached tokens (Onyx, Orca). */
+    /**
+     * What cached input tokens cost less than the input rate: (input − cached rate) × cached tokens (Onyx, Orca). It is
+     * negative when a manager prices cache reads above input, so the difference is added rather than dropped.
+     */
     public double cacheDiscount(long cachedInputTokens) {
-        return Math.max(0, pricing.inputPerMillion() - pricing.cachedInputRate()) * Math.max(0, cachedInputTokens) / 1_000_000;
+        return (pricing.inputPerMillion() - pricing.cachedInputRate()) * Math.max(0, cachedInputTokens) / 1_000_000;
     }
 }

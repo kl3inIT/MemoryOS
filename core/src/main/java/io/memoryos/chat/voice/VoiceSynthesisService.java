@@ -95,9 +95,9 @@ public class VoiceSynthesisService {
         var connection = acquire(actor, speed);
         Runnable release = releaseOnce();
         try {
-            var opened = streaming(connection, connections.key(connection), speed, audio, release);
-            record(connection, actor);
-            return opened;
+            var counted = new java.util.concurrent.atomic.AtomicBoolean();
+            return streaming(connection, connections.key(connection), speed, audio, release,
+                    () -> { if (counted.compareAndSet(false, true)) record(connection, actor); });
         } catch (RuntimeException failed) {
             release.run();
             throw failed;
@@ -146,9 +146,15 @@ public class VoiceSynthesisService {
 
     StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
             Consumer<byte[]> audio, Runnable release) {
+        return streaming(connection, key, speed, audio, release, () -> {});
+    }
+
+    /** {@code called} runs before each provider request, so usage is counted only once text reaches the provider. */
+    StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
+            Consumer<byte[]> audio, Runnable release, Runnable called) {
         var provider = provider(connection, key, speed);
         long started = System.nanoTime();
-        return new StreamingSynthesizer(text -> provider.chunks(List.of(text)), audio, outcome -> {
+        return new StreamingSynthesizer(text -> { called.run(); return provider.chunks(List.of(text)); }, audio, outcome -> {
             try {
                 provider.close();
             } finally {

@@ -104,7 +104,7 @@ public class VoiceTranscriptionService {
         var bytes = new java.util.concurrent.atomic.AtomicLong();
         var recorded = new java.util.concurrent.atomic.AtomicBoolean();
         return new TranscriptionSession() {
-            @Override public void append(byte[] pcm) { bytes.addAndGet(pcm.length); session.append(pcm); }
+            @Override public void append(byte[] pcm) { session.append(pcm); bytes.addAndGet(pcm.length); }
             @Override public java.util.concurrent.CompletableFuture<String> finish() { return session.finish(); }
             @Override public void close() {
                 try { session.close(); }

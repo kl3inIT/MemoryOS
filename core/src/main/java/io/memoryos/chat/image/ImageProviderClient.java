@@ -44,11 +44,18 @@ public final class ImageProviderClient {
      */
     public void recordImage(ImageConnectionService.Connection connection, io.memoryos.iam.identity.@Nullable ActorId actor, boolean edit) {
         if (usage == null) return;
-        String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL : connection.model();
+        String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL
+                : resolvedModel(connection.provider(), connection.model());
         usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor == null ? null : actor.value(),
                 edit ? io.memoryos.usage.AiUsageFlow.IMAGE_EDIT : io.memoryos.usage.AiUsageFlow.IMAGE_GENERATION,
                 connection.provider().name(), model, connection.id(), null, null, 1, 0, 0, 0, 1, 0, null, java.time.Instant.now()));
     }
+    /** The model a request names: the connection's, or the provider default when it names none. */
+    static String resolvedModel(ImageProvider provider, String model) {
+        if (!model.isBlank()) return model;
+        return provider == ImageProvider.CLOUDFLARE_WORKERS_AI ? "@cf/black-forest-labs/flux-1-schnell" : "gpt-image-1";
+    }
+
     public record Result(byte[] bytes, String mediaType, @Nullable String revisedPrompt) {}
 
     public Result generate(ImageConnectionService.Connection connection, String prompt, @Nullable String shape) throws IOException {
@@ -92,7 +99,7 @@ public final class ImageProviderClient {
 
     private Result openAi(String base, String key, String model, String prompt, @Nullable String size) throws IOException {
         var body = new LinkedHashMap<String, Object>();
-        body.put("model", model.isBlank() ? "gpt-image-1" : model);
+        body.put("model", resolvedModel(ImageProvider.OPENAI_IMAGE, model));
         body.put("prompt", prompt);
         body.put("n", 1);
         if (size != null && !size.isBlank()) body.put("size", size);
@@ -102,7 +109,7 @@ public final class ImageProviderClient {
     }
     private Result cloudflare(String base, String key, String model, String prompt) throws IOException {
         if (base.isEmpty()) throw new IOException("Cloudflare Workers AI requires an account endpoint");
-        String m = model.isBlank() ? "@cf/black-forest-labs/flux-1-schnell" : model;
+        String m = resolvedModel(ImageProvider.CLOUDFLARE_WORKERS_AI, model);
         var body = new LinkedHashMap<String, Object>();
         body.put("prompt", prompt);
         body.put("steps", 4);
@@ -113,7 +120,7 @@ public final class ImageProviderClient {
 
     /** OpenAI image edits: the whole image is edited; input fidelity keeps faces and features for gpt-image models. */
     private Result openAiEdit(String base, Map<String, String> auth, String model, String prompt, ImageEditImages.Working image) throws IOException {
-        String m = model.isBlank() ? "gpt-image-1" : model;
+        String m = resolvedModel(ImageProvider.OPENAI_IMAGE, model);
         var fields = new LinkedHashMap<String, String>();
         fields.put("model", m);
         fields.put("prompt", prompt);

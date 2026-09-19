@@ -17,5 +17,8 @@ class ChatModelPricingTest {
         var unpricedCache = ChatModelPricing.of(new ModelSettings.Pricing(1.25, 10));
         assertEquals(0, unpricedCache.cacheDiscount(800_000), 1e-12);
         assertThrows(ChatException.class, () -> new ModelSettings.Pricing(1.25, 10, -0.1));
+        // A cache-read rate above the input rate (free input, paid cache reads) adds the difference instead of dropping it.
+        var paidCache = ChatModelPricing.of(new ModelSettings.Pricing(0, 10, 0.5));
+        assertEquals(-0.4, paidCache.cacheDiscount(800_000), 1e-12);
     }
 }
