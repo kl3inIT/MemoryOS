@@ -113,16 +113,17 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     role: message.role === "USER" ? "user" : "assistant",
     parts: [
       ...researchParts(message),
-      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
-      ...((message.role === "ASSISTANT"
-        ? historyParts(message.content, activitySchema.parse(message.activity))
-        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
+      // Attached files come first, above the question, as they are shown while composing.
       ...(message.files ?? []).map((file) => ({
         type: "file" as const,
         filename: file.filename,
         mediaType: file.mediaType ?? "application/octet-stream",
         url: fileReference(file.id!),
       })),
+      // historyParts builds text, reasoning and tool parts only; its data-part type stays the AI SDK default.
+      ...((message.role === "ASSISTANT"
+        ? historyParts(message.content, activitySchema.parse(message.activity))
+        : [{ type: "text" as const, text: message.content }]) as ChatUiMessage["parts"]),
     ],
     metadata: {
       serverStatus: message.status,

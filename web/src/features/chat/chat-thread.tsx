@@ -10,7 +10,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import { ArrowDown, ArrowUp, Copy, Square } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { ConnectionState as ConnectionNotice } from "@/components/assistant-ui/elements/connection-state";
@@ -245,20 +245,53 @@ export function ChatThread({
   );
 }
 
+// A file part is a row of its own in the pre-wrapped bubble, never inline with the question's first line.
+function UserFile(props: ComponentProps<typeof ChatFilePart>) {
+  return (
+    <div className="mb-2 flex justify-end whitespace-normal">
+      <ChatFilePart {...props} />
+    </div>
+  );
+}
+
+function UserSharedFile(props: ComponentProps<typeof ChatSharedFilePart>) {
+  return (
+    <div className="mb-2 flex justify-end whitespace-normal">
+      <ChatSharedFilePart {...props} />
+    </div>
+  );
+}
+
 function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root data-aui-quote-selectable="false" className="flex flex-col items-end">
       <ChatUserMessageContent readOnly={readOnly}>
         <ChatUserMessageQuote />
-        <MessagePrimitive.Attachments>
-          {() => <ChatMessageAttachment readOnly={readOnly} />}
-        </MessagePrimitive.Attachments>
+        {/* Attachments sit on their own row above the text, as in Onyx, not inline with its first line. */}
+        <div className="mb-2 flex flex-wrap justify-end gap-2 whitespace-normal empty:hidden">
+          <MessagePrimitive.Attachments>
+            {() => <ChatMessageAttachment readOnly={readOnly} />}
+          </MessagePrimitive.Attachments>
+        </div>
         <MessagePrimitive.Parts
-          components={{ Text: ChatUserText, File: readOnly ? ChatSharedFilePart : ChatFilePart }}
+          components={{ Text: ChatUserText, File: readOnly ? UserSharedFile : UserFile }}
         />
       </ChatUserMessageContent>
     </MessagePrimitive.Root>
   );
+}
+
+/**
+ * While the run is live and nothing is streaming — before the first part, or after a step finished while the model
+ * writes its next tool call — the answer still shows that it is working, as Onyx does; a running step already says so.
+ */
+function ChatPendingIndicator() {
+  const ui = useAppTranslation();
+  const stepRunning = useAuiState(
+    (state) => state.message.parts.at(-1)?.status?.type === "running",
+  );
+  if (stepRunning) return null;
+  return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
 function AssistantMessage({ readOnly }: { readOnly: boolean }) {
@@ -275,7 +308,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
-        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="empty">
+        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="no-text">
           {({ part, children }) => {
             switch (part.type) {
               case "group-activity":
@@ -303,9 +336,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                   <ChatResearchView research={part.data as ResearchState} />
                 ) : null;
               case "indicator":
-                return (
-                  <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />
-                );
+                return <ChatPendingIndicator />;
               default:
                 return null;
             }

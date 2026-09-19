@@ -46,6 +46,13 @@ for (const [label, viewport, colorScheme] of [
     await page.emulateMedia({ colorScheme });
     await openFiles(page);
     await shot(page, `${label}-cards`);
+    // The attached file sits above the question, and the answer's LaTeX renders as math.
+    await page.getByText("Từ file dữ liệu đính kèm, hãy:").scrollIntoViewIfNeeded();
+    await expect(page.locator(".katex").first()).toBeVisible();
+    await page.evaluate(() =>
+      document.querySelector("[data-aui-quote-selectable='false']")?.scrollIntoView(),
+    );
+    await shot(page, `${label}-question`);
     const close = () => page.getByRole("button", { name: "Đóng xem trước" }).click();
 
     await preview(page, "Doanh thu Q3 2026 theo khu vực.xlsx");
