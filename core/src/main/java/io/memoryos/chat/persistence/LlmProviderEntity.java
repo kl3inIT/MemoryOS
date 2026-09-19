@@ -2,6 +2,8 @@ package io.memoryos.chat.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PostLoad;
 import jakarta.persistence.PostPersist;
@@ -11,6 +13,7 @@ import jakarta.persistence.Version;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.JoinColumn;
+import io.memoryos.chat.catalog.DataBoundary;
 import org.hibernate.annotations.BatchSize;
 import java.util.Set;
 import java.util.HashSet;
@@ -30,6 +33,7 @@ public class LlmProviderEntity implements Persistable<UUID> {
     @Column(nullable = false) private boolean enabled;
     @Column(name = "is_public", nullable = false) private boolean publicAccess;
     @Column(columnDefinition = "text") private @Nullable String credential;
+    @Enumerated(EnumType.STRING) @Column(name = "data_boundary", nullable = false, length = 16) private DataBoundary dataBoundary = DataBoundary.EXTERNAL;
     @ElementCollection @BatchSize(size = 64)
     @CollectionTable(name = "llm_provider_group", joinColumns = {
             @JoinColumn(name = "tenant_id", referencedColumnName = "tenant_id"), @JoinColumn(name = "provider_id", referencedColumnName = "id")})
@@ -44,8 +48,10 @@ public class LlmProviderEntity implements Persistable<UUID> {
     public LlmProviderEntity(UUID id, UUID tenant, @Nullable String builtinKey, String adapterType) {
         this.id = id; this.tenantId = tenant; this.builtinKey = builtinKey; this.adapterType = adapterType;
     }
-    public void update(String name, String baseUrl, boolean enabled, boolean publicAccess, @Nullable String credential, Set<UUID> groups, Set<UUID> personas) {
+    public void update(String name, String baseUrl, boolean enabled, boolean publicAccess, @Nullable String credential, Set<UUID> groups, Set<UUID> personas,
+                       DataBoundary dataBoundary) {
         this.name = name; this.baseUrl = baseUrl; this.enabled = enabled; this.publicAccess = publicAccess; this.credential = credential;
+        this.dataBoundary = dataBoundary;
         groupIds.clear(); groupIds.addAll(groups); personaIds.clear(); personaIds.addAll(personas);
     }
     @Override public UUID getId() { return id; }
@@ -58,6 +64,7 @@ public class LlmProviderEntity implements Persistable<UUID> {
     public boolean enabled() { return enabled; }
     public boolean publicAccess() { return publicAccess; }
     public @Nullable String credential() { return credential; }
+    public DataBoundary dataBoundary() { return dataBoundary; }
     public long revision() { return revision; }
     public Set<UUID> groupIds() { return Set.copyOf(groupIds); }
     public Set<UUID> personaIds() { return Set.copyOf(personaIds); }

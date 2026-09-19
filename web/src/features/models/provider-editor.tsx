@@ -15,6 +15,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
 import { CatalogDialog } from "./catalog-dialog";
+import { DataBoundaryField, radioCard, type DataBoundary } from "./data-boundary";
 import {
   refreshModelCatalog,
   type CredentialAction,
@@ -53,6 +54,10 @@ export function ProviderEditor({
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? preferredBaseUrl ?? "");
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [isPublic, setIsPublic] = useState(initial?.isPublic ?? true);
+  // A provider is External until its administrator states it may receive internal documents.
+  const [dataBoundary, setDataBoundary] = useState<DataBoundary>(
+    initial?.dataBoundary ?? "EXTERNAL",
+  );
   const [groupIds, setGroupIds] = useState<ReadonlySet<string>>(
     () => new Set(initial?.groupIds ?? []),
   );
@@ -110,6 +115,7 @@ export function ProviderEditor({
       isPublic,
       groupIds: [...groupIds],
       personaIds: baseline?.personaIds ?? [],
+      dataBoundary,
       credential:
         credentialAction === "REPLACE"
           ? { action: "REPLACE", value: secret.current }
@@ -172,6 +178,7 @@ export function ProviderEditor({
           setBaseline(current);
           setAdapterType(current.adapterType);
           setIsPublic(current.isPublic);
+          setDataBoundary(current.dataBoundary);
           setGroupIds(new Set(current.groupIds));
         }
         setCredentialAction("KEEP");
@@ -268,7 +275,7 @@ export function ProviderEditor({
             />
           </label>
           <fieldset className="space-y-3">
-            <legend className="font-main-ui-action">{ui("Who can use this provider")}</legend>
+            <legend className="mb-2 font-main-ui-action">{ui("Who can use this provider")}</legend>
             <RadioGroup
               value={isPublic ? "public" : "groups"}
               onValueChange={(value) => {
@@ -276,11 +283,11 @@ export function ProviderEditor({
                 setSaved(false);
               }}
             >
-              <label className="flex items-center gap-2 font-main-ui-body">
+              <label className={`${radioCard} items-center font-main-ui-body`}>
                 <RadioGroupItem value="public" />
                 {ui("Every Tenant member")}
               </label>
-              <label className="flex items-center gap-2 font-main-ui-body">
+              <label className={`${radioCard} items-center font-main-ui-body`}>
                 <RadioGroupItem value="groups" />
                 {ui("Selected Groups only")}
               </label>
@@ -301,6 +308,13 @@ export function ProviderEditor({
               />
             )}
           </fieldset>
+          <DataBoundaryField
+            value={dataBoundary}
+            onChange={(next) => {
+              setDataBoundary(next);
+              setSaved(false);
+            }}
+          />
           <label className="block space-y-1">
             {ui("Credential action")}
             <Select

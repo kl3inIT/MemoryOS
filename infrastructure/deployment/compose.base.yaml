@@ -209,8 +209,6 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?Set MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}
       JAVA_OPTS_KC_HEAP: -XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=65
-    volumes:
-      - ../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro
     depends_on:
       postgres:
         condition: service_healthy

@@ -48,10 +48,11 @@ import {
   listConfiguredChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { deleteChatModel, deleteChatProvider } from "@/lib/hey-api/sdk.gen";
-import { TenantDefault } from "./model-defaults";
+import { TaskModels, TenantDefault } from "./model-defaults";
 import { ModelEditor } from "./model-editor";
 import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
+import { DataBoundaryTag } from "./data-boundary";
 import {
   type ReportedModel,
   compactTokens,
@@ -206,8 +207,11 @@ function ConnectionCard({
             <span className="flex flex-wrap items-center gap-2">
               <span className="break-words font-main-ui-action">{provider.name}</span>
               {isDefault && <Badge variant="secondary">{ui("Default")}</Badge>}
-              <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
+              {status.label !== "Enabled" && (
+                <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
+              )}
               {!provider.isPublic && <Badge variant="outline">{ui("Restricted")}</Badge>}
+              <DataBoundaryTag boundary={provider.dataBoundary} />
             </span>
             <span className="block break-all font-secondary-body text-content-muted">
               {provider.baseUrl}
@@ -512,21 +516,33 @@ function ModelsAdministration() {
         }
       />
 
-      {/* Default model — Onyx top card */}
+      {/* Models by task — the Onyx default card plus its per-flow defaults */}
       {hasProviders && !catalogError && (
-        <Card>
-          <CardContent>
-            {catalogPending ? (
-              <p role="status">{ui("Loading model catalog…")}</p>
-            ) : (
-              <TenantDefault
-                providers={providers.data!}
-                models={models}
-                adapters={adapters.data!}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <section aria-labelledby="task-models" className="space-y-3">
+          <h2 id="task-models" className="font-heading-h3">
+            {ui("Models by task")}
+          </h2>
+          <Card>
+            <CardContent className="divide-y divide-border-subtle [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+              {catalogPending ? (
+                <p role="status">{ui("Loading model catalog…")}</p>
+              ) : (
+                <>
+                  <TenantDefault
+                    providers={providers.data!}
+                    models={models}
+                    adapters={adapters.data!}
+                  />
+                  <TaskModels
+                    providers={providers.data!}
+                    models={models}
+                    adapters={adapters.data!}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {catalogPending && <p role="status">{ui("Loading model catalog…")}</p>}
@@ -774,10 +790,10 @@ function ModelsAdministration() {
           description={
             deletion.kind === "provider"
               ? ui(
-                  "Every configured model on this provider is removed. Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.",
+                  "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
                 )
               : ui(
-                  "Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.",
+                  "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.",
                 )
           }
           confirmLabel={ui("Delete configuration")}

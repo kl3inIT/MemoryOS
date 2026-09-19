@@ -2,6 +2,8 @@ package io.memoryos.chat.persistence;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.catalog.DataBoundary;
+import io.memoryos.chat.catalog.ModelFlow;
 import io.memoryos.chat.catalog.ModelSettings;
 import java.sql.Types;
 import java.util.HashMap;
@@ -33,12 +35,13 @@ public class ModelCatalogRepository {
 
     public record Provider(UUID id, UUID tenantId, String name, String adapterType, String baseUrl,
                            boolean enabled, boolean isPublic, @JsonIgnore @Nullable String credential,
-                           long revision, Set<UUID> groupIds, Set<UUID> personaIds) {
+                           long revision, Set<UUID> groupIds, Set<UUID> personaIds, DataBoundary dataBoundary) {
         @Override public @NonNull String toString() { return "LLMProvider[id=" + id + ", revision=" + revision + "]"; }
     }
     public record Model(UUID id, UUID tenantId, UUID providerId, String modelName, String displayName,
                         boolean visible, ModelSettings settings, long revision) {}
     public record Default(@Nullable UUID modelConfigurationId, long revision) {}
+    public record FlowDefault(ModelFlow flow, @Nullable UUID modelConfigurationId, long revision) {}
     public record PersonaModel(UUID personaId, @Nullable UUID modelConfigurationId, long revision) {}
     public record PersonaSummary(UUID id, String name) {}
 
@@ -62,6 +65,29 @@ public class ModelCatalogRepository {
         return jdbc.sql("INSERT INTO chat_model_default(tenant_id) VALUES (:tenant) ON CONFLICT DO NOTHING")
                 .param("tenant", tenant).update() == 1;
     }
+    /** Seeds one unset row per flow; existing Tenants were backfilled by migration. */
+    public void initializeFlows(UUID tenant) {
+        for (var flow : ModelFlow.values())
+            jdbc.sql("INSERT INTO model_flow_default(tenant_id, flow) VALUES (:tenant, :flow) ON CONFLICT DO NOTHING")
+                    .param("tenant", tenant).param("flow", flow.name()).update();
+    }
+    public List<FlowDefault> flowDefaults(UUID tenant) {
+        return jdbc.sql("SELECT flow, model_configuration_id, revision FROM model_flow_default WHERE tenant_id=:tenant ORDER BY flow")
+                .param("tenant", tenant).query((r, ignored) -> new FlowDefault(ModelFlow.valueOf(r.getString(1)),
+                        r.getObject(2, UUID.class), r.getLong(3))).list();
+    }
+    public FlowDefault flowDefault(UUID tenant, ModelFlow flow) {
+        return jdbc.sql("SELECT model_configuration_id, revision FROM model_flow_default WHERE tenant_id=:tenant AND flow=:flow")
+                .param("tenant", tenant).param("flow", flow.name())
+                .query((r, ignored) -> new FlowDefault(flow, r.getObject(1, UUID.class), r.getLong(2)))
+                .optional().orElseThrow(ChatException::unavailable);
+    }
+    public void setFlowDefault(UUID tenant, ModelFlow flow, @Nullable UUID model, long revision) {
+        requireChanged(jdbc.sql("UPDATE model_flow_default SET model_configuration_id=:model, revision=revision+1 "
+                        + "WHERE tenant_id=:tenant AND flow=:flow AND revision=:revision")
+                .param("tenant", tenant).param("flow", flow.name()).param("model", model, Types.OTHER)
+                .param("revision", revision).update());
+    }
 
     public List<Provider> providers(UUID tenant) {
         var groups = associationIndex(tenant, "llm_provider_group", "group_id");
@@ -71,7 +97,8 @@ public class ModelCatalogRepository {
                     UUID id = r.getObject("id", UUID.class);
                     return new Provider(id, r.getObject("tenant_id", UUID.class), r.getString("name"), r.getString("adapter_type"),
                             r.getString("base_url"), r.getBoolean("enabled"), r.getBoolean("is_public"), r.getString("credential"),
-                            r.getLong("revision"), Set.copyOf(groups.getOrDefault(id, Set.of())), Set.copyOf(personas.getOrDefault(id, Set.of())));
+                            r.getLong("revision"), Set.copyOf(groups.getOrDefault(id, Set.of())), Set.copyOf(personas.getOrDefault(id, Set.of())),
+                            DataBoundary.valueOf(r.getString("data_boundary")));
                 }).list();
     }
     private Map<UUID, Set<UUID>> associationIndex(UUID tenant, String table, String column) {
@@ -89,13 +116,13 @@ public class ModelCatalogRepository {
     }
     public void insertProvider(Provider p, @Nullable String builtinKey) {
         var entity = new LlmProviderEntity(p.id(), p.tenantId(), builtinKey, p.adapterType());
-        entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds());
+        entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds(), p.dataBoundary());
         providers.saveAndFlush(entity);
     }
     public void updateProvider(Provider p) {
         var entity = providers.findByTenantIdAndId(p.tenantId(), p.id()).orElseThrow(ChatException::unavailable);
         if (entity.revision() != p.revision()) throw ChatException.conflict();
-        entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds());
+        entity.update(p.name(), p.baseUrl(), p.enabled(), p.isPublic(), p.credential(), p.groupIds(), p.personaIds(), p.dataBoundary());
         providers.flush();
     }
     public boolean associationsExist(UUID tenant, Set<UUID> groups, Set<UUID> personas) {
@@ -169,7 +196,7 @@ public class ModelCatalogRepository {
     }
     private static Provider provider(LlmProviderEntity p) {
         return new Provider(p.getId(), p.tenantId(), p.name(), p.adapterType(), p.baseUrl(), p.enabled(), p.publicAccess(),
-                p.credential(), p.revision(), p.groupIds(), p.personaIds());
+                p.credential(), p.revision(), p.groupIds(), p.personaIds(), p.dataBoundary());
     }
     private static Model model(ModelConfigurationEntity m) {
         return new Model(m.getId(), m.tenantId(), m.providerId(), m.modelName(), m.displayName(), m.visible(),

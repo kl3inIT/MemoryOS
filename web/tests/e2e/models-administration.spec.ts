@@ -93,7 +93,7 @@ test("denied Models deep link never requests the protected catalog", async ({ pa
   );
   // The authenticated shell always loads its own conversation list; only the catalog must stay untouched.
   await page.route(
-    /\/api\/chat\/(providers|models|model-default|model-personas|provider-adapters)/,
+    /\/api\/chat\/(providers|models|model-default|model-flows|model-personas|provider-adapters)/,
     async (route) => {
       protectedRequests += 1;
       await route.fulfill({ status: 403 });

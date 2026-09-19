@@ -3754,6 +3754,85 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/model-flows/{flow}:
+    put:
+      tags:
+      - Chat models
+      summary: "Set a visible, publicly available task model, or omit the model ID\
+        \ to use the conversation model"
+      operationId: setChatModelFlow
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: flow
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - CHAT_NAMING
+      - name: modelConfigurationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelFlow"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/model-default:
     get:
       tags:
@@ -11232,6 +11311,58 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/model-flows:
+    get:
+      tags:
+      - Chat models
+      summary: Read the Tenant model of every task flow and its revision; requires
+        model management
+      operationId: listChatModelFlows
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModelFlow"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter/health:
     get:
       tags:
@@ -13981,10 +14112,16 @@ components:
           uniqueItems: true
         credential:
           $ref: "#/components/schemas/Change"
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
       required:
       - adapterType
       - baseUrl
       - credential
+      - dataBoundary
       - enabled
       - groupIds
       - isPublic
@@ -14023,10 +14160,16 @@ components:
         revision:
           type: integer
           format: int64
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
       required:
       - adapterType
       - baseUrl
       - credentialConfigured
+      - dataBoundary
       - enabled
       - groupIds
       - id
@@ -14607,6 +14750,31 @@ components:
       required:
       - inputPerMillion
       - outputPerMillion
+    ModelFlow:
+      type: object
+      description: Tenant model for one task; no model uses the conversation model
+      properties:
+        flow:
+          type: string
+          enum:
+          - CHAT_NAMING
+        modelConfigurationId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        available:
+          type: boolean
+          description: False when the model is set but no longer eligible; the task
+            then uses the conversation model
+        revision:
+          type: integer
+          format: int64
+      required:
+      - available
+      - flow
+      - modelConfigurationId
+      - revision
     Default:
       type: object
       properties:

@@ -1,6 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.memoryos.chat.catalog.DataBoundary;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import java.util.UUID;
 import java.util.Set;
@@ -16,10 +17,11 @@ public record ChatProviderResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Set<UUID> groupIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Set<UUID> personaIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean credentialConfigured,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) DataBoundary dataBoundary
 ) {
     public static ChatProviderResponse from(ModelCatalogService.ProviderView value) {
         return new ChatProviderResponse(value.id(), value.name(), value.adapterType(), value.baseUrl(), value.enabled(),
-                value.isPublic(), value.groupIds(), value.personaIds(), value.credentialConfigured(), value.revision());
+                value.isPublic(), value.groupIds(), value.personaIds(), value.credentialConfigured(), value.revision(), value.dataBoundary());
     }
 }

@@ -3,9 +3,11 @@ package io.memoryos.api.chat;
 import io.memoryos.chat.catalog.ChatProviderAdapters;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.chat.catalog.ModelFlow;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.chat.contract.ChatModelDefaultResponse;
+import io.memoryos.api.chat.contract.ChatModelFlowResponse;
 import io.memoryos.api.chat.contract.ChatModelRequest;
 import io.memoryos.api.chat.contract.ChatModelResponse;
 import io.memoryos.api.chat.contract.ChatModelValidationResponse;
@@ -167,6 +169,20 @@ class ChatModelCatalogController {
     ChatModelDefaultResponse setDefault(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam UUID modelConfigurationId, @RequestParam @Positive long revision) {
         return ChatModelDefaultResponse.from(catalog.setDefault(identity.actorId(), modelConfigurationId, revision));
+    }
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @GetMapping("/model-flows")
+    @Operation(operationId = "listChatModelFlows", summary = "Read the Tenant model of every task flow and its revision; requires model management")
+    List<ChatModelFlowResponse> flows(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return catalog.flowDefaults(identity.actorId()).stream().map(ChatModelFlowResponse::from).toList();
+    }
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @PutMapping("/model-flows/{flow}")
+    @Operation(operationId = "setChatModelFlow",
+            summary = "Set a visible, publicly available task model, or omit the model ID to use the conversation model")
+    ChatModelFlowResponse setFlow(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable ModelFlow flow,
+            @RequestParam(required = false) @Nullable UUID modelConfigurationId, @RequestParam @Positive long revision) {
+        return ChatModelFlowResponse.from(catalog.setFlowDefault(identity.actorId(), flow, modelConfigurationId, revision));
     }
     @ApiResponse(responseCode = "200", description = "Tenant Persona page", useReturnTypeSchema = true)
     @GetMapping("/model-personas")

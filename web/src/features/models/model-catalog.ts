@@ -49,6 +49,7 @@ const affectedOperations = [
   "listConfiguredChatModels",
   "listAvailableChatModels",
   "getChatModelDefault",
+  "listChatModelFlows",
   "getPersonaModel",
 ];
 

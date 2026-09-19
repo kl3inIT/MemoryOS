@@ -5,6 +5,7 @@ import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
+import io.memoryos.chat.catalog.ModelFlow;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -108,7 +109,7 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             var input = persistence.claimTitle(actor, session);
             if (input.isEmpty()) return;
-            try (var selected = models.resolve(actor, session, null)) {
+            try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
                 var title = model.generateTitle(selected.binding(), input.orElseThrow().messages());
                 persistence.completeTitle(actor, input.orElseThrow(), title);
             } catch (RuntimeException failure) {

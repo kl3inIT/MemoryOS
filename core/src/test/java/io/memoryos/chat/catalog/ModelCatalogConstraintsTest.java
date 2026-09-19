@@ -55,8 +55,13 @@ class ModelCatalogConstraintsTest {
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
         tenant = tenant(); provider = UUID.randomUUID();
-        tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new ModelCatalogRepository.Provider(provider, tenant,
-                "Provider", "openai", "http://internal/v1", true, true, "deployment", 1, Set.of(), Set.of()), null); });
+        // The pre-V54 schema predates llm_provider.data_boundary, which the provider entity maps.
+        if (legacy) tx(() -> { catalog.initialize(tenant); jdbc.sql("""
+                INSERT INTO llm_provider(id,tenant_id,name,adapter_type,base_url,enabled,is_public,credential,revision)
+                VALUES (:id,:tenant,'Provider','openai','http://internal/v1',true,true,'deployment',1)""")
+                .param("id", provider).param("tenant", tenant).update(); });
+        else tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new ModelCatalogRepository.Provider(provider, tenant,
+                "Provider", "openai", "http://internal/v1", true, true, "deployment", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL), null); });
     }
     @AfterEach void close() { if (jpa != null) jpa.close(); if (dataSource != null) dataSource.close(); }
 
@@ -96,10 +101,11 @@ class ModelCatalogConstraintsTest {
                 .param("id", persona).param("tenant", tenant).update();
         var original = read(() -> catalog.provider(tenant, provider).orElseThrow());
         tx(() -> catalog.updateProvider(new ModelCatalogRepository.Provider(provider, tenant, original.name(), original.adapterType(),
-                original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of(persona))));
+                original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of(persona), DataBoundary.INTERNAL)));
         var changed = read(() -> catalog.provider(tenant, provider).orElseThrow());
         assertEquals(Set.of(group), changed.groupIds());
         assertEquals(Set.of(persona), changed.personaIds());
+        assertEquals(DataBoundary.INTERNAL, changed.dataBoundary());
         assertTrue(changed.revision() > original.revision());
         assertEquals(List.of(changed), read(() -> catalog.providers(tenant)));
         assertThrows(ChatException.class, () -> tx(() -> catalog.updateProvider(original)));
@@ -115,6 +121,27 @@ class ModelCatalogConstraintsTest {
         assertFalse(read(() -> catalog.model(tenant, model.id()).isPresent()));
         tx(() -> catalog.deleteProvider(tenant, provider, changed.revision()));
         assertTrue(read(() -> catalog.providers(tenant).isEmpty()));
+    }
+
+    @Test void flowDefaultsKeepRevisionsStayInTenantAndClearWhenTheirModelIsDeleted() {
+        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
+        UUID otherTenant = tenant();
+        tx(() -> { catalog.initializeFlows(tenant); catalog.initializeFlows(tenant); catalog.initializeFlows(otherTenant); });
+        var unset = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
+        assertNull(unset.modelConfigurationId());
+        assertEquals(List.of(unset), read(() -> catalog.flowDefaults(tenant)));
+        var model = new ModelCatalogRepository.Model(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
+        tx(() -> catalog.insertModel(model));
+        assertThrows(DataIntegrityViolationException.class,
+                () -> tx(() -> catalog.setFlowDefault(otherTenant, ModelFlow.CHAT_NAMING, model.id(), 1)));
+        tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, model.id(), unset.revision()));
+        assertThrows(ChatException.class, () -> tx(() -> catalog.setFlowDefault(tenant, ModelFlow.CHAT_NAMING, null, unset.revision())));
+        var set = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
+        assertEquals(model.id(), set.modelConfigurationId());
+        assertEquals(unset.revision() + 1, set.revision());
+        tx(() -> catalog.deleteModel(tenant, model.id(), 1));
+        assertNull(read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).modelConfigurationId());
+        assertEquals(DataBoundary.EXTERNAL, read(() -> catalog.provider(tenant, provider).orElseThrow().dataBoundary()));
     }
 
     @Test void personaCursorRejectsForeignAndMissingAnchorsBeforeBuiltinProvisioning() {
@@ -159,9 +186,11 @@ class ModelCatalogConstraintsTest {
         var localSettings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
                 Map.of(), null, "custom-tokenizer-v1");
         tx(() -> {
-            var original = catalog.provider(tenant, provider).orElseThrow();
-            catalog.updateProvider(new ModelCatalogRepository.Provider(provider, tenant, original.name(), original.adapterType(),
-                    original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of(persona)));
+            jdbc.sql("INSERT INTO llm_provider_group VALUES (:tenant, :provider, :group)")
+                    .param("tenant", tenant).param("provider", provider).param("group", group).update();
+            jdbc.sql("INSERT INTO llm_provider_persona VALUES (:tenant, :provider, :persona)")
+                    .param("tenant", tenant).param("provider", provider).param("persona", persona).update();
+            jdbc.sql("UPDATE llm_provider SET revision=revision+1 WHERE id=:id").param("id", provider).update();
             catalog.insertModel(new ModelCatalogRepository.Model(installed, tenant, provider, "local", "Local", false, localSettings, 1));
             String legacySettings = """
                     {"contextWindow":8192,"maxOutputTokens":512,"capabilities":{"streaming":true,"toolCalling":false,"vision":false,"reasoning":false},

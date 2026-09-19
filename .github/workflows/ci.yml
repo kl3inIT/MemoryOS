@@ -115,7 +115,37 @@ jobs:
       - name: Validate workflows and shell scripts
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          shellcheck infrastructure/deployment/deploy-staging.sh
+          bash -n infrastructure/deployment/deploy-staging.sh
+          shellcheck -x infrastructure/deployment/deploy-staging.sh
+
+      - name: Verify deployment and monitoring configuration
+        # Interpolation-only values; this step never starts application services.
+        env:
+          MEMORYOS_API_IMAGE: memoryos-api:config-check
+          MEMORYOS_WORKER_IMAGE: memoryos-worker:config-check
+          MEMORYOS_WEB_IMAGE: memoryos-web:config-check
+          MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
+          MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
+          MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
+          MEMORYOS_DATABASE_PASSWORD: config-check-only
+          MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: config-check-only
+          MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD: config-check-only
+          MEMORYOS_TENANT_ID: "00000000-0000-0000-0000-000000000001"
+          MEMORYOS_TENANT_SLUG: config-check
+          MEMORYOS_TENANT_DISPLAY_NAME: Configuration check
+          MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: CI interpolation check
+          MEMORYOS_RELEASE: config-check
+        run: |
+          docker compose --env-file infrastructure/deployment/staging.env.example \
+            -f infrastructure/deployment/compose.base.yaml \
+            -f infrastructure/deployment/compose.staging.yaml \
+            -f infrastructure/deployment/compose.search.staging.yaml config --quiet
+          docker compose --env-file infrastructure/observability/observability.env.example \
+            -f infrastructure/observability/compose.observability.yaml config --quiet
+          docker run --rm --network none --entrypoint promtool \
+            --volume "$PWD/infrastructure/observability:/etc/prometheus:ro" \
+            prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0 \
+            check config /etc/prometheus/prometheus.yaml
 
       - name: Set up Java 25
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
