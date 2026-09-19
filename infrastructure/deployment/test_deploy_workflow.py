@@ -86,6 +86,15 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
 
+    def test_published_release_carries_what_staging_verifies(self):
+        # A merge once dropped these from CI while the deployment kept checking them, so no release could deploy.
+        publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
+        self.assertIn("servingManifestSha256", WORKFLOW)
+        self.assertIn("servingManifestSha256: $serving", publish)
+        self.assertIn("release/serving.sha256", WORKFLOW)
+        self.assertIn("--write-checksums release/serving.sha256", publish)
+        self.assertIn("serving.sha256 > SHA256SUMS", publish)
+
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
         compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
         service = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
