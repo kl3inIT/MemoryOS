@@ -187,14 +187,9 @@ export function VoiceProviderDialog({
           </DialogHeader>
           <fieldset disabled={!!pending} className="grid gap-4">
             <section className="grid gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-              <div>
-                <h3 className="font-main-ui-action text-content-primary">
-                  {ui("Thông tin kết nối")}
-                </h3>
-                <p className="mt-0.5 font-secondary-body text-content-muted">
-                  {ui("MemoryOS xác minh nhà cung cấp trước khi lưu cấu hình và mã hóa khóa API.")}
-                </p>
-              </div>
+              <h3 className="font-main-ui-action text-content-primary">
+                {ui("Thông tin kết nối")}
+              </h3>
               <div className="grid gap-1.5">
                 <Label htmlFor={`${id}-endpoint`}>
                   {azure
@@ -243,12 +238,8 @@ export function VoiceProviderDialog({
                       ? ui("Đã lưu khóa; để trống để giữ nguyên")
                       : ""
                   }
-                  aria-describedby={`${id}-key-hint`}
                   onChange={(event) => setKey(event.target.value)}
                 />
-                <p id={`${id}-key-hint`} className="text-xs text-content-muted">
-                  {ui("Khóa được mã hóa khi lưu và không bao giờ được gửi lại trình duyệt.")}
-                </p>
                 {!provider.requiresKey && connection?.credentialConfigured && (
                   <div className="flex items-center gap-2 pt-1">
                     <Checkbox
@@ -267,16 +258,7 @@ export function VoiceProviderDialog({
               </div>
             </section>
             <section className="grid gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-              <div>
-                <h3 className="font-main-ui-action text-content-primary">
-                  {ui("Mô hình và giọng")}
-                </h3>
-                <p className="mt-0.5 font-secondary-body text-content-muted">
-                  {fn === "STT"
-                    ? ui("Chọn mô hình dùng cho bản ghi cuối cùng và đường dự phòng.")
-                    : ui("Chọn mô hình và giọng mặc định cho câu trả lời được đọc thành tiếng.")}
-                </p>
-              </div>
+              <h3 className="font-main-ui-action text-content-primary">{ui("Mô hình và giọng")}</h3>
               <ChoiceField
                 id={`${id}-model`}
                 label={fn === "STT" ? ui("Mô hình nhận dạng") : ui("Mô hình giọng nói")}

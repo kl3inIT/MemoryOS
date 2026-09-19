@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AudioLines, ShieldCheck } from "lucide-react";
+import { AudioLines } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -58,14 +57,8 @@ export function VoiceAdminPage() {
         title={ui("Giọng nói")}
         icon={<AudioLines />}
         description={ui(
-          "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.",
+          "Cấu hình nhà cung cấp nhận dạng giọng nói và đọc câu trả lời thành tiếng.",
         )}
-        actions={
-          <StatusBadge tone="neutral" className="gap-1.5">
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
-            {ui("Âm thanh không được lưu")}
-          </StatusBadge>
-        }
       />
       {providers.isError || connections.isError ? (
         <div

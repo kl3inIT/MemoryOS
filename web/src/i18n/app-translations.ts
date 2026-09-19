@@ -2585,14 +2585,6 @@ Object.assign(englishUi, {
 });
 Object.assign(vietnameseUi, {
   "Giọng nói": "Voice",
-  "Kết nối nhà cung cấp để thành viên nói thay vì gõ và nghe câu trả lời được đọc thành tiếng. Âm thanh chỉ đi qua máy chủ MemoryOS và không được lưu.":
-    "Connect providers so members can speak instead of typing and hear answers read aloud. Audio passes only through the MemoryOS server and is never stored.",
-  "Âm thanh không được lưu": "Audio is never stored",
-  "Mặc định: {{name}}": "Default: {{name}}",
-  "Chưa chọn nhà cung cấp mặc định": "No default provider selected",
-  "Đang hoạt động": "Active",
-  "Chưa cấu hình": "Not configured",
-  "Cần thiết lập": "Setup required",
   "Không tải được cấu hình giọng nói.": "Voice configuration could not be loaded.",
   "Chuyển giọng nói thành văn bản": "Speech to text",
   "Đọc văn bản thành giọng nói": "Text to speech",
@@ -2610,7 +2602,6 @@ Object.assign(vietnameseUi, {
   "TTS-1 và TTS-1 HD": "TTS-1 and TTS-1 HD",
   "Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches":
     "Self-hosted server with an OpenAI-compatible audio API, such as Speaches",
-  "Mặc định": "Default",
   "Cần cấu hình thêm": "Needs setup",
   "Ngắt kết nối {{name}}": "Disconnect {{name}}",
   "Ngắt kết nối {{name}}?": "Disconnect {{name}}?",
@@ -2624,13 +2615,7 @@ Object.assign(vietnameseUi, {
     "Used to transcribe speech in Chat and Search.",
   "Dùng để đọc câu trả lời thành tiếng.": "Used to read answers aloud.",
   "Thông tin kết nối": "Connection",
-  "MemoryOS xác minh nhà cung cấp trước khi lưu cấu hình và mã hóa khóa API.":
-    "MemoryOS verifies the provider before saving the configuration and encrypts the API key.",
   "Mô hình và giọng": "Model and voice",
-  "Chọn mô hình dùng cho bản ghi cuối cùng và đường dự phòng.":
-    "Choose the model used for final transcripts and fallback processing.",
-  "Chọn mô hình và giọng mặc định cho câu trả lời được đọc thành tiếng.":
-    "Choose the default model and voice for spoken answers.",
   "Địa chỉ máy chủ": "Server address",
   "Địa chỉ API": "API address",
   "Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.":
@@ -2638,8 +2623,6 @@ Object.assign(vietnameseUi, {
   "Để trống để dùng địa chỉ mặc định của nhà cung cấp.":
     "Leave empty to use the provider's default address.",
   "Khóa API (không bắt buộc)": "API key (optional)",
-  "Khóa được mã hóa khi lưu và không bao giờ được gửi lại trình duyệt.":
-    "The key is encrypted when saved and is never sent back to the browser.",
   "Xóa khóa đã lưu": "Remove saved key",
   "Mô hình nhận dạng": "Transcription model",
   "Mô hình giọng nói": "Speech model",
@@ -2648,7 +2631,6 @@ Object.assign(vietnameseUi, {
   "Giọng đọc": "Voice",
   "Nhập đúng tên giọng mà máy chủ cung cấp.":
     "Enter the voice name exactly as the server lists it.",
-  "Nhà cung cấp đã chấp nhận cấu hình đã lưu.": "The provider accepted the saved configuration.",
   "Đang kiểm tra khóa…": "Verifying key…",
   "Nhập bằng giọng nói": "Dictate",
   "Cấu hình nhập bằng giọng nói": "Set up dictation",
@@ -3144,6 +3126,11 @@ Object.assign(englishUi, {
   "Provider unavailable": "Nhà cung cấp không khả dụng",
   "Model unavailable": "Mô hình không khả dụng",
   "The operation was discarded.": "Thao tác đã bị hủy.",
+});
+
+Object.assign(vietnameseUi, {
+  "Cấu hình nhà cung cấp nhận dạng giọng nói và đọc câu trả lời thành tiếng.":
+    "Configure speech-to-text and text-to-speech providers for voice input and spoken answers.",
 });
 
 // SharePoint setup, synchronization and failures (PR #230 review).
