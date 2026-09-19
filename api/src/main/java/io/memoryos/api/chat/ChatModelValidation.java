@@ -39,7 +39,7 @@ final class ChatModelValidation {
             if (!permits.tryAcquire()) throw ChatException.busy();
             try {
                 var binding = resolved.binding();
-                int output = Math.min(32, Math.min(limits.maxOutputTokens(), binding.maxOutputTokens()));
+                int output = binding.outputAtMost(Math.min(32, limits.maxOutputTokens()));
                 var options = binding.service().convertOptions(new LlmOptions().withMaxTokens(output));
                 // A model that declares tool calling is only usable if the provider accepts tools next to
                 // this entry's reasoning options, which some model families reject; probe that combination

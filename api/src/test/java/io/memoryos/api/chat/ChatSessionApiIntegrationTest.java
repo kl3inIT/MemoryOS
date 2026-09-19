@@ -1703,7 +1703,7 @@ class ChatSessionApiIntegrationTest {
                     reported.path("models").valueStream().map(model -> model.path("modelName").asText()).toList());
             // The catalog fills an OpenAI name; OpenRouter-style metadata comes from the endpoint itself (MEM-130).
             assertEquals("catalog", reported.path("models").get(0).path("source").asText());
-            assertTrue(reported.path("models").get(0).path("complete").asBoolean());
+            assertTrue(reported.path("models").get(0).path("contextWindow").isInt());
             var routed = reported.path("models").get(2);
             assertEquals("provider", routed.path("source").asText());
             assertEquals(1000000, routed.path("contextWindow").asInt());

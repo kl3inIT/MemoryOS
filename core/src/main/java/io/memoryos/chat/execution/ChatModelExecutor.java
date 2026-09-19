@@ -110,10 +110,10 @@ public final class ChatModelExecutor {
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
                     () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
-                    selected.policy(), Math.min(3000, selected.contextWindow() - Math.min(128, selected.maxOutputTokens())), selected.finalRequest());
-            guard.outputLimit(Math.min(128, selected.maxOutputTokens()));
+                    selected.policy(), Math.min(3000, selected.contextWindow() - selected.outputAtMost(128)), selected.finalRequest());
+            guard.outputLimit(selected.outputAtMost(128));
             var runner = context.ai().withLlmService(new StreamingLlmService(selected.withModel(guard)));
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(Math.min(128, selected.maxOutputTokens())).withTimeout(Duration.ofSeconds(10)));
+            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(selected.outputAtMost(128)).withTimeout(Duration.ofSeconds(10)));
             var text = new StringBuilder();
             for (var message : history) {
                 String content = message.content() == null ? "" : message.content();
@@ -174,9 +174,11 @@ public final class ChatModelExecutor {
         var process = context.getProcessContext().getAgentProcess();
         // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
         // reasoning tokens count toward it, so a small deployment cap cut long tool calls off mid-stream.
-        // max-output-tokens still reserves room for the answer when the input budget is computed.
-        int maxOutput = selected.maxOutputTokens();
-        int outputReserve = Math.min(limits.maxOutputTokens(), selected.maxOutputTokens());
+        // max-output-tokens still reserves room for the answer when the input budget is computed. A model without a
+        // published output limit sends no cap (Onyx), and the reserve stands in for it in budgets and bounded helpers.
+        Integer maxOutput = selected.maxOutputTokens();
+        int outputReserve = selected.outputAtMost(limits.maxOutputTokens());
+        int outputBound = maxOutput != null ? maxOutput : outputReserve;
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
                 && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
@@ -188,7 +190,7 @@ public final class ChatModelExecutor {
                 new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), limits.maxCycles(), checkActive,
                 selected.policy(), contextLimit, selected.finalRequest());
         guard.executionScheduler(scheduler);
-        guard.outputLimit(maxOutput);
+        guard.outputLimit(outputBound);
         guard.synchronousLimit(searchLimits.helperCallLimit());
         guard.taskPrompt(setup.options().taskPrompt());
         var guards = new java.util.concurrent.CopyOnWriteArrayList<ChatModelGuard>();
@@ -208,8 +210,8 @@ public final class ChatModelExecutor {
                     conversation = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
                 }
                 research.run(new ResearchExecutor.Turn(setup, conversation, metadata.getChatModel(), process,
-                        new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), checkActive, cancellation, fileWork, maxOutput,
-                        output, events, agent -> agentTools(context, setup, agent, cancellation, fileWork, maxOutput), guards::add, drains::add));
+                        new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), checkActive, cancellation, fileWork, outputBound,
+                        output, events, agent -> agentTools(context, setup, agent, cancellation, fileWork, outputBound), guards::add, drains::add));
                 return;
             }
             guards.add(guard);
@@ -219,7 +221,8 @@ public final class ChatModelExecutor {
             // Date was frozen into the admitted system message. Override Embabel's automatic date by role.
             var runner = context.promptRunner(new LlmOptions(), Set.of(), List.of(),
                     List.of(PromptContributor.fixed("", new CurrentDate().getRole())), List.of(), false).withLlmService(service);
-            runner = runner.withLlm(Objects.requireNonNull(runner.getLlm()).withMaxTokens(maxOutput))
+            var answerLlm = Objects.requireNonNull(runner.getLlm());
+            runner = runner.withLlm(maxOutput != null ? answerLlm.withMaxTokens(maxOutput) : answerLlm)
                     .withToolCallContext(Map.of("actor", setup.actor(), "tenant", setup.tenant(), "runId", setup.assistantMessageId()));
             java.util.List<com.embabel.chat.Message> messages;
             try (var ignored = fileWork.enter()) {
@@ -248,7 +251,7 @@ public final class ChatModelExecutor {
             if (selected.toolCalling() && setup.options().searchEnabled()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
-                        .withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
+                        .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
                         guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity)
                         .knowledgeCutoff(setup.options().knowledgeCutoff());

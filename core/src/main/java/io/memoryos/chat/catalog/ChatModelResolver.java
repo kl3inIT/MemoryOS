@@ -30,15 +30,15 @@ public final class ChatModelResolver {
     }
     public Resolved forValidation(ActorId actor, UUID model) { return acquire(catalog.validationSelection(actor, model)); }
 
-    /** A reported model with the specs to add it: complete when its limits are known from the endpoint or catalog. */
-    public record ReportedModelSpec(String modelName, @Nullable Integer contextWindow, @Nullable Integer maxOutputTokens,
-                                    ModelSettings.@Nullable Capabilities capabilities, ModelSettings.@Nullable Pricing pricing,
+    /**
+     * A reported model with the specs to add it. As Onyx, every reported model can be added without typing: what
+     * neither the endpoint nor the catalog publishes takes Onyx's defaults, and {@link Source#NONE} tells the
+     * administrator the values are defaults to review.
+     */
+    public record ReportedModelSpec(String modelName, int contextWindow, @Nullable Integer maxOutputTokens,
+                                    ModelSettings.Capabilities capabilities, ModelSettings.@Nullable Pricing pricing,
                                     Source source) {
         public enum Source { PROVIDER, CATALOG, NONE }
-
-        public boolean complete() {
-            return contextWindow != null && maxOutputTokens != null && capabilities != null;
-        }
     }
 
     /**
@@ -69,12 +69,16 @@ public final class ChatModelResolver {
         }
     }
 
+    static final int FALLBACK_CONTEXT_WINDOW = 32_000;
+
     public static ReportedModelSpec spec(ChatProviderAdapter.ReportedModel reported, java.util.List<ChatProviderAdapter.KnownModel> known) {
         var catalogModel = findKnown(reported.modelName(), known);
         Integer context = valid(reported.contextWindow(), 256, 10_000_000);
         Integer output = reported.maxOutputTokens();
         boolean fromProvider = context != null;
         if (context == null && catalogModel != null) context = catalogModel.contextWindow();
+        // Onyx GEN_AI_MODEL_FALLBACK_MAX_TOKENS: a model nobody describes is budgeted as a 32,000-token window.
+        if (context == null) context = FALLBACK_CONTEXT_WINDOW;
         // The context window is what one request may fill. OpenRouter reports OpenAI's total window (gpt-5-mini
         // 400,000) where OpenAI caps input at 272,000, and a 1M beta window for Claude: when both know the model,
         // the smaller window is the one every route accepts.
@@ -83,12 +87,14 @@ public final class ChatModelResolver {
         if (output == null || context == null || output < 1 || output >= context)
             output = catalogModel != null && context != null && catalogModel.maxOutputTokens() < context
                     ? catalogModel.maxOutputTokens() : null;
-        Boolean tools = first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling());
+        // Onyx sends tools to every model; an unknown model is assumed to call them, and the saved-connection check
+        // probes a tool request so a model that rejects tools is caught before the first turn.
+        Boolean tools = first(first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling()), true);
         Boolean vision = first(reported.vision(), catalogModel == null ? null : catalogModel.capabilities().vision());
         Boolean reasoning = first(reported.reasoning(), catalogModel == null ? null : catalogModel.capabilities().reasoning());
-        // An endpoint that publishes only its context window (vLLM max_model_len) leaves the answer limit to the
-        // administrator: it is never guessed, so the spec stays incomplete and the editor opens prefilled.
-        var capabilities = context == null ? null : new ModelSettings.Capabilities(true,
+        // An unpublished answer limit is never guessed: it stays empty and no cap is sent. Vision and reasoning are
+        // only declared when published, since declaring them changes what the request carries.
+        var capabilities = new ModelSettings.Capabilities(true,
                 Boolean.TRUE.equals(tools), Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
         var pricing = reported.pricing() != null ? reported.pricing() : catalogModel == null ? null : catalogModel.pricing();
         var source = fromProvider ? ReportedModelSpec.Source.PROVIDER

@@ -87,6 +87,21 @@ class OpenAiChatRequestPolicyTest {
     }
 
     @Test
+    void aModelWithoutAPublishedOutputLimitSendsNoCapUnlessTheRequestSetsOne() {
+        // Onyx llm_loop passes no max_tokens: the provider's own default applies.
+        var policy = OpenAiChatRequestPolicy.create(new ModelSettings(131_072, null,
+                new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, ChatTokenizerProfiles.HOSTED),
+                ChatTokenizerProfiles.hostedTokens());
+        var open = assertInstanceOf(OpenAiChatOptions.class, policy.request(new Prompt("Question",
+                OpenAiChatOptions.builder().model("grok-4").build()), 1000).getOptions());
+        assertNull(open.getMaxTokens());
+        assertNull(open.getMaxCompletionTokens());
+        var bounded = assertInstanceOf(OpenAiChatOptions.class, policy.request(new Prompt("Question",
+                OpenAiChatOptions.builder().model("grok-4").maxTokens(2048).build()), 1000).getOptions());
+        assertEquals(2048, bounded.getMaxTokens());
+    }
+
+    @Test
     void requiredToolChoiceAppliesOnlyToRequestsWithTools() {
         var plain = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini").build());
         assertSame(plain, OpenAiChatRequestPolicy.requireTools(plain), "A tool-free research inference keeps its request");

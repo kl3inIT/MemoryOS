@@ -12558,8 +12558,12 @@ components:
           maximum: 10000000
           minimum: 256
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
+          description: Omitted when the provider publishes no output limit; no cap
+            is then sent
           minimum: 1
         capabilities:
           $ref: "#/components/schemas/CapabilitiesInput"
@@ -12576,7 +12580,6 @@ components:
       required:
       - capabilities
       - contextWindow
-      - maxOutputTokens
       - options
       - tokenizerProfile
     PricingInput:
@@ -12646,7 +12649,9 @@ components:
           type: integer
           format: int32
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
         capabilities:
           $ref: "#/components/schemas/Capabilities"
@@ -16218,9 +16223,7 @@ components:
         modelName:
           type: string
         contextWindow:
-          type:
-          - integer
-          - "null"
+          type: integer
           format: int32
         maxOutputTokens:
           type:
@@ -16228,7 +16231,6 @@ components:
           - "null"
           format: int32
         capabilities:
-          type: "null"
           $ref: "#/components/schemas/ChatReportedModelCapabilities"
         pricing:
           type: "null"
@@ -16236,16 +16238,13 @@ components:
         source:
           type: string
           description: "Where the specs come from: the endpoint itself, the installed\
-            \ catalog, or nowhere"
+            \ catalog, or Onyx's defaults"
           enum:
           - provider
           - catalog
           - none
-        complete:
-          type: boolean
       required:
       - capabilities
-      - complete
       - contextWindow
       - maxOutputTokens
       - modelName
@@ -16367,7 +16366,9 @@ components:
           type: integer
           format: int32
         maxOutputTokens:
-          type: integer
+          type:
+          - integer
+          - "null"
           format: int32
         pricing:
           oneOf:

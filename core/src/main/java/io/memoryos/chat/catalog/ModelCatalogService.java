@@ -65,7 +65,7 @@ public class ModelCatalogService {
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision) {}
     public record AvailableModel(UUID id, UUID providerId, String providerName, String modelName, String displayName,
-                                 ModelSettings.Capabilities capabilities, int contextWindow, int maxOutputTokens,
+                                 ModelSettings.Capabilities capabilities, int contextWindow, @Nullable Integer maxOutputTokens,
                                  ModelSettings.@Nullable Pricing pricing, boolean isDefault) {}
     public record Selection(Model model, Provider provider, @Nullable String fallbackReason, @Nullable String contextRevision) {
         public Selection(Model model, Provider provider, @Nullable String fallbackReason) { this(model, provider, fallbackReason, null); }
