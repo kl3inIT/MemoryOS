@@ -2,7 +2,7 @@
 
 - [x] Design: layers, metrics, dataset schema, references (Onyx search_quality, Chroma chunking_evaluation, LightRAG/RAGAS).
 - [x] Decide benchmark identity, corpus and judge model; judge key stored in Infisical and verified.
-- [ ] Keycloak confidential client + service account mapped to a benchmark user in the staging tenant.
+- [ ] Benchmark member: owner invites the benchmark address; activate through staging Mailpit; password in Infisical; runner signs in via `memoryos-integration`.
 - [ ] `tools/rag-benchmark/` uv project: dataset schema (JSONL), config, run manifest, a synthetic public sample.
 - [ ] Corpus export: canonical extractions of the benchmark tenant's current documents to `.tmp/rag-benchmark/corpus/`.
 - [ ] Case generation (Chroma pipeline with filters) and a review file; only reviewed cases are scored.

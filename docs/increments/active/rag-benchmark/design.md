@@ -58,8 +58,12 @@ through the live API (Onyx) with answer metrics (RAGAS).
 
 ## Accepted decisions (2026-09-19)
 
-- **Benchmark identity:** a confidential Keycloak client with a service account, mapped to a dedicated benchmark user
-  in the staging tenant; the runner takes client-credentials tokens, with no interactive login.
+- **Benchmark identity:** a dedicated invited member of the staging tenant. The identity contract binds only exact
+  `(issuer, subject)` pairs created by invitation acceptance or trusted JIT and has no administrative binding surface,
+  so a client-credentials service account cannot become a member. The owner invites the benchmark address; the
+  activation email lands in staging Mailpit; the runner signs in through the existing public `memoryos-integration`
+  client (Authorization Code + PKCE, `memoryos-api` audience) with the benchmark password from Infisical and refreshes
+  its token, so runs need no interactive login. Its Group grants define what it can read, as for any member.
 - **Judge and generator:** OpenRouter `qwen/qwen3.8-27b`, temperature 0, with its own key
   (`RAG_BENCHMARK_OPENROUTER_API_KEY` in Infisical `dev` and `staging`), separate from the deployment's keys. JSON
   mode verified. Staging also serves this model to Chat, so a chat run scored by it grades its own answers: chat runs
