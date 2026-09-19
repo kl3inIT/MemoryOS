@@ -58,9 +58,9 @@ function Specs({ draft, change }: { draft: ModelDraft; change: Change }) {
           {ui("Maximum output (tokens)")}
           <Input
             type="number"
-            required
             min={1}
             step={1}
+            placeholder={ui("Provider default")}
             value={draft.maxOutputTokens}
             onChange={(event) => change("maxOutputTokens", event.target.value)}
           />
@@ -360,7 +360,11 @@ export function ModelEditor({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-content-muted">{ui("Maximum output (tokens)")}</dt>
-                <dd className="tabular-nums">{compactTokens(Number(draft.maxOutputTokens))}</dd>
+                <dd className="tabular-nums">
+                  {draft.maxOutputTokens.trim() === ""
+                    ? ui("Provider default")
+                    : compactTokens(Number(draft.maxOutputTokens))}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-content-muted">{ui("Input price")}</dt>

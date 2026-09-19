@@ -76,6 +76,13 @@ describe("model configuration transitions", () => {
     expect(modelBody(draft).settings?.options).toEqual({ maxCompletionTokens: false });
   });
 
+  it("sends no output limit when it is left blank, so the provider default applies", () => {
+    const draft = { ...modelDraft(model, adapter), maxOutputTokens: "" };
+    expect(modelDraftError(draft, adapter)).toBeNull();
+    expect(modelBody(draft).settings?.maxOutputTokens).toBeNull();
+    expect(modelDraftError({ ...draft, maxOutputTokens: "0" }, adapter)).not.toBeNull();
+  });
+
   it("adopts the installed token estimator and rejects a configuration whose estimator is gone", () => {
     expect(modelDraft(undefined, adapter).tokenizerProfile).toBe("openai-o200k-v1");
     expect(modelDraftError(modelDraft(model, adapter), adapter)).toBeNull();

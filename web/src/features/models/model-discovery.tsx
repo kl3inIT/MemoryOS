@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, Eye, Search, Wrench } from "lucide-react";
+import { Brain, Eye, Pencil, Search, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,9 @@ import { useModelAction } from "./use-model-action";
 
 /**
  * The provider endpoint reports which models it serves, with the limits, capabilities and prices it publishes
- * (OpenRouter, vLLM, Mistral, Groq) or the installed catalog declares by name (OpenAI, Anthropic, Gemini, xAI,
- * DeepSeek). A complete model is added as reported; an incomplete one opens the editor with what is known (MEM-130).
+ * (OpenRouter, 9Router, vLLM, Mistral, Groq) or the installed catalog declares by name (OpenAI, Anthropic, Gemini,
+ * xAI, DeepSeek). As Onyx, every model is added without typing: an unknown output limit sends no cap, and a model
+ * nobody describes takes Onyx's defaults, marked for review with an option to edit before adding (MEM-130).
  */
 export function ModelDiscovery({
   provider,
@@ -165,7 +167,7 @@ export function ModelDiscovery({
                     return (
                       <TableRow key={model.modelName}>
                         <TableCell className="max-w-44 font-main-ui-body sm:max-w-72">
-                          {model.complete && !alreadyConfigured ? (
+                          {!alreadyConfigured ? (
                             <label className="flex min-w-0 items-center gap-2">
                               <Checkbox
                                 checked={selected.includes(model.modelName)}
@@ -185,12 +187,19 @@ export function ModelDiscovery({
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {model.contextWindow == null ? "—" : compactTokens(model.contextWindow)}
+                          {compactTokens(model.contextWindow)}
+                          {model.source === "none" && (
+                            <span className="block text-xs text-content-muted">
+                              {ui("Default")}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                          {model.maxOutputTokens == null
-                            ? "—"
-                            : compactTokens(model.maxOutputTokens)}
+                          {model.maxOutputTokens == null ? (
+                            <span className="text-content-muted">{ui("Default")}</span>
+                          ) : (
+                            compactTokens(model.maxOutputTokens)
+                          )}
                         </TableCell>
                         <TableCell className="hidden text-right tabular-nums md:table-cell">
                           {millionTokenPrice(model.pricing?.inputPerMillion) ?? "—"}
@@ -201,16 +210,18 @@ export function ModelDiscovery({
                         <TableCell className="text-right">
                           {alreadyConfigured ? (
                             <StatusBadge tone="success">{ui("Configured")}</StatusBadge>
-                          ) : model.complete ? null : (
-                            <Button
-                              prominence="secondary"
+                          ) : model.source === "none" ? (
+                            <IconButton
+                              prominence="tertiary"
                               size="sm"
+                              aria-label={ui("Edit first")}
+                              title={ui("Edit first")}
                               disabled={action.pending}
                               onClick={() => onManual(model)}
                             >
-                              {ui("Add manually")}
-                            </Button>
-                          )}
+                              <Pencil />
+                            </IconButton>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     );
@@ -250,13 +261,11 @@ export function ModelDiscovery({
 function ModelName({ model }: { model: ReportedModel }) {
   const ui = useAppTranslation();
   const capabilities = model.capabilities;
-  const flags = capabilities
-    ? [
-        capabilities.toolCalling && { icon: Wrench, label: ui("Tool calling") },
-        capabilities.vision && { icon: Eye, label: ui("Vision input") },
-        capabilities.reasoning && { icon: Brain, label: ui("Reasoning") },
-      ].filter((flag) => flag !== false)
-    : [];
+  const flags = [
+    capabilities.toolCalling && { icon: Wrench, label: ui("Tool calling") },
+    capabilities.vision && { icon: Eye, label: ui("Vision input") },
+    capabilities.reasoning && { icon: Brain, label: ui("Reasoning") },
+  ].filter((flag) => flag !== false);
   return (
     <span className="flex min-w-0 flex-col">
       <span className="truncate" title={model.modelName}>

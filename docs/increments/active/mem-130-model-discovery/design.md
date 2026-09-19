@@ -20,11 +20,15 @@ LiteLLM `/v1/model/info`) and `backend/onyx/llm/model_capabilities.py` looks lim
 
 1. **Extend the existing endpoint.** `GET /api/chat/providers/{id}/reported-models` returns each reported model with
    the specs the endpoint publishes, then the installed catalog's by name (a `models/` or vendor prefix is ignored),
-   plus `source` and `complete`. The OpenAI-compatible adapter reads the vendor fields listed in the
+   plus `source`. The OpenAI-compatible adapter reads the vendor fields listed in the
    [catalog spec](../../../specs/chat-models.md); the body cap is 16 MiB and 1,000 models, because OpenRouter's list is
    about 2 MiB. No new endpoint and no per-vendor adapter: every vendor already speaks the OpenAI protocol here.
-2. **Never guess.** An answer limit that is missing stays missing (the editor opens prefilled); one at or above the
-   context window is replaced by the catalog's. Prices are copied once when the model is added.
+2. **Never guess, never block (Onyx).** An answer limit that is missing stays missing and no output cap is sent, as
+   Onyx `llm_loop` sends no `max_tokens`; the deployment `max-output-tokens` reserves room when the input budget is
+   computed. One at or above the context window is replaced by the catalog's. A model nobody describes takes Onyx's
+   32,000-token fallback window and tool calling (Onyx sends tools to every model; the saved-connection check probes
+   a tool request), reports `source` `none` and can be edited before it is added. Every reported model can therefore
+   be added without typing. Prices are copied once when the model is added.
 3. **Catalog breadth.** `known-models.json` adds Gemini, xAI, DeepSeek and Mistral from the same pinned LiteLLM
    commit. Models LiteLLM records with an output limit equal to their window (for example grok-4,
    mistral-large-latest) stay out: their answer limit is unknown.

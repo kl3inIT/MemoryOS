@@ -293,7 +293,9 @@ function ConnectionCard({
                       {compactTokens(model.settings.contextWindow)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums whitespace-nowrap">
-                      {compactTokens(model.settings.maxOutputTokens)}
+                      {model.settings.maxOutputTokens == null
+                        ? ui("Provider default")
+                        : compactTokens(model.settings.maxOutputTokens)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums whitespace-nowrap">
                       {millionTokenPrice(model.settings.pricing?.inputPerMillion) ?? ui("Unknown")}

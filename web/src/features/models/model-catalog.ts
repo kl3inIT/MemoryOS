@@ -126,7 +126,12 @@ export function modelDraft(model?: ManagedModel, adapter?: InstalledAdapter): Mo
     visible: model?.visible ?? true,
     tokenizerProfile: settings?.tokenizerProfile ?? adapter?.tokenizerProfiles[0]?.id ?? "",
     contextWindow: settings ? String(settings.contextWindow) : "1024",
-    maxOutputTokens: settings ? String(settings.maxOutputTokens) : "128",
+    // Blank means the provider publishes no output limit: no cap is sent and its default applies (Onyx).
+    maxOutputTokens: settings
+      ? settings.maxOutputTokens == null
+        ? ""
+        : String(settings.maxOutputTokens)
+      : "",
     toolCalling: settings?.capabilities.toolCalling ?? false,
     vision: settings?.capabilities.vision ?? false,
     reasoning: settings?.capabilities.reasoning ?? false,
@@ -151,15 +156,15 @@ export type ReportedModel = ChatReportedModel;
 export function reportedDraft(reported: ReportedModel, adapter?: InstalledAdapter): ModelDraft {
   const draft = modelDraft(undefined, adapter);
   const capabilities = reported.capabilities;
-  const reasoning = capabilities?.reasoning ?? false;
+  const reasoning = capabilities.reasoning;
   return {
     ...draft,
     modelName: reported.modelName,
     displayName: reported.modelName,
-    contextWindow: reported.contextWindow == null ? "" : String(reported.contextWindow),
+    contextWindow: String(reported.contextWindow),
     maxOutputTokens: reported.maxOutputTokens == null ? "" : String(reported.maxOutputTokens),
-    toolCalling: capabilities?.toolCalling ?? false,
-    vision: capabilities?.vision ?? false,
+    toolCalling: capabilities.toolCalling,
+    vision: capabilities.vision,
     reasoning,
     // OpenAI-compatible reasoning models reject max_tokens, so the option family follows the capability.
     completionTokens: reasoning,
@@ -263,7 +268,10 @@ export function modelDraftError(
     output = Number(draft.maxOutputTokens);
   if (!/^\d+$/.test(draft.contextWindow) || context < 256 || context > 10_000_000)
     return "Context window must be a whole number from 256 to 10000000.";
-  if (!/^\d+$/.test(draft.maxOutputTokens) || output < 1 || output >= context)
+  if (
+    draft.maxOutputTokens.trim() !== "" &&
+    (!/^\d+$/.test(draft.maxOutputTokens) || output < 1 || output >= context)
+  )
     return "Maximum output must be at least 1 and strictly below the context window.";
   if ((draft.inputPrice.trim() === "") !== (draft.outputPrice.trim() === ""))
     return "Enter both prices or leave both blank for Unknown pricing.";
@@ -315,7 +323,7 @@ export function modelBody(draft: ModelDraft): ModelBody {
     settings: {
       tokenizerProfile: draft.tokenizerProfile,
       contextWindow: Number(draft.contextWindow),
-      maxOutputTokens: Number(draft.maxOutputTokens),
+      maxOutputTokens: draft.maxOutputTokens.trim() === "" ? null : Number(draft.maxOutputTokens),
       capabilities: {
         streaming: true,
         toolCalling: draft.toolCalling,

@@ -721,7 +721,10 @@ export type ModelInput = {
 
 export type ModelSettingsInput = {
     contextWindow: number;
-    maxOutputTokens: number;
+    /**
+     * Omitted when the provider publishes no output limit; no cap is then sent
+     */
+    maxOutputTokens?: number | null;
     capabilities: CapabilitiesInput;
     options: {
         [key: string]: unknown;
@@ -755,7 +758,7 @@ export type Model = {
 
 export type ModelSettings = {
     contextWindow: number;
-    maxOutputTokens: number;
+    maxOutputTokens: number | null;
     capabilities: Capabilities;
     options: {
         [key: string]: unknown;
@@ -2043,15 +2046,14 @@ export type ChatSessionSearchPage = {
 
 export type ChatReportedModel = {
     modelName: string;
-    contextWindow: number | null;
+    contextWindow: number;
     maxOutputTokens: number | null;
     capabilities: ChatReportedModelCapabilities;
     pricing: ChatReportedModelPricing;
     /**
-     * Where the specs come from: the endpoint itself, the installed catalog, or nowhere
+     * Where the specs come from: the endpoint itself, the installed catalog, or Onyx's defaults
      */
     source: 'provider' | 'catalog' | 'none';
-    complete: boolean;
 };
 
 export type ChatReportedModelCapabilities = {
@@ -2098,7 +2100,7 @@ export type AvailableModel = {
     displayName: string;
     capabilities: Capabilities;
     contextWindow: number;
-    maxOutputTokens: number;
+    maxOutputTokens: number | null;
     pricing: Pricing | null;
     isDefault: boolean;
 };

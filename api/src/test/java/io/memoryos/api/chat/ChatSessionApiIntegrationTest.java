@@ -477,7 +477,8 @@ class ChatSessionApiIntegrationTest {
         verify(model, times(1)).stream(any(Prompt.class));
         assertEquals(12L, jdbc.sql("SELECT input_tokens FROM chat_message WHERE id = :id")
                 .param("id", UUID.fromString(id)).query(Long.class).single());
-        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id = :id AND cost_usd IS NULL")
+        // The bootstrap model takes its catalog prices (MEM-130), so the settled turn has a cost.
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_message WHERE id = :id AND cost_usd > 0")
                 .param("id", UUID.fromString(id)).query(Long.class).single());
     }
 

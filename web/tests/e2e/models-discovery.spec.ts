@@ -11,7 +11,7 @@ import type {
 const openRouter: ChatReportedModels = JSON.parse(
   readFileSync(new URL("../fixtures/openrouter-reported-models.json", import.meta.url), "utf8"),
 );
-// A provider that only names some models: the installed catalog fills known names, the rest open the editor.
+// A provider that names some models only: the catalog fills known names; the rest take Onyx's defaults.
 const gateway: ChatReportedModels = {
   models: [
     {
@@ -21,7 +21,6 @@ const gateway: ChatReportedModels = {
       capabilities: { toolCalling: true, vision: true, reasoning: true },
       pricing: { inputPerMillion: 0.25, outputPerMillion: 2 },
       source: "catalog",
-      complete: true,
     },
     {
       modelName: "gpt-5.6-luna",
@@ -30,25 +29,22 @@ const gateway: ChatReportedModels = {
       capabilities: { toolCalling: true, vision: true, reasoning: true },
       pricing: { inputPerMillion: 0.2, outputPerMillion: 1.2 },
       source: "catalog",
-      complete: true,
     },
     {
       modelName: "qwen3-32b-awq",
       contextWindow: 32768,
       maxOutputTokens: null,
-      capabilities: { toolCalling: false, vision: false, reasoning: false },
+      capabilities: { toolCalling: true, vision: false, reasoning: false },
       pricing: null,
       source: "provider",
-      complete: false,
     },
     {
       modelName: "tasco-internal-7b",
-      contextWindow: null,
+      contextWindow: 32000,
       maxOutputTokens: null,
-      capabilities: null,
+      capabilities: { toolCalling: true, vision: false, reasoning: false },
       pricing: null,
       source: "none",
-      complete: false,
     },
   ],
 };
@@ -181,8 +177,8 @@ for (const [label, width, scheme] of [
     await shot(page, `${label}-discovery-gateway`);
     await page
       .getByRole("dialog")
-      .getByRole("row", { name: /qwen3-32b-awq/ })
-      .getByRole("button")
+      .getByRole("row", { name: /tasco-internal-7b/ })
+      .getByRole("button", { name: "Sửa trước khi thêm" })
       .click();
     await expect
       .poll(() =>
@@ -190,7 +186,7 @@ for (const [label, width, scheme] of [
           .getByRole("dialog")
           .locator("input")
           .evaluateAll((inputs) =>
-            inputs.some((input) => (input as HTMLInputElement).value === "32768"),
+            inputs.some((input) => (input as HTMLInputElement).value === "32000"),
           ),
       )
       .toBe(true);
