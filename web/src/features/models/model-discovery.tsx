@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { Brain, Eye, Pencil, Search, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -268,8 +269,11 @@ function ModelName({ model }: { model: ReportedModel }) {
   ].filter((flag) => flag !== false);
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="truncate" title={model.modelName}>
-        {model.modelName}
+      <span className="flex min-w-0 items-center gap-2">
+        <ChatModelLogo modelName={model.modelName} />
+        <span className="truncate" title={model.modelName}>
+          {model.modelName}
+        </span>
       </span>
       {flags.length > 0 && (
         <span className="flex gap-1.5 text-content-muted">
