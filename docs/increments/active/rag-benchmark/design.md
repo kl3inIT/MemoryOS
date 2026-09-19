@@ -20,6 +20,13 @@ measures the whole path an answer takes, not a single component.
 - LightRAG [`lightrag/evaluation`](https://github.com/HKUDS/LightRAG/blob/main/lightrag/evaluation/README_EVALUASTION_RAGAS.md):
   RAGAS context recall/precision, faithfulness and answer relevancy over the running system.
 
+- OrgMemory ([`docs/BENCHMARKS.md`](https://github.com/SanketBhangale1803/orgmemory/blob/main/docs/BENCHMARKS.md), MIT):
+  a baseline and the system under test share one scorer so the delta isolates one layer; Recall@5, MRR, nDCG@5,
+  evidence precision, answerability (abstention) accuracy, temporal accuracy (the current version ranks first) and
+  latency; per-case retrievals ship in the report; a claimed improvement requires zero regressed metrics and every
+  regression is named; small committed synthetic suites run in CI in milliseconds, external suites are reported as
+  skipped when unavailable.
+
 Onyx's document-level ground truth cannot distinguish chunkings (every chunking finds the same document), and RAGAS
 alone depends on the judging model. The benchmark combines the three: excerpt-level ground truth (Chroma) measured
 through the live API (Onyx) with answer metrics (RAGAS).
@@ -45,7 +52,11 @@ through the live API (Onyx) with answer metrics (RAGAS).
 3. **Judge pinned and separate.** RAGAS metrics run with a named judge model and temperature 0, recorded in the run;
    the judge is never the model under test. Deterministic metrics (hits, token recall, citations, abstention by
    rubric) are reported first; LLM-judged metrics are secondary.
-4. **Runs are comparable.** A run records the dataset hash, git SHA, chunk policy, search and chat settings, model and
+4. **Runs are comparable, regressions are named.** Every comparison runs a baseline and a candidate with the same
+   cases and scorer (OrgMemory). Search also reports nDCG@5, and a temporal category checks that a replaced
+   document's current version ranks above its superseded text. A candidate is called better only with no
+   regressed metric; regressions are listed by name, and per-case results ship with the report.
+   **Run records.** A run records the dataset hash, git SHA, chunk policy, search and chat settings, model and
    judge. Results are JSON per case plus a summary by layer and category; a comparison report shows the difference
    from a baseline run with per-case changes. No CI gate: live runs cost money and need a populated tenant. A small
    deterministic subset may become a nightly job later.
@@ -58,7 +69,14 @@ through the live API (Onyx) with answer metrics (RAGAS).
 
 ## Accepted decisions (2026-09-19)
 
-- **Benchmark identity:** a dedicated invited member of the staging tenant. The identity contract binds only exact
+- **Benchmark identity (as executed 2026-09-19):** at the owner's explicit request the member was bound directly in
+  the staging database instead of through an invitation: Keycloak local user `rag-benchmark@memoryos.test` (subject
+  `961010a6-a471-48db-98fa-fa4eeda6e523`, email verified, no required actions) and one transaction writing the actor,
+  its exact `(issuer, subject)` binding and profile, an ACTIVE MEMBER Tenant membership, Basic and "Nhóm test quyền"
+  Group edges (the only Group granted the indexed Source), and a Tenant `authorization_version` increment (277 to
+  278), mirroring invitation acceptance. Bearer sign-in through `memoryos-integration` returns this actor with
+  `SEARCH_READ`, `CHAT_READ` and `CHAT_WRITE`. This is an operator action outside the product's identity contract,
+  recorded here and not a supported path. The original plan was a dedicated invited member of the staging tenant. The identity contract binds only exact
   `(issuer, subject)` pairs created by invitation acceptance or trusted JIT and has no administrative binding surface,
   so a client-credentials service account cannot become a member. The owner invites the benchmark address; the
   activation email lands in staging Mailpit; the runner signs in through the existing public `memoryos-integration`

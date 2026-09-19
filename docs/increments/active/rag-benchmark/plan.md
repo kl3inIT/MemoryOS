@@ -44,8 +44,7 @@ US$1–3 depending on the model; judging about US$0.5–1. Under US$5.
 ## Checklist
 
 - [x] Design and accepted decisions.
-- [ ] 0 Invitation (owner).
-- [ ] 1 Activation and sign-in.
+- [x] 0–1 Benchmark member bound directly in the staging DB at the owner's request; bearer sign-in verified (`/api/identity/me` 200).
 - [ ] 2 Project, `auth`, `export`.
 - [ ] 3 Case generation.
 - [ ] 4 Review (owner).
