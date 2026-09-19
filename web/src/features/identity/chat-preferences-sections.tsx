@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, LayoutPanelTop, Rows3, Sparkles } from "lucide-react";
+import { ArrowDownToLine, LayoutPanelTop, Sparkles } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -12,7 +12,7 @@ import { useChatPreferences, useSaveChatPreferences } from "./chat-preferences";
 
 const PREFERENCES_LIMIT = 2000;
 
-/** Onyx Chat Preferences: default model, default app mode, personal preferences, auto-scroll and pasted text. */
+/** Onyx Chat Preferences: default model, default app mode, personal preferences and auto-scroll. */
 export function ChatPreferencesSections() {
   const ui = useAppTranslation();
   const preferences = useChatPreferences();
@@ -148,24 +148,6 @@ export function ChatPreferencesSections() {
                 checked={data?.autoScroll ?? true}
                 disabled={disabled}
                 onCheckedChange={(checked) => save.mutate({ autoScroll: checked })}
-              />
-            }
-          />
-          <SettingRow
-            htmlFor="collapse-pastes"
-            descriptionId="collapse-pastes-description"
-            icon={<Rows3 />}
-            title={ui("Collapse Large Pastes")}
-            description={ui(
-              "When pasting text longer than 3 lines or 200 characters, collapse it into a compact tile instead of inserting it inline.",
-            )}
-            control={
-              <Switch
-                id="collapse-pastes"
-                aria-describedby="collapse-pastes-description"
-                checked={data?.collapsePastes ?? true}
-                disabled={disabled}
-                onCheckedChange={(checked) => save.mutate({ collapsePastes: checked })}
               />
             }
           />

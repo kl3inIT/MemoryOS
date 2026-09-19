@@ -1910,7 +1910,7 @@ class ChatSessionApiIntegrationTest {
         String mine = createConfiguredModel(provider, "preferred-mini", 0.3).path("id").asText();
         var body = Json.mapper().createObjectNode().put("workRole", "Kế toán trưởng")
                 .put("personalPreferences", "Trả lời ngắn gọn.").put("defaultModelId", UUID.randomUUID().toString())
-                .put("startPage", "SEARCH").put("autoScroll", false).put("collapsePastes", true);
+                .put("startPage", "SEARCH").put("autoScroll", false);
         // A model the member cannot pick is refused; an over-long role is refused.
         mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());

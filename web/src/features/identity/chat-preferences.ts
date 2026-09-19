@@ -17,7 +17,6 @@ function input(value: ChatPreferences): ChatPreferencesInput {
     defaultModelId: value.defaultModelId ?? undefined,
     startPage: value.startPage,
     autoScroll: value.autoScroll,
-    collapsePastes: value.collapsePastes,
   };
 }
 

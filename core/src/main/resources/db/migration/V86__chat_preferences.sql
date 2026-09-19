@@ -8,7 +8,6 @@ CREATE TABLE chat_preferences (
     default_model_configuration_id UUID,
     start_page VARCHAR(16) NOT NULL DEFAULT 'CHAT',
     auto_scroll BOOLEAN NOT NULL DEFAULT TRUE,
-    collapse_pastes BOOLEAN NOT NULL DEFAULT TRUE,
     PRIMARY KEY (tenant_id, actor_id),
     FOREIGN KEY (tenant_id, actor_id) REFERENCES tenant_memberships(tenant_id, actor_id),
     FOREIGN KEY (tenant_id, default_model_configuration_id) REFERENCES model_configuration(tenant_id, id)

@@ -14,14 +14,13 @@ public record ChatPreferencesResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable UUID defaultModelId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatPreferences.StartPage startPage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean collapsePastes,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String email
 ) {
     public static ChatPreferencesResponse from(ChatPreferencesService.View view) {
         var value = view.preferences();
         return new ChatPreferencesResponse(value.workRole(), value.personalPreferences(), value.defaultModelId(),
-                value.startPage(), value.autoScroll(), value.collapsePastes(), view.profile().displayName(),
+                value.startPage(), value.autoScroll(), view.profile().displayName(),
                 view.profile().email());
     }
 }

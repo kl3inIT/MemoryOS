@@ -20,7 +20,7 @@ Personal settings are one `/settings/general` page stacking language, voice and 
 
 ### Preferences storage
 
-One table `chat_preferences (tenant_id, actor_id)`, keyed and foreign-keyed to the Tenant membership exactly as `chat_voice_settings` (V83): `work_role` (≤ 200), `personal_preferences` (≤ 2,000, it is sent in every system prompt), `default_model_configuration_id` (FK to `model_configuration`, `ON DELETE SET NULL`), `start_page` (`CHAT` or `SEARCH`), `auto_scroll` and `collapse_pastes` (default true). Theme stays in the browser (existing `features/theme`); language stays on the IAM account.
+One table `chat_preferences (tenant_id, actor_id)`, keyed and foreign-keyed to the Tenant membership exactly as `chat_voice_settings` (V83): `work_role` (≤ 200), `personal_preferences` (≤ 2,000, it is sent in every system prompt), `default_model_configuration_id` (FK to `model_configuration`, `ON DELETE SET NULL`), `start_page` (`CHAT` or `SEARCH`) and `auto_scroll` (default true). Theme stays in the browser (existing `features/theme`); language stays on the IAM account.
 
 ### Personal default model
 
@@ -34,7 +34,7 @@ As Onyx, the Chat system prompt gets `# User Information` with `## Basic Informa
 
 - Start page: the app root opens Chat or Search as chosen; Search stays available from navigation either way.
 - Auto-scroll: `ThreadPrimitive.Viewport autoScroll`, default on.
-- Collapse large pastes (Onyx: over 3 lines or 200 characters): the composer shows a compact tile; the full text is sent. Deferred to a follow-up if it needs composer changes beyond an attachment adapter.
+- Collapse large pastes is a follow-up (MEM-148): Onyx draws pasted text as tiles inside its own rich input (`paste_as_tile`, off by default), which the assistant-ui textarea cannot do without composer and send changes. No toggle ships before the behaviour.
 - Smooth streaming is not offered: MemoryOS disables it because re-parsing long answers froze slower machines.
 
 ### Delete all chats

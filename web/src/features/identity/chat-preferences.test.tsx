@@ -13,7 +13,6 @@ const saved = {
   defaultModelId: null,
   startPage: "CHAT",
   autoScroll: true,
-  collapsePastes: true,
   displayName: "Trần Thu Hà",
   email: "ha.tt@tasco.vn",
 };

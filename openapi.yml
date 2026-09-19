@@ -14796,11 +14796,8 @@ components:
           - SEARCH
         autoScroll:
           type: boolean
-        collapsePastes:
-          type: boolean
       required:
       - autoScroll
-      - collapsePastes
       - personalPreferences
       - startPage
       - workRole
@@ -14823,8 +14820,6 @@ components:
           - SEARCH
         autoScroll:
           type: boolean
-        collapsePastes:
-          type: boolean
         displayName:
           type:
           - string
@@ -14835,7 +14830,6 @@ components:
           - "null"
       required:
       - autoScroll
-      - collapsePastes
       - defaultModelId
       - displayName
       - email

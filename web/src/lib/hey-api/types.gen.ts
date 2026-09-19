@@ -577,7 +577,6 @@ export type ChatPreferencesInput = {
     defaultModelId?: string | null;
     startPage: 'CHAT' | 'SEARCH';
     autoScroll: boolean;
-    collapsePastes: boolean;
 };
 
 export type ChatPreferences = {
@@ -586,7 +585,6 @@ export type ChatPreferences = {
     defaultModelId: string | null;
     startPage: 'CHAT' | 'SEARCH';
     autoScroll: boolean;
-    collapsePastes: boolean;
     displayName: string | null;
     email: string | null;
 };
