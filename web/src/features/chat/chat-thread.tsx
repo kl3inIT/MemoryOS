@@ -10,7 +10,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import { ArrowDown, ArrowUp, Copy, Square } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { ConnectionState as ConnectionNotice } from "@/components/assistant-ui/elements/connection-state";
@@ -245,37 +245,27 @@ export function ChatThread({
   );
 }
 
-// A file part is a row of its own in the pre-wrapped bubble, never inline with the question's first line.
-function UserFile(props: ComponentProps<typeof ChatFilePart>) {
-  return (
-    <div className="mb-2 flex justify-end whitespace-normal">
-      <ChatFilePart {...props} />
-    </div>
-  );
-}
+const noText = () => null;
+const noFile = () => null;
 
-function UserSharedFile(props: ComponentProps<typeof ChatSharedFilePart>) {
-  return (
-    <div className="mb-2 flex justify-end whitespace-normal">
-      <ChatSharedFilePart {...props} />
-    </div>
-  );
-}
-
+/**
+ * As Onyx, a question's attached files sit above its bubble on the page background, as the same outlined cards as
+ * generated files, instead of blending into the bubble; the bubble holds only the text.
+ */
 function UserMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root data-aui-quote-selectable="false" className="flex flex-col items-end">
+      <div className="mb-2 flex max-w-[90%] flex-wrap justify-end gap-2 empty:hidden">
+        <MessagePrimitive.Attachments>
+          {() => <ChatMessageAttachment readOnly={readOnly} />}
+        </MessagePrimitive.Attachments>
+        <MessagePrimitive.Parts
+          components={{ Text: noText, File: readOnly ? ChatSharedFilePart : ChatFilePart }}
+        />
+      </div>
       <ChatUserMessageContent readOnly={readOnly}>
         <ChatUserMessageQuote />
-        {/* Attachments sit on their own row above the text, as in Onyx, not inline with its first line. */}
-        <div className="mb-2 flex flex-wrap justify-end gap-2 whitespace-normal empty:hidden">
-          <MessagePrimitive.Attachments>
-            {() => <ChatMessageAttachment readOnly={readOnly} />}
-          </MessagePrimitive.Attachments>
-        </div>
-        <MessagePrimitive.Parts
-          components={{ Text: ChatUserText, File: readOnly ? UserSharedFile : UserFile }}
-        />
+        <MessagePrimitive.Parts components={{ Text: ChatUserText, File: noFile }} />
       </ChatUserMessageContent>
     </MessagePrimitive.Root>
   );
