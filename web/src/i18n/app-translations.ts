@@ -2961,6 +2961,8 @@ Object.assign(englishUi, {
   "Deleting configuration": "Đang xóa cấu hình",
   "Deletion failed. Refresh before retrying.": "Xóa thất bại. Làm mới trước khi thử lại.",
   "Tenant model default": "Mô hình mặc định của Tenant",
+  User: "Người dùng",
+  Flow: "Tác vụ",
   "Cache-read price": "Giá cache-read",
   "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
     "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",

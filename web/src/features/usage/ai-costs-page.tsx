@@ -43,6 +43,7 @@ import type { AiCostRow, AiCostSummary } from "@/lib/hey-api/types.gen";
 import {
   chartRows,
   count,
+  columnLabels,
   dimensionLabels,
   money,
   period,
@@ -348,7 +349,7 @@ function Breakdown({
       <table className={compact ? "w-full text-left" : "w-full text-left sm:min-w-[40rem]"}>
         <thead className="font-secondary-body text-content-muted">
           <tr>
-            <th className="py-2 pr-3 font-normal">{ui(dimensionLabels[dimension])}</th>
+            <th className="py-2 pr-3 font-normal">{ui(columnLabels[dimension])}</th>
             <th className="px-3 py-2 text-right font-normal">{ui("Requests")}</th>
             {!compact && (
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">

@@ -496,7 +496,7 @@ export function ModelEditor({
               onClose();
             }}
           >
-            {ui("Done")}
+            {ui("Close")}
           </Button>
           <Button
             prominence="secondary"

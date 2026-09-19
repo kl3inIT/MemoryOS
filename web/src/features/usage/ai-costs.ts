@@ -59,6 +59,15 @@ export const dimensionLabels: Record<Dimension, AppCopy> = {
   PROVIDER: "By provider",
 };
 
+/** Column headings, as Onyx's spend table names its first column "User". */
+export const columnLabels: Record<Dimension, AppCopy> = {
+  ACTOR: "User",
+  GROUP: "Group",
+  MODEL: "Model",
+  FLOW: "Flow",
+  PROVIDER: "Provider",
+};
+
 /** USD with enough precision for the small amounts single calls cost. */
 export function money(value: number) {
   return new Intl.NumberFormat(uiLocale(), {
