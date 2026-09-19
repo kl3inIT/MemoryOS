@@ -51,7 +51,8 @@ public record SharePointUrl(Kind kind, String host, String sitePath, @Nullable S
         if (!HOST.matcher(host).matches()) {
             throw SharePointException.invalidRootUrl("The address must be on your organization's sharepoint.com host.");
         }
-        List<String> segments = segments(uri.getPath());
+        // The raw path is split first and each segment decoded once, so an encoded "/" stays inside its segment.
+        List<String> segments = segments(uri.getRawPath());
         // A sharing link keeps the real path after its ":f:/r" style prefix.
         if (!segments.isEmpty() && SHARE_LINK.matcher(segments.getFirst()).matches()) {
             segments = segments.subList(Math.min(2, segments.size()), segments.size());
@@ -78,7 +79,13 @@ public record SharePointUrl(Kind kind, String host, String sitePath, @Nullable S
             if (segments.size() >= MAX_SEGMENTS) {
                 throw SharePointException.invalidRootUrl("That address is nested too deeply.");
             }
-            String decoded = java.net.URLDecoder.decode(raw, StandardCharsets.UTF_8);
+            String decoded;
+            try {
+                // URLDecoder follows form encoding, where "+" means a space; in a path it is a literal plus.
+                decoded = java.net.URLDecoder.decode(raw.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException exception) {
+                throw SharePointException.invalidRootUrl("That address contains an unusable path segment.");
+            }
             if (decoded.isBlank() || decoded.contains("\\") || decoded.length() > 255) {
                 throw SharePointException.invalidRootUrl("That address contains an unusable path segment.");
             }

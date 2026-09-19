@@ -93,6 +93,9 @@ CREATE TABLE sharepoint_sync_runs (
     checkpoint_drive_id VARCHAR(512),
     checkpoint_site_id VARCHAR(512),
     checkpoint_link TEXT,
+    -- A folder root is walked breadth first: the folder being listed and those still waiting, one per line.
+    checkpoint_folder_id VARCHAR(512),
+    checkpoint_folders TEXT,
     listing_complete BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(32) NOT NULL DEFAULT 'IN_PROGRESS'
         CHECK (status IN ('IN_PROGRESS', 'SUCCEEDED', 'FAILED', 'CANCELLED')),

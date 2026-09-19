@@ -328,6 +328,168 @@ class PostgresSharePointSyncTest {
         assertNull(lastPrunedAt());
     }
 
+    @Test
+    void aRunLeftOpenByACancelledAttemptDoesNotBlockTheNextOne() {
+        // An endless change log hands the run back with its checkpoint, so the run is still open.
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), "next-page", null));
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
+        tx.executeWithoutResult(_ -> attempts.cancel(tenant, source));
+
+        reset(session);
+        when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
+                "contoso.sharepoint.com"));
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals(List.of("CANCELLED", "SUCCEEDED"), runStatuses());
+    }
+
+    @Test
+    void aFailedAttemptClosesItsRun() {
+        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
+                io.memoryos.connector.SharePointProviderException.Failure.AUTHENTICATION));
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
+
+        assertEquals(List.of("FAILED"), runStatuses());
+    }
+
+    @Test
+    void aScheduledPruneRunsWhenItIsDue() {
+        seedItem("file-vanished", "Vanished.docx");
+        pruneDue();
+        when(session.delta(eq(DRIVE), isNull(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+
+        assertEquals(1, service.enqueueDue(10));
+        var operation = new SourceOperationId(jdbc.sql("""
+                SELECT id FROM source_sync_attempts WHERE tenant_id = :tenant AND status = 'NOT_STARTED'
+                """).param("tenant", tenant.value()).query(UUID.class).single());
+        service.execute(claim(operation));
+        assertEquals("DELETING", status("file-vanished"), "the scheduler's run is the prune that was due");
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(operation)));
+        assertNotNull(lastPrunedAt());
+    }
+
+    @Test
+    void aPruneThatCannotStartWaitsForTheNextRefreshSlot() {
+        pruneDue();
+        tx.executeWithoutResult(_ -> runs.postpone(tenant, source));
+
+        assertTrue(jdbc.sql("""
+                SELECT next_prune_at > CURRENT_TIMESTAMP
+                   AND next_prune_at < CURRENT_TIMESTAMP + INTERVAL '2 hours'
+                FROM sharepoint_sources WHERE tenant_id = :tenant
+                """).param("tenant", tenant.value()).query(Boolean.class).single(),
+                "neither retried on every scheduler tick nor pushed back by a whole prune interval");
+    }
+
+    @Test
+    void aScopeChangeRereadsTheWholeNewScope() {
+        jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = CURRENT_TIMESTAMP WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).update();
+        long revision = jdbc.sql("SELECT scope_revision FROM sharepoint_sources WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).query(Long.class).single();
+        var scope = new Scope(ScopeMode.SPECIFIC, List.of("https://contoso.sharepoint.com/sites/Finance/Shared Documents"),
+                List.of(), List.of(), true, false, 30, 168);
+        tx.executeWithoutResult(_ -> sharePoint.replaceScope(tenant, source, revision, scope,
+                List.of(new ResolvedRoot(io.memoryos.connector.SharePointSourceService.RootKind.LIBRARY,
+                        "https://contoso.sharepoint.com/sites/Finance/Shared Documents", SITE, DRIVE, null,
+                        "Documents")), "contoso.sharepoint.com"));
+        assertNull(refreshWindowEnd(), "the documents of the old scope were hidden, so nothing may be skipped");
+
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session).delta(DRIVE, null, null);
+    }
+
+    @Test
+    void aFolderRootWalksItsSubfoldersAcrossContinuations() {
+        folderRoot("folder-0");
+        // A chain deeper than one execution's step budget, one file per folder.
+        int depth = 20;
+        for (int level = 0; level < depth; level++) {
+            var children = new java.util.ArrayList<SharePointProvider.DriveItem>();
+            children.add(file("file-" + level, "Report " + level + ".pdf", Instant.now()));
+            if (level + 1 < depth) children.add(folder("folder-" + (level + 1)));
+            when(session.children(DRIVE, "folder-" + level, null))
+                    .thenReturn(new SharePointProvider.ItemPage(children, null));
+        }
+        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
+                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+
+        var operation = enqueue();
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(operation)));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(operation)));
+
+        for (int level = 0; level < depth; level++) {
+            assertEquals(1, ledger("file-" + level), "a file " + level + " folders deep is part of the scope");
+        }
+        verify(session, times(1)).children(DRIVE, "folder-" + (depth - 1), null);
+    }
+
+    @Test
+    void aSourceThatCollectsOnlyPagesReadsNoLibrary() {
+        collectPages();
+        jdbc.sql("UPDATE sharepoint_sources SET include_documents = FALSE WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).update();
+        when(session.pages(eq(SITE), any())).thenReturn(new SharePointProvider.SitePageList(List.of(), null));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        verify(session, never()).delta(any(), any(), any());
+        verify(session, never()).children(any(), any(), any());
+    }
+
+    @Test
+    void aRejectedChangeLinkRestartsTheLibrary() {
+        jdbc.sql("UPDATE sharepoint_sources SET refresh_window_end = CURRENT_TIMESTAMP WHERE tenant_id = :tenant")
+                .param("tenant", tenant.value()).update();
+        var file = file("file-again", "Again.pdf", Instant.now());
+        when(session.delta(eq(DRIVE), notNull(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
+                io.memoryos.connector.SharePointProviderException.Failure.RESYNC_REQUIRED));
+        when(session.delta(DRIVE, null, null))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+        when(session.item(any(), any())).thenThrow(new io.memoryos.connector.SharePointProviderException(
+                io.memoryos.connector.SharePointProviderException.Failure.NOT_FOUND));
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        assertEquals(1, ledger("file-again"));
+    }
+
+    @Test
+    void aPausedSourceIsNeitherScheduledNorWrittenBy() {
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(file("file-late", "Late.pdf", Instant.now())),
+                        null, "delta-link"));
+        var work = claim(enqueue());
+        jdbc.sql("UPDATE connector_credential_pairs SET status = 'PAUSED' WHERE tenant_id = :tenant AND id = :source")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
+
+        assertEquals(ConnectorSyncPort.Result.SUPERSEDED, service.execute(work), "Source pause fences a claimed run");
+        assertEquals(0, ledger("file-late"));
+        pruneDue();
+        assertEquals(0, service.enqueueDue(10), "the scheduler leaves a paused Source alone");
+    }
+
+    private void folderRoot(String itemId) {
+        jdbc.sql("""
+                UPDATE sharepoint_roots SET kind = 'FOLDER', item_id = :item
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("item", itemId).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    private static SharePointProvider.DriveItem folder(String id) {
+        return new SharePointProvider.DriveItem(id, id, true, false, 0, null, null, "etag-" + id, Instant.now(),
+                Instant.now(), "root-1", "/Reports", null, null, DRIVE);
+    }
+
+    private List<String> runStatuses() {
+        return jdbc.sql("SELECT status FROM sharepoint_sync_runs WHERE tenant_id = :tenant ORDER BY created_at")
+                .param("tenant", tenant.value()).query(String.class).list();
+    }
+
     private static io.memoryos.objectstorage.ContentSha256 checksum(byte[] value) {
         try {
             return new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of()

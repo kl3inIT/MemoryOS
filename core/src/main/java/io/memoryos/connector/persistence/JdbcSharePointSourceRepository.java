@@ -75,7 +75,10 @@ public class JdbcSharePointSourceRepository {
                 UPDATE sharepoint_sources SET scope_mode = :mode, include_documents = :documents,
                     include_pages = :pages, sync_interval_minutes = :sync, prune_interval_hours = :prune,
                     tenant_host = COALESCE(:host, tenant_host), scope_revision = scope_revision + 1,
-                    error_code = NULL, next_sync_at = CURRENT_TIMESTAMP
+                    error_code = NULL, next_sync_at = CURRENT_TIMESTAMP,
+                    -- Activation hides every document of the old scope, so the next refresh reads the whole new
+                    -- scope instead of continuing the previous change window.
+                    refresh_window_end = NULL
                 WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :expected
                 """).param("mode", scope.scopeMode().name()).param("documents", scope.includeDocuments())
                 .param("pages", scope.includePages()).param("sync", scope.syncIntervalMinutes())
@@ -100,7 +103,7 @@ public class JdbcSharePointSourceRepository {
                     """).param("tenant", tenant.value()).param("source", source.value()).param("position", position++)
                     .param("kind", root.kind().name()).param("url", root.url()).param("site", root.siteId())
                     .param("drive", root.driveId()).param("item", root.itemId()).param("name", root.displayName())
-                    // A root that was already synchronized keeps its window; a new one starts from the epoch.
+                    // Informational: a scope change restarts the whole Source from the epoch (refresh_window_end).
                     .param("pending", !kept.contains(root.url())).update();
         }
         jdbc.sql("DELETE FROM sharepoint_exclusions WHERE tenant_id = :tenant AND source_id = :source")

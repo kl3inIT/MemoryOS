@@ -91,7 +91,7 @@ public class DefaultSharePointSyncService {
                     sources.lock(due.tenantId(), due.sourceId());
                     if (!runs.automaticSyncEnabled(due.tenantId(), due.sourceId())) return false;
                     var state = connections.state(due.tenantId(), due.sourceId());
-                    runs.postpone(due.tenantId(), due.sourceId());
+                    runs.scheduleNextSync(due.tenantId(), due.sourceId());
                     runs.enqueue(due.tenantId(), due.sourceId(), state.credentialRevision(),
                             SourceRunTrigger.SCHEDULED, null);
                     return true;
@@ -147,7 +147,8 @@ public class DefaultSharePointSyncService {
     private Result walk(Work work, Run run, SharePointProvider.Session session, String tenantHost) {
         var excludedPaths = SharePointGlob.all(sharePoint.exclusions(work.tenantId(), work.sourceId(), "PATH"));
         var scope = scope(work, run, session);
-        var targets = scope.drives();
+        // A Source that collects only pages walks no library; a prune then removes files it held before.
+        var targets = scope.includeDocuments() ? scope.drives() : List.<Target>of();
         long deadline = System.nanoTime() + EXECUTION_NANOS;
         String cursorDrive = run.checkpointDriveId();
         String cursorLink = run.checkpointLink();
@@ -156,19 +157,33 @@ public class DefaultSharePointSyncService {
         boolean drivesDone = cursorDrive == null && run.checkpointSiteId() != null;
         for (Target target : drivesDone ? List.<Target>of() : targets) {
             if (cursorDrive != null && target.driveId().compareTo(cursorDrive) < 0) continue;
-            String link = target.driveId().equals(cursorDrive) ? cursorLink : null;
-            do {
+            boolean resuming = target.driveId().equals(cursorDrive);
+            String link = resuming ? cursorLink : null;
+            // A folder root is walked breadth first, as Onyx does: its subfolders queue behind it.
+            String folder = target.itemId() == null ? null
+                    : resuming && run.checkpointFolderId() != null ? run.checkpointFolderId() : target.itemId();
+            var queue = new java.util.ArrayDeque<String>(resuming ? run.checkpointFolders() : List.of());
+            while (true) {
                 if (steps++ >= MAX_STEPS || System.nanoTime() >= deadline) {
                     String pending = link;
+                    String current = folder;
+                    var waiting = List.copyOf(queue);
                     fenced(work, () -> {
-                        runs.checkpoint(run, target.driveId(), target.siteId(), pending);
+                        runs.checkpoint(run, target.driveId(), target.siteId(), pending, current, waiting);
                         runs.continuation(work, null);
                         return true;
                     });
                     return Result.CONTINUED;
                 }
-                link = page(work, run, session, target, link, excludedPaths, tenantHost);
-            } while (link != null);
+                var listed = page(work, run, session, target, folder, link, excludedPaths, tenantHost);
+                for (String subfolder : listed.folders()) {
+                    if (!queue.contains(subfolder)) queue.add(subfolder);
+                }
+                link = listed.nextLink();
+                if (link != null) continue;
+                if (queue.isEmpty()) break;
+                folder = queue.poll();
+            }
             String next = target.driveId();
             fenced(work, () -> {
                 runs.checkpoint(run, next, target.siteId(), null);
@@ -268,18 +283,29 @@ public class DefaultSharePointSyncService {
         }
     }
 
-    /** One page of a library's change log, or of a folder's children when the root is a folder. */
-    private @Nullable String page(Work work, Run run, SharePointProvider.Session session, Target target,
-            @Nullable String link, List<SharePointGlob> excludedPaths, String tenantHost) {
+    /**
+     * One page of a library's change log, or of one folder's children when the root is a folder. A folder
+     * listing also returns the subfolders it found, which the caller walks next.
+     */
+    private Listed page(Work work, Run run, SharePointProvider.Session session, Target target,
+            @Nullable String folderId, @Nullable String link, List<SharePointGlob> excludedPaths, String tenantHost) {
         List<SharePointProvider.DriveItem> page;
         String next;
-        if (target.itemId() != null) {
-            // A folder root has no change log of its own, so its children are listed and filtered by window.
-            var children = session.children(target.driveId(), target.itemId(), link);
+        var folders = new ArrayList<String>();
+        if (folderId != null) {
+            // Graph keeps a change log only for the library root, so a folder's children are listed and filtered by window.
+            var children = session.children(target.driveId(), folderId, link);
             page = children.items();
             next = children.nextLink();
         } else {
-            var delta = session.delta(target.driveId(), run.prune() ? null : token(run), link);
+            SharePointProvider.DeltaPage delta;
+            try {
+                delta = session.delta(target.driveId(), run.prune() ? null : token(run), link);
+            } catch (SharePointProviderException exception) {
+                if (exception.failure() != SharePointProviderException.Failure.RESYNC_REQUIRED) throw exception;
+                // Microsoft no longer accepts the saved link or window, so the library is read again from its start.
+                delta = session.delta(target.driveId(), null, null);
+            }
             page = delta.items();
             next = delta.nextLink();
         }
@@ -289,11 +315,16 @@ public class DefaultSharePointSyncService {
                 if (!run.prune()) remove(work, item.id());
                 continue;
             }
-            if (item.folder() || !item.file()) continue;
+            if (item.folder()) {
+                // Folders are always walked: a folder's timestamp does not change when a file deep inside it does.
+                if (folderId != null) folders.add(item.id());
+                continue;
+            }
+            if (!item.file()) continue;
             scanned++;
             String path = path(item);
             if (SharePointGlob.excluded(excludedPaths, path)) continue;
-            if (target.itemId() != null && !insideWindow(run, item)) continue;
+            if (folderId != null && !insideWindow(run, item)) continue;
             fenced(work, () -> {
                 runs.observe(work.tenantId(), work.sourceId(), item.id(), "FILE", target.driveId(), target.siteId(),
                         item.name(), path, item.contentVersion(), item.eTag(), item.size(),
@@ -307,7 +338,7 @@ public class DefaultSharePointSyncService {
             runs.counted(work, "scanned", counted);
             return true;
         });
-        return next;
+        return new Listed(next, folders);
     }
 
     /** Drives and sites the run covers, ordered so a continued run resumes where it stopped. */
@@ -317,7 +348,7 @@ public class DefaultSharePointSyncService {
                 () -> sharePoint.exclusions(work.tenantId(), work.sourceId(), "SITE")));
         var targets = new LinkedHashMap<String, Target>();
         var sites = new java.util.LinkedHashSet<String>();
-        boolean includePages = fenced(work, () -> runs.state(work.tenantId(), work.sourceId()).includePages());
+        var state = fenced(work, () -> runs.state(work.tenantId(), work.sourceId()));
         if (roots.isEmpty()) {
             String link = null;
             do {
@@ -346,7 +377,7 @@ public class DefaultSharePointSyncService {
             }
         }
         return new ScopeTargets(targets.values().stream().sorted(Comparator.comparing(Target::driveId)).toList(),
-                List.copyOf(sites), includePages);
+                List.copyOf(sites), state.includeDocuments(), state.includePages());
     }
 
     /**
@@ -536,7 +567,10 @@ public class DefaultSharePointSyncService {
 
     private record Target(String driveId, @Nullable String siteId, @Nullable String itemId) {}
 
-    private record ScopeTargets(List<Target> drives, List<String> sites, boolean includePages) {}
+    private record Listed(@Nullable String nextLink, List<String> folders) {}
+
+    private record ScopeTargets(List<Target> drives, List<String> sites, boolean includeDocuments,
+                                boolean includePages) {}
 
     private static final class StaleSyncException extends RuntimeException {}
 }

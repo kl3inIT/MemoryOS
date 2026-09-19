@@ -2,7 +2,7 @@
 
 Design: [design.md](design.md). Tham chiếu: [Onyx](onyx-sharepoint-reference.md), [giao diện](ui-references.md). Tracking: [MEM-126](https://linear.app/memory-os/issue/MEM-126).
 
-Trạng thái: **Giai đoạn 1–4 đã xong** (16/09/2026). Backend + giao diện hoàn chỉnh; `pnpm check` và `./gradlew clean check` xanh. Còn lại: nghiệm thu tenant thật (Giai đoạn 5) và deep link webUrl trong citation (điểm mở).
+Trạng thái: **Giai đoạn 1–4 đã làm** (16/09/2026). Review PR #230 (19/09/2026) tìm ra 8 lỗi hành vi trong sync, URL và voice mà test lúc đó chưa bắt được; đã sửa kèm test tái hiện, xem [verification.md](verification.md). Còn lại: chặng Document → Search (`SharePointSourceIngestionTest`), E2E trên app thật, nghiệm thu tenant thật (Giai đoạn 5) và deep link webUrl trong citation (điểm mở).
 
 ## Nguyên tắc giao
 

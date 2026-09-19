@@ -53,6 +53,24 @@ class VoiceSynthesisServiceTest {
         server.stop(0);
     }
 
+    @Test
+    void aKeyThatCannotBeReadDoesNotKeepAStreamSlot() {
+        var connections = mock(VoiceConnectionService.class);
+        var reader = new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters);
+        var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+        var tts = connection();
+        org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
+        org.mockito.Mockito.when(connections.key(tts)).thenThrow(ChatException.providerUnavailable());
+
+        // Twice the slot count: a leaked slot would turn the later calls into "busy".
+        for (int attempt = 0; attempt < 16; attempt++) {
+            var failure = assertThrows(ChatException.class, () -> reader.open(actor, "Xin chào", 1.0));
+            assertEquals(ChatException.providerUnavailable().code(), failure.code());
+            var streaming = assertThrows(ChatException.class, () -> reader.openStreaming(actor, 1.0, _ -> { }));
+            assertEquals(ChatException.providerUnavailable().code(), streaming.code());
+        }
+    }
+
     private VoiceConnectionService.Connection connection() {
         return new VoiceConnectionService.Connection(UUID.randomUUID(), UUID.randomUUID(), VoiceProvider.OPENAI_COMPATIBLE,
                 "http://127.0.0.1:" + server.getAddress().getPort() + "/v1", "", "tts-1", "alloy", null, 1);

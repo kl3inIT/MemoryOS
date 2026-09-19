@@ -48,6 +48,15 @@ class SharePointUrlTest {
     }
 
     @Test
+    void decodesEachFolderSegmentOnce() {
+        var plus = SharePointUrl.parse("https://contoso.sharepoint.com/sites/Dev/Shared%20Documents/C++/Notes%2B");
+        assertEquals(List.of("C++", "Notes+"), plus.folderSegments(), "a plus sign is part of a folder name");
+
+        var percent = SharePointUrl.parse("https://contoso.sharepoint.com/sites/Dev/Shared%20Documents/100%25%20done");
+        assertEquals(List.of("100% done"), percent.folderSegments(), "an encoded percent sign decodes only once");
+    }
+
+    @Test
     void rejectsAddressesThatAreNotSharePointRoots() {
         assertRejected("http://contoso.sharepoint.com/sites/Finance", "plain http");
         assertRejected("https://contoso.example.com/sites/Finance", "another host");

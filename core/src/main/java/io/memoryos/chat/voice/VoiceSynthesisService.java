@@ -67,15 +67,35 @@ public class VoiceSynthesisService {
         if (input.isEmpty() || text.length() > MAX_TEXT_LENGTH)
             throw ChatException.invalid("Text to read aloud must contain 1 to 32000 characters.");
         var connection = acquire(actor, speed);
-        String key = connections.key(connection);
-        return stream(connection, key, segments(input, MAX_SEGMENT_LENGTH), speed, streams::release);
+        Runnable release = releaseOnce();
+        try {
+            return stream(connection, connections.key(connection), segments(input, MAX_SEGMENT_LENGTH), speed, release);
+        } catch (RuntimeException failed) {
+            // A key that cannot be decrypted or a provider that cannot be built must not keep the slot.
+            release.run();
+            throw failed;
+        }
     }
 
     /** Starts reading an answer aloud while it is generated (Auto-Playback); parts are appended as they are ready. */
     public StreamingSynthesizer openStreaming(ActorId actor, double speed, Consumer<byte[]> audio) {
         requireAccess(actor);
         var connection = acquire(actor, speed);
-        return streaming(connection, connections.key(connection), speed, audio, streams::release);
+        Runnable release = releaseOnce();
+        try {
+            return streaming(connection, connections.key(connection), speed, audio, release);
+        } catch (RuntimeException failed) {
+            release.run();
+            throw failed;
+        }
+    }
+
+    /** Returns the stream slot at most once, whichever of the failure path and the stream's own close runs first. */
+    private Runnable releaseOnce() {
+        var released = new java.util.concurrent.atomic.AtomicBoolean();
+        return () -> {
+            if (released.compareAndSet(false, true)) streams.release();
+        };
     }
 
     private VoiceConnectionService.Connection acquire(ActorId actor, double speed) {
