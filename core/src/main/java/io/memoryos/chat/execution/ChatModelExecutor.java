@@ -261,9 +261,6 @@ public final class ChatModelExecutor {
             try (var ignored = fileWork.enter()) {
                 messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
             }
-            if (selected.toolCalling()) {
-                runner = runner.withTools(Tool.fromInstance(new io.memoryos.chat.tools.ArtifactTool(setup.artifacts(), guard::checkActive)));
-            }
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
                 if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,

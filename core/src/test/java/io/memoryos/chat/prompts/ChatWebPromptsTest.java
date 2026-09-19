@@ -112,15 +112,14 @@ class ChatWebPromptsTest {
     }
 
     @Test void everyCallableToolDescribesItselfUnderExactlyOneHeading() {
-        String attachments = ChatPrompts.forInference(prompt(Set.of("search_files", "read_file", "render_gui"), null), false, false).toString();
+        String attachments = ChatPrompts.forInference(prompt(Set.of("search_files", "read_file"), null), false, false).toString();
         assertTrue(attachments.contains("## search_files and read_file"));
-        assertTrue(attachments.contains("## render_gui"));
         assertFalse(attachments.contains("web_search"));
         assertEquals(1, headings(attachments));
         String all = ChatPrompts.forInference(prompt(Set.of("search_knowledge", "web_search", "open_url",
-                "search_files", "read_file", "run_python", "generate_image", "edit_image", "render_gui"), null), false, false).toString();
+                "search_files", "read_file", "run_python", "generate_image", "edit_image"), null), false, false).toString();
         for (String block : List.of("## search_knowledge", "## web_search", "## open_url",
-                "## search_files and read_file", "## run_python", "## generate_image", "## edit_image", "## render_gui"))
+                "## search_files and read_file", "## run_python", "## generate_image", "## edit_image"))
             assertTrue(all.contains(block), block);
         assertEquals(1, headings(all));
     }

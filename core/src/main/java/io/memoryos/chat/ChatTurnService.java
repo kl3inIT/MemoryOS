@@ -509,7 +509,8 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
-                var artifacts = setup.artifacts().seal();
+                // render_gui was removed: no turn creates read-only UI artifacts; stored ones still render from history.
+                List<ChatArtifact> artifacts = List.of();
                 var activity = recorder.seal();
                 var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
                 if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);
