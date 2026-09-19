@@ -37,7 +37,7 @@ import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
-export type SettingsPage = "general" | "chat" | "usage";
+export type SettingsPage = "general" | "chat" | "connections" | "usage";
 export type AdminPage =
   | "sources"
   | "users"
@@ -244,6 +244,15 @@ function SidebarContents({
               onClick={onNavigate}
             >
               {ui("Chat")}
+            </SidebarTab>
+            <SidebarTab
+              to="/settings/connections"
+              icon={<Blocks className="size-4" />}
+              selected={settingsPage === "connections"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Connections")}
             </SidebarTab>
             <SidebarTab
               to="/settings/usage"

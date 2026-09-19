@@ -35,6 +35,7 @@ import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authent
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
 import { Route as AuthenticatedSettingsChatRouteImport } from './routes/_authenticated.settings.chat'
+import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated.settings.connections'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated.settings.usage'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
@@ -191,6 +192,12 @@ const AuthenticatedSettingsChatRoute =
     path: '/chat',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsConnectionsRoute =
+  AuthenticatedSettingsConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -342,6 +350,7 @@ export interface FileRoutesByTo {
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -384,6 +393,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
   '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/admin/web-search'
     | '/agents/create'
     | '/settings/chat'
+    | '/settings/connections'
     | '/settings/general'
     | '/settings/usage'
     | '/shared/$sessionId'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/admin/web-search'
     | '/agents/create'
     | '/settings/chat'
+    | '/settings/connections'
     | '/settings/general'
     | '/settings/usage'
     | '/shared/$sessionId'
@@ -507,6 +519,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/web-search'
     | '/_authenticated/agents_/create'
     | '/_authenticated/settings/chat'
+    | '/_authenticated/settings/connections'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/usage'
     | '/_authenticated/shared/$sessionId'
@@ -716,6 +729,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/settings/chat'
       preLoaderRoute: typeof AuthenticatedSettingsChatRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/connections': {
+      id: '/_authenticated/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof AuthenticatedSettingsConnectionsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/general': {
@@ -928,6 +948,7 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute
+  AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -935,6 +956,7 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsChatRoute: AuthenticatedSettingsChatRoute,
+  AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,

@@ -130,10 +130,13 @@ export function ChatMcpServers({
 export function ConnectAction({
   connection,
   sessionId,
+  returnPath,
   onApiKey,
 }: {
   connection: McpConnection;
   sessionId?: string;
+  /** Where the OAuth callback returns; the conversation by default. */
+  returnPath?: string;
   onApiKey: (connection: McpConnection) => void;
 }) {
   const ui = useAppTranslation();
@@ -144,7 +147,7 @@ export function ConnectAction({
         path: { serverId: connection.id },
         body: {
           oauthClientId,
-          returnPath: sessionId === undefined ? "/" : `/chat/${sessionId}`,
+          returnPath: returnPath ?? (sessionId === undefined ? "/" : `/chat/${sessionId}`),
         },
         headers: sameOriginMutationHeaders,
       }),

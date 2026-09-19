@@ -11,8 +11,15 @@ export const Route = createFileRoute("/_authenticated/settings")({
       ? "chat"
       : matchRoute({ to: "/settings/usage" })
         ? "usage"
-        : "general";
-    const titles = { general: "General", chat: "Chat", usage: "Usage" } as const;
+        : matchRoute({ to: "/settings/connections" })
+          ? "connections"
+          : "general";
+    const titles = {
+      general: "General",
+      chat: "Chat",
+      connections: "Connections",
+      usage: "Usage",
+    } as const;
     return (
       <AppShell area="settings" settingsPage={page} pageTitle={ui(titles[page])}>
         <Outlet />

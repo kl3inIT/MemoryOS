@@ -3115,6 +3115,14 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  Connections: "Kết nối",
+  "Tools the assistant uses on your behalf. Each connection uses your own account.":
+    "Công cụ bên ngoài trợ lý được dùng thay bạn. Mỗi kết nối dùng tài khoản của riêng bạn.",
+  "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
+  "Disconnect {{name}}": "Ngắt kết nối {{name}}",
+  "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
+    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các cuộc trò chuyện cũ vẫn giữ nguyên.",
+  "Disconnecting…": "Đang ngắt kết nối…",
   "Danger Zone": "Khu vực nguy hiểm",
   "Delete All Chats": "Xoá mọi cuộc chat",
   "Permanently delete all your chat sessions.": "Xoá vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
