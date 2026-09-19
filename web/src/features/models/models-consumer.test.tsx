@@ -35,6 +35,7 @@ const provider: ManagedProvider = {
   personaIds: [],
   credentialConfigured: true,
   revision: 3,
+  dataBoundary: "EXTERNAL",
 };
 const model: ManagedModel = {
   id: "00000000-0000-0000-0000-000000000003",
@@ -378,6 +379,10 @@ describe("model manager authority", () => {
         if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);
         if (path === "/api/chat/model-default")
           return Response.json({ modelConfigurationId: model.id, revision: 1 });
+        if (path === "/api/chat/model-flows")
+          return Response.json([
+            { flow: "CHAT_NAMING", modelConfigurationId: null, available: true, revision: 1 },
+          ]);
         if (path === "/api/chat/model-personas")
           return Response.json({ items: [], nextCursor: null });
         throw new Error(`Unexpected synthetic route: ${path}`);
@@ -449,6 +454,115 @@ describe("model manager authority", () => {
   });
 });
 
+describe("provider data boundary", () => {
+  it("marks a provider Internal only after confirmation and sends the boundary", async () => {
+    const writes: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        if (request.method === "PUT") {
+          const body = await request.json();
+          writes.push(body);
+          return Response.json({ ...provider, ...body, revision: 4 });
+        }
+        return Response.json([provider]);
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ProviderEditor
+          initial={provider}
+          providers={[provider]}
+          adapters={[adapter]}
+          onClose={() => undefined}
+        />
+      </QueryClientProvider>,
+    );
+    const internal = screen.getByRole("radio", { name: /^Internal/ });
+    fireEvent.click(internal);
+    const confirm = await screen.findByRole("alertdialog");
+    fireEvent.click(within(confirm).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("radio", { name: /^External/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /^Internal/ }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Mark as Internal",
+      }),
+    );
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^Internal/ })).toBeChecked());
+    fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ dataBoundary: "INTERNAL" });
+    client.clear();
+  });
+});
+
+describe("models by task", () => {
+  it("sets the naming model from Tenant-wide models and clears it back to the conversation model", async () => {
+    const publicProvider: ManagedProvider = { ...provider, isPublic: true, groupIds: [] };
+    const writes: URL[] = [];
+    let naming = {
+      flow: "CHAT_NAMING",
+      modelConfigurationId: null as string | null,
+      available: true,
+      revision: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const url = new URL(request.url);
+        const path = url.pathname;
+        if (path === "/api/identity/me") return Response.json(session);
+        if (request.method === "PUT" && path === "/api/chat/model-flows/CHAT_NAMING") {
+          writes.push(url);
+          naming = {
+            ...naming,
+            modelConfigurationId: url.searchParams.get("modelConfigurationId"),
+            revision: naming.revision + 1,
+          };
+          return Response.json(naming);
+        }
+        if (path === "/api/chat/providers") return Response.json([publicProvider]);
+        if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
+        if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);
+        if (path === "/api/chat/model-default")
+          return Response.json({ modelConfigurationId: model.id, revision: 1 });
+        if (path === "/api/chat/model-flows") return Response.json([naming]);
+        if (path === "/api/chat/model-personas")
+          return Response.json({ items: [], nextCursor: null });
+        throw new Error(`Unexpected synthetic route: ${path}`);
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionBoundary>
+          <ModelsPage />
+        </ApplicationSessionBoundary>
+      </QueryClientProvider>,
+    );
+    const picker = await screen.findByRole("button", { name: "Conversation naming model" });
+    expect(picker).toHaveTextContent("Use the conversation model");
+    expect(screen.getAllByText("External").length).toBeGreaterThan(0);
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole("button", { name: /Saved model/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save task model" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0].searchParams.get("modelConfigurationId")).toBe(model.id);
+    expect(writes[0].searchParams.get("revision")).toBe("1");
+    expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Conversation naming model" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use the conversation model" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save task model" }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1].searchParams.has("modelConfigurationId")).toBe(false);
+    expect(writes[1].searchParams.get("revision")).toBe("2");
+    client.clear();
+  });
+});
+
 describe("provider deletion reconciliation", () => {
   it("closes a successful deletion while the provider-list refresh is delayed", async () => {
     let deleted = false;
@@ -469,6 +583,10 @@ describe("provider deletion reconciliation", () => {
           return deleted ? new Response(null, { status: 404 }) : Response.json([model]);
         if (path === "/api/chat/model-default")
           return Response.json({ modelConfigurationId: null, revision: 1 });
+        if (path === "/api/chat/model-flows")
+          return Response.json([
+            { flow: "CHAT_NAMING", modelConfigurationId: null, available: true, revision: 1 },
+          ]);
         if (path === "/api/chat/model-personas")
           return Response.json({ items: [], nextCursor: null });
         throw new Error(`Unexpected synthetic route: ${path}`);

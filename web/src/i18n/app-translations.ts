@@ -2949,10 +2949,6 @@ Object.assign(englishUi, {
   "Max output": "Max output",
   "In / 1M": "Input / 1M",
   "Out / 1M": "Output / 1M",
-  "Every configured model on this provider is removed. Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.":
-    "Mọi mô hình đã cấu hình trên nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan được bỏ trống, lịch sử Chat vẫn giữ. Hãy thay mặc định Tenant trước.",
-  "Affected Persona defaults are cleared and Chat history is kept. Replace a Tenant default first.":
-    "Mặc định Persona liên quan được bỏ trống, lịch sử Chat vẫn giữ. Hãy thay mặc định Tenant trước.",
   "Edit model {{name}}": "Sửa mô hình {{name}}",
   "Delete provider {{name}}?": "Xóa nhà cung cấp {{name}}?",
   "Delete model {{name}}?": "Xóa mô hình {{name}}?",
@@ -2964,10 +2960,39 @@ Object.assign(englishUi, {
   "Delete configuration": "Xóa cấu hình",
   "Deleting configuration": "Đang xóa cấu hình",
   "Deletion failed. Refresh before retrying.": "Xóa thất bại. Làm mới trước khi thử lại.",
-  "Default model": "Mô hình mặc định",
-  "This model will be used by Chat by default in your conversations.":
-    "Mô hình này sẽ được Chat dùng mặc định trong các cuộc hội thoại.",
   "Tenant model default": "Mô hình mặc định của Tenant",
+  "Used for new conversations and assistants without their own model.":
+    "Dùng cho cuộc trò chuyện mới và trợ lý chưa chọn mô hình riêng.",
+  "Mark this provider as Internal?": "Đánh dấu nhà cung cấp này là Nội bộ?",
+  "Confirm that it is self-hosted, or that its agreement forbids retaining your data and training on it. Internal documents may later be sent to it without asking users.":
+    "Xác nhận đây là máy chủ tự vận hành, hoặc hợp đồng cấm lưu dữ liệu và cấm dùng dữ liệu để huấn luyện. Sau này tài liệu nội bộ có thể được gửi tới nhà cung cấp này mà không hỏi người dùng.",
+  "Mark as Internal": "Đánh dấu là Nội bộ",
+  Internal: "Nội bộ",
+  External: "Bên ngoài",
+  "Data boundary": "Ranh giới dữ liệu",
+  "Data leaves the organization's infrastructure, for example a standard OpenAI or Anthropic API.":
+    "Dữ liệu rời khỏi hạ tầng của tổ chức, ví dụ API OpenAI hoặc Anthropic thông thường.",
+  "A self-hosted server, or an enterprise agreement that commits to no retention and no training.":
+    "Máy chủ tự vận hành, hoặc hợp đồng doanh nghiệp cam kết không lưu và không huấn luyện.",
+  "This label is recorded and shown only; it does not block any request yet.":
+    "Nhãn này chỉ để ghi nhận và hiển thị, chưa chặn yêu cầu nào.",
+  "Models by task": "Mô hình theo tác vụ",
+  "Loading task models…": "Đang tải mô hình theo tác vụ…",
+  "Task models could not be loaded.": "Không tải được mô hình theo tác vụ.",
+  "Retry task models": "Tải lại mô hình theo tác vụ",
+  "Conversation naming": "Đặt tên cuộc trò chuyện",
+  "Names new conversations. A small, fast model keeps the chat model free.":
+    "Đặt tên cho cuộc trò chuyện mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
+  "Conversation naming model": "Mô hình đặt tên cuộc trò chuyện",
+  "Use the conversation model": "Dùng mô hình của cuộc trò chuyện",
+  "Unavailable; the conversation model is used instead.":
+    "Không khả dụng; đang dùng mô hình của cuộc trò chuyện.",
+  "Save task model": "Lưu mô hình tác vụ",
+  "Task model saved.": "Đã lưu mô hình tác vụ.",
+  "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
+    "Mọi mô hình đã cấu hình của nhà cung cấp này sẽ bị xóa. Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định Tenant trước.",
+  "Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
+    "Mặc định Persona liên quan bị xóa, mô hình theo tác vụ chuyển về mô hình của cuộc trò chuyện và lịch sử Chat được giữ nguyên. Hãy thay mặc định Tenant trước.",
   "Choose an eligible model": "Chọn một mô hình đủ điều kiện",
   "(saved; hidden or unavailable)": "(đã lưu; đang ẩn hoặc không khả dụng)",
   "(draft no longer eligible)": "(bản nháp không còn đủ điều kiện)",

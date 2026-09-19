@@ -38,6 +38,7 @@ const provider: ManagedProvider = {
   personaIds: [],
   credentialConfigured: true,
   revision: 3,
+  dataBoundary: "EXTERNAL",
 };
 const model: ManagedModel = {
   id: "00000000-0000-0000-0000-000000000003",
