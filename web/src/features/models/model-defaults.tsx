@@ -55,10 +55,11 @@ function SelectionEditor({
   const [baseline, setBaseline] = useState(selection);
   const [chosen, setChosen] = useState(selection.modelConfigurationId ?? "");
   const [saved, setSaved] = useState(false);
-  // Deleting a task model clears it in the database without a revision change; adopt that clear.
+  // Deleting a task model clears it, and catalog changes alter availability, without a revision change.
   if (
     selection.revision === baseline.revision &&
-    selection.modelConfigurationId !== baseline.modelConfigurationId
+    (selection.modelConfigurationId !== baseline.modelConfigurationId ||
+      selection.available !== baseline.available)
   ) {
     setBaseline(selection);
     setChosen(selection.modelConfigurationId ?? "");
