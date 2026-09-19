@@ -738,6 +738,10 @@ export type ModelSettingsInput = {
 export type PricingInput = {
     inputPerMillion: number;
     outputPerMillion: number;
+    /**
+     * USD per million input tokens served from the prompt cache; omitted means the input rate
+     */
+    cachedInputPerMillion?: number | null;
 };
 
 export type Capabilities = {
@@ -772,6 +776,7 @@ export type ModelSettings = {
 export type Pricing = {
     inputPerMillion: number;
     outputPerMillion: number;
+    cachedInputPerMillion: number | null;
 };
 
 /**
@@ -2191,6 +2196,57 @@ export type ChatSpreadsheetSheet = {
 export type ChatFilePolicyResponse = {
     maxSizeBytes?: number;
     deploymentCeilingBytes?: number;
+};
+
+/**
+ * Known costs in USD; calls without a price or reported usage are counted in unknownCostCalls, never as zero
+ */
+export type AiCostSummary = {
+    cost: number;
+    externalCost: number;
+    calls: number;
+    unknownCostCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    imageCount: number;
+    audioSeconds: number;
+    activePeople: number;
+};
+
+/**
+ * One UTC day of one series: a data boundary (INTERNAL, EXTERNAL, NONE), a model name or ALL
+ */
+export type AiCostDay = {
+    day: string;
+    series: string;
+    cost: number;
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+};
+
+export type AiCostDetail = {
+    summary: AiCostSummary;
+    daily: Array<AiCostDay>;
+    models: Array<AiCostRow>;
+    flows: Array<AiCostRow>;
+    providers: Array<AiCostRow>;
+};
+
+/**
+ * A ranked row: a person (key SYSTEM for work without a person), Group, model, task or provider
+ */
+export type AiCostRow = {
+    key: string;
+    label: string;
+    detail: string | null;
+    calls: number;
+    unknownCostCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
 };
 
 export type ApiProblem = {
@@ -11991,6 +12047,161 @@ export type ReadChatDocumentOriginalResponses = {
 };
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
+
+export type GetAiCostSummaryData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        model?: string;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+    };
+    url: '/api/ai-costs/summary';
+};
+
+export type GetAiCostSummaryErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetAiCostSummaryError = GetAiCostSummaryErrors[keyof GetAiCostSummaryErrors];
+
+export type GetAiCostSummaryResponses = {
+    /**
+     * Successful result
+     */
+    200: AiCostSummary;
+};
+
+export type GetAiCostSummaryResponse = GetAiCostSummaryResponses[keyof GetAiCostSummaryResponses];
+
+export type GetAiCostDetailData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        actorId?: string;
+        system?: boolean;
+    };
+    url: '/api/ai-costs/detail';
+};
+
+export type GetAiCostDetailErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetAiCostDetailError = GetAiCostDetailErrors[keyof GetAiCostDetailErrors];
+
+export type GetAiCostDetailResponses = {
+    /**
+     * Successful result
+     */
+    200: AiCostDetail;
+};
+
+export type GetAiCostDetailResponse = GetAiCostDetailResponses[keyof GetAiCostDetailResponses];
+
+export type ListAiCostDaysData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        split?: 'BOUNDARY' | 'MODEL' | 'NONE';
+        model?: string;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+    };
+    url: '/api/ai-costs/daily';
+};
+
+export type ListAiCostDaysErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAiCostDaysError = ListAiCostDaysErrors[keyof ListAiCostDaysErrors];
+
+export type ListAiCostDaysResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<AiCostDay>;
+};
+
+export type ListAiCostDaysResponse = ListAiCostDaysResponses[keyof ListAiCostDaysResponses];
+
+export type ListAiCostBreakdownData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
+        limit?: number;
+        model?: string;
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+    };
+    url: '/api/ai-costs/breakdown';
+};
+
+export type ListAiCostBreakdownErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAiCostBreakdownError = ListAiCostBreakdownErrors[keyof ListAiCostBreakdownErrors];
+
+export type ListAiCostBreakdownResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<AiCostRow>;
+};
+
+export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof ListAiCostBreakdownResponses];
 
 export type DisconnectMcpServerOAuthData = {
     body?: never;

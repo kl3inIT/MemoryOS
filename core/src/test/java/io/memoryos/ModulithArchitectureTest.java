@@ -18,7 +18,8 @@ class ModulithArchitectureTest {
             "ingestion",
             "retrieval",
             "chat",
-            "mcp"
+            "mcp",
+            "usage"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

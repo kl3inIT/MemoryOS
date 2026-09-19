@@ -42,10 +42,19 @@ public class ChatTurnPersistence {
     private final ChatFileService files;
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
+    private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts) {
+        this(tenants, authorization, chats, persona, files, languages, imageArtifacts, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
+                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
+                               JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage) {
+        this.usage = usage;
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
@@ -339,6 +348,48 @@ public class ChatTurnPersistence {
         chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity, research);
         var saved = chats.control(assistant);
         return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
+    }
+
+    /**
+     * One turn's or naming call's AI usage. Nothing is recorded when no model call ran; unknown totals are counted as
+     * calls with unknown cost, never as zero.
+     */
+    public record Usage(@Nullable TenantId tenant, ActorId actor, io.memoryos.usage.AiUsageFlow flow, @Nullable UUID modelConfigurationId,
+                        io.memoryos.chat.catalog.ChatModelResolver.Provenance provider, String modelName,
+                        io.memoryos.chat.execution.ChatModelExecutor.Accounting accounting) {
+        io.memoryos.usage.@Nullable AiUsage call(TenantId tenant, Instant at) {
+            if (!accounting.used()) return null;
+            if (accounting.input() == null || accounting.output() == null)
+                return io.memoryos.usage.AiUsage.unknown(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
+                        provider.providerId(), modelConfigurationId, provider.dataBoundary(), at);
+            return io.memoryos.usage.AiUsage.tokens(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
+                    provider.providerId(), modelConfigurationId, provider.dataBoundary(), accounting.input(), accounting.output(),
+                    Math.min(accounting.cacheRead(), accounting.input()), accounting.cost(), at);
+        }
+    }
+
+    /** Finishes the turn and adds its usage in the same transaction, so spend is never lost or double counted. */
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
+                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research, Usage turnUsage) {
+        var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity, research);
+        record(turnUsage);
+        return outcome;
+    }
+
+    /** Usage of work that has no turn of its own, such as conversation naming. */
+    @Transactional
+    public void recordUsage(Usage call) { record(call); }
+
+    private void record(Usage call) {
+        if (usage == null || !call.accounting().used()) return;
+        // Naming has no turn and knows only its actor; its Tenant is the actor's active one.
+        var tenant = call.tenant() != null ? call.tenant() : tenants.findActiveTenant(call.actor()).orElse(null);
+        if (tenant == null) return;
+        var usageCall = call.call(tenant, Instant.now());
+        if (usageCall != null) usage.record(usageCall);
     }
 
     @Transactional

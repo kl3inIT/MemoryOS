@@ -6,6 +6,7 @@ import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ModelFlow;
+import io.memoryos.usage.AiUsageFlow;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -110,13 +111,23 @@ public final class ChatTurnService implements AutoCloseable {
             var input = persistence.claimTitle(actor, session);
             if (input.isEmpty()) return;
             try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
-                var title = model.generateTitle(selected.binding(), input.orElseThrow().messages());
+                // The callback records usage even when naming fails.
+                var title = model.generateTitle(selected.binding(), input.orElseThrow().messages(), accounting -> recordNaming(actor, selected, accounting));
                 persistence.completeTitle(actor, input.orElseThrow(), title);
             } catch (RuntimeException failure) {
                 // Preserve the initial short title. Never log conversation/provider payloads.
                 LOG.warn("Chat naming unavailable for session {} ({})", session, failure.getClass().getSimpleName());
             }
         } finally { permits.release(); }
+    }
+
+    private void recordNaming(ActorId actor, ChatModelResolver.Resolved selected, ChatModelExecutor.Accounting accounting) {
+        try {
+            persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_NAMING, selected.modelConfigurationId(),
+                    selected.provenance(), selected.binding().service().getName(), accounting));
+        } catch (RuntimeException failure) {
+            LOG.warn("Chat naming usage not recorded ({})", failure.getClass().getSimpleName());
+        }
     }
 
     public Accepted send(ActorId actor, UUID session, UUID parent, UUID request, String text, @Nullable UUID modelConfigurationId) {
@@ -410,7 +421,10 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity(), outcome.research());
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity(), outcome.research(),
+                            new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
+                                    run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
+                                    run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
                     if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
                     run.persisted = true;
                 }
@@ -466,7 +480,7 @@ public final class ChatTurnService implements AutoCloseable {
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
-        volatile ChatModelExecutor.Accounting accounting = new ChatModelExecutor.Accounting(null, null, null);
+        volatile ChatModelExecutor.Accounting accounting = ChatModelExecutor.Accounting.NONE;
         Active(ChatTurnSetup setup, ChatModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;
@@ -495,7 +509,8 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
-                var artifacts = setup.artifacts().seal();
+                // render_gui was removed: no turn creates read-only UI artifacts; stored ones still render from history.
+                List<ChatArtifact> artifacts = List.of();
                 var activity = recorder.seal();
                 var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
                 if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);

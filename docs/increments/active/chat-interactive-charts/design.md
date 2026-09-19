@@ -1,6 +1,6 @@
 # Interactive charts from run_python
 
-Related: [MEM-110](../mem-110-memoryos-interpreter/design.md), [MEM-111](../mem-111-generated-file-preview/design.md). Owner decision 2026-09-17: follow E2B; keep `render_gui` unchanged; do not add assistant-ui generative UI for charts.
+Related: [MEM-110](../mem-110-memoryos-interpreter/design.md), [MEM-111](../mem-111-generated-file-preview/design.md). Owner decision 2026-09-17: follow E2B; do not add assistant-ui generative UI for charts. Owner decision 2026-09-19: remove `render_gui` (Onyx has no equivalent; tables are markdown and charts come from `run_python`).
 
 ## Problem
 
@@ -31,4 +31,4 @@ A chart `run_python` draws with matplotlib reaches the user only if the model sa
 
 ## Out of scope
 
-Plotly or other libraries, DataFrame tables as structured results (the answer can use `render_gui`), editing a chart, charts from `render_gui`.
+Plotly or other libraries, DataFrame tables as structured results (the answer uses markdown tables), editing a chart.

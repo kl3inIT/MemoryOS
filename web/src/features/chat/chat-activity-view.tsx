@@ -6,7 +6,6 @@ import {
   FileText,
   Globe,
   ImageIcon,
-  LayoutDashboard,
   Search,
   SquareTerminal,
   Wrench,
@@ -126,8 +125,6 @@ function stepTitle(
     }
     case "search_files":
       return running ? ui("Đang tìm trong tệp…") : ui("Đã tìm trong tệp");
-    case "render_gui":
-      return running ? ui("Đang tạo thẻ trình bày…") : ui("Đã tạo thẻ trình bày");
     case "generate_image":
       return running ? ui("Đang tạo ảnh…") : ui("Đã tạo ảnh");
     case "edit_image":
@@ -157,8 +154,6 @@ function liveTitle(ui: Translate, tool: { toolName: string; args: unknown }) {
       return ui("Đang đọc tệp…");
     case "search_files":
       return ui("Đang tìm trong tệp…");
-    case "render_gui":
-      return ui("Đang tạo thẻ trình bày…");
     case "generate_image":
       return ui("Đang tạo ảnh…");
     case "edit_image":
@@ -205,8 +200,6 @@ function toolIcon(name: string) {
     case "read_file":
     case "search_files":
       return <FileText />;
-    case "render_gui":
-      return <LayoutDashboard />;
     case "generate_image":
     case "edit_image":
       return <ImageIcon />;

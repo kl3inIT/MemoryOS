@@ -12498,6 +12498,288 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/summary:
+    get:
+      tags:
+      - AI costs
+      summary: Tenant AI usage and known costs for a UTC day range; requires model
+        management
+      operationId: getAiCostSummary
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: model
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: flow
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CHAT
+          - CHAT_NAMING
+          - DEEP_RESEARCH
+          - EMBEDDING_QUERY
+          - EMBEDDING_INDEXING
+          - IMAGE_GENERATION
+          - IMAGE_EDIT
+          - SPEECH_TO_TEXT
+          - TEXT_TO_SPEECH
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCostSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/detail:
+    get:
+      tags:
+      - AI costs
+      summary: "One person's, or system work's, AI costs by day, model, task and provider;\
+        \ requires model management"
+      operationId: getAiCostDetail
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: system
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCostDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/daily:
+    get:
+      tags:
+      - AI costs
+      summary: "Daily AI costs split by data boundary, by model or not at all; requires\
+        \ model management"
+      operationId: listAiCostDays
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: split
+        in: query
+        required: false
+        schema:
+          type: string
+          default: BOUNDARY
+          enum:
+          - BOUNDARY
+          - MODEL
+          - NONE
+      - name: model
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: flow
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CHAT
+          - CHAT_NAMING
+          - DEEP_RESEARCH
+          - EMBEDDING_QUERY
+          - EMBEDDING_INDEXING
+          - IMAGE_GENERATION
+          - IMAGE_EDIT
+          - SPEECH_TO_TEXT
+          - TEXT_TO_SPEECH
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiCostDay"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/breakdown:
+    get:
+      tags:
+      - AI costs
+      summary: "AI costs ranked by person, Group, model, task or provider; requires\
+        \ model management"
+      operationId: listAiCostBreakdown
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: by
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - ACTOR
+          - GROUP
+          - MODEL
+          - FLOW
+          - PROVIDER
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 200
+          minimum: 1
+      - name: model
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: flow
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CHAT
+          - CHAT_NAMING
+          - DEEP_RESEARCH
+          - EMBEDDING_QUERY
+          - EMBEDDING_INDEXING
+          - IMAGE_GENERATION
+          - IMAGE_EDIT
+          - SPEECH_TO_TEXT
+          - TEXT_TO_SPEECH
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiCostRow"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}/oauth/connection:
     delete:
       tags:
@@ -14658,6 +14940,13 @@ components:
         outputPerMillion:
           type: number
           format: double
+        cachedInputPerMillion:
+          type:
+          - number
+          - "null"
+          format: double
+          description: USD per million input tokens served from the prompt cache;
+            omitted means the input rate
       required:
       - inputPerMillion
       - outputPerMillion
@@ -14747,7 +15036,13 @@ components:
         outputPerMillion:
           type: number
           format: double
+        cachedInputPerMillion:
+          type:
+          - number
+          - "null"
+          format: double
       required:
+      - cachedInputPerMillion
       - inputPerMillion
       - outputPerMillion
     ModelFlow:
@@ -18875,6 +19170,144 @@ components:
         deploymentCeilingBytes:
           type: integer
           format: int64
+    AiCostSummary:
+      type: object
+      description: "Known costs in USD; calls without a price or reported usage are\
+        \ counted in unknownCostCalls, never as zero"
+      properties:
+        cost:
+          type: number
+        externalCost:
+          type: number
+        calls:
+          type: integer
+          format: int64
+        unknownCostCalls:
+          type: integer
+          format: int64
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        cacheReadTokens:
+          type: integer
+          format: int64
+        imageCount:
+          type: integer
+          format: int64
+        audioSeconds:
+          type: number
+        activePeople:
+          type: integer
+          format: int64
+      required:
+      - activePeople
+      - audioSeconds
+      - cacheReadTokens
+      - calls
+      - cost
+      - externalCost
+      - imageCount
+      - inputTokens
+      - outputTokens
+      - unknownCostCalls
+    AiCostDay:
+      type: object
+      description: "One UTC day of one series: a data boundary (INTERNAL, EXTERNAL,\
+        \ NONE), a model name or ALL"
+      properties:
+        day:
+          type: string
+          format: date
+        series:
+          type: string
+        cost:
+          type: number
+        calls:
+          type: integer
+          format: int64
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        cacheReadTokens:
+          type: integer
+          format: int64
+      required:
+      - cacheReadTokens
+      - calls
+      - cost
+      - day
+      - inputTokens
+      - outputTokens
+      - series
+    AiCostDetail:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/AiCostSummary"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCostDay"
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCostRow"
+        flows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCostRow"
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCostRow"
+      required:
+      - daily
+      - flows
+      - models
+      - providers
+      - summary
+    AiCostRow:
+      type: object
+      description: "A ranked row: a person (key SYSTEM for work without a person),\
+        \ Group, model, task or provider"
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        detail:
+          type:
+          - string
+          - "null"
+        calls:
+          type: integer
+          format: int64
+        unknownCostCalls:
+          type: integer
+          format: int64
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        cost:
+          type: number
+      required:
+      - calls
+      - cost
+      - detail
+      - inputTokens
+      - key
+      - label
+      - outputTokens
+      - unknownCostCalls
     ApiProblem:
       type: object
       additionalProperties: false

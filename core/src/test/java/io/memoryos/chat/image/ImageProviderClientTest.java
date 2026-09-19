@@ -53,6 +53,12 @@ class ImageProviderClientTest {
         assertEquals("a red bicycle, cinematic", result.revisedPrompt());
     }
 
+    @Test void aConnectionWithoutAModelNamesTheProviderDefaultItCalls() {
+        assertEquals("gpt-image-1", ImageProviderClient.resolvedModel(ImageProvider.OPENAI_IMAGE, ""));
+        assertEquals("@cf/black-forest-labs/flux-1-schnell", ImageProviderClient.resolvedModel(ImageProvider.CLOUDFLARE_WORKERS_AI, " "));
+        assertEquals("gpt-image-1-mini", ImageProviderClient.resolvedModel(ImageProvider.OPENAI_IMAGE, "gpt-image-1-mini"));
+    }
+
     @Test void shapeMapsToTheCatalogSizeOfTheConfiguredModel() throws Exception {
         when(http.post(any(), anyMap(), anyString())).thenReturn(ok("{\"data\":[{\"b64_json\":\"AQID\"}]}"));
         client.generate(connection("", "gpt-image-1"), "a cat", "portrait");
