@@ -184,7 +184,11 @@ export function ModelDiscovery({
                               <ModelName model={model} />
                             </label>
                           ) : (
-                            <ModelName model={model} />
+                            // A checked, locked box keeps configured names aligned with selectable ones.
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Checkbox checked disabled aria-label={ui("Configured")} />
+                              <ModelName model={model} />
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
