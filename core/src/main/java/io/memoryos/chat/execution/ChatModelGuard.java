@@ -38,6 +38,7 @@ public final class ChatModelGuard implements ChatModel {
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
     private final AtomicInteger synchronousAccounted = new AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicLong cacheRead = new java.util.concurrent.atomic.AtomicLong();
     private final int inputLimit;
     private volatile int lastStreamInput;
     private @Nullable Scheduler scheduler;
@@ -181,8 +182,14 @@ public final class ChatModelGuard implements ChatModel {
     }
 
     private void settle(ChatAdmissionLedger.Reservation reservation, ChatResponse response) {
-        ledger.settle(reservation, model.getPricingModel(), response.getMetadata().getUsage());
+        var usage = response.getMetadata().getUsage();
+        ledger.settle(reservation, model.getPricingModel(), usage);
+        Long cached = usage.getCacheReadInputTokens();
+        if (cached != null && cached > 0) cacheRead.addAndGet(cached);
     }
+
+    /** Input tokens the provider served from its prompt cache, as reported by Spring AI's portable usage. */
+    public long cacheReadTokens() { return cacheRead.get(); }
 
     private record StreamAdmission(boolean lastCycle, Prompt request, ChatAdmissionLedger.Reservation reservation) {}
 

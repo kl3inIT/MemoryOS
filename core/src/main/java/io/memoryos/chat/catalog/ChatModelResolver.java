@@ -77,12 +77,22 @@ public final class ChatModelResolver {
             lease.close();
             throw ChatException.providerUnavailable();
         }
-        return new Resolved(model.id(), selection.fallbackReason(), lease, selection.contextRevision());
+        return new Resolved(model.id(), selection.fallbackReason(), lease, selection.contextRevision(),
+                new Provenance(provider.id(), provider.name(), provider.dataBoundary().name()));
     }
+    /** The catalog provider behind a resolved model, recorded with its usage. */
+    public record Provenance(@Nullable UUID providerId, String providerName, @Nullable String dataBoundary) {
+        public static final Provenance UNKNOWN = new Provenance(null, "unknown", null);
+    }
+
     public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease,
-                           @Nullable String contextRevision) implements AutoCloseable {
+                           @Nullable String contextRevision, Provenance provenance) implements AutoCloseable {
         public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease) {
-            this(modelConfigurationId, fallbackReason, lease, null);
+            this(modelConfigurationId, fallbackReason, lease, null, Provenance.UNKNOWN);
+        }
+        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease,
+                        @Nullable String contextRevision) {
+            this(modelConfigurationId, fallbackReason, lease, contextRevision, Provenance.UNKNOWN);
         }
         public ChatModelBinding binding() { return lease.binding(); }
         @Override public void close() { lease.close(); }

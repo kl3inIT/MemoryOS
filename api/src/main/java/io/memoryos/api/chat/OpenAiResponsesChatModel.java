@@ -339,7 +339,9 @@ final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
             }
             var properties = new LinkedHashMap<String, Object>();
             if (!calls.isEmpty()) properties.put(OUTPUT_ITEMS, JSON.writeValueAsString(echoed));
-            var usage = response.usage().map(value -> new DefaultUsage((int) value.inputTokens(), (int) value.outputTokens(), (int) value.totalTokens(), value))
+            // Cached input tokens are reported so AI usage can show them; they are part of inputTokens, not in addition.
+            var usage = response.usage().map(value -> new DefaultUsage((int) value.inputTokens(), (int) value.outputTokens(), (int) value.totalTokens(), value,
+                            value.inputTokensDetails().cachedTokens(), null))
                     .orElseGet(() -> new DefaultUsage(0, 0));
             var output = AssistantMessage.builder().content("").toolCalls(calls).properties(properties).build();
             finished = true;

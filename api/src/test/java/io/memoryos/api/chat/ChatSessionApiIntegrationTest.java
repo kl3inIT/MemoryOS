@@ -772,6 +772,42 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aiUsageAddsEveryCycleOfATurnAndItsNamingToTheDailyLedger() throws Exception {
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Usage",
+                "spec", "{\"root\":{\"component\":\"Text\",\"props\":{\"text\":\"ok\"}}}"));
+        var calls = new AtomicInteger();
+        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
+            if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
+                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("gui-1", "function", "render_gui", arguments))).build(),
+                    ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
+                    ChatResponseMetadata.builder().usage(new DefaultUsage(40, 10, 50, null, 16L, null)).build()));
+            return Flux.just(response("Done.", "stop", 12));
+        });
+        var session = create();
+        var reply = send(session, UUID.randomUUID().toString());
+        awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
+        var message = jdbc.sql("SELECT input_tokens, output_tokens, cost_usd FROM chat_message WHERE id=:id")
+                .param("id", UUID.fromString(reply.path("assistantMessageId").asText())).query().singleRow();
+        var turn = jdbc.sql("SELECT * FROM ai_usage WHERE tenant_id=:tenant AND flow='CHAT'").param("tenant", TENANT).query().singleRow();
+        assertEquals(actor.getPrincipal().actorId().value(), turn.get("actor_id"));
+        assertEquals(1L, turn.get("calls"));
+        assertEquals(message.get("input_tokens"), turn.get("input_tokens"));
+        assertEquals(message.get("output_tokens"), turn.get("output_tokens"));
+        assertEquals(16L, turn.get("cache_read_tokens"));
+        assertEquals(message.get("cost_usd") == null ? 1L : 0L, turn.get("unknown_cost_calls"));
+        assertEquals("EXTERNAL", turn.get("data_boundary"));
+        assertNotNull(turn.get("model_configuration_id"));
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Usage title", "stop", 8)));
+        mockMvc.perform(post("/api/chat/sessions/" + session.path("id").asText() + "/title").with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+        var naming = jdbc.sql("SELECT calls, input_tokens + output_tokens AS tokens FROM ai_usage WHERE tenant_id=:tenant AND flow='CHAT_NAMING'")
+                .param("tenant", TENANT).query().singleRow();
+        assertEquals(1L, naming.get("calls"));
+        assertTrue((Long) naming.get("tokens") > 0);
+    }
+
+    @Test
     void nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata() throws Exception {
         var spec = "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"September\",\"value\":\"125000\"}}}";
         var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Revenue", "spec", spec));
