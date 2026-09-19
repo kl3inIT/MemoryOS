@@ -135,7 +135,7 @@ CREATE TABLE sharepoint_selection_operations (
     scope_mode VARCHAR(16) NOT NULL CHECK (scope_mode IN ('ALL_SITES', 'SPECIFIC')),
     source_name VARCHAR(120),
     -- Access and Groups are chosen when a Source is created and applied once verification succeeds.
-    access_type VARCHAR(16) CHECK (access_type IS NULL OR access_type IN ('PUBLIC', 'RESTRICTED')),
+    access_type VARCHAR(16) CHECK (access_type IS NULL OR access_type IN ('PUBLIC', 'PRIVATE', 'SYNC')),
     group_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     include_documents BOOLEAN NOT NULL DEFAULT TRUE,
     include_pages BOOLEAN NOT NULL DEFAULT FALSE,

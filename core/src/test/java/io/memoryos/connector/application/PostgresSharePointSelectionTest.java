@@ -139,6 +139,19 @@ class PostgresSharePointSelectionTest {
     }
 
     @Test
+    void aPrivateSourceCanBeRequestedAndCreated() {
+        // V77 renamed RESTRICTED to PRIVATE; the selection intent must accept the current name.
+        when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-1", "Documents",
+                "/sites/Finance/Shared Documents")));
+        var receipt = sources.create(owner, UUID.randomUUID(), "Finance", credential, scope(LIBRARY_URL),
+                SourceAccess.PRIVATE, List.of());
+
+        assertEquals(SharePointSelectionProcessor.Result.COMPLETED, processor.execute(claim(receipt.operation().id())));
+        assertEquals("PRIVATE", jdbc.sql("SELECT access_type FROM connector_credential_pairs WHERE id = :id")
+                .param("id", receipt.sourceId().value()).query(String.class).single());
+    }
+
+    @Test
     void aLibraryThatIsNotOnTheSiteFailsWithoutCreatingASource() {
         when(session.libraries("site-1")).thenReturn(List.of(new SharePointProvider.Library("drive-9", "Policies",
                 "/sites/Finance/Policies")));
