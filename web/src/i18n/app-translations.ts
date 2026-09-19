@@ -3115,6 +3115,26 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  Usage: "Mức dùng",
+  "This month ({{from}} – {{to}}). Costs are estimated from recorded model usage.":
+    "Tháng này ({{from}} – {{to}}). Chi phí được ước tính từ mức dùng model đã ghi nhận.",
+  "Couldn't load usage": "Không tải được mức dùng",
+  Budget: "Hạn mức",
+  "No budget set": "Chưa đặt hạn mức",
+  "Your administrator has not set a spending limit for you.":
+    "Quản trị viên chưa đặt hạn mức chi tiêu cho bạn.",
+  "Usage this period": "Đã dùng kỳ này",
+  "{{amount}} spent": "{{amount}} đã dùng",
+  "{{calls}} requests · {{tokens}} tokens": "{{calls}} lượt gọi · {{tokens}} token",
+  "No usage recorded yet": "Chưa ghi nhận mức dùng nào",
+  "Your model usage and costs will show up here once you start chatting.":
+    "Mức dùng và chi phí model sẽ hiện ở đây khi bạn bắt đầu chat.",
+  "Costs are estimates from the tokens the model reports and the prices your administrator set, not a provider invoice.":
+    "Chi phí là ước tính từ số token model báo về và giá do quản trị viên đặt, không phải hoá đơn của nhà cung cấp.",
+  "USD per 1M tokens (input · output · cache) for every available model":
+    "USD cho mỗi 1 triệu token (input · output · cache) của các model bạn được dùng",
+  Input: "Input",
+  "Cache-read": "Cache-read",
   "Settings navigation": "Điều hướng cài đặt",
   "Settings sidebar": "Thanh bên cài đặt",
   Settings: "Cài đặt",

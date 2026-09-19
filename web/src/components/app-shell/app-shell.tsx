@@ -5,6 +5,7 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  ChartColumn,
   Globe,
   ImageIcon,
   KeyRound,
@@ -36,7 +37,7 @@ import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
-export type SettingsPage = "general" | "chat";
+export type SettingsPage = "general" | "chat" | "usage";
 export type AdminPage =
   | "sources"
   | "users"
@@ -243,6 +244,15 @@ function SidebarContents({
               onClick={onNavigate}
             >
               {ui("Chat")}
+            </SidebarTab>
+            <SidebarTab
+              to="/settings/usage"
+              icon={<ChartColumn className="size-4" />}
+              selected={settingsPage === "usage"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Usage")}
             </SidebarTab>
           </SidebarSection>
         ) : (

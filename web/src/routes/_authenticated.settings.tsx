@@ -7,13 +7,14 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: function PersonalSettingsLayout() {
     const ui = useAppTranslation();
     const matchRoute = useMatchRoute();
-    const page = matchRoute({ to: "/settings/chat" }) ? "chat" : "general";
+    const page = matchRoute({ to: "/settings/chat" })
+      ? "chat"
+      : matchRoute({ to: "/settings/usage" })
+        ? "usage"
+        : "general";
+    const titles = { general: "General", chat: "Chat", usage: "Usage" } as const;
     return (
-      <AppShell
-        area="settings"
-        settingsPage={page}
-        pageTitle={ui(page === "chat" ? "Chat" : "General")}
-      >
+      <AppShell area="settings" settingsPage={page} pageTitle={ui(titles[page])}>
         <Outlet />
       </AppShell>
     );
