@@ -12,6 +12,7 @@ export const providerMarks = {
   GOOGLE_PSE: { file: "google.svg", monochrome: false },
   NINEROUTER: { file: "nine-router.svg", monochrome: false },
   OLLAMA: { file: "ollama.svg", monochrome: true },
+  LM_STUDIO: { file: "lm-studio.svg", monochrome: true },
   OPENROUTER: { file: "openrouter.svg", monochrome: true },
   SEARXNG: { file: "searxng.svg", monochrome: false },
   SERPER: { file: "serper.png", monochrome: false },

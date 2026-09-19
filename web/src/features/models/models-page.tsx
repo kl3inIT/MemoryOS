@@ -749,6 +749,24 @@ function ModelsAdministration() {
               />
               <NewConnectionCard
                 preset={{
+                  name: "LM Studio",
+                  subtitle:
+                    "Local models served by the LM Studio desktop app or its headless server.",
+                  baseUrl: "http://localhost:1234/v1",
+                  logo: <ProviderLogo mark="LM_STUDIO" />,
+                }}
+                disabled={unavailable || (providers.data?.length ?? 0) >= 64}
+                onConnect={() =>
+                  setEditor({
+                    kind: "provider",
+                    adapterType: "openai",
+                    baseUrl: "http://localhost:1234/v1",
+                    name: "LM Studio",
+                  })
+                }
+              />
+              <NewConnectionCard
+                preset={{
                   name: "OpenAI-Compatible",
                   subtitle: "Any endpoint that speaks the OpenAI API, such as vLLM or a gateway.",
                   baseUrl: "",

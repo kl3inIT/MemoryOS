@@ -3,6 +3,8 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.WebAvailabilityResponse;
 import io.memoryos.api.chat.contract.WebConnectionRequest;
 import io.memoryos.api.chat.contract.WebConnectionResponse;
+import io.memoryos.api.chat.contract.WebEnginesRequest;
+import io.memoryos.api.chat.contract.WebEnginesResponse;
 import io.memoryos.api.chat.contract.WebSelectionRequest;
 import io.memoryos.api.chat.contract.WebTestRequest;
 import io.memoryos.chat.ChatException;
@@ -86,6 +88,20 @@ class WebConnectionController {
     @Operation(operationId = "selectChatWebProvider", summary = "Select the search or content provider; null disables search or restores built-in reading")
     void select(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @Valid @RequestBody WebSelectionRequest request) {
         connections.select(identity.actorId(), request.search(), request.provider());
+    }
+    @PostMapping("/connections/{provider}/engines")
+    @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
+    @Operation(operationId = "listChatWebEngines",
+            summary = "List the search engines a 9Router gateway offers, with the typed key or the saved one for the same endpoint")
+    WebEnginesResponse engines(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable WebProvider provider, @Valid @RequestBody WebEnginesRequest request) {
+        if (provider != WebProvider.NINEROUTER) throw ChatException.invalid("This provider has no engine list.");
+        String key = connections.discoveryKey(identity.actorId(), provider, request.endpoint(), request.key());
+        try {
+            return new WebEnginesResponse(client.nineRouterEngines(request.endpoint(), key));
+        } catch (IOException | RuntimeException failed) {
+            throw ChatException.providerUnavailable();
+        }
     }
     @PostMapping("/connections/{provider}/test")
     @ApiResponse(responseCode = "204", description = "Provider request succeeded", content = @Content)

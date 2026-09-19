@@ -1,3 +1,4 @@
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useId, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ImageIcon, Settings2, Unplug } from "lucide-react";
@@ -576,13 +577,10 @@ function ConnectionCard({
                   )}
                 </fieldset>
                 {tested && (
-                  <p
-                    role="status"
-                    className="mt-4 flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
-                  >
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    {ui("Kiểm tra kết nối thành công")}
-                  </p>
+                  <Alert variant="success" role="status" className="mt-4">
+                    <CheckCircle2 aria-hidden="true" />
+                    <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
+                  </Alert>
                 )}
                 {actionError && (
                   <p role="alert" className="mt-4 text-sm text-status-danger-content">

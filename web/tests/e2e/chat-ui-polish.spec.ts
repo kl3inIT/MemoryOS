@@ -131,3 +131,56 @@ for (const width of [1440, 390]) {
     );
   });
 }
+
+for (const width of [1440, 390]) {
+  test(`9Router lists its search engines and a passed test shows the success alert at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const shots = process.env.MEMORYOS_PREVIEW_SHOTS;
+    await page.route("**/api/chat/web/connections", (route) =>
+      route.fulfill({
+        json: [
+          {
+            provider: "NINEROUTER",
+            endpoint: "https://9router.example.com/v1",
+            engineId: "",
+            credentialConfigured: true,
+            revision: 1,
+            searchActive: false,
+            contentActive: false,
+          },
+        ],
+      }),
+    );
+    const requests: { endpoint: string; key: string | null }[] = [];
+    await page.route("**/api/chat/web/connections/NINEROUTER/engines", async (route) => {
+      requests.push(route.request().postDataJSON());
+      await route.fulfill({ json: { engines: ["brave-search", "web"] } });
+    });
+    await page.route("**/api/chat/web/connections/NINEROUTER", (route) =>
+      route.fulfill({ json: {} }),
+    );
+    await page.route("**/api/chat/web/connections/NINEROUTER/test", (route) =>
+      route.fulfill({ status: 204 }),
+    );
+    await page.goto("/admin/web-search");
+    const search = page.getByRole("region", { name: "Công cụ tìm kiếm", exact: true });
+    await search
+      .getByRole("region", { name: "9Router", exact: true })
+      .getByRole("button", { name: "Cấu hình", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Lấy danh sách", exact: true }).click();
+    await expect(dialog.getByText("9Router có 2 engine: brave-search, web")).toBeVisible();
+    // A blank key field reuses the saved key for the same endpoint.
+    expect(requests).toEqual([{ endpoint: "https://9router.example.com/v1", key: null }]);
+    await dialog.getByLabel("Engine tìm kiếm").fill("brave-search");
+    if (shots) await page.screenshot({ path: `${shots}/nine-router-engines-${width}.png` });
+    await dialog.getByRole("button", { name: "Kiểm tra kết nối", exact: true }).click();
+    const passed = dialog.getByRole("status").filter({ hasText: "Kiểm tra kết nối thành công" });
+    await expect(passed).toBeVisible();
+    await expect(passed).toHaveAttribute("data-slot", "alert");
+    if (shots) await page.screenshot({ path: `${shots}/web-test-success-${width}.png` });
+  });
+}

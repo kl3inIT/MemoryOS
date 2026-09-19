@@ -320,6 +320,10 @@ export const vietnameseUi: Record<string, string> = {
   "Mã công cụ tìm kiếm": "Search engine ID",
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
   "Kiểm tra kết nối": "Test connection",
+  "Lấy danh sách": "Fetch list",
+  "9Router có {{count}} engine: {{names}}": "9Router has {{count}} engines: {{names}}",
+  "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.":
+    "9Router has no search engine connected. Add a search provider in 9Router, then try again.",
   "Kiểm tra kết nối thành công": "Connection test succeeded",
   "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
   "Tìm kiếm của nhà cung cấp mô hình": "Model provider search",
@@ -2899,6 +2903,8 @@ Object.assign(englishUi, {
   "Claude models from Anthropic.": "Mô hình Claude của Anthropic.",
   "Open-weight models running on your own machine or server.":
     "Mô hình mã nguồn mở chạy trên máy hoặc máy chủ của bạn.",
+  "Local models served by the LM Studio desktop app or its headless server.":
+    "Model chạy local bằng ứng dụng LM Studio hoặc server headless của nó.",
   "Any endpoint that speaks the OpenAI API, such as vLLM or a gateway.":
     "Mọi endpoint nói giao thức OpenAI API, ví dụ vLLM hoặc gateway nội bộ.",
   Connect: "Kết nối",

@@ -98,6 +98,22 @@ public class WebConnectionService {
         return new Access(all.stream().filter(c -> c.searchActive() && usable(c)).findFirst().map(this::snapshot).orElse(null),
                 all.stream().filter(c -> c.contentActive() && usable(c)).findFirst().map(this::snapshot).orElse(null));
     }
+    /**
+     * The key for listing a gateway's engines while its connection is being edited: the typed key, else the saved one
+     * when the endpoint is unchanged (Onyx {@code api_key_changed}), so a saved key never reaches another host.
+     */
+    @Transactional(readOnly = true)
+    public String discoveryKey(ActorId actor, WebProvider provider, String endpoint, @Nullable String typedKey) {
+        var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
+        ModelCatalogService.validateEndpoint(endpoint);
+        if (typedKey != null && !typedKey.isBlank()) return typedKey;
+        var saved = connections.findByTenantIdAndProvider(tenant, provider)
+                .filter(c -> c.endpoint().replaceAll("/+$", "").equals(endpoint.replaceAll("/+$", "")))
+                .filter(c -> credentials.configured(c.credential()))
+                .orElseThrow(() -> ChatException.invalid("Enter the API key."));
+        return credentials.resolve(tenant, saved.id(), saved.credential());
+    }
+
     public String key(Connection connection) {
         return credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }
