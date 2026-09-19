@@ -1,6 +1,6 @@
 # AI usage and costs
 
-The `usage` capability records every AI call MemoryOS makes into a daily ledger and reports it to model managers as "AI costs" (vi: "Chi phí AI"). Delivered by [MEM-98](../increments/active/mem-98-ai-costs/design.md); limits (MEM-123), export (MEM-139) and per-call external-data records (MEM-134) build on it.
+The `usage` capability records every AI call MemoryOS makes into a daily ledger and reports it to model managers as "AI costs" (vi: "Chi phí AI"). Delivered by [MEM-98](../increments/completed/mem-98-ai-costs/design.md); limits (MEM-123), export (MEM-139) and per-call external-data records (MEM-134) build on it.
 
 ## Ledger
 

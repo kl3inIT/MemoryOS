@@ -25,4 +25,4 @@ One pull request on `kl3inIT/mem-98-ai-costs`.
 ## 5. Documentation and gates
 
 - [x] `docs/specs/ai-usage.md`, `docs/tests/ai-usage.md`, architecture, model spec and AGENTS.md links.
-- [ ] `gradlew clean check`; web lint, typecheck, tests; pull request and CI.
+- [x] `gradlew clean check`; web lint, typecheck, tests; [PR #241](https://github.com/kl3inIT/MemoryOS/pull/241) merged after CI and CodeRabbit findings were fixed.
