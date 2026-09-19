@@ -3,7 +3,7 @@
     "repository": "https://github.com/BerriAI/litellm",
     "file": "model_prices_and_context_window.json",
     "commit": "b1a61f510c90ce7e4533e89247c941fa201ada4f",
-    "retrieved": "2026-09-14",
+    "retrieved": "2026-09-19",
     "licence": "MIT (Copyright (c) 2023 Berri AI)",
     "providers": [
       "anthropic",
@@ -19,7 +19,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 30
+      "outputPerMillion": 30,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-fable-5",
@@ -29,7 +30,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 1
     },
     {
       "modelName": "claude-fable-5-1",
@@ -39,7 +41,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 0.25
     },
     {
       "modelName": "claude-haiku-4-5",
@@ -49,7 +52,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1,
-      "outputPerMillion": 5
+      "outputPerMillion": 5,
+      "cachedInputPerMillion": 0.1
     },
     {
       "modelName": "claude-haiku-4-5-20251001",
@@ -59,7 +63,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1,
-      "outputPerMillion": 5
+      "outputPerMillion": 5,
+      "cachedInputPerMillion": 0.1
     },
     {
       "modelName": "claude-mythos-5",
@@ -69,7 +74,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 1
     },
     {
       "modelName": "claude-mythos-5-1",
@@ -79,7 +85,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 0.25
     },
     {
       "modelName": "claude-mythos-preview",
@@ -89,7 +96,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 1
     },
     {
       "modelName": "claude-opus-4-5",
@@ -99,7 +107,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-5-20251101",
@@ -109,7 +118,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-6",
@@ -119,7 +129,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-6-20260205",
@@ -129,7 +140,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-7",
@@ -139,7 +151,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-7-20260416",
@@ -149,7 +162,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-4-8",
@@ -159,7 +173,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-opus-5",
@@ -169,7 +184,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 25
+      "outputPerMillion": 25,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "claude-sonnet-4-5",
@@ -179,7 +195,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 3,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 0.3
     },
     {
       "modelName": "claude-sonnet-4-5-20250929",
@@ -189,7 +206,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 3,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 0.3
     },
     {
       "modelName": "claude-sonnet-4-6",
@@ -199,7 +217,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 3,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 0.3
     },
     {
       "modelName": "claude-sonnet-5",
@@ -209,7 +228,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.2
     },
     {
       "modelName": "computer-use-preview",
@@ -229,7 +249,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 4,
-      "outputPerMillion": 20
+      "outputPerMillion": 20,
+      "cachedInputPerMillion": 0.4
     },
     {
       "modelName": "daybreak-red-latest",
@@ -239,7 +260,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 12.5,
-      "outputPerMillion": 75
+      "outputPerMillion": 75,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "ft:gpt-3.5-turbo",
@@ -289,7 +311,8 @@
       "vision": false,
       "reasoning": false,
       "inputPerMillion": 3,
-      "outputPerMillion": 12
+      "outputPerMillion": 12,
+      "cachedInputPerMillion": 0.75
     },
     {
       "modelName": "ft:gpt-4.1-mini-2025-04-14",
@@ -299,7 +322,8 @@
       "vision": false,
       "reasoning": false,
       "inputPerMillion": 0.8,
-      "outputPerMillion": 3.2
+      "outputPerMillion": 3.2,
+      "cachedInputPerMillion": 0.2
     },
     {
       "modelName": "ft:gpt-4.1-nano-2025-04-14",
@@ -309,7 +333,8 @@
       "vision": false,
       "reasoning": false,
       "inputPerMillion": 0.2,
-      "outputPerMillion": 0.8
+      "outputPerMillion": 0.8,
+      "cachedInputPerMillion": 0.05
     },
     {
       "modelName": "ft:gpt-4o-2024-08-06",
@@ -319,7 +344,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 3.75,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 1.875
     },
     {
       "modelName": "ft:gpt-4o-2024-11-20",
@@ -339,7 +365,8 @@
       "vision": false,
       "reasoning": false,
       "inputPerMillion": 0.3,
-      "outputPerMillion": 1.2
+      "outputPerMillion": 1.2,
+      "cachedInputPerMillion": 0.15
     },
     {
       "modelName": "ft:o4-mini-2025-04-16",
@@ -349,7 +376,8 @@
       "vision": false,
       "reasoning": true,
       "inputPerMillion": 4,
-      "outputPerMillion": 16
+      "outputPerMillion": 16,
+      "cachedInputPerMillion": 1
     },
     {
       "modelName": "gpt-3.5-turbo",
@@ -449,7 +477,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2,
-      "outputPerMillion": 8
+      "outputPerMillion": 8,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "gpt-4.1-2025-04-14",
@@ -459,7 +488,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2,
-      "outputPerMillion": 8
+      "outputPerMillion": 8,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "gpt-4.1-mini",
@@ -469,7 +499,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.4,
-      "outputPerMillion": 1.6
+      "outputPerMillion": 1.6,
+      "cachedInputPerMillion": 0.1
     },
     {
       "modelName": "gpt-4.1-mini-2025-04-14",
@@ -479,7 +510,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.4,
-      "outputPerMillion": 1.6
+      "outputPerMillion": 1.6,
+      "cachedInputPerMillion": 0.1
     },
     {
       "modelName": "gpt-4.1-nano",
@@ -489,7 +521,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.1,
-      "outputPerMillion": 0.4
+      "outputPerMillion": 0.4,
+      "cachedInputPerMillion": 0.025
     },
     {
       "modelName": "gpt-4.1-nano-2025-04-14",
@@ -499,7 +532,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.1,
-      "outputPerMillion": 0.4
+      "outputPerMillion": 0.4,
+      "cachedInputPerMillion": 0.025
     },
     {
       "modelName": "gpt-4o",
@@ -509,7 +543,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "gpt-4o-2024-05-13",
@@ -529,7 +564,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "gpt-4o-2024-11-20",
@@ -539,7 +575,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "gpt-4o-audio-preview-2024-12-17",
@@ -569,7 +606,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.15,
-      "outputPerMillion": 0.6
+      "outputPerMillion": 0.6,
+      "cachedInputPerMillion": 0.075
     },
     {
       "modelName": "gpt-4o-mini-2024-07-18",
@@ -579,7 +617,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.15,
-      "outputPerMillion": 0.6
+      "outputPerMillion": 0.6,
+      "cachedInputPerMillion": 0.075
     },
     {
       "modelName": "gpt-4o-mini-audio-preview-2024-12-17",
@@ -599,7 +638,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 0.15,
-      "outputPerMillion": 0.6
+      "outputPerMillion": 0.6,
+      "cachedInputPerMillion": 0.075
     },
     {
       "modelName": "gpt-4o-search-preview",
@@ -609,7 +649,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "gpt-5",
@@ -619,7 +660,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5-2025-08-07",
@@ -629,7 +671,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5-chat",
@@ -639,7 +682,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5-mini",
@@ -649,7 +693,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.25,
-      "outputPerMillion": 2
+      "outputPerMillion": 2,
+      "cachedInputPerMillion": 0.025
     },
     {
       "modelName": "gpt-5-mini-2025-08-07",
@@ -659,7 +704,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.25,
-      "outputPerMillion": 2
+      "outputPerMillion": 2,
+      "cachedInputPerMillion": 0.025
     },
     {
       "modelName": "gpt-5-nano",
@@ -669,7 +715,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.05,
-      "outputPerMillion": 0.4
+      "outputPerMillion": 0.4,
+      "cachedInputPerMillion": 0.005
     },
     {
       "modelName": "gpt-5-nano-2025-08-07",
@@ -679,7 +726,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.05,
-      "outputPerMillion": 0.4
+      "outputPerMillion": 0.4,
+      "cachedInputPerMillion": 0.005
     },
     {
       "modelName": "gpt-5-search-api",
@@ -689,7 +737,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5-search-api-2025-10-14",
@@ -699,7 +748,8 @@
       "vision": true,
       "reasoning": false,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5.1",
@@ -709,7 +759,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5.1-2025-11-13",
@@ -719,7 +770,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.25,
-      "outputPerMillion": 10
+      "outputPerMillion": 10,
+      "cachedInputPerMillion": 0.125
     },
     {
       "modelName": "gpt-5.2",
@@ -729,7 +781,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.75,
-      "outputPerMillion": 14
+      "outputPerMillion": 14,
+      "cachedInputPerMillion": 0.175
     },
     {
       "modelName": "gpt-5.2-2025-12-11",
@@ -739,7 +792,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.75,
-      "outputPerMillion": 14
+      "outputPerMillion": 14,
+      "cachedInputPerMillion": 0.175
     },
     {
       "modelName": "gpt-5.4",
@@ -749,7 +803,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 0.25
     },
     {
       "modelName": "gpt-5.4-2026-03-05",
@@ -759,7 +814,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2.5,
-      "outputPerMillion": 15
+      "outputPerMillion": 15,
+      "cachedInputPerMillion": 0.25
     },
     {
       "modelName": "gpt-5.4-mini",
@@ -769,7 +825,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.75,
-      "outputPerMillion": 4.5
+      "outputPerMillion": 4.5,
+      "cachedInputPerMillion": 0.075
     },
     {
       "modelName": "gpt-5.4-mini-2026-03-17",
@@ -779,7 +836,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.75,
-      "outputPerMillion": 4.5
+      "outputPerMillion": 4.5,
+      "cachedInputPerMillion": 0.075
     },
     {
       "modelName": "gpt-5.4-nano",
@@ -789,7 +847,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.2,
-      "outputPerMillion": 1.25
+      "outputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.02
     },
     {
       "modelName": "gpt-5.4-nano-2026-03-17",
@@ -799,7 +858,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.2,
-      "outputPerMillion": 1.25
+      "outputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.02
     },
     {
       "modelName": "gpt-5.5",
@@ -809,7 +869,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 30
+      "outputPerMillion": 30,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "gpt-5.5-2026-04-23",
@@ -819,7 +880,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 5,
-      "outputPerMillion": 30
+      "outputPerMillion": 30,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "gpt-5.6",
@@ -829,7 +891,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 4,
-      "outputPerMillion": 20
+      "outputPerMillion": 20,
+      "cachedInputPerMillion": 0.4
     },
     {
       "modelName": "gpt-5.6-cyber",
@@ -839,7 +902,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 12.5,
-      "outputPerMillion": 75
+      "outputPerMillion": 75,
+      "cachedInputPerMillion": 1.25
     },
     {
       "modelName": "gpt-5.6-luna",
@@ -849,7 +913,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 0.2,
-      "outputPerMillion": 1.2
+      "outputPerMillion": 1.2,
+      "cachedInputPerMillion": 0.02
     },
     {
       "modelName": "gpt-5.6-sol",
@@ -859,7 +924,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 4,
-      "outputPerMillion": 20
+      "outputPerMillion": 20,
+      "cachedInputPerMillion": 0.4
     },
     {
       "modelName": "gpt-5.6-terra",
@@ -869,7 +935,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2,
-      "outputPerMillion": 12
+      "outputPerMillion": 12,
+      "cachedInputPerMillion": 0.2
     },
     {
       "modelName": "gpt-6-astra",
@@ -879,7 +946,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 10,
-      "outputPerMillion": 50
+      "outputPerMillion": 50,
+      "cachedInputPerMillion": 1
     },
     {
       "modelName": "gpt-audio",
@@ -939,7 +1007,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 15,
-      "outputPerMillion": 60
+      "outputPerMillion": 60,
+      "cachedInputPerMillion": 7.5
     },
     {
       "modelName": "o1-2024-12-17",
@@ -949,7 +1018,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 15,
-      "outputPerMillion": 60
+      "outputPerMillion": 60,
+      "cachedInputPerMillion": 7.5
     },
     {
       "modelName": "o3",
@@ -959,7 +1029,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2,
-      "outputPerMillion": 8
+      "outputPerMillion": 8,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "o3-2025-04-16",
@@ -969,7 +1040,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 2,
-      "outputPerMillion": 8
+      "outputPerMillion": 8,
+      "cachedInputPerMillion": 0.5
     },
     {
       "modelName": "o3-mini",
@@ -979,7 +1051,8 @@
       "vision": false,
       "reasoning": true,
       "inputPerMillion": 1.1,
-      "outputPerMillion": 4.4
+      "outputPerMillion": 4.4,
+      "cachedInputPerMillion": 0.55
     },
     {
       "modelName": "o3-mini-2025-01-31",
@@ -989,7 +1062,8 @@
       "vision": false,
       "reasoning": true,
       "inputPerMillion": 1.1,
-      "outputPerMillion": 4.4
+      "outputPerMillion": 4.4,
+      "cachedInputPerMillion": 0.55
     },
     {
       "modelName": "o4-mini",
@@ -999,7 +1073,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.1,
-      "outputPerMillion": 4.4
+      "outputPerMillion": 4.4,
+      "cachedInputPerMillion": 0.275
     },
     {
       "modelName": "o4-mini-2025-04-16",
@@ -1009,7 +1084,8 @@
       "vision": true,
       "reasoning": true,
       "inputPerMillion": 1.1,
-      "outputPerMillion": 4.4
+      "outputPerMillion": 4.4,
+      "cachedInputPerMillion": 0.275
     }
   ]
 }

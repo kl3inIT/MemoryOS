@@ -52,11 +52,11 @@ export const flowLabels: Record<Flow, AppCopy> = {
 };
 
 export const dimensionLabels: Record<Dimension, AppCopy> = {
-  ACTOR: "People",
-  GROUP: "Groups",
-  MODEL: "Models",
-  FLOW: "Tasks",
-  PROVIDER: "Providers",
+  ACTOR: "By user",
+  GROUP: "By group",
+  MODEL: "By model",
+  FLOW: "By flow",
+  PROVIDER: "By provider",
 };
 
 /** USD with enough precision for the small amounts single calls cost. */

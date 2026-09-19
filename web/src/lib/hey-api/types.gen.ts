@@ -735,6 +735,10 @@ export type ModelSettingsInput = {
 export type PricingInput = {
     inputPerMillion: number;
     outputPerMillion: number;
+    /**
+     * USD per million input tokens served from the prompt cache; omitted means the input rate
+     */
+    cachedInputPerMillion?: number | null;
 };
 
 export type Capabilities = {
@@ -769,6 +773,7 @@ export type ModelSettings = {
 export type Pricing = {
     inputPerMillion: number;
     outputPerMillion: number;
+    cachedInputPerMillion: number | null;
 };
 
 /**

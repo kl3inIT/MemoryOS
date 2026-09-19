@@ -104,9 +104,13 @@ public final class ChatModelExecutor {
             boolean known = used.stream().allMatch(ChatModelGuard::usageKnown);
             var usage = process.usage();
             long cached = used.stream().mapToLong(ChatModelGuard::cacheReadTokens).sum();
+            Double cost = known && metadata.getPricingModel() != null ? process.cost() : null;
+            // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate.
+            if (cost != null && metadata.getPricingModel() instanceof io.memoryos.chat.catalog.ChatModelPricing pricing)
+                cost = Math.max(0, cost - pricing.cacheDiscount(cached));
             return new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
                     known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
-                    known && metadata.getPricingModel() != null ? process.cost() : null, known ? cached : 0, true);
+                    cost, known ? cached : 0, true);
         }
     }
 

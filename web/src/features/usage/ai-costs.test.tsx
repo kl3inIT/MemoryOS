@@ -103,8 +103,8 @@ describe("AI costs page", () => {
     expect(await screen.findByText("$41.20")).toBeInTheDocument();
     expect(screen.getByText("75% External")).toBeInTheDocument();
     expect(screen.getByText("214")).toBeInTheDocument();
-    expect(screen.getByText("Calls without a price. Set model prices")).toBeInTheDocument();
-    expect(screen.getByText("No AI usage in this period.")).toBeInTheDocument();
+    expect(screen.getByText("Model prices")).toBeInTheDocument();
+    expect(screen.getByText("No usage recorded for this period.")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "View AI costs of Trần Thu Hà" }));
     const sheet = await screen.findByRole("dialog");
     expect(await within(sheet).findByText("Conversation naming")).toBeInTheDocument();

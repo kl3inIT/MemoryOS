@@ -23,7 +23,7 @@ const adapter: InstalledAdapter = {
       contextWindow: 272_000,
       maxOutputTokens: 128_000,
       capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
-      pricing: { inputPerMillion: 1.25, outputPerMillion: 10 },
+      pricing: { inputPerMillion: 1.25, outputPerMillion: 10, cachedInputPerMillion: 0.125 },
     },
   ],
 };
@@ -92,6 +92,7 @@ describe("model configuration transitions", () => {
     expect(modelBody({ ...draft, inputPrice: "0", outputPrice: "0" }).settings?.pricing).toEqual({
       inputPerMillion: 0,
       outputPerMillion: 0,
+      cachedInputPerMillion: null,
     });
     expect(
       modelDraftError({ ...draft, contextWindow: "256", maxOutputTokens: "256" }, adapter),
@@ -107,7 +108,7 @@ describe("model configuration transitions", () => {
       contextWindow: 272_000,
       maxOutputTokens: 128_000,
       capabilities: { streaming: true, toolCalling: true, vision: true, reasoning: true },
-      pricing: { inputPerMillion: 1.25, outputPerMillion: 10 },
+      pricing: { inputPerMillion: 1.25, outputPerMillion: 10, cachedInputPerMillion: 0.125 },
     });
     expect(modelBody(known).settings?.options).toEqual({ maxCompletionTokens: true });
     expect(known.displayName).toBe("gpt-5");

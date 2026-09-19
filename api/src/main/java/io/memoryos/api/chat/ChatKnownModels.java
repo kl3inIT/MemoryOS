@@ -35,7 +35,8 @@ final class ChatKnownModels {
                         new ModelSettings.Capabilities(true, node.path("toolCalling").asBoolean(),
                                 node.path("vision").asBoolean(), node.path("reasoning").asBoolean()),
                         new ModelSettings.Pricing(node.path("inputPerMillion").asDouble(),
-                                node.path("outputPerMillion").asDouble())));
+                                node.path("outputPerMillion").asDouble(),
+                                node.hasNonNull("cachedInputPerMillion") ? node.path("cachedInputPerMillion").asDouble() : null)));
             }
             if (models.isEmpty()) throw new IllegalStateException("Empty model metadata " + RESOURCE);
             return List.copyOf(models);

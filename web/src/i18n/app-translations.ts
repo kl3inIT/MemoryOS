@@ -2961,10 +2961,42 @@ Object.assign(englishUi, {
   "Deleting configuration": "Đang xóa cấu hình",
   "Deletion failed. Refresh before retrying.": "Xóa thất bại. Làm mới trước khi thử lại.",
   "Tenant model default": "Mô hình mặc định của Tenant",
+  "Cache-read price": "Giá cache-read",
+  "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
+    "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",
+  "Est. spend": "Chi phí ước tính",
+  Requests: "Lượt gọi",
+  "Total tokens": "Tổng token",
+  "Active users": "Người dùng hoạt động",
+  "{{input}} in · {{output}} out · {{cached}} cache reads":
+    "{{input}} in · {{output}} out · {{cached}} cache reads",
+  "Prices unavailable": "Chưa có giá",
+  "Model prices": "Giá mô hình",
+  "All requests priced": "Mọi lượt gọi đã có giá",
+  "Prices unavailable ({{count}})": "Chưa có giá ({{count}})",
+  "Daily spend": "Chi phí theo ngày",
+  "Something went wrong fetching your usage. Try again in a moment.":
+    "Đã xảy ra lỗi khi tải mức dùng. Hãy thử lại sau ít phút.",
+  "No usage recorded for this period.": "Chưa có mức dùng nào trong khoảng thời gian này.",
+  "By user": "Theo người dùng",
+  "By group": "Theo nhóm",
+  "By flow": "Theo tác vụ",
+  "Cache-read price (optional)": "Giá cache-read (không bắt buộc)",
+  "Defaults to input price": "Mặc định bằng giá input",
+  "Enter input and output prices before a cache-read price.":
+    "Nhập giá input và output trước khi nhập giá cache-read.",
+  "Cached input price": "Giá input từ cache",
+  "Same as input price": "Bằng giá input",
+  "Input the provider serves from its prompt cache. Leave blank to bill it at the input price.":
+    "Phần input nhà cung cấp đọc từ prompt cache. Để trống thì tính theo giá input.",
+  "Enter input and output prices before a cached input price.":
+    "Nhập giá input và output trước khi nhập giá input từ cache.",
+  "Estimated from reported tokens and the model prices set here; not a provider invoice. Days are counted in UTC.":
+    "Ước tính từ token nhà cung cấp báo và giá mô hình đã đặt; không thay cho hoá đơn của nhà cung cấp. Ngày được tính theo giờ UTC.",
+  "Estimated cost": "Chi phí ước tính",
+  "Estimated daily cost": "Chi phí ước tính theo ngày",
   Monitoring: "Theo dõi",
   "AI costs": "Chi phí AI",
-  "Known AI spend by person, Group, model and task. Days are counted in UTC.":
-    "Chi phí AI đã tính được theo người, Group, mô hình và tác vụ. Ngày được tính theo giờ UTC.",
   Period: "Khoảng thời gian",
   "Last 7 days": "7 ngày qua",
   "Last 30 days": "30 ngày qua",

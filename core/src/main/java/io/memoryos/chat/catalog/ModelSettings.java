@@ -23,11 +23,20 @@ public record ModelSettings(int contextWindow, int maxOutputTokens, Capabilities
 
     public record Capabilities(boolean streaming, boolean toolCalling, boolean vision, boolean reasoning) {}
 
-    public record Pricing(double inputPerMillion, double outputPerMillion) {
+    /**
+     * USD per million tokens. {@code cachedInputPerMillion} prices input the provider served from its prompt cache
+     * (Onyx {@code cache_read_cost_per_mtok}); without it cached input costs the input rate.
+     */
+    public record Pricing(double inputPerMillion, double outputPerMillion, @Nullable Double cachedInputPerMillion) {
         public Pricing {
             if (!Double.isFinite(inputPerMillion) || !Double.isFinite(outputPerMillion)
-                    || inputPerMillion < 0 || outputPerMillion < 0)
+                    || inputPerMillion < 0 || outputPerMillion < 0
+                    || (cachedInputPerMillion != null && (!Double.isFinite(cachedInputPerMillion) || cachedInputPerMillion < 0)))
                 throw ChatException.invalid("Invalid model pricing.");
         }
+
+        public Pricing(double inputPerMillion, double outputPerMillion) { this(inputPerMillion, outputPerMillion, null); }
+
+        public double cachedInputRate() { return cachedInputPerMillion == null ? inputPerMillion : cachedInputPerMillion; }
     }
 }

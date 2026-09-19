@@ -77,7 +77,7 @@ export function AiCostsPage() {
         title={ui("AI costs")}
         icon={<ReceiptText />}
         description={ui(
-          "Known AI spend by person, Group, model and task. Days are counted in UTC.",
+          "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.",
         )}
         actions={
           <Select value={periodId} onValueChange={(value) => setPeriodId(value as PeriodId)}>
@@ -96,7 +96,7 @@ export function AiCostsPage() {
       />
 
       {summary.isError ? (
-        <p role="alert">{ui("AI costs could not be loaded. Refresh to try again.")}</p>
+        <p role="alert">{ui("Something went wrong fetching your usage. Try again in a moment.")}</p>
       ) : (
         <Summary value={summary.data} />
       )}
@@ -104,7 +104,7 @@ export function AiCostsPage() {
       <Card className="min-w-0">
         <CardContent className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-heading-h3">{ui("Daily cost")}</h2>
+            <h2 className="font-heading-h3">{ui("Daily spend")}</h2>
             <Tabs value={split} onValueChange={(value) => setSplit(value as "BOUNDARY" | "MODEL")}>
               <TabsList>
                 <TabsTrigger value="BOUNDARY">{ui("Internal and External")}</TabsTrigger>
@@ -115,7 +115,9 @@ export function AiCostsPage() {
           {days.data ? (
             <DailyChart days={days.data} split={split} range={range} />
           ) : days.isError ? (
-            <p role="alert">{ui("Daily costs could not be loaded.")}</p>
+            <p role="alert">
+              {ui("Something went wrong fetching your usage. Try again in a moment.")}
+            </p>
           ) : (
             <p role="status">{ui("Loading daily costs…")}</p>
           )}
@@ -154,7 +156,9 @@ export function AiCostsPage() {
               onSelect={dimension === "ACTOR" ? setPerson : undefined}
             />
           ) : rows.isError ? (
-            <p role="alert">{ui("The breakdown could not be loaded.")}</p>
+            <p role="alert">
+              {ui("Something went wrong fetching your usage. Try again in a moment.")}
+            </p>
           ) : (
             <p role="status">{ui("Loading breakdown…")}</p>
           )}
@@ -178,19 +182,19 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
           : "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle lg:grid-cols-5"
       }
     >
-      <Tile label={ui("Cost")} value={value ? money(value.cost) : "—"}>
+      <Tile label={ui("Est. spend")} value={value ? money(value.cost) : "—"}>
         {value && value.cost > 0
           ? ui(appText("{{percent}}% External", { percent: external }))
           : null}
       </Tile>
-      <Tile label={ui("AI calls")} value={value ? count(value.calls) : "—"} />
+      <Tile label={ui("Requests")} value={value ? count(value.calls) : "—"} />
       <Tile
-        label={ui("Tokens")}
+        label={ui("Total tokens")}
         value={value ? count(value.inputTokens + value.outputTokens) : "—"}
       >
         {value
           ? ui(
-              appText("{{input}} in · {{output}} out · {{cached}} cached", {
+              appText("{{input}} in · {{output}} out · {{cached}} cache reads", {
                 input: count(value.inputTokens),
                 output: count(value.outputTokens),
                 cached: count(value.cacheReadTokens),
@@ -199,20 +203,20 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
           : null}
       </Tile>
       {!compact && (
-        <Tile label={ui("Active people")} value={value ? count(value.activePeople) : "—"} />
+        <Tile label={ui("Active users")} value={value ? count(value.activePeople) : "—"} />
       )}
       <Tile
         wide={!compact}
-        label={ui("Cost not known")}
+        label={ui("Prices unavailable")}
         value={value ? count(value.unknownCostCalls) : "—"}
         tone={value && value.unknownCostCalls > 0 ? "warning" : undefined}
       >
         {value && value.unknownCostCalls > 0 ? (
           <Link to="/admin/models" className="underline underline-offset-2">
-            {ui("Calls without a price. Set model prices")}
+            {ui("Model prices")}
           </Link>
         ) : (
-          ui("Every call is priced")
+          ui("All requests priced")
         )}
       </Tile>
     </div>
@@ -258,7 +262,7 @@ function DailyChart({
   range: Period;
 }) {
   const ui = useAppTranslation();
-  if (!days.length) return <p role="status">{ui("No AI usage in this period.")}</p>;
+  if (!days.length) return <p role="status">{ui("No usage recorded for this period.")}</p>;
   const { rows, series } = chartRows(days, split, range);
   const names: Record<string, string> = {
     EXTERNAL: ui("External"),
@@ -336,7 +340,7 @@ function Breakdown({
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
-  if (!rows.length) return <p role="status">{ui("No AI usage in this period.")}</p>;
+  if (!rows.length) return <p role="status">{ui("No usage recorded for this period.")}</p>;
   const top = Math.max(...rows.map((row) => row.cost), 0);
   return (
     // Relative: the screen-reader-only header label must stay inside the scroll area on narrow screens.
@@ -345,10 +349,10 @@ function Breakdown({
         <thead className="font-secondary-body text-content-muted">
           <tr>
             <th className="py-2 pr-3 font-normal">{ui(dimensionLabels[dimension])}</th>
-            <th className="px-3 py-2 text-right font-normal">{ui("Calls")}</th>
+            <th className="px-3 py-2 text-right font-normal">{ui("Requests")}</th>
             {!compact && (
               <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">
-                {ui("Tokens")}
+                {ui("Total tokens")}
               </th>
             )}
             <th className="px-3 py-2 text-right font-normal">{ui("Cost")}</th>
@@ -396,7 +400,9 @@ function Breakdown({
                   {money(row.cost)}
                   {row.unknownCostCalls > 0 && (
                     <span className="block font-secondary-body text-status-warning-content">
-                      {ui(appText("+{{count}} not priced", { count: row.unknownCostCalls }))}
+                      {ui(
+                        appText("Prices unavailable ({{count}})", { count: row.unknownCostCalls }),
+                      )}
                     </span>
                   )}
                 </td>
@@ -458,7 +464,7 @@ function PersonDialog({
               <Summary value={detail.data.summary} compact />
               <DailyChart days={detail.data.daily} split="MODEL" range={range} />
               <Section title={ui("By model")} dimension="MODEL" rows={detail.data.models} />
-              <Section title={ui("By task")} dimension="FLOW" rows={detail.data.flows} />
+              <Section title={ui("By flow")} dimension="FLOW" rows={detail.data.flows} />
               <Section
                 title={ui("By provider")}
                 dimension="PROVIDER"
@@ -466,12 +472,14 @@ function PersonDialog({
               />
             </>
           ) : detail.isError ? (
-            <p role="alert">{ui("AI costs could not be loaded. Refresh to try again.")}</p>
+            <p role="alert">
+              {ui("Something went wrong fetching your usage. Try again in a moment.")}
+            </p>
           ) : (
             <p role="status">{ui("Loading AI costs…")}</p>
           )}
           <Button prominence="secondary" onClick={onClose}>
-            {ui("Close")}
+            {ui("Done")}
           </Button>
         </div>
       </DialogContent>

@@ -14937,6 +14937,13 @@ components:
         outputPerMillion:
           type: number
           format: double
+        cachedInputPerMillion:
+          type:
+          - number
+          - "null"
+          format: double
+          description: USD per million input tokens served from the prompt cache;
+            omitted means the input rate
       required:
       - inputPerMillion
       - outputPerMillion
@@ -15024,7 +15031,13 @@ components:
         outputPerMillion:
           type: number
           format: double
+        cachedInputPerMillion:
+          type:
+          - number
+          - "null"
+          format: double
       required:
+      - cachedInputPerMillion
       - inputPerMillion
       - outputPerMillion
     ModelFlow:
