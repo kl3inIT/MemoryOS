@@ -215,8 +215,7 @@ def test_files_written_to_mnt_data_are_returned() -> None:
     client = TestClient(create_app())
     payload = _execute(
         client,
-        "open('/mnt/data/bao-cao.txt', 'w', encoding='utf-8').write('Q3')
-print('ok')",
+        "open('/mnt/data/bao-cao.txt', 'w', encoding='utf-8').write('Q3')\nprint('ok')",
     )
 
     files = cast(list[dict[str, Any]], payload["files"])
