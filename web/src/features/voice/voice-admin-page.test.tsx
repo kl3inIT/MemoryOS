@@ -141,7 +141,7 @@ describe("Voice administration", () => {
       headers: sameOriginMutationHeaders,
     });
     expect(api.selectChatVoiceProvider).not.toHaveBeenCalled();
-    expect(await row("Speech to text", "OpenAI").findByText("Default")).toBeVisible();
+    expect(await row("Speech to text", "OpenAI").findByText("Active")).toBeVisible();
     expect(row("Text to speech", "OpenAI").getByText("Needs setup")).toBeVisible();
   });
 

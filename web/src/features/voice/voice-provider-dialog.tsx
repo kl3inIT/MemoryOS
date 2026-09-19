@@ -68,6 +68,20 @@ export function VoiceProviderDialog({
   const [pending, setPending] = useState<"save" | "test">();
   const [error, setError] = useState<ErrorMessage>();
   const [tested, setTested] = useState(false);
+  // The card stays mounted across saves, so each opening starts from the latest saved connection.
+  const [shownOpen, setShownOpen] = useState(open);
+  if (open !== shownOpen) {
+    setShownOpen(open);
+    if (open) {
+      setEndpoint(initial.endpoint);
+      setKey("");
+      setRemoveKey(false);
+      setModel(initial.model);
+      setVoice(initial.voice);
+      setError(undefined);
+      setTested(false);
+    }
+  }
 
   function changeOpen(next: boolean) {
     if (pending) return;
@@ -290,10 +304,10 @@ export function VoiceProviderDialog({
           {tested && (
             <p
               role="status"
-              className="flex items-center gap-1.5 text-sm text-status-success-content"
+              className="flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
             >
               <CheckCircle2 className="size-4" aria-hidden="true" />
-              {ui("Nhà cung cấp đã chấp nhận cấu hình đã lưu.")}
+              {ui("Kiểm tra kết nối thành công")}
             </p>
           )}
           {error && (
@@ -307,8 +321,7 @@ export function VoiceProviderDialog({
           <DialogFooter>
             {connection && (
               <Button
-                prominence="internal"
-                className="sm:mr-auto"
+                prominence="secondary"
                 pending={pending === "test"}
                 disabled={!!pending}
                 onClick={() => void test()}
@@ -318,7 +331,7 @@ export function VoiceProviderDialog({
             )}
             <DialogClose asChild>
               <Button prominence="secondary" disabled={!!pending}>
-                {ui("Hủy")}
+                {ui("Đóng")}
               </Button>
             </DialogClose>
             <Button type="submit" pending={pending === "save"} disabled={!!pending}>

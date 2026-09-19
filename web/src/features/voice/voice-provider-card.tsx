@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AudioWaveform, CheckCircle2, Cloud, Server, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { AudioWaveform, CheckCircle2, Cloud, Server, Settings2, Unplug } from "lucide-react";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,16 @@ function providerSummary(provider: VoiceProviderId, fn: VoiceFunction, ui: Trans
   }
 }
 
+/** Status badge shared with the Web search and image generation catalogs. */
+function InUseBadge({ children }: { children: ReactNode }) {
+  return (
+    <StatusBadge tone="success" className="gap-1">
+      <CheckCircle2 className="size-3.5" aria-hidden="true" />
+      {children}
+    </StatusBadge>
+  );
+}
+
 /** Only OpenAI has a brand mark in the application; other providers use a neutral icon. */
 function ProviderIcon({ provider }: { provider: VoiceProviderId }) {
   if (provider === "OPENAI") return <ProviderLogo mark="OPENAI" className="size-5" />;
@@ -93,24 +103,16 @@ export function VoiceProviderCard({
     <ProviderCard
       as="li"
       aria-label={name}
-      className="h-full rounded-xl bg-surface-raised"
       logo={<ProviderIcon provider={provider.provider} />}
       name={
         <>
           <span>{name}</span>
           {active ? (
-            <StatusBadge tone="success" className="gap-1 text-xs">
-              <CheckCircle2 className="size-3.5" aria-hidden="true" />
-              {ui("Mặc định")}
-            </StatusBadge>
+            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
           ) : connection && !ready ? (
-            <StatusBadge tone="warning" className="text-xs">
-              {ui("Cần cấu hình thêm")}
-            </StatusBadge>
+            <StatusBadge tone="warning">{ui("Cần cấu hình thêm")}</StatusBadge>
           ) : connection ? (
-            <StatusBadge tone="neutral" className="text-xs">
-              {ui("Đã kết nối")}
-            </StatusBadge>
+            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
           ) : null}
         </>
       }
@@ -128,14 +130,25 @@ export function VoiceProviderCard({
               {ui("Đặt làm mặc định")}
             </Button>
           )}
-          <Button
-            size="sm"
-            prominence={connection ? "internal" : "secondary"}
-            disabled={disabled}
-            onClick={() => setOpen(true)}
-          >
-            {connection ? ui("Cấu hình") : ui("Kết nối")}
-          </Button>
+          {connection ? (
+            <Button
+              size="sm"
+              prominence="tertiary"
+              disabled={disabled}
+              onClick={() => setOpen(true)}
+            >
+              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled}
+              onClick={() => setOpen(true)}
+            >
+              {ui("Kết nối")}
+            </Button>
+          )}
           {connection && (
             <ConfirmDialog
               trigger={
@@ -146,7 +159,7 @@ export function VoiceProviderCard({
                   aria-label={ui("Ngắt kết nối {{name}}", { name })}
                   title={ui("Ngắt kết nối {{name}}", { name })}
                 >
-                  <Trash2 />
+                  <Unplug />
                 </IconButton>
               }
               title={ui("Ngắt kết nối {{name}}?", { name })}
