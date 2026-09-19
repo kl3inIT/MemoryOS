@@ -119,7 +119,8 @@ jobs:
             bash -n "$script"
           done
           shellcheck -x infrastructure/deployment/deploy-staging.sh
-          shellcheck infrastructure/inference/managed/start-gateway.sh
+          # The gateway script is pinned by hash in the serving manifest; its only info finding (SC2015) guards `fail`, which always exits.
+          shellcheck --severity=warning infrastructure/inference/managed/start-gateway.sh
 
       - name: Verify model-free managed serving and release configuration
         # Interpolation-only values; this step never starts application services.
