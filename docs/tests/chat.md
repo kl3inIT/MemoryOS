@@ -358,3 +358,14 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | Detail view: configuration snapshot for a use-only reader, share link `/agents?agent=`, starter prompt opens a new conversation and sends once | `agents.spec.ts` (fixture chat server) |
 | Sidebar pins reorder by keyboard and unpin; administration features an agent | `agents.spec.ts` |
 | Shortcuts: inline create on blur, public shortcuts read-only, `/tom tat` diacritic-insensitive match replaces the draft | `agents.spec.ts` |
+
+## Personal settings (MEM-145)
+
+| Contract | Test and boundary |
+| --- | --- |
+| Personal default model is chosen for a new turn, rejected when unavailable on save and skipped once hidden or deleted | `ChatSessionApiIntegrationTest.personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable`: Spring API, PostgreSQL, synthetic provider |
+| Prompt user information follows Onyx `user_info.py` and omits unknown values | `core/src/test/java/io/memoryos/chat/prompts/ChatUserInformationTest.java` |
+| Delete all chats removes only the caller's sessions | `ChatSessionApiIntegrationTest.deleteAllChatsRemovesOnlyTheCallersConversations` |
+| MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
+| Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
+| Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
