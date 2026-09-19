@@ -13,6 +13,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
 import { AppearanceSection } from "./appearance-section";
+import { ProfileSection } from "./profile-section";
 
 const identityKey = getCurrentIdentityQueryKey();
 
@@ -84,6 +85,7 @@ export function GeneralSettingsPage() {
         title={t("common:general")}
         description={t("settings:description")}
       />
+      <ProfileSection />
       <AppearanceSection />
       <div className="flex max-w-2xl flex-col gap-3">
         <label htmlFor="ui-language" className="font-main-ui-body text-content-primary">

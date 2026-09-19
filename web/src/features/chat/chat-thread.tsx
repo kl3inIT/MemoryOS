@@ -23,6 +23,7 @@ import {
 } from "./chat-sources";
 import { remarkCitations } from "./chat-evidence";
 import { cn } from "@/lib/utils";
+import { useChatPreferences } from "@/features/identity/chat-preferences";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -104,6 +105,8 @@ export function ChatThread({
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
   const dictating = useAuiState((state) => state.composer.dictation != null);
   const reading = useAutoPlayback().phase !== "idle";
+  // Onyx "Chat Auto-scroll": follow the answer while it is written unless the member turned it off.
+  const autoScroll = useChatPreferences().data?.autoScroll ?? true;
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
@@ -112,6 +115,7 @@ export function ChatThread({
       >
         <ThreadPrimitive.Viewport
           data-testid="chat-viewport"
+          autoScroll={autoScroll}
           className={cn(
             "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
             isEmpty && !welcome && "justify-center",

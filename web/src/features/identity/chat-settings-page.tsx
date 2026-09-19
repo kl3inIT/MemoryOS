@@ -2,6 +2,7 @@ import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { ChatPreferencesSections } from "./chat-preferences-sections";
 
 /** Onyx "Chat Preferences": how Chat behaves for this member (MEM-145). */
 export function ChatSettingsPage() {
@@ -13,6 +14,7 @@ export function ChatSettingsPage() {
         title={ui("Chat")}
         description={ui("Preferences for your conversations.")}
       />
+      <ChatPreferencesSections />
       <VoiceSettingsSection />
       <PersonalPromptShortcuts />
     </SettingsLayout>

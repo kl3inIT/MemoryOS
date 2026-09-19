@@ -3115,6 +3115,37 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  "New conversations": "Cuộc trò chuyện mới",
+  "Default Model": "Model mặc định",
+  "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
+    "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
+  "Organization default": "Theo mặc định của tổ chức",
+  "Default App Mode": "Trang mở đầu",
+  "Choose whether new sessions start in Search or Chat mode.":
+    "Chọn phiên mới bắt đầu ở Trò chuyện hay Tìm kiếm.",
+  "Personal Preferences": "Sở thích cá nhân",
+  "Describe how you want the system to behave and the tone it should use.":
+    "Mô tả cách bạn muốn trợ lý trả lời và giọng văn nên dùng.",
+  "For example: answer briefly in bullet points and always name the source document.":
+    "Ví dụ: trả lời ngắn gọn bằng gạch đầu dòng và luôn nêu tài liệu nguồn.",
+  "{{count}}/{{limit}}": "{{count}}/{{limit}}",
+  "While chatting": "Khi chat",
+  "Chat Auto-scroll": "Tự cuộn khi đang trả lời",
+  "Automatically scroll to new content as chat generates response.":
+    "Tự cuộn tới nội dung mới trong lúc trợ lý đang viết.",
+  "Collapse Large Pastes": "Thu gọn đoạn dán dài",
+  "When pasting text longer than 3 lines or 200 characters, collapse it into a compact tile instead of inserting it inline.":
+    "Đoạn dán dài hơn 3 dòng hoặc 200 ký tự hiện thành thẻ gọn thay vì chèn cả vào ô nhập. Khi gửi vẫn là nội dung đầy đủ.",
+  "Couldn't save. Try again.": "Chưa lưu được. Hãy thử lại.",
+  Profile: "Hồ sơ",
+  "Name and email come from your organization sign-in.":
+    "Tên và email lấy từ tài khoản đăng nhập của tổ chức.",
+  "Full Name": "Tên",
+  "Work Role": "Vai trò công việc",
+  "Share your role to better tailor responses.":
+    "Cho trợ lý biết vai trò của bạn để trả lời sát công việc hơn.",
+  "Your role": "Ví dụ: Kế toán trưởng",
+  Saved: "Đã lưu",
   Usage: "Mức dùng",
   "This month ({{from}} – {{to}}). Costs are estimated from recorded model usage.":
     "Tháng này ({{from}} – {{to}}). Chi phí được ước tính từ mức dùng model đã ghi nhận.",
