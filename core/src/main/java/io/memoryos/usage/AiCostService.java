@@ -67,6 +67,21 @@ public class AiCostService {
                 queries.breakdown(scope, AiCostQueries.Dimension.PROVIDER, MAX_ROWS));
     }
 
+    /**
+     * The caller's own costs, as Onyx Settings › Usage ({@code GET /user/usage}): any Chat reader, and only their own
+     * rows whatever the range names.
+     */
+    @Transactional(readOnly = true)
+    public Detail mine(ActorId reader, LocalDate from, LocalDate to) {
+        var tenant = authorization.require(reader, IamCapability.CHAT_READ, false).tenantId().value();
+        var range = new Range(from, to, reader.value(), false, null, null);
+        var scope = new AiCostQueries.Scope(tenant, range.from(), range.to(), reader.value(), null, null, false);
+        return new Detail(queries.totals(scope), queries.daily(scope, AiCostQueries.Split.NONE),
+                queries.breakdown(scope, AiCostQueries.Dimension.MODEL, MAX_ROWS),
+                queries.breakdown(scope, AiCostQueries.Dimension.FLOW, MAX_ROWS),
+                queries.breakdown(scope, AiCostQueries.Dimension.PROVIDER, MAX_ROWS));
+    }
+
     private AiCostQueries.Scope scope(ActorId reader, Range range) {
         var tenant = authorization.require(reader, IamCapability.MODELS_MANAGE, false).tenantId().value();
         return new AiCostQueries.Scope(tenant, range.from(), range.to(), range.actor(), range.model(), range.flow(), range.system());

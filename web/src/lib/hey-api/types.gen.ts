@@ -571,6 +571,24 @@ export type ProjectView = {
     fileIds?: Array<string>;
 };
 
+export type ChatPreferencesInput = {
+    workRole: string;
+    personalPreferences: string;
+    defaultModelId?: string | null;
+    startPage: 'CHAT' | 'SEARCH';
+    autoScroll: boolean;
+};
+
+export type ChatPreferences = {
+    workRole: string;
+    personalPreferences: string;
+    defaultModelId: string | null;
+    startPage: 'CHAT' | 'SEARCH';
+    autoScroll: boolean;
+    displayName: string | null;
+    email: string | null;
+};
+
 export type PersonaInput = {
     name?: string;
     description?: string;
@@ -4572,6 +4590,86 @@ export type UpdateChatProjectResponses = {
 
 export type UpdateChatProjectResponse = UpdateChatProjectResponses[keyof UpdateChatProjectResponses];
 
+export type GetChatPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/preferences';
+};
+
+export type GetChatPreferencesErrors = {
+    /**
+     * Invalid preferences
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type GetChatPreferencesError = GetChatPreferencesErrors[keyof GetChatPreferencesErrors];
+
+export type GetChatPreferencesResponses = {
+    /**
+     * The current member's Chat preferences
+     */
+    200: ChatPreferences;
+};
+
+export type GetChatPreferencesResponse = GetChatPreferencesResponses[keyof GetChatPreferencesResponses];
+
+export type SaveChatPreferencesData = {
+    body: ChatPreferencesInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/preferences';
+};
+
+export type SaveChatPreferencesErrors = {
+    /**
+     * Invalid preferences
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Membership unavailable
+     */
+    404: ApiProblem;
+};
+
+export type SaveChatPreferencesError = SaveChatPreferencesErrors[keyof SaveChatPreferencesErrors];
+
+export type SaveChatPreferencesResponses = {
+    /**
+     * Saved Chat preferences
+     */
+    200: ChatPreferences;
+};
+
+export type SaveChatPreferencesResponse = SaveChatPreferencesResponses[keyof SaveChatPreferencesResponses];
+
 export type DeleteChatPersonaData = {
     body?: never;
     headers: {
@@ -7772,6 +7870,49 @@ export type TestChatVoiceConnectionResponses = {
 };
 
 export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[keyof TestChatVoiceConnectionResponses];
+
+export type DeleteAllChatSessionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/sessions';
+};
+
+export type DeleteAllChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type DeleteAllChatSessionsError = DeleteAllChatSessionsErrors[keyof DeleteAllChatSessionsErrors];
+
+export type DeleteAllChatSessionsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteAllChatSessionsResponse = DeleteAllChatSessionsResponses[keyof DeleteAllChatSessionsResponses];
 
 export type ListChatSessionsData = {
     body?: never;
@@ -12210,6 +12351,42 @@ export type GetAiCostSummaryResponses = {
 };
 
 export type GetAiCostSummaryResponse = GetAiCostSummaryResponses[keyof GetAiCostSummaryResponses];
+
+export type GetMyAiCostsData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/ai-costs/mine';
+};
+
+export type GetMyAiCostsErrors = {
+    /**
+     * Invalid period or filter
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetMyAiCostsError = GetMyAiCostsErrors[keyof GetMyAiCostsErrors];
+
+export type GetMyAiCostsResponses = {
+    /**
+     * Successful result
+     */
+    200: AiCostDetail;
+};
+
+export type GetMyAiCostsResponse = GetMyAiCostsResponses[keyof GetMyAiCostsResponses];
 
 export type GetAiCostDetailData = {
     body?: never;

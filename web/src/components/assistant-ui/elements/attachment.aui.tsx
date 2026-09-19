@@ -38,7 +38,7 @@ function DialogContent({
   const { t } = useTranslation("attachments");
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         {...props}
         aria-describedby={undefined}

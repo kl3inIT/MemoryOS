@@ -95,6 +95,17 @@ export function rowLabel(dimension: Dimension, row: AiCostRow): AppCopy | string
 
 export const boundarySeries = ["EXTERNAL", "INTERNAL", "NONE"] as const;
 
+/**
+ * Series colour by meaning, never by position: a boundary keeps its hue whatever else is shown, and "Other" and
+ * spend outside the model catalog stay neutral on purpose. Models take the categorical slots in rank order.
+ */
+export function seriesColor(key: string, index: number) {
+  if (key === "EXTERNAL") return "var(--chart-1)";
+  if (key === "INTERNAL") return "var(--chart-3)";
+  if (key === "NONE" || key === "OTHER") return "var(--chart-neutral)";
+  return `var(--chart-${Math.min(index, 7) + 1})`;
+}
+
 /** One chart row per UTC day with a numeric column per series; models beyond the top five join "other". */
 export function chartRows(days: AiCostDay[], split: "BOUNDARY" | "MODEL", range: Period) {
   const totals = new Map<string, number>();

@@ -226,7 +226,7 @@ export function DocumentPdfView({
               >
                 {/* The canvas is always a white sheet, so the highlighter multiplies onto it in both themes. */}
                 <div
-                  className="relative isolate bg-white shadow-md ring-1 ring-black/5"
+                  className="relative isolate bg-surface-document shadow-md ring-1 ring-border-subtle"
                   style={{
                     width: renderedWidth,
                     height: pageHeight(view, renderedWidth, fallbackView),

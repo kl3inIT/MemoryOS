@@ -157,6 +157,11 @@ public class ModelCatalogRepository {
         var entity = defaults.findById(tenant).orElseThrow(ChatException::unavailable);
         return new Default(entity.modelId(), entity.revision());
     }
+    /** The member's personal default model (MEM-145), or null. */
+    public @Nullable UUID personalDefault(UUID tenant, UUID actor) {
+        return jdbc.sql("SELECT default_model_configuration_id FROM chat_preferences WHERE tenant_id=:tenant AND actor_id=:actor")
+                .param("tenant", tenant).param("actor", actor).query(UUID.class).optional().orElse(null);
+    }
     public void setDefault(UUID tenant, UUID model, long revision) {
         var entity = defaults.findById(tenant).orElseThrow(ChatException::unavailable);
         if (entity.revision() != revision) throw ChatException.conflict();

@@ -499,7 +499,7 @@ test("manages prompt shortcuts inline and inserts them from /", async ({ page })
     return route.fulfill({ json: shortcuts });
   });
 
-  await page.goto("/settings/general");
+  await page.goto("/settings/chat");
   await expect(page.getByRole("heading", { name: "Lệnh tắt", exact: true })).toBeVisible({
     timeout: 15000,
   });

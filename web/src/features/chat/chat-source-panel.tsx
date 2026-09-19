@@ -304,7 +304,7 @@ export function ChatSourcePanel({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/25" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim" />
         <Dialog.Content
           id={id}
           aria-describedby={undefined}

@@ -23,6 +23,7 @@ import {
 } from "./chat-sources";
 import { remarkCitations, remarkSandboxLinks } from "./chat-evidence";
 import { cn } from "@/lib/utils";
+import { useChatPreferences } from "@/features/identity/chat-preferences";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -104,14 +105,17 @@ export function ChatThread({
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
   const dictating = useAuiState((state) => state.composer.dictation != null);
   const reading = useAutoPlayback().phase !== "idle";
+  // Onyx "Chat Auto-scroll": follow the answer while it is written unless the member turned it off.
+  const autoScroll = useChatPreferences().data?.autoScroll ?? true;
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
-        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-amber-400/10"
+        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40"
         style={{ ["--thread-max-width" as string]: "48rem" }}
       >
         <ThreadPrimitive.Viewport
           data-testid="chat-viewport"
+          autoScroll={autoScroll}
           className={cn(
             "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
             isEmpty && !welcome && "justify-center",

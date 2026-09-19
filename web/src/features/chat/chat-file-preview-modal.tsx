@@ -178,7 +178,7 @@ export function ChatFilePreviewModal({
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-content-primary/40 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-surface-scrim backdrop-blur-[2px]" />
         <Dialog.Content
           data-slot="file-preview-modal"
           aria-describedby={undefined}
@@ -640,7 +640,7 @@ function DocxPreview({
         ref={body}
         data-slot="docx-preview"
         // Pages keep their layout as in Onyx; narrow screens scroll sideways instead of reflowing.
-        className="overflow-auto px-4 py-6 text-black [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-white [&_section.docx]:shadow-md"
+        className="overflow-auto px-4 py-6 text-content-document [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-surface-document [&_section.docx]:shadow-md"
       />
     </>
   );

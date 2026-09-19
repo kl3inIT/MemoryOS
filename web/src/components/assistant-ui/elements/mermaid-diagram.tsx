@@ -1,5 +1,6 @@
 // Adapted from assistant-ui elements-mermaid-diagram (MIT), 2026-09-12.
 // SVG is an inert image, not model-controlled live DOM; Dialog owns modal behavior.
+import { cssToken } from "@/lib/css-token";
 import { renderMermaidSVG } from "beautiful-mermaid";
 import { useContext, useMemo, useState } from "react";
 import { Dialog } from "radix-ui";
@@ -16,8 +17,9 @@ export default function MermaidDiagram({ code }: { code: string }) {
     if (code.length > 20_000 || code.split(/\r?\n/).length > 250) return undefined;
     try {
       const svg = renderMermaidSVG(code, {
-        bg: theme === "dark" ? "#18181b" : "#fafafa",
-        fg: theme === "dark" ? "#f4f4f5" : "#18181b",
+        // Resolved per render from the theme's tokens; the generated SVG needs literal colours.
+        bg: cssToken("--surface-base", theme === "dark" ? "#19191e" : "#ffffff"),
+        fg: cssToken("--content-primary", theme === "dark" ? "#f2f2f2" : "#000000"),
         transparent: true,
       });
       return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -50,7 +52,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
         </Dialog.Trigger>
       </div>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/25" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim" />
         <Dialog.Content
           aria-describedby={undefined}
           className="fixed inset-4 z-50 flex min-h-0 flex-col rounded-xl border bg-surface-overlay shadow-lg outline-none"

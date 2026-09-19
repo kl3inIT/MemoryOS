@@ -220,6 +220,33 @@ public final class ChatPrompts {
         return resolve(base, searchEnabled, now, datetimeAware);
     }
 
+    /**
+     * Onyx {@code # User Information} ({@code prompts/user_info.py}): the login name and email with the member's
+     * role, then their preferences, appended to the Chat system prompt of every Persona. Nothing is added when the
+     * member has neither a profile nor preferences.
+     */
+    public static String withUserInformation(String instructions, @Nullable String name, @Nullable String email,
+                                             String role, String preferences) {
+        var sections = new StringBuilder();
+        boolean basic = present(name) || present(email) || present(role);
+        if (basic) {
+            sections.append("## Basic Information\n")
+                    .append("User name: ").append(present(name) ? name.strip() : "").append('\n')
+                    .append("User email: ").append(present(email) ? email.strip() : "");
+            if (present(role)) sections.append("\nUser role: ").append(role.strip());
+            sections.append('\n');
+        }
+        if (present(preferences)) {
+            if (basic) sections.append('\n');
+            sections.append("## User Preferences\n").append(preferences.strip()).append('\n');
+        }
+        return sections.isEmpty() ? instructions : instructions + "\n\n# User Information\n\n" + sections;
+    }
+
+    private static boolean present(@Nullable String value) {
+        return value != null && !value.isBlank();
+    }
+
     /** Per-inference reminders stay in the model request, not in the saved user transcript. */
     public static Prompt forInference(Prompt original, boolean hasEvidence, boolean lastCycle) {
         return forInference(original, hasEvidence, lastCycle, true);

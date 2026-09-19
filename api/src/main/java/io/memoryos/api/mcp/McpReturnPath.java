@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 final class McpReturnPath {
     static final String DEFAULT = "/";
     private static final int MAX_LENGTH = 512;
-    private static final Pattern ALLOWED = Pattern.compile("^/(chat/[A-Za-z0-9_-]{1,64}|projects/[A-Za-z0-9_-]{1,64}|admin/mcp)?$");
+    private static final Pattern ALLOWED = Pattern.compile("^/(chat/[A-Za-z0-9_-]{1,64}|projects/[A-Za-z0-9_-]{1,64}|admin/mcp|settings/connections)?$");
 
     private McpReturnPath() {}
 

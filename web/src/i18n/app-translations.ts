@@ -3121,6 +3121,79 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  Connections: "Kết nối",
+  "Tools the assistant uses on your behalf. Each connection uses your own account.":
+    "Công cụ bên ngoài trợ lý được dùng thay bạn. Mỗi kết nối dùng tài khoản của riêng bạn.",
+  "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
+  "Disconnect {{name}}": "Ngắt kết nối {{name}}",
+  "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
+    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các cuộc trò chuyện cũ vẫn giữ nguyên.",
+  "Disconnecting…": "Đang ngắt kết nối…",
+  "Danger Zone": "Khu vực nguy hiểm",
+  "Delete All Chats": "Xoá mọi cuộc chat",
+  "Permanently delete all your chat sessions.": "Xoá vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
+  "Delete all chats?": "Xoá mọi cuộc chat?",
+  "All your chat sessions and history will be permanently deleted. Deletion cannot be undone.":
+    "Toàn bộ cuộc trò chuyện và lịch sử của bạn sẽ bị xoá vĩnh viễn. Không thể hoàn tác.",
+  "Deleting…": "Đang xoá…",
+  "New conversations": "Cuộc trò chuyện mới",
+  "Default Model": "Model mặc định",
+  "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
+    "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
+  "Organization default": "Theo mặc định của tổ chức",
+  "Default App Mode": "Trang mở đầu",
+  "Choose whether new sessions start in Search or Chat mode.":
+    "Chọn phiên mới bắt đầu ở Trò chuyện hay Tìm kiếm.",
+  "Personal Preferences": "Sở thích cá nhân",
+  "Describe how you want the system to behave and the tone it should use.":
+    "Mô tả cách bạn muốn trợ lý trả lời và giọng văn nên dùng.",
+  "For example: answer briefly in bullet points and always name the source document.":
+    "Ví dụ: trả lời ngắn gọn bằng gạch đầu dòng và luôn nêu tài liệu nguồn.",
+  "{{count}}/{{limit}}": "{{count}}/{{limit}}",
+  "While chatting": "Khi chat",
+  "Chat Auto-scroll": "Tự cuộn khi đang trả lời",
+  "Automatically scroll to new content as chat generates response.":
+    "Tự cuộn tới nội dung mới trong lúc trợ lý đang viết.",
+  "Couldn't save. Try again.": "Chưa lưu được. Hãy thử lại.",
+  Profile: "Hồ sơ",
+  "Name and email come from your organization sign-in.":
+    "Tên và email lấy từ tài khoản đăng nhập của tổ chức.",
+  "Full Name": "Tên",
+  "Work Role": "Vai trò công việc",
+  "Share your role to better tailor responses.":
+    "Cho trợ lý biết vai trò của bạn để trả lời sát công việc hơn.",
+  "Your role": "Ví dụ: Kế toán trưởng",
+  Saved: "Đã lưu",
+  Usage: "Mức dùng",
+  "This month ({{from}} – {{to}}). Costs are estimated from recorded model usage.":
+    "Tháng này ({{from}} – {{to}}). Chi phí được ước tính từ mức dùng model đã ghi nhận.",
+  "Couldn't load usage": "Không tải được mức dùng",
+  Budget: "Hạn mức",
+  "No budget set": "Chưa đặt hạn mức",
+  "Your administrator has not set a spending limit for you.":
+    "Quản trị viên chưa đặt hạn mức chi tiêu cho bạn.",
+  "Usage this period": "Đã dùng kỳ này",
+  "{{amount}} spent": "{{amount}} đã dùng",
+  "{{calls}} requests · {{tokens}} tokens": "{{calls}} lượt gọi · {{tokens}} token",
+  "No usage recorded yet": "Chưa ghi nhận mức dùng nào",
+  "Your model usage and costs will show up here once you start chatting.":
+    "Mức dùng và chi phí model sẽ hiện ở đây khi bạn bắt đầu chat.",
+  "Costs are estimates from the tokens the model reports and the prices your administrator set, not a provider invoice.":
+    "Chi phí là ước tính từ số token model báo về và giá do quản trị viên đặt, không phải hoá đơn của nhà cung cấp.",
+  "USD per 1M tokens (input · output · cache) for every available model":
+    "USD cho mỗi 1 triệu token (input · output · cache) của các model bạn được dùng",
+  Input: "Input",
+  "Cache-read": "Cache-read",
+  "Settings navigation": "Điều hướng cài đặt",
+  "Settings sidebar": "Thanh bên cài đặt",
+  Settings: "Cài đặt",
+  General: "Chung",
+  "Color Mode": "Giao diện",
+  "Select your preferred color mode for the UI.": "Chọn giao diện sáng, tối hoặc theo thiết bị.",
+  Auto: "Theo hệ thống",
+  Light: "Sáng",
+  Dark: "Tối",
+  "Preferences for your conversations.": "Tuỳ chọn cho các cuộc trò chuyện của bạn.",
   "Test connection": "Kiểm tra kết nối",
   "Test connection {{name}}": "Kiểm tra kết nối {{name}}",
   "Connection succeeded · {{latency}} ms": "Kết nối thành công · {{latency}} ms",

@@ -274,10 +274,7 @@ function GroupDetail({
 
       {systemGroup ? (
         <div className="groups-list-info mt-6 flex items-start gap-3 px-3 py-3">
-          <Info
-            className="mt-0.5 size-4 shrink-0 text-[var(--groups-info-icon)]"
-            aria-hidden="true"
-          />
+          <Info className="mt-0.5 size-4 shrink-0 text-status-info-strong" aria-hidden="true" />
           <div>
             <p className="text-sm font-semibold leading-5 text-content-primary">
               {ui("System group")}

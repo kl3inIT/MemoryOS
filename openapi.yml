@@ -2895,6 +2895,92 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/preferences:
+    get:
+      tags:
+      - Chat Preferences
+      summary: Read the current member's Chat preferences and login profile
+      operationId: getChatPreferences
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The current member's Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Preferences
+      summary: Replace the current member's Chat preferences
+      operationId: saveChatPreferences
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatPreferencesInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/personas/{personaId}:
     get:
       tags:
@@ -7097,6 +7183,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: "Delete every owned conversation as deleting each one would, stopping\
+        \ active replies (Onyx Delete All Chats)"
+      operationId: deleteAllChatSessions
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12705,6 +12832,50 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/mine:
+    get:
+      tags:
+      - AI costs
+      summary: "The caller's own AI costs by day, model, task and provider; any Chat\
+        \ reader"
+      operationId: getMyAiCosts
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCostDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/detail:
     get:
       tags:
@@ -14682,6 +14853,67 @@ components:
           items:
             type: string
             format: uuid
+    ChatPreferencesInput:
+      type: object
+      properties:
+        workRole:
+          type: string
+          maxLength: 200
+        personalPreferences:
+          type: string
+          maxLength: 2000
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        startPage:
+          type: string
+          enum:
+          - CHAT
+          - SEARCH
+        autoScroll:
+          type: boolean
+      required:
+      - autoScroll
+      - personalPreferences
+      - startPage
+      - workRole
+    ChatPreferences:
+      type: object
+      properties:
+        workRole:
+          type: string
+        personalPreferences:
+          type: string
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        startPage:
+          type: string
+          enum:
+          - CHAT
+          - SEARCH
+        autoScroll:
+          type: boolean
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+      required:
+      - autoScroll
+      - defaultModelId
+      - displayName
+      - email
+      - personalPreferences
+      - startPage
+      - workRole
     PersonaInput:
       type: object
       properties:

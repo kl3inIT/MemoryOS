@@ -47,6 +47,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [Chat internal-document grounding](docs/increments/active/chat-internal-document-grounding/design.md) owns mandatory knowledge-search guidance when a user explicitly asks Chat to answer from existing, connected or named internal documents; deterministic provider-level tool forcing remains excluded.
 - [MEM-91 — Chat voice](docs/increments/active/mem-91-chat-voice/design.md) owns Onyx Voice parity: Tenant voice providers and `/admin/voice`, streaming dictation in Chat and Search, read-aloud, auto-send/auto-playback/auto-listen and user voice settings; audio is never stored.
 - [MEM-112 — Chat MCP client](docs/increments/active/mem-112-chat-mcp-client/design.md) ports the Onyx MCP client to Chat without reducing its behavior (transports, authentication types, discovery/DCR, admin tool enablement), adds several OAuth clients per server, and is accepted against Google Drive MCP; MemoryOS as an MCP server and write-tool approval are excluded.
+- [MEM-145 — Personal settings](docs/increments/active/mem-145-personal-settings/design.md) owns the General/Chat/Connections/Usage settings tabs, the per-member Chat preferences (default model, role and preferences in the prompt, start page, auto-scroll) and the member's own usage view; budgets (MEM-123), Memory (MEM-116) and LLM Gateway (MEM-146) are excluded.
 - [Sign-out without the Keycloak logout page](docs/increments/active/logout-without-keycloak-page/design.md) owns ending the Keycloak session by its `sid` through the admin API during application sign-out, with the provider logout page as fallback, and upstream (Tasco) logout through Keycloak back-channel logout on managed identity providers.
 - [MEM-113 — Image model catalog and administration](docs/increments/active/mem-113-image-model-catalog/design.md) owns the backend-declared image model catalog, the `/admin/image-generation` page and the `generate_image` `size`→`shape` change; image editing behavior (MEM-109) is excluded.
 - [Source manager owns Group attachment](docs/increments/active/source-manager-group-authority/design.md) owns the recorded Source manager, the Group-scoped detach command, administrator appointment and the unattached-Source warnings.
@@ -70,6 +71,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [MEM-84 architecture audit](https://linear.app/memory-os/issue/MEM-84)
 - [Conventions](docs/conventions.md)
 - [Observability conventions](docs/guidelines/observability.md)
+- [Colour and design tokens](docs/guidelines/design-tokens.md)
 - [MCP server runbook](docs/runbooks/mcp-servers.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)

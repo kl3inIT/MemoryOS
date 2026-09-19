@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
-import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "./application-session-context";
@@ -13,7 +12,9 @@ import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
-import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
+import { AppearanceSection } from "./appearance-section";
+import { ProfileSection } from "./profile-section";
+import { DangerZoneSection } from "./danger-zone-section";
 
 const identityKey = getCurrentIdentityQueryKey();
 
@@ -85,6 +86,8 @@ export function GeneralSettingsPage() {
         title={t("common:general")}
         description={t("settings:description")}
       />
+      <ProfileSection />
+      <AppearanceSection />
       <div className="flex max-w-2xl flex-col gap-3">
         <label htmlFor="ui-language" className="font-main-ui-body text-content-primary">
           {t("settings:language")}
@@ -134,8 +137,7 @@ export function GeneralSettingsPage() {
           </Button>
         ) : null}
       </div>
-      <VoiceSettingsSection />
-      <PersonalPromptShortcuts />
+      <DangerZoneSection />
     </SettingsLayout>
   );
 }

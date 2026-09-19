@@ -1,28 +1,14 @@
-/* Groups-only palette built from the shared semantic tokens; other application screens are unchanged. */
+/* Groups layout built only from the shared semantic tokens; the theme supplies every colour. */
 .groups-list-page {
   --groups-page-surface: var(--surface-subtle);
-  --groups-card-surface: var(--surface-base);
+  --groups-card-surface: var(--surface-raised);
   --groups-card-border: var(--border-default);
-  --groups-info-surface: #edf4ff;
-  --groups-info-border: #aac7ff;
-  --groups-info-icon: #286df8;
-  --groups-action-surface: var(--action-default-primary-surface);
-  --groups-action-content: var(--action-default-primary-content);
   background-color: var(--groups-page-surface);
 }
 
 .dark .groups-list-page {
-  --groups-page-surface: #19191e;
-  --groups-card-surface: #000000;
-  --groups-card-border: #333333;
-  --groups-info-surface: #040e25;
-  --groups-info-border: #173268;
-  --groups-action-surface: #e6e6e9;
-  --groups-action-content: #000000;
-  --content-primary: rgb(255 255 255 / 95%);
-  --content-secondary: rgb(255 255 255 / 85%);
-  --content-muted: rgb(255 255 255 / 60%);
-  --border-subtle: #333333;
+  --groups-page-surface: var(--surface-base);
+  --groups-card-border: var(--border-subtle);
 }
 
 .groups-list-card {
@@ -34,25 +20,24 @@
 }
 
 .groups-list-info {
-  border: 1px solid var(--groups-info-border);
+  border: 1px solid var(--status-info-border);
   border-radius: 16px;
-  background-color: var(--groups-info-surface);
+  background-color: var(--status-info-faint);
 }
 
 .groups-list-action {
   height: 36px;
   border-color: transparent;
   border-radius: 12px;
-  background-color: var(--groups-action-surface);
-  color: var(--groups-action-content);
+  background-color: var(--action-default-primary-surface);
+  color: var(--action-default-primary-content);
   font-weight: 500;
 }
 
 .groups-list-action:hover {
   border-color: transparent;
-  background-color: var(--groups-action-surface);
-  color: var(--groups-action-content);
-  filter: brightness(0.95);
+  background-color: var(--action-default-primary-surface-hover);
+  color: var(--action-default-primary-content);
 }
 
 .groups-default-tag {
@@ -65,5 +50,5 @@
 }
 
 .dark .groups-default-tag {
-  background-color: #262626;
+  background-color: var(--surface-subtle);
 }

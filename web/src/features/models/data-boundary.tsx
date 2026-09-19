@@ -11,13 +11,20 @@ export type DataBoundary = ManagedProvider["dataBoundary"];
 /** Where a provider sits relative to the organization's data, as its administrator stated it. */
 export function DataBoundaryTag({ boundary }: { boundary: DataBoundary }) {
   const ui = useAppTranslation();
+  // Where data goes is state, so it takes the status roles, always with its icon and label.
   return boundary === "INTERNAL" ? (
-    <Badge variant="secondary">
+    <Badge
+      variant="outline"
+      className="border-status-success-border bg-status-success-faint text-status-success-content"
+    >
       <ShieldCheck aria-hidden="true" />
       {ui("Internal")}
     </Badge>
   ) : (
-    <Badge variant="outline">
+    <Badge
+      variant="outline"
+      className="border-status-info-border bg-status-info-faint text-status-info-content"
+    >
       <Globe aria-hidden="true" />
       {ui("External")}
     </Badge>

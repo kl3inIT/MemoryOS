@@ -5,17 +5,20 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  ChartColumn,
   Globe,
   ImageIcon,
   KeyRound,
   Menu,
+  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
-  Settings2,
+  Settings,
   Sparkles,
   SquareTerminal,
   User,
+  UserRound,
   Users,
   X,
   ReceiptText,
@@ -32,7 +35,9 @@ import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "@/features/chat/chat-history-search";
 import { ChatNavigation } from "@/features/chat/chat-navigation";
 
-export type AppShellArea = "app" | "admin";
+export type AppShellArea = "app" | "admin" | "settings";
+/** Personal settings tabs, as Onyx Settings (MEM-145). */
+export type SettingsPage = "general" | "chat" | "connections" | "usage";
 export type AdminPage =
   | "sources"
   | "users"
@@ -50,6 +55,7 @@ export type AdminPage =
 type AppShellProps = {
   area?: AppShellArea;
   adminPage?: AdminPage;
+  settingsPage?: SettingsPage;
   sourceSetup?: SourceSetupProgress;
   pageTitle: string;
   headerActions?: ReactNode;
@@ -59,6 +65,7 @@ type AppShellProps = {
 type SidebarContentsProps = {
   area: AppShellArea;
   adminPage?: AdminPage;
+  settingsPage?: SettingsPage;
   sourceSetup?: SourceSetupProgress;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
@@ -122,6 +129,7 @@ function SourceSetupSidebarSteps({ steps, current }: SourceSetupProgress) {
 function SidebarContents({
   area,
   adminPage = "sources",
+  settingsPage = "general",
   sourceSetup,
   collapsed = false,
   onCollapseToggle,
@@ -207,7 +215,9 @@ function SidebarContents({
             ? ui("Connector setup")
             : appArea
               ? ui("Primary navigation")
-              : ui("Administration navigation")
+              : area === "settings"
+                ? ui("Settings navigation")
+                : ui("Administration navigation")
         }
         className={cn("min-h-0 flex-1 overflow-y-auto px-2", sourceSetup === undefined && "pt-4")}
       >
@@ -215,6 +225,45 @@ function SidebarContents({
           <SourceSetupSidebarSteps {...sourceSetup} />
         ) : appArea ? (
           <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
+        ) : area === "settings" ? (
+          <SidebarSection title={ui("Settings")} collapsed={collapsed}>
+            <SidebarTab
+              to="/settings/general"
+              icon={<UserRound className="size-4" />}
+              selected={settingsPage === "general"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("General")}
+            </SidebarTab>
+            <SidebarTab
+              to="/settings/chat"
+              icon={<MessageSquare className="size-4" />}
+              selected={settingsPage === "chat"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Chat")}
+            </SidebarTab>
+            <SidebarTab
+              to="/settings/connections"
+              icon={<Blocks className="size-4" />}
+              selected={settingsPage === "connections"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Connections")}
+            </SidebarTab>
+            <SidebarTab
+              to="/settings/usage"
+              icon={<ChartColumn className="size-4" />}
+              selected={settingsPage === "usage"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Usage")}
+            </SidebarTab>
+          </SidebarSection>
         ) : (
           <div className="space-y-5">
             {canManageModels ? (
@@ -385,7 +434,7 @@ function SidebarContents({
           <div className="mb-1">
             <SidebarTab
               to={adminEntryPath}
-              icon={<Settings2 className="size-4" />}
+              icon={<Settings className="size-4" />}
               collapsed={collapsed}
               variant="light"
               onClick={onNavigate}
@@ -403,6 +452,7 @@ function SidebarContents({
 export function AppShell({
   area = "app",
   adminPage = "sources",
+  settingsPage,
   sourceSetup,
   pageTitle,
   headerActions,
@@ -429,7 +479,9 @@ export function AppShell({
             ? ui("Connector setup sidebar")
             : area === "app"
               ? ui("Application sidebar")
-              : ui("Administration sidebar")
+              : area === "settings"
+                ? ui("Settings sidebar")
+                : ui("Administration sidebar")
         }
         className={cn(
           "relative hidden h-dvh shrink-0 overflow-hidden bg-surface-canvas transition-[width] duration-200 motion-reduce:transition-none md:block",
@@ -439,6 +491,7 @@ export function AppShell({
         <SidebarContents
           area={area}
           adminPage={adminPage}
+          settingsPage={settingsPage}
           sourceSetup={sourceSetup}
           collapsed={sidebarCollapsed}
           onCollapseToggle={() => setCollapsed((current) => !current)}
@@ -483,6 +536,7 @@ export function AppShell({
               <SidebarContents
                 area={area}
                 adminPage={adminPage}
+                settingsPage={settingsPage}
                 sourceSetup={sourceSetup}
                 mobile
                 onNavigate={() => setMobileNavigationOpen(false)}

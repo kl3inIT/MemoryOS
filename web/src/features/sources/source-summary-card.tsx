@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { statLabelClass, statValueClass } from "@/components/composites/stat-strip";
 import type { ReactNode } from "react";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { uiLocale } from "@/i18n/format";
@@ -65,8 +66,8 @@ export function SourceSummaryCard({
           )}
         >
           <div>
-            <dt className="text-content-muted">{ui("Documents indexed")}</dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums text-content-primary">
+            <dt className={statLabelClass}>{ui("Documents indexed")}</dt>
+            <dd className={cn("mt-1", statValueClass)}>
               {source.documentCount.toLocaleString(uiLocale())}
             </dd>
           </div>

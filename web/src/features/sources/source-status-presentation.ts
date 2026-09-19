@@ -26,7 +26,7 @@ const pillTones: Record<StatusTone, string> = {
  * theme's status surfaces are near-black, so pills use the emphasis fills instead.
  */
 export function statusPill(tone: StatusTone) {
-  return `gap-1.5 rounded-full border font-medium text-white ${pillTones[tone]}`;
+  return `gap-1.5 rounded-full border font-medium text-content-on-emphasis ${pillTones[tone]}`;
 }
 
 type SourceStatusPresentation = {

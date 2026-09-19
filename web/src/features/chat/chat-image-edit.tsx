@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
+import { cssToken } from "@/lib/css-token";
 import { Dialog } from "radix-ui";
 import { EraserIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,8 +15,9 @@ import {
   type MaskStroke,
 } from "./chat-image-mask";
 
-// Strokes are painted opaque and the canvas is shown translucent, so overlaps stay even.
-const PAINT = "#3b82f6";
+// Strokes are painted opaque and the canvas is shown translucent, so overlaps stay even. The mask colour is the
+// selection accent, read from the theme because a canvas needs a literal colour.
+const paint = () => cssToken("--action-selection", "#286df8");
 
 /**
  * Paint the area to change (optional) and describe the edit. The instruction and a mask named after
@@ -58,7 +60,7 @@ export function ChatImageEditDialog({
     const context = canvas.current?.getContext("2d");
     if (!context || !natural) return;
     context.clearRect(0, 0, natural.width, natural.height);
-    drawStrokes(context, strokes, PAINT);
+    drawStrokes(context, strokes, paint());
   }, [strokes, natural]);
 
   function point(event: PointerEvent<HTMLCanvasElement>, size: { width: number; height: number }) {
@@ -136,7 +138,7 @@ export function ChatImageEditDialog({
                   };
                   drawing.current = stroke;
                   const context = canvas.current?.getContext("2d");
-                  if (context) drawStrokes(context, [stroke], PAINT);
+                  if (context) drawStrokes(context, [stroke], paint());
                 }}
                 onPointerMove={(event) => {
                   const stroke = drawing.current;
@@ -146,7 +148,7 @@ export function ChatImageEditDialog({
                   stroke.points.push(next);
                   const context = canvas.current?.getContext("2d");
                   if (context)
-                    drawStrokes(context, [{ size: stroke.size, points: [last, next] }], PAINT);
+                    drawStrokes(context, [{ size: stroke.size, points: [last, next] }], paint());
                 }}
                 onPointerUp={finishStroke}
                 onPointerCancel={finishStroke}
@@ -167,7 +169,7 @@ export function ChatImageEditDialog({
                 value={brush}
                 disabled={pending}
                 onChange={(event) => setBrush(Number(event.target.value))}
-                className="w-32 accent-blue-500"
+                className="w-32 accent-action-selection"
               />
             </div>
             <Button

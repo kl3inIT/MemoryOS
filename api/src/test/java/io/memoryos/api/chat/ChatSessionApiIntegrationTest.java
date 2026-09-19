@@ -814,6 +814,19 @@ class ChatSessionApiIntegrationTest {
                 """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+        // Settings › Usage (MEM-145): any Chat reader sees only their own rows, never another member's.
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5-mini', 'EXTERNAL', 7, 100, 10, 0.01, 0)
+                """).param("tenant", TENANT).param("actor", other.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(3))
+                .andExpect(jsonPath("$.models.length()").value(1)).andExpect(jsonPath("$.models[0].label").value("gpt-5.1"));
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(7));
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND actor_id=:actor").param("tenant", TENANT)
+                .param("actor", other.getPrincipal().actorId().value()).update();
         grantModelManagement();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.calls").value(3)).andExpect(jsonPath("$.unknownCostCalls").value(1))
@@ -1883,6 +1896,70 @@ class ChatSessionApiIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON).content(renamed.toString()))
                     .andExpect(status().isOk());
         } finally { server.stop(0); }
+    }
+
+    @Test
+    void personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable() throws Exception {
+        grantModelManagement();
+        var defaults = Json.mapper().readTree(mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals("CHAT", defaults.path("startPage").asText());
+        assertTrue(defaults.path("autoScroll").asBoolean());
+        assertTrue(defaults.path("defaultModelId").isNull());
+        var provider = createProvider("http://preferences.internal/v1", true);
+        String mine = createConfiguredModel(provider, "preferred-mini", 0.3).path("id").asText();
+        var body = Json.mapper().createObjectNode().put("workRole", "Kế toán trưởng")
+                .put("personalPreferences", "Trả lời ngắn gọn.").put("defaultModelId", UUID.randomUUID().toString())
+                .put("startPage", "SEARCH").put("autoScroll", false);
+        // A model the member cannot pick is refused; an over-long role is refused.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.deepCopy().put("defaultModelId", mine)
+                        .put("workRole", "x".repeat(201)).toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.put("defaultModelId", mine).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").value(mine))
+                .andExpect(jsonPath("$.startPage").value("SEARCH")).andExpect(jsonPath("$.autoScroll").value(false));
+        // The personal default is what a new conversation inherits.
+        var models = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(mine, models.valueStream().filter(model -> model.path("isDefault").asBoolean()).findFirst()
+                .orElseThrow().path("id").asText());
+        // Nobody else inherits it.
+        assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(other)))
+                .andReturn().getResponse().getContentAsString()).valueStream()
+                .anyMatch(model -> model.path("isDefault").asBoolean() && model.path("id").asText().equals(mine)));
+        // Hidden later: the member falls back to the Tenant default without an error.
+        jdbc.sql("UPDATE model_configuration SET visible = FALSE WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        var fallback = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(fallback.valueStream().filter(model -> model.path("isDefault").asBoolean())
+                .noneMatch(model -> model.path("id").asText().equals(mine)));
+        assertEquals(1, fallback.valueStream().filter(model -> model.path("isDefault").asBoolean()).count());
+        // Deleting the model clears the preference.
+        jdbc.sql("DELETE FROM model_configuration WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").doesNotExist())
+                .andExpect(jsonPath("$.workRole").value("Kế toán trưởng"));
+    }
+
+    @Test
+    void deleteAllChatsRemovesOnlyTheCallersConversations() throws Exception {
+        create();
+        create();
+        var theirs = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(other)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Theirs\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/" + theirs.path("id").asText()).with(authentication(other)))
+                .andExpect(status().isOk());
+        // Nothing left is still a success.
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
     }
 
     private String readyImage(byte[] bytes) throws Exception {

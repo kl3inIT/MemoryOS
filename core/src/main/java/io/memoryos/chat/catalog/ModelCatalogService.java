@@ -340,8 +340,9 @@ public class ModelCatalogService {
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         UUID personaDefault = catalog.personaModel(tenant, actor.value(), agentsManage(actor), personaId).modelConfigurationId();
+        UUID personal = personalDefault(tenant, actor, personaId, manager, groups);
         UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
-                ? personaDefault : defaultId;
+                ? personaDefault : personal != null ? personal : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
                 .filter(m -> providers.containsKey(m.providerId()))
                 .filter(m -> available(providers.get(m.providerId()), personaId, manager, groups))
@@ -359,10 +360,12 @@ public class ModelCatalogService {
         initialize(tenant);
         var context = chats.persona(sessionId, true, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID preferred = requested != null ? requested : context.modelConfigurationId();
-        if (preferred == null) preferred = defaultId;
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
+        UUID preferred = requested != null ? requested : context.modelConfigurationId();
+        // Persona model, then the member's personal default when still usable, then the Tenant default (MEM-145).
+        if (preferred == null) preferred = personalDefault(tenant, actor, session.personaId(), manager, groups);
+        if (preferred == null) preferred = defaultId;
         var selection = accessible(tenant, preferred, session.personaId(), manager, groups);
         String contextRevision = context.revision();
         if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
@@ -393,6 +396,14 @@ public class ModelCatalogService {
         var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
         validateModel(provider, model.modelName(), model.settings());
         return new Selection(model, provider, null);
+    }
+
+    /** The personal default only while it is visible and usable with this Persona; otherwise the caller falls back. */
+    private @Nullable UUID personalDefault(UUID tenant, ActorId actor, UUID personaId, boolean manager, Set<UUID> groups) {
+        UUID id = catalog.personalDefault(tenant, actor.value());
+        if (id == null) return null;
+        var selection = accessible(tenant, id, personaId, manager, groups);
+        return selection != null && selection.model().visible() ? id : null;
     }
 
     private @Nullable Selection accessible(UUID tenant, @Nullable UUID id, UUID personaId, boolean manager, Set<UUID> groups) {

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Link } from "@tanstack/react-router";
 import { ReceiptText } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { appText } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
@@ -52,6 +52,7 @@ import {
   type Dimension,
   type Period,
   type PeriodId,
+  seriesColor,
 } from "./ai-costs";
 
 const dimensions: Dimension[] = ["ACTOR", "GROUP", "MODEL", "FLOW", "PROVIDER"];
@@ -176,20 +177,14 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
   const external =
     value && value.cost > 0 ? Math.round((value.externalCost / value.cost) * 100) : 0;
   return (
-    <div
-      className={
-        compact
-          ? "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle"
-          : "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle lg:grid-cols-5"
-      }
-    >
-      <Tile label={ui("Est. spend")} value={value ? money(value.cost) : "—"}>
+    <StatStrip columns={compact ? 2 : 5}>
+      <StatTile label={ui("Est. spend")} value={value ? money(value.cost) : "—"}>
         {value && value.cost > 0
           ? ui(appText("{{percent}}% External", { percent: external }))
           : null}
-      </Tile>
-      <Tile label={ui("Requests")} value={value ? count(value.calls) : "—"} />
-      <Tile
+      </StatTile>
+      <StatTile label={ui("Requests")} value={value ? count(value.calls) : "—"} />
+      <StatTile
         label={ui("Total tokens")}
         value={value ? count(value.inputTokens + value.outputTokens) : "—"}
       >
@@ -202,12 +197,11 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
               }),
             )
           : null}
-      </Tile>
+      </StatTile>
       {!compact && (
-        <Tile label={ui("Active users")} value={value ? count(value.activePeople) : "—"} />
+        <StatTile label={ui("Active users")} value={value ? count(value.activePeople) : "—"} />
       )}
-      <Tile
-        wide={!compact}
+      <StatTile
         label={ui("Prices unavailable")}
         value={value ? count(value.unknownCostCalls) : "—"}
         tone={value && value.unknownCostCalls > 0 ? "warning" : undefined}
@@ -219,37 +213,8 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
         ) : (
           ui("All requests priced")
         )}
-      </Tile>
-    </div>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  tone,
-  wide,
-  children,
-}: {
-  label: string;
-  value: string;
-  tone?: "warning";
-  wide?: boolean;
-  children?: ReactNode;
-}) {
-  return (
-    <div className={cn("space-y-1 bg-surface-base px-4 py-3", wide && "col-span-2 lg:col-span-1")}>
-      <p className="font-secondary-body text-content-muted">{label}</p>
-      <p
-        className={cn(
-          "font-heading-h3 tabular-nums",
-          tone === "warning" && "text-status-warning-content",
-        )}
-      >
-        {value}
-      </p>
-      {children && <p className="font-secondary-body text-content-muted">{children}</p>}
-    </div>
+      </StatTile>
+    </StatStrip>
   );
 }
 
@@ -274,7 +239,7 @@ function DailyChart({
   const config: ChartConfig = Object.fromEntries(
     series.map((key, index) => [
       `s${index}`,
-      { label: names[key] ?? key, color: `var(--chart-${(index % 5) + 1})` },
+      { label: names[key] ?? key, color: seriesColor(key, index) },
     ]),
   );
   const data = rows.map((row) =>
@@ -415,7 +380,7 @@ function Breakdown({
                   <td className="hidden py-2 pl-3 sm:table-cell">
                     <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
                       <div
-                        className="h-2 rounded-full bg-content-primary/70"
+                        className="h-2 rounded-full bg-chart-1"
                         style={{ width: `${top > 0 ? Math.max(2, (row.cost / top) * 100) : 0}%` }}
                       />
                     </div>

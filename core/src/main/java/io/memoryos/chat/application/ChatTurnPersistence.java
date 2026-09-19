@@ -43,18 +43,24 @@ public class ChatTurnPersistence {
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
     private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
+    private final io.memoryos.chat.persistence.@Nullable JdbcChatPreferencesRepository preferences;
+    private final io.memoryos.iam.identity.@Nullable ActorProfileReader profiles;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts) {
-        this(tenants, authorization, chats, persona, files, languages, imageArtifacts, null);
+        this(tenants, authorization, chats, persona, files, languages, imageArtifacts, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
-                               JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage) {
+                               JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage,
+                               io.memoryos.chat.persistence.@Nullable JdbcChatPreferencesRepository preferences,
+                               io.memoryos.iam.identity.@Nullable ActorProfileReader profiles) {
         this.usage = usage;
+        this.preferences = preferences;
+        this.profiles = profiles;
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
@@ -62,6 +68,15 @@ public class ChatTurnPersistence {
         this.files = files;
         this.languages = languages;
         this.imageArtifacts = imageArtifacts;
+    }
+
+    /** Onyx's user information section: login name and email, the member's role and preferences (MEM-145). */
+    private String userInformation(UUID tenant, ActorId actor, String instructions) {
+        if (preferences == null || profiles == null) return instructions;
+        var own = preferences.find(tenant, actor.value()).orElse(io.memoryos.chat.preferences.ChatPreferences.DEFAULT);
+        var profile = profiles.read(actor);
+        return io.memoryos.chat.prompts.ChatPrompts.withUserInformation(instructions, profile.displayName(),
+                profile.email(), own.workRole(), own.personalPreferences());
     }
 
     /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
@@ -162,6 +177,7 @@ public class ChatTurnPersistence {
             var binding = selection.binding().forOptions(settings.options());
             instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor), settings.datetimeAware());
+            instructions = userInformation(tenant.value(), actor, instructions);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
@@ -400,6 +416,12 @@ public class ChatTurnPersistence {
     @Transactional
     public int expireRuns() {
         return chats.expireRuns();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> ownedSessions(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return chats.ownedIds(tenant, actor);
     }
 
     @Transactional
