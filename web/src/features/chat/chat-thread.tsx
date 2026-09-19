@@ -107,7 +107,7 @@ export function ChatThread({
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
-        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-amber-400/10"
+        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40"
         style={{ ["--thread-max-width" as string]: "48rem" }}
       >
         <ThreadPrimitive.Viewport

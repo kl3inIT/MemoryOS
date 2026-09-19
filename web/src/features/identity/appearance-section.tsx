@@ -33,17 +33,17 @@ export function AppearanceSection() {
             key={value}
             className={cn(
               "flex cursor-pointer flex-col gap-2 rounded-xl border border-border-subtle bg-surface-base p-2 transition-colors",
-              "has-[[data-state=checked]]:border-border-strong has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-ring/40",
+              "has-[[data-state=checked]]:border-action-selection has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-action-selection/30",
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
                 "grid h-14 grid-cols-[30%_1fr] overflow-hidden rounded-lg border border-border-subtle",
-                value === "light" && "bg-white [&>span:first-child]:bg-neutral-100",
-                value === "dark" && "bg-neutral-900 [&>span:first-child]:bg-neutral-950",
+                value === "light" && "bg-(--neutral-00) [&>span:first-child]:bg-(--neutral-50)",
+                value === "dark" && "bg-(--neutral-900) [&>span:first-child]:bg-(--neutral-950)",
                 value === "system" &&
-                  "bg-[linear-gradient(90deg,white_50%,var(--color-neutral-900)_50%)] [&>span:first-child]:bg-neutral-100",
+                  "bg-[linear-gradient(90deg,var(--neutral-00)_50%,var(--neutral-900)_50%)] [&>span:first-child]:bg-(--neutral-50)",
               )}
             >
               <span />

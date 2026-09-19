@@ -52,6 +52,7 @@ import {
   type Dimension,
   type Period,
   type PeriodId,
+  seriesColor,
 } from "./ai-costs";
 
 const dimensions: Dimension[] = ["ACTOR", "GROUP", "MODEL", "FLOW", "PROVIDER"];
@@ -274,7 +275,7 @@ function DailyChart({
   const config: ChartConfig = Object.fromEntries(
     series.map((key, index) => [
       `s${index}`,
-      { label: names[key] ?? key, color: `var(--chart-${(index % 5) + 1})` },
+      { label: names[key] ?? key, color: seriesColor(key, index) },
     ]),
   );
   const data = rows.map((row) =>
@@ -415,7 +416,7 @@ function Breakdown({
                   <td className="hidden py-2 pl-3 sm:table-cell">
                     <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
                       <div
-                        className="h-2 rounded-full bg-content-primary/70"
+                        className="h-2 rounded-full bg-chart-1"
                         style={{ width: `${top > 0 ? Math.max(2, (row.cost / top) * 100) : 0}%` }}
                       />
                     </div>

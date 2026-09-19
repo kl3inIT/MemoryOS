@@ -126,7 +126,7 @@ export function ChatHistorySearch({
         )}
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
         <Dialog.Content className="fixed top-[max(1rem,12dvh)] left-1/2 z-50 flex max-h-[min(36rem,calc(100dvh-2rem))] w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-overlay shadow-lg outline-none data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 motion-reduce:animate-none">
           <Dialog.Title className="sr-only">{label}</Dialog.Title>
           <Dialog.Description className="sr-only">

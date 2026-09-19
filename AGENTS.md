@@ -71,6 +71,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [MEM-84 architecture audit](https://linear.app/memory-os/issue/MEM-84)
 - [Conventions](docs/conventions.md)
 - [Observability conventions](docs/guidelines/observability.md)
+- [Colour and design tokens](docs/guidelines/design-tokens.md)
 - [MCP server runbook](docs/runbooks/mcp-servers.md)
 - [Operating model](docs/guidelines/operating-model.md)
 - [Persistence policy](docs/guidelines/persistence.md)

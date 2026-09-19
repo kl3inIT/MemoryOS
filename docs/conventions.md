@@ -163,6 +163,11 @@ Domain Story and Consumer
 - Destructive product actions use `ConfirmDialog`: callers provide visible entity-specific title and impact copy, Cancel receives initial focus, and async confirmation prevents duplicate activation, stays open while pending or failed, announces safe action-local feedback, and closes only after success.
 - Feature code may own layout and selected-resource treatment, but it must not introduce a second standard interaction matrix or raw Tailwind palette classes for product actions.
 
+## Colour and design tokens
+
+- Components and feature CSS use semantic tokens only: no hex, `rgb()`/`oklch()` or Tailwind palette classes (`bg-green-500`, `text-white`). A missing role is added to `web/src/styles/tokens.css` with light and dark values and mapped in `theme.css`. Brand artwork is the only exception.
+- Status colours carry state only and come with an icon or label; charts use `chart-1` … `chart-8` in fixed order with `chart-neutral` for "Other". Roles, values and the chart validation rules are in the [design token guideline](guidelines/design-tokens.md).
+
 ## Data and security
 
 - Follow [production-first persistence](guidelines/persistence.md).
