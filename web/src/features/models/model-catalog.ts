@@ -1,7 +1,7 @@
 import type { ChatReportedModel } from "@/lib/hey-api/types.gen";
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy } from "@/i18n/app-text";
-import { ApiError } from "@/lib/api";
+import { ApiError, problemCode } from "@/lib/api";
 import type {
   CreateChatModelData,
   CreateChatProviderData,
@@ -20,6 +20,14 @@ export type CredentialAction = NonNullable<NonNullable<ProviderBody["credential"
 export function modelActionError(error: unknown): string {
   if (!(error instanceof ApiError))
     return "The request could not be completed. Check your connection and refresh before trying again.";
+  switch (problemCode(error)) {
+    case "CHAT_PROVIDER_CREDENTIAL_REJECTED":
+      return "The provider rejected the API key";
+    case "CHAT_PROVIDER_UNREACHABLE":
+      return "Could not reach the provider before the timeout";
+    case "CHAT_PROVIDER_INCOMPATIBLE":
+      return "The provider response was not OpenAI-compatible";
+  }
   switch (error.status) {
     case 400:
       return "The configuration is not accepted. Check the endpoint, profile, capabilities, limits, options and Persona restrictions. Choose another Tenant default before hiding or deleting its model, disabling its provider or removing its required key.";

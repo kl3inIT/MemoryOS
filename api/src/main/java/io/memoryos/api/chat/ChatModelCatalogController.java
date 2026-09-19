@@ -110,6 +110,7 @@ class ChatModelCatalogController {
         return ChatProviderResponse.from(catalog.createProvider(identity.actorId(), request.toInput()));
     }
 
+    @ApiResponse(responseCode = "200", description = "The provider accepted the endpoint and key", useReturnTypeSchema = true)
     @PostMapping("/providers/test")
     @Operation(operationId = "testChatProvider",
             summary = "Check an unsaved or edited provider endpoint and key by listing its models; requires model management")

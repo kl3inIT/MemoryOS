@@ -74,6 +74,55 @@ function deferredResponse() {
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe("provider connection check", () => {
+  it("checks the typed key before saving and names a rejected key", async () => {
+    const bodies: unknown[] = [];
+    let accept = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
+        bodies.push(await request.clone().json());
+        return accept
+          ? Response.json({ modelCount: 146, latencyMillis: 420 })
+          : Response.json(
+              { code: "CHAT_PROVIDER_CREDENTIAL_REJECTED", detail: "account acct-42" },
+              { status: 400 },
+            );
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ProviderEditor providers={[]} adapters={[adapter]} onClose={() => {}} />
+      </QueryClientProvider>,
+    );
+    const test = screen.getByRole("button", { name: "Test connection" });
+    expect(test).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Endpoint URL"), {
+      target: { value: "https://9router.test/v1" },
+    });
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "typed-key" } });
+    fireEvent.click(test);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Connection succeeded · 420 ms · 146 models",
+    );
+    expect(bodies[0]).toMatchObject({
+      adapterType: "openai",
+      baseUrl: "https://9router.test/v1",
+      credential: { action: "REPLACE", value: "typed-key" },
+    });
+    // The typed key stays for saving, and editing the draft clears the earlier result.
+    expect(screen.getByLabelText("API key")).toHaveValue("typed-key");
+    accept = false;
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "wrong-key" } });
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(test);
+    expect(await screen.findByRole("alert")).toHaveTextContent("The provider rejected the API key");
+    expect(screen.queryByText(/acct-42/)).toBeNull();
+  });
+});
+
 describe("provider secret lifetime and coherent Access", () => {
   it("consumes the key outside Query caches and ignores a write that finishes after closing", async () => {
     const pending = deferredResponse();

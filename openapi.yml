@@ -7664,6 +7664,12 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "401":
           description: Authentication required
+        "200":
+          description: The provider accepted the endpoint and key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderTestResult"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16239,6 +16245,20 @@ components:
       - adapterType
       - baseUrl
       - credential
+    ProviderTestResult:
+      type: object
+      properties:
+        modelCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        latencyMillis:
+          type: integer
+          format: int64
+      required:
+      - latencyMillis
+      - modelCount
     ProjectConversation:
       type: object
       properties:

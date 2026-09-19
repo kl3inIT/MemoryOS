@@ -1307,6 +1307,11 @@ export type ProviderTestInput = {
     providerId?: string | null;
 };
 
+export type ProviderTestResult = {
+    modelCount: number | null;
+    latencyMillis: number;
+};
+
 export type ProjectConversation = {
     title: string;
 };
@@ -8227,6 +8232,15 @@ export type TestChatProviderErrors = {
 };
 
 export type TestChatProviderError = TestChatProviderErrors[keyof TestChatProviderErrors];
+
+export type TestChatProviderResponses = {
+    /**
+     * The provider accepted the endpoint and key
+     */
+    200: ProviderTestResult;
+};
+
+export type TestChatProviderResponse = TestChatProviderResponses[keyof TestChatProviderResponses];
 
 export type ListChatPromptShortcutsData = {
     body?: never;

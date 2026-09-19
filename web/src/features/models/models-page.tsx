@@ -6,6 +6,7 @@ import {
   Eye,
   ListPlus,
   Plug,
+  PlugZap,
   Route,
   Plus,
   Server,
@@ -62,6 +63,7 @@ import {
   type ManagedModel,
   type ManagedProvider,
 } from "./model-catalog";
+import { useProviderTest } from "./provider-test";
 import { useModelAction } from "./use-model-action";
 
 type Editor =
@@ -190,6 +192,7 @@ function ConnectionCard({
   const status = providerStatus(provider);
   const adapter = adapters.find((entry) => entry.type === provider.adapterType);
   const mark = providerMark(provider);
+  const connection = useProviderTest();
   return (
     <Card size="sm" className="gap-0 overflow-visible py-0">
       <div className="flex w-full items-center gap-3 rounded-2xl px-4 py-3">
@@ -225,6 +228,22 @@ function ConnectionCard({
           <IconButton
             prominence="tertiary"
             size="sm"
+            aria-label={ui(appText("Test connection {{name}}", { name: provider.name }))}
+            disabled={unavailable || connection.pending || !provider.credentialConfigured}
+            onClick={() =>
+              void connection.run({
+                adapterType: provider.adapterType,
+                baseUrl: provider.baseUrl,
+                providerId: provider.id,
+                credential: { action: "KEEP" },
+              })
+            }
+          >
+            <PlugZap />
+          </IconButton>
+          <IconButton
+            prominence="tertiary"
+            size="sm"
             aria-label={ui(appText("Edit provider {{name}}", { name: provider.name }))}
             disabled={unavailable}
             onClick={onEdit}
@@ -256,6 +275,17 @@ function ConnectionCard({
           </IconButton>
         </span>
       </div>
+      {connection.outcome && (
+        <p
+          role={connection.outcome.ok ? "status" : "alert"}
+          className={cn(
+            "mx-4 mb-3 font-secondary-body",
+            connection.outcome.ok ? "text-status-success-content" : "text-status-danger-content",
+          )}
+        >
+          {ui(connection.outcome.message)}
+        </p>
+      )}
       {open && (
         <CardContent className="space-y-3 border-t border-border-subtle pt-4 pb-4">
           {models.length > 0 ? (
