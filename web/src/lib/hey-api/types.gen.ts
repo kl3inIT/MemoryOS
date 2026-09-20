@@ -457,6 +457,7 @@ export type ChatSession = {
     createdAt: string;
     updatedAt: string;
     projectId: string | null;
+    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
 };
 
 export type Sharing = {
@@ -467,6 +468,10 @@ export type Sharing = {
 export type ChatSessionSettings = {
     personaId: string;
     projectId?: string | null;
+};
+
+export type ReasoningSelection = {
+    reasoningEffort?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
 };
 
 export type ProjectSelection = {
@@ -575,6 +580,8 @@ export type ChatPreferencesInput = {
     workRole: string;
     personalPreferences: string;
     defaultModelId?: string | null;
+    temperatureDefault?: number | null;
+    reasoningEffortDefault?: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
 };
 
@@ -582,6 +589,8 @@ export type ChatPreferences = {
     workRole: string;
     personalPreferences: string;
     defaultModelId: string | null;
+    temperatureDefault: number | null;
+    reasoningEffortDefault: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
     autoScroll: boolean;
     displayName: string | null;
     email: string | null;
@@ -3748,6 +3757,55 @@ export type ConfigureChatSessionResponses = {
 };
 
 export type ConfigureChatSessionResponse = ConfigureChatSessionResponses[keyof ConfigureChatSessionResponses];
+
+export type PinChatReasoningEffortData = {
+    body: ReasoningSelection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/reasoning';
+};
+
+export type PinChatReasoningEffortErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conversation is running or revision has changed
+     */
+    409: ApiProblem;
+};
+
+export type PinChatReasoningEffortError = PinChatReasoningEffortErrors[keyof PinChatReasoningEffortErrors];
+
+export type PinChatReasoningEffortResponses = {
+    /**
+     * Successful chat operation
+     */
+    200: ChatSession;
+};
+
+export type PinChatReasoningEffortResponse = PinChatReasoningEffortResponses[keyof PinChatReasoningEffortResponses];
 
 export type MoveChatProjectData = {
     body: ProjectSelection;

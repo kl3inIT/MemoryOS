@@ -487,9 +487,12 @@ public class JdbcChatRepository {
     }
 
     static ChatSession session(ResultSet row, int ignored) throws SQLException {
+        String effort = row.getString("reasoning_effort");
         return new ChatSession(row.getObject("id", UUID.class), row.getObject("persona_id", UUID.class),
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
-                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getObject("project_id", UUID.class));
+                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
+                row.getObject("project_id", UUID.class),
+                effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

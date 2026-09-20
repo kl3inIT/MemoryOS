@@ -13,6 +13,8 @@ public interface ChatSessionService {
     List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit);
     ChatSession get(ActorId actor, UUID sessionId);
     ChatSession rename(ActorId actor, UUID sessionId, String title);
+    /** Pins how much this conversation's model should think, or clears the choice with a null level. */
+    ChatSession pinReasoningEffort(ActorId actor, UUID sessionId, io.memoryos.chat.preferences.@Nullable ReasoningEffort effort);
     List<ChatBranch> branches(ActorId actor, UUID sessionId);
     void selectBranch(ActorId actor, UUID sessionId, UUID messageId, @Nullable UUID expectedChildId);
     List<ChatMessage> history(ActorId actor, UUID sessionId, @Nullable UUID after, int limit);

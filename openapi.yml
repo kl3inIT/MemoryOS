@@ -1865,6 +1865,70 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions/{sessionId}/reasoning:
+    put:
+      tags:
+      - Chat
+      summary: "Pin how much this conversation's model should think, or clear the\
+        \ choice"
+      operationId: pinChatReasoningEffort
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasoningSelection"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/project:
     put:
       tags:
@@ -14583,11 +14647,21 @@ components:
           - string
           - "null"
           format: uuid
+        reasoningEffort:
+          type:
+          - string
+          - "null"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
       required:
       - createdAt
       - id
       - personaId
       - projectId
+      - reasoningEffort
       - rootMessageId
       - title
       - updatedAt
@@ -14612,6 +14686,16 @@ components:
           - type: "null"
       required:
       - personaId
+    ReasoningSelection:
+      type: object
+      properties:
+        reasoningEffort:
+          type: string
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
     ProjectSelection:
       type: object
       properties:
@@ -14867,6 +14951,22 @@ components:
           - string
           - "null"
           format: uuid
+        temperatureDefault:
+          type:
+          - number
+          - "null"
+          format: double
+          maximum: 2
+          minimum: 0
+        reasoningEffortDefault:
+          type:
+          - string
+          - "null"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
         autoScroll:
           type: boolean
       required:
@@ -14885,6 +14985,20 @@ components:
           - string
           - "null"
           format: uuid
+        temperatureDefault:
+          type:
+          - number
+          - "null"
+          format: double
+        reasoningEffortDefault:
+          type:
+          - string
+          - "null"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
         autoScroll:
           type: boolean
         displayName:
@@ -14901,6 +15015,8 @@ components:
       - displayName
       - email
       - personalPreferences
+      - reasoningEffortDefault
+      - temperatureDefault
       - workRole
     PersonaInput:
       type: object

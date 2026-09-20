@@ -141,6 +141,7 @@ class OpenApiContractTest {
             "/api/chat/sessions/search",
             "/api/chat/sessions/{sessionId}",
             "/api/chat/sessions/{sessionId}/title",
+            "/api/chat/sessions/{sessionId}/reasoning",
             "/api/chat/sessions/{sessionId}/branches",
             "/api/chat/sessions/{sessionId}/branch",
             "/api/chat/sessions/{sessionId}/persona",
