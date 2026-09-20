@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
 import { Route as InvitationRouteImport } from './routes/invitation'
+import { Route as SignInFailedRouteImport } from './routes/sign-in-failed'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
@@ -41,6 +42,9 @@ import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authen
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
 import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
 import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from './routes/_authenticated._chat.projects.$projectId'
+import { Route as AuthenticatedAdminDocumentSetsIndexRouteImport } from './routes/_authenticated.admin.document-sets.index'
+import { Route as AuthenticatedAdminDocumentSetsDocumentSetIdRouteImport } from './routes/_authenticated.admin.document-sets.$documentSetId'
+import { Route as AuthenticatedAdminDocumentSetsNewRouteImport } from './routes/_authenticated.admin.document-sets.new'
 import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
 import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
 import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
@@ -64,6 +68,11 @@ const AccessNotProvisionedRoute = AccessNotProvisionedRouteImport.update({
 const InvitationRoute = InvitationRouteImport.update({
   id: '/invitation',
   path: '/invitation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInFailedRoute = SignInFailedRouteImport.update({
+  id: '/sign-in-failed',
+  path: '/sign-in-failed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
@@ -228,6 +237,24 @@ const AuthenticatedChatProjectsProjectIdRoute =
     path: '/projects/$projectId',
     getParentRoute: () => AuthenticatedChatRoute,
   } as any)
+const AuthenticatedAdminDocumentSetsIndexRoute =
+  AuthenticatedAdminDocumentSetsIndexRouteImport.update({
+    id: '/document-sets/',
+    path: '/document-sets/',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDocumentSetsDocumentSetIdRoute =
+  AuthenticatedAdminDocumentSetsDocumentSetIdRouteImport.update({
+    id: '/document-sets/$documentSetId',
+    path: '/document-sets/$documentSetId',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminDocumentSetsNewRoute =
+  AuthenticatedAdminDocumentSetsNewRouteImport.update({
+    id: '/document-sets/new',
+    path: '/document-sets/new',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminGroupsIndexRoute =
   AuthenticatedAdminGroupsIndexRouteImport.update({
     id: '/',
@@ -293,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
@@ -320,11 +348,14 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
+  '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -335,6 +366,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
@@ -359,10 +391,13 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
+  '/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/admin/document-sets': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
   '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -374,6 +409,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
@@ -403,11 +439,14 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
   '/_authenticated/_chat/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/_authenticated/admin/document-sets/$documentSetId': typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
+  '/_authenticated/admin/document-sets/new': typeof AuthenticatedAdminDocumentSetsNewRoute
   '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
   '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
   '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
   '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
   '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/_authenticated/admin/document-sets/': typeof AuthenticatedAdminDocumentSetsIndexRoute
   '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
   '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
   '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
@@ -420,6 +459,7 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/admin'
     | '/agents'
     | '/assistants'
@@ -447,11 +487,14 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/chat/$sessionId'
     | '/projects/$projectId'
+    | '/admin/document-sets/$documentSetId'
+    | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
     | '/admin/sources/new'
     | '/agents/$agentId/edit'
+    | '/admin/document-sets/'
     | '/admin/groups/'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -462,6 +505,7 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/agents'
     | '/assistants'
     | '/search'
@@ -486,10 +530,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/chat/$sessionId'
     | '/projects/$projectId'
+    | '/admin/document-sets/$documentSetId'
+    | '/admin/document-sets/new'
     | '/admin/groups/$groupId'
     | '/admin/groups/new'
     | '/admin/sources/$sourceId'
     | '/agents/$agentId/edit'
+    | '/admin/document-sets'
     | '/admin/groups'
     | '/admin/sources/new/file'
     | '/admin/sources/new/google-drive'
@@ -500,6 +547,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/_authenticated/_chat'
     | '/_authenticated/admin'
     | '/_authenticated/agents'
@@ -529,11 +577,14 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/_chat/chat/$sessionId'
     | '/_authenticated/_chat/projects/$projectId'
+    | '/_authenticated/admin/document-sets/$documentSetId'
+    | '/_authenticated/admin/document-sets/new'
     | '/_authenticated/admin/groups/$groupId'
     | '/_authenticated/admin/groups/new'
     | '/_authenticated/admin/sources/$sourceId'
     | '/_authenticated/admin/sources/new'
     | '/_authenticated/agents_/$agentId/edit'
+    | '/_authenticated/admin/document-sets/'
     | '/_authenticated/admin/groups/'
     | '/_authenticated/admin/sources/new/file'
     | '/_authenticated/admin/sources/new/google-drive'
@@ -545,6 +596,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute
   InvitationRoute: typeof InvitationRoute
+  SignInFailedRoute: typeof SignInFailedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -568,6 +620,13 @@ declare module '@tanstack/react-router' {
       path: '/invitation'
       fullPath: '/invitation'
       preLoaderRoute: typeof InvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in-failed': {
+      id: '/sign-in-failed'
+      path: '/sign-in-failed'
+      fullPath: '/sign-in-failed'
+      preLoaderRoute: typeof SignInFailedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_chat': {
@@ -773,6 +832,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
+    '/_authenticated/admin/document-sets/': {
+      id: '/_authenticated/admin/document-sets/'
+      path: '/document-sets'
+      fullPath: '/admin/document-sets/'
+      preLoaderRoute: typeof AuthenticatedAdminDocumentSetsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/document-sets/$documentSetId': {
+      id: '/_authenticated/admin/document-sets/$documentSetId'
+      path: '/document-sets/$documentSetId'
+      fullPath: '/admin/document-sets/$documentSetId'
+      preLoaderRoute: typeof AuthenticatedAdminDocumentSetsDocumentSetIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/document-sets/new': {
+      id: '/_authenticated/admin/document-sets/new'
+      path: '/document-sets/new'
+      fullPath: '/admin/document-sets/new'
+      preLoaderRoute: typeof AuthenticatedAdminDocumentSetsNewRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/groups/': {
       id: '/_authenticated/admin/groups/'
       path: '/'
@@ -917,8 +997,11 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminDocumentSetsDocumentSetIdRoute: typeof AuthenticatedAdminDocumentSetsDocumentSetIdRoute
+  AuthenticatedAdminDocumentSetsNewRoute: typeof AuthenticatedAdminDocumentSetsNewRoute
   AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
   AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  AuthenticatedAdminDocumentSetsIndexRoute: typeof AuthenticatedAdminDocumentSetsIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
@@ -937,10 +1020,16 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminDocumentSetsDocumentSetIdRoute:
+    AuthenticatedAdminDocumentSetsDocumentSetIdRoute,
+  AuthenticatedAdminDocumentSetsNewRoute:
+    AuthenticatedAdminDocumentSetsNewRoute,
   AuthenticatedAdminSourcesSourceIdRoute:
     AuthenticatedAdminSourcesSourceIdRoute,
   AuthenticatedAdminSourcesNewRoute:
     AuthenticatedAdminSourcesNewRouteWithChildren,
+  AuthenticatedAdminDocumentSetsIndexRoute:
+    AuthenticatedAdminDocumentSetsIndexRoute,
 }
 
 const AuthenticatedAdminRouteWithChildren =
@@ -1001,6 +1090,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AccessNotProvisionedRoute: AccessNotProvisionedRoute,
   InvitationRoute: InvitationRoute,
+  SignInFailedRoute: SignInFailedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

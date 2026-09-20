@@ -158,8 +158,12 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       await route.fulfill({ status: failure === "upload" && puts === 1 ? 503 : 200, headers });
     });
     await page.goto("/admin/sources/new/file");
+    const setupHeader = page
+      .locator("header")
+      .filter({ has: page.getByRole("heading", { name: "Add file source", exact: true }) });
+    await expect(setupHeader.getByRole("link", { name: "Exit setup" })).toBeVisible();
     const submit = page.getByRole("button", { name: "Upload and create" });
-    const input = page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file");
+    const input = page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files");
     await expect(submit).toBeDisabled();
     await input.setInputFiles({
       name: "empty.txt",
@@ -193,7 +197,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       buffer: Buffer.from("hello"),
     });
     await expect(page.getByLabel("Source name")).toHaveValue("knowledge");
-    await page.getByRole("button", { name: "Remove selected file" }).click();
+    await page.getByRole("button", { name: "Remove knowledge.txt" }).click();
     await expect(submit).toBeDisabled();
     const transfer = await page.evaluateHandle(() => {
       const data = new DataTransfer();
@@ -201,7 +205,7 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
       return data;
     });
     await page
-      .getByText("Drag and drop your file here")
+      .getByText("Drag and drop your files here")
       .dispatchEvent("drop", { dataTransfer: transfer });
     await expect(page.getByText("knowledge.txt", { exact: true })).toBeVisible();
     await expect(submit).toBeEnabled();
@@ -309,6 +313,149 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
   });
 }
 
+test("FILE batch setup creates one Source and uploads each file", async ({ page }) => {
+  test.setTimeout(60_000);
+  const source = {
+    id: "15f8cb72-2628-4d75-bcf1-8f6cda95a120",
+    name: "Batch knowledge",
+    type: "FILE",
+    access: "PUBLIC",
+    status: "ACTIVE",
+    documentCount: 0,
+    pendingWork: true,
+    lastSucceededAt: null,
+    errorCode: null,
+    permissions: {
+      edit: true,
+      delete: true,
+      publish: false,
+      manageConfiguration: false,
+      removeItems: true,
+    },
+  };
+  let creates = 0;
+  let initiations = 0;
+  let puts = 0;
+  let finalizes = 0;
+  await page.route("**/api/identity/me", (route) =>
+    route.fulfill({
+      json: {
+        actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1",
+        authorizationVersion: 1,
+        uiLanguage: "en",
+        tenant: { displayName: "Tasco", role: "OWNER" },
+        capabilities: ["SYSTEM_ADMIN", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+        scopedCapabilities: [],
+      },
+    }),
+  );
+  await page.route("**/api/sources**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        json:
+          path === "/api/sources"
+            ? [source]
+            : path.endsWith("/items")
+              ? {
+                  items: [
+                    {
+                      id: "item-1",
+                      filename: "a.txt",
+                      status: "PENDING",
+                      sizeBytes: 5,
+                      searchStatus: "WAITING",
+                      lastIndexedAt: null,
+                      latestAttempt: null,
+                      errorCode: null,
+                    },
+                    {
+                      id: "item-2",
+                      filename: "b.txt",
+                      status: "PENDING",
+                      sizeBytes: 5,
+                      searchStatus: "WAITING",
+                      lastIndexedAt: null,
+                      latestAttempt: null,
+                      errorCode: null,
+                    },
+                  ],
+                  nextCursor: null,
+                  totalItems: 2,
+                }
+              : path.endsWith("/index-attempts")
+                ? { items: [], nextCursor: null, totalItems: 0 }
+                : source,
+      });
+    } else if (path === "/api/sources/file") {
+      creates++;
+      await route.fulfill({ status: 201, json: source });
+    } else if (path.endsWith("/uploads")) {
+      initiations++;
+      await route.fulfill({
+        status: 201,
+        json: {
+          uploadId: `upload-${initiations}`,
+          method: "PUT",
+          uploadUrl: `https://objects.example.test/${initiations}`,
+          requiredHeaders: {},
+          expiresAt: "2026-10-01T00:00:00Z",
+        },
+      });
+    } else if (path.endsWith("/finalize")) {
+      finalizes++;
+      await route.fulfill({
+        status: 202,
+        json: {
+          item: { id: `item-${finalizes}` },
+          operation: { id: "op-1", status: "NOT_STARTED" },
+        },
+      });
+    } else {
+      await route.fulfill({ status: 405 });
+    }
+  });
+  await page.route("https://objects.example.test/**", async (route) => {
+    const headers = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "PUT",
+      "access-control-allow-headers": "*",
+    };
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    puts++;
+    await route.fulfill({ status: puts === 2 ? 503 : 200, headers });
+  });
+  await page.goto("/admin/sources/new/file");
+  const input = page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files");
+  await input.setInputFiles([
+    { name: "a.txt", mimeType: "text/plain", buffer: Buffer.from("a") },
+    { name: "b.txt", mimeType: "text/plain", buffer: Buffer.from("b") },
+    { name: "c.txt", mimeType: "text/plain", buffer: Buffer.from("c") },
+  ]);
+  await page.getByRole("button", { name: "Remove c.txt" }).click();
+  await expect(page.getByText("c.txt", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("a.txt", { exact: true })).toBeVisible();
+  await expect(page.getByText("b.txt", { exact: true })).toBeVisible();
+  await page.getByLabel("Source name").fill("Batch knowledge");
+  const submit = page.getByRole("button", { name: "Upload and create" });
+  await submit.click();
+  await expect(page.getByRole("alert")).toContainText("b.txt");
+  await page.getByRole("button", { name: "Retry upload", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/sources/${source.id}$`));
+  await expect(page.getByText("a.txt", { exact: true })).toBeVisible();
+  await expect(page.getByText("b.txt", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("listitem", { name: "Source created; upload accepted", exact: true }),
+  ).toContainText("2 files were accepted for indexing");
+  expect(creates).toBe(1);
+  expect(initiations).toBe(3);
+  expect(puts).toBe(3);
+  expect(finalizes).toBe(2);
+});
+
 test("scoped File creation stays private and may start without a group", async ({ page }) => {
   const group = {
     id: "6d11ec56-34c6-44fe-9ad0-f147f37f571c",
@@ -395,7 +542,7 @@ test("scoped File creation stays private and may start without a group", async (
   await page.goto("/admin");
   await page.locator("header").getByRole("link", { name: "Add source", exact: true }).click();
   await page.goto("/admin/sources/new/file");
-  await page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file").setInputFiles({
+  await page.getByLabel("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files").setInputFiles({
     name: "Private knowledge.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("private"),

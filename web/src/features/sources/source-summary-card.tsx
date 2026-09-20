@@ -8,6 +8,7 @@ import { listSourceGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { sourceAccessPresentation } from "./source-status-presentation";
+import { SourceHint } from "./source-hint";
 
 /** Who reads a Google Drive Source depends on its mode; Public reads like any other Source. */
 const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
@@ -22,6 +23,8 @@ const readersLabel: Record<SourceSummary["access"], string> = {
   PRIVATE: "Members of its groups",
   SYNC: "People with access in Google Drive",
 };
+
+const shownGroupCount = 3;
 
 /**
  * Facts about a Source that its header badges do not carry: counts and schedule first, then who
@@ -49,6 +52,8 @@ export function SourceSummaryCard({
   const groupNames = (groups.data?.items ?? [])
     .filter((group) => group.systemKey === null)
     .map((group) => group.name);
+  const shownGroupNames = groupNames.slice(0, shownGroupCount);
+  const additionalGroupNames = groupNames.slice(shownGroupCount);
   const readers =
     (source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined) ??
     sourceAccessPresentation[source.access].title;
@@ -101,13 +106,39 @@ export function SourceSummaryCard({
           <div className="flex min-h-8 min-w-0 items-center gap-2">
             <dt className={statLabelClass}>{ui("Groups")}</dt>
             <dd className="min-w-0 break-words text-content-primary">
-              {groups.isPending
-                ? ui("Loading…")
-                : groups.isError
-                  ? ui("Unavailable")
-                  : groupNames.length
-                    ? groupNames.join(", ")
-                    : ui("None")}
+              {groups.isPending ? (
+                ui("Loading…")
+              ) : groups.isError ? (
+                ui("Unavailable")
+              ) : groupNames.length ? (
+                <>
+                  {shownGroupNames.join(", ")}
+                  {additionalGroupNames.length ? (
+                    <>
+                      {" "}
+                      <SourceHint
+                        hint={ui("Additional groups: {{v1}}", {
+                          v1: additionalGroupNames.join(", "),
+                        })}
+                      >
+                        <span
+                          tabIndex={0}
+                          aria-label={ui("Additional groups: {{v1}}", {
+                            v1: additionalGroupNames.join(", "),
+                          })}
+                          className="cursor-default font-secondary-action text-content-secondary underline decoration-dotted underline-offset-2 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        >
+                          {ui("+{{count}} more groups", {
+                            count: additionalGroupNames.length,
+                          })}
+                        </span>
+                      </SourceHint>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                ui("None")
+              )}
             </dd>
           </div>
         </div>

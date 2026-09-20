@@ -123,6 +123,90 @@ describe("provider connection check", () => {
   });
 });
 
+describe("models listed inside the provider form", () => {
+  it("lists the endpoint's models with the typed key and creates the chosen ones on one save", async () => {
+    const requests: { url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const url = new URL(request.url).pathname;
+        if (request.method === "GET") return Response.json({ items: [], totalPages: 1 });
+        requests.push({ url, body: await request.clone().json() });
+        if (url.endsWith("/reported-models"))
+          return Response.json({
+            models: [
+              {
+                modelName: "gpt-5-mini",
+                contextWindow: 272000,
+                maxOutputTokens: 128000,
+                capabilities: { toolCalling: true, vision: true, reasoning: false },
+                pricing: { inputPerMillion: 0.25, outputPerMillion: 2 },
+                source: "provider",
+              },
+              {
+                modelName: "local-llama",
+                contextWindow: 32000,
+                maxOutputTokens: null,
+                capabilities: { toolCalling: true, vision: false, reasoning: false },
+                pricing: null,
+                source: "none",
+              },
+            ],
+          });
+        if (url.endsWith("/models")) return Response.json({ ...model, id: crypto.randomUUID() });
+        return Response.json({ ...provider, id: provider.id, revision: 1 }, { status: 201 });
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ProviderEditor providers={[]} adapters={[adapter]} onClose={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    const list = screen.getByRole("button", { name: "List models" });
+    expect(list).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Provider name"), { target: { value: "Local" } });
+    fireEvent.change(screen.getByLabelText("Endpoint URL"), {
+      target: { value: "https://9router.test/v1" },
+    });
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "typed-key" } });
+    fireEvent.click(list);
+
+    expect(await screen.findByText("gpt-5-mini")).toBeVisible();
+    // The listing is read with the key the administrator just typed, before the provider exists.
+    expect(requests[0]).toMatchObject({
+      url: "/api/chat/providers/reported-models",
+      body: {
+        baseUrl: "https://9router.test/v1",
+        credential: { action: "REPLACE", value: "typed-key" },
+      },
+    });
+    expect(requests[0]?.body).not.toHaveProperty("providerId", expect.anything());
+    // A model the endpoint publishes nothing for is selectable and marked as taking the default window.
+    expect(screen.getAllByText("Default").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /gpt-5-mini/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+
+    await waitFor(() => expect(requests).toHaveLength(3));
+    expect(requests[1]?.url).toBe("/api/chat/providers");
+    expect(requests[2]).toMatchObject({
+      url: `/api/chat/providers/${provider.id}/models`,
+      body: { modelName: "gpt-5-mini", settings: { contextWindow: 272000 } },
+    });
+    // No request body, and so no key, is retained in a Query cache.
+    expect(
+      JSON.stringify(
+        client
+          .getQueryCache()
+          .getAll()
+          .map((entry) => entry.state.data),
+      ),
+    ).not.toContain("typed-key");
+  });
+});
+
 describe("provider secret lifetime and coherent Access", () => {
   it("consumes the key outside Query caches and ignores a write that finishes after closing", async () => {
     const pending = deferredResponse();

@@ -5,6 +5,7 @@ import {
   listChatPersonas,
   listChatProjects,
   listChatPersonaSources,
+  listDocumentSets,
 } from "@/lib/hey-api/sdk.gen";
 
 const refSchema = z.object({ id: z.string().uuid(), name: z.string() });
@@ -38,6 +39,8 @@ export const personaSchema = z.object({
   starterPrompts: z.array(z.string()),
   sourceIds: z.array(z.string().uuid()),
   sources: z.array(refSchema).default([]),
+  documentSetIds: z.array(z.string().uuid()).default([]),
+  documentSets: z.array(refSchema).default([]),
   tools: z.array(z.string()).default([]),
   mcpServers: z.array(refSchema).default([]),
   fileIds: z.array(z.string().uuid()).default([]),
@@ -65,6 +68,25 @@ export const personaSchema = z.object({
   deletedAt: z.string().nullish(),
 });
 export const agentLabelSchema = refSchema;
+export const documentSetSchema = z.object({
+  id: z.string().uuid(),
+  revision: z.number().int(),
+  name: z.string(),
+  description: z.string(),
+  isPublic: z.boolean().default(false),
+  sourceIds: z.array(z.string().uuid()).default([]),
+  userShares: z.array(personSchema).default([]),
+  groupShares: z.array(refSchema).default([]),
+  sources: z.array(refSchema).default([]),
+  /** Sources in the set that the viewer may not select, shown only as a count. */
+  hiddenSources: z.number().int().default(0),
+  permissions: z.object({
+    edit: z.boolean().default(false),
+    share: z.boolean().default(false),
+    delete: z.boolean().default(false),
+    manage: z.boolean().default(false),
+  }),
+});
 export const shareOptionsSchema = z.object({
   people: z.array(personSchema),
   groups: z.array(refSchema),
@@ -72,6 +94,7 @@ export const shareOptionsSchema = z.object({
 export type AgentPermission = z.infer<typeof permissionSchema>;
 export type AgentPerson = z.infer<typeof personSchema>;
 export type AgentRef = z.infer<typeof refSchema>;
+export type DocumentSet = z.infer<typeof documentSetSchema>;
 export type AgentView = "ALL" | "MINE" | "SHARED";
 
 /** The visibility shown on cards: Tenant-wide, shared with people or Groups, or private. */
@@ -152,6 +175,20 @@ export function loadPersonaSources(signal: AbortSignal) {
       (await listChatPersonaSources({ query: { offset, limit: 100 }, signal, throwOnError: true }))
         .data,
     ),
+  );
+}
+
+/** Query-key prefix shared by every Document Set read, so one invalidation refreshes them all. */
+export const documentSetsKey = ["document-sets"] as const;
+
+export function loadDocumentSets(signal: AbortSignal) {
+  return allPages(async (offset) =>
+    documentSetSchema
+      .array()
+      .parse(
+        (await listDocumentSets({ query: { offset, limit: 100 }, signal, throwOnError: true }))
+          .data,
+      ),
   );
 }
 

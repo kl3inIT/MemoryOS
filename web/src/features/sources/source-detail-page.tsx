@@ -906,7 +906,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         parent={{ label: ui("Sources"), to: "/admin" }}
         backRef={backLinkRef}
         icon={detail ? <ProviderIcon /> : undefined}
-        iconSize={detail && providerPanel(detail.type) ? "lg" : "sm"}
+        iconSize="lg"
         title={detail?.name}
         description={
           detail ? (
@@ -1026,11 +1026,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             {!providerPanel(detail.type) ? (
               <SourceSummaryCard source={detail} className="my-6" />
             ) : null}
-            {detail.errorCode && !providerPanel(detail.type) ? (
-              <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                {ui(sourceStatusMessage(detail.errorCode))}
-              </p>
-            ) : null}
             {/* A paused Source is a state, not a failure: the badge carries it, and only the transient
                 pausing step needs a word about the work still finishing. */}
             {detail.status === "PAUSING" ? (
@@ -1051,12 +1046,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   activeSection={section}
                   content={filesPanel}
                   settings={
-                    <SourceGroupsSection
-                      sourceId={selectedId}
-                      editable={canManageGroups}
-                      restricted={detail.access !== "PUBLIC"}
-                      onAuthorityChanged={refreshAuthorityViews}
-                    />
+                    <>
+                      <SourceGroupsSection
+                        sourceId={selectedId}
+                        editable={canManageGroups}
+                        restricted={detail.access !== "PUBLIC"}
+                        onAuthorityChanged={refreshAuthorityViews}
+                      />
+                      {isAdministrator ? (
+                        <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                      ) : null}
+                    </>
                   }
                   navigation={<SourceSectionTabs sections={googleDriveSections} />}
                 />
@@ -1093,6 +1093,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     restricted={detail.access !== "PUBLIC"}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
+                  {isAdministrator ? (
+                    <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                  ) : null}
                 </TabsContent>
               </>
             ) : (
@@ -1235,12 +1238,12 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     restricted={detail.access !== "PUBLIC"}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
+                  {isAdministrator ? (
+                    <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                  ) : null}
                 </TabsContent>
               </>
             )}
-            {isAdministrator ? (
-              <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
-            ) : null}
             {canDelete ? (
               <DangerZone
                 className="mt-8"

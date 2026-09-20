@@ -10,6 +10,7 @@ import {
   Globe,
   ImageIcon,
   KeyRound,
+  Library,
   Menu,
   MessageSquare,
   PanelLeftClose,
@@ -42,6 +43,7 @@ export type SettingsPage = "general" | "chat" | "connections" | "usage";
 export type AdminPage =
   | "sources"
   | "addSource"
+  | "documentSets"
   | "users"
   | "groups"
   | "web"
@@ -378,6 +380,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Add a source")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/document-sets"
+                  icon={<Library className="size-4" />}
+                  selected={adminPage === "documentSets"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Bộ tài liệu")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

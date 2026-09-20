@@ -21,6 +21,7 @@ import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
 const startVoiceDictationMock = vi.hoisted(() => vi.fn());
+const loadDocumentSetsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof ChatSdk>()),
@@ -37,6 +38,7 @@ vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
 vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
   ...(await importOriginal<typeof ChatWorkspaceApi>()),
   loadProjects: vi.fn().mockResolvedValue([]),
+  loadDocumentSets: loadDocumentSetsMock,
 }));
 
 const OWNER_SESSION: ApplicationSession = {
@@ -96,11 +98,15 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
   );
 }
 
-beforeEach(() => speechToTextAvailable(false));
+beforeEach(() => {
+  speechToTextAvailable(false);
+  loadDocumentSetsMock.mockResolvedValue([]);
+});
 
 afterEach(() => {
   startVoiceDictationMock.mockReset();
   searchDocumentsMock.mockReset();
+  loadDocumentSetsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
   document.documentElement.style.removeProperty("color-scheme");
@@ -225,6 +231,19 @@ describe("SearchPage", () => {
         ],
       },
     });
+    loadDocumentSetsMock.mockResolvedValue([
+      {
+        id: "d384ef32-9da5-4f80-84f6-b3d01f31aa3e",
+        revision: 0,
+        name: "People",
+        description: "",
+        sourceIds: [],
+        userShares: [],
+        groupShares: [],
+        sources: [],
+        permissions: { edit: false, share: false, delete: false, manage: false },
+      },
+    ]);
     await renderNewSession();
 
     await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
@@ -268,12 +287,23 @@ describe("SearchPage", () => {
         }),
       ),
     );
+    await user.click(screen.getByRole("button", { name: "Document Sets: All Document Sets" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "People" }));
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(5));
+    expect(searchDocumentsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      body: {
+        query: "nghỉ phép",
+        documentSetIds: ["d384ef32-9da5-4f80-84f6-b3d01f31aa3e"],
+        page: 0,
+      },
+    });
+
     expect(screen.getByRole("button", { name: "Updated: Past 30 days" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(screen.getByRole("button", { name: "File type: All file types" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Updated: All time" })).toBeInTheDocument();
-  });
+  }, 10_000);
 
   it("narrows results to one connector from the Source rail and clears it with the filters", async () => {
     const user = userEvent.setup();

@@ -114,6 +114,10 @@ export const en = {
     notProvisionedDescription:
       "Your identity was verified, but it has not been added to this MemoryOS Tenant. Ask a Tenant owner for access, or continue with another account.",
     anotherAccount: "Try another account",
+    signInFailed: "Sign-in did not finish.",
+    signInFailedDescription:
+      "Nothing is wrong with your account. The provider or this application did not answer in time, which usually means MemoryOS was being updated. Sign in again.",
+    signInAgain: "Sign in again",
     denied: "You don’t have access to this area.",
     deniedDescription:
       "Your account is active, but it cannot manage this area. Return to your workspace to use the actions available to you.",

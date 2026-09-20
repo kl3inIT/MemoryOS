@@ -215,6 +215,31 @@ class PostgresGoogleDriveSyncTest {
     }
 
     @Test
+    void resumingPausedGoogleDriveSyncContinuesWithCurrentSchema() {
+        SourceOperationId paused = enqueue();
+        jdbc.sql("""
+                UPDATE source_sync_attempts
+                SET status = 'CANCELLED', error_code = 'SOURCE_PAUSED', phase = 'SCAN'
+                WHERE id = :id
+                """).param("id", paused.value()).update();
+        jdbc.sql("""
+                INSERT INTO google_drive_frontier (tenant_id, attempt_id, file_id, task_kind)
+                VALUES (:tenant, :attempt, 'folder', 'FOLDER')
+                """).param("tenant", tenant.value()).param("attempt", paused.value()).update();
+
+        SourceOperationView resumed = syncRows.enqueueResumed(tenant, source, revision.get(), scheduleOwner).orElseThrow();
+
+        assertThat(resumed.id()).isNotEqualTo(paused);
+        assertThat(resumed.status()).isEqualTo(SourceOperationStatus.NOT_STARTED);
+        assertThat(jdbc.sql("""
+                SELECT trigger_kind FROM source_sync_attempts WHERE id = :id
+                """).param("id", resumed.id().value()).query(String.class).single()).isEqualTo("RESUMED");
+        assertThat(jdbc.sql("""
+                SELECT COUNT(*) FROM google_drive_frontier WHERE attempt_id = :id
+                """).param("id", resumed.id().value()).query(Integer.class).single()).isEqualTo(1);
+    }
+
+    @Test
     void permissionOnlyChangesRefreshTheSnapshotWithoutAcquiringOrIndexingContent() {
         listing(file("one", false, "1"));
         finish(enqueue());
@@ -586,6 +611,22 @@ class PostgresGoogleDriveSyncTest {
         assertThat(stale.code()).isEqualTo("SOURCE_GOOGLE_REVISION_CONFLICT");
         assertThat(selected(configuration, GoogleDriveSourceService.SelectionKind.FILE))
                 .extracting(GoogleDriveSourceService.SelectionItem::id).containsExactly("document");
+    }
+
+    @Test
+    void fileSearchIncludesFilesSynchronizedUnderSelectedFolders() {
+        listing(file("document", false, "1"));
+        finish(enqueue());
+
+        var files = scheduleConfiguration().selection(scheduleOwner, source, "document",
+                GoogleDriveSourceService.SelectionKind.FILE, null, 100).items();
+
+        assertThat(files).singleElement().satisfies(item -> {
+            assertThat(item.id()).isEqualTo("document");
+            assertThat(item.name()).isEqualTo("document.txt");
+            assertThat(item.selected()).isFalse();
+            assertThat(item.coveredByRoots()).isTrue();
+        });
     }
 
 
