@@ -6,6 +6,7 @@ import io.memoryos.iam.tenant.TenantId;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -46,6 +47,10 @@ public class JdbcChatLibraryRepository {
      * Uploads carry no conversation: they may be attached to several, to a Project or Agent, or to none. Only a
      * READY upload is listed, because the library previews and downloads a file, and those routes serve no other
      * status; an upload still being processed or failed stays in the composer's own recent list.
+     *
+     * <p>A conversation's own files (MEM-144) are its artifacts plus the uploads attached in it, which are read
+     * from that one conversation's message descriptors. The join on the owner keeps a foreign conversation from
+     * revealing where an Agent-attached upload was used.
      */
     private static final String SOURCES = """
             SELECT 'UPLOAD' AS source, u.id, u.filename,
@@ -53,14 +58,22 @@ public class JdbcChatLibraryRepository {
                    NULL::uuid AS session_id, NULL::varchar AS session_title, NULL::text AS search_extra
             FROM chat_user_file u
             WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor AND u.status = 'READY'
+              AND (:allSessions OR EXISTS (
+                    SELECT 1 FROM chat_message m
+                    JOIN chat_session cs ON cs.id = m.session_id AND cs.tenant_id = u.tenant_id
+                        AND cs.owner_actor_id = :actor AND cs.deleted_at IS NULL
+                    CROSS JOIN LATERAL jsonb_array_elements(m.files) descriptor
+                    WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id))
             UNION ALL
             SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL
             FROM chat_file_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+              AND (:allSessions OR a.session_id = :session)
             UNION ALL
             SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt
             FROM chat_image_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+              AND (:allSessions OR a.session_id = :session)
             """;
 
     /** The filtered rows, without the paging and the windows, so the page and the totals share one definition. */
@@ -71,7 +84,7 @@ public class JdbcChatLibraryRepository {
             """;
 
     public Page page(TenantId tenant, ActorId actor, String query, Set<String> sources, Set<String> categories,
-                     ChatLibraryFile.Sort sort, int offset, int limit) {
+                     @Nullable UUID session, ChatLibraryFile.Sort sort, int offset, int limit) {
         String order = switch (sort) {
             case NEWEST -> "created_at DESC, id";
             case OLDEST -> "created_at, id";
@@ -84,7 +97,7 @@ public class JdbcChatLibraryRepository {
                 FROM (%s) categorized
                 WHERE :allCategories OR category IN (:categories)
                 ORDER BY %s OFFSET :offset LIMIT :limit
-                """.formatted(filtered(), order)), tenant, actor, query, sources, categories)
+                """.formatted(filtered(), order)), tenant, actor, query, sources, categories, session)
                 .param("offset", offset).param("limit", limit)
                 .query((row, ignored) -> new Row(new ChatLibraryFile(
                         ChatLibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
@@ -94,17 +107,18 @@ public class JdbcChatLibraryRepository {
                         row.getLong("total_count"), row.getLong("total_bytes")))
                 .list();
         // A page past the end carries no window row, and the filter's totals must not collapse with it.
-        if (rows.isEmpty()) return totals(tenant, actor, query, sources, categories);
+        if (rows.isEmpty()) return totals(tenant, actor, query, sources, categories, session);
         return new Page(rows.stream().map(Row::file).toList(),
                 rows.getFirst().totalCount(), rows.getFirst().totalBytes());
     }
 
-    private Page totals(TenantId tenant, ActorId actor, String query, Set<String> sources, Set<String> categories) {
+    private Page totals(TenantId tenant, ActorId actor, String query, Set<String> sources, Set<String> categories,
+                        @Nullable UUID session) {
         return bind(jdbc.sql("""
                 SELECT count(*) AS total_count, COALESCE(SUM(size_bytes), 0) AS total_bytes
                 FROM (%s) categorized
                 WHERE :allCategories OR category IN (:categories)
-                """.formatted(filtered())), tenant, actor, query, sources, categories)
+                """.formatted(filtered())), tenant, actor, query, sources, categories, session)
                 .query((row, ignored) -> new Page(List.of(), row.getLong("total_count"), row.getLong("total_bytes")))
                 .single();
     }
@@ -112,8 +126,10 @@ public class JdbcChatLibraryRepository {
     private static String filtered() { return FILTERED.formatted(CATEGORY, SOURCES); }
 
     private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, TenantId tenant, ActorId actor,
-                                                 String query, Set<String> sources, Set<String> categories) {
+                                                 String query, Set<String> sources, Set<String> categories,
+                                                 @Nullable UUID session) {
         return statement.param("tenant", tenant.value()).param("actor", actor.value())
+                .param("allSessions", session == null).param("session", session)
                 .param("query", query).param("pattern", "%" + escape(query) + "%")
                 .param("allSources", sources.isEmpty()).param("sources", sources.isEmpty() ? Set.of("") : sources)
                 .param("allCategories", categories.isEmpty()).param("categories", categories.isEmpty() ? Set.of("") : categories);

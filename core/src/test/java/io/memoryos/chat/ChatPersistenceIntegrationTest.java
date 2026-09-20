@@ -242,7 +242,7 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/pic.png"), "image/png", ".png", 512,
                 "a red shirt", null, null);
 
-        var all = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        var all = library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(3, all.totalCount());
         assertEquals(4 + 2048 + 512, all.totalBytes());
         assertEquals(List.of(ChatLibraryFile.Source.IMAGE, ChatLibraryFile.Source.GENERATED, ChatLibraryFile.Source.UPLOAD),
@@ -257,25 +257,25 @@ class ChatPersistenceIntegrationTest {
         var picture = all.items().stream().filter(file -> file.id().equals(image)).findFirst().orElseThrow();
         assertTrue(picture.filename().startsWith("image-") && picture.filename().endsWith(".png"), picture.filename());
         assertEquals(512, picture.sizeBytes());
-        assertEquals(List.of(image), ids(library.page(scope, owner, "red shirt", Set.of(), Set.of(),
+        assertEquals(List.of(image), ids(library.page(scope, owner, "red shirt", Set.of(), Set.of(), null,
                 ChatLibraryFile.Sort.NEWEST, 0, 50)));
 
-        assertEquals(List.of(generated), ids(library.page(scope, owner, "doanh", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(generated), ids(library.page(scope, owner, "", Set.of("GENERATED"), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of("DOCUMENT"), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, "doanh", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, "", Set.of("GENERATED"), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of("DOCUMENT"), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
         assertEquals(List.of(generated, image, upload),
-                ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.LARGEST, 0, 50)));
-        var second = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 1, 1);
+                ids(library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.LARGEST, 0, 50)));
+        var second = library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 1, 1);
         assertEquals(3, second.totalCount());
         assertEquals(List.of(generated), ids(second));
         // A page past the end still reports the filter's totals; they describe the filter, not the page.
-        var beyond = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 10, 50);
+        var beyond = library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 10, 50);
         assertEquals(List.of(), ids(beyond));
         assertEquals(3, beyond.totalCount());
         assertEquals(4 + 2048 + 512, beyond.totalBytes());
         // A search term is matched literally, not as an ILIKE pattern.
-        assertEquals(List.of(), ids(library.page(scope, owner, "%", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(0, library.page(scope, other, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
+        assertEquals(List.of(), ids(library.page(scope, owner, "%", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(0, library.page(scope, other, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
 
         // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
         assertTrue(interpreter.markArtifactDeleted(scope, owner, generated));
@@ -288,7 +288,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(images.markDeleted(scope, owner, image));
         assertFalse(images.markDeleted(scope, other, image));
         assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
         // History keeps both as tombstones so the answer does not silently lose its cards.
         assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId()))
                 .get(reply.assistantMessageId()).getFirst().deleted());
@@ -305,9 +305,9 @@ class ChatPersistenceIntegrationTest {
         var keptFile = UUID.randomUUID();
         interpreter.insertArtifact(scope, keptReply.assistantMessageId(), keptFile, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/notes.pdf"), "notes.pdf", "application/pdf", 8, null);
-        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
         turns.delete(owner, kept.id());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50)));
 
         // An upload a project holds is named rather than silently undeletable.
         var project = projects.create(owner, new ChatProjectService.ProjectInput("Kế hoạch", "", "", List.of(upload)));
@@ -315,6 +315,44 @@ class ChatPersistenceIntegrationTest {
         assertEquals(List.of("Kế hoạch"), usage.stream().map(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage::name).toList());
         assertEquals(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage.Kind.PROJECT, usage.getFirst().kind());
         assertEquals(project.id(), usage.getFirst().id());
+    }
+
+    @Test
+    void aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt() {
+        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var session = sessions.create(owner, "Có tệp");
+        var elsewhere = sessions.create(owner, "Nơi khác");
+        var attached = readyFile(owner);
+        var unattached = readyFile(owner);
+        var reply = turns.reserve(owner, session.id(), new ChatCommand(ChatCommand.Operation.SEND,
+                session.rootMessageId(), UUID.randomUUID(), "Xem tệp này", null, List.of(attached)),
+                Duration.ofMinutes(2), 32000, null);
+        var image = UUID.randomUUID();
+        images.insert(scope, reply.assistantMessageId(), image, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/in-session.png"), "image/png", ".png", 64,
+                null, null, null);
+        var otherReply = reserve(elsewhere, elsewhere.rootMessageId(), UUID.randomUUID(), "Khác");
+        var otherImage = UUID.randomUUID();
+        images.insert(scope, otherReply.assistantMessageId(), otherImage, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/elsewhere.png"), "image/png", ".png", 32,
+                null, null, null);
+
+        var inSession = library.page(scope, owner, "", Set.of(), Set.of(), session.id(), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        assertEquals(List.of(image, attached), ids(inSession));
+        assertEquals(64 + 4, inSession.totalBytes());
+        // The other conversation's image and an upload never attached here stay out.
+        assertFalse(ids(inSession).contains(otherImage));
+        assertFalse(ids(inSession).contains(unattached));
+        // Without the filter both conversations' files are listed.
+        assertTrue(ids(library.page(scope, owner, "", Set.of(), Set.of(), null, ChatLibraryFile.Sort.NEWEST, 0, 50))
+                .containsAll(List.of(image, otherImage, attached, unattached)));
+        // A conversation the caller does not own matches nothing, including their own upload used in it.
+        assertEquals(List.of(), ids(library.page(scope, other, "", Set.of(), Set.of(), session.id(),
+                ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(), ids(library.page(scope, owner, "", Set.of(), Set.of(), UUID.randomUUID(),
+                ChatLibraryFile.Sort.NEWEST, 0, 50)));
     }
 
     private static List<UUID> ids(io.memoryos.chat.persistence.JdbcChatLibraryRepository.Page page) {

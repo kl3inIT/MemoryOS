@@ -3258,7 +3258,7 @@ export const listChatModelFlows = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * List the caller's own uploads, generated files and generated images as one paginated library
+ * List the caller's own uploads, generated files and generated images as one paginated library, optionally narrowed to one conversation
  */
 export const listChatLibrary = <ThrowOnError extends boolean = false>(options?: Options<ListChatLibraryData, ThrowOnError>): RequestResult<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError> => (options?.client ?? client).get<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

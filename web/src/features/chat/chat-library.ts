@@ -21,6 +21,8 @@ export type LibraryFilter = {
   sources: LibrarySource[];
   categories: LibraryCategory[];
   sort: LibrarySort;
+  /** Only this conversation's own files (MEM-144); absent lists the whole library. */
+  sessionId?: string;
 };
 
 export async function loadLibrary(
@@ -33,6 +35,7 @@ export async function loadLibrary(
       query: filter.query,
       sources: filter.sources,
       categories: filter.categories,
+      sessionId: filter.sessionId,
       sort: filter.sort,
       offset,
       limit: LIBRARY_PAGE_SIZE,

@@ -11502,6 +11502,10 @@ export type ListChatLibraryData = {
          * Empty means every category
          */
         categories?: Array<string>;
+        /**
+         * Only this conversation's own files; the caller must own it
+         */
+        sessionId?: string;
         sort?: string;
         offset?: number;
         limit?: number;
