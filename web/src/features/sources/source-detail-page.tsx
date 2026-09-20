@@ -52,6 +52,8 @@ import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
+import { cn } from "@/lib/utils";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { FileTypeIcon } from "./file-type-icon";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
@@ -171,6 +173,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           ? 5_000
           : false,
   });
+  // Both queries poll, so their refresh controls follow the press rather than the poll.
+  const sourceRefresh = useManualRefresh(refreshSource);
+  const filesRefresh = useManualRefresh(itemsQuery.refetch);
   const filesTotalPages = itemsQuery.data
     ? Math.ceil(itemsQuery.data.totalItems / filesSize)
     : undefined;
@@ -745,8 +750,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           {detail.pendingWork ? <LoadingLabel label={ui("Work pending")} /> : null}
           <Button
             prominence="tertiary"
-            pending={itemsQuery.isFetching}
-            onClick={() => void itemsQuery.refetch()}
+            pending={filesRefresh.pending}
+            onClick={filesRefresh.refresh}
           >
             {ui("Refresh files")}
           </Button>
@@ -821,7 +826,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
-                      <p className="mt-1 text-xs text-status-danger-content">
+                      // Work stopped by the operator's own pause is expected, so it reads as a note.
+                      <p
+                        className={cn(
+                          "mt-1 text-xs",
+                          item.errorCode === "SOURCE_PAUSED"
+                            ? "text-content-muted"
+                            : "text-status-danger-content",
+                        )}
+                      >
                         {ui(sourceStatusMessage(item.errorCode))}
                       </p>
                     ) : null}
@@ -830,7 +843,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
                   </TableCell>
                   <TableCell className="px-4 py-4 text-content-secondary">
-                    <ItemStatus item={item} />
+                    <ItemStatus item={item} sourcePaused={paused} />
                   </TableCell>
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
@@ -860,8 +873,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         totalPages={filesTotalPages}
         previousLabel={ui("Previous files")}
         nextLabel={ui("Next files")}
-        previousDisabled={!previous.length || itemsQuery.isFetching}
-        nextDisabled={!itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError}
+        previousDisabled={!previous.length || itemsQuery.isPlaceholderData}
+        nextDisabled={
+          !itemsQuery.data?.nextCursor || itemsQuery.isPlaceholderData || itemsQuery.isError
+        }
         onPrevious={() => {
           filesHeading.current?.focus();
           setCursor(previous.at(-1));
@@ -878,7 +893,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           rowsLabel={ui("Rows")}
           value={filesSize}
           sizes={[5, 10, 25, 50, 100]}
-          disabled={itemsQuery.isFetching}
+          disabled={itemsQuery.isPlaceholderData}
           onSizeChange={(size) => {
             setFilesSize(size);
             setCursor(undefined);
@@ -931,8 +946,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           </p>
           <Button
             prominence="secondary"
-            pending={sourceQuery.isFetching}
-            onClick={() => void refreshSource()}
+            pending={sourceRefresh.pending}
+            onClick={sourceRefresh.refresh}
           >
             {ui("Refresh source")}
           </Button>
@@ -963,8 +978,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             <Button
               prominence="secondary"
               className="mt-4"
-              pending={sourceQuery.isFetching}
-              onClick={() => void refreshSource()}
+              pending={sourceRefresh.pending}
+              onClick={sourceRefresh.refresh}
             >
               {ui("Try again")}
             </Button>
@@ -1032,15 +1047,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                 {ui(sourceStatusMessage(detail.errorCode))}
               </p>
             ) : null}
-            {detail.status === "PAUSED" || detail.status === "PAUSING" ? (
-              <p role="status" className="mt-4 text-sm text-status-warning-content">
-                {detail.status === "PAUSING"
-                  ? ui(
-                      "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.",
-                    )
-                  : ui(
-                      "Automatic synchronization and indexing are paused. Indexed data and permissions may become stale until the Source is resumed.",
-                    )}
+            {/* A paused Source is a state, not a failure: the badge carries it, and only the transient
+                pausing step needs a word about the work still finishing. */}
+            {detail.status === "PAUSING" ? (
+              <p role="status" className="mt-4 text-sm text-content-muted">
+                {ui(
+                  "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.",
+                )}
               </p>
             ) : null}
 

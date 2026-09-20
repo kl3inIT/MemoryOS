@@ -6,6 +6,7 @@ import {
   Blocks,
   Bot,
   ChartColumn,
+  CloudUpload,
   Globe,
   ImageIcon,
   KeyRound,
@@ -40,6 +41,7 @@ export type AppShellArea = "app" | "admin" | "settings";
 export type SettingsPage = "general" | "chat" | "connections" | "usage";
 export type AdminPage =
   | "sources"
+  | "addSource"
   | "users"
   | "groups"
   | "web"
@@ -265,7 +267,8 @@ function SidebarContents({
             </SidebarTab>
           </SidebarSection>
         ) : (
-          <div className="space-y-5">
+          // Each section already pads its own heading, so the menu fits a laptop screen at this gap.
+          <div className="space-y-4">
             {canManageModels ? (
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
@@ -355,15 +358,26 @@ function SidebarContents({
               </SidebarSection>
             ) : null}
             {canReadSources ? (
-              <SidebarSection title={ui("Knowledge")} collapsed={collapsed}>
+              <SidebarSection title={ui("Documents & Knowledge")} collapsed={collapsed}>
                 <SidebarTab
                   to="/admin"
+                  // Without this the router marks the Sources tab current on every page under /admin.
+                  activeOptions={{ exact: true }}
                   icon={<Plug className="size-4" />}
                   selected={adminPage === "sources"}
                   collapsed={collapsed}
                   onClick={onNavigate}
                 >
-                  {ui("Sources")}
+                  {ui("Existing sources")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/sources/new"
+                  icon={<CloudUpload className="size-4" />}
+                  selected={adminPage === "addSource"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Add a source")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

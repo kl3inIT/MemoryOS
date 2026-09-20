@@ -234,11 +234,34 @@ test("opens the separate administration shell", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("navigation", { name: "Administration navigation" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sources", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Existing sources", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );
   await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
+});
+
+test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
+  await page.route("**/api/identity/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OWNER_SESSION),
+    });
+  });
+
+  await page.goto("/admin");
+  const navigation = page.getByRole("navigation", { name: "Administration navigation" });
+  await expect(navigation.getByText("Documents & Knowledge")).toBeVisible();
+  const list = navigation.getByRole("link", { name: "Existing sources", exact: true });
+  const add = navigation.getByRole("link", { name: "Add a source", exact: true });
+  await expect(list).toHaveAttribute("aria-current", "page");
+
+  await add.click();
+
+  await expect(page).toHaveURL(/\/admin\/sources\/new$/);
+  await expect(add).toHaveAttribute("aria-current", "page");
+  await expect(list).not.toHaveAttribute("aria-current", "page");
 });
 
 test("keeps one document, identity session, and admin shell across internal routes", async ({
@@ -1206,7 +1229,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
   expect(createAttempts).toBe(1);
-  await page.getByRole("link", { name: "Sources", exact: true }).last().click();
+  await page.getByRole("link", { name: "Existing sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
     .getByRole("table", { name: "Connected sources" })
