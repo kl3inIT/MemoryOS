@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Link } from "@tanstack/react-router";
-import { ReceiptText } from "lucide-react";
+import { Activity, CircleDollarSign, Layers, ReceiptText, TriangleAlert, Users } from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,8 @@ import {
   type Period,
   type PeriodId,
   seriesColor,
+  change,
+  previousPeriod,
 } from "./ai-costs";
 
 const dimensions: Dimension[] = ["ACTOR", "GROUP", "MODEL", "FLOW", "PROVIDER"];
@@ -68,6 +70,7 @@ export function AiCostsPage() {
   const [person, setPerson] = useState<AiCostRow | null>(null);
   const query = { from: range.from, to: range.to };
   const summary = useQuery(getAiCostSummaryOptions({ query }));
+  const before = useQuery(getAiCostSummaryOptions({ query: previousPeriod(range) }));
   const days = useQuery(listAiCostDaysOptions({ query: { ...query, split } }));
   const rows = useQuery(
     listAiCostBreakdownOptions({ query: { ...query, by: dimension, limit: 50 } }),
@@ -100,7 +103,7 @@ export function AiCostsPage() {
       {summary.isError ? (
         <p role="alert">{ui("Something went wrong fetching your usage. Try again in a moment.")}</p>
       ) : (
-        <Summary value={summary.data} />
+        <Summary value={summary.data} previous={before.data} loading={summary.isPending} />
       )}
 
       <Card className="min-w-0">
@@ -172,19 +175,53 @@ export function AiCostsPage() {
   );
 }
 
-function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean }) {
+function Summary({
+  value,
+  previous,
+  loading = false,
+  compact,
+}: {
+  value?: AiCostSummary;
+  previous?: AiCostSummary;
+  loading?: boolean;
+  compact?: boolean;
+}) {
   const ui = useAppTranslation();
   const external =
     value && value.cost > 0 ? Math.round((value.externalCost / value.cost) * 100) : 0;
+  const spend = change(value?.cost, previous?.cost);
   return (
     <StatStrip columns={compact ? 2 : 5}>
-      <StatTile label={ui("Est. spend")} value={value ? money(value.cost) : "—"}>
+      <StatTile
+        icon={<CircleDollarSign />}
+        iconClass="text-chart-1"
+        loading={loading}
+        label={ui("Est. spend")}
+        value={value ? money(value.cost) : "—"}
+        trend={
+          spend
+            ? {
+                direction: spend.direction,
+                label: ui(appText("{{change}} vs previous period", { change: spend.percent })),
+              }
+            : undefined
+        }
+      >
         {value && value.cost > 0
           ? ui(appText("{{percent}}% External", { percent: external }))
           : null}
       </StatTile>
-      <StatTile label={ui("Requests")} value={value ? count(value.calls) : "—"} />
       <StatTile
+        icon={<Activity />}
+        iconClass="text-chart-3"
+        loading={loading}
+        label={ui("Requests")}
+        value={value ? count(value.calls) : "—"}
+      />
+      <StatTile
+        icon={<Layers />}
+        iconClass="text-chart-2"
+        loading={loading}
         label={ui("Total tokens")}
         value={value ? count(value.inputTokens + value.outputTokens) : "—"}
       >
@@ -199,9 +236,20 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
           : null}
       </StatTile>
       {!compact && (
-        <StatTile label={ui("Active users")} value={value ? count(value.activePeople) : "—"} />
+        <StatTile
+          icon={<Users />}
+          iconClass="text-chart-5"
+          loading={loading}
+          label={ui("Active users")}
+          value={value ? count(value.activePeople) : "—"}
+        />
       )}
       <StatTile
+        icon={<TriangleAlert />}
+        iconClass={
+          value && value.unknownCostCalls > 0 ? "text-status-warning-content" : "text-chart-4"
+        }
+        loading={loading}
         label={ui("Prices unavailable")}
         value={value ? count(value.unknownCostCalls) : "—"}
         tone={value && value.unknownCostCalls > 0 ? "warning" : undefined}

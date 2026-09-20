@@ -2959,6 +2959,9 @@ Object.assign(englishUi, {
   "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
     "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",
   "Est. spend": "Chi phí ước tính",
+  "Manage members, their roles and pending invitations.":
+    "Quản lý thành viên, vai trò và lời mời đang chờ.",
+  "{{change}} vs previous period": "{{change}} so với kỳ trước",
   Requests: "Lượt gọi",
   "Total tokens": "Tổng token",
   "Active users": "Người dùng hoạt động",

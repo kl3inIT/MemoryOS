@@ -476,7 +476,7 @@ export function AgentSourcePicker({
         <div className="flex items-center gap-3 rounded-xl border border-dashed border-border-default px-4 py-3">
           <span
             aria-hidden="true"
-            className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken text-content-muted"
+            className="grid size-9 shrink-0 place-items-center text-content-muted"
           >
             <Library className="size-4.5" />
           </span>

@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /** Shared stat typography, also for stats that must live in a table cell. */
-export const statLabelClass = "font-secondary-body text-content-muted";
+export const statLabelClass = "font-secondary-body text-content-secondary";
 export const statValueClass = "font-heading-h3 tabular-nums text-content-primary";
 export const statHintClass = "font-secondary-body tabular-nums text-content-muted";
 
@@ -15,8 +17,9 @@ const columnClasses = {
 } as const;
 
 /**
- * One bordered strip of stats divided by hairlines (LangChain and ElevenLabs usage summaries), used for every
- * figure summary in the app. `columns` is the desktop count; four and five fold to two per row on phones.
+ * One bordered strip of stats divided by hairlines, used for every figure summary in the app: it repeats the
+ * shape of the tables these summaries sit above. `columns` is the desktop count; four and five fold to two
+ * per row on phones.
  */
 export function StatStrip({
   columns,
@@ -45,32 +48,76 @@ export function StatStrip({
   );
 }
 
+/** How a figure moved against the period before it. The direction carries the meaning, never colour alone. */
+export type StatTrend = { direction: "up" | "down" | "flat"; label: string };
+
 type StatTileProps = {
   label: ReactNode;
+  /** Beside the label, in a chart or status colour; it repeats what the label already says. */
+  icon?: ReactNode;
+  iconClass?: string;
   value: ReactNode;
   /** A second line under the value: its parts, its period or its source. */
   hint?: ReactNode;
   /** The same second line, written as children. */
   children?: ReactNode;
+  trend?: StatTrend;
   tone?: "warning" | "danger";
+  /** Shows a placeholder in place of the value while the figure loads. */
+  loading?: boolean;
   className?: string;
 };
 
-function StatBody({ label, value, hint = null, children, tone }: StatTileProps) {
+const trendIcons = { up: TrendingUp, down: TrendingDown, flat: Minus };
+
+function StatBody({
+  label,
+  icon,
+  iconClass,
+  value,
+  hint = null,
+  children,
+  trend,
+  tone,
+  loading = false,
+}: StatTileProps) {
   const second = hint ?? children;
+  const TrendIcon = trend ? trendIcons[trend.direction] : null;
   return (
     <>
-      <span className={cn("block", statLabelClass)}>{label}</span>
-      <span
-        className={cn(
-          "mt-1 block",
-          statValueClass,
-          tone === "warning" && "text-status-warning-content",
-          tone === "danger" && "text-status-danger-content",
+      <span className={cn("flex min-w-0 items-center gap-2", statLabelClass)}>
+        {icon && (
+          <span
+            aria-hidden="true"
+            className={cn("shrink-0 [&_svg]:size-4.5", iconClass ?? "text-content-muted")}
+          >
+            {icon}
+          </span>
         )}
-      >
-        {value}
+        <span className="truncate">{label}</span>
       </span>
+      {loading ? (
+        <Skeleton className="mt-1.5 h-6 w-20" />
+      ) : (
+        <span
+          // A long figure keeps the tile's width; the full text stays available on hover.
+          title={typeof value === "string" ? value : undefined}
+          className={cn(
+            "mt-1 block truncate",
+            statValueClass,
+            tone === "warning" && "text-status-warning-content",
+            tone === "danger" && "text-status-danger-content",
+          )}
+        >
+          {value}
+        </span>
+      )}
+      {TrendIcon && trend && (
+        <span className={cn("mt-0.5 flex items-center gap-1", statHintClass)}>
+          <TrendIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          {trend.label}
+        </span>
+      )}
       {second ? <span className={cn("mt-0.5 block", statHintClass)}>{second}</span> : null}
     </>
   );

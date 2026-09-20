@@ -1,3 +1,4 @@
+import { MessageSquare } from "lucide-react";
 import { PersonalPromptShortcuts } from "@/features/agents/prompt-shortcuts";
 import { VoiceSettingsSection } from "@/features/voice/voice-settings-section";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
@@ -10,7 +11,7 @@ export function ChatSettingsPage() {
   return (
     <SettingsLayout>
       <PageHeader
-        eyebrow={ui("Settings")}
+        icon={<MessageSquare />}
         title={ui("Chat")}
         description={ui("Preferences for your conversations.")}
       />

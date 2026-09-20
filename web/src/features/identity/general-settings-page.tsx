@@ -1,5 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
+import { UserRound } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
@@ -82,7 +83,7 @@ export function GeneralSettingsPage() {
   return (
     <SettingsLayout>
       <PageHeader
-        eyebrow={t("common:settings")}
+        icon={<UserRound />}
         title={t("common:general")}
         description={t("settings:description")}
       />

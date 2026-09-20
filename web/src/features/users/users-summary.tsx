@@ -1,7 +1,7 @@
+import { CircleCheck, CircleSlash, MailPlus } from "lucide-react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { StatStrip, StatToggleTile } from "@/components/composites/stat-strip";
-import { Skeleton } from "@/components/ui/skeleton";
 import type { UserCounts } from "@/lib/hey-api/types.gen";
 import type { UserStatusFilter } from "./users-search";
 
@@ -12,10 +12,29 @@ type UsersSummaryProps = {
   onStatusChange: (status?: UserStatusFilter) => void;
 };
 
+// The icons repeat the status tags in the table below, in the same colours.
 const summaryItems = [
-  { status: "ACTIVE", label: "Active", count: "active" },
-  { status: "INACTIVE", label: "Inactive", count: "inactive" },
-  { status: "INVITED", label: "Invited", count: "invited" },
+  {
+    status: "ACTIVE",
+    label: "Active",
+    count: "active",
+    icon: <CircleCheck />,
+    iconClass: "text-status-success-content",
+  },
+  {
+    status: "INACTIVE",
+    label: "Inactive",
+    count: "inactive",
+    icon: <CircleSlash />,
+    iconClass: "text-content-muted",
+  },
+  {
+    status: "INVITED",
+    label: "Invited",
+    count: "invited",
+    icon: <MailPlus />,
+    iconClass: "text-status-warning-content",
+  },
 ] as const;
 
 /** Status counts in the shared stat strip; each tile filters the list to its status. */
@@ -47,17 +66,12 @@ export function UsersSummary({
                     v2: count.toLocaleString(uiLocale()),
                   })
             }
+            icon={item.icon}
+            iconClass={item.iconClass}
+            loading={loading && count === undefined}
             label={ui(item.label)}
             value={
-              count === undefined ? (
-                loading ? (
-                  <Skeleton className="h-6 w-10" />
-                ) : (
-                  "—"
-                )
-              ) : (
-                count.toLocaleString(uiLocale())
-              )
+              count === undefined ? "—" : count.toLocaleString(uiLocale())
             }
           />
         );

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Activity, ChartColumn, CircleDollarSign, Gauge, Layers } from "lucide-react";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   listAvailableChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { AvailableModel } from "@/lib/hey-api/types.gen";
-import { count, money, period } from "./ai-costs";
+import { change, count, money, period, previousPeriod } from "./ai-costs";
 
 const perMillion = (value: number | null | undefined) =>
   value == null
@@ -34,14 +35,19 @@ export function MyUsagePage() {
     ...getMyAiCostsOptions({ query: { from: range.from, to: range.to } }),
     retry: false,
   });
+  const before = useQuery({
+    ...getMyAiCostsOptions({ query: previousPeriod(range) }),
+    retry: false,
+  });
   const models = useQuery({ ...listAvailableChatModelsOptions(), retry: false });
   const summary = usage.data?.summary;
+  const spend = change(summary?.cost, before.data?.summary.cost);
   const used = (summary?.calls ?? 0) > 0;
 
   return (
     <SettingsLayout>
       <PageHeader
-        eyebrow={ui("Settings")}
+        icon={<ChartColumn />}
         title={ui("Usage")}
         description={ui(
           appText(
@@ -66,9 +72,32 @@ export function MyUsagePage() {
         </div>
       ) : (
         <StatStrip columns={4}>
-          <StatTile label={ui("Est. spend")} value={summary ? money(summary.cost) : "—"} />
-          <StatTile label={ui("Requests")} value={summary ? count(summary.calls) : "—"} />
           <StatTile
+            icon={<CircleDollarSign />}
+            iconClass="text-chart-1"
+            loading={usage.isPending}
+            label={ui("Est. spend")}
+            value={summary ? money(summary.cost) : "—"}
+            trend={
+              spend
+                ? {
+                    direction: spend.direction,
+                    label: ui(appText("{{change}} vs previous period", { change: spend.percent })),
+                  }
+                : undefined
+            }
+          />
+          <StatTile
+            icon={<Activity />}
+            iconClass="text-chart-3"
+            loading={usage.isPending}
+            label={ui("Requests")}
+            value={summary ? count(summary.calls) : "—"}
+          />
+          <StatTile
+            icon={<Layers />}
+            iconClass="text-chart-2"
+            loading={usage.isPending}
             label={ui("Total tokens")}
             value={summary ? count(summary.inputTokens + summary.outputTokens) : "—"}
             hint={
@@ -84,6 +113,8 @@ export function MyUsagePage() {
             }
           />
           <StatTile
+            icon={<Gauge />}
+            iconClass="text-chart-4"
             label={ui("Budget")}
             value={ui("No budget set")}
             hint={ui("Your administrator has not set a spending limit for you.")}
