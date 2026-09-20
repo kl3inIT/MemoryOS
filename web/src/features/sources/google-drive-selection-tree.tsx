@@ -1,8 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, ChevronsDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useId, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,21 +13,23 @@ import type {
   GoogleDriveLinkOriginResponse,
   GoogleDriveSelectionItemResponse,
   GoogleDriveSelectionTreeItemResponse,
+  GoogleDriveSelectionTreeResponse,
 } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { FileTypeIcon } from "./file-type-icon";
-import { SelectionPager } from "./google-drive-selection-pager";
-import {
-  firstSelectionPage,
-  nextSelectionPage,
-  previousSelectionPage,
-  type SelectionPaging,
-} from "./google-drive-selection-paging";
 import { isGoogleDriveRevisionConflict } from "./source-errors";
 
-const pageSize = 25;
-/** Deeper levels stop indenting so rows keep their width on narrow screens. */
-const indentedDepth = 4;
+/**
+ * Drive is listed in one call whatever the page size, so a wider page means fewer of the round trips
+ * that make expanding slow. It stays at the contract's maximum ceiling of 100.
+ */
+const pageSize = 50;
+/** Branch pages stay usable this long, so collapsing and reopening a folder costs no Drive call. */
+const branchFreshness = 10 * 60_000;
+/** Levels past this one keep indenting with a narrower step, so deep chains stay readable without crowding narrow screens. */
+const wideIndentDepth = 4;
+/** Expanding everything loads one page per branch, so one press opens at most this many of them. */
+const cascadeLimit = 50;
 
 type SelectionControls = {
   approved: ReadonlySet<string> | null;
@@ -42,68 +44,112 @@ type TreeProps = SelectionControls & {
   configuration: GetGoogleDriveConfigurationResponse;
   onRefresh: () => Promise<void>;
 };
+/** A node is open when bit 1 is set and still cascading when bit 2 is set. */
+const openBit = 1;
+const cascadeBit = 2;
+
 /**
- * Expanded nodes and branch pages, keyed by the node's path of ids. The tree keeps them so
- * paging a branch away and back restores what was open inside it.
+ * Expanded nodes, keyed by the node's path of ids, so reopening a branch restores what was open
+ * inside it. Nodes subscribe to their own path, so opening one branch of a large tree re-renders
+ * that branch instead of every node on screen.
  */
 type TreeView = {
-  expanded: ReadonlySet<string>;
-  pages: ReadonlyMap<string, SelectionPaging>;
+  subscribe: (path: string, listener: () => void) => () => void;
+  stateOf: (path: string) => number;
   onExpand: (path: string, expanded: boolean) => void;
-  onPage: (path: string, paging: SelectionPaging) => void;
+  onExpandAll: (path: string) => void;
+  onCascade: (path: string, childPaths: string[]) => void;
 };
 type BranchProps = TreeProps & { view: TreeView; ancestors: string[] };
 
-class SelectionTreeChangedError extends Error {}
-
-export function GoogleDriveSelectionTree(props: TreeProps) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [pages, setPages] = useState<ReadonlyMap<string, SelectionPaging>>(() => new Map());
-  const view = useMemo<TreeView>(
-    () => ({
-      expanded,
-      pages,
-      onExpand: (path, open) =>
-        setExpanded((current) => {
-          const next = new Set(current);
-          if (open) next.add(path);
-          else next.delete(path);
-          return next;
-        }),
-      onPage: (path, paging) => setPages((current) => new Map(current).set(path, paging)),
-    }),
-    [expanded, pages],
-  );
-  return <SelectionBranch {...props} view={view} ancestors={[]} />;
+function useTreeView(): TreeView {
+  const store = useRef({
+    expanded: new Set<string>(),
+    cascading: new Set<string>(),
+    listeners: new Map<string, Set<() => void>>(),
+    budget: cascadeLimit,
+  });
+  return useMemo(() => {
+    const notify = (path: string) => {
+      for (const listener of store.current.listeners.get(path) ?? []) listener();
+    };
+    return {
+      subscribe: (path, listener) => {
+        const listeners = store.current.listeners.get(path) ?? new Set();
+        listeners.add(listener);
+        store.current.listeners.set(path, listeners);
+        return () => {
+          listeners.delete(listener);
+          if (!listeners.size) store.current.listeners.delete(path);
+        };
+      },
+      stateOf: (path) =>
+        (store.current.expanded.has(path) ? openBit : 0) |
+        (store.current.cascading.has(path) ? cascadeBit : 0),
+      onExpand: (path, open) => {
+        const { expanded, cascading } = store.current;
+        if (open) expanded.add(path);
+        else {
+          expanded.delete(path);
+          // Collapsing a branch also stops the cascade inside it.
+          for (const kept of [...cascading])
+            if (kept === path || kept.startsWith(`${path}/`)) cascading.delete(kept);
+        }
+        notify(path);
+      },
+      onExpandAll: (path) => {
+        store.current.budget = cascadeLimit;
+        store.current.expanded.add(path);
+        store.current.cascading.add(path);
+        notify(path);
+      },
+      // Cascading is consumed once a branch has opened its children, so collapsing afterwards sticks.
+      onCascade: (path, childPaths) => {
+        const state = store.current;
+        state.cascading.delete(path);
+        for (const child of childPaths) {
+          state.expanded.add(child);
+          if (state.budget > 0) {
+            state.cascading.add(child);
+            state.budget -= 1;
+          }
+        }
+        notify(path);
+        for (const child of childPaths) notify(child);
+      },
+    };
+  }, []);
 }
 
-function SelectionBranch({
-  parent,
-  ...props
-}: BranchProps & { parent?: GoogleDriveSelectionTreeItemResponse }) {
-  const ui = useAppTranslation();
+class SelectionTreeChangedError extends Error {}
 
-  const client = useQueryClient();
-  const { configuration, sourceId, actorId, view, ancestors } = props;
-  // A branch's ancestors end with its parent, so they are the parent node's path.
-  const path = ancestors.join("/");
-  const paging = view.pages.get(path) ?? firstSelectionPage;
-  const request = {
-    path: { sourceId },
-    query: { parentId: parent?.id, size: pageSize, cursor: paging.cursor },
-  };
-  const queryKey = [
-    ...getGoogleDriveSelectionTreeQueryKey(request),
-    actorId,
-    configuration.revision,
-    configuration.discoveryRevision,
-    configuration.credentialRevision,
-  ];
-  const branch = useQuery({
-    queryKey,
-    queryFn: async ({ signal }) => {
+/**
+ * One branch's page query, shared by the branch that renders it and by the hover prefetch that warms
+ * it: expanding a folder costs a Google Drive round trip, so a branch read once is not read again.
+ */
+function branchQuery(
+  { sourceId, actorId, configuration }: Pick<TreeProps, "sourceId" | "actorId" | "configuration">,
+  parentId?: string,
+) {
+  const request = { path: { sourceId }, query: { parentId, size: pageSize } };
+  return {
+    queryKey: [
+      ...getGoogleDriveSelectionTreeQueryKey(request),
+      actorId,
+      configuration.revision,
+      configuration.discoveryRevision,
+      configuration.credentialRevision,
+    ],
+    queryFn: async ({
+      pageParam,
+      signal,
+    }: {
+      pageParam: string | undefined;
+      signal: AbortSignal;
+    }) => {
       const { data } = await getGoogleDriveSelectionTree({
         ...request,
+        query: { ...request.query, cursor: pageParam },
         signal,
         throwOnError: true,
       });
@@ -117,17 +163,67 @@ function SelectionBranch({
       }
       return data;
     },
-    // The shown page stays while the next one loads, so the pager keeps its place and focus.
-    placeholderData: keepPreviousData,
+    initialPageParam: undefined as string | undefined,
+    // Loaded pages stay on screen, so a long folder grows instead of replacing what was read.
+    getNextPageParam: (last: GoogleDriveSelectionTreeResponse) => last.nextCursor ?? undefined,
     retry: false,
-    staleTime: 60_000,
-  });
+    // A branch stays fresh for the length of a review session, so collapsing and reopening is free.
+    staleTime: branchFreshness,
+    gcTime: branchFreshness,
+  };
+}
+
+export function GoogleDriveSelectionTree(props: TreeProps) {
+  const view = useTreeView();
+  return <SelectionBranch {...props} view={view} ancestors={[]} />;
+}
+
+/** Re-renders only the node whose path changed, which keeps large trees responsive. */
+function useNodeState(view: TreeView, path: string) {
+  const subscribe = useCallback(
+    (listener: () => void) => view.subscribe(path, listener),
+    [path, view],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    useCallback(() => view.stateOf(path), [path, view]),
+  );
+}
+
+function SelectionBranch({
+  parent,
+  ...props
+}: BranchProps & { parent?: GoogleDriveSelectionTreeItemResponse }) {
+  const ui = useAppTranslation();
+
+  const client = useQueryClient();
+  const { view, ancestors } = props;
+  // A branch's ancestors end with its parent, so they are the parent node's path.
+  const path = ancestors.join("/");
+  const options = branchQuery(props, parent?.id);
+  const queryKey = options.queryKey;
+  const branch = useInfiniteQuery(options);
   const changed =
     branch.error instanceof SelectionTreeChangedError ||
     isGoogleDriveRevisionConflict(branch.error);
-  const page = branch.data;
-  const items = page?.items ?? [];
+  const items = useMemo(
+    () => branch.data?.pages.flatMap((page) => page.items) ?? [],
+    [branch.data],
+  );
   const label = parent ? `Contents of ${parent.name}` : "Selection items";
+  // A node expanded with "expand everything" keeps opening the children of each page it loads.
+  const cascading = (useNodeState(view, path) & cascadeBit) !== 0;
+  const childPaths = useMemo(
+    () =>
+      items
+        .filter((item) => item.expandable && !ancestors.includes(item.id))
+        .map((item) => (path ? `${path}/${item.id}` : item.id)),
+    [ancestors, items, path],
+  );
+  const { onCascade } = view;
+  useEffect(() => {
+    if (cascading && childPaths.length) onCascade(path, childPaths);
+  }, [cascading, childPaths, onCascade, path]);
   return (
     <div className="min-w-0 space-y-1">
       {branch.isPending ? (
@@ -146,7 +242,7 @@ function SelectionBranch({
               ? ui(
                   "Selection or discovery changed. Refresh before expanding this content. Your draft is retained.",
                 )
-              : paging.previous.length
+              : items.length
                 ? ui("This page could not be loaded. Your draft is retained.")
                 : ui(
                     "This content could not be loaded. It is not an empty folder or a completed discovery.",
@@ -168,11 +264,10 @@ function SelectionBranch({
       {!changed && items.length ? (
         <ul
           aria-label={label}
-          aria-busy={branch.isPlaceholderData || undefined}
+          aria-busy={branch.isFetchingNextPage || undefined}
           className={cn(
-            "min-w-0 space-y-px text-sm transition-opacity motion-reduce:transition-none",
+            "min-w-0 space-y-px text-sm",
             !parent && "border-y border-border-subtle py-1",
-            branch.isPlaceholderData && "opacity-60",
           )}
         >
           {items.map((item) => (
@@ -182,7 +277,7 @@ function SelectionBranch({
       ) : null}
       {branch.isSuccess && !items.length ? (
         <p className="py-2 text-sm text-content-muted">
-          {page?.nextCursor
+          {branch.hasNextPage
             ? ui("No items were returned on this page. More pages are available.")
             : parent?.kind === "FOLDER"
               ? ui("No accessible items are currently returned for this folder.")
@@ -193,45 +288,47 @@ function SelectionBranch({
                 : ui("No selected content is available in this scope.")}
         </p>
       ) : null}
-      {!changed && (paging.previous.length || page?.nextCursor) ? (
-        <SelectionPager
-          paging={paging}
-          count={items.length}
-          hasNext={Boolean(page?.nextCursor)}
-          busy={branch.isPlaceholderData}
-          previousLabel={
+      {!changed && branch.hasNextPage ? (
+        <Button
+          prominence="tertiary"
+          className="h-auto w-full justify-start gap-1 py-2 text-content-secondary"
+          disabled={branch.isFetchingNextPage}
+          aria-label={
             parent
-              ? ui("Previous page in {{v1}}", { v1: parent.name })
-              : ui("Previous page of selected content")
+              ? ui("Load more items in {{v1}}", { v1: parent.name })
+              : ui("Load more selected content")
           }
-          nextLabel={
-            parent
-              ? ui("Next page in {{v1}}", { v1: parent.name })
-              : ui("Next page of selected content")
-          }
-          onPrevious={() => view.onPage(path, previousSelectionPage(paging))}
-          onNext={() => {
-            if (page?.nextCursor)
-              view.onPage(path, nextSelectionPage(paging, page.nextCursor, items.length));
-          }}
-        />
+          onClick={() => void branch.fetchNextPage()}
+        >
+          <ChevronDown aria-hidden="true" />
+          {/* Drive reports that more pages exist, never how many items are left, so the label promises no count. */}
+          {branch.isFetchingNextPage ? ui("Loading…") : ui("Load more")}
+        </Button>
       ) : null}
     </div>
   );
 }
 
-function SelectionTreeNode({
+const SelectionTreeNode = memo(function SelectionTreeNode({
   item,
   ...props
 }: BranchProps & { item: GoogleDriveSelectionTreeItemResponse }) {
   const ui = useAppTranslation();
 
   const { view, ancestors } = props;
-  const path = [...ancestors, item.id].join("/");
+  const path = useMemo(() => [...ancestors, item.id].join("/"), [ancestors, item.id]);
   const branchId = useId();
   const repeated = ancestors.includes(item.id);
   const expandable = item.expandable && !repeated;
-  const expanded = expandable && view.expanded.has(path);
+  const nodeState = useNodeState(view, path);
+  const branchAncestors = useMemo(() => [...ancestors, item.id], [ancestors, item.id]);
+  const expanded = expandable && (nodeState & openBit) !== 0;
+  const client = useQueryClient();
+  // Reaching for the control is a reliable signal, so the folder is read while the pointer travels.
+  const warm = useCallback(() => {
+    if (!expandable || expanded) return;
+    void client.prefetchInfiniteQuery(branchQuery(props, item.id));
+  }, [client, expandable, expanded, item.id, props]);
   return (
     <li className="min-w-0">
       <div className="flex min-w-0 items-center gap-1 rounded-md pr-1 hover:bg-surface-subtle">
@@ -245,6 +342,8 @@ function SelectionTreeNode({
             })}
             aria-expanded={expanded}
             aria-controls={expanded ? branchId : undefined}
+            onPointerEnter={warm}
+            onFocus={warm}
             onClick={() => view.onExpand(path, !expanded)}
           >
             <ChevronRight
@@ -271,21 +370,31 @@ function SelectionTreeNode({
             </p>
           ) : null}
         </div>
+        {expandable ? (
+          <Button
+            prominence="tertiary"
+            className="size-8 shrink-0 p-0 text-content-muted"
+            aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
+            onClick={() => view.onExpandAll(path)}
+          >
+            <ChevronsDown aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
       {expanded ? (
         <div
           id={branchId}
           className={cn(
-            "min-w-0 pb-1",
-            ancestors.length < indentedDepth && "ml-4 border-l border-border-subtle pl-2",
+            "min-w-0 border-l border-border-subtle pb-1",
+            ancestors.length < wideIndentDepth ? "ml-4 pl-2" : "ml-1 pl-1",
           )}
         >
-          <SelectionBranch {...props} parent={item} ancestors={[...ancestors, item.id]} />
+          <SelectionBranch {...props} parent={item} ancestors={branchAncestors} />
         </div>
       ) : null}
     </li>
   );
-}
+});
 
 export function GoogleDriveSelectionRow({
   item,

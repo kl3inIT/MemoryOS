@@ -1878,6 +1878,10 @@ Object.assign(englishUi, {
   "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.":
     "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
+  "Expand everything in {{v1}}": "Mở tất cả bên trong {{v1}}",
+  "Load more": "Tải thêm",
+  "Load more items in {{v1}}": "Tải thêm mục trong {{v1}}",
+  "Load more selected content": "Tải thêm nội dung đã chọn",
   "Save selection": "Lưu lựa chọn",
   "Close draft": "Đóng bản nháp",
   "Reload saved selection": "Tải lại lựa chọn đã lưu",
