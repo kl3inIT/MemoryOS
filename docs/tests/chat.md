@@ -373,3 +373,10 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
 | Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
 | Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
+
+## Reasoning level and sampling defaults (MEM-147)
+
+| Contract | Test and boundary |
+| --- | --- |
+| A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `api/src/test/java/io/memoryos/api/chat/ChatSamplingTest.java` |
+| Pinning and clearing a conversation's level, rejection of an unknown level, another member's conversation, and the member's own starting values with their range | `ChatSessionApiIntegrationTest.reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember` |
