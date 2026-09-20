@@ -21,8 +21,9 @@ import {
   ChatSourcesProvider,
   ChatSourcesWorkspace,
 } from "./chat-sources";
-import { remarkCitations } from "./chat-evidence";
+import { remarkCitations, remarkSandboxLinks } from "./chat-evidence";
 import { cn } from "@/lib/utils";
+import { useChatPreferences } from "@/features/identity/chat-preferences";
 import { IconButton } from "@/components/ui/icon-button";
 import type { ConnectionState } from "./chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
@@ -55,7 +56,7 @@ const activityGroups = groupPartByType({
   reasoning: ["group-activity"],
   "tool-call": ["group-activity"],
 });
-const answerPlugins = [remarkCitations];
+const answerPlugins = [remarkCitations, remarkSandboxLinks];
 const answerComponents = { a: ChatMarkdownLink };
 import {
   ChatComposerQuote,
@@ -104,14 +105,17 @@ export function ChatThread({
   const isEmpty = useAuiState((state) => state.thread.isEmpty);
   const dictating = useAuiState((state) => state.composer.dictation != null);
   const reading = useAutoPlayback().phase !== "idle";
+  // Onyx "Chat Auto-scroll": follow the answer while it is written unless the member turned it off.
+  const autoScroll = useChatPreferences().data?.autoScroll ?? true;
   return (
     <ChatSourcesWorkspace>
       <ThreadPrimitive.Root
-        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-amber-400/10"
+        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40"
         style={{ ["--thread-max-width" as string]: "48rem" }}
       >
         <ThreadPrimitive.Viewport
           data-testid="chat-viewport"
+          autoScroll={autoScroll}
           className={cn(
             "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
             isEmpty && !welcome && "justify-center",
@@ -272,15 +276,11 @@ function UserMessage({ readOnly }: { readOnly: boolean }) {
 }
 
 /**
- * While the run is live and nothing is streaming — before the first part, or after a step finished while the model
- * writes its next tool call — the answer still shows that it is working, as Onyx does; a running step already says so.
+ * Before the first part arrives. Afterwards the last activity group stays live while the model writes its next
+ * call (ChatActivityGroup), so the answer never shows a finished header above a run that is still working.
  */
 function ChatPendingIndicator() {
   const ui = useAppTranslation();
-  const stepRunning = useAuiState(
-    (state) => state.message.parts.at(-1)?.status?.type === "running",
-  );
-  if (stepRunning) return null;
   return <ThinkingIndicator role="status" label={ui("Đang suy nghĩ…")} className="mb-3" />;
 }
 
@@ -298,7 +298,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   return (
     <MessagePrimitive.Root className="group/message min-w-0 [overflow-wrap:anywhere]">
       <ChatSourcesProvider>
-        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="no-text">
+        <MessagePrimitive.GroupedParts groupBy={activityGroups} indicator="empty">
           {({ part, children }) => {
             switch (part.type) {
               case "group-activity":
@@ -351,7 +351,7 @@ function AssistantMessage({ readOnly }: { readOnly: boolean }) {
                 : ui("Câu trả lời bị gián đoạn. Nội dung đã nhận được giữ lại.")}
           </p>
         )}
-        <ActionBarPrimitive.Root className="mt-3 flex flex-wrap items-center gap-1">
+        <ActionBarPrimitive.Root hideWhenRunning className="mt-3 flex flex-wrap items-center gap-1">
           <AuiIf
             condition={(state) =>
               state.message.parts.some(

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class WebProviderClientTest {
@@ -95,6 +96,17 @@ class WebProviderClientTest {
                 argThat(uri -> uri.toString().equals("https://gateway.example.com/v1/search")), anyMap(),
                 argThat(body -> body.contains("\"model\":\"tavily\"") && body.contains("\"max_results\":20")));
     }
+    @Test void nineRouterListsItsSearchEnginesAndSkipsFetchOnlyEntries() throws Exception {
+        // 9Router 0.5 GET /v1/models/web: connected search providers, plus combos marked webSearch or webFetch.
+        when(http.provider(eq("GET"), any(), eq(Map.of("Authorization", "Bearer typed-key")), isNull())).thenReturn(response("""
+                {"object":"list","data":[{"id":"brave-search","owned_by":"brave-search"},{"id":"web","kind":"webSearch"},
+                {"id":"reader","kind":"webFetch"},{"id":"brave-search"},{"id":""}]}"""));
+        assertEquals(List.of("brave-search", "web"),
+                client.nineRouterEngines("https://gateway.example.com/v1/search", "typed-key"));
+        verify(http).provider(eq("GET"), argThat(uri -> uri.toString().equals("https://gateway.example.com/v1/models/web")),
+                anyMap(), isNull());
+    }
+
     @Test void exaAndFirecrawlReturnExtractedTextAndRejectFailedExtraction() throws Exception {
         when(http.provider(anyString(), any(), anyMap(), any())).thenReturn(response("{\"results\":[{\"text\":\"Exa page\"}]}"));
         assertEquals("Exa page", client.read(connection(WebProvider.EXA), "https://example.com", () -> {}).text());

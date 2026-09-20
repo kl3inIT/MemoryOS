@@ -181,6 +181,40 @@
   --status-warning-content: #b54204;
   --status-info-surface: #e7effc;
   --status-info-content: #245fda;
+  /*
+   * Onyx status steps MemoryOS lacked: -05 strong (icons, dots, bars), -02 border (tinted-alert outlines) and -00
+   * faint surface. Content colours above stay one step darker than Onyx's text steps so text keeps 4.5:1.
+   */
+  --status-success-strong: #00a43f;
+  --status-warning-strong: #ec5b13;
+  --status-info-strong: #286df8;
+  --status-danger-border: #f8a59b;
+  --status-success-border: #91d099;
+  --status-warning-border: #f5a88b;
+  --status-info-border: #9bbeff;
+  --status-danger-faint: #fef7f6;
+  --status-success-faint: #f8fbf8;
+  --status-warning-faint: #fef9f7;
+  --status-info-faint: #f8fafe;
+  /* Onyx names the danger role "error"; both names resolve to the same colours. */
+  --status-error-strong: var(--status-danger-strong);
+  --status-error-surface: var(--status-danger-surface);
+  --status-error-content: var(--status-danger-content);
+  --status-error-border: var(--status-danger-border);
+  /* Fixed roles that do not follow the theme: printed documents stay white paper, pill text sits on a deep fill,
+     and controls laid over images use white on a translucent scrim. */
+  --surface-document: #ffffff;
+  --content-document: #000000;
+  --content-on-emphasis: #ffffff;
+  --content-on-media: #ffffff;
+  --surface-on-media: #ffffff1a;
+  --surface-on-media-hover: #ffffff33;
+  --border-on-media: #ffffff80;
+  --scrim-media-hover: #0000001a;
+  /* Onyx text highlights: search matches, the active match and a selection accent. */
+  --highlight-match: #fef8004d;
+  --highlight-active: #ffc73399;
+  --highlight-selection: #4dc3ff4d;
   /* Solid fills for white-lettered status pills. */
   --status-danger-emphasis: #c12222;
   --status-success-emphasis: #007a2d;
@@ -232,11 +266,21 @@
   --input: var(--border-default);
   --ring: var(--focus-ring);
 
-  --chart-1: var(--neutral-200);
-  --chart-2: var(--neutral-500);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: var(--neutral-700);
-  --chart-5: var(--neutral-800);
+  /*
+   * Categorical chart hues, assigned in this fixed order and never cycled; a ninth series folds into "Other"
+   * (--chart-neutral). Steps come from Onyx's ramps (blue-50, orange-55, neon-cyan-80, neon-amber-60,
+   * neon-magenta-80, green-60, purple-50, red-50) and pass the lightness, chroma, colour-blind and normal-vision
+   * separation checks on both surfaces. Status colours are reserved for state and never used as a series.
+   */
+  --chart-1: #286df8;
+  --chart-2: #ce4b05;
+  --chart-3: #009a99;
+  --chart-4: #d9a500;
+  --chart-5: #ab6bac;
+  --chart-6: #008933;
+  --chart-7: #9948e3;
+  --chart-8: #dc2626;
+  --chart-neutral: #8a8a8a;
 
   --sidebar: var(--surface-canvas);
   --sidebar-foreground: var(--content-primary);
@@ -302,6 +346,27 @@
   --status-neutral-emphasis-border: #737373;
   --evidence-highlight-surface: #3a2f05;
   --evidence-highlight-border: #b88600;
+  --status-success-strong: #00a43f;
+  --status-warning-strong: #ec5b13;
+  --status-info-strong: #286df8;
+  --status-danger-border: #5f1a16;
+  --status-success-border: #004214;
+  --status-warning-border: #5d1e01;
+  --status-info-border: #173268;
+  --status-danger-faint: #210504;
+  --status-success-faint: #001503;
+  --status-warning-faint: #200600;
+  --status-info-faint: #040e25;
+  /* Dark steps of the same eight hues, validated on #19191e and #000000. */
+  --chart-1: #397bff;
+  --chart-2: #e1642f;
+  --chart-3: #009a99;
+  --chart-4: #a68018;
+  --chart-5: #ab6bac;
+  --chart-6: #00a43f;
+  --chart-7: #a361e6;
+  --chart-8: #f23a36;
+  --chart-neutral: #6f6f6f;
 
   --elevation-hover: 0 0 2px 1px #ffffff0d;
   --elevation-1: 0 1px 2px oklch(0 0 0 / 0.24);

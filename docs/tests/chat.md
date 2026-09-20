@@ -24,7 +24,7 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 
 Model selector follow-up: `ModelCatalogSelectionTest` covers inherited Tenant/Persona selection, revoked provider and hidden inherited model. `chat-model-picker.test.tsx` covers concrete name/context, no synthetic Auto/deployment heading, explicit selection and unavailable identity. `chat.spec.ts` includes desktop/mobile Luna-default display and retained explicit selection.
 
-Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks native tool binding/bounds/sealing; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; `ChatSessionApiIntegrationTest.nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata` exercises actual native tool execution, saved HTTP history, denied foreign reads and the SSE flag. English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
+Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/Mermaid, streaming fallback, whitespace, malformed/oversized diagrams and dialog focus. `chat-artifacts.test.tsx` validates the read-only allowlist and desktop/mobile panels. `chat-transport.test.ts` checks one authorized metadata read, no second inference and restored history. `ChatArtifactTest` checks the stored-card validation used when history renders; `ChatTurnSetupTest` checks bounded follow-up context; persistence tests retain the terminal winner; English/VI browser cases exercise runtime renderers, drafts and reload. Live provider quality is separate.
 
 | Contract | Test and boundary |
 | --- | --- |
@@ -166,7 +166,16 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | Second adapter without executor changes or fake credentials | `secondRegisteredAdapterNeedsNoExecutorChangesOrDummyCredentials` |
 | Bearer-authenticated HTTP → native OpenAI SDK → transcript/usage, no capability probe | `configuredProviderRunsThroughAuthenticatedHttpNativeSdkAndPersistedOutcome` (local provider/issuer fixtures) |
 | Explicit validation hides provider exceptions and handles trailing usage frames | `defaultsCannotBeHiddenDeletedOrRevokedAndValidationDoesNotExposeProviderErrors` |
+| Provider test lists the endpoint's models with the typed or stored key and reports the round trip; a rejected key, a non-API page and a closed port are named without the provider payload; saving an enabled provider with a rejected key stores nothing; renaming with the kept key while the endpoint is down is not re-checked; non-managers are refused | `providerTestAndSaveCheckTheEndpointAndKeyBeforeStoringThem` (local `/v1/models` fixture) |
+| The provider dialog checks the typed key before saving, keeps it for saving, clears the result on edit and shows the rejected-key message without the payload | `web/src/features/models/models-consumer.test.tsx` — `checks the typed key before saving and names a rejected key` |
+| Model names map to their vendor's mark whichever provider routes them, and unmatched names keep the generic mark | `web/src/features/chat/chat-model-vendor.test.ts` |
+| The Chat picker lists one provider flat and several under sorted provider headings | `web/src/features/chat/chat-model-picker.test.tsx` |
 | Reported models list the provider endpoint's own names, deduplicated and sorted, carry the stored credential, and stay behind `MODELS_MANAGE`; an OpenAI name gets catalog specs and an OpenRouter entry its own | `reportedModelsListsWhatTheProviderEndpointServes` (local `/v1/models` fixture) |
+| Ollama `/api/show` and LM Studio `/api/v1/models` complete a names-only discovery list (context, capabilities, embedding models dropped); other endpoints and failed reads keep the names | `LocalModelMetadataTest` |
+| 9Router search engines are listed from `/models/web` without fetch-only entries, with the typed key or the saved key for the same endpoint, for model managers only | `WebProviderClientTest.nineRouterListsItsSearchEnginesAndSkipsFetchOnlyEntries`, `ChatSessionApiIntegrationTest.nineRouterEnginesAreListedWithTheTypedKeyForModelManagersOnly`, `chat-ui-polish.spec.ts` (engines and success alert, 1440/390px) |
+| Charts, image, PDF and Word previews work under nginx.conf's Content-Security-Policy on the production build | `chat-generated-file-preview.spec.ts` "deployment CSP" with `MEMORYOS_E2E_PREVIEW=1` (build + `vite preview` with the nginx policy); without the chart fix the series stroke is `none`, as seen on staging |
+| The last activity group stays live while the run continues after a finished step; finished once answer text follows or the run ends | `chat-activity-live.test.tsx` |
+| `/mnt/data` is the workspace: files saved there are returned | `test_office_stack.py::test_files_written_to_mnt_data_are_returned` |
 | LaTeX brackets render as math and currency stays text; attached files sit above the question; one file-type glyph across surfaces, by media type then extension | `markdown-text.test.tsx` (assistant math), `chat-transport.test.ts` (attached files above text), `file.test.tsx` (file-type glyphs), `chat-generated-file-preview.spec.ts` screenshots |
 | OpenRouter, 9Router, vLLM, Groq, Mistral, Anthropic and Gemini `/models` fields are read; the catalog fills bare or prefixed names; an answer limit is never guessed and stays empty; an undescribed model takes Onyx's 32,000-token window and tool calling as `none`; an invalid published limit falls back to the catalog | `OpenAiReportedModelsTest` |
 | Input is the model window less the answer reserve, 5% below it (Onyx); bounded work uses the model limit or Onyx's 32,000-token fallback within a quarter of the window | `ChatModelBindingLimitsTest` |
@@ -197,6 +206,7 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | One alias/config prefetch and unique embedding batch; bounded parallel hybrid IO; fresh generation/authorization batches up to 1,000 IDs | `OpenSearchRetrievalIntegrationTest`, `DocumentSearchServiceTest` |
 | Query/filter and reading-document progress precede evidence; duplicate replay retains state; Stop fails the running step and collapses the timeline | `chat-transport.test.ts`; `chat.spec.ts` search-progress case |
 | Reasoning, tool steps and answer text become ordered separate parts; unknown events are skipped; saved activity rebuilds the same order, including failed steps | `chat-transport.test.ts` ordering and history cases |
+| A search step naming a source type this build does not know keeps streaming, dropping the unknown name | `chat-transport.test.ts` "a source type this build does not know" |
 | Activity timeline restored collapsed from history after reload | `chat.spec.ts` keeps-sources-through reload cases |
 | Actual worker starts and processes files with retrieval observations wired | `WorkerFileProcessingIntegrationTest` |
 
@@ -218,6 +228,7 @@ The opt-in `realCorpusMeasuresNativeSearchCyclesFirstTextAndTotalThroughHttpSse`
 | Sources share replay order with text/outcome, preserve tool/message identity, and release readers | `ChatEventStreamTest.searchEvidenceReplaysBeforeTextAndTerminalWithStableWireIdentity` |
 | Reasoning and tool stages replay in sequence before text and terminal with duration and tool name | `ChatEventStreamTest.reasoningAndToolStagesReplayInSequenceBeforeTextAndTerminal`, `StreamBufferWriterTest.reasoningChunksSeparatelyFromTextAndKeepsPublicationOrder` |
 | OpenAI reasoning summaries stream as reasoning without hosted search; the Responses selection requires an explicit reasoning declaration | `OpenAiResponsesChatModelTest`, `OpenAiChatProviderAdapterTest` |
+| Chat Completions reasoning streamed as `delta.reasoning` or `delta.reasoning_content` becomes turn reasoning in arrival order, a paragraph per inference; without a turn only the answer streams | `ChatCompletionsReasoningTest` |
 | Native observation start/error/stop handlers cannot see payload/result/error text but retain tool identity | `ChatObservationSanitizerTest` |
 
 Opt-in `MEMORYOS_CHAT_GROUNDING_LIVE_TEST=true` runs `ChatSessionApiIntegrationTest.realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection` with an actual provider and a controlled synthetic retrieval corpus through the native runtime and real transcript database. It checks a fact found in neighbors rather than the matching chunk, the wrong subject, follow-up reference resolution, missing evidence, citation IDs and document prompt injection. Synthetic answer receipts are written only by this opt-in test under ignored `api/build/reports/chat-grounding/` for manual inspection; global stdout/stderr capture stays disabled. Its pass/fail receipt belongs in the increment verification; it is not a retrieval relevance benchmark or browser acceptance. Real OpenSearch is verified separately in Retrieval. Browser citations/reload now have fixture coverage in Phase 3.2. Broader real-corpus quality and integrated provider/index/browser acceptance remain outstanding.
@@ -277,7 +288,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | The interpreter client caches health for 30 seconds, reports Onyx health errors, sends `X-Api-Key`, streams multipart uploads, parses execution results and types busy responses | `InterpreterClientTest` |
 | Opt-in, against a real interpreter (`MEMORYOS_INTERPRETER_LIVE_URL`, `MEMORYOS_INTERPRETER_LIVE_API_KEY`): a streamed upload with a Vietnamese file name, execution over it, download of the generated file and delete | `InterpreterServiceLiveTest` |
 | Assistant markdown keeps the relative generated-file link and image URL and drops `javascript:` links | `markdown-text.test.tsx` |
-| An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text | `chat-answer-links.test.tsx` |
+| An answer body links only generated files among model-written relative paths; other paths and `javascript:` stay plain text; a `sandbox:` prefix models put on a file link is dropped instead of showing "[blocked]" | `chat-answer-links.test.tsx` |
 | The interpreter client reports streamed output as it arrives and returns the final result; a service error, a stream that ends without a result, a listener that stops reading and an unterminated oversized frame all fail | `InterpreterClientTest` |
 | `run_python` publishes the code, output bounded to its budget and the generated files to the timeline; a timeout or non-zero exit is a failed step that keeps its files, and a failed call shows its error on stderr before the failed stage | `RunPythonToolTest` |
 | An xlsx preview is quoted CSV per sheet in workbook order with cached formula values, cut at a row boundary past its budget; a non-workbook is rejected | `SpreadsheetPreviewTest` |
@@ -351,3 +362,21 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | Detail view: configuration snapshot for a use-only reader, share link `/agents?agent=`, starter prompt opens a new conversation and sends once | `agents.spec.ts` (fixture chat server) |
 | Sidebar pins reorder by keyboard and unpin; administration features an agent | `agents.spec.ts` |
 | Shortcuts: inline create on blur, public shortcuts read-only, `/tom tat` diacritic-insensitive match replaces the draft | `agents.spec.ts` |
+
+## Personal settings (MEM-145)
+
+| Contract | Test and boundary |
+| --- | --- |
+| Personal default model is chosen for a new turn, rejected when unavailable on save and skipped once hidden or deleted | `ChatSessionApiIntegrationTest.personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable`: Spring API, PostgreSQL, synthetic provider |
+| Prompt user information follows Onyx `user_info.py` and omits unknown values | `core/src/test/java/io/memoryos/chat/prompts/ChatUserInformationTest.java` |
+| Delete all chats removes only the caller's sessions | `ChatSessionApiIntegrationTest.deleteAllChatsRemovesOnlyTheCallersConversations` |
+| MCP OAuth can return to Settings → Connections and never leaves MemoryOS | `api/src/test/java/io/memoryos/api/mcp/McpReturnPathTest.java` |
+| Preferences save through one PUT, drafts save on blur, theme and profile render | `chat-preferences.test.tsx`, `general-settings-page.test.tsx` under `web/src/features/identity/` |
+| Delete all confirmation and Connections connect/disconnect | `danger-zone-section.test.tsx`, `connections-settings-page.test.tsx` |
+
+## Reasoning level and sampling defaults (MEM-147)
+
+| Contract | Test and boundary |
+| --- | --- |
+| A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `api/src/test/java/io/memoryos/api/chat/ChatSamplingTest.java` |
+| Pinning and clearing a conversation's level, rejection of an unknown level, another member's conversation, and the member's own starting values with their range | `ChatSessionApiIntegrationTest.reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember` |

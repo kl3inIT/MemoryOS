@@ -62,6 +62,8 @@ public class ModelCatalogService {
     public record ProviderConnection(String adapterType, String baseUrl, String credential) {
         @Override public @NonNull String toString() { return "ProviderConnection[redacted]"; }
     }
+    /** A connection to verify before saving; {@code changed} is false when an update keeps its endpoint and key. */
+    public record ProviderProbe(ProviderConnection connection, boolean changed) {}
     public record ModelInput(String modelName, String displayName, boolean visible, ModelSettings settings) {}
     public record ProviderView(UUID id, String name, String adapterType, String baseUrl, boolean enabled, boolean isPublic,
                                Set<UUID> groupIds, Set<UUID> personaIds, boolean credentialConfigured, long revision,
@@ -114,6 +116,32 @@ public class ModelCatalogService {
             throw ChatException.invalid("Choose another available public Chat default before restricting this provider.");
         catalog.updateProvider(provider);
         return view(catalog.provider(tenant, id).orElseThrow());
+    }
+
+    /**
+     * The endpoint and key a provider form would use, for a connection check that runs outside this transaction. A
+     * kept key on an existing provider is its stored key, as Onyx tests with the saved key when {@code api_key_changed}
+     * is false.
+     */
+    @Transactional
+    public ProviderProbe probeProvider(ActorId actor, @Nullable UUID providerId, String adapterType, String baseUrl,
+                                       ProviderCredentials.@Nullable Change credential) {
+        UUID tenant = admin(actor, false);
+        requireText(adapterType, 64);
+        validateEndpoint(baseUrl);
+        adapters.require(adapterType);
+        var old = providerId == null ? null : catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
+        if (old != null && !old.adapterType().equals(adapterType))
+            throw ChatException.invalid("Create a new provider to change its adapter type.");
+        var action = credential == null ? ProviderCredentials.Action.KEEP : credential.action();
+        String key = switch (action) {
+            case REPLACE -> credential.value() == null ? "" : credential.value().strip();
+            case KEEP -> old == null ? "" : credentials.resolve(tenant, old.id(), old.credential());
+            case REMOVE -> "";
+        };
+        boolean changed = old == null || !old.baseUrl().equals(baseUrl) || action == ProviderCredentials.Action.REPLACE
+                || (action == ProviderCredentials.Action.REMOVE && old.credential() != null);
+        return new ProviderProbe(new ProviderConnection(adapterType, baseUrl, key), changed);
     }
 
     @Transactional
@@ -312,8 +340,9 @@ public class ModelCatalogService {
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         UUID personaDefault = catalog.personaModel(tenant, actor.value(), agentsManage(actor), personaId).modelConfigurationId();
+        UUID personal = personalDefault(tenant, actor, personaId, manager, groups);
         UUID inheritedId = personaDefault != null && accessible(tenant, personaDefault, personaId, manager, groups) != null
-                ? personaDefault : defaultId;
+                ? personaDefault : personal != null ? personal : defaultId;
         return catalog.models(tenant).stream().filter(Model::visible)
                 .filter(m -> providers.containsKey(m.providerId()))
                 .filter(m -> available(providers.get(m.providerId()), personaId, manager, groups))
@@ -331,10 +360,12 @@ public class ModelCatalogService {
         initialize(tenant);
         var context = chats.persona(sessionId, true, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
-        UUID preferred = requested != null ? requested : context.modelConfigurationId();
-        if (preferred == null) preferred = defaultId;
         var groups = catalog.actorGroups(tenant, actor.value());
         boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
+        UUID preferred = requested != null ? requested : context.modelConfigurationId();
+        // Persona model, then the member's personal default when still usable, then the Tenant default (MEM-145).
+        if (preferred == null) preferred = personalDefault(tenant, actor, session.personaId(), manager, groups);
+        if (preferred == null) preferred = defaultId;
         var selection = accessible(tenant, preferred, session.personaId(), manager, groups);
         String contextRevision = context.revision();
         if (selection != null) return new Selection(selection.model(), selection.provider(), null, contextRevision);
@@ -365,6 +396,14 @@ public class ModelCatalogService {
         var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
         validateModel(provider, model.modelName(), model.settings());
         return new Selection(model, provider, null);
+    }
+
+    /** The personal default only while it is visible and usable with this Persona; otherwise the caller falls back. */
+    private @Nullable UUID personalDefault(UUID tenant, ActorId actor, UUID personaId, boolean manager, Set<UUID> groups) {
+        UUID id = catalog.personalDefault(tenant, actor.value());
+        if (id == null) return null;
+        var selection = accessible(tenant, id, personaId, manager, groups);
+        return selection != null && selection.model().visible() ? id : null;
     }
 
     private @Nullable Selection accessible(UUID tenant, @Nullable UUID id, UUID personaId, boolean manager, Set<UUID> groups) {

@@ -95,7 +95,7 @@ export function ConversationSearch({
             )}
           >
             <span className="text-content-secondary">{active.before}</span>
-            <span className="text-content-primary rounded bg-amber-400/35 px-0.5">
+            <span className="text-content-primary rounded bg-highlight-active px-0.5">
               {active.match}
             </span>
             <span className="text-content-secondary">{active.after}</span>
@@ -110,7 +110,7 @@ export function ConversationSearch({
             aria-hidden
             className={cn(
               "absolute inset-x-0 h-1 rounded-full transition-colors duration-200",
-              i === index ? "bg-amber-500" : "bg-amber-500/35",
+              i === index ? "bg-highlight-active" : "bg-highlight-match",
             )}
             style={{ top: `${hit.position}%` }}
           />

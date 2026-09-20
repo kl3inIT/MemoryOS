@@ -53,6 +53,14 @@ function ChartContainer({
 }) {
   const uniqueId = React.useId();
   const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`;
+  // MemoryOS: the deployment CSP (style-src 'self') drops inline <style> elements, so plain series colors are set
+  // as custom properties through React's style object (CSSOM), which the policy allows. Themed colors still use
+  // ChartStyle.
+  const colorVariables = Object.fromEntries(
+    Object.entries(config).flatMap(([key, item]) =>
+      !item.theme && item.color ? [[`--color-${key}`, item.color]] : [],
+    ),
+  ) as React.CSSProperties;
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -64,6 +72,7 @@ function ChartContainer({
           className,
         )}
         {...props}
+        style={{ ...colorVariables, ...props.style }}
       >
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
@@ -75,7 +84,7 @@ function ChartContainer({
 }
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([, config]) => config.theme ?? config.color);
+  const colorConfig = Object.entries(config).filter(([, config]) => config.theme);
 
   if (!colorConfig.length) {
     return null;

@@ -1,3 +1,4 @@
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useId, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ImageIcon, Settings2, Unplug } from "lucide-react";
@@ -438,7 +439,7 @@ function ConnectionCard({
     >
       <Dialog.Root open={open} onOpenChange={changeOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px]" />
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
           <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(38rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none">
             {step === "disconnect" ? (
               <>
@@ -576,13 +577,10 @@ function ConnectionCard({
                   )}
                 </fieldset>
                 {tested && (
-                  <p
-                    role="status"
-                    className="mt-4 flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
-                  >
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    {ui("Kiểm tra kết nối thành công")}
-                  </p>
+                  <Alert variant="success" role="status" className="mt-4">
+                    <CheckCircle2 aria-hidden="true" />
+                    <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
+                  </Alert>
                 )}
                 {actionError && (
                   <p role="alert" className="mt-4 text-sm text-status-danger-content">

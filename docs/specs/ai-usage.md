@@ -33,13 +33,14 @@ All costs are estimates from provider-reported usage and catalog prices, not pro
 
 ## HTTP
 
-Every endpoint requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN`). `from` and `to` are inclusive UTC dates, at most 366 days apart. Summary, daily and breakdown accept optional `model` and `flow` filters.
+Every endpoint except `/mine` requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN`). `from` and `to` are inclusive UTC dates, at most 366 days apart. Summary, daily and breakdown accept optional `model` and `flow` filters.
 
 | Method and path | Contract |
 | --- | --- |
 | `GET /api/ai-costs/summary?from&to` | `AiCostSummary`: cost, External cost, calls, unknown-cost calls, input/output/cache-read tokens, images, audio seconds, active people |
 | `GET /api/ai-costs/daily?from&to&split=BOUNDARY\|MODEL\|NONE` | `AiCostDay[]`: one entry per day and series |
 | `GET /api/ai-costs/breakdown?from&to&by=ACTOR\|GROUP\|MODEL\|FLOW\|PROVIDER&limit` | `AiCostRow[]` ranked by cost, at most `limit` (1–200, default 50); system work is one `SYSTEM` row; a person counts in every Group they belong to at query time |
+| `GET /api/ai-costs/mine?from&to` | `AiCostDetail` of the caller only (`CHAT_READ`), shown in Settings → Usage with the prices of the models the caller may use |
 | `GET /api/ai-costs/detail?from&to&actorId` or `&system=true` | `AiCostDetail`: one person's (or system work's) summary, daily cost by model, and rows by model, flow and provider |
 
 ## Administration

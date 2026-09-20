@@ -225,6 +225,8 @@ class ChatSessionApiIntegrationTest {
     @BeforeEach
     @SuppressWarnings("resource") // Mockito records a factory call; the runtime cache owns the actual client.
     void actors() {
+        // Provider fixtures point at endpoints that do not exist; only the connection-check test lists models.
+        org.mockito.Mockito.doReturn(false).when(providerAdapter).listsModels();
         when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
         doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
@@ -540,12 +542,10 @@ class ChatSessionApiIntegrationTest {
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
-        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
-            var events = reader.read().events();
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                    && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
-            assertEquals("outcome", events.getLast().type());
-        }
+        var events = replay(UUID.fromString(id));
+        assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
+                && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
+        assertEquals("outcome", events.getLast().type());
     }
 
     @Test
@@ -657,8 +657,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1, bogus.path("tabIndex").asInt());
         assertEquals("COMPLETED", bogus.path("status").asText());
         assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
-        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
-            var events = reader.read().events();
+        var events = replay(UUID.fromString(id));
+        {
             assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
             assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
             assertTrue(events.stream().anyMatch(e -> e.tool() != null && "agent-2".equals(e.tool().toolCallId())
@@ -773,18 +773,11 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void aiUsageAddsEveryCycleOfATurnAndItsNamingToTheDailyLedger() throws Exception {
+    void aiUsageRecordsTheTurnAndItsNamingToTheDailyLedger() throws Exception {
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
-        var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Usage",
-                "spec", "{\"root\":{\"component\":\"Text\",\"props\":{\"text\":\"ok\"}}}"));
-        var calls = new AtomicInteger();
-        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
-            if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
-                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("gui-1", "function", "render_gui", arguments))).build(),
-                    ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
-                    ChatResponseMetadata.builder().usage(new DefaultUsage(40, 10, 50, null, 16L, null)).build()));
-            return Flux.just(response("Done.", "stop", 12));
-        });
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(new ChatResponse(List.of(new Generation(
+                new AssistantMessage("Done."), ChatGenerationMetadata.builder().finishReason("stop").build())),
+                ChatResponseMetadata.builder().usage(new DefaultUsage(40, 10, 50, null, 16L, null)).build())));
         var session = create();
         var reply = send(session, UUID.randomUUID().toString());
         awaitOutcome(reply.path("assistantMessageId").asText(), "COMPLETED");
@@ -819,6 +812,19 @@ class ChatSessionApiIntegrationTest {
                 """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+        // Settings › Usage (MEM-145): any Chat reader sees only their own rows, never another member's.
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5-mini', 'EXTERNAL', 7, 100, 10, 0.01, 0)
+                """).param("tenant", TENANT).param("actor", other.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(3))
+                .andExpect(jsonPath("$.models.length()").value(1)).andExpect(jsonPath("$.models[0].label").value("gpt-5.1"));
+        mockMvc.perform(get("/api/ai-costs/mine").param("from", today).param("to", today).with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.summary.calls").value(7));
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND actor_id=:actor").param("tenant", TENANT)
+                .param("actor", other.getPrincipal().actorId().value()).update();
         grantModelManagement();
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.calls").value(3)).andExpect(jsonPath("$.unknownCostCalls").value(1))
@@ -836,35 +842,6 @@ class ChatSessionApiIntegrationTest {
                 .with(authentication(actor))).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(other)))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void nativePresentationToolPersistsThroughAuthorizedHistoryAndAdvertisesTerminalMetadata() throws Exception {
-        var spec = "{\"root\":{\"component\":\"Metric\",\"props\":{\"label\":\"September\",\"value\":\"125000\"}}}";
-        var arguments = new tools.jackson.databind.ObjectMapper().writeValueAsString(Map.of("title", "Revenue", "spec", spec));
-        var calls = new AtomicInteger();
-        when(model.stream(any(Prompt.class))).thenAnswer(call -> {
-            var prompt = call.<Prompt>getArgument(0);
-            if (calls.incrementAndGet() == 1) return Flux.just(new ChatResponse(List.of(new Generation(
-                    AssistantMessage.builder().content("").toolCalls(List.of(new AssistantMessage.ToolCall("gui-1", "function", "render_gui", arguments))).build(),
-                    ChatGenerationMetadata.builder().finishReason("tool_calls").build())),
-                    ChatResponseMetadata.builder().usage(new DefaultUsage(12, 12)).build()));
-            assertTrue(prompt.toString().contains("Read-only artifact accepted"));
-            return Flux.just(response("September revenue is 125000.", "stop", 12));
-        });
-        var session = create();
-        var reply = send(session, UUID.randomUUID().toString());
-        var id = reply.path("assistantMessageId").asText();
-        awaitOutcome(id, "COMPLETED");
-        var saved = history(session).get(1);
-        assertEquals("Revenue", saved.path("artifacts").get(0).path("title").asText());
-        assertEquals(spec, saved.path("artifacts").get(0).path("spec").asText());
-        verify(model, times(2)).stream(any(Prompt.class));
-        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
-            assertTrue(reader.read().events().getLast().hasArtifacts());
-        }
-        mockMvc.perform(get("/api/chat/sessions/" + session.path("id").asText() + "/messages").with(authentication(other)))
-                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1835,6 +1812,188 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(get("/api/chat/providers/" + provider + "/reported-models")
                     .with(authentication(other))).andExpect(status().isForbidden());
         } finally { server.stop(0); }
+    }
+
+    @Test
+    void providerTestAndSaveCheckTheEndpointAndKeyBeforeStoringThem() throws Exception {
+        grantModelManagement();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            boolean accepted = "Bearer good-key".equals(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] bytes = (accepted
+                    ? "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-5-mini\"},{\"id\":\"qwen/qwen3.8-27b\"}]}"
+                    : "{\"error\":{\"message\":\"account acct-secret-42 key rejected\"}}").getBytes(UTF_8);
+            exchange.sendResponseHeaders(accepted ? 200 : 401, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.createContext("/html/models", exchange -> {
+            byte[] bytes = "<html>login</html>".getBytes(UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        server.start();
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+        try {
+            doCallRealMethod().when(providerAdapter).listsModels();
+            doCallRealMethod().when(providerAdapter).reportedModels(any(), any());
+            var body = Json.mapper().createObjectNode().put("adapterType", "openai").put("baseUrl", endpoint);
+            body.putObject("credential").put("action", "REPLACE").put("value", "good-key");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelCount").value(2))
+                    .andExpect(jsonPath("$.latencyMillis").isNumber());
+            // A rejected key, a non-API page and a closed port are named without the provider's payload.
+            ((ObjectNode) body.path("credential")).put("value", "wrong-key");
+            var rejected = mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_CREDENTIAL_REJECTED"))
+                    .andReturn().getResponse().getContentAsString();
+            assertFalse(rejected.contains("acct-secret-42"));
+            var html = body.deepCopy().put("baseUrl", endpoint.replace("/v1", "/html"));
+            ((ObjectNode) html.path("credential")).put("value", "good-key");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(html.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_INCOMPATIBLE"));
+            int closed;
+            try (var socket = new java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress())) { closed = socket.getLocalPort(); }
+            var unreachable = html.deepCopy().put("baseUrl", "http://127.0.0.1:" + closed + "/v1");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(unreachable.toString()))
+                    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_UNREACHABLE"));
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(html.toString())).andExpect(status().isForbidden());
+
+            // Saving an enabled provider runs the same check: a rejected key is never stored.
+            int before = Json.mapper().readTree(mockMvc.perform(get("/api/chat/providers").with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).size();
+            var wrong = providerBody(endpoint, true);
+            ((ObjectNode) wrong.path("credential")).put("value", "wrong-key");
+            mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(wrong.toString()))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_PROVIDER_CREDENTIAL_REJECTED"));
+            assertEquals(before, Json.mapper().readTree(mockMvc.perform(get("/api/chat/providers").with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).size());
+            var good = providerBody(endpoint, true);
+            ((ObjectNode) good.path("credential")).put("value", "good-key");
+            var provider = Json.mapper().readTree(mockMvc.perform(post("/api/chat/providers").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(good.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String id = provider.path("id").asText();
+            // Testing a saved provider without typing its key again uses the stored key.
+            var kept = Json.mapper().createObjectNode().put("adapterType", "openai").put("baseUrl", endpoint).put("providerId", id);
+            kept.putObject("credential").put("action", "KEEP");
+            mockMvc.perform(post("/api/chat/providers/test").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(kept.toString()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.modelCount").value(2));
+            server.stop(0);
+            // Renaming while the endpoint is down keeps its endpoint and key, so it is not re-checked.
+            var renamed = good.deepCopy().put("name", "Renamed " + UUID.randomUUID());
+            renamed.putObject("credential").put("action", "KEEP");
+            mockMvc.perform(put("/api/chat/providers/" + id).param("revision", provider.path("revision").asText())
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(renamed.toString()))
+                    .andExpect(status().isOk());
+        } finally { server.stop(0); }
+    }
+
+    @Test
+    void personalPreferencesChooseTheDefaultModelUntilItIsNoLongerUsable() throws Exception {
+        grantModelManagement();
+        var defaults = Json.mapper().readTree(mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(defaults.path("autoScroll").asBoolean());
+        assertTrue(defaults.path("defaultModelId").isNull());
+        var provider = createProvider("http://preferences.internal/v1", true);
+        String mine = createConfiguredModel(provider, "preferred-mini", 0.3).path("id").asText();
+        var body = Json.mapper().createObjectNode().put("workRole", "Kế toán trưởng")
+                .put("personalPreferences", "Trả lời ngắn gọn.").put("defaultModelId", UUID.randomUUID().toString())
+                .put("autoScroll", false);
+        // A model the member cannot pick is refused; an over-long role is refused.
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body.deepCopy().put("defaultModelId", mine)
+                        .put("workRole", "x".repeat(201)).toString())).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.put("defaultModelId", mine).toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").value(mine))
+                .andExpect(jsonPath("$.autoScroll").value(false));
+        // The personal default is what a new conversation inherits.
+        var models = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(mine, models.valueStream().filter(model -> model.path("isDefault").asBoolean()).findFirst()
+                .orElseThrow().path("id").asText());
+        // Nobody else inherits it.
+        assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(other)))
+                .andReturn().getResponse().getContentAsString()).valueStream()
+                .anyMatch(model -> model.path("isDefault").asBoolean() && model.path("id").asText().equals(mine)));
+        // Hidden later: the member falls back to the Tenant default without an error.
+        jdbc.sql("UPDATE model_configuration SET visible = FALSE WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        var fallback = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(fallback.valueStream().filter(model -> model.path("isDefault").asBoolean())
+                .noneMatch(model -> model.path("id").asText().equals(mine)));
+        assertEquals(1, fallback.valueStream().filter(model -> model.path("isDefault").asBoolean()).count());
+        // Deleting the model clears the preference.
+        jdbc.sql("DELETE FROM model_configuration WHERE id = :id").param("id", UUID.fromString(mine)).update();
+        mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").doesNotExist())
+                .andExpect(jsonPath("$.workRole").value("Kế toán trưởng"));
+    }
+
+    @Test
+    void reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember() throws Exception {
+        String session = create().path("id").asText();
+        // A conversation starts with nothing pinned; the model configuration decides.
+        mockMvc.perform(get("/api/chat/sessions/" + session).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"HIGH\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value("HIGH"));
+        // An unknown level never reaches the conversation.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"EXTREME\"}"))
+                .andExpect(status().isBadRequest());
+        // Nobody pins a level on another member's conversation.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(other)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"LOW\"}"))
+                .andExpect(status().isNotFound());
+        // Clearing it returns the conversation to the model configuration.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+        // The member's own starting values live with the rest of their preferences.
+        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "")
+                .put("autoScroll", true).put("temperatureDefault", 1.4).put("reasoningEffortDefault", "LOW");
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.temperatureDefault").value(1.4))
+                .andExpect(jsonPath("$.reasoningEffortDefault").value("LOW"));
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.deepCopy().put("temperatureDefault", 2.5).toString()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteAllChatsRemovesOnlyTheCallersConversations() throws Exception {
+        create();
+        create();
+        var theirs = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(other)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Theirs\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/sessions").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/sessions/" + theirs.path("id").asText()).with(authentication(other)))
+                .andExpect(status().isOk());
+        // Nothing left is still a success.
+        mockMvc.perform(delete("/api/chat/sessions").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
     }
 
     private String readyImage(byte[] bytes) throws Exception {
@@ -3020,6 +3179,41 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void nineRouterEnginesAreListedWithTheTypedKeyForModelManagersOnly() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models/web", exchange -> {
+            assertEquals("Bearer typed-9router-key", exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] body = "{\"data\":[{\"id\":\"brave-search\"},{\"id\":\"reader\",\"kind\":\"webFetch\"}]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        try {
+            String endpoint = "http://localhost:" + server.getAddress().getPort() + "/v1";
+            var typed = Json.mapper().createObjectNode().put("endpoint", endpoint).put("key", "typed-9router-key").toString();
+            var engines = post("/api/chat/web/connections/NINEROUTER/engines");
+            mockMvc.perform(engines.with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(typed)).andExpect(status().isForbidden());
+            grantModelManagement();
+            mockMvc.perform(post("/api/chat/web/connections/NINEROUTER/engines").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(typed))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.engines[0]").value("brave-search"))
+                    .andExpect(jsonPath("$.engines.length()").value(1));
+            // Without a typed key there is no saved connection whose key could be reused.
+            var blank = Json.mapper().createObjectNode().put("endpoint", endpoint).toString();
+            mockMvc.perform(post("/api/chat/web/connections/NINEROUTER/engines").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(blank))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/chat/web/connections/BRAVE/engines").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(typed))
+                    .andExpect(status().isBadRequest());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent() throws Exception {
         mockMvc.perform(get("/api/chat/web/connections").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/web").with(authentication(actor))).andExpect(status().isOk());
@@ -3176,6 +3370,21 @@ class ChatSessionApiIntegrationTest {
     private JsonNode history(JsonNode session) throws Exception {
         return Json.mapper().readTree(mockMvc.perform(get("/api/chat/sessions/" + session.path("id").asText() + "/messages")
                 .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    /**
+     * Every buffered event of a finished reply. One read returns one batch of at most 64 records, so a turn that
+     * wrote more than that ends its batch before the outcome; draining is what a browser does too.
+     */
+    private List<io.memoryos.chat.streaming.StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
+        var events = new java.util.ArrayList<io.memoryos.chat.streaming.StreamBufferWriter.Event>();
+        try (var reader = streams.subscribe(assistant, 0, () -> false)) {
+            while (true) {
+                var batch = reader.read();
+                events.addAll(batch.events());
+                if (batch.done()) return events;
+            }
+        }
     }
 
     private void awaitOutcome(String id, String expected) {

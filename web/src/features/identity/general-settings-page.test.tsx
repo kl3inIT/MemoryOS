@@ -6,6 +6,7 @@ import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
 import { ApplicationSessionBoundary } from "./application-session-boundary";
+import { ThemeProvider } from "@/features/theme/theme-provider";
 import { GeneralSettingsPage } from "./general-settings-page";
 
 const identity: CurrentIdentity = {
@@ -23,7 +24,9 @@ function mount() {
     <QueryClientProvider client={client}>
       <ActionNotifications>
         <ApplicationSessionBoundary>
-          <GeneralSettingsPage />
+          <ThemeProvider>
+            <GeneralSettingsPage />
+          </ThemeProvider>
         </ApplicationSessionBoundary>
       </ActionNotifications>
     </QueryClientProvider>,

@@ -1,6 +1,6 @@
 /*
- * BrandLoader, the short form of the boot splash (splash.css): ribbons slide in from alternating sides
- * to draw the wordmark once, then a light sheen crosses it on a loop until the loader unmounts.
+ * BrandLoader: ribbons slide in from alternating sides to draw the wordmark once, then a light
+ * sheen crosses it on a loop until the loader unmounts.
  */
 
 .brand-loader {

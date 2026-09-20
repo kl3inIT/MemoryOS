@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { Brain, Eye, Pencil, Search, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,11 @@ export function ModelDiscovery({
                               <ModelName model={model} />
                             </label>
                           ) : (
-                            <ModelName model={model} />
+                            // A checked, locked box keeps configured names aligned with selectable ones.
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Checkbox checked disabled aria-label={ui("Configured")} />
+                              <ModelName model={model} />
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
@@ -268,8 +273,11 @@ function ModelName({ model }: { model: ReportedModel }) {
   ].filter((flag) => flag !== false);
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="truncate" title={model.modelName}>
-        {model.modelName}
+      <span className="flex min-w-0 items-center gap-2">
+        <ChatModelLogo modelName={model.modelName} />
+        <span className="truncate" title={model.modelName}>
+          {model.modelName}
+        </span>
       </span>
       {flags.length > 0 && (
         <span className="flex gap-1.5 text-content-muted">

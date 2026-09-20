@@ -10,6 +10,8 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.MediaContent;
+import com.embabel.common.ai.model.LlmOptions;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
@@ -38,6 +40,28 @@ final class OpenAiChatRequestPolicy {
                     if (!capabilities.reasoning()) builder.reasoningEffort(null);
                     return new Prompt(prompt.getInstructions(), builder.build());
                 }, response -> checkResponse(response, capabilities.toolCalling(), capabilities.vision()));
+    }
+
+    /**
+     * This turn's creativity and reasoning level, applied after the model configuration. A helper call (Embabel
+     * thinking disabled) keeps the low effort the converter gave it; a model that does not reason takes no effort, and
+     * a reasoning model takes no sampling temperature, which is the pairing the model editor already enforces.
+     */
+    static ChatOptions withSampling(ChatOptions converted, LlmOptions requested,
+                                    io.memoryos.chat.ChatSampling sampling, ModelSettings settings) {
+        if (sampling.isEmpty() || !(converted instanceof OpenAiChatOptions options)) return converted;
+        boolean helper = requested.getThinking() != null && !requested.getThinking().getEnabled();
+        if (helper) return converted;
+        var configured = settings.options();
+        var builder = options.mutate();
+        if (sampling.temperature() != null && !settings.capabilities().reasoning()
+                && !configured.containsKey("temperature")
+                && !Boolean.TRUE.equals(configured.get("maxCompletionTokens")))
+            builder.temperature(sampling.temperature());
+        if (sampling.reasoningEffort() != null && settings.capabilities().reasoning()
+                && (sampling.pinnedReasoning() || !configured.containsKey("reasoningEffort")))
+            builder.reasoningEffort(sampling.reasoningEffort().providerValue());
+        return builder.build();
     }
 
     static Prompt withoutTools(Prompt prompt) {

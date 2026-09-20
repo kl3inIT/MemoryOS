@@ -1,7 +1,7 @@
 import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
@@ -18,8 +18,9 @@ import {
   getChatSettings,
   getChatImageAvailability,
   getChatWebAvailability,
+  pinChatReasoningEffort,
 } from "@/lib/hey-api/sdk.gen";
-import type { Accepted } from "@/lib/hey-api/types.gen";
+import type { Accepted, ReasoningSelection } from "@/lib/hey-api/types.gen";
 import type { MemoryOsChatTransport } from "./chat-transport";
 import { ChatThread } from "./chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
@@ -140,6 +141,21 @@ function ChatConversation({
   const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
   const [image, setImage] = useState<ImageMode>(transport.image);
   const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
+  // The level pinned on this conversation; a new conversation starts on the member's own default.
+  const [effort, setEffort] = useState<string>();
+  const pinnedEffort = effort ?? session?.reasoningEffort ?? undefined;
+  const pinReasoning = useMutation({
+    mutationFn: async (level: string) => {
+      setEffort(level);
+      if (!session?.id) return;
+      await pinChatReasoningEffort({
+        path: { sessionId: session.id },
+        body: { reasoningEffort: level as ReasoningSelection["reasoningEffort"] },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+    },
+  });
   const applicationSession = useApplicationSession();
   const chatSettings = useQuery({
     queryKey: [
@@ -456,6 +472,8 @@ function ChatConversation({
                   sessionId={transport.session?.id}
                   value={model.choice.id}
                   onChange={model.select}
+                  effort={pinnedEffort}
+                  onEffortChange={(level) => pinReasoning.mutate(level)}
                   disabled={busy}
                 />
               }

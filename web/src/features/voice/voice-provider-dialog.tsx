@@ -1,3 +1,4 @@
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useId, useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -284,13 +285,10 @@ export function VoiceProviderDialog({
             </section>
           </fieldset>
           {tested && (
-            <p
-              role="status"
-              className="flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
-            >
-              <CheckCircle2 className="size-4" aria-hidden="true" />
-              {ui("Kiểm tra kết nối thành công")}
-            </p>
+            <Alert variant="success" role="status">
+              <CheckCircle2 aria-hidden="true" />
+              <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
+            </Alert>
           )}
           {error && (
             <p

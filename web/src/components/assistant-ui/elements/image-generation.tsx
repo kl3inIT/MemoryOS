@@ -67,7 +67,7 @@ export function ImageGeneration({
         <div
           aria-hidden="true"
           className={cn(
-            "absolute inset-0 bg-gradient-to-br from-blue-400/30 via-fuchsia-400/25 to-amber-300/30 transition-[filter,opacity] duration-500",
+            "absolute inset-0 bg-gradient-to-br from-chart-1/30 via-chart-7/25 to-chart-4/30 transition-[filter,opacity] duration-500",
             showImage ? "opacity-30 blur-2xl" : "opacity-90 blur-xl",
           )}
         />
@@ -95,7 +95,7 @@ export function ImageGeneration({
                 {/* Hover affordance for the "click to view" interaction. */}
                 <span
                   aria-hidden="true"
-                  className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/10 group-focus-visible:bg-black/10"
+                  className="absolute inset-0 bg-transparent transition-colors duration-200 group-hover:bg-scrim-media-hover group-focus-visible:bg-scrim-media-hover"
                 />
               </button>
             </Dialog.Trigger>
@@ -117,14 +117,14 @@ export function ImageGeneration({
                       href={src}
                       download
                       aria-label={downloadLabel}
-                      className="flex size-9 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/50"
+                      className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media outline-none backdrop-blur transition-colors hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
                     >
                       <DownloadIcon className="size-4" aria-hidden="true" />
                     </a>
                   )}
                   <Dialog.Close
                     aria-label={closeLabel}
-                    className="flex size-9 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/50"
+                    className="flex size-9 items-center justify-center rounded-full bg-surface-on-media text-content-on-media outline-none backdrop-blur transition-colors hover:bg-surface-on-media-hover focus-visible:ring-2 focus-visible:ring-border-on-media"
                   >
                     <XIcon className="size-4" aria-hidden="true" />
                   </Dialog.Close>

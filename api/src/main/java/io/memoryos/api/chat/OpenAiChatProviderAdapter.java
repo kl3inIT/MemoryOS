@@ -77,10 +77,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
     private static final int MAX_MODEL_LIST_BYTES = 16 * 1_048_576;
     private static final int MAX_REPORTED_MODELS = 1000;
 
+    @Override public boolean listsModels() { return true; }
+
     @Override
     public List<ReportedModel> reportedModels(Connection connection, Duration timeout) {
         ModelCatalogService.validateEndpoint(connection.baseUrl());
-        if (connection.credential().isBlank()) throw ChatException.providerUnavailable();
+        if (connection.credential().isBlank()) throw ChatException.invalid("Enter the provider API key.");
         // A configured endpoint must not redirect this credential elsewhere, and its body is bounded.
         try (var client = java.net.http.HttpClient.newBuilder()
                 .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
@@ -90,25 +92,38 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                     .timeout(timeout).header("Accept", "application/json")
                     .header("Authorization", "Bearer " + connection.credential()).GET().build();
             var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() >= 300) throw ChatException.providerUnavailable();
+            int status = response.statusCode();
+            if (status == 401 || status == 403) throw ChatException.providerCredentialRejected();
+            if (status >= 500) throw ChatException.providerUnreachable();
+            if (status >= 300) throw ChatException.providerIncompatible();
             byte[] body;
             try (var stream = response.body()) { body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1); }
-            if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw ChatException.providerUnavailable();
+            if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw ChatException.providerIncompatible();
+            com.fasterxml.jackson.databind.JsonNode data;
+            try {
+                data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("data");
+            } catch (java.io.IOException notJson) {
+                throw ChatException.providerIncompatible();
+            }
+            if (!data.isArray()) throw ChatException.providerIncompatible();
             var models = new java.util.ArrayList<ReportedModel>();
-            for (var item : new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("data")) {
+            for (var item : data) {
                 String id = item.path("id").asText("");
                 if (!id.isBlank()) models.add(reported(id, item));
                 if (models.size() >= MAX_REPORTED_MODELS) break;
             }
-            return models;
+            // Ollama and LM Studio publish their limits only on their native APIs (Onyx per-provider fetchers).
+            var local = LocalModelMetadata.recognize(connection.baseUrl(), data, models);
+            return local == null ? models
+                    : LocalModelMetadata.enrich(client, local, connection.baseUrl(), connection.credential(), timeout, models);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw ChatException.providerUnavailable();
+            throw ChatException.providerUnreachable();
         } catch (ChatException expected) {
             throw expected;
         } catch (java.io.IOException | RuntimeException failure) {
-            // The provider payload may carry account detail; report unavailability instead.
-            throw ChatException.providerUnavailable();
+            // Connection refused, DNS or timeout; the provider payload may carry account detail and is never echoed.
+            throw ChatException.providerUnreachable();
         }
     }
 
@@ -217,11 +232,12 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                                         .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
                                         .observationRegistry(observations).meterRegistry(meters).build(),
                                 view, settings.capabilities().reasoning(), hostedSearch, summaries, openAi, meters))
-                        // Only the Chat Completions route carries the tools-with-reasoning constraint.
-                        : new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
+                        // Only the Chat Completions route carries the tools-with-reasoning constraint; its providers
+                        // stream reasoning beside the answer, published to the turn as the Responses route does.
+                        : new ChatCompletionsReasoning(new OpenAiReasoningFallback(async.decorate(view -> OpenAiChatModel.builder()
                                 .openAiClient(sync).openAiClientAsync(view)
                                 .options(OpenAiChatOptions.builder().apiKey(connection.credential()).maxRetries(0).build())
-                                .observationRegistry(observations).meterRegistry(meters).build()));
+                                .observationRegistry(observations).meterRegistry(meters).build())));
                 return new Client(binding(modelName, settings, model, ChatTokenizerProfiles.hostedTokens()),
                         () -> { try { async.close(); } finally { sync.close(); } });
             } catch (RuntimeException | Error failure) { async.close(); throw failure; }
@@ -254,7 +270,11 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 price == null ? null : io.memoryos.chat.catalog.ChatModelPricing.of(price), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
                 OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
-                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools);
+                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools,
+                (llmService, sampling) -> llmService.withOptionsConverter((requested, requestedModel) ->
+                        OpenAiChatRequestPolicy.withSampling(
+                                llmService.getOptionsConverter().convertOptions(requested, requestedModel),
+                                requested, sampling, settings)));
     }
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */

@@ -4,6 +4,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { SearchX, User, UserPlus, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import {
@@ -100,23 +101,24 @@ export function UsersPage() {
   return (
     <>
       <section className="mx-auto w-full max-w-[var(--page-width-wide)] px-5 pt-7 pb-12 sm:px-8 sm:pt-10 sm:pb-16">
-        <header className="flex items-center justify-between gap-4 border-b border-border-subtle pb-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <User className="size-6 shrink-0 text-content-secondary" aria-hidden="true" />
-            <h1 className="font-heading-h2 text-content-primary">{ui("Users")}</h1>
-          </div>
-          <Button
-            ref={inviteButtonRef}
-            size="sm"
-            disabled={actions.invitationPending}
-            onClick={openInvitationDialog}
-          >
-            <UserPlus aria-hidden="true" />
-            {ui("Invite member")}
-          </Button>
-        </header>
+        <PageHeader
+          icon={<User />}
+          title={ui("Users")}
+          description={ui("Manage members, their roles and pending invitations.")}
+          actions={
+            <Button
+              ref={inviteButtonRef}
+              size="sm"
+              disabled={actions.invitationPending}
+              onClick={openInvitationDialog}
+            >
+              <UserPlus aria-hidden="true" />
+              {ui("Invite member")}
+            </Button>
+          }
+        />
 
-        <div className="mt-6 max-w-xl">
+        <div className="mt-6">
           <UsersSummary
             counts={usersPage?.counts}
             selectedStatus={search.status}

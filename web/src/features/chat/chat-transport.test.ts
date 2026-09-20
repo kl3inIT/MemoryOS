@@ -15,6 +15,7 @@ const session: ChatSession = {
   title: "Test",
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-09T00:00:00Z",
+  reasoningEffort: null,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
 it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {
@@ -233,6 +234,33 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     expect(chunks.some((chunk) => chunk.type === "text-start")).toBe(false);
     expect(chunks.filter((chunk) => chunk.type === "message-metadata").at(-1)).toMatchObject({
       messageMetadata: { serverStatus: "CANCELED" },
+    });
+  });
+
+  it("keeps streaming when a search step names a source type this build does not know", async () => {
+    // Staging 2026-09-20: a SharePoint filter failed the step's parse, ending the stream over a finished answer.
+    const search = {
+      queries: ["hợp đồng"],
+      filters: {
+        sources: ["SHAREPOINT", "FILE", "GOOGLE_DRIVE", "FUTURE_PROVIDER"],
+        created: null,
+        updated: null,
+      },
+    };
+    const tool = { toolCallId: "s1", toolName: "search_knowledge", source: null, durationMs: null };
+    fixture(() =>
+      sse(
+        packet(1, "tool", { ...tool, stage: "SEARCHING", search, documents: [] }) +
+          delta +
+          terminal(),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "tool-input-available").at(-1)).toMatchObject({
+      input: { filters: { sources: ["SHAREPOINT", "FILE", "GOOGLE_DRIVE"] } },
+    });
+    expect(chunks.filter((chunk) => chunk.type === "message-metadata").at(-1)).toMatchObject({
+      messageMetadata: { serverStatus: "COMPLETED" },
     });
   });
 

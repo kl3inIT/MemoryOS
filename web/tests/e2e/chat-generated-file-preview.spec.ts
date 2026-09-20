@@ -136,3 +136,51 @@ test("draws captured charts interactively with the PNG as the static view", asyn
   await expect(line.getByRole("img", { name: "Doanh thu theo tháng" })).toBeVisible();
   await shot(page, "chart-page");
 });
+
+// Runs against the production build under nginx.conf's Content-Security-Policy (MEMORYOS_E2E_PREVIEW=1); the dev
+// server injects CSS through inline <style> elements that the policy refuses.
+test("charts and file previews work under the deployment CSP", async ({ page }) => {
+  test.skip(
+    process.env.MEMORYOS_E2E_PREVIEW !== "1",
+    "needs the production build (MEMORYOS_E2E_PREVIEW=1)",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openFiles(page);
+
+  const line = page
+    .locator("[data-slot=generated-chart]")
+    .filter({ hasText: "Doanh thu theo tháng" });
+  await line.scrollIntoViewIfNeeded();
+  await expect(line.locator(".recharts-line")).toHaveCount(3);
+  // Series colors survive: an inline <style> would be dropped by style-src 'self'.
+  const stroke = await line
+    .locator(".recharts-line-curve")
+    .first()
+    .evaluate((path) => getComputedStyle(path).stroke);
+  expect(stroke).toBe("rgb(59, 130, 246)");
+  await line.screenshot(shots ? { path: `${shots}/csp-chart.png` } : {});
+
+  await preview(page, "bieu_do_doanh_thu.png");
+  const image = page.getByRole("img", { name: "bieu_do_doanh_thu.png" });
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  await shot(page, "csp-png");
+  await page.getByRole("button", { name: "Đóng xem trước" }).click();
+
+  await preview(page, "Tài chính Q3.pdf");
+  await expect(page.locator(".react-pdf__Page canvas").first()).toBeVisible({ timeout: 15_000 });
+  await shot(page, "csp-pdf");
+  await page.getByRole("button", { name: "Đóng xem trước" }).click();
+
+  await preview(page, "Báo cáo quý 3.docx");
+  await expect(page.getByText("Báo cáo doanh thu quý 3/2026")).toBeVisible();
+  // Word page geometry comes from docx-preview's inline styles; blocked, a page would have no padding.
+  const padding = await page
+    .locator("[data-slot=docx-preview] section.docx")
+    .first()
+    .evaluate((section) => getComputedStyle(section).paddingLeft);
+  expect(parseFloat(padding)).toBeGreaterThan(20);
+  await shot(page, "csp-docx");
+});

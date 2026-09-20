@@ -6,20 +6,12 @@ import { AuthFrame } from "@/components/states/auth-frame";
 import { RoutePending } from "@/components/states/route-states";
 import { Button } from "@/components/ui/button";
 import { redirectToSignIn, SIGN_IN_PATH } from "@/features/identity/sign-in-redirect";
-import { whenBootSplashDone } from "@/lib/boot-splash";
 
 export function SignInRedirect() {
   const { t } = useTranslation("identity");
 
   useEffect(() => {
-    let active = true;
-    // Let the boot splash finish (the full intro on a tab's first load) before leaving for sign-in.
-    void whenBootSplashDone().then(() => {
-      if (active) redirectToSignIn();
-    });
-    return () => {
-      active = false;
-    };
+    redirectToSignIn();
   }, []);
 
   return <RoutePending label={t("redirecting")} />;

@@ -29,19 +29,16 @@ export function PageHeader({
   icon,
   iconSize = "sm",
   actions,
-  eyebrow,
 }: {
   title: string;
   description?: ReactNode;
   icon?: ReactNode;
   iconSize?: "sm" | "lg";
   actions?: ReactNode;
-  eyebrow?: string;
 }) {
   return (
     <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        {eyebrow && <p className="mb-2 font-secondary-body text-content-muted">{eyebrow}</p>}
         <div className="flex items-center gap-3">
           {icon && (
             <span

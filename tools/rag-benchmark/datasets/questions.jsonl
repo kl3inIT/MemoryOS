@@ -1,0 +1,5 @@
+// One JSON object per line. Gold document ids come from datasets/corpus.json (rag-benchmark freeze).
+// Categories: lookup, multi_hop, aggregate, temporal, abstain, ambiguous, group.
+{"id": "lookup-001", "question": "Doanh thu thuần hợp nhất quý 1 năm 2026 của Savico là bao nhiêu?", "category": "lookup", "actor": "authorized", "gold_document_ids": ["REPLACE-WITH-DOCUMENT-ID"], "gold_answer": "REPLACE-WITH-THE-FIGURE-READ-FROM-THE-DOCUMENT", "notes": "Đọc từ bảng kết quả kinh doanh hợp nhất."}
+{"id": "abstain-001", "question": "Mức thưởng Tết năm 2030 cho nhân viên kinh doanh là bao nhiêu?", "category": "abstain", "actor": "authorized", "expect_abstain": true, "notes": "Không có trong bộ tài liệu; trợ lý phải từ chối và không trích dẫn."}
+{"id": "group-001", "question": "Báo cáo tài chính mới nhất ghi nhận chi phí tài chính bao nhiêu?", "category": "group", "actor": "authorized", "denied_actor": "unauthorized", "gold_document_ids": ["REPLACE-WITH-DOCUMENT-ID"], "gold_answer": "REPLACE-WITH-THE-FIGURE", "notes": "Tài liệu chỉ cấp cho Group Savico - Tài chính."}

@@ -16,16 +16,21 @@ export function ChatModelPicker({
   sessionId,
   value,
   onChange,
+  effort,
+  onEffortChange,
   disabled,
 }: {
   sessionId?: string;
   value?: string;
   onChange: (id?: string) => void;
+  /** The level pinned on this conversation; the model configuration decides when it is absent. */
+  effort?: string;
+  onEffortChange?: (effort: string) => void;
   disabled: boolean;
 }) {
   const ui = useAppTranslation();
 
-  const { catalog, models } = useChatModels(sessionId);
+  const { catalog, models, groups } = useChatModels(sessionId);
   if (catalog.isError)
     return (
       <Button size="sm" prominence="internal" onClick={() => void catalog.refetch()}>
@@ -36,7 +41,13 @@ export function ChatModelPicker({
   const inheritedId = catalog.data?.find((model) => model.isDefault)?.id;
   const selectedId = value ?? inheritedId;
   return (
-    <ModelSelectorRoot models={models} value={selectedId ?? ""} onValueChange={onChange}>
+    <ModelSelectorRoot
+      models={models}
+      value={selectedId ?? ""}
+      onValueChange={onChange}
+      effort={effort}
+      onEffortChange={onEffortChange}
+    >
       <ModelSelectorTrigger
         aria-label={ui("Chọn mô hình")}
         variant="ghost"
@@ -56,11 +67,22 @@ export function ChatModelPicker({
         <ModelSelectorSearch aria-label={ui("Tìm mô hình")} placeholder={ui("Tìm mô hình…")} />
         <ModelSelectorList>
           <ModelSelectorEmpty>{ui("Không tìm thấy mô hình.")}</ModelSelectorEmpty>
-          <ModelSelectorGroup>
-            {models.map((model) => (
-              <ModelSelectorItem key={model.id} model={model} />
-            ))}
-          </ModelSelectorGroup>
+          {/* As Onyx, a lone provider needs no heading; several are grouped under their names. */}
+          {groups.length > 1 ? (
+            groups.map((group) => (
+              <ModelSelectorGroup key={group.provider} heading={group.provider}>
+                {group.models.map((model) => (
+                  <ModelSelectorItem key={model.id} model={model} />
+                ))}
+              </ModelSelectorGroup>
+            ))
+          ) : (
+            <ModelSelectorGroup>
+              {models.map((model) => (
+                <ModelSelectorItem key={model.id} model={model} />
+              ))}
+            </ModelSelectorGroup>
+          )}
         </ModelSelectorList>
       </ModelSelectorContent>
     </ModelSelectorRoot>

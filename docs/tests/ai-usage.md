@@ -9,8 +9,9 @@ Contract: [AI usage and costs](../specs/ai-usage.md).
 | Deleting catalog entries leaves history unchanged; invalid usage is rejected | `AiUsageRecorderTest.catalogDeletionDoesNotTouchHistoryAndInvalidInputIsRejected` |
 | Totals separate known, External and unknown cost and count active people; daily series split by boundary or model; breakdowns rank by cost and label people, Groups, models, flows and providers | `core/src/test/java/io/memoryos/usage/AiCostQueriesTest.java` |
 | Cached input costs the cache-read rate and defaults to the input rate | `core/src/test/java/io/memoryos/chat/catalog/ChatModelPricingTest.java` |
-| Every cycle of a Chat turn and its naming call reach the daily ledger with provider, boundary and cost | `api/src/test/java/io/memoryos/api/chat/ChatSessionApiIntegrationTest.java` — `aiUsageAddsEveryCycleOfATurnAndItsNamingToTheDailyLedger` (Spring API, PostgreSQL, synthetic provider) |
-| `/api/ai-costs` reports the ledger only to model managers | `ChatSessionApiIntegrationTest.aiCostsReportTheLedgerOnlyToModelManagers` |
+| A Chat turn and its naming call reach the daily ledger with provider, boundary and cost | `api/src/test/java/io/memoryos/api/chat/ChatSessionApiIntegrationTest.java` — `aiUsageRecordsTheTurnAndItsNamingToTheDailyLedger` (Spring API, PostgreSQL, synthetic provider) |
+| `/api/ai-costs` reports the ledger only to model managers; `/mine` returns only the caller's own usage to any member | `ChatSessionApiIntegrationTest.aiCostsReportTheLedgerOnlyToModelManagers` |
+| Settings → Usage shows the caller's spend, tokens per model, model prices with unpriced models and no budget | `web/src/features/usage/my-usage-page.test.tsx` |
 | Embedding batches record reported tokens only for a known caller and price them when configured | `core/src/test/java/io/memoryos/retrieval/ValidatedEmbeddingServiceTest.java` — `recordsReportedTokensForAKnownCallerOnlyAndPricesThemWhenConfigured` |
 | Only a delivered image is recorded | `core/src/test/java/io/memoryos/chat/tools/GenerateImageToolTest.java` — `onlyADeliveredImageIsAddedToAiUsage` |
 | A closed dictation session adds its recorded seconds once | `core/src/test/java/io/memoryos/chat/voice/VoiceTranscriptionServiceTest.java` — `aClosedSessionAddsItsRecordedSecondsToAiUsageOnce` |

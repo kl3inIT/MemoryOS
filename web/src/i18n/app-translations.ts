@@ -31,8 +31,6 @@ export const vietnameseUi: Record<string, string> = {
   "Đã đọc tệp": "Read files",
   "Đang tìm trong tệp…": "Searching files…",
   "Đã tìm trong tệp": "Searched files",
-  "Đang tạo thẻ trình bày…": "Creating a visual card…",
-  "Đã tạo thẻ trình bày": "Created a visual card",
   "Đang dùng công cụ…": "Using a tool…",
   "Đã dùng công cụ": "Used a tool",
   "Đang dùng {{tool}}…": "Using {{tool}}…",
@@ -322,6 +320,10 @@ export const vietnameseUi: Record<string, string> = {
   "Mã công cụ tìm kiếm": "Search engine ID",
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
   "Kiểm tra kết nối": "Test connection",
+  "Lấy danh sách": "Fetch list",
+  "9Router có {{count}} engine: {{names}}": "9Router has {{count}} engines: {{names}}",
+  "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.":
+    "9Router has no search engine connected. Add a search provider in 9Router, then try again.",
   "Kiểm tra kết nối thành công": "Connection test succeeded",
   "Không cập nhật hoặc kiểm tra được kết nối Web.": "Could not update or test the Web connection.",
   "Tìm kiếm của nhà cung cấp mô hình": "Model provider search",
@@ -2906,6 +2908,8 @@ Object.assign(englishUi, {
   "Claude models from Anthropic.": "Mô hình Claude của Anthropic.",
   "Open-weight models running on your own machine or server.":
     "Mô hình mã nguồn mở chạy trên máy hoặc máy chủ của bạn.",
+  "Local models served by the LM Studio desktop app or its headless server.":
+    "Model chạy local bằng ứng dụng LM Studio hoặc server headless của nó.",
   "Any endpoint that speaks the OpenAI API, such as vLLM or a gateway.":
     "Mọi endpoint nói giao thức OpenAI API, ví dụ vLLM hoặc gateway nội bộ.",
   Connect: "Kết nối",
@@ -2960,6 +2964,32 @@ Object.assign(englishUi, {
   "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
     "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",
   "Est. spend": "Chi phí ước tính",
+  "{{input}} in · {{output}} out": "{{input}} in · {{output}} out",
+  "Default Creativity": "Độ sáng tạo mặc định",
+  "Starting creativity for your new chats. A model the administrator pinned keeps its own value.":
+    "Độ sáng tạo khởi điểm cho các cuộc trò chuyện mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
+  "Default Reasoning Level": "Mức suy luận mặc định",
+  "Starting reasoning level for your new chats. Any single chat can pin its own level.":
+    "Mức suy luận khởi điểm cho các cuộc trò chuyện mới. Mỗi cuộc trò chuyện vẫn ghim được mức riêng.",
+  "Model default": "Theo model",
+  Tắt: "Tắt",
+  Thấp: "Thấp",
+  Vừa: "Vừa",
+  Cao: "Cao",
+  "· default": "· mặc định",
+  "{{input}} in · {{output}} out · {{cache}} cache":
+    "{{input}} in · {{output}} out · {{cache}} cache",
+  "Share of spend": "Tỉ lệ chi phí",
+  Chats: "Cuộc trò chuyện",
+  "This model will be used by default in your chats.":
+    "Model này được dùng mặc định trong các cuộc trò chuyện của bạn.",
+  "The model your administrator chose.": "Model do quản trị viên chọn.",
+  "Provide your custom preferences in natural language.":
+    "Mô tả tuỳ chọn riêng của bạn bằng ngôn ngữ tự nhiên.",
+  "No models found": "Không tìm thấy model",
+  "Manage members, their roles and pending invitations.":
+    "Quản lý thành viên, vai trò và lời mời đang chờ.",
+  "{{change}} vs previous period": "{{change}} so với kỳ trước",
   Requests: "Lượt gọi",
   "Total tokens": "Tổng token",
   "Active users": "Người dùng hoạt động",
@@ -3122,6 +3152,87 @@ Object.assign(englishUi, {
   "Provider saved. No connectivity claim has been made.":
     "Đã lưu nhà cung cấp. Chưa xác nhận kết nối.",
   "Save provider": "Lưu nhà cung cấp",
+  Connections: "Kết nối",
+  "Tools the assistant uses on your behalf. Each connection uses your own account.":
+    "Công cụ bên ngoài trợ lý được dùng thay bạn. Mỗi kết nối dùng tài khoản của riêng bạn.",
+  "No connectors set up for your organization.": "Tổ chức chưa thiết lập kết nối nào.",
+  "Disconnect {{name}}": "Ngắt kết nối {{name}}",
+  "The assistant will no longer be able to use {{name}} with your account. Existing conversations stay as they are.":
+    "Trợ lý sẽ không dùng được {{name}} bằng tài khoản của bạn nữa. Các cuộc trò chuyện cũ vẫn giữ nguyên.",
+  "Disconnecting…": "Đang ngắt kết nối…",
+  "Danger Zone": "Khu vực nguy hiểm",
+  "Delete All Chats": "Xoá mọi cuộc chat",
+  "Permanently delete all your chat sessions.": "Xoá vĩnh viễn toàn bộ cuộc trò chuyện của bạn.",
+  "Delete all chats?": "Xoá mọi cuộc chat?",
+  "All your chat sessions and history will be permanently deleted. Deletion cannot be undone.":
+    "Toàn bộ cuộc trò chuyện và lịch sử của bạn sẽ bị xoá vĩnh viễn. Không thể hoàn tác.",
+  "Deleting…": "Đang xoá…",
+  "New conversations": "Cuộc trò chuyện mới",
+  "Default Model": "Model mặc định",
+  "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
+    "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
+  "Organization default": "Theo mặc định của tổ chức",
+  "Personal Preferences": "Sở thích cá nhân",
+  "Describe how you want the system to behave and the tone it should use.":
+    "Mô tả cách bạn muốn trợ lý trả lời và giọng văn nên dùng.",
+  "For example: answer briefly in bullet points and always name the source document.":
+    "Ví dụ: trả lời ngắn gọn bằng gạch đầu dòng và luôn nêu tài liệu nguồn.",
+  "{{count}}/{{limit}}": "{{count}}/{{limit}}",
+  "While chatting": "Khi chat",
+  "Chat Auto-scroll": "Tự cuộn khi đang trả lời",
+  "Automatically scroll to new content as chat generates response.":
+    "Tự cuộn tới nội dung mới trong lúc trợ lý đang viết.",
+  "Couldn't save. Try again.": "Chưa lưu được. Hãy thử lại.",
+  Profile: "Hồ sơ",
+  "Name and email come from your organization sign-in.":
+    "Tên và email lấy từ tài khoản đăng nhập của tổ chức.",
+  "Full Name": "Tên",
+  "Work Role": "Vai trò công việc",
+  "Share your role to better tailor responses.":
+    "Cho trợ lý biết vai trò của bạn để trả lời sát công việc hơn.",
+  "Your role": "Ví dụ: Kế toán trưởng",
+  Saved: "Đã lưu",
+  Usage: "Mức dùng",
+  "This month ({{from}} – {{to}}). Costs are estimated from recorded model usage.":
+    "Tháng này ({{from}} – {{to}}). Chi phí được ước tính từ mức dùng model đã ghi nhận.",
+  "Couldn't load usage": "Không tải được mức dùng",
+  Budget: "Hạn mức",
+  "No budget set": "Chưa đặt hạn mức",
+  "Your administrator has not set a spending limit for you.":
+    "Quản trị viên chưa đặt hạn mức chi tiêu cho bạn.",
+  "Usage this period": "Đã dùng kỳ này",
+  "{{amount}} spent": "{{amount}} đã dùng",
+  "{{calls}} requests · {{tokens}} tokens": "{{calls}} lượt gọi · {{tokens}} token",
+  "No usage recorded yet": "Chưa ghi nhận mức dùng nào",
+  "Your model usage and costs will show up here once you start chatting.":
+    "Mức dùng và chi phí model sẽ hiện ở đây khi bạn bắt đầu chat.",
+  "Costs are estimates from the tokens the model reports and the prices your administrator set, not a provider invoice.":
+    "Chi phí là ước tính từ số token model báo về và giá do quản trị viên đặt, không phải hoá đơn của nhà cung cấp.",
+  "USD per 1M tokens (input · output · cache) for every available model":
+    "USD cho mỗi 1 triệu token (input · output · cache) của các model bạn được dùng",
+  Input: "Input",
+  "Cache-read": "Cache-read",
+  "Settings navigation": "Điều hướng cài đặt",
+  "Settings sidebar": "Thanh bên cài đặt",
+  Settings: "Cài đặt",
+  General: "Chung",
+  "Color Mode": "Giao diện",
+  "Select your preferred color mode for the UI.": "Chọn giao diện sáng, tối hoặc theo thiết bị.",
+  Auto: "Theo hệ thống",
+  Light: "Sáng",
+  Dark: "Tối",
+  "Preferences for your conversations.": "Tuỳ chọn cho các cuộc trò chuyện của bạn.",
+  "Test connection": "Kiểm tra kết nối",
+  "Test connection {{name}}": "Kiểm tra kết nối {{name}}",
+  "Connection succeeded · {{latency}} ms": "Kết nối thành công · {{latency}} ms",
+  "Connection succeeded · {{latency}} ms · {{count}} models":
+    "Kết nối thành công · {{latency}} ms · {{count}} model",
+  "The provider rejected the API key": "Nhà cung cấp từ chối khóa API",
+  "Could not reach the provider before the timeout":
+    "Không kết nối được tới nhà cung cấp trước khi hết thời gian chờ",
+  "The provider response was not OpenAI-compatible":
+    "Phản hồi của nhà cung cấp không tương thích OpenAI",
+  "Provider saved.": "Đã lưu nhà cung cấp.",
   // Model editor
   "Saved connection reached the model. This does not certify model quality, capabilities or cancellation.":
     "Kết nối đã lưu đến được mô hình. Điều này không chứng nhận chất lượng, khả năng hay việc hủy của mô hình.",

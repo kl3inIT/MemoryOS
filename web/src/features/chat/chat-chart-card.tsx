@@ -27,21 +27,10 @@ import { getChatFileArtifactChart } from "@/lib/hey-api/sdk.gen";
 import { barRows, parseChart, pointRows, type SimpleChart } from "./chat-chart";
 import { fileArtifactUrl, type GeneratedFile } from "./chat-code";
 
-// The design tokens' --chart-* scale is neutral, which cannot tell series apart; these hues stay distinct and
-// readable on light and dark surfaces.
-const COLORS = [
-  "#3b82f6",
-  "#f59e0b",
-  "#10b981",
-  "#ef4444",
-  "#8b5cf6",
-  "#06b6d4",
-  "#ec4899",
-  "#84cc16",
-];
-
+// The shared categorical chart hues in their fixed order; a ninth series and beyond take the neutral "other" colour
+// instead of repeating a hue.
 function color(index: number): string {
-  return COLORS[index % COLORS.length]!;
+  return index < 8 ? `var(--chart-${index + 1})` : "var(--chart-neutral)";
 }
 
 /**
@@ -99,7 +88,7 @@ export function ChatChartCard({ file }: { file: GeneratedFile }) {
         <img
           src={fileArtifactUrl(file.id)}
           alt={title}
-          className="max-h-96 w-full rounded-lg bg-white object-contain"
+          className="max-h-96 w-full rounded-lg bg-surface-document object-contain"
         />
       )}
     </figure>

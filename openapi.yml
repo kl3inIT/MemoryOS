@@ -1865,6 +1865,70 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions/{sessionId}/reasoning:
+    put:
+      tags:
+      - Chat
+      summary: "Pin how much this conversation's model should think, or clear the\
+        \ choice"
+      operationId: pinChatReasoningEffort
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasoningSelection"
+        required: true
+      responses:
+        "400":
+          description: Invalid chat request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conversation is running or revision has changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful chat operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/project:
     put:
       tags:
@@ -2892,6 +2956,92 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/preferences:
+    get:
+      tags:
+      - Chat Preferences
+      summary: Read the current member's Chat preferences and login profile
+      operationId: getChatPreferences
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The current member's Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Preferences
+      summary: Replace the current member's Chat preferences
+      operationId: saveChatPreferences
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatPreferencesInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid preferences
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Membership unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Chat preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatPreferences"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -6741,6 +6891,84 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/web/connections/{provider}/engines:
+    post:
+      tags:
+      - Chat Web
+      summary: "List the search engines a 9Router gateway offers, with the typed key\
+        \ or the saved one for the same endpoint"
+      operationId: listChatWebEngines
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - BRAVE
+          - TAVILY
+          - EXA
+          - SERPER
+          - GOOGLE_PSE
+          - SEARXNG
+          - NINEROUTER
+          - FIRECRAWL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebEnginesRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Web configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Web connection unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Web connection changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Web provider unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebEnginesResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/tickets:
     post:
       tags:
@@ -7019,6 +7247,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Chat
+      summary: "Delete every owned conversation as deleting each one would, stopping\
+        \ active replies (Onyx Delete All Chats)"
+      operationId: deleteAllChatSessions
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7605,6 +7874,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Model"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/providers/test:
+    post:
+      tags:
+      - Chat models
+      summary: Check an unsaved or edited provider endpoint and key by listing its
+        models; requires model management
+      operationId: testChatProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderTestInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The provider accepted the endpoint and key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderTestResult"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12562,6 +12896,50 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/mine:
+    get:
+      tags:
+      - AI costs
+      summary: "The caller's own AI costs by day, model, task and provider; any Chat\
+        \ reader"
+      operationId: getMyAiCosts
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      responses:
+        "400":
+          description: Invalid period or filter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCostDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/detail:
     get:
       tags:
@@ -14269,11 +14647,17 @@ components:
           - string
           - "null"
           format: uuid
+        reasoningEffort:
+          type:
+          - string
+          - "null"
+          description: "Pinned reasoning level: OFF, LOW, MEDIUM or HIGH"
       required:
       - createdAt
       - id
       - personaId
       - projectId
+      - reasoningEffort
       - rootMessageId
       - title
       - updatedAt
@@ -14298,6 +14682,16 @@ components:
           - type: "null"
       required:
       - personaId
+    ReasoningSelection:
+      type: object
+      properties:
+        reasoningEffort:
+          type: string
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
     ProjectSelection:
       type: object
       properties:
@@ -14539,6 +14933,87 @@ components:
           items:
             type: string
             format: uuid
+    ChatPreferencesInput:
+      type: object
+      properties:
+        workRole:
+          type: string
+          maxLength: 200
+        personalPreferences:
+          type: string
+          maxLength: 2000
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        temperatureDefault:
+          type:
+          - number
+          - "null"
+          format: double
+          maximum: 2
+          minimum: 0
+        reasoningEffortDefault:
+          type:
+          - string
+          - "null"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
+        autoScroll:
+          type: boolean
+      required:
+      - autoScroll
+      - personalPreferences
+      - workRole
+    ChatPreferences:
+      type: object
+      properties:
+        workRole:
+          type: string
+        personalPreferences:
+          type: string
+        defaultModelId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        temperatureDefault:
+          type:
+          - number
+          - "null"
+          format: double
+        reasoningEffortDefault:
+          type:
+          - string
+          - "null"
+          enum:
+          - "OFF"
+          - LOW
+          - MEDIUM
+          - HIGH
+        autoScroll:
+          type: boolean
+        displayName:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+      required:
+      - autoScroll
+      - defaultModelId
+      - displayName
+      - email
+      - personalPreferences
+      - reasoningEffortDefault
+      - temperatureDefault
+      - workRole
     PersonaInput:
       type: object
       properties:
@@ -16247,6 +16722,30 @@ components:
       properties:
         search:
           type: boolean
+    WebEnginesRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        key:
+          type:
+          - string
+          - "null"
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+    WebEnginesResponse:
+      type: object
+      properties:
+        engines:
+          type: array
+          items:
+            type: string
+      required:
+      - engines
     VoiceTicketRequest:
       type: object
       properties:
@@ -16457,6 +16956,38 @@ components:
       required:
       - assistantMessageId
       - status
+    ProviderTestInput:
+      type: object
+      properties:
+        adapterType:
+          type: string
+        baseUrl:
+          type: string
+        credential:
+          $ref: "#/components/schemas/Change"
+        providerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+      required:
+      - adapterType
+      - baseUrl
+      - credential
+    ProviderTestResult:
+      type: object
+      properties:
+        modelCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        latencyMillis:
+          type: integer
+          format: int64
+      required:
+      - latencyMillis
+      - modelCount
     ProjectConversation:
       type: object
       properties:

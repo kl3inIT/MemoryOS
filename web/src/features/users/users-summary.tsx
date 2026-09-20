@@ -1,8 +1,8 @@
+import { CircleCheck, CircleSlash, MailPlus } from "lucide-react";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatStrip, StatToggleTile } from "@/components/composites/stat-strip";
 import type { UserCounts } from "@/lib/hey-api/types.gen";
-import { cn } from "@/lib/utils";
 import type { UserStatusFilter } from "./users-search";
 
 type UsersSummaryProps = {
@@ -12,12 +12,32 @@ type UsersSummaryProps = {
   onStatusChange: (status?: UserStatusFilter) => void;
 };
 
+// The icons repeat the status tags in the table below, in the same colours.
 const summaryItems = [
-  { status: "ACTIVE", label: "Active", count: "active" },
-  { status: "INACTIVE", label: "Inactive", count: "inactive" },
-  { status: "INVITED", label: "Invited", count: "invited" },
+  {
+    status: "ACTIVE",
+    label: "Active",
+    count: "active",
+    icon: <CircleCheck />,
+    iconClass: "text-status-success-content",
+  },
+  {
+    status: "INACTIVE",
+    label: "Inactive",
+    count: "inactive",
+    icon: <CircleSlash />,
+    iconClass: "text-content-muted",
+  },
+  {
+    status: "INVITED",
+    label: "Invited",
+    count: "invited",
+    icon: <MailPlus />,
+    iconClass: "text-status-warning-content",
+  },
 ] as const;
 
+/** Status counts in the shared stat strip; each tile filters the list to its status. */
 export function UsersSummary({
   counts,
   selectedStatus,
@@ -27,20 +47,16 @@ export function UsersSummary({
   const ui = useAppTranslation();
 
   return (
-    <div
-      role="group"
-      aria-label={ui("Filter users by status")}
-      className="grid grid-cols-3 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised"
-    >
-      {summaryItems.map((item, index) => {
+    <StatStrip columns={3} label={ui("Filter users by status")}>
+      {summaryItems.map((item) => {
         const selected = selectedStatus === item.status;
         const count = counts?.[item.count];
         return (
-          <button
+          <StatToggleTile
             key={item.status}
-            type="button"
-            aria-pressed={selected}
-            aria-label={
+            selected={selected}
+            onToggle={() => onStatusChange(selected ? undefined : item.status)}
+            accessibleLabel={
               count === undefined
                 ? ui("Show {{v1}} users, count unavailable", {
                     v1: ui(item.label).toLocaleLowerCase(),
@@ -50,44 +66,14 @@ export function UsersSummary({
                     v2: count.toLocaleString(uiLocale()),
                   })
             }
-            onClick={() => onStatusChange(selected ? undefined : item.status)}
-            className={cn(
-              "group relative min-w-0 px-3 py-3 text-left outline-none transition-colors duration-150 hover:bg-surface-subtle focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-focus-ring/40 sm:px-4 sm:py-4",
-              index > 0 && "border-l border-border-subtle",
-              selected && "bg-surface-sunken",
-            )}
-          >
-            {count === undefined ? (
-              loading ? (
-                <Skeleton className="mb-1.5 h-6 w-10" />
-              ) : (
-                <span className="block text-xl font-semibold leading-6 text-content-muted sm:text-2xl sm:leading-7">
-                  —
-                </span>
-              )
-            ) : (
-              <span className="block text-xl font-semibold leading-6 tabular-nums text-content-primary sm:text-2xl sm:leading-7">
-                {count.toLocaleString(uiLocale())}
-              </span>
-            )}
-            <span
-              className={cn(
-                "mt-0.5 block truncate font-secondary-body text-content-muted",
-                selected && "font-medium text-content-primary",
-              )}
-            >
-              {ui(item.label)}
-            </span>
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute inset-x-3 bottom-0 h-0.5 origin-left scale-x-0 bg-content-primary transition-transform duration-150 sm:inset-x-4",
-                selected && "scale-x-100",
-              )}
-            />
-          </button>
+            icon={item.icon}
+            iconClass={item.iconClass}
+            loading={loading && count === undefined}
+            label={ui(item.label)}
+            value={count === undefined ? "—" : count.toLocaleString(uiLocale())}
+          />
         );
       })}
-    </div>
+    </StatStrip>
   );
 }

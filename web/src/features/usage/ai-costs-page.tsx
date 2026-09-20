@@ -1,18 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
+import { StatStrip, StatTile } from "@/components/composites/stat-strip";
+import { DailyChart } from "./daily-chart";
 import { Link } from "@tanstack/react-router";
-import { ReceiptText } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Activity,
+  CircleDollarSign,
+  Layers,
+  ReceiptText,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 import {
   Select,
   SelectContent,
@@ -28,10 +28,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { appText } from "@/i18n/app-text";
-import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   getAiCostDetailOptions,
@@ -41,7 +39,6 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { AiCostRow, AiCostSummary } from "@/lib/hey-api/types.gen";
 import {
-  chartRows,
   count,
   columnLabels,
   dimensionLabels,
@@ -52,6 +49,8 @@ import {
   type Dimension,
   type Period,
   type PeriodId,
+  change,
+  previousPeriod,
 } from "./ai-costs";
 
 const dimensions: Dimension[] = ["ACTOR", "GROUP", "MODEL", "FLOW", "PROVIDER"];
@@ -67,6 +66,7 @@ export function AiCostsPage() {
   const [person, setPerson] = useState<AiCostRow | null>(null);
   const query = { from: range.from, to: range.to };
   const summary = useQuery(getAiCostSummaryOptions({ query }));
+  const before = useQuery(getAiCostSummaryOptions({ query: previousPeriod(range) }));
   const days = useQuery(listAiCostDaysOptions({ query: { ...query, split } }));
   const rows = useQuery(
     listAiCostBreakdownOptions({ query: { ...query, by: dimension, limit: 50 } }),
@@ -99,7 +99,7 @@ export function AiCostsPage() {
       {summary.isError ? (
         <p role="alert">{ui("Something went wrong fetching your usage. Try again in a moment.")}</p>
       ) : (
-        <Summary value={summary.data} />
+        <Summary value={summary.data} previous={before.data} loading={summary.isPending} />
       )}
 
       <Card className="min-w-0">
@@ -171,25 +171,53 @@ export function AiCostsPage() {
   );
 }
 
-function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean }) {
+function Summary({
+  value,
+  previous,
+  loading = false,
+  compact,
+}: {
+  value?: AiCostSummary;
+  previous?: AiCostSummary;
+  loading?: boolean;
+  compact?: boolean;
+}) {
   const ui = useAppTranslation();
   const external =
     value && value.cost > 0 ? Math.round((value.externalCost / value.cost) * 100) : 0;
+  const spend = change(value?.cost, previous?.cost);
   return (
-    <div
-      className={
-        compact
-          ? "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle"
-          : "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle lg:grid-cols-5"
-      }
-    >
-      <Tile label={ui("Est. spend")} value={value ? money(value.cost) : "—"}>
+    <StatStrip columns={compact ? 2 : 5}>
+      <StatTile
+        icon={<CircleDollarSign />}
+        iconClass="text-chart-1"
+        loading={loading}
+        label={ui("Est. spend")}
+        value={value ? money(value.cost) : "—"}
+        trend={
+          spend
+            ? {
+                direction: spend.direction,
+                label: ui(appText("{{change}} vs previous period", { change: spend.percent })),
+              }
+            : undefined
+        }
+      >
         {value && value.cost > 0
           ? ui(appText("{{percent}}% External", { percent: external }))
           : null}
-      </Tile>
-      <Tile label={ui("Requests")} value={value ? count(value.calls) : "—"} />
-      <Tile
+      </StatTile>
+      <StatTile
+        icon={<Activity />}
+        iconClass="text-chart-3"
+        loading={loading}
+        label={ui("Requests")}
+        value={value ? count(value.calls) : "—"}
+      />
+      <StatTile
+        icon={<Layers />}
+        iconClass="text-chart-2"
+        loading={loading}
         label={ui("Total tokens")}
         value={value ? count(value.inputTokens + value.outputTokens) : "—"}
       >
@@ -202,12 +230,22 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
               }),
             )
           : null}
-      </Tile>
+      </StatTile>
       {!compact && (
-        <Tile label={ui("Active users")} value={value ? count(value.activePeople) : "—"} />
+        <StatTile
+          icon={<Users />}
+          iconClass="text-chart-5"
+          loading={loading}
+          label={ui("Active users")}
+          value={value ? count(value.activePeople) : "—"}
+        />
       )}
-      <Tile
-        wide={!compact}
+      <StatTile
+        icon={<TriangleAlert />}
+        iconClass={
+          value && value.unknownCostCalls > 0 ? "text-status-warning-content" : "text-chart-4"
+        }
+        loading={loading}
         label={ui("Prices unavailable")}
         value={value ? count(value.unknownCostCalls) : "—"}
         tone={value && value.unknownCostCalls > 0 ? "warning" : undefined}
@@ -219,117 +257,8 @@ function Summary({ value, compact }: { value?: AiCostSummary; compact?: boolean 
         ) : (
           ui("All requests priced")
         )}
-      </Tile>
-    </div>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  tone,
-  wide,
-  children,
-}: {
-  label: string;
-  value: string;
-  tone?: "warning";
-  wide?: boolean;
-  children?: ReactNode;
-}) {
-  return (
-    <div className={cn("space-y-1 bg-surface-base px-4 py-3", wide && "col-span-2 lg:col-span-1")}>
-      <p className="font-secondary-body text-content-muted">{label}</p>
-      <p
-        className={cn(
-          "font-heading-h3 tabular-nums",
-          tone === "warning" && "text-status-warning-content",
-        )}
-      >
-        {value}
-      </p>
-      {children && <p className="font-secondary-body text-content-muted">{children}</p>}
-    </div>
-  );
-}
-
-function DailyChart({
-  days,
-  split,
-  range,
-}: {
-  days: Parameters<typeof chartRows>[0];
-  split: "BOUNDARY" | "MODEL";
-  range: Period;
-}) {
-  const ui = useAppTranslation();
-  if (!days.length) return <p role="status">{ui("No usage recorded for this period.")}</p>;
-  const { rows, series } = chartRows(days, split, range);
-  const names: Record<string, string> = {
-    EXTERNAL: ui("External"),
-    INTERNAL: ui("Internal"),
-    NONE: ui("Outside the model catalog"),
-    OTHER: ui("Other models"),
-  };
-  const config: ChartConfig = Object.fromEntries(
-    series.map((key, index) => [
-      `s${index}`,
-      { label: names[key] ?? key, color: `var(--chart-${(index % 5) + 1})` },
-    ]),
-  );
-  const data = rows.map((row) =>
-    Object.fromEntries([
-      [
-        "day",
-        formatUiDate(`${row.day as string}T00:00:00Z`, {
-          day: "2-digit",
-          month: "2-digit",
-          timeZone: "UTC",
-        }),
-      ],
-      ...series.map((key, index) => [`s${index}`, row[key]]),
-    ]),
-  );
-  return (
-    <ChartContainer config={config} className="aspect-auto h-64 w-full">
-      <BarChart accessibilityLayer data={data}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          width={64}
-          tickFormatter={(value: number) => money(value)}
-        />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              className="min-w-48"
-              formatter={(value, name) => (
-                <div className="flex w-full justify-between gap-4">
-                  <span className="text-content-muted">{config[name as string]?.label}</span>
-                  <span className="tabular-nums">{money(Number(value))}</span>
-                </div>
-              )}
-            />
-          }
-        />
-        <ChartLegend
-          content={
-            <ChartLegendContent className="flex-wrap gap-x-4 gap-y-1 [&>div]:whitespace-nowrap" />
-          }
-        />
-        {series.map((_, index) => (
-          <Bar
-            key={index}
-            dataKey={`s${index}`}
-            stackId="cost"
-            fill={`var(--color-s${index})`}
-            radius={index === series.length - 1 ? [4, 4, 0, 0] : 0}
-          />
-        ))}
-      </BarChart>
-    </ChartContainer>
+      </StatTile>
+    </StatStrip>
   );
 }
 
@@ -415,7 +344,7 @@ function Breakdown({
                   <td className="hidden py-2 pl-3 sm:table-cell">
                     <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
                       <div
-                        className="h-2 rounded-full bg-content-primary/70"
+                        className="h-2 rounded-full bg-chart-1"
                         style={{ width: `${top > 0 ? Math.max(2, (row.cost / top) * 100) : 0}%` }}
                       />
                     </div>

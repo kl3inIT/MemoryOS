@@ -16,6 +16,8 @@ import io.memoryos.api.chat.contract.ChatPersonaPageResponse;
 import io.memoryos.api.chat.contract.ChatProviderAdapterResponse;
 import io.memoryos.api.chat.contract.ChatProviderRequest;
 import io.memoryos.api.chat.contract.ChatProviderResponse;
+import io.memoryos.api.chat.contract.ChatProviderTestRequest;
+import io.memoryos.api.chat.contract.ChatProviderTestResponse;
 import io.memoryos.api.chat.contract.ChatReportedModelsResponse;
 import io.memoryos.iam.group.GroupQuery;
 import io.memoryos.iam.identity.IdentityContext;
@@ -104,13 +106,40 @@ class ChatModelCatalogController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatProvider", summary = "Create a Tenant provider; requires MODELS_MANAGE")
     ChatProviderResponse createProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatProviderRequest request) {
+        verifyBeforeSave(identity, null, request);
         return ChatProviderResponse.from(catalog.createProvider(identity.actorId(), request.toInput()));
+    }
+
+    @ApiResponse(responseCode = "200", description = "The provider accepted the endpoint and key", useReturnTypeSchema = true)
+    @PostMapping("/providers/test")
+    @Operation(operationId = "testChatProvider",
+            summary = "Check an unsaved or edited provider endpoint and key by listing its models; requires model management")
+    ChatProviderTestResponse testProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                          @RequestBody ChatProviderTestRequest request) {
+        var probe = catalog.probeProvider(identity.actorId(), request.providerId(), request.adapterType(), request.baseUrl(),
+                request.credential() == null ? null : request.credential().toInput());
+        long started = System.nanoTime();
+        int count = models.verifyProvider(probe.connection());
+        return ChatProviderTestResponse.of(count, java.time.Duration.ofNanos(System.nanoTime() - started).toMillis());
+    }
+
+    /**
+     * Onyx parity: an enabled provider whose endpoint or key rejects the check is not saved. The check runs outside
+     * any transaction; an update that keeps its endpoint and key is not re-checked, so renaming or regrouping a
+     * provider never depends on the endpoint being up.
+     */
+    private void verifyBeforeSave(IdentityContext identity, @Nullable UUID providerId, ChatProviderRequest request) {
+        if (!request.enabled()) return;
+        var probe = catalog.probeProvider(identity.actorId(), providerId, request.adapterType(), request.baseUrl(),
+                request.credential() == null ? null : request.credential().toInput());
+        if (probe.changed()) models.verifyProvider(probe.connection());
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/providers/{providerId}")
     @Operation(operationId = "updateChatProvider", summary = "Replace provider settings at the expected revision; credential action is explicit")
     ChatProviderResponse updateProvider(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID providerId, @RequestParam @Positive long revision, @RequestBody ChatProviderRequest request) {
+        verifyBeforeSave(identity, providerId, request);
         return ChatProviderResponse.from(catalog.updateProvider(identity.actorId(), providerId, revision, request.toInput()));
     }
     @DeleteMapping("/providers/{providerId}")

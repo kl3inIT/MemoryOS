@@ -596,7 +596,7 @@ export function SharePointCredentialSection({
             <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
               <aside className="h-fit rounded-xl border border-border-subtle bg-surface-base p-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="grid size-8 place-items-center rounded-lg bg-surface-sunken text-content-secondary">
+                  <span className="grid size-8 place-items-center text-content-muted">
                     <KeyRound className="size-4" aria-hidden="true" />
                   </span>
                   <div>

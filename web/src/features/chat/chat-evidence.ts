@@ -1,12 +1,10 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
+import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
 
 // Presentation-only metadata recorded when the evidence was cited; older answers omit both.
 const mediaTypeSchema = z.string().min(1).max(160).nullish();
-const sourceTypesSchema = z
-  .array(z.enum(["FILE", "GOOGLE_DRIVE"]))
-  .max(2)
-  .optional();
+const sourceTypesSchema = documentSourceTypesSchema.optional();
 // Only the backend-built Drive open URL is accepted; anything else would be an arbitrary outbound link.
 const providerUrlSchema = z
   .string()
@@ -133,6 +131,22 @@ export function remarkCitations() {
           walk(node as { children: RootContent[] });
         return [node];
       });
+    }
+    walk(tree);
+  };
+}
+
+/**
+ * Models trained on ChatGPT prefix the links to files they generated with `sandbox:`, which the link hardener shows as
+ * "[blocked]". The prefix is dropped: the file_link run_python returned then opens its preview, and any other path
+ * stays plain text as every model-written path does.
+ */
+export function remarkSandboxLinks() {
+  return (tree: Root) => {
+    function walk(node: Root | RootContent) {
+      if (node.type === "link" && /^sandbox:\//.test(node.url))
+        node.url = node.url.slice("sandbox:".length);
+      if ("children" in node) for (const child of node.children) walk(child);
     }
     walk(tree);
   };
