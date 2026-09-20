@@ -260,7 +260,7 @@ public class JdbcChatRepository {
 
     public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
-                        SELECT p.id, p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
+                        SELECT p.id, s.owner_actor_id, p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
                             p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
@@ -285,7 +285,8 @@ public class JdbcChatRepository {
                     var tools = personaTools(id);
                     String pinned = row.getString("reasoning_effort");
                     return new Persona(row.getString("instructions"), row.getString("model"),
-                            new ChatTurnOptions(tools.contains("search"), personaSources(id),
+                            new ChatTurnOptions(tools.contains("search"), personaSources(id, row.getObject("owner_actor_id", UUID.class), agentsManage),
+                                    personaRestrictsSources(id),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
                                     cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
                                     tools.contains("code_interpreter")),
@@ -306,9 +307,27 @@ public class JdbcChatRepository {
                 .param("persona", persona).query(UUID.class).list();
     }
 
-    private List<UUID> personaSources(UUID persona) {
-        return jdbc.sql("SELECT source_id FROM persona_source WHERE persona_id=:persona ORDER BY source_id LIMIT 100")
-                .param("persona", persona).query(UUID.class).list();
+    /** True when the agent attaches Sources or Document Sets, even if none of them resolve for this actor. */
+    private boolean personaRestrictsSources(UUID persona) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                        SELECT EXISTS (SELECT 1 FROM persona_source WHERE persona_id = :persona)
+                            OR EXISTS (SELECT 1 FROM persona_document_set attachment
+                                       JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
+                                       WHERE attachment.persona_id = :persona AND d.deleted_at IS NULL)
+                        """).param("persona", persona).query(Boolean.class).single());
+    }
+
+    private List<UUID> personaSources(UUID persona, UUID actor, boolean agentsManage) {
+        return jdbc.sql("""
+                        SELECT source_id FROM persona_source WHERE persona_id = :persona
+                        UNION
+                        SELECT source.source_id FROM persona_document_set attachment
+                        JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
+                        JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
+                        WHERE attachment.persona_id = :persona AND d.deleted_at IS NULL AND %s
+                        ORDER BY source_id
+                        """.formatted(DocumentSetAccessSql.USES))
+                .param("persona", persona).param("actor", actor).param("agentsManage", agentsManage).query(UUID.class).list();
     }
 
     public List<ChatBranch> branches(UUID session) {

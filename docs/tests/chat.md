@@ -10,6 +10,7 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 - `sources.test.tsx`: bounded/deduplicated icon stack, localized generic Sources label, accessible count, document privacy and upstream favicon fallback/domain changes.
 - `chat-sources-toolbar.spec.ts`: mixed Web/document toolbar, panel toggle and Web selection, focus restoration and viewport bounds on desktop/mobile.
 - `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile drawer navigation to the Search documents entry without a header mode menu. These browser tests use local backend/model fixtures, not staging acceptance.
+- `ChatPersistenceIntegrationTest.documentSetsShareAndAttachToPersonasWithoutReplacingDirectSources`: V84 migration-backed owner creation, direct user sharing and Persona attachment while direct `persona_source` remains independent.
 
 ## External Web search
 

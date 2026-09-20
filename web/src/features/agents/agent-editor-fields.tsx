@@ -1,6 +1,16 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState, type ReactNode } from "react";
-import { Check, ImagePlus, Library, Pencil, Plus, Tag, X } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Ellipsis,
+  ImagePlus,
+  Library,
+  Pencil,
+  Plus,
+  Tag,
+  X,
+} from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +21,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -397,9 +408,13 @@ export function StarterPromptsField({
 
 type SourceOption = { id: string; name: string; type?: string };
 
+/** Chosen entries kept in view before the rest move behind "+N". */
+const visibleRows = 4;
+
 /** Chosen sources as rows with provider icons, added from a searchable menu (Chatbase, Lemni). */
 export function AgentSourcePicker({
   options,
+  kind = "source",
   known,
   value,
   pending,
@@ -416,26 +431,67 @@ export function AgentSourcePicker({
   disabled: boolean;
   onRetry: () => void;
   onChange: (ids: string[]) => void;
+  kind?: "source" | "document-set";
 }) {
   const ui = useAppTranslation();
+  const isDocumentSet = kind === "document-set";
+  const addLabel = isDocumentSet ? ui("Thêm bộ tài liệu") : ui("Thêm nguồn");
+  const searchPlaceholder = isDocumentSet ? ui("Tìm bộ tài liệu…") : ui("Tìm nguồn…");
+  const emptyLabel = isDocumentSet
+    ? ui("Không tìm thấy bộ tài liệu.")
+    : ui("Không tìm thấy nguồn.");
   const chosen = value.map(
     (id) =>
       options.find((source) => source.id === id) ??
       known.find((source) => source.id === id) ?? { id, name: "", type: "" },
   );
+  const row = (source: SourceOption) => {
+    const provider = findSourceProvider(source.type);
+    const Icon = provider?.icon ?? Library;
+    return (
+      <SettingRow
+        key={source.id}
+        icon={<Icon />}
+        title={
+          source.name ||
+          ui(
+            isDocumentSet
+              ? "Bộ tài liệu không còn khả dụng (đang giữ lựa chọn)"
+              : "Nguồn không còn khả dụng (đang giữ lựa chọn)",
+          )
+        }
+        description={isDocumentSet ? undefined : provider?.name}
+        control={
+          !disabled && (
+            <IconButton
+              type="button"
+              size="sm"
+              prominence="tertiary"
+              aria-label={ui(isDocumentSet ? "Bỏ bộ tài liệu {{v1}}" : "Bỏ nguồn {{v1}}", {
+                v1: source.name,
+              })}
+              onClick={() => onChange(value.filter((id) => id !== source.id))}
+            >
+              <X />
+            </IconButton>
+          )
+        }
+      />
+    );
+  };
   const add = !disabled && (
     <Popover>
       <PopoverTrigger asChild>
         <Button type="button" size="sm" prominence="secondary" disabled={pending || failed}>
           <Plus aria-hidden="true" />
-          {ui("Thêm nguồn")}
+          {addLabel}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
         <Command>
-          <CommandInput placeholder={ui("Tìm nguồn…")} />
+          <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
-            <CommandEmpty>{ui("Không tìm thấy nguồn.")}</CommandEmpty>
+            <CommandEmpty>{emptyLabel}</CommandEmpty>
             <CommandGroup>
               {options.map((source) => {
                 const Icon = findSourceProvider(source.type)?.icon ?? Library;
@@ -466,7 +522,7 @@ export function AgentSourcePicker({
     <div className="flex flex-col gap-3">
       {failed && (
         <p role="alert" className="font-secondary-body text-status-danger-content">
-          {ui("Không tải được nguồn.")}{" "}
+          {isDocumentSet ? ui("Không tải được bộ tài liệu.") : ui("Không tải được nguồn.")}{" "}
           <Button type="button" size="sm" prominence="tertiary" onClick={onRetry}>
             {ui("Tải lại")}
           </Button>
@@ -482,10 +538,14 @@ export function AgentSourcePicker({
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-main-ui-action text-content-primary">
-              {ui("Tìm trong mọi nguồn người dùng được phép đọc")}
+              {isDocumentSet
+                ? ui("Không có bộ tài liệu nào được chọn")
+                : ui("Tìm trong mọi nguồn người dùng được phép đọc")}
             </p>
             <p className="font-secondary-body text-content-muted">
-              {ui("Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.")}
+              {isDocumentSet
+                ? ui("Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.")
+                : ui("Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.")}
             </p>
           </div>
           {add}
@@ -493,31 +553,38 @@ export function AgentSourcePicker({
       ) : (
         <>
           <SettingRows>
-            {chosen.map((source) => {
-              const provider = findSourceProvider(source.type);
-              const Icon = provider?.icon ?? Library;
-              return (
-                <SettingRow
-                  key={source.id}
-                  icon={<Icon />}
-                  title={source.name || ui("Nguồn không còn khả dụng (đang giữ lựa chọn)")}
-                  description={provider?.name}
-                  control={
-                    !disabled && (
-                      <IconButton
-                        type="button"
-                        size="sm"
-                        prominence="tertiary"
-                        aria-label={ui("Bỏ nguồn {{v1}}", { v1: source.name })}
-                        onClick={() => onChange(value.filter((id) => id !== source.id))}
-                      >
-                        <X />
-                      </IconButton>
-                    )
-                  }
-                />
-              );
-            })}
+            {chosen.slice(0, visibleRows).map(row)}
+            {chosen.length > visibleRows && (
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-surface-subtle/50 focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken text-content-secondary"
+                    >
+                      <Ellipsis className="size-4.5" />
+                    </span>
+                    <span className="min-w-0 flex-1 font-main-ui-action text-content-secondary">
+                      {isDocumentSet
+                        ? ui("Xem thêm {{n}} bộ tài liệu", { n: chosen.length - visibleRows })
+                        : ui("Xem thêm {{n}} nguồn", { n: chosen.length - visibleRows })}
+                    </span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-content-muted"
+                    />
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent className="max-h-80 w-96 overflow-y-auto p-0">
+                  <SettingRows className="border-0">
+                    {chosen.slice(visibleRows).map(row)}
+                  </SettingRows>
+                </HoverCardContent>
+              </HoverCard>
+            )}
           </SettingRows>
           <div>{add}</div>
         </>

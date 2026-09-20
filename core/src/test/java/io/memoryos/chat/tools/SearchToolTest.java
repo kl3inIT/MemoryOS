@@ -77,10 +77,11 @@ class SearchToolTest {
     }
 
     private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters) {
-        return tool(availableTokens, timeout, detectFilters, List.of());
+        return tool(availableTokens, timeout, detectFilters, null);
     }
 
-    private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, List<UUID> sourceIds) {
+    /** A null allowlist is an agent that restricts nothing; an empty one restricts the turn to no Source at all. */
+    private SearchTool tool(int availableTokens, Duration timeout, boolean detectFilters, @org.jspecify.annotations.Nullable List<UUID> sourceIds) {
         var tool = new SearchTool(search, scope.actor(), runner, new JTokkitTokenCountEstimator(),
                 new ChatSearchProperties(30, 10, 6000, timeout, detectFilters, Duration.ofSeconds(1)), () -> {
                     if (stopped.get()) throw new CancellationException();
@@ -318,6 +319,22 @@ class SearchToolTest {
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));
             verify(runner).createObject(anyList(), eq(SearchTool.KeywordQueries.class));
         }
+    }
+
+    @Test
+    void anAgentWhoseAttachedSourcesAllResolveToNothingSearchesNothing() {
+        var observed = new ArrayList<SourceSearchScope>();
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
+            observed.add(call.getArgument(0)); return empty;
+        });
+        try (var tool = tool(8000, Duration.ofSeconds(5), false, List.of())) {
+            tool.searchKnowledge(List.of("policy"), null);
+        }
+        assertEquals(1, observed.size());
+        assertTrue(observed.getFirst().sources().isEmpty(),
+                "An agent attached only to Document Sets this actor cannot use must not fall back to every readable Source");
     }
 
     @Test

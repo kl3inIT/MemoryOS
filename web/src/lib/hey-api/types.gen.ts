@@ -606,6 +606,7 @@ export type PersonaInput = {
     taskPrompt?: string;
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
+    documentSetIds?: Array<string>;
     tools?: Array<string>;
     mcpServerIds?: Array<string>;
     modelConfigurationId?: string | null;
@@ -651,6 +652,11 @@ export type AgentUserShare = {
     permission?: 'VIEWER' | 'EDITOR';
 };
 
+export type DocumentSetRef = {
+    id?: string;
+    name?: string;
+};
+
 export type PersonaPermissions = {
     edit?: boolean;
     share?: boolean;
@@ -673,6 +679,8 @@ export type PersonaView = {
     starterPrompts?: Array<string>;
     sourceIds?: Array<string>;
     sources?: Array<AgentSourceRef>;
+    documentSetIds?: Array<string>;
+    documentSets?: Array<DocumentSetRef>;
     tools?: Array<string>;
     mcpServers?: Array<AgentRef>;
     modelConfigurationId?: string | null;
@@ -860,6 +868,46 @@ export type ImageConnectionResponse = {
     revision?: number;
 };
 
+export type Input = {
+    name?: string;
+    description?: string;
+    sourceIds?: Array<string>;
+    isPublic?: boolean;
+};
+
+export type Permissions = {
+    edit?: boolean;
+    share?: boolean;
+    delete?: boolean;
+    manage?: boolean;
+};
+
+export type SourceRef = {
+    id?: string;
+    name?: string;
+};
+
+export type View = {
+    id?: string;
+    permissions?: Permissions;
+    revision?: number;
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+    sourceIds?: Array<string>;
+    sources?: Array<SourceRef>;
+    hiddenSources?: number;
+    userShares?: Array<AgentPerson>;
+    groupShares?: Array<AgentRef>;
+    createdAt?: string;
+    updatedAt?: string;
+};
+
+export type DocumentSetSharingInput = {
+    actorIds?: Array<string>;
+    groupIds?: Array<string>;
+};
+
 export type ReplaceUserGroupsRequest = {
     groupIds: Array<string>;
 };
@@ -1029,6 +1077,7 @@ export type SearchRequest = {
     page?: number;
     pageSize?: number;
     sourceTypes?: Array<'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT'>;
+    documentSetIds?: Array<string>;
 };
 
 export type ChunkProvenance = {
@@ -5777,6 +5826,170 @@ export type SaveChatImageConnectionResponses = {
 
 export type SaveChatImageConnectionResponse = SaveChatImageConnectionResponses[keyof SaveChatImageConnectionResponses];
 
+export type DeleteDocumentSetData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        documentSetId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/document-sets/{documentSetId}';
+};
+
+export type DeleteDocumentSetErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type DeleteDocumentSetError = DeleteDocumentSetErrors[keyof DeleteDocumentSetErrors];
+
+export type DeleteDocumentSetResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteDocumentSetResponse = DeleteDocumentSetResponses[keyof DeleteDocumentSetResponses];
+
+export type GetDocumentSetData = {
+    body?: never;
+    path: {
+        documentSetId: string;
+    };
+    query?: never;
+    url: '/api/chat/document-sets/{documentSetId}';
+};
+
+export type GetDocumentSetErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type GetDocumentSetError = GetDocumentSetErrors[keyof GetDocumentSetErrors];
+
+export type GetDocumentSetResponses = {
+    /**
+     * Document Set
+     */
+    200: View;
+};
+
+export type GetDocumentSetResponse = GetDocumentSetResponses[keyof GetDocumentSetResponses];
+
+export type UpdateDocumentSetData = {
+    body: Input;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        documentSetId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/document-sets/{documentSetId}';
+};
+
+export type UpdateDocumentSetErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type UpdateDocumentSetError = UpdateDocumentSetErrors[keyof UpdateDocumentSetErrors];
+
+export type UpdateDocumentSetResponses = {
+    /**
+     * Updated Document Set
+     */
+    200: View;
+};
+
+export type UpdateDocumentSetResponse = UpdateDocumentSetResponses[keyof UpdateDocumentSetResponses];
+
+export type ShareDocumentSetData = {
+    body: DocumentSetSharingInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        documentSetId: string;
+    };
+    query: {
+        revision: number;
+    };
+    url: '/api/chat/document-sets/{documentSetId}/sharing';
+};
+
+export type ShareDocumentSetErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type ShareDocumentSetError = ShareDocumentSetErrors[keyof ShareDocumentSetErrors];
+
+export type ShareDocumentSetResponses = {
+    /**
+     * Updated Document Set
+     */
+    200: View;
+};
+
+export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
     headers: {
@@ -9468,6 +9681,81 @@ export type InitiateChatFileUploadResponses = {
 };
 
 export type InitiateChatFileUploadResponse = InitiateChatFileUploadResponses[keyof InitiateChatFileUploadResponses];
+
+export type ListDocumentSetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/document-sets';
+};
+
+export type ListDocumentSetsErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type ListDocumentSetsError = ListDocumentSetsErrors[keyof ListDocumentSetsErrors];
+
+export type ListDocumentSetsResponses = {
+    /**
+     * Usable Document Sets
+     */
+    200: Array<View>;
+};
+
+export type ListDocumentSetsResponse = ListDocumentSetsResponses[keyof ListDocumentSetsResponses];
+
+export type CreateDocumentSetData = {
+    body: Input;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/document-sets';
+};
+
+export type CreateDocumentSetErrors = {
+    /**
+     * Invalid chat request
+     */
+    400: ApiProblem;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat resource not accessible
+     */
+    404: ApiProblem;
+};
+
+export type CreateDocumentSetError = CreateDocumentSetErrors[keyof CreateDocumentSetErrors];
+
+export type CreateDocumentSetResponses = {
+    /**
+     * Created Document Set
+     */
+    201: View;
+};
+
+export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
 
 export type GetChatVoiceSettingsData = {
     body?: never;
