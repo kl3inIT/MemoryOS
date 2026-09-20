@@ -13,8 +13,11 @@ import {
   Paperclip,
   Plug,
   SquareTerminal,
+  WifiOff,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { BrandLoader } from "@/components/brand-loader";
+import { EmptyState } from "@/components/composites/empty-state";
 import {
   ModelSelectorContent,
   ModelSelectorEmpty,
@@ -161,16 +164,22 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
   return (
     <AppShell pageTitle={title}>
       {agentId && agent.isPending ? (
-        <p role="status" className="px-(--page-gutter) pt-10 text-content-muted">
-          {ui("Đang tải trợ lý…")}
-        </p>
+        <div role="status" className="flex justify-center px-(--page-gutter) pt-16">
+          <BrandLoader label={ui("Đang tải trợ lý…")} />
+        </div>
       ) : agentId && agent.isError ? (
-        <p role="alert" className="px-(--page-gutter) pt-10 text-status-danger-content">
-          {chatActionError(agent.error)}{" "}
-          <Button size="sm" prominence="tertiary" onClick={() => void agent.refetch()}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <EmptyState
+          role="alert"
+          className="px-(--page-gutter) pt-10"
+          icon={<WifiOff />}
+          title={ui("Không mở được trợ lý")}
+          detail={chatActionError(agent.error)}
+          action={
+            <Button size="sm" prominence="secondary" onClick={() => void agent.refetch()}>
+              {ui("Tải lại")}
+            </Button>
+          }
+        />
       ) : (
         <AgentEditor key={agent.data?.revision ?? "new"} agent={agent.data} />
       )}

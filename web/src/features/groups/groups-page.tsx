@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { CirclePlus, Search, SearchX, Users, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +14,6 @@ import { useGlobalCapability } from "@/features/identity/application-session-con
 import { listGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { GroupCard } from "./group-card";
 import type { GroupsSearch } from "./groups-search";
-import "./groups-list.css";
 
 export function GroupsPage() {
   const ui = useAppTranslation();
@@ -77,157 +77,143 @@ export function GroupsPage() {
   const ordinaryGroups = items.filter((group) => group.systemKey === null);
 
   return (
-    <section className="groups-list-page min-h-full px-5 py-12 sm:px-8">
-      <div className="mx-auto w-full max-w-[840px]">
-        <header className="border-b border-border-subtle pb-6">
-          <Users className="size-8 text-content-secondary" aria-hidden="true" />
-          <h1
-            ref={headingRef}
-            tabIndex={-1}
-            className="mt-2 text-2xl font-semibold leading-8 text-content-primary"
+    <SettingsLayout>
+      <PageHeader
+        icon={<Users />}
+        title={ui("Groups")}
+        description={ui("Groups carry permissions and the Sources their members may read.")}
+        titleRef={headingRef}
+      />
+
+      <form
+        role="search"
+        className="mt-6 flex items-center gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const nextSearch = searchDraft.trim();
+          updateView({ search: nextSearch || undefined }, true);
+        }}
+      >
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">{ui("Search groups")}</span>
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            value={searchDraft}
+            maxLength={200}
+            placeholder={ui("Search groups…")}
+            className="border-transparent bg-transparent pl-9 shadow-none hover:border-transparent focus-visible:border-transparent"
+            onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
+          />
+        </label>
+        <button type="submit" className="sr-only">
+          {ui("Search groups")}
+        </button>
+        {search.search ? (
+          <TextButton
+            onClick={() => {
+              setDraft({ applied: appliedSearch, value: "" });
+              updateView({ search: undefined }, true);
+            }}
           >
-            {ui("Groups")}
-          </h1>
-        </header>
-
-        <form
-          role="search"
-          className="mt-6 flex items-center gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const nextSearch = searchDraft.trim();
-            updateView({ search: nextSearch || undefined }, true);
-          }}
-        >
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">{ui("Search groups")}</span>
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              value={searchDraft}
-              maxLength={200}
-              placeholder={ui("Search groups…")}
-              className="border-transparent bg-transparent pl-9 shadow-none hover:border-transparent focus-visible:border-transparent"
-              onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
-            />
-          </label>
-          <button type="submit" className="sr-only">
-            {ui("Search groups")}
-          </button>
-          {search.search ? (
-            <TextButton
-              onClick={() => {
-                setDraft({ applied: appliedSearch, value: "" });
-                updateView({ search: undefined }, true);
-              }}
-            >
-              {ui("Clear")}
-            </TextButton>
-          ) : null}
-          {canCreate ? (
-            <Button asChild size="sm" className="groups-list-action shrink-0">
-              <Link to="/admin/groups/new">
-                {ui("New Group")}
-                <CirclePlus className="size-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          ) : null}
-        </form>
-
-        <div className="mt-10" aria-busy={groups.isFetching}>
-          <span className="sr-only" aria-live="polite">
-            {groups.isFetching
-              ? ui("Updating groups")
-              : page
-                ? ui("{{v1}} groups", { v1: page.totalItems })
-                : ""}
-          </span>
-          {groups.isError && page ? (
-            <div className="mb-4 flex flex-col gap-2 rounded-xl border border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between">
-              <span>{ui("Could not refresh groups. Showing previous results.")}</span>
-              <TextButton size="sm" onClick={() => void groups.refetch()}>
-                {ui("Retry refresh")}
-              </TextButton>
-            </div>
-          ) : null}
-
-          {groups.isPending ? (
-            <GroupsLoading />
-          ) : groups.isError && !page ? (
-            <GroupsError onRetry={() => void groups.refetch()} />
-          ) : items.length === 0 ? (
-            <GroupsEmpty
-              filtered={Boolean(search.search)}
-              canCreate={canCreate}
-              onClear={() => {
-                setDraft({ applied: appliedSearch, value: "" });
-                updateView({ search: undefined }, true);
-              }}
-            />
-          ) : (
-            <div className="space-y-2">
-              {systemGroups.map((group) => (
-                <GroupCard
-                  key={group.id}
-                  group={group}
-                  onAuthorityChanged={refreshAuthorityViews}
-                />
-              ))}
-              {systemGroups.length > 0 && ordinaryGroups.length > 0 ? (
-                <div role="separator" className="my-4 border-t border-border-subtle" />
-              ) : null}
-              {ordinaryGroups.map((group) => (
-                <GroupCard
-                  key={group.id}
-                  group={group}
-                  onAuthorityChanged={refreshAuthorityViews}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {page &&
-        page.totalItems > 0 &&
-        (page.totalPages > 1 || search.page > 0 || search.size !== 20) ? (
-          <TablePagination
-            label={ui("Group pages")}
-            className="mt-6 px-0 pt-4"
-            page={search.page}
-            totalPages={page.totalPages}
-            summary={ui("Showing {{first}}–{{last}} of {{total}}", {
-              first: page.totalItems === 0 ? 0 : search.page * search.size + 1,
-              last: Math.min((search.page + 1) * search.size, page.totalItems),
-              total: page.totalItems,
-            })}
-            previousDisabled={search.page === 0}
-            nextDisabled={search.page + 1 >= page.totalPages}
-            onPrevious={() => updateView({ page: search.page - 1 })}
-            onNext={() => updateView({ page: search.page + 1 })}
-          >
-            <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-              {ui("Rows")}
-              <Select
-                size="sm"
-                value={search.size}
-                className="w-auto px-2"
-                aria-label={ui("Groups per page")}
-                onChange={(event) =>
-                  updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
-                }
-              >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </Select>
-            </label>
-          </TablePagination>
+            {ui("Clear")}
+          </TextButton>
         ) : null}
+        {canCreate ? (
+          <Button asChild size="sm" className="shrink-0">
+            <Link to="/admin/groups/new">
+              {ui("New Group")}
+              <CirclePlus className="size-4" aria-hidden="true" />
+            </Link>
+          </Button>
+        ) : null}
+      </form>
+
+      <div className="mt-10" aria-busy={groups.isFetching}>
+        <span className="sr-only" aria-live="polite">
+          {groups.isFetching
+            ? ui("Updating groups")
+            : page
+              ? ui("{{v1}} groups", { v1: page.totalItems })
+              : ""}
+        </span>
+        {groups.isError && page ? (
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between">
+            <span>{ui("Could not refresh groups. Showing previous results.")}</span>
+            <TextButton size="sm" onClick={() => void groups.refetch()}>
+              {ui("Retry refresh")}
+            </TextButton>
+          </div>
+        ) : null}
+
+        {groups.isPending ? (
+          <GroupsLoading />
+        ) : groups.isError && !page ? (
+          <GroupsError onRetry={() => void groups.refetch()} />
+        ) : items.length === 0 ? (
+          <GroupsEmpty
+            filtered={Boolean(search.search)}
+            canCreate={canCreate}
+            onClear={() => {
+              setDraft({ applied: appliedSearch, value: "" });
+              updateView({ search: undefined }, true);
+            }}
+          />
+        ) : (
+          <div className="space-y-2">
+            {systemGroups.map((group) => (
+              <GroupCard key={group.id} group={group} onAuthorityChanged={refreshAuthorityViews} />
+            ))}
+            {systemGroups.length > 0 && ordinaryGroups.length > 0 ? (
+              <div role="separator" className="my-4 border-t border-border-subtle" />
+            ) : null}
+            {ordinaryGroups.map((group) => (
+              <GroupCard key={group.id} group={group} onAuthorityChanged={refreshAuthorityViews} />
+            ))}
+          </div>
+        )}
       </div>
-    </section>
+
+      {page &&
+      page.totalItems > 0 &&
+      (page.totalPages > 1 || search.page > 0 || search.size !== 20) ? (
+        <TablePagination
+          label={ui("Group pages")}
+          className="mt-6 px-0 pt-4"
+          page={search.page}
+          totalPages={page.totalPages}
+          summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+            first: page.totalItems === 0 ? 0 : search.page * search.size + 1,
+            last: Math.min((search.page + 1) * search.size, page.totalItems),
+            total: page.totalItems,
+          })}
+          previousDisabled={search.page === 0}
+          nextDisabled={search.page + 1 >= page.totalPages}
+          onPrevious={() => updateView({ page: search.page - 1 })}
+          onNext={() => updateView({ page: search.page + 1 })}
+        >
+          <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
+            {ui("Rows")}
+            <Select
+              size="sm"
+              value={search.size}
+              className="w-auto px-2"
+              aria-label={ui("Groups per page")}
+              onChange={(event) =>
+                updateView({ size: Number(event.target.value) as GroupsSearch["size"] }, true)
+              }
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </Select>
+          </label>
+        </TablePagination>
+      ) : null}
+    </SettingsLayout>
   );
 }
 

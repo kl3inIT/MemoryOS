@@ -653,6 +653,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá bộ lọc người tạo": "Clear creator filter",
   "Sửa {{v1}}": "Edit {{v1}}",
   "Sửa trợ lý": "Edit assistant",
+  "Không mở được trợ lý": "The assistant could not be opened",
   "Chia sẻ trợ lý": "Share assistant",
   "Bắt đầu chat": "Start chat",
   "Dự án": "Projects",
@@ -1150,6 +1151,10 @@ export const englishUi: Record<string, string> = {
   "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
     "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
   "Group Name": "Tên nhóm",
+  "Membership, permissions and the Sources this group may read.":
+    "Thành viên, quyền và các nguồn nhóm này được đọc.",
+  "Groups carry permissions and the Sources their members may read.":
+    "Nhóm mang quyền và các nguồn mà thành viên được đọc.",
   "Group Permissions": "Quyền của nhóm",
   "Toggle group permissions": "Mở hoặc thu gọn quyền của nhóm",
   "Group permission grants": "Các quyền được cấp cho nhóm",
@@ -2081,6 +2086,10 @@ Object.assign(englishUi, {
   "Refresh source": "Làm mới nguồn",
   "is stored and still needs finalization.": "đã được lưu và vẫn cần xác nhận hoàn tất.",
   "Loading source": "Đang tải nguồn",
+  "It may have completed deletion.": "Có thể nguồn đã bị xoá xong.",
+  "Delete this source": "Xoá nguồn này",
+  "Every indexed document from this source becomes unavailable. Cleanup continues in the background and cannot be undone.":
+    "Mọi tài liệu đã lập chỉ mục từ nguồn này sẽ không còn dùng được. Việc dọn dẹp chạy nền và không thể hoàn tác.",
   "Source unavailable": "Nguồn không khả dụng",
   "Delete source": "Xóa nguồn",
   "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.":

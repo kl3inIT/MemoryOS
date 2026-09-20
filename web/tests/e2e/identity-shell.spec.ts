@@ -1289,8 +1289,11 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(confirmation).not.toBeVisible();
   await expect(page.getByText("No files yet")).toBeVisible();
 
-  await page.getByRole("button", { name: "Source actions" }).click();
-  await page.getByRole("menuitem", { name: "Delete source" }).click();
+  // Deleting a Source is the page's danger zone, not its action menu.
+  await page
+    .getByRole("region", { name: "Danger Zone" })
+    .getByRole("button", { name: "Delete source", exact: true })
+    .click();
   confirmation = page.getByRole("alertdialog");
   await expect(
     confirmation.getByRole("heading", { name: "Delete Product documentation?" }),

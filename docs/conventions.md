@@ -144,6 +144,13 @@ Domain Story and Consumer
 
 - Every page's title block is one `PageHeader` with an icon, the title, a one-line description and optional actions on the right. No page hand-rolls a heading row, adds an eyebrow above the title, or overrides the icon size.
 
+### Detail pages
+
+- A page about one resource is built in this order: `DetailHeader` (the breadcrumb back to the list, then the resource's own name, status and primary actions), an optional `StatStrip`, the content sections, and `DangerZone` last. A page never hand-rolls its own way back: no Cancel button standing in for a link, no second breadcrumb markup.
+- The destructive action belongs to `DangerZone` at the end of the page, where reading what it destroys comes before pressing it. An action menu in the header carries the reversible actions. A compact panel embedded in another surface, such as a Project inside Chat, keeps its actions in its menu; the rule is for pages.
+- Sections inside the page use `SectionHeader`; settings-shaped rows use `SettingRow`/`SettingRows`. Loading uses `BrandLoader`, and an absent, emptied or unreadable resource uses `EmptyState` with a way forward.
+- Page width comes from `--page-width-narrow|standard|wide` through `SettingsLayout`. A feature does not hardcode a pixel width, and does not ship a CSS file to lay itself out or to redefine a semantic token for one screen.
+
 ### Composites
 
 - `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `StatStrip`/`StatTile`/`StatToggleTile`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. Every figure summary (costs, usage, counts, generated metrics) uses `StatStrip`; a stat that must stay in a table cell uses its `statLabelClass`/`statValueClass`. They carry no data fetching or authorization.

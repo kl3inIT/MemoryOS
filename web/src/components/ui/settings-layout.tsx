@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
 
 export function SettingsLayout({
@@ -25,12 +25,15 @@ export function SettingsLayout({
 
 export function PageHeader({
   title,
+  titleRef,
   description,
   icon,
   iconSize = "sm",
   actions,
 }: {
   title: string;
+  /** Focus lands on the title when a page-level action rebuilds what is below it. */
+  titleRef?: Ref<HTMLHeadingElement>;
   description?: ReactNode;
   icon?: ReactNode;
   iconSize?: "sm" | "lg";
@@ -51,7 +54,13 @@ export function PageHeader({
               {icon}
             </span>
           )}
-          <h1 className="min-w-0 break-words font-heading-h2 text-content-primary">{title}</h1>
+          <h1
+            ref={titleRef}
+            tabIndex={titleRef ? -1 : undefined}
+            className="min-w-0 break-words font-heading-h2 text-content-primary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            {title}
+          </h1>
         </div>
         {description && (
           <div
