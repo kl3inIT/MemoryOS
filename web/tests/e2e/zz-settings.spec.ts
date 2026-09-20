@@ -5,7 +5,7 @@ const out = "D:/MemoryOS/output/mem145-shots";
 const identity = { actorId: "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1", authorizationVersion: 1, uiLanguage: "vi",
   tenant: { displayName: "Tasco", role: "MEMBER" }, capabilities: ["CHAT_READ", "CHAT_WRITE"], scopedCapabilities: [] };
 const preferences = { workRole: "Kế toán trưởng, phòng Tài chính", personalPreferences: "Trả lời ngắn gọn, gạch đầu dòng. Số tiền ghi theo định dạng Việt Nam (1.250.000 đ). Luôn nêu tài liệu nguồn.",
-  defaultModelId: "luna", autoScroll: true, displayName: "Trần Thu Hà", email: "ha.tt@tasco.vn" };
+  defaultModelId: "luna", temperatureDefault: 1.2, reasoningEffortDefault: "MEDIUM", autoScroll: true, displayName: "Trần Thu Hà", email: "ha.tt@tasco.vn" };
 const model = (id: string, providerName: string, modelName: string, displayName: string, pricing: unknown, isDefault = false) => ({
   id, providerId: providerName, providerName, modelName, displayName,
   capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: true }, contextWindow: 272000, maxOutputTokens: 128000, pricing, isDefault });

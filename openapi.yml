@@ -14651,11 +14651,7 @@ components:
           type:
           - string
           - "null"
-          enum:
-          - "OFF"
-          - LOW
-          - MEDIUM
-          - HIGH
+          description: "Pinned reasoning level: OFF, LOW, MEDIUM or HIGH"
       required:
       - createdAt
       - id

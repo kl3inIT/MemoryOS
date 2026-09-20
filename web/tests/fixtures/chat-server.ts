@@ -255,6 +255,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     id: randomUUID(),
     rootMessageId: randomUUID(),
     personaId: builtinPersonaId,
+    reasoningEffort: null,
     projectId: null,
     title,
     createdAt: now,

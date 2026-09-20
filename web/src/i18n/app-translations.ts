@@ -2959,6 +2959,18 @@ Object.assign(englishUi, {
   "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
     "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",
   "Est. spend": "Chi phí ước tính",
+  "{{input}} in · {{output}} out": "{{input}} in · {{output}} out",
+  "Default Creativity": "Độ sáng tạo mặc định",
+  "Starting creativity for your new chats. A model the administrator pinned keeps its own value.":
+    "Độ sáng tạo khởi điểm cho các cuộc trò chuyện mới. Model đã được quản trị viên đặt sẵn thì giữ giá trị của model.",
+  "Default Reasoning Level": "Mức suy luận mặc định",
+  "Starting reasoning level for your new chats. Any single chat can pin its own level.":
+    "Mức suy luận khởi điểm cho các cuộc trò chuyện mới. Mỗi cuộc trò chuyện vẫn ghim được mức riêng.",
+  "Model default": "Theo model",
+  Tắt: "Tắt",
+  Thấp: "Thấp",
+  Vừa: "Vừa",
+  Cao: "Cao",
   "· default": "· mặc định",
   "{{input}} in · {{output}} out · {{cache}} cache":
     "{{input}} in · {{output}} out · {{cache}} cache",

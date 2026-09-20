@@ -457,7 +457,10 @@ export type ChatSession = {
     createdAt: string;
     updatedAt: string;
     projectId: string | null;
-    reasoningEffort: 'OFF' | 'LOW' | 'MEDIUM' | 'HIGH';
+    /**
+     * Pinned reasoning level: OFF, LOW, MEDIUM or HIGH
+     */
+    reasoningEffort: string | null;
 };
 
 export type Sharing = {
