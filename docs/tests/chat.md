@@ -206,6 +206,7 @@ Current scope and limits: [catalog spec](../specs/chat-models.md). New local pro
 | One alias/config prefetch and unique embedding batch; bounded parallel hybrid IO; fresh generation/authorization batches up to 1,000 IDs | `OpenSearchRetrievalIntegrationTest`, `DocumentSearchServiceTest` |
 | Query/filter and reading-document progress precede evidence; duplicate replay retains state; Stop fails the running step and collapses the timeline | `chat-transport.test.ts`; `chat.spec.ts` search-progress case |
 | Reasoning, tool steps and answer text become ordered separate parts; unknown events are skipped; saved activity rebuilds the same order, including failed steps | `chat-transport.test.ts` ordering and history cases |
+| A search step naming a source type this build does not know keeps streaming, dropping the unknown name | `chat-transport.test.ts` "a source type this build does not know" |
 | Activity timeline restored collapsed from history after reload | `chat.spec.ts` keeps-sources-through reload cases |
 | Actual worker starts and processes files with retrieval observations wired | `WorkerFileProcessingIntegrationTest` |
 

@@ -236,6 +236,33 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
   });
 
+  it("keeps streaming when a search step names a source type this build does not know", async () => {
+    // Staging 2026-09-20: a SharePoint filter failed the step's parse, ending the stream over a finished answer.
+    const search = {
+      queries: ["hợp đồng"],
+      filters: {
+        sources: ["SHAREPOINT", "FILE", "GOOGLE_DRIVE", "FUTURE_PROVIDER"],
+        created: null,
+        updated: null,
+      },
+    };
+    const tool = { toolCallId: "s1", toolName: "search_knowledge", source: null, durationMs: null };
+    fixture(() =>
+      sse(
+        packet(1, "tool", { ...tool, stage: "SEARCHING", search, documents: [] }) +
+          delta +
+          terminal(),
+      ),
+    );
+    const chunks = await collect(await send(new MemoryOsChatTransport(session)));
+    expect(chunks.filter((chunk) => chunk.type === "tool-input-available").at(-1)).toMatchObject({
+      input: { filters: { sources: ["SHAREPOINT", "FILE", "GOOGLE_DRIVE"] } },
+    });
+    expect(chunks.filter((chunk) => chunk.type === "message-metadata").at(-1)).toMatchObject({
+      messageMetadata: { serverStatus: "COMPLETED" },
+    });
+  });
+
   it("captures the configuration ID before sending and forwards the accepted selection", async () => {
     const fetch = fixture(() => sse(delta + terminal()));
     const transport = new MemoryOsChatTransport(session);
