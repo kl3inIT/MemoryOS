@@ -1036,6 +1036,7 @@ export const englishUi: Record<string, string> = {
   "Rename source": "Đổi tên nguồn",
   "Change visibility": "Thay đổi chế độ hiển thị",
   "Pause source": "Tạm dừng nguồn",
+  "Pausing": "Đang tạm dừng",
   "Resume source": "Tiếp tục nguồn",
   "Pausing…": "Đang tạm dừng…",
   "Source paused": "Đã tạm dừng nguồn",

@@ -322,6 +322,23 @@ describe("Current file processing status", () => {
     expect(screen.queryByText(/Queued|Processing|Indexed/)).not.toBeInTheDocument();
   });
 
+  it("holds a pending file as paused while the Source is paused", () => {
+    render(<ItemStatus item={{ status: "PENDING", latestAttempt: null }} sourcePaused />);
+    expect(screen.getByText("Paused", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Pending", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("keeps work that is still running visible while the Source pauses", () => {
+    render(
+      <ItemStatus
+        item={{ status: "PENDING", latestAttempt: { ...attempt, status: "IN_PROGRESS" } }}
+        sourcePaused
+      />,
+    );
+    expect(screen.getByText("Processing", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Paused", { exact: true })).not.toBeInTheDocument();
+  });
+
   it("does not promote a pending current version from a successful older attempt", () => {
     render(
       <ItemStatus
