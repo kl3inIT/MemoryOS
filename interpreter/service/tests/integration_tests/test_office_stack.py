@@ -38,7 +38,7 @@ modules = ['statsmodels', 'pyarrow', 'xlrd', 'xlsxwriter', 'chardet', 'charset_n
            'tabulate', 'jinja2', 'markdown', 'bs4', 'markitdown', 'pdf2image', 'sympy']
 for name in modules:
     importlib.import_module(name)
-tools = ['pdftoppm', 'pdftotext', 'qpdf', 'sqlite3', 'unzip', 'zip', 'soffice', 'recalc-xlsx']
+tools = ['pdftoppm', 'pdftotext', 'qpdf', 'sqlite3', 'unzip', 'zip', 'soffice', 'recalc-xlsx', 'check-docx']
 print(json.dumps({'missing_tools': [t for t in tools if shutil.which(t) is None]}))
 """.strip()
 
@@ -176,6 +176,55 @@ saved = plt.figure(); plt.bar(['A'], [1]); saved.savefig('mine.png'); plt.close(
 def test_runs_without_pyplot_leave_no_chart_directory() -> None:
     payload = _execute(TestClient(create_app()), "print('xin chào')")
     assert not any(str(entry["path"]).startswith(".memoryos-charts") for entry in _files(payload))
+
+
+def test_check_docx_names_the_formatting_faults_and_passes_a_structured_document() -> None:
+    client = TestClient(create_app())
+    code = """
+import json, subprocess
+from docx import Document
+flat = Document()
+for line in ['Báo cáo quý 3', 'Doanh thu tăng.', '• Hà Nội', '1. Đà Nẵng', 'Ghi chú\nhai dòng',
+             'Chi phí giảm.', 'Lợi nhuận tăng.', 'Kết luận.']:
+    flat.add_paragraph(line)
+table = flat.add_table(rows=2, cols=2)
+table.rows[1].cells[0].text = '120'
+flat.save('phẳng.docx')
+good = Document()
+good.add_heading('Báo cáo quý 3', level=0)
+good.add_heading('Doanh thu', level=1)
+good.add_paragraph('Doanh thu tăng 12%.')
+good.add_paragraph('Hà Nội', style='List Bullet')
+grid = good.add_table(rows=2, cols=2)
+grid.style = 'Table Grid'
+grid.rows[0].cells[0].text = 'Tháng'; grid.rows[0].cells[1].text = 'Doanh thu'
+grid.rows[1].cells[0].text = '9'; grid.rows[1].cells[1].text = '120'
+good.save('đẹp.docx')
+done = subprocess.run(['check-docx', 'phẳng.docx', 'đẹp.docx', 'thiếu.docx'],
+                      capture_output=True, text=True)
+print(json.dumps({'returncode': done.returncode,
+                  'reports': [json.loads(line) for line in done.stdout.splitlines()]},
+                 ensure_ascii=False))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
+    assert response.status_code == 200
+    result = json.loads(str(response.json()["stdout"]))
+    flat, good, missing = result["reports"]
+
+    issues = " | ".join(flat["issues"])
+    assert "no heading" in issues
+    assert "typed bullet" in issues
+    assert "numbers itself" in issues
+    assert "line break" in issues
+    assert "no borders" in issues
+    assert "empty first row" in issues
+    # A document that already uses headings, list styles and a bordered table reports nothing.
+    assert good["issue_count"] == 0, good
+    assert good["tables"] == 1
+    # An unreadable argument is reported, not raised, and only that turns the exit code non-zero.
+    assert missing == {"file": "thiếu.docx", "checked": False, "error": "file not found"}
+    assert result["returncode"] == 1
 
 
 def test_pptx_to_pdf_converts_a_vietnamese_deck_and_refuses_other_files() -> None:

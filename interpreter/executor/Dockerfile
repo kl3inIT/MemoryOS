@@ -72,6 +72,9 @@ RUN mkdir -p /mnt && ln -s /workspace /mnt/data
 # recalc-xlsx: formula values for workbooks written with openpyxl or xlsxwriter (LibreOffice Calc, installed above).
 COPY recalc_xlsx.py /usr/local/bin/recalc-xlsx
 RUN chmod 0755 /usr/local/bin/recalc-xlsx
+# check-docx: the formatting faults a model cannot see in the document it just wrote (python-docx, installed above).
+COPY check_docx.py /usr/local/bin/check-docx
+RUN chmod 0755 /usr/local/bin/check-docx
 # pptx-to-pdf: the Chat preview of generated presentations (MEM-111, LibreOffice Impress, installed above).
 COPY pptx_to_pdf.py /usr/local/bin/pptx-to-pdf
 RUN chmod 0755 /usr/local/bin/pptx-to-pdf

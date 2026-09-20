@@ -1342,6 +1342,33 @@ export type ProviderTestResult = {
     latencyMillis: number;
 };
 
+export type ChatReportedModel = {
+    modelName: string;
+    contextWindow: number;
+    maxOutputTokens: number | null;
+    capabilities: ChatReportedModelCapabilities;
+    pricing: ChatReportedModelPricing;
+    /**
+     * Where the specs come from: the endpoint itself, the installed catalog, or Onyx's defaults
+     */
+    source: 'provider' | 'catalog' | 'none';
+};
+
+export type ChatReportedModelCapabilities = {
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning: boolean;
+};
+
+export type ChatReportedModelPricing = {
+    inputPerMillion: number;
+    outputPerMillion: number;
+};
+
+export type ChatReportedModels = {
+    models: Array<ChatReportedModel>;
+};
+
 export type ProjectConversation = {
     title: string;
 };
@@ -2099,33 +2126,6 @@ export type ChatSessionSearchItem = {
 export type ChatSessionSearchPage = {
     items: Array<ChatSessionSearchItem>;
     hasMore: boolean;
-};
-
-export type ChatReportedModel = {
-    modelName: string;
-    contextWindow: number;
-    maxOutputTokens: number | null;
-    capabilities: ChatReportedModelCapabilities;
-    pricing: ChatReportedModelPricing;
-    /**
-     * Where the specs come from: the endpoint itself, the installed catalog, or Onyx's defaults
-     */
-    source: 'provider' | 'catalog' | 'none';
-};
-
-export type ChatReportedModelCapabilities = {
-    toolCalling: boolean;
-    vision: boolean;
-    reasoning: boolean;
-};
-
-export type ChatReportedModelPricing = {
-    inputPerMillion: number;
-    outputPerMillion: number;
-};
-
-export type ChatReportedModels = {
-    models: Array<ChatReportedModel>;
 };
 
 export type Descriptor = {
@@ -8499,6 +8499,57 @@ export type TestChatProviderResponses = {
 
 export type TestChatProviderResponse = TestChatProviderResponses[keyof TestChatProviderResponses];
 
+export type ListReportedProviderModelsData = {
+    body: ProviderTestInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/providers/reported-models';
+};
+
+export type ListReportedProviderModelsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision or duplicate model
+     */
+    409: ApiProblem;
+    /**
+     * Provider, encryption key or client capacity unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListReportedProviderModelsError = ListReportedProviderModelsErrors[keyof ListReportedProviderModelsErrors];
+
+export type ListReportedProviderModelsResponses = {
+    /**
+     * Successful result
+     */
+    200: ChatReportedModels;
+};
+
+export type ListReportedProviderModelsResponse = ListReportedProviderModelsResponses[keyof ListReportedProviderModelsResponses];
+
 export type ListChatPromptShortcutsData = {
     body?: never;
     path?: never;
@@ -10923,53 +10974,6 @@ export type SearchChatSessionsResponses = {
 };
 
 export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
-
-export type ListReportedProviderModelsData = {
-    body?: never;
-    path: {
-        providerId: string;
-    };
-    query?: never;
-    url: '/api/chat/providers/{providerId}/reported-models';
-};
-
-export type ListReportedProviderModelsErrors = {
-    /**
-     * Invalid configuration
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Model management, Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Resource not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Stale revision or duplicate model
-     */
-    409: ApiProblem;
-    /**
-     * Provider, encryption key or client capacity unavailable
-     */
-    503: ApiProblem;
-};
-
-export type ListReportedProviderModelsError = ListReportedProviderModelsErrors[keyof ListReportedProviderModelsErrors];
-
-export type ListReportedProviderModelsResponses = {
-    /**
-     * Successful result
-     */
-    200: ChatReportedModels;
-};
-
-export type ListReportedProviderModelsResponse = ListReportedProviderModelsResponses[keyof ListReportedProviderModelsResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;

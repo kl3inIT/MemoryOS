@@ -107,11 +107,11 @@ async function open(page: Page, width: number, scheme: "light" | "dark") {
       json: route.request().url().includes(providers[0]!.id) ? [configured] : [],
     }),
   );
-  await page.route("**/api/chat/providers/*/reported-models", (route) =>
-    route.fulfill({
-      json: route.request().url().includes(providers[0]!.id) ? openRouter : gateway,
-    }),
-  );
+  // The form lists models for the provider it is editing, saved or not, so the body names it.
+  await page.route("**/api/chat/providers/reported-models", async (route) => {
+    const body = route.request().postDataJSON() as { providerId?: string };
+    await route.fulfill({ json: body.providerId === providers[0]!.id ? openRouter : gateway });
+  });
   await page.route("**/api/chat/provider-adapters", (route) =>
     route.fulfill({
       json: [
@@ -146,50 +146,51 @@ for (const [label, width, scheme] of [
   ["desktop-dark", 1440, "dark"],
   ["mobile", 390, "light"],
 ] as const) {
-  test(`reported models show published specs, search and add without typing on ${label}`, async ({
+  test(`the provider form lists published specs, searches and adds without typing on ${label}`, async ({
     page,
   }) => {
     await open(page, width, scheme);
     await shot(page, `${label}-models-page`);
+
+    // A saved provider: editing it lists its models with the stored key.
     await page
       .getByRole("button", { name: /OpenRouter/, expanded: false })
       .first()
       .click();
-    await page.getByRole("button", { name: "Lấy danh sách model từ provider" }).first().click();
+    await page
+      .getByRole("button", { name: /^Sửa nhà cung cấp/ })
+      .first()
+      .click();
     const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Lấy danh sách model" }).click();
     await expect(dialog.getByText("openai/gpt-5-mini", { exact: true })).toBeVisible();
     await expect(
       dialog.getByText(`${openRouter.models.length}/${openRouter.models.length}`),
     ).toBeVisible();
-    await shot(page, `${label}-discovery-openrouter`);
-    await dialog.getByRole("searchbox").or(dialog.getByRole("textbox")).first().fill("claude");
+    await shot(page, `${label}-provider-form-models`);
+    await dialog.getByRole("searchbox").or(dialog.getByRole("textbox")).last().fill("claude");
     await expect(dialog.getByText("anthropic/claude-sonnet-4.5").first()).toBeVisible();
     await dialog.getByRole("checkbox").first().check();
-    await shot(page, `${label}-discovery-search`);
+    await shot(page, `${label}-provider-form-search`);
     await page.keyboard.press("Escape");
 
-    await page
-      .getByRole("button", { name: /9Router/, expanded: false })
-      .first()
-      .click();
-    await page.getByRole("button", { name: "Lấy danh sách model từ provider" }).nth(1).click();
-    await expect(page.getByRole("dialog").getByText("gpt-5.6-luna", { exact: true })).toBeVisible();
-    await shot(page, `${label}-discovery-gateway`);
-    await page
-      .getByRole("dialog")
+    // A new provider: the endpoint and the typed key list models before anything is saved.
+    await page.getByRole("button", { name: /^Kết nối 9Router/ }).first().click();
+    const creation = page.getByRole("dialog");
+    const list = creation.getByRole("button", { name: "Lấy danh sách model" });
+    await expect(list).toBeDisabled();
+    await creation.getByLabel("URL endpoint").fill("https://9router.test/v1");
+    await creation.locator('input[type="password"]').fill("fixture-key");
+    await list.click();
+    await expect(creation.getByText("gpt-5.6-luna", { exact: true })).toBeVisible();
+    // A model nobody publishes specs for is selectable, with its window marked as a default.
+    await expect(
+      creation.getByRole("row", { name: /tasco-internal-7b/ }).getByText("Mặc định").first(),
+    ).toBeVisible();
+    await creation
       .getByRole("row", { name: /tasco-internal-7b/ })
-      .getByRole("button", { name: "Sửa trước khi thêm" })
-      .click();
-    await expect
-      .poll(() =>
-        page
-          .getByRole("dialog")
-          .locator("input")
-          .evaluateAll((inputs) =>
-            inputs.some((input) => (input as HTMLInputElement).value === "32000"),
-          ),
-      )
-      .toBe(true);
-    await shot(page, `${label}-editor-prefilled`);
+      .getByRole("checkbox")
+      .check();
+    await shot(page, `${label}-new-provider-models`);
   });
 }

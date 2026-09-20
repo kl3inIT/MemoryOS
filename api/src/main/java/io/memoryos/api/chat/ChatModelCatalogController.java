@@ -151,12 +151,15 @@ class ChatModelCatalogController {
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    @GetMapping("/providers/{providerId}/reported-models")
+    @PostMapping("/providers/reported-models")
     @Operation(operationId = "listReportedProviderModels",
-            summary = "List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management")
+            summary = "List the models an endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; "
+                    + "takes the provider being edited, saved or not, as the connection check does; requires model management")
     ChatReportedModelsResponse reportedModels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID providerId) {
-        return ChatReportedModelsResponse.from(models.reportedModels(identity.actorId(), providerId));
+            @RequestBody ChatProviderTestRequest request) {
+        var probe = catalog.probeProvider(identity.actorId(), request.providerId(), request.adapterType(), request.baseUrl(),
+                request.credential() == null ? null : request.credential().toInput());
+        return ChatReportedModelsResponse.from(models.reportedModels(probe.connection()));
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)

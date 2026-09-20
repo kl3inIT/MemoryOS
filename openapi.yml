@@ -7878,6 +7878,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/providers/reported-models:
+    post:
+      tags:
+      - Chat models
+      summary: "List the models an endpoint reports with the limits, capabilities\
+        \ and prices it or the installed catalog publishes; takes the provider being\
+        \ edited, saved or not, as the connection check does; requires model management"
+      operationId: listReportedProviderModels
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderTestInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Stale revision or duplicate model
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Provider, encryption key or client capacity unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatReportedModels"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/prompt-shortcuts:
     get:
       tags:
@@ -11048,63 +11114,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSessionSearchPage"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/providers/{providerId}/reported-models:
-    get:
-      tags:
-      - Chat models
-      summary: "List the models the provider endpoint reports with the limits, capabilities\
-        \ and prices it or the installed catalog publishes; requires model management"
-      operationId: listReportedProviderModels
-      parameters:
-      - name: providerId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: "Model management, Tenant membership or CSRF requirement not\
-            \ met"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Stale revision or duplicate model
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: "Provider, encryption key or client capacity unavailable"
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatReportedModels"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16876,6 +16885,77 @@ components:
       required:
       - latencyMillis
       - modelCount
+    ChatReportedModel:
+      type: object
+      additionalProperties: false
+      properties:
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+          format: int32
+        maxOutputTokens:
+          type:
+          - integer
+          - "null"
+          format: int32
+        capabilities:
+          $ref: "#/components/schemas/ChatReportedModelCapabilities"
+        pricing:
+          type: "null"
+          $ref: "#/components/schemas/ChatReportedModelPricing"
+        source:
+          type: string
+          description: "Where the specs come from: the endpoint itself, the installed\
+            \ catalog, or Onyx's defaults"
+          enum:
+          - provider
+          - catalog
+          - none
+      required:
+      - capabilities
+      - contextWindow
+      - maxOutputTokens
+      - modelName
+      - pricing
+      - source
+    ChatReportedModelCapabilities:
+      type: object
+      additionalProperties: false
+      properties:
+        toolCalling:
+          type: boolean
+        vision:
+          type: boolean
+        reasoning:
+          type: boolean
+      required:
+      - reasoning
+      - toolCalling
+      - vision
+    ChatReportedModelPricing:
+      type: object
+      additionalProperties: false
+      properties:
+        inputPerMillion:
+          type: number
+          format: double
+        outputPerMillion:
+          type: number
+          format: double
+      required:
+      - inputPerMillion
+      - outputPerMillion
+    ChatReportedModels:
+      type: object
+      additionalProperties: false
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatReportedModel"
+      required:
+      - models
     ProjectConversation:
       type: object
       properties:
@@ -19253,77 +19333,6 @@ components:
       required:
       - hasMore
       - items
-    ChatReportedModel:
-      type: object
-      additionalProperties: false
-      properties:
-        modelName:
-          type: string
-        contextWindow:
-          type: integer
-          format: int32
-        maxOutputTokens:
-          type:
-          - integer
-          - "null"
-          format: int32
-        capabilities:
-          $ref: "#/components/schemas/ChatReportedModelCapabilities"
-        pricing:
-          type: "null"
-          $ref: "#/components/schemas/ChatReportedModelPricing"
-        source:
-          type: string
-          description: "Where the specs come from: the endpoint itself, the installed\
-            \ catalog, or Onyx's defaults"
-          enum:
-          - provider
-          - catalog
-          - none
-      required:
-      - capabilities
-      - contextWindow
-      - maxOutputTokens
-      - modelName
-      - pricing
-      - source
-    ChatReportedModelCapabilities:
-      type: object
-      additionalProperties: false
-      properties:
-        toolCalling:
-          type: boolean
-        vision:
-          type: boolean
-        reasoning:
-          type: boolean
-      required:
-      - reasoning
-      - toolCalling
-      - vision
-    ChatReportedModelPricing:
-      type: object
-      additionalProperties: false
-      properties:
-        inputPerMillion:
-          type: number
-          format: double
-        outputPerMillion:
-          type: number
-          format: double
-      required:
-      - inputPerMillion
-      - outputPerMillion
-    ChatReportedModels:
-      type: object
-      additionalProperties: false
-      properties:
-        models:
-          type: array
-          items:
-            $ref: "#/components/schemas/ChatReportedModel"
-      required:
-      - models
     Descriptor:
       type: object
       properties:

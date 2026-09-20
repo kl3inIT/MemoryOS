@@ -52,7 +52,14 @@ public final class ChatModelResolver {
      * transaction; the provider call follows it.
      */
     public java.util.List<ReportedModelSpec> reportedModels(ActorId actor, UUID providerId) {
-        var connection = catalog.providerConnection(actor, providerId);
+        return reportedModels(catalog.providerConnection(actor, providerId));
+    }
+
+    /**
+     * The same listing for a connection the administrator is still editing, so the provider form fills its model list
+     * before the provider exists, as Onyx's provider form does. The caller authorizes the connection.
+     */
+    public java.util.List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
         var adapter = adapters.require(connection.adapterType());
         try {
             var reported = adapter.reportedModels(
@@ -68,7 +75,7 @@ public final class ChatModelResolver {
                     .toList();
         } catch (ChatException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider {} model listing failed ({})", providerId, failure.getClass().getSimpleName());
+            LOG.warn("Provider model listing failed ({})", failure.getClass().getSimpleName());
             throw ChatException.providerUnavailable();
         }
     }

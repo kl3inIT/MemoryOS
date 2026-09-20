@@ -2217,6 +2217,23 @@ export const testChatProvider = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
+ * List the models an endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; takes the provider being edited, saved or not, as the connection check does; requires model management
+ */
+export const listReportedProviderModels = <ThrowOnError extends boolean = false>(options: Options<ListReportedProviderModelsData, ThrowOnError>): RequestResult<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError> => (options.client ?? client).post<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/chat/providers/reported-models',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List the actor's own and public prompt shortcuts
  */
 export const listChatPromptShortcuts = <ThrowOnError extends boolean = false>(options?: Options<ListChatPromptShortcutsData, ThrowOnError>): RequestResult<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError>({
@@ -3107,19 +3124,6 @@ export const searchChatSessions = <ThrowOnError extends boolean = false>(options
             type: 'apiKey'
         }],
     url: '/api/chat/sessions/search',
-    ...options
-});
-
-/**
- * List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management
- */
-export const listReportedProviderModels = <ThrowOnError extends boolean = false>(options: Options<ListReportedProviderModelsData, ThrowOnError>): RequestResult<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError> => (options.client ?? client).get<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/chat/providers/{providerId}/reported-models',
     ...options
 });
 

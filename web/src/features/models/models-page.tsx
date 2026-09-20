@@ -4,7 +4,6 @@ import {
   Brain,
   ChevronDown,
   Eye,
-  ListPlus,
   Plug,
   PlugZap,
   Route,
@@ -51,11 +50,9 @@ import {
 import { deleteChatModel, deleteChatProvider } from "@/lib/hey-api/sdk.gen";
 import { TaskModels, TenantDefault } from "./model-defaults";
 import { ModelEditor } from "./model-editor";
-import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
 import { DataBoundaryTag } from "./data-boundary";
 import {
-  type ReportedModel,
   compactTokens,
   millionTokenPrice,
   refreshModelCatalog,
@@ -80,9 +77,7 @@ type Editor =
       providerId: string;
       initial?: ManagedModel;
       modelName?: string;
-      reported?: ReportedModel;
-    }
-  | { kind: "discovery"; providerId: string };
+    };
 type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
   | { kind: "model"; model: ManagedModel };
@@ -170,7 +165,6 @@ function ConnectionCard({
   unavailable,
   onEdit,
   onAddModel,
-  onDiscover,
   onEditModel,
   onDelete,
   onDeleteModel,
@@ -183,7 +177,6 @@ function ConnectionCard({
   unavailable: boolean;
   onEdit: () => void;
   onAddModel: () => void;
-  onDiscover: () => void;
   onEditModel: (model: ManagedModel) => void;
   onDelete: () => void;
   onDeleteModel: (model: ManagedModel) => void;
@@ -384,16 +377,6 @@ function ConnectionCard({
             <Button
               prominence="secondary"
               size="sm"
-              disabled={
-                unavailable || !adapter || !provider.enabled || !provider.credentialConfigured
-              }
-              onClick={onDiscover}
-            >
-              <ListPlus aria-hidden="true" /> {ui("Fetch models from the provider")}
-            </Button>
-            <Button
-              prominence="secondary"
-              size="sm"
               disabled={unavailable || !adapter}
               onClick={onAddModel}
             >
@@ -465,7 +448,7 @@ function ModelsAdministration() {
     providers.isError || adapters.isError || configured.some((query) => query.isError);
   const unavailable = catalogPending || catalogError || action.pending;
   const modelProvider =
-    editor?.kind === "model" || editor?.kind === "discovery"
+    editor?.kind === "model"
       ? providers.data?.find((provider) => provider.id === editor.providerId)
       : undefined;
   const tenantDefault = useQuery({ ...getChatModelDefaultOptions(), retry: false });
@@ -607,7 +590,6 @@ function ModelsAdministration() {
                 unavailable={unavailable}
                 onEdit={() => setEditor({ kind: "provider", initial: provider })}
                 onAddModel={() => setEditor({ kind: "model", providerId: provider.id })}
-                onDiscover={() => setEditor({ kind: "discovery", providerId: provider.id })}
                 onEditModel={(model) =>
                   setEditor({ kind: "model", providerId: provider.id, initial: model })
                 }
@@ -792,6 +774,7 @@ function ModelsAdministration() {
       {editor?.kind === "provider" && adapters.data && (
         <ProviderEditor
           initial={editor.initial}
+          models={models.filter((model) => model.providerId === editor.initial?.id)}
           providers={providers.data ?? []}
           adapters={adapters.data}
           preferredAdapterType={editor.adapterType}
@@ -802,24 +785,12 @@ function ModelsAdministration() {
       )}
       {editor?.kind === "model" && modelProvider && (
         <ModelEditor
-          key={editor.reported?.modelName ?? editor.modelName ?? editor.initial?.id ?? "new"}
+          key={editor.modelName ?? editor.initial?.id ?? "new"}
           initial={editor.initial}
           modelName={editor.modelName}
-          reported={editor.reported}
           models={models}
           provider={modelProvider}
           adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
-          onClose={() => setEditor(null)}
-        />
-      )}
-      {editor?.kind === "discovery" && modelProvider && (
-        <ModelDiscovery
-          provider={modelProvider}
-          adapter={adapters.data?.find((adapter) => adapter.type === modelProvider.adapterType)}
-          models={models.filter((model) => model.providerId === modelProvider.id)}
-          onManual={(reported) =>
-            setEditor({ kind: "model", providerId: modelProvider.id, reported })
-          }
           onClose={() => setEditor(null)}
         />
       )}
