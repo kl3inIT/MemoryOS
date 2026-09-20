@@ -81,6 +81,27 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 
 `MEMORYOS_INVITATION_TTL`, `MEMORYOS_SESSION_TIMEOUT`, object-upload lifetime/lease/batch tuning, the two worker workload batch keys, and Redis timeout/pool tuning keys are optional. Keep them out of managed secret storage until an environment has an approved reason to override checked-in defaults; production object-storage endpoints/identity, Redis identity/authentication/TLS, and scheduler-name values are required.
 
+### Provider credential keys
+
+Each provider seals its stored credentials with its own AES key. A missing key disables that provider alone; the others
+keep working. Keep every key with the database backups: changing one without re-sealing makes the stored credentials
+unreadable.
+
+| Variable | Consumed by | Purpose |
+| --- | --- | --- |
+| `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY` | API and worker | Base64 32-byte AES key sealing Google OAuth client credentials; pair it with `MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION`. |
+| `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI` | API | Exactly `<browser origin>/login/oauth2/code/google-drive`, registered in the uploaded Google app. It does not replace Keycloak login. |
+| `MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY` | API and worker | Base64 32-byte AES key sealing the Entra client secret or certificate private key; pair it with `MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION`. |
+| `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` | API | Base64 32-byte AES key sealing MCP OAuth client secrets, header templates and User credentials. Missing configuration disables MCP secret writes and reads. |
+| `MEMORYOS_MCP_REDIRECT_URI` | API | HTTPS (or loopback HTTP locally) ending in `/login/oauth2/code/mcp`, registered on each MCP OAuth client. |
+
+There is no server-wide default Google client: a manager uploads a Google **Web application OAuth client JSON** of at
+most 16 KiB and enables the Drive, Sheets and Docs APIs in that project. SharePoint takes an **Entra application** with
+the Microsoft Graph application permission `Sites.Read.All` and admin consent, then either its client secret Value or a
+PKCS#12 certificate of at most 16 KiB; MemoryOS verifies every draft against Microsoft before storing it and never
+stores the uploaded PKCS#12 or its password. Keep all of this outside the repository. See the
+[Connector contract](../specs/connector.md) and the [MCP server runbook](mcp-servers.md).
+
 ### Infisical MinIO layout
 
 Development stores its six `MEMORYOS_OBJECT_STORAGE_*` endpoint, bucket, readiness-key, access-key, and secret-key values at the environment root. They belong to the isolated development MinIO identity, not the staging bucket or either staging service identity.

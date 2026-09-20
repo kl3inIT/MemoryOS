@@ -82,7 +82,7 @@ Decisions are in [design.md](design.md#integration-with-memoryos).
 - [x] **Prompts.** `## run_python` guidance (Onyx text plus the phase 0b lines), only when the tool is registered.
 - [x] **Docs.** Chat spec, chat verification matrix, architecture and runbook.
 - **Deferred:** purging `chat_file_artifact` rows and their stored objects when a Chat session is soft-deleted. `chat_image_artifact` (V57) has the same shape and the same gap, and the download paths already refuse a deleted session, so a purge belongs to one increment covering messages, both artifact tables and their objects.
-- [ ] **Staging acceptance** (after merge; the other phase 3 items are implemented on `mem-110/run-python-tool`).
+- [x] **Staging acceptance** (2026-09-20: owner acceptance on staging.)  <!-- the phase 3 items shipped with the merge -->
   - The key file exists before merge.
   - An administrator enables the interpreter.
   - A Vietnamese prompt produces a downloadable xlsx and a chart.
