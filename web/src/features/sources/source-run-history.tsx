@@ -54,6 +54,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceRun, SourceRunCounts, SourceRunError } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration, runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
@@ -176,6 +177,8 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
     placeholderData: keepPreviousData,
     refetchInterval: 5_000,
   });
+  // Runs are polled every few seconds, so the refresh control follows the press, not the poll.
+  const runsRefresh = useManualRefresh(history.refetch);
   const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
   if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
     setCursor(undefined);
@@ -229,8 +232,8 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
         <Button
           size="sm"
           prominence="secondary"
-          pending={history.isFetching}
-          onClick={() => void history.refetch()}
+          pending={runsRefresh.pending}
+          onClick={runsRefresh.refresh}
         >
           <RefreshCw aria-hidden="true" /> {ui("Refresh")}
         </Button>
@@ -810,14 +813,16 @@ function RunErrors({ run }: { run: SourceRun }) {
         ? 5_000
         : false,
   });
+  // A live run is polled, so the refresh control follows the press rather than the poll.
+  const errorsRefresh = useManualRefresh(errors.refetch);
   return (
     <div className="space-y-3 text-sm text-content-secondary" aria-busy={errors.isFetching}>
       <div className="flex justify-end">
         <Button
           size="sm"
           prominence="tertiary"
-          pending={errors.isFetching}
-          onClick={() => void errors.refetch()}
+          pending={errorsRefresh.pending}
+          onClick={errorsRefresh.refresh}
         >
           <RefreshCw aria-hidden="true" /> {ui("Refresh file states")}
         </Button>
