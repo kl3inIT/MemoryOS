@@ -220,9 +220,29 @@ public class JdbcChatRepository {
      * @param tools          agent tool keys ({@code search}, {@code web_search}, {@code image_generation})
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
      */
+    /** {@code reasoningEffort} is the level pinned on this conversation, which outranks the model configuration. */
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
-                          @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
+                          @Nullable List<UUID> mcpServerIds, boolean datetimeAware,
+                          io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort) {
+        public Persona(String instructions, String model, ChatTurnOptions options, String revision,
+                       @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
+                       @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
+            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds,
+                    datetimeAware, null);
+        }
+    }
+
+    /** Pins or clears the reasoning level of one conversation the caller owns. */
+    public void saveReasoningEffort(TenantId tenant, ActorId actor, UUID session,
+                                    io.memoryos.chat.preferences.@Nullable ReasoningEffort effort) {
+        jdbc.sql("""
+                        UPDATE chat_session SET reasoning_effort = :effort
+                        WHERE id = :session AND tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL
+                        """)
+                .param("session", session).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("effort", effort == null ? null : effort.name())
+                .update();
     }
 
     /** Serialize an owner's editor/turn mutations before taking session or settings row locks. */
@@ -241,6 +261,7 @@ public class JdbcChatRepository {
     public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
                         SELECT p.id, p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
+                            s.reasoning_effort,
                             p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
@@ -262,6 +283,7 @@ public class JdbcChatRepository {
                     boolean builtin = row.getString("builtin_key") != null;
                     var cutoff = row.getTimestamp("knowledge_cutoff");
                     var tools = personaTools(id);
+                    String pinned = row.getString("reasoning_effort");
                     return new Persona(row.getString("instructions"), row.getString("model"),
                             new ChatTurnOptions(tools.contains("search"), personaSources(id),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
@@ -269,7 +291,8 @@ public class JdbcChatRepository {
                                     tools.contains("code_interpreter")),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
-                            builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"));
+                            builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"),
+                            pinned == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(pinned));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }
@@ -464,9 +487,12 @@ public class JdbcChatRepository {
     }
 
     static ChatSession session(ResultSet row, int ignored) throws SQLException {
+        String effort = row.getString("reasoning_effort");
         return new ChatSession(row.getObject("id", UUID.class), row.getObject("persona_id", UUID.class),
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
-                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getObject("project_id", UUID.class));
+                row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
+                row.getObject("project_id", UUID.class),
+                effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

@@ -18,6 +18,7 @@ const session: ChatSession = {
   title: "Question",
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-10T00:00:00Z",
+  reasoningEffort: null,
 };
 const message = (id: string, role: ChatMessage["role"], status: ChatMessage["status"]) =>
   ({

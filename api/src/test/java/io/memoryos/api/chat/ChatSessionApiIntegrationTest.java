@@ -1942,6 +1942,43 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember() throws Exception {
+        String session = create().path("id").asText();
+        // A conversation starts with nothing pinned; the model configuration decides.
+        mockMvc.perform(get("/api/chat/sessions/" + session).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"HIGH\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value("HIGH"));
+        // An unknown level never reaches the conversation.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"EXTREME\"}"))
+                .andExpect(status().isBadRequest());
+        // Nobody pins a level on another member's conversation.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(other)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reasoningEffort\":\"LOW\"}"))
+                .andExpect(status().isNotFound());
+        // Clearing it returns the conversation to the model configuration.
+        mockMvc.perform(put("/api/chat/sessions/" + session + "/reasoning").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reasoningEffort").value(org.hamcrest.Matchers.nullValue()));
+        // The member's own starting values live with the rest of their preferences.
+        var body = Json.mapper().createObjectNode().put("workRole", "").put("personalPreferences", "")
+                .put("autoScroll", true).put("temperatureDefault", 1.4).put("reasoningEffortDefault", "LOW");
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.temperatureDefault").value(1.4))
+                .andExpect(jsonPath("$.reasoningEffortDefault").value("LOW"));
+        mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.deepCopy().put("temperatureDefault", 2.5).toString()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void deleteAllChatsRemovesOnlyTheCallersConversations() throws Exception {
         create();
         create();

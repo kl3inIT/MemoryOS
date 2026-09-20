@@ -270,7 +270,11 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
                 price == null ? null : io.memoryos.chat.catalog.ChatModelPricing.of(price), settings.capabilities().reasoning());
         return new ChatModelBinding(service, OpenAiChatRequestPolicy::withoutTools,
                 OpenAiChatRequestPolicy.create(settings, tokens), settings.contextWindow(), settings.maxOutputTokens(),
-                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools);
+                settings.capabilities().toolCalling(), settings.capabilities().vision(), OpenAiChatRequestPolicy::requireTools,
+                (llmService, sampling) -> llmService.withOptionsConverter((requested, requestedModel) ->
+                        OpenAiChatRequestPolicy.withSampling(
+                                llmService.getOptionsConverter().convertOptions(requested, requestedModel),
+                                requested, sampling, settings)));
     }
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */

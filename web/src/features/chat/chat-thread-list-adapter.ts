@@ -18,7 +18,7 @@ type RemoteThreadMetadata = Awaited<ReturnType<RemoteThreadListAdapter["fetch"]>
 
 export type ChatThreadCustom = Pick<
   ChatSession,
-  "personaId" | "rootMessageId" | "createdAt" | "updatedAt" | "projectId"
+  "personaId" | "rootMessageId" | "createdAt" | "updatedAt" | "projectId" | "reasoningEffort"
 >;
 
 export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
@@ -28,6 +28,7 @@ export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     projectId: session.projectId ?? null,
+    reasoningEffort: session.reasoningEffort ?? null,
   };
   return {
     status: "regular",

@@ -100,6 +100,17 @@ public class DefaultChatSessionService implements ChatSessionService {
     }
 
     @Override
+    @Transactional
+    public ChatSession pinReasoningEffort(ActorId actor, UUID sessionId,
+                                          io.memoryos.chat.preferences.@Nullable ReasoningEffort effort) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);
+        chats.saveReasoningEffort(tenant, actor, sessionId, effort);
+        return chats.findOwned(tenant, actor, sessionId, false).orElseThrow();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ChatBranch> branches(ActorId actor, UUID sessionId) {
         chats.findOwned(tenant(actor), actor, sessionId, false).orElseThrow(ChatException::unavailable);

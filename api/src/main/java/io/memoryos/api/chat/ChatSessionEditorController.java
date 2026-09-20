@@ -99,6 +99,16 @@ class ChatSessionEditorController {
             @PathVariable UUID sessionId, @RequestBody ProjectSelection request) {
         return ChatSessionResponse.from(projects.move(identity.actorId(), sessionId, request.projectId()));
     }
+    @PutMapping("/reasoning")
+    @Operation(operationId = "pinChatReasoningEffort",
+            summary = "Pin how much this conversation's model should think, or clear the choice")
+    @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
+    ChatSessionResponse reasoning(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID sessionId, @RequestBody ReasoningSelection request) {
+        return ChatSessionResponse.from(sessions.pinReasoningEffort(identity.actorId(), sessionId, request.reasoningEffort()));
+    }
+    record ReasoningSelection(io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort) {}
+
     record Title(@NotBlank @Size(max = 200) String title) {}
     @PutMapping("/settings")
     @Operation(operationId = "configureChatSession", summary = "Atomically change assistant and project for subsequent turns")

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDownToLine, Sparkles } from "lucide-react";
+import { ArrowDownToLine, Brain, Sparkles, Thermometer } from "lucide-react";
 import {
   ModelSelectorContent,
   ModelSelectorEmpty,
@@ -11,11 +11,14 @@ import {
   ModelSelectorTrigger,
 } from "@/components/assistant-ui/elements/model-selector";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
+import { Select } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { useChatModels } from "@/features/chat/chat-models";
+import { REASONING_EFFORTS, useChatModels } from "@/features/chat/chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { appText } from "@/i18n/app-text";
+import type { ChatPreferencesInput } from "@/lib/hey-api/types.gen";
 import { useChatPreferences, useSaveChatPreferences } from "./chat-preferences";
 
 const PREFERENCES_LIMIT = 2000;
@@ -31,6 +34,8 @@ export function ChatPreferencesSections() {
   const { catalog, groups } = useChatModels();
   // A draft only while typing; otherwise the saved value shows.
   const [typed, setTyped] = useState<string>();
+  // The slider shows its own value while dragging; the saved value takes over once it is committed.
+  const [temperature, setTemperature] = useState<number>();
   const data = preferences.data;
   const draft = typed ?? data?.personalPreferences ?? "";
   const disabled = !preferences.isSuccess || save.isPending;
@@ -88,6 +93,67 @@ export function ChatPreferencesSections() {
                   </ModelSelectorList>
                 </ModelSelectorContent>
               </ModelSelectorRoot>
+            }
+          />
+          <SettingRow
+            htmlFor="default-temperature"
+            descriptionId="default-temperature-description"
+            icon={<Thermometer />}
+            title={ui("Default Creativity")}
+            description={ui(
+              "Starting creativity for your new chats. A model the administrator pinned keeps its own value.",
+            )}
+            className="flex-col items-stretch sm:flex-row sm:items-center"
+            control={
+              <div className="flex items-center gap-3 sm:w-64">
+                <Slider
+                  id="default-temperature"
+                  aria-describedby="default-temperature-description"
+                  className="flex-1"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  disabled={disabled}
+                  value={[data?.temperatureDefault ?? 1]}
+                  onValueChange={([next]) => setTemperature(next)}
+                  onValueCommit={([next]) => save.mutate({ temperatureDefault: next })}
+                />
+                <span className="w-8 text-right font-secondary-body tabular-nums text-content-secondary">
+                  {(temperature ?? data?.temperatureDefault ?? 1).toFixed(1)}
+                </span>
+              </div>
+            }
+          />
+          <SettingRow
+            htmlFor="default-reasoning"
+            descriptionId="default-reasoning-description"
+            icon={<Brain />}
+            title={ui("Default Reasoning Level")}
+            description={ui(
+              "Starting reasoning level for your new chats. Any single chat can pin its own level.",
+            )}
+            className="flex-col items-stretch sm:flex-row sm:items-center"
+            control={
+              <Select
+                id="default-reasoning"
+                aria-describedby="default-reasoning-description"
+                className="sm:w-64"
+                value={data?.reasoningEffortDefault ?? ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  save.mutate({
+                    reasoningEffortDefault: (event.target.value ||
+                      undefined) as ChatPreferencesInput["reasoningEffortDefault"],
+                  })
+                }
+              >
+                <option value="">{ui("Model default")}</option>
+                {REASONING_EFFORTS.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {ui(level.name)}
+                  </option>
+                ))}
+              </Select>
             }
           />
           <SettingRow

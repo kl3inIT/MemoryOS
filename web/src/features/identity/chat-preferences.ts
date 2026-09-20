@@ -15,6 +15,8 @@ function input(value: ChatPreferences): ChatPreferencesInput {
     workRole: value.workRole,
     personalPreferences: value.personalPreferences,
     defaultModelId: value.defaultModelId ?? undefined,
+    temperatureDefault: value.temperatureDefault ?? undefined,
+    reasoningEffortDefault: value.reasoningEffortDefault ?? undefined,
     autoScroll: value.autoScroll,
   };
 }

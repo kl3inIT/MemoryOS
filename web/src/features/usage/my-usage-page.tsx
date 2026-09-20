@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ChartColumn, ChevronRight, CircleDollarSign, Gauge, Layers } from "lucide-react";
+import { Activity, ChartColumn, CircleDollarSign, Gauge, Layers } from "lucide-react";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
-import { appText } from "@/i18n/app-text";
+import { DailyChart } from "./daily-chart";
+import { appText, type AppCopy } from "@/i18n/app-text";
 import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -14,6 +14,24 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { AvailableModel } from "@/lib/hey-api/types.gen";
 import { change, count, money, period, previousPeriod } from "./ai-costs";
+
+/** The model's own price under its name: input and output per million tokens, as the prices table showed them. */
+function price(models: AvailableModel[] | undefined, label: string, ui: (copy: AppCopy) => string) {
+  const pricing = models?.find(
+    (model) => model.modelName === label || model.displayName === label,
+  )?.pricing;
+  if (!pricing) return null;
+  return (
+    <span className="mt-0.5 block font-secondary-body text-content-muted">
+      {ui(
+        appText("{{input}} in · {{output}} out", {
+          input: perMillion(pricing.inputPerMillion),
+          output: perMillion(pricing.outputPerMillion),
+        }),
+      )}
+    </span>
+  );
+}
 
 const perMillion = (value: number | null | undefined) =>
   value == null
@@ -125,6 +143,17 @@ export function MyUsagePage() {
         </StatStrip>
       )}
 
+      {usage.isSuccess && usage.data.daily.length > 0 && (
+        <section aria-labelledby="daily-heading" className="flex min-w-0 flex-col gap-3">
+          <h2 id="daily-heading" className="font-heading-h3 text-content-primary">
+            {ui("Daily spend")}
+          </h2>
+          <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+            <DailyChart days={usage.data.daily} split="MODEL" range={range} />
+          </div>
+        </section>
+      )}
+
       {usage.isSuccess && (
         <section aria-labelledby="by-model-heading" className="flex min-w-0 flex-col gap-3">
           <h2 id="by-model-heading" className="font-heading-h3 text-content-primary">
@@ -159,6 +188,7 @@ export function MyUsagePage() {
                           <ChatModelLogo modelName={row.label} />
                           <span className="min-w-0 break-all">{row.label}</span>
                         </span>
+                        {price(models.data, row.label, ui)}
                       </td>
                       <td className="px-4 py-2.5 text-right">{count(row.calls)}</td>
                       <td className="px-4 py-2.5 text-right">
@@ -203,86 +233,11 @@ export function MyUsagePage() {
         </section>
       )}
 
-      <ModelPrices models={models.data} />
       <p className="font-secondary-body text-content-muted">
         {ui(
           "Costs are estimates from the tokens the model reports and the prices your administrator set, not a provider invoice.",
         )}
       </p>
     </SettingsLayout>
-  );
-}
-
-/** Onyx "Model prices": one collapsible group per provider, each model priced on one line. */
-function ModelPrices({ models }: { models: AvailableModel[] | undefined }) {
-  const ui = useAppTranslation();
-  if (!models?.length) return null;
-  const groups = [...Map.groupBy(models, (model) => model.providerName)].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
-  const defaultProvider = models.find((model) => model.isDefault)?.providerName;
-  return (
-    <section aria-labelledby="prices-heading" className="flex min-w-0 flex-col gap-3">
-      <div>
-        <h2 id="prices-heading" className="font-heading-h3 text-content-primary">
-          {ui("Model prices")}
-        </h2>
-        <p className="text-content-muted">
-          {ui("USD per 1M tokens (input · output · cache) for every available model")}
-        </p>
-      </div>
-      <div className="divide-y divide-border-subtle overflow-hidden rounded-2xl border border-border-subtle bg-surface-raised">
-        {groups.map(([provider, entries]) => (
-          <Collapsible key={provider} defaultOpen={provider === defaultProvider}>
-            <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left outline-none hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-focus-ring/40">
-              <ChevronRight
-                aria-hidden="true"
-                className="size-4 shrink-0 text-content-muted transition-transform group-data-[state=open]:rotate-90"
-              />
-              <span className="font-main-ui-action text-content-primary">{provider}</span>
-              <span className="font-secondary-body tabular-nums text-content-muted">
-                {entries.length}
-              </span>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <ul className="pb-2">
-                {entries.map((model) => (
-                  <li
-                    key={model.id}
-                    className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 pl-10"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ChatModelLogo modelName={model.modelName} />
-                      <span className="min-w-0 break-all text-content-primary">
-                        {model.displayName}
-                      </span>
-                      {model.isDefault && (
-                        <span className="font-secondary-body text-content-muted">
-                          {ui("· default")}
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-secondary-body tabular-nums text-content-muted">
-                      {model.pricing
-                        ? ui(
-                            appText("{{input}} in · {{output}} out · {{cache}} cache", {
-                              input: perMillion(model.pricing.inputPerMillion),
-                              output: perMillion(model.pricing.outputPerMillion),
-                              cache: perMillion(
-                                model.pricing.cachedInputPerMillion ??
-                                  model.pricing.inputPerMillion,
-                              ),
-                            }),
-                          )
-                        : ui("Prices unavailable")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CollapsibleContent>
-          </Collapsible>
-        ))}
-      </div>
-    </section>
   );
 }

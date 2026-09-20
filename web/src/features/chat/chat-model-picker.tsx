@@ -16,11 +16,16 @@ export function ChatModelPicker({
   sessionId,
   value,
   onChange,
+  effort,
+  onEffortChange,
   disabled,
 }: {
   sessionId?: string;
   value?: string;
   onChange: (id?: string) => void;
+  /** The level pinned on this conversation; the model configuration decides when it is absent. */
+  effort?: string;
+  onEffortChange?: (effort: string) => void;
   disabled: boolean;
 }) {
   const ui = useAppTranslation();
@@ -36,7 +41,13 @@ export function ChatModelPicker({
   const inheritedId = catalog.data?.find((model) => model.isDefault)?.id;
   const selectedId = value ?? inheritedId;
   return (
-    <ModelSelectorRoot models={models} value={selectedId ?? ""} onValueChange={onChange}>
+    <ModelSelectorRoot
+      models={models}
+      value={selectedId ?? ""}
+      onValueChange={onChange}
+      effort={effort}
+      onEffortChange={onEffortChange}
+    >
       <ModelSelectorTrigger
         aria-label={ui("Chọn mô hình")}
         variant="ghost"
