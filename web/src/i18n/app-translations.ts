@@ -1105,6 +1105,8 @@ export const englishUi: Record<string, string> = {
   "Change visibility": "Thay đổi chế độ hiển thị",
   "Pause source": "Tạm dừng nguồn",
   Pausing: "Đang tạm dừng",
+  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file":
+    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
   "Resume source": "Tiếp tục nguồn",
   "Pausing…": "Đang tạm dừng…",
   "Source paused": "Đã tạm dừng nguồn",
@@ -1562,13 +1564,15 @@ Object.assign(englishUi, {
     "Để trống để liên kết nguồn mới với nhóm quản trị được bảo vệ.",
   File: "Tệp",
   "File name": "Tên tệp",
-  "Drag and drop your file here": "Kéo và thả tệp vào đây",
-  "Choose file": "Chọn tệp",
-  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file":
-    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
-  "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB":
-    "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB",
-  "Remove selected file": "Bỏ tệp đã chọn",
+  "Drag and drop your files here": "Kéo và thả các tệp vào đây",
+  "Choose files": "Chọn các tệp",
+  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files":
+    "Chọn các tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
+  "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB each":
+    "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB mỗi tệp",
+  Accepted: "Đã nhận",
+  "File {{v1}} of {{v2}}": "Tệp {{v1}} trên {{v2}}",
+  " · {{v1}}": " · {{v1}}",
   "The file reached object storage; retry finalization without uploading it again.":
     "Tệp đã được lưu; hãy thử xác nhận hoàn tất mà không tải lên lại.",
   "Finish your pending upload first.": "Hãy hoàn tất lần tải lên đang chờ trước.",
@@ -2581,11 +2585,10 @@ Object.assign(englishUi, {
   "Indexing failed": "Lập chỉ mục thất bại",
   Checked: "Đã kiểm tra",
   Unchanged: "Không đổi",
-  "Choose one file at a time. You can add more files after creating the source.":
-    "Chọn từng tệp một. Bạn có thể thêm tệp sau khi tạo nguồn.",
-  "Choose a PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file.":
-    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown.",
-  "Choose a file between 1 byte and 100 MiB.": "Chọn tệp có dung lượng từ 1 byte đến 100 MiB.",
+  "Choose only PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files.":
+    "Chỉ chọn các tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown.",
+  "Choose files between 1 byte and 100 MiB each.":
+    "Chọn các tệp có dung lượng từ 1 byte đến 100 MiB mỗi tệp.",
   "Opening source…": "Đang mở nguồn…",
   "Preparing file…": "Đang chuẩn bị tệp…",
   "Creating source…": "Đang tạo nguồn…",
@@ -2595,8 +2598,8 @@ Object.assign(englishUi, {
   "Source created; upload accepted": "Đã tạo nguồn và nhận tệp tải lên",
   "Your upload was accepted, but the Source page could not be opened. Open the Source again; do not upload the file again.":
     "Đã nhận tệp tải lên nhưng không mở được trang nguồn. Hãy mở lại nguồn, không tải tệp lên lại.",
-  "The file could not be uploaded. Check your connection and retry; your source is already created.":
-    "Không tải được tệp. Kiểm tra kết nối rồi thử lại; nguồn đã được tạo.",
+  "{{v1}} could not be uploaded. Check your connection and retry; your source is already created.":
+    "Không tải được {{v1}}. Kiểm tra kết nối rồi thử lại; nguồn đã được tạo.",
   "Source created; unable to open": "Đã tạo nguồn nhưng chưa mở được",
   "Source created; upload needs attention": "Đã tạo nguồn; cần kiểm tra lần tải lên",
   "Source creation failed": "Tạo nguồn thất bại",
@@ -2632,6 +2635,8 @@ Object.assign(englishUi, {
   "Revoking…": "Đang thu hồi…",
   "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.":
     "Đã tạo {{v1}}. Đã nhận {{v2}} để lập chỉ mục; quá trình chưa hoàn tất.",
+  "{{v1}} was created. {{v2}} files were accepted for indexing; indexing is not complete yet.":
+    "Đã tạo {{v1}}. Đã nhận {{v2}} tệp để lập chỉ mục; quá trình chưa hoàn tất.",
   "{{v1}} is connected and ready to use with a Source.":
     "{{v1}} đã kết nối và sẵn sàng dùng với nguồn.",
   "{{v1}}: displayed values may be out of date. Try refreshing again.":
