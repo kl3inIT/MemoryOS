@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Info, Trash2, Users, WifiOff } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
+import { DangerZone } from "@/components/composites/danger-zone";
+import { DetailHeader } from "@/components/composites/detail-header";
+import { EmptyState } from "@/components/composites/empty-state";
+import { SettingsLayout } from "@/components/ui/settings-layout";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -21,8 +25,6 @@ import { groupMutationError } from "./group-errors";
 import { GroupMembersSection } from "./group-members-section";
 import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
-import "./groups-list.css";
-import "./group-detail.css";
 import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
@@ -30,7 +32,6 @@ export function GroupDetailPage() {
 
   const { groupId } = useParams({ from: "/_authenticated/admin/groups/$groupId" });
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const group = useQuery({
     ...getGroupOptions({ path: { groupId } }),
@@ -52,55 +53,43 @@ export function GroupDetailPage() {
   }
 
   return (
-    <section className="groups-list-page group-detail-page min-h-full px-5 py-12 sm:px-8">
-      <div className="mx-auto w-full max-w-[840px]">
-        {group.isPending || group.isError || !group.data ? (
-          <Button
-            ref={cancelRef}
-            prominence="secondary"
-            onClick={() => void navigate({ to: "/admin/groups", search: { page: 0, size: 20 } })}
-          >
-            {ui("Cancel")}
-          </Button>
-        ) : null}
-
-        {group.isPending ? (
-          <div
-            role="status"
-            className="mt-6 flex justify-center rounded-xl border border-border-subtle px-6 py-20"
-          >
-            <BrandLoader label={ui("Loading group")} />
-          </div>
-        ) : group.isError || !group.data ? (
-          <div className="mt-6 rounded-xl border border-border-subtle px-6 py-16 text-center">
-            <WifiOff className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-            <h1 className="mt-3 font-heading-h3 text-content-primary">{ui("Group unavailable")}</h1>
-            <p className="mt-2 font-main-ui-body text-content-muted">
-              {ui("It may have been removed, or your scoped access may have changed.")}
-            </p>
+    <SettingsLayout>
+      {group.isPending ? (
+        <div
+          role="status"
+          className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
+        >
+          <BrandLoader label={ui("Loading group")} />
+        </div>
+      ) : group.isError || !group.data ? (
+        <EmptyState
+          icon={<WifiOff />}
+          title={ui("Group unavailable")}
+          detail={ui("It may have been removed, or your scoped access may have changed.")}
+          action={
             <Button
+              ref={cancelRef}
               size="sm"
               prominence="secondary"
-              className="mt-5"
               onClick={() => void group.refetch()}
             >
               {ui("Try again")}
             </Button>
-          </div>
-        ) : (
-          <GroupDetail
-            key={group.data.id}
-            group={group.data}
-            registry={capabilities.data?.items ?? []}
-            registryLoading={capabilities.isPending}
-            registryError={capabilities.isError}
-            onRetryRegistry={() => void capabilities.refetch()}
-            onAuthorityChanged={refreshAuthorityViews}
-            cancelRef={cancelRef}
-          />
-        )}
-      </div>
-    </section>
+          }
+        />
+      ) : (
+        <GroupDetail
+          key={group.data.id}
+          group={group.data}
+          registry={capabilities.data?.items ?? []}
+          registryLoading={capabilities.isPending}
+          registryError={capabilities.isError}
+          onRetryRegistry={() => void capabilities.refetch()}
+          onAuthorityChanged={refreshAuthorityViews}
+          cancelRef={cancelRef}
+        />
+      )}
+    </SettingsLayout>
   );
 }
 
@@ -248,38 +237,35 @@ function GroupDetail({
 
   return (
     <>
-      <header className="group-detail-header border-b border-border-subtle pb-6">
-        <div>
-          <Users className="size-8 text-content-secondary" aria-hidden="true" />
-          <h1 className="mt-2 text-2xl font-semibold leading-8 text-content-primary">
-            {ui("Edit Group")}
-          </h1>
-        </div>
-        <div className="group-detail-actions flex shrink-0 gap-2">
-          <Button ref={cancelRef} prominence="secondary" disabled={busy} onClick={cancelSettings}>
-            {ui("Cancel")}
-          </Button>
-          <Button
-            className="groups-list-action"
-            pending={renameGroup.isPending || replaceCapabilities.isPending}
-            disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
-            onClick={() => void saveSettings()}
-          >
-            {renameGroup.isPending || replaceCapabilities.isPending
-              ? ui("Saving…")
-              : ui("Save Changes")}
-          </Button>
-        </div>
-      </header>
+      <DetailHeader
+        parent={{ label: ui("Groups"), to: "/admin/groups", search: { page: 0, size: 20 } }}
+        icon={<Users />}
+        title={baselineName}
+        description={ui("Membership, permissions and the Sources this group may read.")}
+        actions={
+          <>
+            <Button ref={cancelRef} prominence="secondary" disabled={busy} onClick={cancelSettings}>
+              {ui("Cancel")}
+            </Button>
+            <Button
+              pending={renameGroup.isPending || replaceCapabilities.isPending}
+              disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
+              onClick={() => void saveSettings()}
+            >
+              {renameGroup.isPending || replaceCapabilities.isPending
+                ? ui("Saving…")
+                : ui("Save Changes")}
+            </Button>
+          </>
+        }
+      />
 
       {systemGroup ? (
-        <div className="groups-list-info mt-6 flex items-start gap-3 px-3 py-3">
+        <div className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-4 py-3">
           <Info className="mt-0.5 size-4 shrink-0 text-status-info-strong" aria-hidden="true" />
           <div>
-            <p className="text-sm font-semibold leading-5 text-content-primary">
-              {ui("System group")}
-            </p>
-            <p className="mt-0.5 text-xs leading-4 text-content-secondary">
+            <p className="font-main-ui-action text-content-primary">{ui("System group")}</p>
+            <p className="mt-0.5 font-secondary-body text-content-secondary">
               {ui(
                 "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.",
               )}
@@ -291,13 +277,13 @@ function GroupDetail({
       {error ? (
         <p
           role="alert"
-          className="mt-5 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
+          className="rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
           {ui(error)}
         </p>
       ) : null}
 
-      <div className="group-detail-name mt-8">
+      <div className="flex flex-col gap-2">
         <label htmlFor="group-name" className="font-heading-h3 text-content-primary">
           {ui("Group Name")}
         </label>
@@ -307,7 +293,7 @@ function GroupDetail({
           maxLength={120}
           readOnly={!canRename}
           aria-readonly={!canRename}
-          className={`mt-2 ${canRename ? "" : "group-detail-name-readonly"}`}
+          className="max-w-md"
           onChange={(event) => setName(event.target.value)}
         />
       </div>
@@ -330,28 +316,16 @@ function GroupDetail({
       ) : null}
 
       {canDelete ? (
-        <section
-          aria-labelledby="delete-group-heading"
-          className="mt-7 border-t border-border-subtle pt-7"
-        >
-          <div className="flex flex-col gap-4 rounded-xl border border-status-danger-content/20 bg-status-danger-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-            <div>
-              <h2
-                id="delete-group-heading"
-                className="font-main-ui-action text-status-danger-content"
-              >
-                {ui("Delete this group")}
-              </h2>
-              <p className="mt-1 font-secondary-body text-status-danger-content">
-                {ui(
-                  "Memberships, capability grants, and Source associations are removed. User and Source data stay intact.",
-                )}
-              </p>
-            </div>
+        <DangerZone
+          icon={<Trash2 />}
+          title={ui("Delete this group")}
+          description={ui(
+            "Memberships, capability grants, and Source associations are removed. User and Source data stay intact.",
+          )}
+          action={
             <ConfirmDialog
               trigger={
                 <Button tone="danger" prominence="secondary" disabled={busy}>
-                  <Trash2 aria-hidden="true" />
                   {ui("Delete group")}
                 </Button>
               }
@@ -364,8 +338,8 @@ function GroupDetail({
               onConfirm={deleteSelectedGroup}
               errorMessage={(cause) => groupMutationError(cause, "delete")}
             />
-          </div>
-        </section>
+          }
+        />
       ) : null}
     </>
   );

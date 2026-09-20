@@ -8,913 +8,950 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as AuthenticatedRouteImport } from "./routes/_authenticated";
-import { Route as AccessNotProvisionedRouteImport } from "./routes/access-not-provisioned";
-import { Route as InvitationRouteImport } from "./routes/invitation";
-import { Route as AuthenticatedChatRouteImport } from "./routes/_authenticated._chat";
-import { Route as AuthenticatedAdminRouteImport } from "./routes/_authenticated.admin";
-import { Route as AuthenticatedAgentsRouteImport } from "./routes/_authenticated.agents";
-import { Route as AuthenticatedAssistantsRouteImport } from "./routes/_authenticated.assistants";
-import { Route as AuthenticatedSearchRouteImport } from "./routes/_authenticated.search";
-import { Route as AuthenticatedSettingsRouteImport } from "./routes/_authenticated.settings";
-import { Route as AuthenticatedChatIndexRouteImport } from "./routes/_authenticated._chat.index";
-import { Route as AuthenticatedAdminIndexRouteImport } from "./routes/_authenticated.admin.index";
-import { Route as AuthenticatedAdminAgentsRouteImport } from "./routes/_authenticated.admin.agents";
-import { Route as AuthenticatedAdminAiCostsRouteImport } from "./routes/_authenticated.admin.ai-costs";
-import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from "./routes/_authenticated.admin.code-interpreter";
-import { Route as AuthenticatedAdminGroupsRouteImport } from "./routes/_authenticated.admin.groups";
-import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from "./routes/_authenticated.admin.identity-providers";
-import { Route as AuthenticatedAdminImageGenerationRouteImport } from "./routes/_authenticated.admin.image-generation";
-import { Route as AuthenticatedAdminMcpRouteImport } from "./routes/_authenticated.admin.mcp";
-import { Route as AuthenticatedAdminModelsRouteImport } from "./routes/_authenticated.admin.models";
-import { Route as AuthenticatedAdminUsersRouteImport } from "./routes/_authenticated.admin.users";
-import { Route as AuthenticatedAdminVoiceRouteImport } from "./routes/_authenticated.admin.voice";
-import { Route as AuthenticatedAdminWebSearchRouteImport } from "./routes/_authenticated.admin.web-search";
-import { Route as AuthenticatedAgentsCreateRouteImport } from "./routes/_authenticated.agents_.create";
-import { Route as AuthenticatedProjectsIndexRouteImport } from "./routes/_authenticated.projects.index";
-import { Route as AuthenticatedSettingsIndexRouteImport } from "./routes/_authenticated.settings.index";
-import { Route as AuthenticatedSettingsChatRouteImport } from "./routes/_authenticated.settings.chat";
-import { Route as AuthenticatedSettingsConnectionsRouteImport } from "./routes/_authenticated.settings.connections";
-import { Route as AuthenticatedSettingsGeneralRouteImport } from "./routes/_authenticated.settings.general";
-import { Route as AuthenticatedSettingsUsageRouteImport } from "./routes/_authenticated.settings.usage";
-import { Route as AuthenticatedSharedSessionIdRouteImport } from "./routes/_authenticated.shared.$sessionId";
-import { Route as AuthenticatedChatChatSessionIdRouteImport } from "./routes/_authenticated._chat.chat.$sessionId";
-import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from "./routes/_authenticated._chat.projects.$projectId";
-import { Route as AuthenticatedAdminGroupsIndexRouteImport } from "./routes/_authenticated.admin.groups.index";
-import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from "./routes/_authenticated.admin.groups.$groupId";
-import { Route as AuthenticatedAdminGroupsNewRouteImport } from "./routes/_authenticated.admin.groups.new";
-import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from "./routes/_authenticated.admin.sources.$sourceId";
-import { Route as AuthenticatedAdminSourcesNewRouteImport } from "./routes/_authenticated.admin.sources.new";
-import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from "./routes/_authenticated.agents_.$agentId.edit";
-import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from "./routes/_authenticated.admin.sources.new.index";
-import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from "./routes/_authenticated.admin.sources.new.file";
-import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from "./routes/_authenticated.admin.sources.new.google-drive";
-import { Route as AuthenticatedAdminSourcesNewSharepointRouteImport } from "./routes/_authenticated.admin.sources.new.sharepoint";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
+import { Route as InvitationRouteImport } from './routes/invitation'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
+import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
+import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
+import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
+import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
+import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
+import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
+import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
+import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
+import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
+import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
+import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
+import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
+import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
+import { Route as AuthenticatedSettingsChatRouteImport } from './routes/_authenticated.settings.chat'
+import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated.settings.connections'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
+import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated.settings.usage'
+import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
+import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
+import { Route as AuthenticatedChatProjectsProjectIdRouteImport } from './routes/_authenticated._chat.projects.$projectId'
+import { Route as AuthenticatedAdminGroupsIndexRouteImport } from './routes/_authenticated.admin.groups.index'
+import { Route as AuthenticatedAdminGroupsGroupIdRouteImport } from './routes/_authenticated.admin.groups.$groupId'
+import { Route as AuthenticatedAdminGroupsNewRouteImport } from './routes/_authenticated.admin.groups.new'
+import { Route as AuthenticatedAdminSourcesSourceIdRouteImport } from './routes/_authenticated.admin.sources.$sourceId'
+import { Route as AuthenticatedAdminSourcesNewRouteImport } from './routes/_authenticated.admin.sources.new'
+import { Route as AuthenticatedAgentsAgentIdEditRouteImport } from './routes/_authenticated.agents_.$agentId.edit'
+import { Route as AuthenticatedAdminSourcesNewIndexRouteImport } from './routes/_authenticated.admin.sources.new.index'
+import { Route as AuthenticatedAdminSourcesNewFileRouteImport } from './routes/_authenticated.admin.sources.new.file'
+import { Route as AuthenticatedAdminSourcesNewGoogleDriveRouteImport } from './routes/_authenticated.admin.sources.new.google-drive'
+import { Route as AuthenticatedAdminSourcesNewSharepointRouteImport } from './routes/_authenticated.admin.sources.new.sharepoint'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: "/_authenticated",
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AccessNotProvisionedRoute = AccessNotProvisionedRouteImport.update({
-  id: "/access-not-provisioned",
-  path: "/access-not-provisioned",
+  id: '/access-not-provisioned',
+  path: '/access-not-provisioned',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const InvitationRoute = InvitationRouteImport.update({
-  id: "/invitation",
-  path: "/invitation",
+  id: '/invitation',
+  path: '/invitation',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
-  id: "/_chat",
+  id: '/_chat',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
-  id: "/agents",
-  path: "/agents",
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedAssistantsRoute = AuthenticatedAssistantsRouteImport.update({
-  id: "/assistants",
-  path: "/assistants",
+  id: '/assistants',
+  path: '/assistants',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
-  id: "/search",
-  path: "/search",
+  id: '/search',
+  path: '/search',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AuthenticatedChatRoute,
-} as any);
+} as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminAgentsRoute = AuthenticatedAdminAgentsRouteImport.update({
-  id: "/agents",
-  path: "/agents",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminAiCostsRoute = AuthenticatedAdminAiCostsRouteImport.update({
-  id: "/ai-costs",
-  path: "/ai-costs",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminCodeInterpreterRoute = AuthenticatedAdminCodeInterpreterRouteImport.update({
-  id: "/code-interpreter",
-  path: "/code-interpreter",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminGroupsRoute = AuthenticatedAdminGroupsRouteImport.update({
-  id: "/groups",
-  path: "/groups",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
+} as any)
+const AuthenticatedAdminAgentsRoute =
+  AuthenticatedAdminAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAiCostsRoute =
+  AuthenticatedAdminAiCostsRouteImport.update({
+    id: '/ai-costs',
+    path: '/ai-costs',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminCodeInterpreterRoute =
+  AuthenticatedAdminCodeInterpreterRouteImport.update({
+    id: '/code-interpreter',
+    path: '/code-interpreter',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminGroupsRoute =
+  AuthenticatedAdminGroupsRouteImport.update({
+    id: '/groups',
+    path: '/groups',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminIdentityProvidersRoute =
   AuthenticatedAdminIdentityProvidersRouteImport.update({
-    id: "/identity-providers",
-    path: "/identity-providers",
+    id: '/identity-providers',
+    path: '/identity-providers',
     getParentRoute: () => AuthenticatedAdminRoute,
-  } as any);
-const AuthenticatedAdminImageGenerationRoute = AuthenticatedAdminImageGenerationRouteImport.update({
-  id: "/image-generation",
-  path: "/image-generation",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
+  } as any)
+const AuthenticatedAdminImageGenerationRoute =
+  AuthenticatedAdminImageGenerationRouteImport.update({
+    id: '/image-generation',
+    path: '/image-generation',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminMcpRoute = AuthenticatedAdminMcpRouteImport.update({
-  id: "/mcp",
-  path: "/mcp",
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminModelsRoute = AuthenticatedAdminModelsRouteImport.update({
-  id: "/models",
-  path: "/models",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
+} as any)
+const AuthenticatedAdminModelsRoute =
+  AuthenticatedAdminModelsRouteImport.update({
+    id: '/models',
+    path: '/models',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
-  id: "/users",
-  path: "/users",
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
+} as any)
 const AuthenticatedAdminVoiceRoute = AuthenticatedAdminVoiceRouteImport.update({
-  id: "/voice",
-  path: "/voice",
+  id: '/voice',
+  path: '/voice',
   getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminWebSearchRoute = AuthenticatedAdminWebSearchRouteImport.update({
-  id: "/web-search",
-  path: "/web-search",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAgentsCreateRoute = AuthenticatedAgentsCreateRouteImport.update({
-  id: "/agents_/create",
-  path: "/agents/create",
-  getParentRoute: () => AuthenticatedRoute,
-} as any);
-const AuthenticatedProjectsIndexRoute = AuthenticatedProjectsIndexRouteImport.update({
-  id: "/projects/",
-  path: "/projects/",
-  getParentRoute: () => AuthenticatedRoute,
-} as any);
-const AuthenticatedSettingsIndexRoute = AuthenticatedSettingsIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => AuthenticatedSettingsRoute,
-} as any);
-const AuthenticatedSettingsChatRoute = AuthenticatedSettingsChatRouteImport.update({
-  id: "/chat",
-  path: "/chat",
-  getParentRoute: () => AuthenticatedSettingsRoute,
-} as any);
-const AuthenticatedSettingsConnectionsRoute = AuthenticatedSettingsConnectionsRouteImport.update({
-  id: "/connections",
-  path: "/connections",
-  getParentRoute: () => AuthenticatedSettingsRoute,
-} as any);
-const AuthenticatedSettingsGeneralRoute = AuthenticatedSettingsGeneralRouteImport.update({
-  id: "/general",
-  path: "/general",
-  getParentRoute: () => AuthenticatedSettingsRoute,
-} as any);
-const AuthenticatedSettingsUsageRoute = AuthenticatedSettingsUsageRouteImport.update({
-  id: "/usage",
-  path: "/usage",
-  getParentRoute: () => AuthenticatedSettingsRoute,
-} as any);
-const AuthenticatedSharedSessionIdRoute = AuthenticatedSharedSessionIdRouteImport.update({
-  id: "/shared/$sessionId",
-  path: "/shared/$sessionId",
-  getParentRoute: () => AuthenticatedRoute,
-} as any);
-const AuthenticatedChatChatSessionIdRoute = AuthenticatedChatChatSessionIdRouteImport.update({
-  id: "/chat/$sessionId",
-  path: "/chat/$sessionId",
-  getParentRoute: () => AuthenticatedChatRoute,
-} as any);
+} as any)
+const AuthenticatedAdminWebSearchRoute =
+  AuthenticatedAdminWebSearchRouteImport.update({
+    id: '/web-search',
+    path: '/web-search',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAgentsCreateRoute =
+  AuthenticatedAgentsCreateRouteImport.update({
+    id: '/agents_/create',
+    path: '/agents/create',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedProjectsIndexRoute =
+  AuthenticatedProjectsIndexRouteImport.update({
+    id: '/projects/',
+    path: '/projects/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsChatRoute =
+  AuthenticatedSettingsChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsConnectionsRoute =
+  AuthenticatedSettingsConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsUsageRoute =
+  AuthenticatedSettingsUsageRouteImport.update({
+    id: '/usage',
+    path: '/usage',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSharedSessionIdRoute =
+  AuthenticatedSharedSessionIdRouteImport.update({
+    id: '/shared/$sessionId',
+    path: '/shared/$sessionId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedChatChatSessionIdRoute =
+  AuthenticatedChatChatSessionIdRouteImport.update({
+    id: '/chat/$sessionId',
+    path: '/chat/$sessionId',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
 const AuthenticatedChatProjectsProjectIdRoute =
   AuthenticatedChatProjectsProjectIdRouteImport.update({
-    id: "/projects/$projectId",
-    path: "/projects/$projectId",
+    id: '/projects/$projectId',
+    path: '/projects/$projectId',
     getParentRoute: () => AuthenticatedChatRoute,
-  } as any);
-const AuthenticatedAdminGroupsIndexRoute = AuthenticatedAdminGroupsIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => AuthenticatedAdminGroupsRoute,
-} as any);
-const AuthenticatedAdminGroupsGroupIdRoute = AuthenticatedAdminGroupsGroupIdRouteImport.update({
-  id: "/$groupId",
-  path: "/$groupId",
-  getParentRoute: () => AuthenticatedAdminGroupsRoute,
-} as any);
-const AuthenticatedAdminGroupsNewRoute = AuthenticatedAdminGroupsNewRouteImport.update({
-  id: "/new",
-  path: "/new",
-  getParentRoute: () => AuthenticatedAdminGroupsRoute,
-} as any);
-const AuthenticatedAdminSourcesSourceIdRoute = AuthenticatedAdminSourcesSourceIdRouteImport.update({
-  id: "/sources/$sourceId",
-  path: "/sources/$sourceId",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAdminSourcesNewRoute = AuthenticatedAdminSourcesNewRouteImport.update({
-  id: "/sources/new",
-  path: "/sources/new",
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any);
-const AuthenticatedAgentsAgentIdEditRoute = AuthenticatedAgentsAgentIdEditRouteImport.update({
-  id: "/agents_/$agentId/edit",
-  path: "/agents/$agentId/edit",
-  getParentRoute: () => AuthenticatedRoute,
-} as any);
-const AuthenticatedAdminSourcesNewIndexRoute = AuthenticatedAdminSourcesNewIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
-} as any);
-const AuthenticatedAdminSourcesNewFileRoute = AuthenticatedAdminSourcesNewFileRouteImport.update({
-  id: "/file",
-  path: "/file",
-  getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
-} as any);
+  } as any)
+const AuthenticatedAdminGroupsIndexRoute =
+  AuthenticatedAdminGroupsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
+  } as any)
+const AuthenticatedAdminGroupsGroupIdRoute =
+  AuthenticatedAdminGroupsGroupIdRouteImport.update({
+    id: '/$groupId',
+    path: '/$groupId',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
+  } as any)
+const AuthenticatedAdminGroupsNewRoute =
+  AuthenticatedAdminGroupsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedAdminGroupsRoute,
+  } as any)
+const AuthenticatedAdminSourcesSourceIdRoute =
+  AuthenticatedAdminSourcesSourceIdRouteImport.update({
+    id: '/sources/$sourceId',
+    path: '/sources/$sourceId',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSourcesNewRoute =
+  AuthenticatedAdminSourcesNewRouteImport.update({
+    id: '/sources/new',
+    path: '/sources/new',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAgentsAgentIdEditRoute =
+  AuthenticatedAgentsAgentIdEditRouteImport.update({
+    id: '/agents_/$agentId/edit',
+    path: '/agents/$agentId/edit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminSourcesNewIndexRoute =
+  AuthenticatedAdminSourcesNewIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
+const AuthenticatedAdminSourcesNewFileRoute =
+  AuthenticatedAdminSourcesNewFileRouteImport.update({
+    id: '/file',
+    path: '/file',
+    getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
+  } as any)
 const AuthenticatedAdminSourcesNewGoogleDriveRoute =
   AuthenticatedAdminSourcesNewGoogleDriveRouteImport.update({
-    id: "/google-drive",
-    path: "/google-drive",
+    id: '/google-drive',
+    path: '/google-drive',
     getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
-  } as any);
+  } as any)
 const AuthenticatedAdminSourcesNewSharepointRoute =
   AuthenticatedAdminSourcesNewSharepointRouteImport.update({
-    id: "/sharepoint",
-    path: "/sharepoint",
+    id: '/sharepoint',
+    path: '/sharepoint',
     getParentRoute: () => AuthenticatedAdminSourcesNewRoute,
-  } as any);
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof AuthenticatedChatIndexRoute;
-  "/access-not-provisioned": typeof AccessNotProvisionedRoute;
-  "/invitation": typeof InvitationRoute;
-  "/admin": typeof AuthenticatedAdminRouteWithChildren;
-  "/agents": typeof AuthenticatedAgentsRoute;
-  "/assistants": typeof AuthenticatedAssistantsRoute;
-  "/search": typeof AuthenticatedSearchRoute;
-  "/settings": typeof AuthenticatedSettingsRouteWithChildren;
-  "/admin/agents": typeof AuthenticatedAdminAgentsRoute;
-  "/admin/ai-costs": typeof AuthenticatedAdminAiCostsRoute;
-  "/admin/code-interpreter": typeof AuthenticatedAdminCodeInterpreterRoute;
-  "/admin/groups": typeof AuthenticatedAdminGroupsRouteWithChildren;
-  "/admin/identity-providers": typeof AuthenticatedAdminIdentityProvidersRoute;
-  "/admin/image-generation": typeof AuthenticatedAdminImageGenerationRoute;
-  "/admin/mcp": typeof AuthenticatedAdminMcpRoute;
-  "/admin/models": typeof AuthenticatedAdminModelsRoute;
-  "/admin/users": typeof AuthenticatedAdminUsersRoute;
-  "/admin/voice": typeof AuthenticatedAdminVoiceRoute;
-  "/admin/web-search": typeof AuthenticatedAdminWebSearchRoute;
-  "/agents/create": typeof AuthenticatedAgentsCreateRoute;
-  "/settings/chat": typeof AuthenticatedSettingsChatRoute;
-  "/settings/connections": typeof AuthenticatedSettingsConnectionsRoute;
-  "/settings/general": typeof AuthenticatedSettingsGeneralRoute;
-  "/settings/usage": typeof AuthenticatedSettingsUsageRoute;
-  "/shared/$sessionId": typeof AuthenticatedSharedSessionIdRoute;
-  "/admin/": typeof AuthenticatedAdminIndexRoute;
-  "/projects/": typeof AuthenticatedProjectsIndexRoute;
-  "/settings/": typeof AuthenticatedSettingsIndexRoute;
-  "/chat/$sessionId": typeof AuthenticatedChatChatSessionIdRoute;
-  "/projects/$projectId": typeof AuthenticatedChatProjectsProjectIdRoute;
-  "/admin/groups/$groupId": typeof AuthenticatedAdminGroupsGroupIdRoute;
-  "/admin/groups/new": typeof AuthenticatedAdminGroupsNewRoute;
-  "/admin/sources/$sourceId": typeof AuthenticatedAdminSourcesSourceIdRoute;
-  "/admin/sources/new": typeof AuthenticatedAdminSourcesNewRouteWithChildren;
-  "/agents/$agentId/edit": typeof AuthenticatedAgentsAgentIdEditRoute;
-  "/admin/groups/": typeof AuthenticatedAdminGroupsIndexRoute;
-  "/admin/sources/new/file": typeof AuthenticatedAdminSourcesNewFileRoute;
-  "/admin/sources/new/google-drive": typeof AuthenticatedAdminSourcesNewGoogleDriveRoute;
-  "/admin/sources/new/sharepoint": typeof AuthenticatedAdminSourcesNewSharepointRoute;
-  "/admin/sources/new/": typeof AuthenticatedAdminSourcesNewIndexRoute;
+  '/': typeof AuthenticatedChatIndexRoute
+  '/access-not-provisioned': typeof AccessNotProvisionedRoute
+  '/invitation': typeof InvitationRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/agents': typeof AuthenticatedAgentsRoute
+  '/assistants': typeof AuthenticatedAssistantsRoute
+  '/search': typeof AuthenticatedSearchRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
+  '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/usage': typeof AuthenticatedSettingsUsageRoute
+  '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
+  '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof AuthenticatedChatIndexRoute;
-  "/access-not-provisioned": typeof AccessNotProvisionedRoute;
-  "/invitation": typeof InvitationRoute;
-  "/agents": typeof AuthenticatedAgentsRoute;
-  "/assistants": typeof AuthenticatedAssistantsRoute;
-  "/search": typeof AuthenticatedSearchRoute;
-  "/admin/agents": typeof AuthenticatedAdminAgentsRoute;
-  "/admin/ai-costs": typeof AuthenticatedAdminAiCostsRoute;
-  "/admin/code-interpreter": typeof AuthenticatedAdminCodeInterpreterRoute;
-  "/admin/identity-providers": typeof AuthenticatedAdminIdentityProvidersRoute;
-  "/admin/image-generation": typeof AuthenticatedAdminImageGenerationRoute;
-  "/admin/mcp": typeof AuthenticatedAdminMcpRoute;
-  "/admin/models": typeof AuthenticatedAdminModelsRoute;
-  "/admin/users": typeof AuthenticatedAdminUsersRoute;
-  "/admin/voice": typeof AuthenticatedAdminVoiceRoute;
-  "/admin/web-search": typeof AuthenticatedAdminWebSearchRoute;
-  "/agents/create": typeof AuthenticatedAgentsCreateRoute;
-  "/settings/chat": typeof AuthenticatedSettingsChatRoute;
-  "/settings/connections": typeof AuthenticatedSettingsConnectionsRoute;
-  "/settings/general": typeof AuthenticatedSettingsGeneralRoute;
-  "/settings/usage": typeof AuthenticatedSettingsUsageRoute;
-  "/shared/$sessionId": typeof AuthenticatedSharedSessionIdRoute;
-  "/admin": typeof AuthenticatedAdminIndexRoute;
-  "/projects": typeof AuthenticatedProjectsIndexRoute;
-  "/settings": typeof AuthenticatedSettingsIndexRoute;
-  "/chat/$sessionId": typeof AuthenticatedChatChatSessionIdRoute;
-  "/projects/$projectId": typeof AuthenticatedChatProjectsProjectIdRoute;
-  "/admin/groups/$groupId": typeof AuthenticatedAdminGroupsGroupIdRoute;
-  "/admin/groups/new": typeof AuthenticatedAdminGroupsNewRoute;
-  "/admin/sources/$sourceId": typeof AuthenticatedAdminSourcesSourceIdRoute;
-  "/agents/$agentId/edit": typeof AuthenticatedAgentsAgentIdEditRoute;
-  "/admin/groups": typeof AuthenticatedAdminGroupsIndexRoute;
-  "/admin/sources/new/file": typeof AuthenticatedAdminSourcesNewFileRoute;
-  "/admin/sources/new/google-drive": typeof AuthenticatedAdminSourcesNewGoogleDriveRoute;
-  "/admin/sources/new/sharepoint": typeof AuthenticatedAdminSourcesNewSharepointRoute;
-  "/admin/sources/new": typeof AuthenticatedAdminSourcesNewIndexRoute;
+  '/': typeof AuthenticatedChatIndexRoute
+  '/access-not-provisioned': typeof AccessNotProvisionedRoute
+  '/invitation': typeof InvitationRoute
+  '/agents': typeof AuthenticatedAgentsRoute
+  '/assistants': typeof AuthenticatedAssistantsRoute
+  '/search': typeof AuthenticatedSearchRoute
+  '/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
+  '/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/voice': typeof AuthenticatedAdminVoiceRoute
+  '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/usage': typeof AuthenticatedSettingsUsageRoute
+  '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
+  '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/agents/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/admin/groups': typeof AuthenticatedAdminGroupsIndexRoute
+  '/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/admin/sources/new': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/_authenticated": typeof AuthenticatedRouteWithChildren;
-  "/access-not-provisioned": typeof AccessNotProvisionedRoute;
-  "/invitation": typeof InvitationRoute;
-  "/_authenticated/_chat": typeof AuthenticatedChatRouteWithChildren;
-  "/_authenticated/admin": typeof AuthenticatedAdminRouteWithChildren;
-  "/_authenticated/agents": typeof AuthenticatedAgentsRoute;
-  "/_authenticated/assistants": typeof AuthenticatedAssistantsRoute;
-  "/_authenticated/search": typeof AuthenticatedSearchRoute;
-  "/_authenticated/settings": typeof AuthenticatedSettingsRouteWithChildren;
-  "/_authenticated/admin/agents": typeof AuthenticatedAdminAgentsRoute;
-  "/_authenticated/admin/ai-costs": typeof AuthenticatedAdminAiCostsRoute;
-  "/_authenticated/admin/code-interpreter": typeof AuthenticatedAdminCodeInterpreterRoute;
-  "/_authenticated/admin/groups": typeof AuthenticatedAdminGroupsRouteWithChildren;
-  "/_authenticated/admin/identity-providers": typeof AuthenticatedAdminIdentityProvidersRoute;
-  "/_authenticated/admin/image-generation": typeof AuthenticatedAdminImageGenerationRoute;
-  "/_authenticated/admin/mcp": typeof AuthenticatedAdminMcpRoute;
-  "/_authenticated/admin/models": typeof AuthenticatedAdminModelsRoute;
-  "/_authenticated/admin/users": typeof AuthenticatedAdminUsersRoute;
-  "/_authenticated/admin/voice": typeof AuthenticatedAdminVoiceRoute;
-  "/_authenticated/admin/web-search": typeof AuthenticatedAdminWebSearchRoute;
-  "/_authenticated/agents_/create": typeof AuthenticatedAgentsCreateRoute;
-  "/_authenticated/settings/chat": typeof AuthenticatedSettingsChatRoute;
-  "/_authenticated/settings/connections": typeof AuthenticatedSettingsConnectionsRoute;
-  "/_authenticated/settings/general": typeof AuthenticatedSettingsGeneralRoute;
-  "/_authenticated/settings/usage": typeof AuthenticatedSettingsUsageRoute;
-  "/_authenticated/shared/$sessionId": typeof AuthenticatedSharedSessionIdRoute;
-  "/_authenticated/_chat/": typeof AuthenticatedChatIndexRoute;
-  "/_authenticated/admin/": typeof AuthenticatedAdminIndexRoute;
-  "/_authenticated/projects/": typeof AuthenticatedProjectsIndexRoute;
-  "/_authenticated/settings/": typeof AuthenticatedSettingsIndexRoute;
-  "/_authenticated/_chat/chat/$sessionId": typeof AuthenticatedChatChatSessionIdRoute;
-  "/_authenticated/_chat/projects/$projectId": typeof AuthenticatedChatProjectsProjectIdRoute;
-  "/_authenticated/admin/groups/$groupId": typeof AuthenticatedAdminGroupsGroupIdRoute;
-  "/_authenticated/admin/groups/new": typeof AuthenticatedAdminGroupsNewRoute;
-  "/_authenticated/admin/sources/$sourceId": typeof AuthenticatedAdminSourcesSourceIdRoute;
-  "/_authenticated/admin/sources/new": typeof AuthenticatedAdminSourcesNewRouteWithChildren;
-  "/_authenticated/agents_/$agentId/edit": typeof AuthenticatedAgentsAgentIdEditRoute;
-  "/_authenticated/admin/groups/": typeof AuthenticatedAdminGroupsIndexRoute;
-  "/_authenticated/admin/sources/new/file": typeof AuthenticatedAdminSourcesNewFileRoute;
-  "/_authenticated/admin/sources/new/google-drive": typeof AuthenticatedAdminSourcesNewGoogleDriveRoute;
-  "/_authenticated/admin/sources/new/sharepoint": typeof AuthenticatedAdminSourcesNewSharepointRoute;
-  "/_authenticated/admin/sources/new/": typeof AuthenticatedAdminSourcesNewIndexRoute;
+  __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/access-not-provisioned': typeof AccessNotProvisionedRoute
+  '/invitation': typeof InvitationRoute
+  '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
+  '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
+  '/_authenticated/search': typeof AuthenticatedSearchRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
+  '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
+  '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
+  '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
+  '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
+  '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
+  '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
+  '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
+  '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
+  '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
+  '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
+  '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
+  '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/_chat/chat/$sessionId': typeof AuthenticatedChatChatSessionIdRoute
+  '/_authenticated/_chat/projects/$projectId': typeof AuthenticatedChatProjectsProjectIdRoute
+  '/_authenticated/admin/groups/$groupId': typeof AuthenticatedAdminGroupsGroupIdRoute
+  '/_authenticated/admin/groups/new': typeof AuthenticatedAdminGroupsNewRoute
+  '/_authenticated/admin/sources/$sourceId': typeof AuthenticatedAdminSourcesSourceIdRoute
+  '/_authenticated/admin/sources/new': typeof AuthenticatedAdminSourcesNewRouteWithChildren
+  '/_authenticated/agents_/$agentId/edit': typeof AuthenticatedAgentsAgentIdEditRoute
+  '/_authenticated/admin/groups/': typeof AuthenticatedAdminGroupsIndexRoute
+  '/_authenticated/admin/sources/new/file': typeof AuthenticatedAdminSourcesNewFileRoute
+  '/_authenticated/admin/sources/new/google-drive': typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  '/_authenticated/admin/sources/new/sharepoint': typeof AuthenticatedAdminSourcesNewSharepointRoute
+  '/_authenticated/admin/sources/new/': typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/access-not-provisioned"
-    | "/invitation"
-    | "/admin"
-    | "/agents"
-    | "/assistants"
-    | "/search"
-    | "/settings"
-    | "/admin/agents"
-    | "/admin/ai-costs"
-    | "/admin/code-interpreter"
-    | "/admin/groups"
-    | "/admin/identity-providers"
-    | "/admin/image-generation"
-    | "/admin/mcp"
-    | "/admin/models"
-    | "/admin/users"
-    | "/admin/voice"
-    | "/admin/web-search"
-    | "/agents/create"
-    | "/settings/chat"
-    | "/settings/connections"
-    | "/settings/general"
-    | "/settings/usage"
-    | "/shared/$sessionId"
-    | "/admin/"
-    | "/projects/"
-    | "/settings/"
-    | "/chat/$sessionId"
-    | "/projects/$projectId"
-    | "/admin/groups/$groupId"
-    | "/admin/groups/new"
-    | "/admin/sources/$sourceId"
-    | "/admin/sources/new"
-    | "/agents/$agentId/edit"
-    | "/admin/groups/"
-    | "/admin/sources/new/file"
-    | "/admin/sources/new/google-drive"
-    | "/admin/sources/new/sharepoint"
-    | "/admin/sources/new/";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/access-not-provisioned'
+    | '/invitation'
+    | '/admin'
+    | '/agents'
+    | '/assistants'
+    | '/search'
+    | '/settings'
+    | '/admin/agents'
+    | '/admin/ai-costs'
+    | '/admin/code-interpreter'
+    | '/admin/groups'
+    | '/admin/identity-providers'
+    | '/admin/image-generation'
+    | '/admin/mcp'
+    | '/admin/models'
+    | '/admin/users'
+    | '/admin/voice'
+    | '/admin/web-search'
+    | '/agents/create'
+    | '/settings/chat'
+    | '/settings/connections'
+    | '/settings/general'
+    | '/settings/usage'
+    | '/shared/$sessionId'
+    | '/admin/'
+    | '/projects/'
+    | '/settings/'
+    | '/chat/$sessionId'
+    | '/projects/$projectId'
+    | '/admin/groups/$groupId'
+    | '/admin/groups/new'
+    | '/admin/sources/$sourceId'
+    | '/admin/sources/new'
+    | '/agents/$agentId/edit'
+    | '/admin/groups/'
+    | '/admin/sources/new/file'
+    | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/sharepoint'
+    | '/admin/sources/new/'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/access-not-provisioned"
-    | "/invitation"
-    | "/agents"
-    | "/assistants"
-    | "/search"
-    | "/admin/agents"
-    | "/admin/ai-costs"
-    | "/admin/code-interpreter"
-    | "/admin/identity-providers"
-    | "/admin/image-generation"
-    | "/admin/mcp"
-    | "/admin/models"
-    | "/admin/users"
-    | "/admin/voice"
-    | "/admin/web-search"
-    | "/agents/create"
-    | "/settings/chat"
-    | "/settings/connections"
-    | "/settings/general"
-    | "/settings/usage"
-    | "/shared/$sessionId"
-    | "/admin"
-    | "/projects"
-    | "/settings"
-    | "/chat/$sessionId"
-    | "/projects/$projectId"
-    | "/admin/groups/$groupId"
-    | "/admin/groups/new"
-    | "/admin/sources/$sourceId"
-    | "/agents/$agentId/edit"
-    | "/admin/groups"
-    | "/admin/sources/new/file"
-    | "/admin/sources/new/google-drive"
-    | "/admin/sources/new/sharepoint"
-    | "/admin/sources/new";
+    | '/'
+    | '/access-not-provisioned'
+    | '/invitation'
+    | '/agents'
+    | '/assistants'
+    | '/search'
+    | '/admin/agents'
+    | '/admin/ai-costs'
+    | '/admin/code-interpreter'
+    | '/admin/identity-providers'
+    | '/admin/image-generation'
+    | '/admin/mcp'
+    | '/admin/models'
+    | '/admin/users'
+    | '/admin/voice'
+    | '/admin/web-search'
+    | '/agents/create'
+    | '/settings/chat'
+    | '/settings/connections'
+    | '/settings/general'
+    | '/settings/usage'
+    | '/shared/$sessionId'
+    | '/admin'
+    | '/projects'
+    | '/settings'
+    | '/chat/$sessionId'
+    | '/projects/$projectId'
+    | '/admin/groups/$groupId'
+    | '/admin/groups/new'
+    | '/admin/sources/$sourceId'
+    | '/agents/$agentId/edit'
+    | '/admin/groups'
+    | '/admin/sources/new/file'
+    | '/admin/sources/new/google-drive'
+    | '/admin/sources/new/sharepoint'
+    | '/admin/sources/new'
   id:
-    | "__root__"
-    | "/_authenticated"
-    | "/access-not-provisioned"
-    | "/invitation"
-    | "/_authenticated/_chat"
-    | "/_authenticated/admin"
-    | "/_authenticated/agents"
-    | "/_authenticated/assistants"
-    | "/_authenticated/search"
-    | "/_authenticated/settings"
-    | "/_authenticated/admin/agents"
-    | "/_authenticated/admin/ai-costs"
-    | "/_authenticated/admin/code-interpreter"
-    | "/_authenticated/admin/groups"
-    | "/_authenticated/admin/identity-providers"
-    | "/_authenticated/admin/image-generation"
-    | "/_authenticated/admin/mcp"
-    | "/_authenticated/admin/models"
-    | "/_authenticated/admin/users"
-    | "/_authenticated/admin/voice"
-    | "/_authenticated/admin/web-search"
-    | "/_authenticated/agents_/create"
-    | "/_authenticated/settings/chat"
-    | "/_authenticated/settings/connections"
-    | "/_authenticated/settings/general"
-    | "/_authenticated/settings/usage"
-    | "/_authenticated/shared/$sessionId"
-    | "/_authenticated/_chat/"
-    | "/_authenticated/admin/"
-    | "/_authenticated/projects/"
-    | "/_authenticated/settings/"
-    | "/_authenticated/_chat/chat/$sessionId"
-    | "/_authenticated/_chat/projects/$projectId"
-    | "/_authenticated/admin/groups/$groupId"
-    | "/_authenticated/admin/groups/new"
-    | "/_authenticated/admin/sources/$sourceId"
-    | "/_authenticated/admin/sources/new"
-    | "/_authenticated/agents_/$agentId/edit"
-    | "/_authenticated/admin/groups/"
-    | "/_authenticated/admin/sources/new/file"
-    | "/_authenticated/admin/sources/new/google-drive"
-    | "/_authenticated/admin/sources/new/sharepoint"
-    | "/_authenticated/admin/sources/new/";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/_authenticated'
+    | '/access-not-provisioned'
+    | '/invitation'
+    | '/_authenticated/_chat'
+    | '/_authenticated/admin'
+    | '/_authenticated/agents'
+    | '/_authenticated/assistants'
+    | '/_authenticated/search'
+    | '/_authenticated/settings'
+    | '/_authenticated/admin/agents'
+    | '/_authenticated/admin/ai-costs'
+    | '/_authenticated/admin/code-interpreter'
+    | '/_authenticated/admin/groups'
+    | '/_authenticated/admin/identity-providers'
+    | '/_authenticated/admin/image-generation'
+    | '/_authenticated/admin/mcp'
+    | '/_authenticated/admin/models'
+    | '/_authenticated/admin/users'
+    | '/_authenticated/admin/voice'
+    | '/_authenticated/admin/web-search'
+    | '/_authenticated/agents_/create'
+    | '/_authenticated/settings/chat'
+    | '/_authenticated/settings/connections'
+    | '/_authenticated/settings/general'
+    | '/_authenticated/settings/usage'
+    | '/_authenticated/shared/$sessionId'
+    | '/_authenticated/_chat/'
+    | '/_authenticated/admin/'
+    | '/_authenticated/projects/'
+    | '/_authenticated/settings/'
+    | '/_authenticated/_chat/chat/$sessionId'
+    | '/_authenticated/_chat/projects/$projectId'
+    | '/_authenticated/admin/groups/$groupId'
+    | '/_authenticated/admin/groups/new'
+    | '/_authenticated/admin/sources/$sourceId'
+    | '/_authenticated/admin/sources/new'
+    | '/_authenticated/agents_/$agentId/edit'
+    | '/_authenticated/admin/groups/'
+    | '/_authenticated/admin/sources/new/file'
+    | '/_authenticated/admin/sources/new/google-drive'
+    | '/_authenticated/admin/sources/new/sharepoint'
+    | '/_authenticated/admin/sources/new/'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren;
-  AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute;
-  InvitationRoute: typeof InvitationRoute;
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute
+  InvitationRoute: typeof InvitationRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/_authenticated": {
-      id: "/_authenticated";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof AuthenticatedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/access-not-provisioned": {
-      id: "/access-not-provisioned";
-      path: "/access-not-provisioned";
-      fullPath: "/access-not-provisioned";
-      preLoaderRoute: typeof AccessNotProvisionedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/invitation": {
-      id: "/invitation";
-      path: "/invitation";
-      fullPath: "/invitation";
-      preLoaderRoute: typeof InvitationRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_authenticated/_chat": {
-      id: "/_authenticated/_chat";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof AuthenticatedChatRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/admin": {
-      id: "/_authenticated/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/agents": {
-      id: "/_authenticated/agents";
-      path: "/agents";
-      fullPath: "/agents";
-      preLoaderRoute: typeof AuthenticatedAgentsRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/assistants": {
-      id: "/_authenticated/assistants";
-      path: "/assistants";
-      fullPath: "/assistants";
-      preLoaderRoute: typeof AuthenticatedAssistantsRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/search": {
-      id: "/_authenticated/search";
-      path: "/search";
-      fullPath: "/search";
-      preLoaderRoute: typeof AuthenticatedSearchRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/settings": {
-      id: "/_authenticated/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/_chat/": {
-      id: "/_authenticated/_chat/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport;
-      parentRoute: typeof AuthenticatedChatRoute;
-    };
-    "/_authenticated/admin/": {
-      id: "/_authenticated/admin/";
-      path: "/";
-      fullPath: "/admin/";
-      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/agents": {
-      id: "/_authenticated/admin/agents";
-      path: "/agents";
-      fullPath: "/admin/agents";
-      preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/ai-costs": {
-      id: "/_authenticated/admin/ai-costs";
-      path: "/ai-costs";
-      fullPath: "/admin/ai-costs";
-      preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/code-interpreter": {
-      id: "/_authenticated/admin/code-interpreter";
-      path: "/code-interpreter";
-      fullPath: "/admin/code-interpreter";
-      preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/groups": {
-      id: "/_authenticated/admin/groups";
-      path: "/groups";
-      fullPath: "/admin/groups";
-      preLoaderRoute: typeof AuthenticatedAdminGroupsRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/identity-providers": {
-      id: "/_authenticated/admin/identity-providers";
-      path: "/identity-providers";
-      fullPath: "/admin/identity-providers";
-      preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/image-generation": {
-      id: "/_authenticated/admin/image-generation";
-      path: "/image-generation";
-      fullPath: "/admin/image-generation";
-      preLoaderRoute: typeof AuthenticatedAdminImageGenerationRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/mcp": {
-      id: "/_authenticated/admin/mcp";
-      path: "/mcp";
-      fullPath: "/admin/mcp";
-      preLoaderRoute: typeof AuthenticatedAdminMcpRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/models": {
-      id: "/_authenticated/admin/models";
-      path: "/models";
-      fullPath: "/admin/models";
-      preLoaderRoute: typeof AuthenticatedAdminModelsRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/users": {
-      id: "/_authenticated/admin/users";
-      path: "/users";
-      fullPath: "/admin/users";
-      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/voice": {
-      id: "/_authenticated/admin/voice";
-      path: "/voice";
-      fullPath: "/admin/voice";
-      preLoaderRoute: typeof AuthenticatedAdminVoiceRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/web-search": {
-      id: "/_authenticated/admin/web-search";
-      path: "/web-search";
-      fullPath: "/admin/web-search";
-      preLoaderRoute: typeof AuthenticatedAdminWebSearchRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/agents_/create": {
-      id: "/_authenticated/agents_/create";
-      path: "/agents/create";
-      fullPath: "/agents/create";
-      preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/projects/": {
-      id: "/_authenticated/projects/";
-      path: "/projects";
-      fullPath: "/projects/";
-      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/settings/": {
-      id: "/_authenticated/settings/";
-      path: "/";
-      fullPath: "/settings/";
-      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport;
-      parentRoute: typeof AuthenticatedSettingsRoute;
-    };
-    "/_authenticated/settings/chat": {
-      id: "/_authenticated/settings/chat";
-      path: "/chat";
-      fullPath: "/settings/chat";
-      preLoaderRoute: typeof AuthenticatedSettingsChatRouteImport;
-      parentRoute: typeof AuthenticatedSettingsRoute;
-    };
-    "/_authenticated/settings/connections": {
-      id: "/_authenticated/settings/connections";
-      path: "/connections";
-      fullPath: "/settings/connections";
-      preLoaderRoute: typeof AuthenticatedSettingsConnectionsRouteImport;
-      parentRoute: typeof AuthenticatedSettingsRoute;
-    };
-    "/_authenticated/settings/general": {
-      id: "/_authenticated/settings/general";
-      path: "/general";
-      fullPath: "/settings/general";
-      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport;
-      parentRoute: typeof AuthenticatedSettingsRoute;
-    };
-    "/_authenticated/settings/usage": {
-      id: "/_authenticated/settings/usage";
-      path: "/usage";
-      fullPath: "/settings/usage";
-      preLoaderRoute: typeof AuthenticatedSettingsUsageRouteImport;
-      parentRoute: typeof AuthenticatedSettingsRoute;
-    };
-    "/_authenticated/shared/$sessionId": {
-      id: "/_authenticated/shared/$sessionId";
-      path: "/shared/$sessionId";
-      fullPath: "/shared/$sessionId";
-      preLoaderRoute: typeof AuthenticatedSharedSessionIdRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/_chat/chat/$sessionId": {
-      id: "/_authenticated/_chat/chat/$sessionId";
-      path: "/chat/$sessionId";
-      fullPath: "/chat/$sessionId";
-      preLoaderRoute: typeof AuthenticatedChatChatSessionIdRouteImport;
-      parentRoute: typeof AuthenticatedChatRoute;
-    };
-    "/_authenticated/_chat/projects/$projectId": {
-      id: "/_authenticated/_chat/projects/$projectId";
-      path: "/projects/$projectId";
-      fullPath: "/projects/$projectId";
-      preLoaderRoute: typeof AuthenticatedChatProjectsProjectIdRouteImport;
-      parentRoute: typeof AuthenticatedChatRoute;
-    };
-    "/_authenticated/admin/groups/": {
-      id: "/_authenticated/admin/groups/";
-      path: "/";
-      fullPath: "/admin/groups/";
-      preLoaderRoute: typeof AuthenticatedAdminGroupsIndexRouteImport;
-      parentRoute: typeof AuthenticatedAdminGroupsRoute;
-    };
-    "/_authenticated/admin/groups/$groupId": {
-      id: "/_authenticated/admin/groups/$groupId";
-      path: "/$groupId";
-      fullPath: "/admin/groups/$groupId";
-      preLoaderRoute: typeof AuthenticatedAdminGroupsGroupIdRouteImport;
-      parentRoute: typeof AuthenticatedAdminGroupsRoute;
-    };
-    "/_authenticated/admin/groups/new": {
-      id: "/_authenticated/admin/groups/new";
-      path: "/new";
-      fullPath: "/admin/groups/new";
-      preLoaderRoute: typeof AuthenticatedAdminGroupsNewRouteImport;
-      parentRoute: typeof AuthenticatedAdminGroupsRoute;
-    };
-    "/_authenticated/admin/sources/$sourceId": {
-      id: "/_authenticated/admin/sources/$sourceId";
-      path: "/sources/$sourceId";
-      fullPath: "/admin/sources/$sourceId";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesSourceIdRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/admin/sources/new": {
-      id: "/_authenticated/admin/sources/new";
-      path: "/sources/new";
-      fullPath: "/admin/sources/new";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesNewRouteImport;
-      parentRoute: typeof AuthenticatedAdminRoute;
-    };
-    "/_authenticated/agents_/$agentId/edit": {
-      id: "/_authenticated/agents_/$agentId/edit";
-      path: "/agents/$agentId/edit";
-      fullPath: "/agents/$agentId/edit";
-      preLoaderRoute: typeof AuthenticatedAgentsAgentIdEditRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
-    "/_authenticated/admin/sources/new/": {
-      id: "/_authenticated/admin/sources/new/";
-      path: "/";
-      fullPath: "/admin/sources/new/";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesNewIndexRouteImport;
-      parentRoute: typeof AuthenticatedAdminSourcesNewRoute;
-    };
-    "/_authenticated/admin/sources/new/file": {
-      id: "/_authenticated/admin/sources/new/file";
-      path: "/file";
-      fullPath: "/admin/sources/new/file";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesNewFileRouteImport;
-      parentRoute: typeof AuthenticatedAdminSourcesNewRoute;
-    };
-    "/_authenticated/admin/sources/new/google-drive": {
-      id: "/_authenticated/admin/sources/new/google-drive";
-      path: "/google-drive";
-      fullPath: "/admin/sources/new/google-drive";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRouteImport;
-      parentRoute: typeof AuthenticatedAdminSourcesNewRoute;
-    };
-    "/_authenticated/admin/sources/new/sharepoint": {
-      id: "/_authenticated/admin/sources/new/sharepoint";
-      path: "/sharepoint";
-      fullPath: "/admin/sources/new/sharepoint";
-      preLoaderRoute: typeof AuthenticatedAdminSourcesNewSharepointRouteImport;
-      parentRoute: typeof AuthenticatedAdminSourcesNewRoute;
-    };
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/access-not-provisioned': {
+      id: '/access-not-provisioned'
+      path: '/access-not-provisioned'
+      fullPath: '/access-not-provisioned'
+      preLoaderRoute: typeof AccessNotProvisionedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invitation': {
+      id: '/invitation'
+      path: '/invitation'
+      fullPath: '/invitation'
+      preLoaderRoute: typeof InvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/_chat': {
+      id: '/_authenticated/_chat'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/assistants': {
+      id: '/_authenticated/assistants'
+      path: '/assistants'
+      fullPath: '/assistants'
+      preLoaderRoute: typeof AuthenticatedAssistantsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/search': {
+      id: '/_authenticated/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthenticatedSearchRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/_chat/': {
+      id: '/_authenticated/_chat/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/agents': {
+      id: '/_authenticated/admin/agents'
+      path: '/agents'
+      fullPath: '/admin/agents'
+      preLoaderRoute: typeof AuthenticatedAdminAgentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/ai-costs': {
+      id: '/_authenticated/admin/ai-costs'
+      path: '/ai-costs'
+      fullPath: '/admin/ai-costs'
+      preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/code-interpreter': {
+      id: '/_authenticated/admin/code-interpreter'
+      path: '/code-interpreter'
+      fullPath: '/admin/code-interpreter'
+      preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/groups': {
+      id: '/_authenticated/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/identity-providers': {
+      id: '/_authenticated/admin/identity-providers'
+      path: '/identity-providers'
+      fullPath: '/admin/identity-providers'
+      preLoaderRoute: typeof AuthenticatedAdminIdentityProvidersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/image-generation': {
+      id: '/_authenticated/admin/image-generation'
+      path: '/image-generation'
+      fullPath: '/admin/image-generation'
+      preLoaderRoute: typeof AuthenticatedAdminImageGenerationRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/mcp': {
+      id: '/_authenticated/admin/mcp'
+      path: '/mcp'
+      fullPath: '/admin/mcp'
+      preLoaderRoute: typeof AuthenticatedAdminMcpRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/models': {
+      id: '/_authenticated/admin/models'
+      path: '/models'
+      fullPath: '/admin/models'
+      preLoaderRoute: typeof AuthenticatedAdminModelsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/voice': {
+      id: '/_authenticated/admin/voice'
+      path: '/voice'
+      fullPath: '/admin/voice'
+      preLoaderRoute: typeof AuthenticatedAdminVoiceRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/web-search': {
+      id: '/_authenticated/admin/web-search'
+      path: '/web-search'
+      fullPath: '/admin/web-search'
+      preLoaderRoute: typeof AuthenticatedAdminWebSearchRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/agents_/create': {
+      id: '/_authenticated/agents_/create'
+      path: '/agents/create'
+      fullPath: '/agents/create'
+      preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/projects/': {
+      id: '/_authenticated/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/chat': {
+      id: '/_authenticated/settings/chat'
+      path: '/chat'
+      fullPath: '/settings/chat'
+      preLoaderRoute: typeof AuthenticatedSettingsChatRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/connections': {
+      id: '/_authenticated/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof AuthenticatedSettingsConnectionsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/usage': {
+      id: '/_authenticated/settings/usage'
+      path: '/usage'
+      fullPath: '/settings/usage'
+      preLoaderRoute: typeof AuthenticatedSettingsUsageRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/shared/$sessionId': {
+      id: '/_authenticated/shared/$sessionId'
+      path: '/shared/$sessionId'
+      fullPath: '/shared/$sessionId'
+      preLoaderRoute: typeof AuthenticatedSharedSessionIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/_chat/chat/$sessionId': {
+      id: '/_authenticated/_chat/chat/$sessionId'
+      path: '/chat/$sessionId'
+      fullPath: '/chat/$sessionId'
+      preLoaderRoute: typeof AuthenticatedChatChatSessionIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/_chat/projects/$projectId': {
+      id: '/_authenticated/_chat/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AuthenticatedChatProjectsProjectIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/admin/groups/': {
+      id: '/_authenticated/admin/groups/'
+      path: '/'
+      fullPath: '/admin/groups/'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
+    }
+    '/_authenticated/admin/groups/$groupId': {
+      id: '/_authenticated/admin/groups/$groupId'
+      path: '/$groupId'
+      fullPath: '/admin/groups/$groupId'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsGroupIdRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
+    }
+    '/_authenticated/admin/groups/new': {
+      id: '/_authenticated/admin/groups/new'
+      path: '/new'
+      fullPath: '/admin/groups/new'
+      preLoaderRoute: typeof AuthenticatedAdminGroupsNewRouteImport
+      parentRoute: typeof AuthenticatedAdminGroupsRoute
+    }
+    '/_authenticated/admin/sources/$sourceId': {
+      id: '/_authenticated/admin/sources/$sourceId'
+      path: '/sources/$sourceId'
+      fullPath: '/admin/sources/$sourceId'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesSourceIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sources/new': {
+      id: '/_authenticated/admin/sources/new'
+      path: '/sources/new'
+      fullPath: '/admin/sources/new'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/agents_/$agentId/edit': {
+      id: '/_authenticated/agents_/$agentId/edit'
+      path: '/agents/$agentId/edit'
+      fullPath: '/agents/$agentId/edit'
+      preLoaderRoute: typeof AuthenticatedAgentsAgentIdEditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/sources/new/': {
+      id: '/_authenticated/admin/sources/new/'
+      path: '/'
+      fullPath: '/admin/sources/new/'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
+    '/_authenticated/admin/sources/new/file': {
+      id: '/_authenticated/admin/sources/new/file'
+      path: '/file'
+      fullPath: '/admin/sources/new/file'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewFileRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
+    '/_authenticated/admin/sources/new/google-drive': {
+      id: '/_authenticated/admin/sources/new/google-drive'
+      path: '/google-drive'
+      fullPath: '/admin/sources/new/google-drive'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
+    '/_authenticated/admin/sources/new/sharepoint': {
+      id: '/_authenticated/admin/sources/new/sharepoint'
+      path: '/sharepoint'
+      fullPath: '/admin/sources/new/sharepoint'
+      preLoaderRoute: typeof AuthenticatedAdminSourcesNewSharepointRouteImport
+      parentRoute: typeof AuthenticatedAdminSourcesNewRoute
+    }
   }
 }
 
 interface AuthenticatedChatRouteChildren {
-  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute;
-  AuthenticatedChatChatSessionIdRoute: typeof AuthenticatedChatChatSessionIdRoute;
-  AuthenticatedChatProjectsProjectIdRoute: typeof AuthenticatedChatProjectsProjectIdRoute;
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+  AuthenticatedChatChatSessionIdRoute: typeof AuthenticatedChatChatSessionIdRoute
+  AuthenticatedChatProjectsProjectIdRoute: typeof AuthenticatedChatProjectsProjectIdRoute
 }
 
 const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
   AuthenticatedChatChatSessionIdRoute: AuthenticatedChatChatSessionIdRoute,
-  AuthenticatedChatProjectsProjectIdRoute: AuthenticatedChatProjectsProjectIdRoute,
-};
+  AuthenticatedChatProjectsProjectIdRoute:
+    AuthenticatedChatProjectsProjectIdRoute,
+}
 
-const AuthenticatedChatRouteWithChildren = AuthenticatedChatRoute._addFileChildren(
-  AuthenticatedChatRouteChildren,
-);
+const AuthenticatedChatRouteWithChildren =
+  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
 
 interface AuthenticatedAdminGroupsRouteChildren {
-  AuthenticatedAdminGroupsGroupIdRoute: typeof AuthenticatedAdminGroupsGroupIdRoute;
-  AuthenticatedAdminGroupsNewRoute: typeof AuthenticatedAdminGroupsNewRoute;
-  AuthenticatedAdminGroupsIndexRoute: typeof AuthenticatedAdminGroupsIndexRoute;
+  AuthenticatedAdminGroupsGroupIdRoute: typeof AuthenticatedAdminGroupsGroupIdRoute
+  AuthenticatedAdminGroupsNewRoute: typeof AuthenticatedAdminGroupsNewRoute
+  AuthenticatedAdminGroupsIndexRoute: typeof AuthenticatedAdminGroupsIndexRoute
 }
 
-const AuthenticatedAdminGroupsRouteChildren: AuthenticatedAdminGroupsRouteChildren = {
-  AuthenticatedAdminGroupsGroupIdRoute: AuthenticatedAdminGroupsGroupIdRoute,
-  AuthenticatedAdminGroupsNewRoute: AuthenticatedAdminGroupsNewRoute,
-  AuthenticatedAdminGroupsIndexRoute: AuthenticatedAdminGroupsIndexRoute,
-};
+const AuthenticatedAdminGroupsRouteChildren: AuthenticatedAdminGroupsRouteChildren =
+  {
+    AuthenticatedAdminGroupsGroupIdRoute: AuthenticatedAdminGroupsGroupIdRoute,
+    AuthenticatedAdminGroupsNewRoute: AuthenticatedAdminGroupsNewRoute,
+    AuthenticatedAdminGroupsIndexRoute: AuthenticatedAdminGroupsIndexRoute,
+  }
 
-const AuthenticatedAdminGroupsRouteWithChildren = AuthenticatedAdminGroupsRoute._addFileChildren(
-  AuthenticatedAdminGroupsRouteChildren,
-);
+const AuthenticatedAdminGroupsRouteWithChildren =
+  AuthenticatedAdminGroupsRoute._addFileChildren(
+    AuthenticatedAdminGroupsRouteChildren,
+  )
 
 interface AuthenticatedAdminSourcesNewRouteChildren {
-  AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute;
-  AuthenticatedAdminSourcesNewGoogleDriveRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRoute;
-  AuthenticatedAdminSourcesNewSharepointRoute: typeof AuthenticatedAdminSourcesNewSharepointRoute;
-  AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute;
+  AuthenticatedAdminSourcesNewFileRoute: typeof AuthenticatedAdminSourcesNewFileRoute
+  AuthenticatedAdminSourcesNewGoogleDriveRoute: typeof AuthenticatedAdminSourcesNewGoogleDriveRoute
+  AuthenticatedAdminSourcesNewSharepointRoute: typeof AuthenticatedAdminSourcesNewSharepointRoute
+  AuthenticatedAdminSourcesNewIndexRoute: typeof AuthenticatedAdminSourcesNewIndexRoute
 }
 
-const AuthenticatedAdminSourcesNewRouteChildren: AuthenticatedAdminSourcesNewRouteChildren = {
-  AuthenticatedAdminSourcesNewFileRoute: AuthenticatedAdminSourcesNewFileRoute,
-  AuthenticatedAdminSourcesNewGoogleDriveRoute: AuthenticatedAdminSourcesNewGoogleDriveRoute,
-  AuthenticatedAdminSourcesNewSharepointRoute: AuthenticatedAdminSourcesNewSharepointRoute,
-  AuthenticatedAdminSourcesNewIndexRoute: AuthenticatedAdminSourcesNewIndexRoute,
-};
+const AuthenticatedAdminSourcesNewRouteChildren: AuthenticatedAdminSourcesNewRouteChildren =
+  {
+    AuthenticatedAdminSourcesNewFileRoute:
+      AuthenticatedAdminSourcesNewFileRoute,
+    AuthenticatedAdminSourcesNewGoogleDriveRoute:
+      AuthenticatedAdminSourcesNewGoogleDriveRoute,
+    AuthenticatedAdminSourcesNewSharepointRoute:
+      AuthenticatedAdminSourcesNewSharepointRoute,
+    AuthenticatedAdminSourcesNewIndexRoute:
+      AuthenticatedAdminSourcesNewIndexRoute,
+  }
 
 const AuthenticatedAdminSourcesNewRouteWithChildren =
-  AuthenticatedAdminSourcesNewRoute._addFileChildren(AuthenticatedAdminSourcesNewRouteChildren);
+  AuthenticatedAdminSourcesNewRoute._addFileChildren(
+    AuthenticatedAdminSourcesNewRouteChildren,
+  )
 
 interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute;
-  AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute;
-  AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute;
-  AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren;
-  AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute;
-  AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute;
-  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute;
-  AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute;
-  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute;
-  AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute;
-  AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute;
-  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute;
-  AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute;
-  AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren;
+  AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
+  AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
+  AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
+  AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
+  AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
+  AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
+  AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
+  AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
+  AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminSourcesSourceIdRoute: typeof AuthenticatedAdminSourcesSourceIdRoute
+  AuthenticatedAdminSourcesNewRoute: typeof AuthenticatedAdminSourcesNewRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
-  AuthenticatedAdminCodeInterpreterRoute: AuthenticatedAdminCodeInterpreterRoute,
+  AuthenticatedAdminCodeInterpreterRoute:
+    AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
-  AuthenticatedAdminIdentityProvidersRoute: AuthenticatedAdminIdentityProvidersRoute,
-  AuthenticatedAdminImageGenerationRoute: AuthenticatedAdminImageGenerationRoute,
+  AuthenticatedAdminIdentityProvidersRoute:
+    AuthenticatedAdminIdentityProvidersRoute,
+  AuthenticatedAdminImageGenerationRoute:
+    AuthenticatedAdminImageGenerationRoute,
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
-  AuthenticatedAdminSourcesSourceIdRoute: AuthenticatedAdminSourcesSourceIdRoute,
-  AuthenticatedAdminSourcesNewRoute: AuthenticatedAdminSourcesNewRouteWithChildren,
-};
+  AuthenticatedAdminSourcesSourceIdRoute:
+    AuthenticatedAdminSourcesSourceIdRoute,
+  AuthenticatedAdminSourcesNewRoute:
+    AuthenticatedAdminSourcesNewRouteWithChildren,
+}
 
-const AuthenticatedAdminRouteWithChildren = AuthenticatedAdminRoute._addFileChildren(
-  AuthenticatedAdminRouteChildren,
-);
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedSettingsRouteChildren {
-  AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute;
-  AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute;
-  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute;
-  AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute;
-  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute;
+  AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute
+  AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
+  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
@@ -923,23 +960,24 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
-};
+}
 
-const AuthenticatedSettingsRouteWithChildren = AuthenticatedSettingsRoute._addFileChildren(
-  AuthenticatedSettingsRouteChildren,
-);
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
+  )
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren;
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren;
-  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute;
-  AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute;
-  AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute;
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren;
-  AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute;
-  AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute;
-  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute;
-  AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute;
+  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
+  AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
+  AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
+  AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
+  AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
+  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -953,17 +991,17 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
   AuthenticatedAgentsAgentIdEditRoute: AuthenticatedAgentsAgentIdEditRoute,
-};
+}
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
-);
+)
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AccessNotProvisionedRoute: AccessNotProvisionedRoute,
   InvitationRoute: InvitationRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
