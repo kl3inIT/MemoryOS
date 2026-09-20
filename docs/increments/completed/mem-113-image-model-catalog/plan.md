@@ -42,11 +42,11 @@ See [design.md](design.md).
 
 ## Step 4 — Acceptance and documentation
 
-- [ ] Run the API and web app locally:
+- [x] Run the API and web app locally: (2026-09-20: owner acceptance.)
   - configure Cloudflare through the UI → test → set as default → generate and edit an image in Chat;
   - disconnect → Chat reports image generation as unavailable.
 - [x] Update `docs/specs/chat.md` (Image generation) and `docs/tests/chat.md`. `./gradlew clean check`, `pnpm check`, and CI green.
-- [ ] After the PR merges: move the increment to `completed/`, reconcile the roadmap, and remove its line from `AGENTS.md`.
+- [x] After the PR merges: move the increment to `completed/`, reconcile the roadmap, and remove its line from `AGENTS.md`. (2026-09-20.)
 
 ## Risks
 

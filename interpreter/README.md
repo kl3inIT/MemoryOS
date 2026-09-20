@@ -1,6 +1,6 @@
 # MemoryOS interpreter
 
-Runs model-written Python for Chat in disposable executor containers or pods. It started as a snapshot of the Onyx Code Interpreter service; see [NOTICE.md](NOTICE.md) for the source and the changes. [HOW_IT_WORKS.md](HOW_IT_WORKS.md) describes the executor architecture. The increment is [MEM-110](../docs/increments/active/mem-110-memoryos-interpreter/design.md).
+Runs model-written Python for Chat in disposable executor containers or pods. It started as a snapshot of the Onyx Code Interpreter service; see [NOTICE.md](NOTICE.md) for the source and the changes. [HOW_IT_WORKS.md](HOW_IT_WORKS.md) describes the executor architecture. The increment is [MEM-110](../docs/increments/completed/mem-110-memoryos-interpreter/design.md).
 
 | Path | Content |
 | --- | --- |

@@ -542,12 +542,10 @@ class ChatSessionApiIntegrationTest {
         verify(model, times(2)).stream(any(Prompt.class));
         verify(sourceAccess, never()).canRead(any(), any());
         verify(chunks, never()).read(any(), any(), any());
-        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
-            var events = reader.read().events();
-            assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
-                    && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
-            assertEquals("outcome", events.getLast().type());
-        }
+        var events = replay(UUID.fromString(id));
+        assertTrue(events.stream().anyMatch(e -> e.tool() != null && e.tool().source() != null
+                && e.tool().toolCallId().equals("search-1") && e.tool().source().citationId() == 1));
+        assertEquals("outcome", events.getLast().type());
     }
 
     @Test
@@ -659,8 +657,8 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1, bogus.path("tabIndex").asInt());
         assertEquals("COMPLETED", bogus.path("status").asText());
         assertEquals(0, bogus.path("activity").path("steps").size(), "an unknown tool never runs");
-        try (var reader = streams.subscribe(UUID.fromString(id), 0, () -> false)) {
-            var events = reader.read().events();
+        var events = replay(UUID.fromString(id));
+        {
             assertTrue(events.stream().anyMatch(e -> e.type().equals("research-plan")));
             assertTrue(events.stream().anyMatch(e -> e.type().equals("top-level-branching")));
             assertTrue(events.stream().anyMatch(e -> e.tool() != null && "agent-2".equals(e.tool().toolCallId())
@@ -3335,6 +3333,21 @@ class ChatSessionApiIntegrationTest {
     private JsonNode history(JsonNode session) throws Exception {
         return Json.mapper().readTree(mockMvc.perform(get("/api/chat/sessions/" + session.path("id").asText() + "/messages")
                 .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    /**
+     * Every buffered event of a finished reply. One read returns one batch of at most 64 records, so a turn that
+     * wrote more than that ends its batch before the outcome; draining is what a browser does too.
+     */
+    private List<io.memoryos.chat.streaming.StreamBufferWriter.Event> replay(UUID assistant) throws InterruptedException {
+        var events = new java.util.ArrayList<io.memoryos.chat.streaming.StreamBufferWriter.Event>();
+        try (var reader = streams.subscribe(assistant, 0, () -> false)) {
+            while (true) {
+                var batch = reader.read();
+                events.addAll(batch.events());
+                if (batch.done()) return events;
+            }
+        }
     }
 
     private void awaitOutcome(String id, String expected) {

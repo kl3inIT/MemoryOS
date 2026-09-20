@@ -73,7 +73,7 @@ Do not run a second deployment outside this workflow/reservation protocol. Retai
 
 ## Interpreter runtime
 
-`memoryos-interpreter` ([MEM-110](../increments/active/mem-110-memoryos-interpreter/design.md)) runs Python for the Chat `run_python` tool. No MemoryOS component calls it until MEM-110 phase 3.
+`memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) runs Python for the Chat `run_python` tool. No MemoryOS component calls it until MEM-110 phase 3.
 
 - **Release.** The CI `interpreter` job builds the service and executor images, tests them, and preserves both as `candidate-interpreter`.
 - **Pull.** The deployment pulls the service through Compose and the executor with `docker pull`, both with the job-scoped token, and checks both revision labels. The executor is not a Compose service: the interpreter starts one executor container per run on the host daemon.

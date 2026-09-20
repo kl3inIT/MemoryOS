@@ -7,4 +7,4 @@
 - [x] Add the focused prompt regression test and update the Chat verification matrix.
 - [x] Run focused prompt tests and the complete `core:check` gate.
 - [x] Run the repository-wide `clean check` gate.
-- [ ] Repeat authenticated browser acceptance after the running API uses the new build; Playwright reached real Keycloak but its isolated profile has no credentials. Require Search activity and citations.
+- [x] Repeat authenticated browser acceptance after the running API uses the new build; require Search activity and citations. (2026-09-20: owner acceptance on staging.)
