@@ -563,6 +563,72 @@ export const vietnameseUi: Record<string, string> = {
     "Name, description and labels help colleagues find the right assistant in the library.",
   "Thêm câu gợi ý": "Add starter prompt",
   "Thêm nguồn": "Add source",
+  Nguồn: "sources",
+  "Bộ tài liệu": "Document Sets",
+  "Công khai bộ tài liệu này?": "Make this Document Set public?",
+  "Bật thì mọi người trong tổ chức đều dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng, nên bộ công khai không cấp thêm quyền cho ai.":
+    "When set, every Tenant member can use this Document Set. Access to each Source and document is still checked separately, so a public set grants nobody extra access.",
+  "Bộ tài liệu đang công khai nên ai cũng dùng được. Danh sách dưới đây chỉ có tác dụng khi bạn tắt công khai.":
+    "The Document Set is public, so everyone can use it. The list below only applies once you turn public off.",
+  "+{{n}} nguồn bạn không có quyền đọc": "+{{n}} Sources you cannot read",
+  "Bộ tài liệu mới": "New Document Set",
+  "Bạn không có quyền sửa bộ tài liệu này.": "You don't have permission to edit this Document Set.",
+  "Đã cập nhật bộ tài liệu": "Document Set updated",
+  "Đã tạo bộ tài liệu": "Document Set created",
+  "Đã lưu bộ tài liệu nhưng chưa lưu được chia sẻ":
+    "Document Set saved, but its sharing wasn't saved",
+  "Nhập tên bộ tài liệu.": "Enter a Document Set name.",
+  "Tên của bộ tài liệu": "A name for the Document Set",
+  "Mô tả bộ tài liệu này gồm những gì": "Describe what the Document Set represents",
+  "Chia sẻ bộ tài liệu": "Share the Document Set",
+  "Chỉ bạn, quản trị viên trợ lý và những người hoặc nhóm được chia sẻ mới dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng.":
+    "Only you, agent administrators, and the people or Groups it is shared with can use this Document Set. Access to each Source and document is still checked separately.",
+  "Đã chia sẻ với": "Shared with",
+  "Chọn nguồn": "Pick your Sources",
+  "Mọi tài liệu đã lập chỉ mục từ các nguồn được chọn sẽ thuộc bộ tài liệu này.":
+    "All documents indexed from the selected Sources will be part of this Document Set.",
+  "Chọn ít nhất một nguồn.": "Select at least one Source.",
+  "Cập nhật bộ tài liệu": "Update Document Set",
+  "(không bắt buộc)": "(optional)",
+  "Bỏ {{v1}}": "Remove {{v1}}",
+  "Đã chọn tất cả nguồn": "All Sources selected",
+  "Không có nguồn nào bạn được phép chọn.": "No Sources are available to you.",
+  "Nguồn đã chọn": "Selected Sources",
+  "Chưa chọn nguồn nào. Tìm và chọn nguồn ở ô phía trên.":
+    "No Sources selected. Search and select Sources above.",
+  "Bộ tài liệu gom các nguồn có liên quan thành một nhóm. Dùng bộ tài liệu làm bộ lọc khi tìm kiếm hoặc gắn vào trợ lý để giới hạn phạm vi tìm. Bộ tài liệu không cấp thêm quyền đọc nguồn hay tài liệu.":
+    "Document Sets group related Sources into a single bundle. Use them as a Search filter or attach them to agents to limit where they look. A Document Set never grants access to a Source or document.",
+  "Bộ tài liệu hiện có": "Existing Document Sets",
+  "Bảng bộ tài liệu": "Document Sets table",
+  "Xem thêm {{n}} nguồn": "Show {{n}} more Sources",
+  "Xem thêm {{n}} bộ tài liệu": "Show {{n}} more Document Sets",
+  "Quyền truy cập": "Access",
+  "Mọi người trong tổ chức dùng được bộ tài liệu này.":
+    "Every Tenant member can use this Document Set.",
+  "Chỉ những người và nhóm được chia sẻ mới dùng được bộ tài liệu này.":
+    "Only the people and Groups it is shared with can use this Document Set.",
+  "Chỉ bạn và quản trị viên trợ lý dùng được bộ tài liệu này.":
+    "Only you and agent administrators can use this Document Set.",
+  "Xóa {{v1}}": "Delete {{v1}}",
+  "Xóa {{v1}}?": "Delete {{v1}}?",
+  "Bộ tài liệu sẽ bị gỡ khỏi mọi trợ lý đang dùng nó. Nguồn và tài liệu không bị xóa.":
+    "The Document Set will be removed from every agent that uses it. Sources and documents are not deleted.",
+  "Xóa bộ tài liệu": "Delete Document Set",
+  "Trang bộ tài liệu": "Document Set pages",
+  "Tạo bộ tài liệu": "Create Document Set",
+  "Đang tải bộ tài liệu…": "Loading Document Sets…",
+  "Không tải được bộ tài liệu.": "Could not load Document Sets.",
+  "Sửa bộ tài liệu": "Edit Document Set",
+  "Thêm bộ tài liệu": "Add Document Set",
+  "Tất cả bộ tài liệu": "All Document Sets",
+  "Tìm bộ tài liệu…": "Search Document Sets…",
+  "Không tìm thấy bộ tài liệu.": "No Document Sets found.",
+  "Không có bộ tài liệu nào được chọn": "No Document Sets selected",
+  "Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.":
+    "Choose Document Sets so the assistant answers only from their sources.",
+  "Bộ tài liệu không còn khả dụng (đang giữ lựa chọn)":
+    "Document Set is unavailable (selection retained)",
+  "Bỏ bộ tài liệu {{v1}}": "Remove Document Set {{v1}}",
   "Theo model": "Model default",
   "Thông tin chung": "General",
   "Tìm hoặc tạo nhãn…": "Search or create a label…",

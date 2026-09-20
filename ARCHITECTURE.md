@@ -109,7 +109,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
 | `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
-| `chat` | Personas, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
+| `chat` | Personas, shared Document Sets, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
 | `usage` | Daily AI usage ledger for every AI flow and the AI costs report | [AI usage and costs](docs/specs/ai-usage.md) |
 
@@ -155,6 +155,7 @@ FILE and Drive binary admission is bounded at 100 MiB; native snapshots retain t
 
 
 Search uses the current authorized Document generation. PostgreSQL holds bounded chunk text and provenance; OpenSearch holds BM25/vector projection data. Query filters narrow an already authorized scope and never create authority. Search results remain source passages; answer generation belongs to Chat.
+Document Sets are Chat-owned, Tenant-qualified named Source allowlists. They retain an owner, a public flag, direct-user and ordinary-Group share rows, Sources and Persona attachments; all writes are revision fenced. They narrow—never grant—Source or document authority. Direct Search resolves permitted Set IDs into the actor's current `SourceSearchScope`; Persona resolution unions legacy direct attachments and current usable Set Sources before normal user Source/document checks. `/admin/document-sets` and the agent editor reuse existing Source/principal controls, while `POST /api/search` exposes the same bounded Set filter.
 
 Direct Search and passage reads require current global `SEARCH_READ`. Actor-bound eligibility permits active FILE and Google Drive Sources by access mode: Public, Private through an associated Group, or Auto Sync through the file's retained Google permissions matched to the reader's verified email ([Source access modes](docs/specs/connector.md#source-access-modes)). Membership, origin, grant and generation are rechecked after index IO and during expansion. Private Chat attachments are not exposed through general Search.
 

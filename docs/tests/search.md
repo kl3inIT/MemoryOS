@@ -47,7 +47,7 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 
 | Contract | Evidence |
 | --- | --- |
-| Result `sourceTypes`/`authors`/`providerUrl` and `sourceFacets` come from one actor-readable metadata read for all grouped candidates; `sourceTypes` filters within those candidates and is validated (null, duplicates, bound) | `DocumentSearchServiceTest`, `SearchRequestTest`; OpenAPI contract |
+| Result `sourceTypes`/`authors`/`providerUrl` and `sourceFacets` come from one actor-readable metadata read for all grouped candidates; `sourceTypes` filters within those candidates and Document Set IDs first narrow the actor's Source scope; invalid/null/duplicate/bounded filters fail validation | `DocumentSearchServiceTest`, `SearchRequestTest`; OpenAPI contract |
 | Search original PDF requires `SEARCH_READ` before and after opening storage | `DocumentOriginalServiceTest.searchRequiresSearchReadBeforeAndAfterOpening` |
 | Original PDF ranges: one `bytes=first-[last]` gives 206 with `Content-Range`/`Content-Length`, whole responses advertise `Accept-Ranges` and disable proxy buffering, beyond-the-end gives 416 without body, suffix/multiple/malformed ranges serve the whole object | `DocumentOriginalResponsesTest` |
 | Each range rechecks authority (revocation stops the next range), inspects object metadata, requires the provider range and whole size, checks `%PDF-` from byte 0, and returns 416 only to a reader | `DocumentOriginalServiceTest` range cases |

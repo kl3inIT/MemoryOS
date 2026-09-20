@@ -58,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
+    const documentSetsSelected = Boolean(matchRoute({ to: "/admin/document-sets", fuzzy: true }));
     const addSourceSelected = Boolean(matchRoute({ to: "/admin/sources/new", fuzzy: true }));
     const page = usersSelected
       ? "users"
@@ -81,9 +82,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
                         ? "agents"
                         : costsSelected
                           ? "costs"
-                          : addSourceSelected
-                            ? "addSource"
-                            : "sources";
+                          : documentSetsSelected
+                            ? "documentSets"
+                            : addSourceSelected
+                              ? "addSource"
+                              : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -135,9 +138,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
                               ? "Quản lý trợ lý"
                               : page === "costs"
                                 ? "AI costs"
-                                : page === "addSource"
-                                  ? "Add a source"
-                                  : "Sources",
+                                : page === "documentSets"
+                                  ? "Bộ tài liệu"
+                                  : page === "addSource"
+                                    ? "Add a source"
+                                    : "Sources",
         )}
         sourceSetup={sourceSetup}
       >
