@@ -1229,7 +1229,7 @@ test("creates, indexes, removes, and deletes a FILE source", async ({ page }) =>
   await expect(page).toHaveURL(/\/admin\/sources\/new\/file$/);
   await expect(page.getByRole("button", { name: "Retry finalization" })).toBeVisible();
   expect(createAttempts).toBe(1);
-  await page.getByRole("link", { name: "Sources", exact: true }).last().click();
+  await page.getByRole("link", { name: "Existing sources", exact: true }).last().click();
   await expect(page).toHaveURL(/\/admin$/);
   await page
     .getByRole("table", { name: "Connected sources" })
