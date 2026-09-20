@@ -31,6 +31,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
+- [MEM-147 — Reasoning level per conversation](docs/increments/active/mem-147-reasoning-effort/design.md) owns the conversation-scoped reasoning level and the personal creativity and reasoning defaults; per-conversation temperature and other sampling parameters are excluded.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-110 — MemoryOS interpreter](docs/increments/active/mem-110-memoryos-interpreter/design.md) owns the `interpreter/` code-execution service (an Onyx python-sandbox snapshot) and the Chat `run_python` tool; `bash` sessions and Onyx Craft are excluded.
 - [MEM-111 — Generated file preview](docs/increments/active/mem-111-generated-file-preview/design.md) owns the Onyx-style preview of `run_python` files (xlsx sheets, docx, pdf, csv, text, images; pptx through the executor); artifact listing and versions are excluded.
