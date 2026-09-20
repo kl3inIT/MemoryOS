@@ -218,7 +218,8 @@ function SidebarContents({
         ) : appArea ? (
           <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
         ) : (
-          <div className="space-y-5">
+          // Each section already pads its own heading, so the menu fits a laptop screen at this gap.
+          <div className="space-y-4">
             {canManageModels ? (
               <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
                 <SidebarTab
