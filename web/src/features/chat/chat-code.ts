@@ -12,6 +12,8 @@ export const generatedFileSchema = z.object({
   sizeBytes: z.number().int().nonnegative(),
   /** Chart data captured from the figure behind this PNG is served at /chart. */
   chart: z.boolean().optional(),
+  /** Deleted from the library: the answer keeps the card, the content routes no longer serve it. */
+  deleted: z.boolean().optional(),
 });
 export type GeneratedFile = z.infer<typeof generatedFileSchema>;
 

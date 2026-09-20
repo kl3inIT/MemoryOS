@@ -12,6 +12,8 @@ export const generatedImageSchema = z.object({
     .max(4000)
     .nullish()
     .transform((value) => value ?? null),
+  /** Deleted from the library: the answer keeps the card, the content route no longer serves it. */
+  deleted: z.boolean().optional(),
 });
 export type GeneratedImage = z.infer<typeof generatedImageSchema>;
 
