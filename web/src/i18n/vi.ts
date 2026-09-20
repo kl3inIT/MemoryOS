@@ -113,6 +113,10 @@ export const vi = {
     notProvisionedDescription:
       "Danh tính đã được xác thực nhưng chưa được thêm vào tổ chức trên MemoryOS. Hãy liên hệ chủ tổ chức hoặc dùng tài khoản khác.",
     anotherAccount: "Dùng tài khoản khác",
+    signInFailed: "Đăng nhập chưa hoàn tất.",
+    signInFailedDescription:
+      "Không phải tài khoản của bạn có vấn đề. Máy chủ hoặc trang đăng nhập đã không trả lời kịp, thường là khi MemoryOS vừa được cập nhật. Hãy đăng nhập lại.",
+    signInAgain: "Đăng nhập lại",
     denied: "Bạn không có quyền truy cập khu vực này.",
     deniedDescription:
       "Tài khoản đang hoạt động nhưng không có quyền quản lý khu vực này. Hãy quay lại không gian làm việc để sử dụng các chức năng được cấp.",

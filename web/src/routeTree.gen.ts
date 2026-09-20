@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AccessNotProvisionedRouteImport } from './routes/access-not-provisioned'
 import { Route as InvitationRouteImport } from './routes/invitation'
+import { Route as SignInFailedRouteImport } from './routes/sign-in-failed'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._chat'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
@@ -64,6 +65,11 @@ const AccessNotProvisionedRoute = AccessNotProvisionedRouteImport.update({
 const InvitationRoute = InvitationRouteImport.update({
   id: '/invitation',
   path: '/invitation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInFailedRoute = SignInFailedRouteImport.update({
+  id: '/sign-in-failed',
+  path: '/sign-in-failed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
@@ -293,6 +299,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedChatIndexRoute
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/search': typeof AuthenticatedSearchRoute
@@ -374,6 +382,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/access-not-provisioned': typeof AccessNotProvisionedRoute
   '/invitation': typeof InvitationRoute
+  '/sign-in-failed': typeof SignInFailedRoute
   '/_authenticated/_chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
@@ -420,6 +429,7 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/admin'
     | '/agents'
     | '/assistants'
@@ -462,6 +472,7 @@ export interface FileRouteTypes {
     | '/'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/agents'
     | '/assistants'
     | '/search'
@@ -500,6 +511,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/access-not-provisioned'
     | '/invitation'
+    | '/sign-in-failed'
     | '/_authenticated/_chat'
     | '/_authenticated/admin'
     | '/_authenticated/agents'
@@ -545,6 +557,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AccessNotProvisionedRoute: typeof AccessNotProvisionedRoute
   InvitationRoute: typeof InvitationRoute
+  SignInFailedRoute: typeof SignInFailedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -568,6 +581,13 @@ declare module '@tanstack/react-router' {
       path: '/invitation'
       fullPath: '/invitation'
       preLoaderRoute: typeof InvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in-failed': {
+      id: '/sign-in-failed'
+      path: '/sign-in-failed'
+      fullPath: '/sign-in-failed'
+      preLoaderRoute: typeof SignInFailedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_chat': {
@@ -1001,6 +1021,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AccessNotProvisionedRoute: AccessNotProvisionedRoute,
   InvitationRoute: InvitationRoute,
+  SignInFailedRoute: SignInFailedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

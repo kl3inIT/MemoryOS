@@ -31,6 +31,25 @@ export function AccessNotProvisionedScreen() {
   );
 }
 
+/**
+ * Authentication itself failed, which the browser cannot tell apart from an unadmitted identity. The server routes it
+ * here instead of to the not-provisioned screen, so a member does not read that their access was revoked when the API
+ * was simply restarting mid-login.
+ */
+export function SignInFailedScreen() {
+  const { t } = useTranslation("identity");
+  return (
+    <AuthFrame>
+      <RefreshCw className="mb-4 size-6 text-content-muted" aria-hidden="true" />
+      <h1 className="font-heading-h2 text-content-primary">{t("signInFailed")}</h1>
+      <p className="mt-3 font-main-ui-body text-content-muted">{t("signInFailedDescription")}</p>
+      <Button asChild size="lg" className="mt-8 w-full">
+        <a href={SIGN_IN_PATH}>{t("signInAgain")}</a>
+      </Button>
+    </AuthFrame>
+  );
+}
+
 export function AccessDeniedScreen() {
   const { t } = useTranslation("identity");
   return (

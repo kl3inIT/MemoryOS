@@ -2712,6 +2712,23 @@ export const testChatProviderMutation = (options?: Partial<Options<TestChatProvi
     return mutationOptions;
 };
 
+/**
+ * List the models an endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; takes the provider being edited, saved or not, as the connection check does; requires model management
+ */
+export const listReportedProviderModelsMutation = (options?: Partial<Options<ListReportedProviderModelsData>>): UseMutationOptions<ListReportedProviderModelsResponse, ListReportedProviderModelsError, Options<ListReportedProviderModelsData>> => {
+    const mutationOptions: UseMutationOptions<ListReportedProviderModelsResponse, ListReportedProviderModelsError, Options<ListReportedProviderModelsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await listReportedProviderModels({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listChatPromptShortcutsQueryKey = (options?: Options<ListChatPromptShortcutsData>) => createQueryKey('listChatPromptShortcuts', options);
 
 /**
@@ -4348,24 +4365,6 @@ export const searchChatSessionsInfiniteOptions = (options?: Options<SearchChatSe
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
-
-export const listReportedProviderModelsQueryKey = (options: Options<ListReportedProviderModelsData>) => createQueryKey('listReportedProviderModels', options);
-
-/**
- * List the models the provider endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; requires model management
- */
-export const listReportedProviderModelsOptions = (options: Options<ListReportedProviderModelsData>) => queryOptions<ListReportedProviderModelsResponse, ListReportedProviderModelsError, ListReportedProviderModelsResponse, ReturnType<typeof listReportedProviderModelsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listReportedProviderModels({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listReportedProviderModelsQueryKey(options)
-});
 
 export const listChatProviderAdaptersQueryKey = (options?: Options<ListChatProviderAdaptersData>) => createQueryKey('listChatProviderAdapters', options);
 

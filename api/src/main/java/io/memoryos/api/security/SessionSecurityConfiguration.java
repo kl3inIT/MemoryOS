@@ -61,6 +61,7 @@ class SessionSecurityConfiguration {
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 "/access-not-provisioned",
+                                "/sign-in-failed",
                                 "/invite/**",
                                 "/oauth2/authorization/**",
                                 "/login/oauth2/code/**"
