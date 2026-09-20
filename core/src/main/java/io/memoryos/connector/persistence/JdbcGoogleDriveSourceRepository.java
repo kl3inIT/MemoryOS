@@ -88,6 +88,21 @@ public class JdbcGoogleDriveSourceRepository {
                   WHERE d.tenant_id=:tenant AND d.source_id=:source
                     AND NOT EXISTS (SELECT 1 FROM google_drive_roots r
                       WHERE r.tenant_id=d.tenant_id AND r.source_id=d.source_id AND r.file_id=d.file_id)
+                  UNION ALL
+                  SELECT m.file_id,v.filename,COALESCE(o.declared_media_type,'application/octet-stream'),1,
+                    FALSE,TRUE,'AVAILABLE'
+                  FROM google_drive_membership m
+                  JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.source_id
+                  JOIN connector_items i ON i.tenant_id=p.tenant_id AND i.connector_id=p.connector_id
+                    AND i.provider_file_id=m.file_id AND i.status<>'DELETING'
+                  JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
+                  LEFT JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id
+                  WHERE m.tenant_id=:tenant AND m.source_id=:source AND m.eligible AND NOT m.excluded
+                    AND m.root_id IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM google_drive_roots r
+                      WHERE r.tenant_id=m.tenant_id AND r.source_id=m.source_id AND r.file_id=m.file_id)
+                    AND NOT EXISTS (SELECT 1 FROM google_drive_linked_documents d
+                      WHERE d.tenant_id=m.tenant_id AND d.source_id=m.source_id AND d.file_id=m.file_id)
                 )
                 SELECT * FROM entries WHERE (:kind=-1 OR sort_kind=:kind)
                     AND position(lower(:search) in lower(name))>0
