@@ -431,6 +431,66 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne() throws Exception {
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
+                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ke-hoach.txt",
+                "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
+        var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andReturn();
+        String id = Json.mapper().readTree(created.getResponse().getContentAsString()).path("file").path("id").asText();
+        mockMvc.perform(post("/api/chat/files/"+id+"/finalize").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isAccepted());
+        jdbc.sql("UPDATE chat_user_file SET status='READY' WHERE id=:id").param("id", UUID.fromString(id)).update();
+
+        mockMvc.perform(get("/api/chat/library")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("sort","BIGGEST"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CHAT_INVALID_REQUEST"));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.totalBytes").value(4))
+                .andExpect(jsonPath("$.hasMore").value(false))
+                .andExpect(jsonPath("$.items[0].id").value(id))
+                .andExpect(jsonPath("$.items[0].source").value("UPLOAD"))
+                .andExpect(jsonPath("$.items[0].category").value("DOCUMENT"))
+                .andExpect(jsonPath("$.items[0].sessionId").doesNotExist())
+                .andExpect(jsonPath("$.items[0].deletable").value(true));
+        // Another member's library never shows this file, and a category filter it does not match hides it.
+        mockMvc.perform(get("/api/chat/library").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("categories","IMAGE"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+
+        var project = mockMvc.perform(post("/api/chat/projects").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Kế hoạch\",\"description\":\"\",\"instructions\":\"\",\"fileIds\":[\""+id+"\"]}"))
+                .andExpect(status().isCreated()).andReturn();
+        String projectId = Json.mapper().readTree(project.getResponse().getContentAsString()).path("id").asText();
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].deletable").value(false))
+                .andExpect(jsonPath("$.items[0].usedBy[0].kind").value("PROJECT"))
+                .andExpect(jsonPath("$.items[0].usedBy[0].id").value(projectId))
+                .andExpect(jsonPath("$.items[0].usedBy[0].name").value("Kế hoạch"));
+        // Onyx answers this with 200 and has_associations; MemoryOS refuses the command and names the holder.
+        mockMvc.perform(delete("/api/chat/files/"+id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CHAT_FILE_IN_USE"))
+                .andExpect(jsonPath("$.usedBy[0].name").value("Kế hoạch"));
+
+        // The artifact routes stay CSRF-guarded, and deleting what is already absent is the asked-for outcome.
+        var unknown = UUID.randomUUID();
+        mockMvc.perform(delete("/api/chat/file-artifacts/"+unknown).with(authentication(actor)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/chat/image-artifacts/"+unknown).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void filePolicyAndAdmissionRejectOverLimitAndMalformedChecksum() throws Exception {
         mockMvc.perform(get("/api/chat/files/policy").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.maxSizeBytes").value(104857600));

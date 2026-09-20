@@ -173,14 +173,14 @@ class ChatPersistenceIntegrationTest {
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Draw a man");
         var image = UUID.randomUUID();
         images.insert(scope, first.assistantMessageId(), image, UUID.randomUUID(),
-                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/image.png"), "image/png", null, null, null);
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/image.png"), "image/png", ".png", 11, null, null, null);
         turns.finish(session.id(), first.assistantMessageId(), ChatMessage.Status.COMPLETED, "Here he is.");
         var second = reserve(session, first.assistantMessageId(), UUID.randomUUID(), "Make the shirt red");
         assertEquals(List.of(image), turns.loadContext(owner, session.id(), second).generatedImages().get(first.assistantMessageId()));
 
         var edited = UUID.randomUUID();
         images.insert(scope, second.assistantMessageId(), edited, UUID.randomUUID(),
-                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/edited.png"), "image/png", null, image, null);
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/edited.png"), "image/png", ".png", 12, null, image, null);
         assertEquals(image, jdbc.sql("SELECT source_artifact_id FROM chat_image_artifact WHERE id = :id")
                 .param("id", edited).query(UUID.class).single());
         assertTrue(images.inSession(scope, owner, session.id(), image).isPresent());
@@ -188,8 +188,8 @@ class ChatPersistenceIntegrationTest {
         var elsewhere = sessions.create(owner, "Elsewhere");
         assertTrue(images.inSession(scope, owner, elsewhere.id(), image).isEmpty());
         assertThrows(DataIntegrityViolationException.class, () -> images.insert(scope, second.assistantMessageId(), UUID.randomUUID(),
-                UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/both.png"), "image/png", null,
-                image, UUID.randomUUID()));
+                UUID.randomUUID(), new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/both.png"), "image/png", ".png", 13,
+                null, image, UUID.randomUUID()));
     }
 
     @Test
@@ -222,6 +222,103 @@ class ChatPersistenceIntegrationTest {
                 reply.assistantMessageId(), UUID.randomUUID(), UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/x.png"), "x.png", "image/png", 3, "[1]"));
         assertTrue(interpreter.ownedArtifact(new TenantId(UUID.randomUUID()), owner, file).isEmpty());
+    }
+
+    @Test
+    void theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted() {
+        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var interpreter = new io.memoryos.chat.interpreter.JdbcInterpreterRepository(jdbc);
+        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var session = sessions.create(owner, "Báo cáo");
+        var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a workbook");
+        var upload = readyFile(owner);
+        var generated = UUID.randomUUID();
+        interpreter.insertArtifact(scope, reply.assistantMessageId(), generated, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/doanh-thu.xlsx"), "doanh-thu.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 2048, null);
+        var image = UUID.randomUUID();
+        images.insert(scope, reply.assistantMessageId(), image, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/pic.png"), "image/png", ".png", 512,
+                "a red shirt", null, null);
+
+        var all = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        assertEquals(3, all.totalCount());
+        assertEquals(4 + 2048 + 512, all.totalBytes());
+        assertEquals(List.of(ChatLibraryFile.Source.IMAGE, ChatLibraryFile.Source.GENERATED, ChatLibraryFile.Source.UPLOAD),
+                all.items().stream().map(ChatLibraryFile::source).toList());
+        var workbook = all.items().stream().filter(file -> file.id().equals(generated)).findFirst().orElseThrow();
+        assertEquals(ChatLibraryFile.Category.SPREADSHEET, workbook.category());
+        assertEquals(session.id(), workbook.sessionId());
+        assertEquals("Báo cáo", workbook.sessionTitle());
+        // An upload belongs to its owner, not to one conversation.
+        assertNull(all.items().stream().filter(file -> file.id().equals(upload)).findFirst().orElseThrow().sessionId());
+        // A generated image is named and measured, and its prompt is searchable (V89).
+        var picture = all.items().stream().filter(file -> file.id().equals(image)).findFirst().orElseThrow();
+        assertTrue(picture.filename().startsWith("image-") && picture.filename().endsWith(".png"), picture.filename());
+        assertEquals(512, picture.sizeBytes());
+        assertEquals(List.of(image), ids(library.page(scope, owner, "red shirt", Set.of(), Set.of(),
+                ChatLibraryFile.Sort.NEWEST, 0, 50)));
+
+        assertEquals(List.of(generated), ids(library.page(scope, owner, "doanh", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, "", Set.of("GENERATED"), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of("DOCUMENT"), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated, image, upload),
+                ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.LARGEST, 0, 50)));
+        var second = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 1, 1);
+        assertEquals(3, second.totalCount());
+        assertEquals(List.of(generated), ids(second));
+        // A page past the end still reports the filter's totals; they describe the filter, not the page.
+        var beyond = library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 10, 50);
+        assertEquals(List.of(), ids(beyond));
+        assertEquals(3, beyond.totalCount());
+        assertEquals(4 + 2048 + 512, beyond.totalBytes());
+        // A search term is matched literally, not as an ILIKE pattern.
+        assertEquals(List.of(), ids(library.page(scope, owner, "%", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(0, library.page(scope, other, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
+
+        // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
+        assertTrue(interpreter.markArtifactDeleted(scope, owner, generated));
+        assertFalse(interpreter.markArtifactDeleted(scope, other, generated));
+        assertTrue(interpreter.ownedArtifact(scope, owner, generated).isEmpty());
+        assertFalse(interpreter.attachPreview(scope, generated, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("p/late"), 10));
+        assertTrue(images.markDeleted(scope, owner, image));
+        // Deleting again succeeds while another member still cannot delete the same image.
+        assertTrue(images.markDeleted(scope, owner, image));
+        assertFalse(images.markDeleted(scope, other, image));
+        assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        // History keeps both as tombstones so the answer does not silently lose its cards.
+        assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId()))
+                .get(reply.assistantMessageId()).getFirst().deleted());
+        assertTrue(images.byMessages(scope, List.of(reply.assistantMessageId()), true)
+                .get(reply.assistantMessageId()).getFirst().deleted());
+        assertTrue(images.byMessages(scope, List.of(reply.assistantMessageId()), false).isEmpty());
+        // Once the sweep has removed the row, the owner's repeated delete is still the outcome they asked for.
+        jdbc.sql("DELETE FROM chat_image_artifact WHERE id=:id").param("id", image).update();
+        assertTrue(images.markDeleted(scope, owner, image));
+
+        // Deleting the conversation withdraws its artifacts from the library; the upload is the owner's.
+        var kept = sessions.create(owner, "Kept");
+        var keptReply = reserve(kept, kept.rootMessageId(), UUID.randomUUID(), "One more");
+        var keptFile = UUID.randomUUID();
+        interpreter.insertArtifact(scope, keptReply.assistantMessageId(), keptFile, UUID.randomUUID(),
+                new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/notes.pdf"), "notes.pdf", "application/pdf", 8, null);
+        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        turns.delete(owner, kept.id());
+        assertEquals(List.of(upload), ids(library.page(scope, owner, "", Set.of(), Set.of(), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+
+        // An upload a project holds is named rather than silently undeletable.
+        var project = projects.create(owner, new ChatProjectService.ProjectInput("Kế hoạch", "", "", List.of(upload)));
+        var usage = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).usage(scope, List.of(upload));
+        assertEquals(List.of("Kế hoạch"), usage.stream().map(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage::name).toList());
+        assertEquals(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage.Kind.PROJECT, usage.getFirst().kind());
+        assertEquals(project.id(), usage.getFirst().id());
+    }
+
+    private static List<UUID> ids(io.memoryos.chat.persistence.JdbcChatLibraryRepository.Page page) {
+        return page.items().stream().map(ChatLibraryFile::id).toList();
     }
 
     @Test

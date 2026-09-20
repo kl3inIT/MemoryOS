@@ -20,7 +20,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 })
 @org.springframework.context.annotation.Import({io.memoryos.retrieval.SearchTimings.class,
         io.memoryos.chat.persistence.JdbcUserFileWorkRepository.class,
-        io.memoryos.chat.application.DefaultUserFileWorkService.class})
+        io.memoryos.chat.application.DefaultUserFileWorkService.class,
+        // MEM-142: the sweep that releases the bytes of deleted Chat artifacts.
+        io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository.class,
+        io.memoryos.chat.application.ChatArtifactCleanupService.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

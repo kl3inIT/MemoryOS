@@ -48,6 +48,15 @@ class ChatFileArtifactController {
     @Schema(name = "ChatSpreadsheetSheet")
     record SheetResponse(String name, String csv, boolean truncated) {}
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/{artifactId}")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    @Operation(operationId = "deleteChatFileArtifact",
+            summary = "Delete an owner-private generated file; the answer keeps a deleted card and a sweep releases the bytes")
+    @ApiResponse(responseCode = "204", description = "File deleted")
+    void delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID artifactId) {
+        files.delete(identity.actorId(), artifactId);
+    }
+
     @GetMapping(value = "/{artifactId}/pdf-preview", produces = MediaType.APPLICATION_PDF_VALUE)
     @Operation(operationId = "getChatFileArtifactPdfPreview",
             summary = "Read a PDF rendering of an owner-private generated presentation, converted in the interpreter on first request")
