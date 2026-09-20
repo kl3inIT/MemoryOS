@@ -29,13 +29,14 @@ export type StatusTone = NonNullable<VariantProps<typeof statusBadgeVariants>["t
 
 export function StatusBadge({
   tone,
+  size,
   className,
   ...props
 }: React.ComponentProps<"span"> & VariantProps<typeof statusBadgeVariants>) {
   return (
     <span
       data-slot="status-badge"
-      className={cn(statusBadgeVariants({ tone }), className)}
+      className={cn(statusBadgeVariants({ tone, size }), className)}
       {...props}
     />
   );

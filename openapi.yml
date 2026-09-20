@@ -3516,7 +3516,10 @@ paths:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
       requestBody:
         content:
           application/json:
@@ -7347,7 +7350,10 @@ paths:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
       requestBody:
         content:
           application/json:
@@ -12726,7 +12732,10 @@ components:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
     ImageConnectionRequest:
       type: object
       properties:
@@ -12763,7 +12772,10 @@ components:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
         endpoint:
           type: string
         model:
@@ -16383,7 +16395,10 @@ components:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
         model:
           type: string
       required:
@@ -16419,7 +16434,10 @@ components:
           type: string
           enum:
           - OPENAI_IMAGE
+          - AZURE_OPENAI_IMAGE
+          - GOOGLE_GEMINI_IMAGE
           - CLOUDFLARE_WORKERS_AI
+          - OPENAI_COMPATIBLE_IMAGE
         credentialRequired:
           type: boolean
         defaultEndpoint:

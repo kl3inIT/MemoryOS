@@ -5,10 +5,12 @@
  */
 export const providerMarks = {
   ANTHROPIC: { file: "anthropic.svg", monochrome: false },
+  AZURE: { file: "azure.svg", monochrome: false },
   BRAVE: { file: "brave.svg", monochrome: false },
   CLOUDFLARE: { file: "cloudflare.svg", monochrome: false },
   EXA: { file: "exa.png", monochrome: false },
   FIRECRAWL: { file: "firecrawl.png", monochrome: false },
+  GEMINI: { file: "gemini.svg", monochrome: false },
   GOOGLE_PSE: { file: "google.svg", monochrome: false },
   NINEROUTER: { file: "nine-router.svg", monochrome: false },
   OLLAMA: { file: "ollama.svg", monochrome: true },

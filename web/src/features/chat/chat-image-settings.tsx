@@ -1,13 +1,21 @@
 import { useId, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ImageIcon, Settings2, Unplug } from "lucide-react";
-import { Dialog } from "radix-ui";
+import { CheckCircle2, ImageIcon, ImageOff, Plug, Settings2, Unplug } from "lucide-react";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
+import type { ProviderMark } from "@/components/provider-logos/provider-marks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -28,23 +36,66 @@ import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 
 type Provider = ImageProviderResponse["provider"];
+type Group = "vendors" | "platforms" | "custom";
 
 const imageProblem = (error: unknown): ErrorMessage => presentProblem(error, "mutation").message;
 
-/** Product names are proper nouns; the model catalog itself comes from the backend. */
-const names: Record<Provider, string> = {
-  OPENAI_IMAGE: "OpenAI Images",
-  CLOUDFLARE_WORKERS_AI: "Cloudflare Workers AI",
+type Presentation = {
+  /** Product names are proper nouns; the model catalog itself comes from the backend. */
+  name: string;
+  mark?: ProviderMark;
+  group: Group;
+  site: string;
+  endpoint: "optional" | "cloudflare" | "azure" | "base";
+  endpointHint: string;
+  /** Azure deploys models under names the Tenant chooses. */
+  deployment?: boolean;
 };
-const marks = { OPENAI_IMAGE: "OPENAI", CLOUDFLARE_WORKERS_AI: "CLOUDFLARE" } as const;
-const sites: Record<Provider, string> = {
-  OPENAI_IMAGE: "platform.openai.com",
-  CLOUDFLARE_WORKERS_AI: "developers.cloudflare.com/workers-ai",
+
+const presentation: Record<Provider, Presentation> = {
+  OPENAI_IMAGE: {
+    name: "OpenAI",
+    mark: "OPENAI",
+    group: "vendors",
+    site: "platform.openai.com",
+    endpoint: "optional",
+    endpointHint: "https://api.openai.com/v1",
+  },
+  GOOGLE_GEMINI_IMAGE: {
+    name: "Google Gemini",
+    mark: "GEMINI",
+    group: "vendors",
+    site: "aistudio.google.com",
+    endpoint: "optional",
+    endpointHint: "https://generativelanguage.googleapis.com/v1beta",
+  },
+  AZURE_OPENAI_IMAGE: {
+    name: "Azure OpenAI",
+    mark: "AZURE",
+    group: "platforms",
+    site: "ai.azure.com",
+    endpoint: "azure",
+    endpointHint: "contoso",
+    deployment: true,
+  },
+  CLOUDFLARE_WORKERS_AI: {
+    name: "Cloudflare Workers AI",
+    mark: "CLOUDFLARE",
+    group: "platforms",
+    site: "developers.cloudflare.com/workers-ai",
+    endpoint: "cloudflare",
+    endpointHint: "<ACCOUNT_ID>",
+  },
+  OPENAI_COMPATIBLE_IMAGE: {
+    name: "OpenAI-compatible",
+    group: "custom",
+    site: "/images/generations · b64_json",
+    endpoint: "base",
+    endpointHint: "https://gateway.example.com/v1",
+  },
 };
-const endpointHints: Record<Provider, string> = {
-  OPENAI_IMAGE: "https://api.openai.com/v1",
-  CLOUDFLARE_WORKERS_AI: "<ACCOUNT_ID>",
-};
+const groups: Group[] = ["vendors", "platforms", "custom"];
+
 const CLOUDFLARE_ACCOUNT_BASE = "https://api.cloudflare.com/client/v4/accounts/";
 /** Cloudflare asks for its account ID; a stored account endpoint is shown back as the ID. */
 const displayEndpoint = (provider: Provider, endpoint: string) =>
@@ -56,12 +107,26 @@ const formats: Record<string, string> = {
   "image/jpeg": "JPEG",
   "image/webp": "WebP",
 };
+/** Google models take an aspect ratio instead of a pixel size. */
+const ASPECT_RATIOS = "1:1 · 16:9 · 9:16";
+/** A typical model name on OpenAI-compatible gateways. */
+const COMPATIBLE_MODEL_HINT = "gpt-image-1";
 const OTHER = "__other__";
 const OFF = "__off__";
 const notice =
   "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
 const option =
   "flex cursor-pointer items-center gap-3 rounded-xl border border-border-default px-3 py-2.5 has-[[data-state=checked]]:border-border-strong has-[[data-state=checked]]:bg-surface-sunken";
+const sectionTitle = "text-sm font-semibold text-content-primary";
+
+function Logo({ provider }: { provider: Provider }) {
+  const mark = presentation[provider].mark;
+  return mark ? (
+    <ProviderLogo mark={mark} />
+  ) : (
+    <Plug className="size-6 text-content-secondary" aria-hidden="true" />
+  );
+}
 
 function InUseBadge({ children }: { children: ReactNode }) {
   return (
@@ -73,15 +138,29 @@ function InUseBadge({ children }: { children: ReactNode }) {
 }
 
 function displayName(provider: ImageProviderResponse, model: string) {
-  return provider.knownModels.find((known) => known.modelName === model)?.displayName ?? model;
+  const known =
+    provider.knownModels.find((entry) => entry.modelName === model) ??
+    (provider.editModel?.modelName === model ? provider.editModel : undefined);
+  return known?.displayName ?? model;
+}
+
+/** Mirrors ImageProvider.editModelFor: edit-capable models edit themselves, others use the fallback. */
+function editModelFor(provider: ImageProviderResponse, model: string) {
+  const known = provider.knownModels.find((entry) => entry.modelName === model);
+  if (known?.edit) return model;
+  return provider.editModel?.modelName ?? model;
 }
 
 function ModelSummary({ provider, model }: { provider: ImageProviderResponse; model: string }) {
   const ui = useAppTranslation();
   const generate = displayName(provider, model);
-  return provider.editModel
-    ? ui("Tạo: {{generate}} · Sửa: {{edit}}", { generate, edit: provider.editModel.displayName })
-    : ui("Tạo và sửa: {{model}}", { model: generate });
+  const edit = editModelFor(provider, model);
+  return edit === model
+    ? ui("Tạo và sửa: {{model}}", { model: generate })
+    : ui("Tạo: {{generate}} · Sửa: {{edit}}", {
+        generate,
+        edit: displayName(provider, edit),
+      });
 }
 
 export function ChatImageSettings() {
@@ -92,6 +171,7 @@ export function ChatImageSettings() {
   const problemMessage = useProblemMessage();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ErrorMessage>();
+  const [editing, setEditing] = useState<Provider>();
   const providers = useQuery({
     queryKey: ["image-providers", session.actorId, session.authorizationVersion],
     enabled: manager,
@@ -166,6 +246,13 @@ export function ChatImageSettings() {
   const active = configured.find((connection) => connection.active);
   const activeProvider =
     active && catalog.find((provider) => provider.provider === active.provider);
+  const connectedCount = configured.filter((connection) => connection.credentialConfigured).length;
+  const groupTitles: Record<Group, string> = {
+    vendors: ui("Nhà cung cấp mô hình"),
+    platforms: ui("Nền tảng đám mây"),
+    custom: ui("Tùy chỉnh"),
+  };
+  const editingProvider = catalog.find((provider) => provider.provider === editing);
   return (
     <SettingsLayout>
       <PageHeader
@@ -184,12 +271,19 @@ export function ChatImageSettings() {
         <p role="status">{ui("Đang tải…")}</p>
       ) : (
         <>
-          <section aria-label={ui("Đang dùng")} className="space-y-3">
-            <h2 className="text-lg font-semibold">{ui("Đang dùng")}</h2>
+          <section aria-labelledby="image-default" className="space-y-3">
+            <div>
+              <h2 id="image-default" className="text-lg font-semibold">
+                {ui("Default")}
+              </h2>
+              <p className="text-sm text-content-muted">
+                {ui("Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.")}
+              </p>
+            </div>
             {active && activeProvider ? (
               <ProviderCard
-                logo={<ProviderLogo mark={marks[active.provider]} />}
-                name={names[active.provider]}
+                logo={<Logo provider={active.provider} />}
+                name={presentation[active.provider].name}
                 description={<ModelSummary provider={activeProvider} model={active.model} />}
                 selected
                 actions={
@@ -207,33 +301,52 @@ export function ChatImageSettings() {
                 }
               />
             ) : (
-              <p className={notice}>{ui("Chọn một nhà cung cấp để bật tạo ảnh trong Chat.")}</p>
+              <div className={`${notice} flex items-start gap-3`}>
+                <ImageOff className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-medium text-content-primary">{ui("Tạo ảnh đang tắt")}</p>
+                  <p>{ui("Chọn một nhà cung cấp để bật tạo ảnh trong Chat.")}</p>
+                </div>
+              </div>
             )}
-            <p className="text-sm text-content-muted">
-              {ui("Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.")}
-            </p>
           </section>
-          <section aria-label={ui("Nhà cung cấp")} className="mt-8 space-y-3">
-            <h2 className="text-lg font-semibold">{ui("Nhà cung cấp")}</h2>
-            <div className="space-y-3">
-              {catalog.map((provider) => {
-                const connection = configured.find((c) => c.provider === provider.provider);
-                return (
-                  <ConnectionCard
-                    key={provider.provider}
-                    provider={provider}
-                    connection={connection}
-                    replacements={configured
-                      .filter((c) => c.provider !== provider.provider && c.credentialConfigured)
-                      .map((c) => c.provider)}
-                    disabled={pending}
-                    onChanged={changed}
-                    onSelect={select}
-                    onDisconnect={disconnect}
-                  />
-                );
-              })}
+          <section aria-labelledby="image-providers" className="mt-8 space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="image-providers" className="text-lg font-semibold">
+                {ui("Nhà cung cấp")}
+              </h2>
+              <span className="text-sm text-content-muted">
+                {ui("{{connected}}/{{total}} đã kết nối", {
+                  connected: connectedCount,
+                  total: catalog.length,
+                })}
+              </span>
             </div>
+            {groups.map((group) => {
+              const members = catalog.filter(
+                (provider) => presentation[provider.provider].group === group,
+              );
+              if (members.length === 0) return null;
+              return (
+                <div key={group} className="space-y-2">
+                  <h3 className="text-xs font-medium tracking-wide text-content-muted uppercase">
+                    {groupTitles[group]}
+                  </h3>
+                  <ul className="space-y-2">
+                    {members.map((provider) => (
+                      <ProviderRow
+                        key={provider.provider}
+                        provider={provider}
+                        connection={configured.find((c) => c.provider === provider.provider)}
+                        disabled={pending}
+                        onSelect={select}
+                        onConfigure={() => setEditing(provider.provider)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </section>
         </>
       )}
@@ -242,11 +355,98 @@ export function ChatImageSettings() {
           {problemMessage(error)}
         </p>
       )}
+      {editingProvider && (
+        <ConnectionSheet
+          key={editingProvider.provider}
+          provider={editingProvider}
+          connection={configured.find((c) => c.provider === editingProvider.provider)}
+          replacements={configured
+            .filter((c) => c.provider !== editingProvider.provider && c.credentialConfigured)
+            .map((c) => c.provider)}
+          disabled={pending}
+          onClose={() => setEditing(undefined)}
+          onChanged={changed}
+          onDisconnect={disconnect}
+        />
+      )}
     </SettingsLayout>
   );
 }
 
-function ModelOption({ id, model }: { id: string; model: ImageKnownModelResponse }) {
+function ProviderRow({
+  provider,
+  connection,
+  disabled,
+  onSelect,
+  onConfigure,
+}: {
+  provider: ImageProviderResponse;
+  connection?: ImageConnectionResponse;
+  disabled: boolean;
+  onSelect: (provider: Provider) => Promise<void>;
+  onConfigure: () => void;
+}) {
+  const ui = useAppTranslation();
+  const view = presentation[provider.provider];
+  const active = !!connection?.active;
+  const configured = !!connection?.credentialConfigured;
+  return (
+    <ProviderCard
+      as="li"
+      aria-label={view.name}
+      logo={<Logo provider={provider.provider} />}
+      name={view.name}
+      description={
+        connection && configured ? (
+          <ModelSummary provider={provider} model={connection.model} />
+        ) : (
+          view.site
+        )
+      }
+      selected={active}
+      actions={
+        <>
+          {active ? (
+            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+          ) : configured ? (
+            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
+          ) : (
+            <StatusBadge tone="neutral">{ui("Chưa kết nối")}</StatusBadge>
+          )}
+          {configured && !active && (
+            <Button
+              size="sm"
+              prominence="secondary"
+              disabled={disabled}
+              onClick={() => void onSelect(provider.provider)}
+            >
+              {ui("Đặt làm mặc định")}
+            </Button>
+          )}
+          {configured ? (
+            <Button size="sm" prominence="tertiary" disabled={disabled} onClick={onConfigure}>
+              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
+            </Button>
+          ) : (
+            <Button size="sm" prominence="secondary" disabled={disabled} onClick={onConfigure}>
+              {ui("Kết nối")}
+            </Button>
+          )}
+        </>
+      }
+    />
+  );
+}
+
+function ModelOption({
+  id,
+  model,
+  aspectRatios,
+}: {
+  id: string;
+  model: ImageKnownModelResponse;
+  aspectRatios: boolean;
+}) {
   const ui = useAppTranslation();
   return (
     <label htmlFor={id} className={option}>
@@ -258,42 +458,56 @@ function ModelOption({ id, model }: { id: string; model: ImageKnownModelResponse
         </span>
       </span>
       <span className="flex flex-wrap justify-end gap-1">
-        <StatusBadge tone="neutral">
+        <StatusBadge tone="neutral" size="sm">
           {formats[model.outputMediaType] ?? model.outputMediaType}
         </StatusBadge>
-        {model.sizes.length > 0 && (
-          <StatusBadge tone="neutral">
+        {model.sizes.length > 0 ? (
+          <StatusBadge tone="neutral" size="sm">
             {model.sizes.map((size) => size.replace("x", "×")).join(" · ")}
           </StatusBadge>
+        ) : (
+          aspectRatios && (
+            <StatusBadge tone="neutral" size="sm">
+              {ASPECT_RATIOS}
+            </StatusBadge>
+          )
         )}
-        {model.edit && <StatusBadge tone="info">{ui("Hỗ trợ sửa ảnh")}</StatusBadge>}
-        {model.deprecated && <StatusBadge tone="warning">{ui("Ngừng hỗ trợ")}</StatusBadge>}
+        {model.edit && (
+          <StatusBadge tone="info" size="sm">
+            {ui("Hỗ trợ sửa ảnh")}
+          </StatusBadge>
+        )}
+        {model.deprecated && (
+          <StatusBadge tone="warning" size="sm">
+            {ui("Ngừng hỗ trợ")}
+          </StatusBadge>
+        )}
       </span>
     </label>
   );
 }
 
-function ConnectionCard({
+function ConnectionSheet({
   provider,
   connection,
   replacements,
   disabled,
+  onClose,
   onChanged,
-  onSelect,
   onDisconnect,
 }: {
   provider: ImageProviderResponse;
   connection?: ImageConnectionResponse;
   replacements: Provider[];
   disabled: boolean;
+  onClose: () => void;
   onChanged: () => Promise<void>;
-  onSelect: (provider: Provider) => Promise<void>;
   onDisconnect: (provider: Provider, replacement: Provider | null) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const problemMessage = useProblemMessage();
   const id = useId();
-  const name = names[provider.provider];
+  const view = presentation[provider.provider];
   const active = !!connection?.active;
   const configured = !!connection?.credentialConfigured;
   const models = provider.knownModels.filter(
@@ -304,7 +518,6 @@ function ConnectionCard({
       ? connection.model
       : OTHER
     : (models[0]?.modelName ?? OTHER);
-  const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"configure" | "disconnect">("configure");
   const [key, setKey] = useState("");
   const [endpoint, setEndpoint] = useState(
@@ -321,17 +534,25 @@ function ConnectionCard({
     model.length > 0 &&
     (!provider.endpointRequired || endpoint.trim().length > 0) &&
     (configured || key.trim().length > 0);
+  const editModel = model ? editModelFor(provider, model) : "";
+  const endpointLabel = {
+    optional: ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)"),
+    cloudflare: ui("Account ID"),
+    azure: ui("Tài nguyên Azure"),
+    base: ui("Base URL"),
+  }[view.endpoint];
+  const endpointHelp = {
+    optional: undefined,
+    cloudflare: ui(
+      "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>",
+    ),
+    azure: ui(
+      "Tên tài nguyên hoặc URL https://<resource>.openai.azure.com; MemoryOS dùng Azure OpenAI v1 API.",
+    ),
+    base: ui("Gateway phải phục vụ POST /images/generations và trả ảnh dạng b64_json."),
+  }[view.endpoint];
   function changeOpen(next: boolean) {
-    if (pending) return;
-    setActionError(undefined);
-    setTested(false);
-    setKey("");
-    setStep("configure");
-    setEndpoint(displayEndpoint(provider.provider, connection?.endpoint ?? ""));
-    setChoice(initialChoice);
-    setCustom(initialChoice === OTHER ? (connection?.model ?? "") : "");
-    setReplacement(replacements[0] ?? OFF);
-    setOpen(next);
+    if (!next && !pending) onClose();
   }
   async function perform(action: () => Promise<void>) {
     setPending(true);
@@ -361,7 +582,7 @@ function ConnectionCard({
       });
       setKey("");
       await onChanged();
-      setOpen(false);
+      onClose();
     });
   const test = () =>
     perform(async () => {
@@ -381,174 +602,137 @@ function ConnectionCard({
     perform(async () => {
       const next = active && replacement !== OFF ? (replacement as Provider) : null;
       await onDisconnect(provider.provider, next);
-      setOpen(false);
+      onClose();
     });
+  const errorNotice = actionError && (
+    <p role="alert" className="text-sm text-status-danger-content">
+      {problemMessage(actionError)}
+    </p>
+  );
   return (
-    <ProviderCard
-      as="section"
-      aria-label={name}
-      logo={<ProviderLogo mark={marks[provider.provider]} />}
-      name={name}
-      description={
-        connection && configured ? (
-          <ModelSummary provider={provider} model={connection.model} />
-        ) : (
-          sites[provider.provider]
-        )
-      }
-      selected={active}
-      actions={
-        <>
-          {active ? (
-            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
-          ) : configured ? (
-            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
-          ) : null}
-          {configured && !active && (
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={disabled || pending}
-              onClick={() => void onSelect(provider.provider)}
-            >
-              {ui("Đặt làm mặc định")}
-            </Button>
-          )}
-          {configured ? (
-            <Button
-              size="sm"
-              prominence="tertiary"
-              disabled={disabled || pending}
-              onClick={() => changeOpen(true)}
-            >
-              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={disabled || pending}
-              onClick={() => changeOpen(true)}
-            >
-              {ui("Kết nối")}
-            </Button>
-          )}
-        </>
-      }
-    >
-      <Dialog.Root open={open} onOpenChange={changeOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-content-primary/20 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(38rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none">
-            {step === "disconnect" ? (
-              <>
-                <Dialog.Title className="text-xl font-semibold">
-                  {ui("Ngắt kết nối {{name}}?", { name })}
-                </Dialog.Title>
-                <Dialog.Description className="mt-2 text-sm text-content-secondary">
-                  {ui("Khóa API sẽ bị xóa khỏi MemoryOS; địa chỉ và mô hình được giữ lại.")}
-                </Dialog.Description>
-                {active && (
-                  <div className="mt-5 space-y-2">
-                    <p className="text-sm">
-                      {ui(
-                        "Nhà cung cấp này đang dùng. Chọn nhà cung cấp thay thế hoặc tắt tạo ảnh.",
-                      )}
-                    </p>
-                    <RadioGroup value={replacement} onValueChange={setReplacement}>
-                      {replacements.map((other) => (
-                        <label key={other} htmlFor={`${id}-${other}`} className={option}>
-                          <RadioGroupItem id={`${id}-${other}`} value={other} />
-                          <ProviderLogo mark={marks[other]} />
-                          <span className="text-sm font-medium">{names[other]}</span>
-                        </label>
-                      ))}
-                      <label htmlFor={`${id}-off`} className={option}>
-                        <RadioGroupItem id={`${id}-off`} value={OFF} />
-                        <span className="text-sm font-medium">{ui("Tắt tạo ảnh")}</span>
-                      </label>
-                    </RadioGroup>
-                  </div>
-                )}
-                {actionError && (
-                  <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                    {problemMessage(actionError)}
+    <Sheet open onOpenChange={changeOpen}>
+      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-xl">
+        <SheetHeader className="flex-row items-center gap-3 border-b border-border-subtle pr-12">
+          <span className="grid size-9 shrink-0 place-items-center [&_img]:size-7">
+            <Logo provider={provider.provider} />
+          </span>
+          <span className="min-w-0">
+            <SheetTitle className="font-heading-h3 text-content-primary">
+              {step === "disconnect"
+                ? ui("Ngắt kết nối {{name}}?", { name: view.name })
+                : view.name}
+            </SheetTitle>
+            <SheetDescription className="break-words">
+              {step === "disconnect"
+                ? ui("Khóa API sẽ bị xóa khỏi MemoryOS; địa chỉ và mô hình được giữ lại.")
+                : view.site}
+            </SheetDescription>
+          </span>
+        </SheetHeader>
+        {step === "disconnect" ? (
+          <>
+            <div className="space-y-4 p-4">
+              {active && (
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    {ui("Nhà cung cấp này đang dùng. Chọn nhà cung cấp thay thế hoặc tắt tạo ảnh.")}
                   </p>
-                )}
-                <div className="mt-6 flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    prominence="secondary"
-                    disabled={pending}
-                    onClick={() => setStep("configure")}
-                  >
-                    {ui("Quay lại")}
-                  </Button>
-                  <Button
-                    type="button"
-                    tone="danger"
-                    pending={pending}
-                    onClick={() => void disconnect()}
-                  >
-                    {ui("Ngắt kết nối")}
-                  </Button>
+                  <RadioGroup value={replacement} onValueChange={setReplacement}>
+                    {replacements.map((other) => (
+                      <label key={other} htmlFor={`${id}-${other}`} className={option}>
+                        <RadioGroupItem id={`${id}-${other}`} value={other} />
+                        <Logo provider={other} />
+                        <span className="text-sm font-medium">{presentation[other].name}</span>
+                      </label>
+                    ))}
+                    <label htmlFor={`${id}-off`} className={option}>
+                      <RadioGroupItem id={`${id}-off`} value={OFF} />
+                      <span className="text-sm font-medium">{ui("Tắt tạo ảnh")}</span>
+                    </label>
+                  </RadioGroup>
                 </div>
-              </>
-            ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void save();
-                }}
+              )}
+              {errorNotice}
+            </div>
+            <SheetFooter className="flex-row justify-end border-t border-border-subtle">
+              <Button
+                type="button"
+                prominence="secondary"
+                disabled={pending}
+                onClick={() => setStep("configure")}
               >
-                <Dialog.Title className="text-xl font-semibold">{name}</Dialog.Title>
-                <Dialog.Description className="mt-2 text-sm text-content-secondary">
-                  {sites[provider.provider]}
-                </Dialog.Description>
-                <fieldset disabled={disabled || pending} className="mt-5 space-y-4">
+                {ui("Quay lại")}
+              </Button>
+              <Button
+                type="button"
+                tone="danger"
+                pending={pending}
+                onClick={() => void disconnect()}
+              >
+                {ui("Ngắt kết nối")}
+              </Button>
+            </SheetFooter>
+          </>
+        ) : (
+          <form
+            className="flex flex-1 flex-col"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+          >
+            <fieldset disabled={disabled || pending} className="space-y-6 p-4">
+              <div className="space-y-4">
+                <h3 className={sectionTitle}>{ui("Thông tin kết nối")}</h3>
+                <div className="space-y-1">
                   <label className="block space-y-1">
-                    <span>
-                      {provider.provider === "CLOUDFLARE_WORKERS_AI"
-                        ? ui("Account ID")
-                        : provider.endpointRequired
-                          ? ui("Địa chỉ tài khoản")
-                          : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
-                    </span>
+                    <span className="text-sm">{endpointLabel}</span>
                     <Input
                       value={endpoint}
                       onChange={(event) => setEndpoint(event.target.value)}
                       required={provider.endpointRequired}
                       maxLength={2048}
-                      placeholder={provider.defaultEndpoint ?? endpointHints[provider.provider]}
+                      placeholder={provider.defaultEndpoint ?? view.endpointHint}
+                      aria-describedby={endpointHelp ? `${id}-endpoint-help` : undefined}
                     />
                   </label>
-                  {provider.provider === "CLOUDFLARE_WORKERS_AI" && (
-                    <p className="-mt-3 text-xs text-content-muted">
-                      {ui(
-                        "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>",
-                      )}
+                  {endpointHelp && (
+                    <p id={`${id}-endpoint-help`} className="text-xs text-content-muted">
+                      {endpointHelp}
                     </p>
                   )}
-                  <label className="block space-y-1">
-                    <span>{ui("Khóa API")}</span>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      value={key}
-                      maxLength={8192}
-                      required={!configured}
-                      onChange={(event) => setKey(event.target.value)}
-                      placeholder={configured ? ui("Đã lưu khóa; để trống để giữ nguyên") : ""}
-                    />
-                  </label>
-                  <div role="group" aria-labelledby={`${id}-models`} className="space-y-2">
-                    <span id={`${id}-models`}>{ui("Mô hình tạo ảnh")}</span>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-sm">{ui("Khóa API")}</span>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={key}
+                    maxLength={8192}
+                    required={!configured}
+                    onChange={(event) => setKey(event.target.value)}
+                    placeholder={configured ? ui("Đã lưu khóa; để trống để giữ nguyên") : ""}
+                  />
+                </label>
+              </div>
+              <div role="group" aria-labelledby={`${id}-models`} className="space-y-2">
+                <h3 id={`${id}-models`} className={sectionTitle}>
+                  {view.deployment ? ui("Deployment tạo ảnh") : ui("Mô hình tạo ảnh")}
+                </h3>
+                {view.deployment && (
+                  <p className="text-xs text-content-muted">
+                    {ui("Chọn mô hình đã deploy với cùng tên, hoặc nhập tên deployment của bạn.")}
+                  </p>
+                )}
+                {models.length > 0 ? (
+                  <>
                     <RadioGroup value={choice} onValueChange={setChoice}>
                       {models.map((known) => (
                         <ModelOption
                           key={known.modelName}
                           id={`${id}-${known.modelName}`}
                           model={known}
+                          aspectRatios={provider.provider === "GOOGLE_GEMINI_IMAGE"}
                         />
                       ))}
                       <label htmlFor={`${id}-other`} className={option}>
@@ -558,7 +742,7 @@ function ConnectionCard({
                     </RadioGroup>
                     {choice === OTHER && (
                       <Input
-                        aria-label={ui("Tên mô hình")}
+                        aria-label={view.deployment ? ui("Tên deployment") : ui("Tên mô hình")}
                         value={custom}
                         onChange={(event) => setCustom(event.target.value)}
                         required
@@ -566,76 +750,88 @@ function ConnectionCard({
                         placeholder={provider.knownModels[0]?.modelName}
                       />
                     )}
-                  </div>
-                  {provider.editModel && (
-                    <p className={notice}>
-                      {ui("Sửa ảnh luôn dùng {{model}} với nhà cung cấp này.", {
-                        model: provider.editModel.displayName,
-                      })}
-                    </p>
-                  )}
-                </fieldset>
-                {tested && (
-                  <p
-                    role="status"
-                    className="mt-4 flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
-                  >
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    {ui("Kiểm tra kết nối thành công")}
-                  </p>
+                  </>
+                ) : (
+                  <Input
+                    aria-label={ui("Tên mô hình")}
+                    value={custom}
+                    onChange={(event) => setCustom(event.target.value)}
+                    required
+                    maxLength={200}
+                    placeholder={COMPATIBLE_MODEL_HINT}
+                  />
                 )}
-                {actionError && (
-                  <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                    {problemMessage(actionError)}
+              </div>
+              {editModel && (
+                <div className="space-y-2">
+                  <h3 className={sectionTitle}>{ui("Khả năng sửa ảnh")}</h3>
+                  <p className={notice}>
+                    {editModel === model
+                      ? ui("Mô hình này cũng dùng để sửa ảnh.")
+                      : ui("Sửa ảnh dùng {{model}} vì mô hình đã chọn không sửa được ảnh.", {
+                          model: displayName(provider, editModel),
+                        })}
                   </p>
-                )}
-                <p className="mt-4 text-xs text-content-muted">
+                </div>
+              )}
+              {tested && (
+                <p
+                  role="status"
+                  className="flex items-center gap-2 rounded-xl border border-status-success-emphasis-border bg-status-success-surface px-4 py-3 text-sm text-status-success-content"
+                >
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  {ui("Kiểm tra kết nối thành công")}
+                </p>
+              )}
+              {errorNotice}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-content-muted">
                   {ui("Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.")}
                 </p>
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-                  {configured ? (
-                    <Button
-                      type="button"
-                      prominence="tertiary"
-                      tone="danger"
-                      disabled={disabled || pending}
-                      onClick={() => {
-                        setActionError(undefined);
-                        setStep("disconnect");
-                      }}
-                    >
-                      <Unplug aria-hidden="true" /> {ui("Ngắt kết nối")}
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button
-                      type="button"
-                      prominence="internal"
-                      disabled={disabled || pending || !testable}
-                      onClick={() => void test()}
-                    >
-                      {ui("Kiểm tra kết nối")}
-                    </Button>
-                    <Button
-                      type="button"
-                      prominence="secondary"
-                      disabled={pending}
-                      onClick={() => changeOpen(false)}
-                    >
-                      {ui("Đóng")}
-                    </Button>
-                    <Button type="submit" pending={pending} disabled={disabled || !model}>
-                      {ui("Lưu")}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            )}
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </ProviderCard>
+                <Button
+                  type="button"
+                  prominence="internal"
+                  disabled={disabled || pending || !testable}
+                  onClick={() => void test()}
+                >
+                  {ui("Kiểm tra kết nối")}
+                </Button>
+              </div>
+            </fieldset>
+            <SheetFooter className="flex-row flex-wrap items-center justify-between border-t border-border-subtle">
+              {configured ? (
+                <Button
+                  type="button"
+                  prominence="tertiary"
+                  tone="danger"
+                  disabled={disabled || pending}
+                  onClick={() => {
+                    setActionError(undefined);
+                    setStep("disconnect");
+                  }}
+                >
+                  <Unplug aria-hidden="true" /> {ui("Ngắt kết nối")}
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  prominence="secondary"
+                  disabled={pending}
+                  onClick={() => changeOpen(false)}
+                >
+                  {ui("Cancel")}
+                </Button>
+                <Button type="submit" pending={pending} disabled={disabled || !model}>
+                  {ui("Lưu")}
+                </Button>
+              </div>
+            </SheetFooter>
+          </form>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }

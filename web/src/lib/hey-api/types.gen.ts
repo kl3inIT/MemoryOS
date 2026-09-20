@@ -648,7 +648,7 @@ export type InterpreterSettingsResponse = {
 };
 
 export type ImageSelectionRequest = {
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
 };
 
 export type ImageConnectionRequest = {
@@ -660,7 +660,7 @@ export type ImageConnectionRequest = {
 };
 
 export type ImageConnectionResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
     endpoint: string;
     model: string;
     credentialConfigured?: boolean;
@@ -1876,7 +1876,7 @@ export type InterpreterHealthResponse = {
 
 export type ImageAvailabilityResponse = {
     available: boolean;
-    provider?: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider?: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
     model?: string;
 };
 
@@ -1890,7 +1890,7 @@ export type ImageKnownModelResponse = {
 };
 
 export type ImageProviderResponse = {
-    provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+    provider: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
     credentialRequired: boolean;
     defaultEndpoint?: string;
     endpointRequired: boolean;
@@ -4749,7 +4749,7 @@ export type SaveChatImageConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}';
@@ -7696,7 +7696,7 @@ export type TestChatImageConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
+        provider: 'OPENAI_IMAGE' | 'AZURE_OPENAI_IMAGE' | 'GOOGLE_GEMINI_IMAGE' | 'CLOUDFLARE_WORKERS_AI' | 'OPENAI_COMPATIBLE_IMAGE';
     };
     query?: never;
     url: '/api/chat/images/connections/{provider}/test';

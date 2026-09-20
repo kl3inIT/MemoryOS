@@ -12,31 +12,81 @@ import org.junit.jupiter.api.Test;
 
 class ImageProviderTest {
     @Test
-    void everyProviderPublishesADistinctNonEmptyCatalog() {
+    void everyVendorPublishesADistinctCatalogAndOnlyTheCompatibleProtocolIsOpen() {
         for (var provider : ImageProvider.values()) {
             var names = provider.knownModels().stream().map(ImageProvider.KnownModel::modelName).toList();
-            assertFalse(names.isEmpty(), provider.name());
+            assertEquals(provider == ImageProvider.OPENAI_COMPATIBLE_IMAGE, names.isEmpty(), provider.name());
             assertEquals(names.size(), names.stream().distinct().count(), provider.name());
+            var fallback = provider.editModel();
+            assertTrue(fallback == null || fallback.edit(), provider.name());
         }
     }
 
     @Test
-    void cloudflareEditsUseTheFixedKleinModelWhileOpenAiEditsUseTheConfiguredModel() {
-        var klein = ImageProvider.CLOUDFLARE_WORKERS_AI.editModel();
+    void editCapableModelsEditThemselvesAndOthersUseTheProviderFallback() {
+        var cloudflare = ImageProvider.CLOUDFLARE_WORKERS_AI;
+        var klein = cloudflare.editModel();
         assertNotNull(klein);
         assertEquals("@cf/black-forest-labs/flux-2-klein-9b", klein.modelName());
         assertEquals(klein.modelName(), ImageProviderClient.CLOUDFLARE_EDIT_MODEL);
-        assertTrue(ImageProvider.CLOUDFLARE_WORKERS_AI.knownModels().stream().noneMatch(ImageProvider.KnownModel::edit));
+        assertEquals(klein.modelName(), cloudflare.editModelFor("@cf/black-forest-labs/flux-1-schnell"));
+        assertEquals(klein.modelName(), cloudflare.editModelFor("@cf/leonardo/phoenix-1.0"));
+        assertEquals(klein.modelName(), cloudflare.editModelFor("@cf/unlisted/model"));
+        assertEquals("@cf/black-forest-labs/flux-2-klein-4b", cloudflare.editModelFor("@cf/black-forest-labs/flux-2-klein-4b"));
+
+        var google = ImageProvider.GOOGLE_GEMINI_IMAGE;
+        assertEquals("gemini-3-pro-image-preview", google.editModelFor("gemini-3-pro-image-preview"));
+        assertEquals("gemini-2.5-flash-image", google.editModelFor("imagen-4.0-generate-001"));
+
         assertNull(ImageProvider.OPENAI_IMAGE.editModel());
         assertTrue(ImageProvider.OPENAI_IMAGE.knownModels().stream().allMatch(ImageProvider.KnownModel::edit));
+        assertEquals("custom-model", ImageProvider.OPENAI_IMAGE.editModelFor("custom-model"));
+        assertEquals("my-deployment", ImageProvider.AZURE_OPENAI_IMAGE.editModelFor("my-deployment"));
+        assertEquals("flux-dev", ImageProvider.OPENAI_COMPATIBLE_IMAGE.editModelFor("flux-dev"));
     }
 
     @Test
-    void onlyCloudflareRequiresAnAccountEndpoint() {
+    void endpointDefaultsAndRequirements() {
         assertTrue(ImageProvider.CLOUDFLARE_WORKERS_AI.endpointRequired());
         assertNull(ImageProvider.CLOUDFLARE_WORKERS_AI.defaultEndpoint());
+        assertTrue(ImageProvider.AZURE_OPENAI_IMAGE.endpointRequired());
+        assertTrue(ImageProvider.OPENAI_COMPATIBLE_IMAGE.endpointRequired());
         assertFalse(ImageProvider.OPENAI_IMAGE.endpointRequired());
         assertEquals("https://api.openai.com/v1", ImageProvider.OPENAI_IMAGE.defaultEndpoint());
+        assertFalse(ImageProvider.GOOGLE_GEMINI_IMAGE.endpointRequired());
+        assertEquals("https://generativelanguage.googleapis.com/v1beta", ImageProvider.GOOGLE_GEMINI_IMAGE.defaultEndpoint());
+    }
+
+    @Test
+    void azureExpandsAResourceNameOrResourceUrlIntoTheV1Base() {
+        var azure = ImageProvider.AZURE_OPENAI_IMAGE;
+        assertEquals("https://contoso-ai.openai.azure.com/openai/v1", azure.normalizeEndpoint("Contoso-AI"));
+        assertEquals("https://contoso-ai.openai.azure.com/openai/v1", azure.normalizeEndpoint("https://contoso-ai.openai.azure.com/"));
+        assertEquals("https://contoso.cognitiveservices.azure.com/openai/v1",
+                azure.normalizeEndpoint("https://contoso.cognitiveservices.azure.com"));
+        assertEquals("https://gateway.example/openai/v1", azure.normalizeEndpoint("https://gateway.example/openai/v1"));
+        assertEquals("contoso", ImageProvider.OPENAI_COMPATIBLE_IMAGE.normalizeEndpoint("contoso"));
+    }
+
+    @Test
+    void modelNamesMustBePathSafe() {
+        assertTrue(ImageProvider.validModelName("@cf/black-forest-labs/flux-2-dev"));
+        assertTrue(ImageProvider.validModelName("imagen-4.0-generate-001"));
+        assertTrue(ImageProvider.validModelName("black-forest-labs/FLUX.1-schnell:free"));
+        assertFalse(ImageProvider.validModelName("@cf/../../tokens"));
+        assertFalse(ImageProvider.validModelName("model name"));
+        assertFalse(ImageProvider.validModelName("model?x=1"));
+        assertFalse(ImageProvider.validModelName(""));
+        assertFalse(ImageProvider.validModelName(null));
+    }
+
+    @Test
+    void googleShapesBecomeAspectRatios() {
+        assertEquals("1:1", ImageProvider.aspectRatioFor("square"));
+        assertEquals("16:9", ImageProvider.aspectRatioFor("landscape"));
+        assertEquals("9:16", ImageProvider.aspectRatioFor("Portrait"));
+        assertNull(ImageProvider.aspectRatioFor("wide"));
+        assertNull(ImageProvider.aspectRatioFor(null));
     }
 
     @Test

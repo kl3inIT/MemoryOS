@@ -67,6 +67,7 @@ public class ImageConnectionService {
         if (input == null || input.endpoint() == null || input.model() == null || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
         if (input.model().isBlank()) throw ChatException.invalid("An image model is required.");
+        if (!ImageProvider.validModelName(input.model())) throw ChatException.invalid("Invalid image model name.");
         var endpoint = provider.normalizeEndpoint(input.endpoint());
         if (provider.endpointRequired() && endpoint.isBlank())
             throw ChatException.invalid("This image provider requires an endpoint.");
@@ -108,6 +109,7 @@ public class ImageConnectionService {
         }
         if (input.endpoint() == null || input.model() == null || input.model().isBlank() || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
+        if (!ImageProvider.validModelName(input.model())) throw ChatException.invalid("Invalid image model name.");
         var endpoint = provider.normalizeEndpoint(input.endpoint());
         if (provider.endpointRequired() && endpoint.isBlank())
             throw ChatException.invalid("This image provider requires an endpoint.");

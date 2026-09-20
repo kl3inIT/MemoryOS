@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
@@ -123,7 +123,7 @@ it("shows disconnected providers with a connect action and no in-use provider", 
   ).toBeInTheDocument();
   const cards = screen.getAllByRole("button", { name: "Kết nối" });
   expect(cards).toHaveLength(2);
-  expect(screen.getByText("OpenAI Images")).toBeInTheDocument();
+  expect(screen.getByText("OpenAI")).toBeInTheDocument();
   expect(screen.getByText("Cloudflare Workers AI")).toBeInTheDocument();
 });
 
@@ -290,6 +290,128 @@ it("disconnects the active provider after choosing a replacement", async () => {
     expect.objectContaining({
       path: { provider: "OPENAI_IMAGE" },
       body: expect.objectContaining({ credentialAction: "REMOVE" }),
+    }),
+  );
+});
+
+const gemini: ImageProviderResponse = {
+  provider: "GOOGLE_GEMINI_IMAGE",
+  credentialRequired: true,
+  defaultEndpoint: "https://generativelanguage.googleapis.com/v1beta",
+  endpointRequired: false,
+  editModel: {
+    modelName: "gemini-2.5-flash-image",
+    displayName: "Gemini 2.5 Flash Image",
+    outputMediaType: "image/png",
+    sizes: [],
+    edit: true,
+    deprecated: false,
+  },
+  knownModels: [
+    {
+      modelName: "gemini-2.5-flash-image",
+      displayName: "Gemini 2.5 Flash Image",
+      outputMediaType: "image/png",
+      sizes: [],
+      edit: true,
+      deprecated: false,
+    },
+    {
+      modelName: "imagen-4.0-generate-001",
+      displayName: "Imagen 4",
+      outputMediaType: "image/png",
+      sizes: [],
+      edit: false,
+      deprecated: false,
+    },
+  ],
+};
+const azure: ImageProviderResponse = {
+  provider: "AZURE_OPENAI_IMAGE",
+  credentialRequired: true,
+  endpointRequired: true,
+  knownModels: [openai.knownModels[0]],
+};
+const compatible: ImageProviderResponse = {
+  provider: "OPENAI_COMPATIBLE_IMAGE",
+  credentialRequired: true,
+  endpointRequired: true,
+  knownModels: [],
+};
+const everyProvider = [openai, gemini, azure, cloudflare, compatible];
+
+it("groups providers into vendors, cloud platforms and custom gateways", async () => {
+  show(everyProvider, [connection()]);
+  expect(await screen.findByText("Nhà cung cấp mô hình")).toBeInTheDocument();
+  expect(screen.getByText("Nền tảng đám mây")).toBeInTheDocument();
+  expect(screen.getByText("Tùy chỉnh")).toBeInTheDocument();
+  expect(screen.getByText("1/5 đã kết nối")).toBeInTheDocument();
+  expect(screen.getAllByText("Chưa kết nối")).toHaveLength(4);
+  expect(screen.getByText("Tạo ảnh đang tắt")).toBeInTheDocument();
+});
+
+it("explains that an Imagen connection edits with the Gemini fallback", async () => {
+  show(everyProvider, [
+    connection({
+      provider: "GOOGLE_GEMINI_IMAGE",
+      endpoint: "",
+      model: "imagen-4.0-generate-001",
+      active: true,
+    }),
+  ]);
+  const summaries = await screen.findAllByText("Tạo: Imagen 4 · Sửa: Gemini 2.5 Flash Image");
+  expect(summaries.length).toBeGreaterThanOrEqual(1);
+  await userEvent.click(screen.getByRole("button", { name: "Cấu hình" }));
+  expect(await screen.findAllByText("1:1 · 16:9 · 9:16")).toHaveLength(2);
+  expect(
+    screen.getByText("Sửa ảnh dùng Gemini 2.5 Flash Image vì mô hình đã chọn không sửa được ảnh."),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("radio", { name: /Gemini 2.5 Flash Image/ }));
+  expect(screen.getByText("Mô hình này cũng dùng để sửa ảnh.")).toBeInTheDocument();
+});
+
+it("asks Azure for its resource and a deployment name", async () => {
+  saveChatImageConnection.mockResolvedValue({ data: {} });
+  show(everyProvider, []);
+  await userEvent.click(
+    within(await screen.findByRole("listitem", { name: "Azure OpenAI" })).getByRole("button", {
+      name: "Kết nối",
+    }),
+  );
+  await userEvent.type(await screen.findByLabelText("Tài nguyên Azure"), "contoso");
+  await userEvent.type(screen.getByLabelText("Khóa API"), "azure-key");
+  await userEvent.click(screen.getByRole("radio", { name: "Mô hình khác…" }));
+  await userEvent.type(screen.getByLabelText("Tên deployment"), "images-prod");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  expect(saveChatImageConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: { provider: "AZURE_OPENAI_IMAGE" },
+      body: expect.objectContaining({
+        endpoint: "contoso",
+        model: "images-prod",
+        credentialAction: "REPLACE",
+      }),
+    }),
+  );
+});
+
+it("lets an OpenAI-compatible gateway be saved with a typed model", async () => {
+  saveChatImageConnection.mockResolvedValue({ data: {} });
+  show(everyProvider, []);
+  await userEvent.click(
+    within(await screen.findByRole("listitem", { name: "OpenAI-compatible" })).getByRole("button", {
+      name: "Kết nối",
+    }),
+  );
+  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  await userEvent.type(await screen.findByLabelText("Base URL"), "https://api.x.ai/v1");
+  await userEvent.type(screen.getByLabelText("Khóa API"), "xai-key");
+  await userEvent.type(screen.getByLabelText("Tên mô hình"), "grok-image");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  expect(saveChatImageConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: { provider: "OPENAI_COMPATIBLE_IMAGE" },
+      body: expect.objectContaining({ endpoint: "https://api.x.ai/v1", model: "grok-image" }),
     }),
   );
 });

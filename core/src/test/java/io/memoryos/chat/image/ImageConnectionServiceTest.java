@@ -68,6 +68,36 @@ class ImageConnectionServiceTest {
     }
 
     @Test
+    void saveAndProbeRejectModelNamesThatAreNotPathSafe() {
+        when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        var input = new ImageConnectionService.Input("b73a9841898f88f7cc2b731d7776f265", "@cf/../../tokens",
+                new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0);
+        var rejected = assertThrows(ChatException.class,
+                () -> service.save(actor, ImageProvider.CLOUDFLARE_WORKERS_AI, input));
+        assertEquals(FailureCategory.VALIDATION, rejected.category());
+        verifyNoInteractions(connections);
+        var probe = assertThrows(ChatException.class, () -> service.forTest(actor, ImageProvider.GOOGLE_GEMINI_IMAGE,
+                new ImageConnectionService.ProbeInput("", "gemini image", "key")));
+        assertEquals(FailureCategory.VALIDATION, probe.category());
+    }
+
+    @Test
+    void saveExpandsAnAzureResourceNameIntoItsV1Endpoint() {
+        when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
+                .thenReturn(new IamAccess(tenant, Authority.GLOBAL));
+        when(connections.findByTenantIdAndProvider(tenant.value(), ImageProvider.AZURE_OPENAI_IMAGE))
+                .thenReturn(Optional.empty());
+        when(connections.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
+        var input = new ImageConnectionService.Input("contoso", "gpt-image-1",
+                new ProviderCredentials.Change(ProviderCredentials.Action.KEEP, null), 0);
+        assertEquals("https://contoso.openai.azure.com/openai/v1",
+                service.save(actor, ImageProvider.AZURE_OPENAI_IMAGE, input).endpoint());
+    }
+
+    @Test
     void saveExpandsACloudflareAccountIdIntoItsAccountEndpoint() {
         when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE))
                 .thenReturn(new IamAccess(tenant, Authority.GLOBAL));

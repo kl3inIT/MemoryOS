@@ -357,14 +357,30 @@ export const vietnameseUi: Record<string, string> = {
     "Image editing uses the same provider, so turning image generation off also turns off editing.",
   "Tạo: {{generate}} · Sửa: {{edit}}": "Generate: {{generate}} · Edit: {{edit}}",
   "Tạo và sửa: {{model}}": "Generate and edit: {{model}}",
-  "Địa chỉ tài khoản": "Account endpoint",
   "Mô hình tạo ảnh": "Generation model",
   "Mô hình khác…": "Other model…",
   "Tên mô hình": "Model name",
   "Hỗ trợ sửa ảnh": "Supports editing",
   "Ngừng hỗ trợ": "Deprecated",
-  "Sửa ảnh luôn dùng {{model}} với nhà cung cấp này.":
-    "Image edits always use {{model}} with this provider.",
+  "Nhà cung cấp mô hình": "Model vendors",
+  "Nền tảng đám mây": "Cloud platforms",
+  "Tùy chỉnh": "Custom",
+  "Tạo ảnh đang tắt": "Image generation is off",
+  "{{connected}}/{{total}} đã kết nối": "{{connected}}/{{total}} connected",
+  "Tài nguyên Azure": "Azure resource",
+  "Tên tài nguyên hoặc URL https://<resource>.openai.azure.com; MemoryOS dùng Azure OpenAI v1 API.":
+    "A resource name or an https://<resource>.openai.azure.com URL; MemoryOS calls the Azure OpenAI v1 API.",
+  "Gateway phải phục vụ POST /images/generations và trả ảnh dạng b64_json.":
+    "The gateway must serve POST /images/generations and return images as b64_json.",
+  "Thông tin kết nối": "Connection details",
+  "Deployment tạo ảnh": "Image deployment",
+  "Chọn mô hình đã deploy với cùng tên, hoặc nhập tên deployment của bạn.":
+    "Pick a model deployed under the same name, or enter your deployment name.",
+  "Tên deployment": "Deployment name",
+  "Khả năng sửa ảnh": "Image editing",
+  "Mô hình này cũng dùng để sửa ảnh.": "This model also edits images.",
+  "Sửa ảnh dùng {{model}} vì mô hình đã chọn không sửa được ảnh.":
+    "Edits use {{model}} because the selected model cannot edit images.",
   "Kiểm tra kết nối tạo một ảnh thật và có thể tính phí nhà cung cấp.":
     "The connection test generates a real image and may incur provider charges.",
   "Chuỗi 32 ký tự trong URL dashboard Cloudflare: dash.cloudflare.com/<ACCOUNT_ID>":
@@ -2813,6 +2829,7 @@ Object.assign(englishUi, {
 
 const unchanged = [
   "Account ID",
+  "Base URL",
   "Google Sheets",
   "Google Docs",
   "Google Slides",
