@@ -1,6 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.memoryos.chat.preferences.ChatPreferences;
+import io.memoryos.chat.preferences.ReasoningEffort;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -11,9 +12,12 @@ public record ChatPreferencesRequest(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 200) String workRole,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 2000) String personalPreferences,
         @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) @Nullable UUID defaultModelId,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true, minimum = "0", maximum = "2")
+        @Nullable Double temperatureDefault,
+        @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) @Nullable ReasoningEffort reasoningEffortDefault,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean autoScroll
 ) {
     public ChatPreferences toInput() {
-        return new ChatPreferences(workRole, personalPreferences, defaultModelId, autoScroll);
+        return new ChatPreferences(workRole, personalPreferences, defaultModelId, temperatureDefault, reasoningEffortDefault, autoScroll);
     }
 }

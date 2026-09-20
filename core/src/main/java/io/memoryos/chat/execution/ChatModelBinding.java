@@ -2,6 +2,7 @@ package io.memoryos.chat.execution;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -15,20 +16,35 @@ import org.jspecify.annotations.Nullable;
  */
 public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
                                ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
-                               UnaryOperator<Prompt> requiredTools) {
+                               UnaryOperator<Prompt> requiredTools,
+                               BiFunction<SpringAiLlmService, io.memoryos.chat.ChatSampling, SpringAiLlmService> sampling) {
     public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
                             ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
         this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, UnaryOperator.identity());
     }
+    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
+                            UnaryOperator<Prompt> requiredTools) {
+        this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, requiredTools,
+                (llmService, ignored) -> llmService);
+    }
+    /**
+     * This turn's output bound, creativity and reasoning level. The sampling values wrap the options converter, which
+     * runs per inference and can still tell a helper call from an answer, so the cached client and its lease are
+     * untouched and helper calls keep their own low effort.
+     */
     public ChatModelBinding forOptions(io.memoryos.chat.ChatTurnOptions options) {
-        return new ChatModelBinding(service, finalRequest, policy, contextWindow,
+        return new ChatModelBinding(
+                options.sampling().isEmpty() ? service : sampling.apply(service, options.sampling()),
+                finalRequest, policy, contextWindow,
                 options.outputTokenLimit() == null ? maxOutputTokens : Integer.valueOf(outputAtMost(options.outputTokenLimit())),
-                toolCalling, vision, requiredTools);
+                toolCalling, vision, requiredTools, sampling);
     }
     public ChatModelBinding {
         Objects.requireNonNull(service);
         Objects.requireNonNull(finalRequest);
         Objects.requireNonNull(requiredTools);
+        Objects.requireNonNull(sampling);
         Objects.requireNonNull(policy);
         if (maxOutputTokens != null && (maxOutputTokens < 1 || contextWindow <= maxOutputTokens))
             throw new IllegalArgumentException("Invalid model limits");

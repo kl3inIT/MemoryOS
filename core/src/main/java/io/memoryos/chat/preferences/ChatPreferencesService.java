@@ -41,6 +41,9 @@ public class ChatPreferencesService {
             throw ChatException.invalid("Work role must be at most 200 characters.");
         if (value.personalPreferences().length() > ChatPreferences.MAX_PERSONAL_PREFERENCES)
             throw ChatException.invalid("Personal preferences must be at most 2000 characters.");
+        Double temperature = value.temperatureDefault();
+        if (temperature != null && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2))
+            throw ChatException.invalid("Creativity must be between 0 and 2.");
         if (value.defaultModelId() != null && catalog.availableModels(actor, null).stream()
                 .noneMatch(model -> model.id().equals(value.defaultModelId())))
             throw ChatException.invalid("Choose a model you can use.");

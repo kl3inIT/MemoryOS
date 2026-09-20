@@ -79,6 +79,20 @@ public class ChatTurnPersistence {
                 profile.email(), own.workRole(), own.personalPreferences());
     }
 
+    /**
+     * The creativity and reasoning level for one turn, in Onyx's order: the level pinned on this conversation, then
+     * the model configuration (which the adapter keeps when nothing outranks it), then the member's own defaults.
+     */
+    private io.memoryos.chat.ChatSampling sampling(TenantId tenant, ActorId actor, JdbcChatRepository.Persona settings) {
+        var own = preferences == null ? io.memoryos.chat.preferences.ChatPreferences.DEFAULT
+                : preferences.find(tenant.value(), actor.value())
+                        .orElse(io.memoryos.chat.preferences.ChatPreferences.DEFAULT);
+        var pinned = settings.reasoningEffort();
+        var effort = pinned != null ? pinned : own.reasoningEffortDefault();
+        if (own.temperatureDefault() == null && effort == null) return io.memoryos.chat.ChatSampling.NONE;
+        return new io.memoryos.chat.ChatSampling(own.temperatureDefault(), effort, pinned != null);
+    }
+
     /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
     @Transactional(readOnly = true)
     public JdbcChatRepository.Persona agent(ActorId actor, UUID session) {
@@ -273,7 +287,8 @@ public class ChatTurnPersistence {
                 .map(ChatMessage::id).toList()).forEach((message, images) ->
                 generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
-                settings.options(), plaintext, workspaceFiles, languages.read(actor), generated);
+                settings.options().withSampling(sampling(tenant, actor, settings)), plaintext, workspaceFiles,
+                languages.read(actor), generated);
     }
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
