@@ -380,3 +380,17 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | --- | --- |
 | A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `api/src/test/java/io/memoryos/api/chat/ChatSamplingTest.java` |
 | Pinning and clearing a conversation's level, rejection of an unknown level, another member's conversation, and the member's own starting values with their range | `ChatSessionApiIntegrationTest.reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember` |
+
+## File library (MEM-142)
+
+| Contract | Test and boundary |
+| --- | --- |
+| The union lists the three sources for their owner only, with the derived category, the window totals, the conversation of an artifact and none for an upload, the name and prompt search matched literally, the source and category filters, the four sorts and offset paging | `ChatPersistenceIntegrationTest.theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted` |
+| A deleted artifact leaves the library, the serving and edit-source lookups and the pptx preview at once, stays in history as a tombstone, and a soft-deleted conversation withdraws its artifacts while the owner's upload remains | the same test |
+| A page past the end of the filter still reports the filter's totals, deleting twice succeeds including after the sweep removed the row, and another member still cannot delete the artifact | the same test |
+| Deleting an artifact releases its bytes, its V73 preview and its object metadata; a storage failure keeps the claim retryable and loses no row; a conversion finishing after the deletion is discarded, not left adopted; one sweep claims both tables and only deleted rows | `ChatArtifactCleanupIntegrationTest` |
+| The endpoint is owner-private and Tenant-scoped, rejects an unknown sort, names the Project holding an upload in `409 CHAT_FILE_IN_USE`, and the artifact delete routes require CSRF and owner authority | `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
+| A selection made on one page is dropped when the page changes, so a bulk delete cannot silently delete nothing | `chat-library-page.test.tsx` |
+| The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/chat/chat-library-page.test.tsx` |
+| A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
+| V89 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |
