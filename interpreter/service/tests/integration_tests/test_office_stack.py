@@ -38,7 +38,8 @@ modules = ['statsmodels', 'pyarrow', 'xlrd', 'xlsxwriter', 'chardet', 'charset_n
            'tabulate', 'jinja2', 'markdown', 'bs4', 'markitdown', 'pdf2image', 'sympy']
 for name in modules:
     importlib.import_module(name)
-tools = ['pdftoppm', 'pdftotext', 'qpdf', 'sqlite3', 'unzip', 'zip', 'soffice', 'recalc-xlsx', 'check-docx']
+tools = ['pdftoppm', 'pdftotext', 'qpdf', 'sqlite3', 'unzip', 'zip', 'soffice',
+         'recalc-xlsx', 'check-docx']
 print(json.dumps({'missing_tools': [t for t in tools if shutil.which(t) is None]}))
 """.strip()
 

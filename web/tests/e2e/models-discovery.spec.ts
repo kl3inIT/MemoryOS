@@ -175,7 +175,10 @@ for (const [label, width, scheme] of [
     await page.keyboard.press("Escape");
 
     // A new provider: the endpoint and the typed key list models before anything is saved.
-    await page.getByRole("button", { name: /^Kết nối 9Router/ }).first().click();
+    await page
+      .getByRole("button", { name: /^Kết nối 9Router/ })
+      .first()
+      .click();
     const creation = page.getByRole("dialog");
     const list = creation.getByRole("button", { name: "Lấy danh sách model" });
     await expect(list).toBeDisabled();
@@ -185,7 +188,10 @@ for (const [label, width, scheme] of [
     await expect(creation.getByText("gpt-5.6-luna", { exact: true })).toBeVisible();
     // A model nobody publishes specs for is selectable, with its window marked as a default.
     await expect(
-      creation.getByRole("row", { name: /tasco-internal-7b/ }).getByText("Mặc định").first(),
+      creation
+        .getByRole("row", { name: /tasco-internal-7b/ })
+        .getByText("Mặc định")
+        .first(),
     ).toBeVisible();
     await creation
       .getByRole("row", { name: /tasco-internal-7b/ })
