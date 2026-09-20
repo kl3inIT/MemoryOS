@@ -1,140 +1,95 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, LayoutPanelTop, Sparkles } from "lucide-react";
+import { ArrowDownToLine, Sparkles } from "lucide-react";
+import {
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorRoot,
+  ModelSelectorSearch,
+  ModelSelectorTrigger,
+} from "@/components/assistant-ui/elements/model-selector";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useChatModels } from "@/features/chat/chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { appText } from "@/i18n/app-text";
-import { listAvailableChatModelsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useChatPreferences, useSaveChatPreferences } from "./chat-preferences";
 
 const PREFERENCES_LIMIT = 2000;
+/** Stands for "no personal default"; the Tenant default then applies. */
+const INHERITED = "inherited";
 
-/** Onyx Chat Preferences: default model, default app mode, personal preferences and auto-scroll. */
+/** Onyx Chat Preferences: default model, personal preferences and auto-scroll. */
 export function ChatPreferencesSections() {
   const ui = useAppTranslation();
   const preferences = useChatPreferences();
   const save = useSaveChatPreferences();
-  const models = useQuery({ ...listAvailableChatModelsOptions(), retry: false });
+  // The picker the composer uses, with the same provider groups and vendor marks.
+  const { catalog, groups } = useChatModels();
   // A draft only while typing; otherwise the saved value shows.
   const [typed, setTyped] = useState<string>();
   const data = preferences.data;
   const draft = typed ?? data?.personalPreferences ?? "";
   const disabled = !preferences.isSuccess || save.isPending;
-  // Grouped by provider, as the Chat picker lists them.
-  const byProvider = Map.groupBy(models.data ?? [], (model) => model.providerName);
+  const inherited = {
+    id: INHERITED,
+    name: ui("Organization default"),
+    description: ui("The model your administrator chose."),
+  };
+  const options = [inherited, ...groups.flatMap((group) => group.models)];
 
   return (
     <>
       <section aria-labelledby="chat-defaults-heading" className="flex max-w-2xl flex-col gap-3">
         <h2 id="chat-defaults-heading" className="font-heading-h3 text-content-primary">
-          {ui("New conversations")}
+          {ui("Chats")}
         </h2>
         <SettingRows>
           <SettingRow
-            htmlFor="default-model"
             descriptionId="default-model-description"
             icon={<Sparkles />}
             title={ui("Default Model")}
-            description={ui(
-              "Preselected whenever you start a new chat. An assistant with its own model keeps it.",
-            )}
+            description={ui("This model will be used by default in your chats.")}
             className="flex-col items-stretch sm:flex-row sm:items-center"
             control={
-              <Select
-                id="default-model"
-                aria-describedby="default-model-description"
-                className="sm:w-64"
-                value={data?.defaultModelId ?? ""}
-                disabled={disabled || !models.isSuccess}
-                onChange={(event) =>
-                  save.mutate({ defaultModelId: event.target.value || undefined })
+              <ModelSelectorRoot
+                models={options}
+                value={data?.defaultModelId ?? INHERITED}
+                onValueChange={(value) =>
+                  save.mutate({ defaultModelId: value === INHERITED ? undefined : value })
                 }
               >
-                <option value="">{ui("Organization default")}</option>
-                {[...byProvider].map(([provider, entries]) => (
-                  <optgroup key={provider} label={provider}>
-                    {entries.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.displayName}
-                      </option>
+                <ModelSelectorTrigger
+                  aria-label={ui("Default Model")}
+                  aria-describedby="default-model-description"
+                  disabled={disabled || !catalog.isSuccess}
+                  className="h-9 rounded-lg border-border-subtle bg-surface-raised sm:w-64"
+                />
+                <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
+                  <ModelSelectorSearch
+                    aria-label={ui("Search models")}
+                    placeholder={ui("Search models…")}
+                  />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>{ui("No models found")}</ModelSelectorEmpty>
+                    <ModelSelectorGroup>
+                      <ModelSelectorItem model={inherited} />
+                    </ModelSelectorGroup>
+                    {groups.map((group) => (
+                      <ModelSelectorGroup key={group.provider} heading={group.provider}>
+                        {group.models.map((model) => (
+                          <ModelSelectorItem key={model.id} model={model} />
+                        ))}
+                      </ModelSelectorGroup>
                     ))}
-                  </optgroup>
-                ))}
-              </Select>
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelectorRoot>
             }
           />
-          <SettingRow
-            htmlFor="start-page"
-            descriptionId="start-page-description"
-            icon={<LayoutPanelTop />}
-            title={ui("Default App Mode")}
-            description={ui("Choose whether new sessions start in Search or Chat mode.")}
-            className="flex-col items-stretch sm:flex-row sm:items-center"
-            control={
-              <Select
-                id="start-page"
-                aria-describedby="start-page-description"
-                className="sm:w-64"
-                value={data?.startPage ?? "CHAT"}
-                disabled={disabled}
-                onChange={(event) =>
-                  save.mutate({ startPage: event.target.value === "SEARCH" ? "SEARCH" : "CHAT" })
-                }
-              >
-                <option value="CHAT">{ui("Chat")}</option>
-                <option value="SEARCH">{ui("Search")}</option>
-              </Select>
-            }
-          />
-        </SettingRows>
-      </section>
-
-      <section
-        aria-labelledby="personal-preferences-heading"
-        className="flex max-w-2xl flex-col gap-3"
-      >
-        <div>
-          <h2 id="personal-preferences-heading" className="font-heading-h3 text-content-primary">
-            <label htmlFor="personal-preferences">{ui("Personal Preferences")}</label>
-          </h2>
-          <p id="personal-preferences-description" className="text-content-muted">
-            {ui("Describe how you want the system to behave and the tone it should use.")}
-          </p>
-        </div>
-        <Textarea
-          id="personal-preferences"
-          aria-describedby="personal-preferences-description"
-          rows={4}
-          maxLength={PREFERENCES_LIMIT}
-          value={draft}
-          disabled={disabled}
-          placeholder={ui(
-            "For example: answer briefly in bullet points and always name the source document.",
-          )}
-          onChange={(event) => setTyped(event.target.value)}
-          onBlur={() => {
-            if (typed === undefined || !preferences.isSuccess) return;
-            if (typed.trim() === data?.personalPreferences) setTyped(undefined);
-            else
-              save.mutate(
-                { personalPreferences: typed.trim() },
-                { onSettled: () => setTyped(undefined) },
-              );
-          }}
-        />
-        <p className="text-right font-secondary-body tabular-nums text-content-muted">
-          {ui(appText("{{count}}/{{limit}}", { count: draft.length, limit: PREFERENCES_LIMIT }))}
-        </p>
-      </section>
-
-      <section aria-labelledby="while-chatting-heading" className="flex max-w-2xl flex-col gap-3">
-        <h2 id="while-chatting-heading" className="font-heading-h3 text-content-primary">
-          {ui("While chatting")}
-        </h2>
-        <SettingRows>
           <SettingRow
             htmlFor="auto-scroll"
             descriptionId="auto-scroll-description"
@@ -152,6 +107,42 @@ export function ChatPreferencesSections() {
             }
           />
         </SettingRows>
+      </section>
+
+      <section
+        aria-labelledby="personal-preferences-heading"
+        className="flex max-w-2xl flex-col gap-3"
+      >
+        <div>
+          <h2 id="personal-preferences-heading" className="font-heading-h3 text-content-primary">
+            <label htmlFor="personal-preferences">{ui("Personal Preferences")}</label>
+          </h2>
+          <p id="personal-preferences-description" className="text-content-muted">
+            {ui("Provide your custom preferences in natural language.")}
+          </p>
+        </div>
+        <Textarea
+          id="personal-preferences"
+          aria-describedby="personal-preferences-description"
+          rows={4}
+          maxLength={PREFERENCES_LIMIT}
+          value={draft}
+          disabled={disabled}
+          placeholder={ui("Describe how you want the system to behave and the tone it should use.")}
+          onChange={(event) => setTyped(event.target.value)}
+          onBlur={() => {
+            if (typed === undefined || !preferences.isSuccess) return;
+            if (typed.trim() === data?.personalPreferences) setTyped(undefined);
+            else
+              save.mutate(
+                { personalPreferences: typed.trim() },
+                { onSettled: () => setTyped(undefined) },
+              );
+          }}
+        />
+        <p className="text-right font-secondary-body tabular-nums text-content-muted">
+          {ui(appText("{{count}}/{{limit}}", { count: draft.length, limit: PREFERENCES_LIMIT }))}
+        </p>
       </section>
       <p aria-live="polite" className="font-secondary-body text-content-muted">
         {save.isPending ? ui("Saving…") : save.isError ? ui("Couldn't save. Try again.") : ""}

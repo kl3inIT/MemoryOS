@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ArrowRight,
+  Bot,
   ChevronDown,
   Globe,
   Lock,
@@ -187,6 +188,7 @@ export function AgentsPage() {
     <AppShell pageTitle={ui("Trợ lý")}>
       <SettingsLayout wide className="gap-6 md:pt-8">
         <PageHeader
+          icon={<Bot />}
           title={ui("Trợ lý")}
           description={ui(
             "Trợ lý theo chủ đề cho từng phòng ban, với hướng dẫn, nguồn tài liệu và công cụ riêng.",

@@ -225,7 +225,7 @@ export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey ex
                     onChange(next);
                   }}
                 />
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-subtle text-content-muted">
+                <span className="grid size-8 shrink-0 place-items-center text-content-muted">
                   <Users className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">

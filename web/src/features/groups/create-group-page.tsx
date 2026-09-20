@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/settings-layout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { sameOriginMutationHeaders } from "@/lib/api";
@@ -63,48 +64,44 @@ export function CreateGroupPage() {
         {ui("Groups")}
       </Link>
 
-      <header className="mt-6 flex flex-col gap-4 border-b border-border-subtle pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-            <Users className="size-5" aria-hidden="true" />
-          </span>
-          <div>
-            <h1 className="font-heading-h2 text-content-primary">{ui("Create group")}</h1>
-            <p className="mt-1 font-main-ui-body text-content-muted">
-              {ui("Start with a unique group name.")}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {dirty ? (
-            <ConfirmDialog
-              trigger={
-                <Button prominence="secondary" disabled={createGroup.isPending}>
-                  {ui("Cancel")}
+      <div className="mt-6">
+        <PageHeader
+          icon={<Users />}
+          title={ui("Create group")}
+          description={ui("Start with a unique group name.")}
+          actions={
+            <>
+              {dirty ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button prominence="secondary" disabled={createGroup.isPending}>
+                      {ui("Cancel")}
+                    </Button>
+                  }
+                  title={ui("Discard this group?")}
+                  description={ui("The unsaved group name will be lost.")}
+                  confirmLabel={ui("Discard")}
+                  pendingLabel={ui("Discarding…")}
+                  onConfirm={cancel}
+                />
+              ) : (
+                <Button asChild prominence="secondary" disabled={createGroup.isPending}>
+                  <Link to="/admin/groups" search={{ page: 0, size: 20 }}>
+                    {ui("Cancel")}
+                  </Link>
                 </Button>
-              }
-              title={ui("Discard this group?")}
-              description={ui("The unsaved group name will be lost.")}
-              confirmLabel={ui("Discard")}
-              pendingLabel={ui("Discarding…")}
-              onConfirm={cancel}
-            />
-          ) : (
-            <Button asChild prominence="secondary" disabled={createGroup.isPending}>
-              <Link to="/admin/groups" search={{ page: 0, size: 20 }}>
-                {ui("Cancel")}
-              </Link>
-            </Button>
-          )}
-          <Button
-            pending={createGroup.isPending}
-            disabled={!name.trim()}
-            onClick={() => void submit()}
-          >
-            {createGroup.isPending ? ui("Creating…") : ui("Create group")}
-          </Button>
-        </div>
-      </header>
+              )}
+              <Button
+                pending={createGroup.isPending}
+                disabled={!name.trim()}
+                onClick={() => void submit()}
+              >
+                {createGroup.isPending ? ui("Creating…") : ui("Create group")}
+              </Button>
+            </>
+          }
+        />
+      </div>
 
       <form
         className="mt-6 rounded-xl border border-border-subtle bg-surface-raised p-5 sm:p-6"

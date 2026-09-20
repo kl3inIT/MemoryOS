@@ -1903,14 +1903,13 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var defaults = Json.mapper().readTree(mockMvc.perform(get("/api/chat/preferences").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals("CHAT", defaults.path("startPage").asText());
         assertTrue(defaults.path("autoScroll").asBoolean());
         assertTrue(defaults.path("defaultModelId").isNull());
         var provider = createProvider("http://preferences.internal/v1", true);
         String mine = createConfiguredModel(provider, "preferred-mini", 0.3).path("id").asText();
         var body = Json.mapper().createObjectNode().put("workRole", "Kế toán trưởng")
                 .put("personalPreferences", "Trả lời ngắn gọn.").put("defaultModelId", UUID.randomUUID().toString())
-                .put("startPage", "SEARCH").put("autoScroll", false);
+                .put("autoScroll", false);
         // A model the member cannot pick is refused; an over-long role is refused.
         mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isBadRequest());
@@ -1920,7 +1919,7 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/preferences").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content(body.put("defaultModelId", mine).toString()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.defaultModelId").value(mine))
-                .andExpect(jsonPath("$.startPage").value("SEARCH")).andExpect(jsonPath("$.autoScroll").value(false));
+                .andExpect(jsonPath("$.autoScroll").value(false));
         // The personal default is what a new conversation inherits.
         var models = Json.mapper().readTree(mockMvc.perform(get("/api/chat/models").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());

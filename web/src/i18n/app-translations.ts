@@ -2959,6 +2959,20 @@ Object.assign(englishUi, {
   "Monitor workspace spend and review usage by user. Costs are calculated from recorded model usage.":
     "Theo dõi chi phí của workspace và xem mức dùng theo người dùng. Chi phí được tính từ mức dùng mô hình đã ghi nhận.",
   "Est. spend": "Chi phí ước tính",
+  "· default": "· mặc định",
+  "{{input}} in · {{output}} out · {{cache}} cache":
+    "{{input}} in · {{output}} out · {{cache}} cache",
+  "Share of spend": "Tỉ lệ chi phí",
+  Chats: "Cuộc trò chuyện",
+  "This model will be used by default in your chats.":
+    "Model này được dùng mặc định trong các cuộc trò chuyện của bạn.",
+  "The model your administrator chose.": "Model do quản trị viên chọn.",
+  "Provide your custom preferences in natural language.":
+    "Mô tả tuỳ chọn riêng của bạn bằng ngôn ngữ tự nhiên.",
+  "No models found": "Không tìm thấy model",
+  "Manage members, their roles and pending invitations.":
+    "Quản lý thành viên, vai trò và lời mời đang chờ.",
+  "{{change}} vs previous period": "{{change}} so với kỳ trước",
   Requests: "Lượt gọi",
   "Total tokens": "Tổng token",
   "Active users": "Người dùng hoạt động",
@@ -3141,9 +3155,6 @@ Object.assign(englishUi, {
   "Preselected whenever you start a new chat. An assistant with its own model keeps it.":
     "Được chọn sẵn khi bạn bắt đầu cuộc trò chuyện mới. Trợ lý có model riêng vẫn dùng model của trợ lý.",
   "Organization default": "Theo mặc định của tổ chức",
-  "Default App Mode": "Trang mở đầu",
-  "Choose whether new sessions start in Search or Chat mode.":
-    "Chọn phiên mới bắt đầu ở Trò chuyện hay Tìm kiếm.",
   "Personal Preferences": "Sở thích cá nhân",
   "Describe how you want the system to behave and the tone it should use.":
     "Mô tả cách bạn muốn trợ lý trả lời và giọng văn nên dùng.",

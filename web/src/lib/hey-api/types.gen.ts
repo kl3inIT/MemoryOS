@@ -575,7 +575,6 @@ export type ChatPreferencesInput = {
     workRole: string;
     personalPreferences: string;
     defaultModelId?: string | null;
-    startPage: 'CHAT' | 'SEARCH';
     autoScroll: boolean;
 };
 
@@ -583,7 +582,6 @@ export type ChatPreferences = {
     workRole: string;
     personalPreferences: string;
     defaultModelId: string | null;
-    startPage: 'CHAT' | 'SEARCH';
     autoScroll: boolean;
     displayName: string | null;
     email: string | null;

@@ -140,9 +140,15 @@ Domain Story and Consumer
 - A necessary, maintained dependency is acceptable when it enables real reuse and its compatibility, license, bundle and maintenance costs are reasonable. Do not replace library logic merely to avoid adding a package. Pin the dependency and verify its actual consumer; avoid unrelated upgrades.
 - Reuse does not transfer application authority to the library. MemoryOS still owns backend authorization, persistence and business lifecycle. A component dependency does not by itself justify a new global store or duplication of state already owned by the runtime or query cache.
 
+### Page headers
+
+- Every page's title block is one `PageHeader` with an icon, the title, a one-line description and optional actions on the right. No page hand-rolls a heading row, adds an eyebrow above the title, or overrides the icon size.
+
 ### Composites
 
 - `web/src/components/composites` holds product patterns built only from registry primitives and tokens, shared by more than one feature: `SectionHeader`, `SettingRow`/`SettingRows`, `StatStrip`/`StatTile`/`StatToggleTile`, `FilterChips`, `PersonAvatar`, `CountSeparator`, `SortableList` and the `hoverReveal` class. Every figure summary (costs, usage, counts, generated metrics) uses `StatStrip`; a stat that must stay in a table cell uses its `statLabelClass`/`statValueClass`. They carry no data fetching or authorization.
+- A stat tile reads label, then figure, then at most one supporting line. Its icon repeats what the label says and takes a chart colour, or a status colour where the figure names a status; the figure itself stays in neutral ink until a real condition (an exceeded budget, unpriced usage) gives it a status tone. A comparison against the previous period is a `trend` line whose arrow, not its colour, carries the direction. While a figure loads, the tile shows the placeholder rather than a dash, because a dash reads as a recorded zero.
+- The strip is the only frame: never wrap tiles in a second bordered container, and never give each tile its own border inside one.
 - Hover-revealed actions stay reachable: they appear on `focus-within` and are always visible on devices without hover.
 
 ## shadcn/ui registry

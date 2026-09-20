@@ -28,7 +28,7 @@ export function ConnectionsSettingsPage() {
   return (
     <SettingsLayout>
       <PageHeader
-        eyebrow={ui("Settings")}
+        icon={<Blocks />}
         title={ui("Connections")}
         description={ui(
           "Tools the assistant uses on your behalf. Each connection uses your own account.",

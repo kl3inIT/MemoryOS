@@ -32,6 +32,24 @@ export function period(id: PeriodId, now = new Date()): Period {
   }
 }
 
+/** The window of the same length immediately before `range`, which the comparison line is measured against. */
+export function previousPeriod(range: Period): { from: string; to: string } {
+  const from = Date.parse(`${range.from}T00:00:00Z`);
+  const to = Date.parse(`${range.to}T00:00:00Z`);
+  const previousTo = from - 86_400_000;
+  return { from: iso(new Date(previousTo - (to - from))), to: iso(new Date(previousTo)) };
+}
+
+/** How spend moved against that window. Nothing to compare means no line rather than a fabricated 0%. */
+export function change(current?: number, previous?: number) {
+  if (current === undefined || previous === undefined || previous <= 0) return null;
+  const percent = Math.round(((current - previous) / previous) * 100);
+  return {
+    direction: percent > 0 ? ("up" as const) : percent < 0 ? ("down" as const) : ("flat" as const),
+    percent: `${percent > 0 ? "+" : ""}${percent.toLocaleString(uiLocale())}%`,
+  };
+}
+
 export const periodLabels: Record<PeriodId, AppCopy> = {
   "7d": "Last 7 days",
   "30d": "Last 30 days",

@@ -25,7 +25,7 @@ export function SettingRow({
       {icon && (
         <span
           aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken text-content-secondary [&_svg]:size-4.5"
+          className="grid size-9 shrink-0 place-items-center text-content-muted [&_svg]:size-5"
         >
           {icon}
         </span>
