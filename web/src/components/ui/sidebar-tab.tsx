@@ -15,6 +15,8 @@ type SidebarTabProps = Omit<HTMLAttributes<HTMLElement>, "children" | "onClick">
   selected?: boolean;
   collapsed?: boolean;
   to?: LinkProps["to"];
+  /** Router matching for the link's own active state, which otherwise marks a parent path current on every child route. */
+  activeOptions?: LinkProps["activeOptions"];
   onClick?: MouseEventHandler<HTMLElement>;
   variant?: "heavy" | "light";
 };
@@ -27,6 +29,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
       selected = false,
       collapsed = false,
       to,
+      activeOptions,
       onClick,
       variant = "heavy",
       className: customClassName,
@@ -61,6 +64,7 @@ export const SidebarTab = forwardRef<HTMLAnchorElement | HTMLButtonElement, Side
           ref={ref as Ref<HTMLAnchorElement>}
           data-slot="sidebar-tab"
           to={to}
+          activeOptions={activeOptions}
           aria-current={selected ? "page" : undefined}
           aria-label={collapsed ? label : undefined}
           title={collapsed ? label : undefined}

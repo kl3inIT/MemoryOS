@@ -1167,7 +1167,7 @@ export const englishUi: Record<string, string> = {
   Tenant: "Tổ chức",
   Users: "Người dùng",
   Groups: "Nhóm",
-  Knowledge: "Tri thức",
+  "Documents & Knowledge": "Tài liệu và tri thức",
   Sources: "Nguồn dữ liệu",
   Configuration: "Cấu hình",
   "Exit Connector Setup": "Thoát thiết lập kết nối",

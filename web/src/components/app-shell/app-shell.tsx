@@ -5,6 +5,7 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  CloudUpload,
   Globe,
   ImageIcon,
   KeyRound,
@@ -35,6 +36,7 @@ import { ChatNavigation } from "@/features/chat/chat-navigation";
 export type AppShellArea = "app" | "admin";
 export type AdminPage =
   | "sources"
+  | "addSource"
   | "users"
   | "groups"
   | "web"
@@ -306,15 +308,26 @@ function SidebarContents({
               </SidebarSection>
             ) : null}
             {canReadSources ? (
-              <SidebarSection title={ui("Knowledge")} collapsed={collapsed}>
+              <SidebarSection title={ui("Documents & Knowledge")} collapsed={collapsed}>
                 <SidebarTab
                   to="/admin"
+                  // Without this the router marks the Sources tab current on every page under /admin.
+                  activeOptions={{ exact: true }}
                   icon={<Plug className="size-4" />}
                   selected={adminPage === "sources"}
                   collapsed={collapsed}
                   onClick={onNavigate}
                 >
-                  {ui("Sources")}
+                  {ui("Existing sources")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/sources/new"
+                  icon={<CloudUpload className="size-4" />}
+                  selected={adminPage === "addSource"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Add a source")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}
