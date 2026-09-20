@@ -55,7 +55,10 @@ export function SourceSummaryCard({
 
   return (
     <div
-      className={cn("rounded-xl border border-border-subtle bg-surface-raised text-sm", className)}
+      className={cn(
+        "rounded-xl border border-border-subtle bg-surface-raised font-main-ui-body",
+        className,
+      )}
     >
       {header ? <div className="border-b border-border-subtle px-5 py-3">{header}</div> : null}
       <dl aria-label={ui("Source summary")}>
@@ -72,8 +75,8 @@ export function SourceSummaryCard({
             </dd>
           </div>
           <div>
-            <dt className="text-content-muted">{ui("Last indexed successfully")}</dt>
-            <dd className="mt-1 flex min-h-8 items-center text-content-primary">
+            <dt className={statLabelClass}>{ui("Last indexed successfully")}</dt>
+            <dd className={cn("mt-1 flex min-h-8 items-center", statValueClass)}>
               {source.lastSucceededAt ? (
                 <time dateTime={source.lastSucceededAt}>
                   {new Date(source.lastSucceededAt).toLocaleString(uiLocale())}
@@ -87,7 +90,7 @@ export function SourceSummaryCard({
         </div>
         <div className="flex flex-wrap gap-x-10 gap-y-2 border-t border-border-subtle px-5 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <dt className="text-content-muted">{ui("Who can read")}</dt>
+            <dt className={statLabelClass}>{ui("Who can read")}</dt>
             <dd className="flex min-w-0 items-center gap-0.5 text-content-primary">
               {ui(readersLabel[source.access])}
               <HelpPopover label={ui("Who can read")}>
@@ -96,7 +99,7 @@ export function SourceSummaryCard({
             </dd>
           </div>
           <div className="flex min-h-8 min-w-0 items-center gap-2">
-            <dt className="text-content-muted">{ui("Groups")}</dt>
+            <dt className={statLabelClass}>{ui("Groups")}</dt>
             <dd className="min-w-0 break-words text-content-primary">
               {groups.isPending
                 ? ui("Loading…")

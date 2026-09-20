@@ -2005,6 +2005,10 @@ Object.assign(englishUi, {
   "Refresh source": "Làm mới nguồn",
   "is stored and still needs finalization.": "đã được lưu và vẫn cần xác nhận hoàn tất.",
   "Loading source": "Đang tải nguồn",
+  "It may have completed deletion.": "Có thể nguồn đã bị xoá xong.",
+  "Delete this source": "Xoá nguồn này",
+  "Every indexed document from this source becomes unavailable. Cleanup continues in the background and cannot be undone.":
+    "Mọi tài liệu đã lập chỉ mục từ nguồn này sẽ không còn dùng được. Việc dọn dẹp chạy nền và không thể hoàn tác.",
   "Source unavailable": "Nguồn không khả dụng",
   "Delete source": "Xóa nguồn",
   "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.":

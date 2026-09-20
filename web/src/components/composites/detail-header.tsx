@@ -29,8 +29,8 @@ export function DetailHeader({
   backRef?: Ref<HTMLAnchorElement>;
   icon?: ReactNode;
   iconSize?: "sm" | "lg";
-  /** The resource's own name, which is also the last breadcrumb. */
-  title: string;
+  /** The resource's own name, which is also the last breadcrumb; absent while it is still loading. */
+  title?: string;
   description?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -61,13 +61,15 @@ export function DetailHeader({
           ) : null}
         </BreadcrumbList>
       </Breadcrumb>
-      <PageHeader
-        icon={icon}
-        iconSize={iconSize}
-        title={title}
-        description={description}
-        actions={actions}
-      />
+      {title ? (
+        <PageHeader
+          icon={icon}
+          iconSize={iconSize}
+          title={title}
+          description={description}
+          actions={actions}
+        />
+      ) : null}
     </>
   );
 }
