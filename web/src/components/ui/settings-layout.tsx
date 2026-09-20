@@ -57,7 +57,7 @@ export function PageHeader({
           <h1
             ref={titleRef}
             tabIndex={titleRef ? -1 : undefined}
-            className="min-w-0 break-words font-heading-h2 text-content-primary outline-none"
+            className="min-w-0 break-words font-heading-h2 text-content-primary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             {title}
           </h1>

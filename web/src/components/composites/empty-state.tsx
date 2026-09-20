@@ -10,6 +10,7 @@ export function EmptyState({
   title,
   detail,
   action,
+  role,
   className,
 }: {
   icon?: ReactNode;
@@ -17,10 +18,12 @@ export function EmptyState({
   detail?: ReactNode;
   /** A way forward: retry, or the action that would fill the emptiness. */
   action?: ReactNode;
+  /** `alert` when this replaces a loading state, so the failure is announced rather than silently swapped in. */
+  role?: "alert" | "status";
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center py-8 text-center", className)}>
+    <div role={role} className={cn("flex flex-col items-center py-8 text-center", className)}>
       {icon && (
         <span aria-hidden="true" className="mb-3 text-content-muted [&_svg]:size-6">
           {icon}

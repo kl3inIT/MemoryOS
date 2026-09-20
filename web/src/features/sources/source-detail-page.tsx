@@ -978,6 +978,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         ) : !detail ? (
           <div className="px-6 py-16">
             <EmptyState
+              role="alert"
               icon={<DatabaseZap />}
               title={ui("Source unavailable")}
               detail={ui("It may have completed deletion.")}

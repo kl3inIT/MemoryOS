@@ -166,6 +166,7 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
         </div>
       ) : agentId && agent.isError ? (
         <EmptyState
+          role="alert"
           className="px-(--page-gutter) pt-10"
           icon={<WifiOff />}
           title={ui("Không mở được trợ lý")}

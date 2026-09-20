@@ -63,6 +63,7 @@ export function GroupDetailPage() {
         </div>
       ) : group.isError || !group.data ? (
         <EmptyState
+          role="alert"
           icon={<WifiOff />}
           title={ui("Group unavailable")}
           detail={ui("It may have been removed, or your scoped access may have changed.")}
