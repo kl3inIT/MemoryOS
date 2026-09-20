@@ -1079,6 +1079,10 @@ export const englishUi: Record<string, string> = {
   "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
     "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
   "Group Name": "Tên nhóm",
+  "Membership, permissions and the Sources this group may read.":
+    "Thành viên, quyền và các nguồn nhóm này được đọc.",
+  "Groups carry permissions and the Sources their members may read.":
+    "Nhóm mang quyền và các nguồn mà thành viên được đọc.",
   "Group Permissions": "Quyền của nhóm",
   "Toggle group permissions": "Mở hoặc thu gọn quyền của nhóm",
   "Group permission grants": "Các quyền được cấp cho nhóm",
