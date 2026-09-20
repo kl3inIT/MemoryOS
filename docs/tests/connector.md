@@ -424,6 +424,7 @@ Source-level pause/resume (V79) blocks new sync/index work for a `PAUSED` Source
 | --- | --- |
 | Pause writes `PAUSED`, cancels queued `index_attempts` with `SOURCE_PAUSED`, blocks INGESTION dispatch and rejects upload/reindex | `PostgresSourceLifecycleTest.pauseBlocksNewWorkAndResumeRequeuesCanceledIndexing` |
 | Resume clears `PAUSED`, re-enqueues canceled index attempts, restores dispatch eligibility; resume without pause is a no-op; pause is idempotent | `PostgresSourceLifecycleTest.pauseIsIdempotentAndResumeWithoutPauseIsANoOp` |
+| A paused Source reports `PAUSING` only while an in-flight attempt holds a live lease, and `PAUSED` once an abandoned attempt's lease lapses | `PostgresSourceLifecycleTest.pausedSourceStopsPausingOnceAnAbandonedAttemptLosesItsLease` |
 | Paused Sources are excluded from SOURCE_SYNC and INGESTION dispatch candidates and the `due` scheduler | `JdbcOperationDispatchRepository` `pair.status NOT IN ('DELETING','PAUSED')` guards; `JdbcSourceSyncRepository.due` |
 | In-flight SOURCE_SYNC runs settle as `CANCELLED`/`SOURCE_PAUSED` at a safe boundary, not `SUPERSEDED` | `DefaultConnectorSyncService` pause-aware `settle` branch |
 | `POST /api/sources/{sourceId}/pause` and `POST /api/sources/{sourceId}/resume` require `SOURCES_MANAGE`, return updated `SourceSummary`, appear in `openapi.yml` | `SourceController.pauseSource`/`resumeSource`; `OpenApiContractTest` |

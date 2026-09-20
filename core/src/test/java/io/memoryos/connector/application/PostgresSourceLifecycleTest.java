@@ -1098,6 +1098,28 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void pausedSourceStopsPausingOnceAnAbandonedAttemptLosesItsLease() {
+        SourceId sourceId = service.createFileSource(owner, "Abandoned", List.of(), null).id();
+        upload(owner, sourceId, "abandoned.txt", "abandoned".getBytes(StandardCharsets.UTF_8));
+        OperationDelivery delivery = dispatch(OperationWorkload.INGESTION);
+        var work = attempts.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
+
+        // A claimed attempt is still running, so pausing reports the transient step.
+        assertEquals(SourceStatus.PAUSING, service.pauseSource(owner, sourceId).status());
+
+        // Its worker is gone: the lease lapses and nobody settles the attempt until a worker reclaims it.
+        jdbcClient.sql("""
+                        UPDATE index_attempts
+                        SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+                        WHERE id = :id
+                        """)
+                .param("id", work.operationId().value())
+                .update();
+
+        assertEquals(SourceStatus.PAUSED, service.getSource(owner, sourceId).status());
+    }
+
+    @Test
     void pauseBlocksNewWorkAndResumeRequeuesCanceledIndexing() {
         SourceId sourceId = service.createFileSource(owner, "Pausable", List.of(), null).id();
         upload(owner, sourceId, "one.txt", "one".getBytes(StandardCharsets.UTF_8));
