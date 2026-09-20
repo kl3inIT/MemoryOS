@@ -1,6 +1,7 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 import { z } from "zod";
 import { sourceSchema } from "./chat-evidence";
+import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
 
 const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/);
 const intervalSchema = z.object({
@@ -8,7 +9,7 @@ const intervalSchema = z.object({
   to: z.string().datetime({ offset: true }).nullable(),
 });
 const filtersSchema = z.object({
-  sources: z.array(z.enum(["FILE", "GOOGLE_DRIVE"])).max(2),
+  sources: documentSourceTypesSchema,
   created: intervalSchema.nullable(),
   updated: intervalSchema.nullable(),
 });

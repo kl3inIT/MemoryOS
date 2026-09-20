@@ -1,7 +1,21 @@
+import { z } from "zod";
 import { findSourceProvider } from "@/features/sources/source-provider-catalog";
 import { friendlyMediaType } from "./search-presentation";
 
 export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT";
+
+/**
+ * Presentation only, so a provider a newer server knows is dropped instead of failing the parse: a rejected search
+ * step used to end the reply stream, leaving a finished answer unshown (staging, SharePoint, 2026-09-20).
+ */
+export const documentSourceTypesSchema = z
+  .array(z.string().max(64))
+  .max(16)
+  .transform((types) =>
+    types.filter((type): type is DocumentSourceType =>
+      (["FILE", "GOOGLE_DRIVE", "SHAREPOINT"] as string[]).includes(type),
+    ),
+  );
 
 export type DocumentKind =
   | "pdf"

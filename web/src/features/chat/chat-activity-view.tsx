@@ -22,6 +22,7 @@ import {
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
 import { DocumentSourceIcon } from "@/features/search/document-source-icon";
+import { documentSourceLabels } from "@/features/search/document-source-presentation";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
 import type { CodeRun } from "./chat-code";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
@@ -75,8 +76,8 @@ function filterDate(value: string) {
 /** "Tệp tải lên (từ 1 thg 9, 2026)" or undefined when the search had no effective filter. */
 function searchScope(ui: Translate, filters: ToolProgress["filters"]) {
   if (!filters) return undefined;
-  const sources = filters.sources
-    .map((source) => (source === "FILE" ? ui("Tệp tải lên") : "Google Drive"))
+  const sources = documentSourceLabels(null, filters.sources)
+    .providers.map((provider) => ui(provider))
     .join(", ");
   const bounds = filters.updated ?? filters.created;
   const window =

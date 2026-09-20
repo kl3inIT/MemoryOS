@@ -1,12 +1,10 @@
 import { z } from "zod";
 import type { Root, RootContent } from "mdast";
+import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
 
 // Presentation-only metadata recorded when the evidence was cited; older answers omit both.
 const mediaTypeSchema = z.string().min(1).max(160).nullish();
-const sourceTypesSchema = z
-  .array(z.enum(["FILE", "GOOGLE_DRIVE"]))
-  .max(2)
-  .optional();
+const sourceTypesSchema = documentSourceTypesSchema.optional();
 // Only the backend-built Drive open URL is accepted; anything else would be an arbitrary outbound link.
 const providerUrlSchema = z
   .string()
