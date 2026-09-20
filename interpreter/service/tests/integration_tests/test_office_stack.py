@@ -185,7 +185,7 @@ def test_check_docx_names_the_formatting_faults_and_passes_a_structured_document
 import json, subprocess
 from docx import Document
 flat = Document()
-for line in ['Báo cáo quý 3', 'Doanh thu tăng.', '• Hà Nội', '1. Đà Nẵng', 'Ghi chú\nhai dòng',
+for line in ['Báo cáo quý 3', 'Doanh thu tăng.', '• Hà Nội', '1. Đà Nẵng', 'Ghi chú\\nhai dòng',
              'Chi phí giảm.', 'Lợi nhuận tăng.', 'Kết luận.']:
     flat.add_paragraph(line)
 table = flat.add_table(rows=2, cols=2)
