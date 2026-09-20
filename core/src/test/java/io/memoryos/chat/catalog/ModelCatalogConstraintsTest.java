@@ -19,7 +19,6 @@ import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
-import java.time.Duration;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -170,7 +169,6 @@ class ModelCatalogConstraintsTest {
     }
 
     @Test void tokenizerMigrationBackfillsOnlyLegacyJsonAndPreservesCatalogSelectionsAndHistory() {
-        var chats = new JdbcChatRepository(jdbc);
         UUID legacy = UUID.randomUUID(), installed = UUID.randomUUID();
         var actor = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor.value()).update();
@@ -203,12 +201,31 @@ class ModelCatalogConstraintsTest {
             catalog.setDefault(tenant, legacy, 1);
             jdbc.sql("UPDATE persona SET model_configuration_id=:model, model_revision=model_revision+1, revision=revision+1 WHERE id=:id")
                     .param("model", installed).param("id", persona).update();
-            var session = chats.create(new TenantId(tenant), actor, persona, "Preserved history");
-            UUID user = UUID.randomUUID(), assistant = UUID.randomUUID();
-            chats.insertPair(session.id(), session.rootMessageId(), UUID.randomUUID(), user, assistant, "Tiếng Việt", Duration.ofMinutes(1), List.of());
+            // Raw SQL again: the repository reads columns the V53 baseline does not have yet.
+            UUID session = UUID.randomUUID(), root = UUID.randomUUID();
             jdbc.sql("""
-                    UPDATE chat_message SET status='COMPLETED',content='Preserved answer',finished_at=CURRENT_TIMESTAMP,
-                        requested_model_configuration_id=:model,selected_model_configuration_id=:model
+                    INSERT INTO chat_session(id,tenant_id,owner_actor_id,persona_id,root_message_id,title)
+                    VALUES (:id,:tenant,:actor,:persona,:root,'Preserved history')
+                    """).param("id", session).param("tenant", tenant).param("actor", actor.value())
+                    .param("persona", persona).param("root", root).update();
+            jdbc.sql("""
+                    INSERT INTO chat_message(id,session_id,role,status,finished_at)
+                    VALUES (:root,:session,'ROOT','COMPLETED',CURRENT_TIMESTAMP)
+                    """).param("root", root).param("session", session).update();
+            UUID user = UUID.randomUUID(), assistant = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO chat_message(id,session_id,parent_message_id,role,status,content,finished_at,
+                        client_request_id,original_assistant_message_id)
+                    VALUES (:user,:session,:root,'USER','COMPLETED','Tiếng Việt',CURRENT_TIMESTAMP,:request,:assistant)
+                    """).param("user", user).param("assistant", assistant).param("session", session)
+                    .param("root", root).param("request", UUID.randomUUID()).update();
+            jdbc.sql("""
+                    INSERT INTO chat_message(id,session_id,parent_message_id,role,status,content,finished_at,deadline_at)
+                    VALUES (:assistant,:session,:user,'ASSISTANT','COMPLETED','Preserved answer',CURRENT_TIMESTAMP,
+                        CURRENT_TIMESTAMP + interval '1 minute')
+                    """).param("assistant", assistant).param("session", session).param("user", user).update();
+            jdbc.sql("""
+                    UPDATE chat_message SET requested_model_configuration_id=:model,selected_model_configuration_id=:model
                     WHERE id=:id
                     """).param("model", installed).param("id", assistant).update();
         });
