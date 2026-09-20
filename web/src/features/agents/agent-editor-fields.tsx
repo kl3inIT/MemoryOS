@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { ChatFilePicker } from "@/features/chat/chat-file-picker";
 import type { AgentRef } from "@/features/chat/chat-workspace-api";
 import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { SectionHeader } from "@/components/composites/section-header";
 import { AgentAvatar } from "./agent-avatar";
 import { agentIconTones, agentIcons } from "./agent-icons";
 
@@ -41,12 +42,7 @@ export function EditorSection({
       aria-labelledby={`${id}-title`}
       className="flex scroll-mt-20 flex-col gap-5 border-t border-border-subtle py-8 first-of-type:border-t-0 first-of-type:pt-0"
     >
-      <header>
-        <h2 id={`${id}-title`} className="font-heading-h3 text-content-primary">
-          {title}
-        </h2>
-        <p className="mt-1 font-secondary-body text-content-muted">{description}</p>
-      </header>
+      <SectionHeader id={`${id}-title`} title={title} description={description} />
       {children}
     </section>
   );

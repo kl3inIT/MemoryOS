@@ -587,6 +587,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá bộ lọc người tạo": "Clear creator filter",
   "Sửa {{v1}}": "Edit {{v1}}",
   "Sửa trợ lý": "Edit assistant",
+  "Không mở được trợ lý": "The assistant could not be opened",
   "Chia sẻ trợ lý": "Share assistant",
   "Bắt đầu chat": "Start chat",
   "Dự án": "Projects",
