@@ -64,13 +64,15 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private final JdbcGoogleDriveCredentialRepository credentials;
     private final GoogleDriveSelectionPolicy policy;
     private final SourceAccessPolicy sourceAccess;
+    private final GoogleDriveMetadataCache metadataCache;
 
     public DefaultGoogleDriveSourceService(IamAuthorization authorization, GoogleDriveConnectionService connections,
             JdbcGoogleDriveSourceRepository drive, JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
             GoogleDriveLinkReader linkReader, PlatformTransactionManager transactionManager,
             JdbcGoogleDriveSelectionRepository selections, JdbcGoogleDriveCredentialRepository credentials,
-            GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups, SourceAccessPolicy sourceAccess) {
+            GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups, SourceAccessPolicy sourceAccess,
+            GoogleDriveMetadataCache metadataCache) {
         this.authorization = authorization;
         this.connections = connections;
         this.drive = drive;
@@ -85,6 +87,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         this.policy = policy;
         this.sourceGroups = sourceGroups;
         this.sourceAccess = sourceAccess;
+        this.metadataCache = metadataCache;
     }
 
     @Override
@@ -433,7 +436,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             return new TreeSnapshot(drive.configuration(tenant, source), connections.state(tenant, source),
                     drive.roots(tenant, source), credential.usable());
         }));
-        var tree = new GoogleDriveSelectionTree(drive, tenant, source, saved.configuration(), saved.state(),
+        var tree = new GoogleDriveSelectionTree(drive, metadataCache, tenant, source, saved.configuration(), saved.state(),
                 saved.roots(), saved.usable(), parentId, cursor, size);
         GoogleDriveSelectionTree.Page page;
         if (tree.requiresProvider()) {
