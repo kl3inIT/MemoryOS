@@ -1,5 +1,4 @@
-// MemoryOS wordmark traced from the brand artwork. index.html inlines the same paths for the boot
-// splash, which renders before this bundle loads.
+// MemoryOS wordmark traced from the brand artwork, rendered by the brand loader and the brand mark.
 export const MEMORYOS_WORDMARK_VIEW_BOX = { x: 68, y: 525, width: 1120, height: 166 } as const;
 
 export const MEMORYOS_WORDMARK_PATHS = [
