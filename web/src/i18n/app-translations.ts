@@ -966,6 +966,8 @@ export const englishUi: Record<string, string> = {
   "Source actions": "Thao tác nguồn",
   "Indexing history": "Lịch sử lập chỉ mục",
   "Who can read": "Ai có thể đọc",
+  "+{{count}} more groups": "+{{count}} nhóm khác",
+  "Additional groups: {{v1}}": "Các nhóm khác: {{v1}}",
   Activity: "Hoạt động",
   Duration: "Thời lượng",
   Content: "Nội dung",
@@ -1991,11 +1993,13 @@ Object.assign(englishUi, {
   "Last discovery · {{v1}}": "Lần tìm liên kết gần nhất · {{v1}}",
   "No discovery yet.": "Chưa tìm liên kết.",
   "Discover linked documents": "Tìm tài liệu liên kết",
+  "Find links in files": "Tìm links trong các tệp",
   "The list below shows the active selection, not the unverified links in your draft.":
     "Danh sách bên dưới hiển thị lựa chọn đang dùng, không phải liên kết chưa xác thực trong bản nháp.",
   "Discovery could not check": "Không kiểm tra được",
   inputs: "đầu vào",
   "Search selected content": "Tìm nội dung đã chọn",
+  "Search selected files": "Tìm tệp đã chọn",
   "Filter selected content": "Lọc nội dung đã chọn",
   "Show search": "Hiện ô tìm kiếm",
   "Hide search": "Ẩn ô tìm kiếm",
@@ -2018,6 +2022,8 @@ Object.assign(englishUi, {
   "Search scope": "Phạm vi tìm kiếm",
   "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.":
     "Tìm kiếm bao gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp bên trong thư mục đã chọn. Nội dung thư mục có thể tìm được sau khi nguồn đồng bộ.",
+  "Search finds selected folders, selected files, linked documents and files synchronized from selected folders.":
+    "Tìm kiếm gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp đã đồng bộ từ các thư mục đã chọn.",
   "In scope": "Trong phạm vi",
   Linked: "Liên kết",
   "Loading folder contents…": "Đang tải nội dung thư mục…",

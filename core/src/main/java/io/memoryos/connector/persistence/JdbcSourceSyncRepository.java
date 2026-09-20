@@ -421,13 +421,11 @@ public class JdbcSourceSyncRepository {
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
         int created = jdbc.sql("""
                 INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
-                    generation, phase, full_scan, page_token, final_token, restart_count,
-                    origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
+                    generation, phase, history_version, trigger_kind, actor_id,
                     scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
                     published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
                 SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation,
-                    donor.phase, donor.full_scan, donor.page_token, donor.final_token, donor.restart_count,
-                    :trace, :span, 1, 'RESUMED', :actor,
+                    donor.phase, 1, 'RESUMED', :actor,
                     donor.scanned, donor.acquired, donor.unchanged, donor.already_pending,
                     donor.acquisition_failed, donor.skipped, donor.removed,
                     0, 0, 0, 0, 0

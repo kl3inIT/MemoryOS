@@ -120,4 +120,22 @@ describe("SourceSummaryCard", () => {
       expect.objectContaining({ path: { sourceId: drive.id } }),
     );
   });
+
+  it("caps the summary at three groups and names the remainder on hover", async () => {
+    renderCard({ ...drive, access: "PRIVATE" }, [
+      { id: "finance", name: "Finance", systemKey: null },
+      { id: "legal", name: "Legal", systemKey: null },
+      { id: "operations", name: "Operations", systemKey: null },
+      { id: "security", name: "Security", systemKey: null },
+      { id: "support", name: "Support", systemKey: null },
+    ]);
+
+    const summary = screen.getByLabelText("Source summary");
+    expect(await within(summary).findByText("Finance, Legal, Operations")).toBeTruthy();
+    const additionalGroups = within(summary).getByText("+2 more groups");
+    await userEvent.hover(additionalGroups);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Additional groups: Security, Support",
+    );
+  });
 });
