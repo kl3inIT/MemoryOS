@@ -30,7 +30,36 @@ async function mocks(page: Page) {
   await page.route("**/api/sources*", (r) => r.fulfill({ json: [] }));
 }
 
+const sourceId = "60000000-0000-0000-0000-000000000001";
+const source = {
+  id: sourceId, name: "Báo cáo tài chính", type: "FILE", status: "ACTIVE", access: "PUBLIC",
+  documentCount: 184, lastSucceededAt: "2026-09-19T03:00:00Z", errorCode: null, createdAt: "2026-09-01T00:00:00Z",
+  permissions: { edit: true, publish: true, delete: true, read: true },
+};
+
+async function sourceMocks(page: Page) {
+  await page.route("**/api/identity/me", (r) => r.fulfill({ json: identity }));
+  await page.route("**/api/chat/sessions?*", (r) => r.fulfill({ json: [] }));
+  await page.route(`**/api/sources/${sourceId}`, (r) => r.fulfill({ json: source }));
+  await page.route(`**/api/sources/${sourceId}/items*`, (r) =>
+    r.fulfill({ json: { items: [], page: 0, size: 20, totalItems: 0, totalPages: 0 } }));
+  await page.route(`**/api/sources/${sourceId}/groups*`, (r) =>
+    r.fulfill({ json: { items: [], page: 0, size: 20, totalItems: 0, totalPages: 0 } }));
+  await page.route(`**/api/sources/${sourceId}/runs*`, (r) => r.fulfill({ json: { items: [] } }));
+  await page.route("**/api/sources*", (r) => r.fulfill({ json: [source] }));
+}
+
 for (const [width, scheme] of [[1280, "light"], [1280, "dark"], [390, "light"]] as const) {
+  test(`source ${width} ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width, height: width < 768 ? 1500 : 1100 });
+    await sourceMocks(page);
+    await page.goto(`/admin/sources/${sourceId}`);
+    await page.getByText("Báo cáo tài chính").first().waitFor({ timeout: 30000 });
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${out}/source-detail-${width}-${scheme}.png`, fullPage: true });
+  });
+
   test(`groups ${width} ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width, height: width < 768 ? 1500 : 1100 });

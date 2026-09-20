@@ -950,6 +950,14 @@ test("cancelling an in-flight finalization retry keeps recovery and ignores the 
 });
 
 async function openSourceAction(page: Page, action: string) {
+  // Deleting a Source lives in the page's danger zone; everything else is in the header menu.
+  if (action === "Delete source") {
+    await page
+      .getByRole("region", { name: "Danger Zone" })
+      .getByRole("button", { name: action, exact: true })
+      .click();
+    return;
+  }
   await page.getByRole("button", { name: "Source actions" }).click();
   await page.getByRole("menuitem", { name: action, exact: true }).click();
 }
