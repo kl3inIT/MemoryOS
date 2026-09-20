@@ -70,9 +70,7 @@ export function UsersSummary({
             iconClass={item.iconClass}
             loading={loading && count === undefined}
             label={ui(item.label)}
-            value={
-              count === undefined ? "—" : count.toLocaleString(uiLocale())
-            }
+            value={count === undefined ? "—" : count.toLocaleString(uiLocale())}
           />
         );
       })}

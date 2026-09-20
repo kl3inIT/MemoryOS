@@ -1,7 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Link } from "@tanstack/react-router";
-import { Activity, CircleDollarSign, Layers, ReceiptText, TriangleAlert, Users } from "lucide-react";
+import {
+  Activity,
+  CircleDollarSign,
+  Layers,
+  ReceiptText,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";

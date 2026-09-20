@@ -128,13 +128,11 @@ export const vi = {
   settings: {
     description: "Tùy chọn cá nhân cho tài khoản của bạn.",
     language: "Ngôn ngữ giao diện",
-    languageDescription:
-      "Được lưu theo tài khoản và áp dụng trên các thiết bị khác. Không dịch tài liệu hoặc tin nhắn trước đó.",
+    languageDescription: "Chọn ngôn ngữ cho giao diện.",
     saved: "Đã lưu ngôn ngữ.",
     saveUncertain: "Chưa thể xác nhận thay đổi. Hãy tải lại tùy chọn đã lưu trước khi thử tiếp.",
     reload: "Tải lại tùy chọn đã lưu",
-    replyHint:
-      "Tiếng Việt ưu tiên câu trả lời tiếng Việt. English theo ngôn ngữ câu hỏi. Bạn luôn có thể yêu cầu ngôn ngữ khác trong tin nhắn.",
+    replyHint: "Tiếng Việt ưu tiên câu trả lời tiếng Việt; English theo ngôn ngữ câu hỏi.",
   },
   errors: {
     attachmentSize: "Chọn tệp có nội dung và không lớn hơn {{max}} MiB.",

@@ -15,7 +15,6 @@ function input(value: ChatPreferences): ChatPreferencesInput {
     workRole: value.workRole,
     personalPreferences: value.personalPreferences,
     defaultModelId: value.defaultModelId ?? undefined,
-    startPage: value.startPage,
     autoScroll: value.autoScroll,
   };
 }

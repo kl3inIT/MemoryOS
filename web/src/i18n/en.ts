@@ -127,13 +127,12 @@ export const en = {
   settings: {
     description: "Personal preferences for your account.",
     language: "Display language",
-    languageDescription:
-      "Saved to your account and used on your other devices. This does not translate your documents or previous messages.",
+    languageDescription: "Select the language for the UI.",
     saved: "Language saved.",
     saveUncertain: "Couldn’t confirm the change. Reload your saved preference before trying again.",
     reload: "Reload saved preference",
     replyHint:
-      "Vietnamese prefers replies in Vietnamese. English follows the language of your question. You can always ask for another language in your message.",
+      "Vietnamese prefers replies in Vietnamese; English follows the language of your question.",
   },
   errors: {
     attachmentSize: "Choose a nonempty file no larger than {{max}} MiB.",

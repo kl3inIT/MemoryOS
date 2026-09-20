@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
@@ -92,10 +93,15 @@ describe("personal usage", () => {
     expect(within(byModel).getByText("gpt-image-1").closest("tr")).toHaveTextContent(
       "Prices unavailable",
     );
-    const prices = (await screen.findByText("GPT-5.6 Luna")).closest("tr")!;
-    expect(prices).toHaveTextContent("Default");
-    expect(prices).toHaveTextContent("$0.125");
-    expect(screen.getByText("gpt-oss-local").closest("tr")).toHaveTextContent("Prices unavailable");
+    // Prices are grouped by provider, as Onyx lists them; the default model's group is open.
+    const prices = (await screen.findByText("GPT-5.6 Luna")).closest("li")!;
+    expect(prices).toHaveTextContent("· default");
+    expect(prices).toHaveTextContent("$1.25 in · $10.00 out · $0.125 cache");
+    // Another provider's group opens on demand.
+    await userEvent.click(screen.getByRole("button", { name: /vLLM nội bộ/ }));
+    expect((await screen.findByText("gpt-oss-local")).closest("li")).toHaveTextContent(
+      "Prices unavailable",
+    );
   });
 
   it("explains an empty period instead of an empty table", async () => {

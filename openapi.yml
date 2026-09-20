@@ -14867,17 +14867,11 @@ components:
           - string
           - "null"
           format: uuid
-        startPage:
-          type: string
-          enum:
-          - CHAT
-          - SEARCH
         autoScroll:
           type: boolean
       required:
       - autoScroll
       - personalPreferences
-      - startPage
       - workRole
     ChatPreferences:
       type: object
@@ -14891,11 +14885,6 @@ components:
           - string
           - "null"
           format: uuid
-        startPage:
-          type: string
-          enum:
-          - CHAT
-          - SEARCH
         autoScroll:
           type: boolean
         displayName:
@@ -14912,7 +14901,6 @@ components:
       - displayName
       - email
       - personalPreferences
-      - startPage
       - workRole
     PersonaInput:
       type: object
