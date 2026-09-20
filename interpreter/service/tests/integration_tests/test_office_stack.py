@@ -210,7 +210,10 @@ print(json.dumps({'returncode': done.returncode,
 
     response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
     assert response.status_code == 200
-    result = json.loads(str(response.json()["stdout"]))
+    payload = response.json()
+    # Name what the sandbox actually reported; an empty stdout otherwise fails as unparseable JSON.
+    assert payload["exit_code"] == 0, payload
+    result = json.loads(str(payload["stdout"]))
     flat, good, missing = result["reports"]
 
     issues = " | ".join(flat["issues"])
