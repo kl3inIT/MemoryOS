@@ -50,7 +50,7 @@ public class ChatSettingsService {
         var entity = writable(actor, revision);
         entity.deepResearchEnabled(deepResearchEnabled);
         var saved = settings.saveAndFlush(entity);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CHAT_SETTINGS_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("SETTING", "chat", "Chat").detail("deepResearchEnabled", deepResearchEnabled).build());
+        record(actor, saved, "deepResearchEnabled", deepResearchEnabled);
         return view(saved);
     }
 
@@ -65,7 +65,11 @@ public class ChatSettingsService {
             throw ChatException.invalid("Retention must be between 1 and " + MAX_RETENTION_DAYS + " days.");
         var entity = writable(actor, revision);
         entity.chatRetentionDays(days);
-        return view(settings.saveAndFlush(entity));
+        var saved = settings.saveAndFlush(entity);
+        // A policy that deletes conversations is an administrative change like any other, so it is recorded;
+        // the evidence carries the number of days, never a conversation.
+        record(actor, saved, "chatRetentionDays", days == null ? "none" : String.valueOf(days));
+        return view(saved);
     }
 
     /** How many conversations a policy would delete now; administration authority, because it counts a Tenant. */
@@ -76,6 +80,14 @@ public class ChatSettingsService {
         if (days < 1 || days > MAX_RETENTION_DAYS)
             throw ChatException.invalid("Retention must be between 1 and " + MAX_RETENTION_DAYS + " days.");
         return new RetentionPreview(days, sessions.affectedByRetention(tenant, days));
+    }
+
+    /** One audit line per administrative change to these settings; the Tenant comes from the row itself. */
+    private void record(ActorId actor, ChatSettingsEntity saved, String field, Object value) {
+        audit.record(io.memoryos.iam.audit.AuditRecord
+                .of(io.memoryos.iam.audit.AuditAction.CHAT_SETTINGS_CHANGE,
+                        new io.memoryos.iam.tenant.TenantId(saved.tenantId()))
+                .actor(actor).resource("SETTING", "chat", "Chat").detail(field, value).build());
     }
 
     private ChatSettingsEntity writable(ActorId actor, long revision) {
