@@ -8,6 +8,7 @@
 - [x] Update the Connector spec and matrix, README, ARCHITECTURE, roadmap and AGENTS.md.
 - [x] Run the core, API and web gates for the changed surfaces.
 - [x] Owner decision 2026-09-21: only the Source's manager detaches it from a Group; record [ADR 0013](../../decisions/0013-only-the-source-manager-detaches-sources.md), guard `removeGroupSource` and `removableSourceIds` with the scoped write rule, lock and explain other managers' Sources on Group detail.
+- [x] Fix Group detail Source-section mounting: a scoped Source capability from another Group no longer requests the rejected association projection or presents a false load error.
 - [ ] Owner acceptance on staging, including the reported Group detail removal and a second manager of the same Group being unable to detach another manager's Source.
 - [ ] Decide whether appointing a new manager should pause Google Drive synchronization until the new manager reconnects their own Google grant (open gap in the design).
 
@@ -29,5 +30,6 @@ Not verified: staging, and any browser run of the administrator appointment sect
   - `SourceApiIntegrationTest.onlyTheResponsibleManagerDetachesSourcesAndAdministratorsAppointThem`: `404 SOURCE_NOT_FOUND` for a Group manager who is not responsible, then `204` once `SYSTEM_ADMIN` appoints them.
   - `OpenApiContractTest`: `openapi.yml` regenerated with the new `removeGroupSource` description.
 - Web: client regenerated with `@hey-api/openapi-ts@0.99.0` (description only); `tsc -b`, `oxfmt --check`, `oxlint --deny-warnings`, the i18n audit and the full unit suite (101 files, 476 tests) pass, including `source-groups-section.test.tsx` (9 tests) for the locked chip that names the responsible manager and the deleting-Source lock.
+- Web follow-up: `node node_modules/typescript/bin/tsc -b` and `node node_modules/vitest/vitest.mjs run src/features/sources/source-groups-section.test.tsx` passed; the latter has 10 tests, including the out-of-scope Group regression.
 
 Not verified: staging or a browser run of Group detail with two managers.
