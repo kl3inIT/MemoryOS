@@ -793,13 +793,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           role="region"
           aria-label={ui("Source files table")}
         >
-          <Table className="w-full min-w-[42rem] table-fixed text-left text-sm">
+          <Table className="w-full min-w-[54rem] table-fixed text-left text-sm">
             <colgroup>
               <col />
               <col className="w-24" />
-              <col className="w-36" />
-              <col className="w-36" />
-              <col className="w-24" />
+              <col className="w-56" />
+              <col className="w-40" />
+              <col className="w-20" />
             </colgroup>
             <TableHeader className="border-b border-border-subtle bg-surface-sunken text-content-muted">
               <TableRow>
@@ -848,7 +848,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <ItemStatus item={item} sourcePaused={paused} />
                   </TableCell>
-                  <TableCell className="px-4 py-4 text-content-secondary">
+                  <TableCell className="px-4 py-4 whitespace-nowrap text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
                   </TableCell>
                   <TableCell className="px-4 py-4 text-right">

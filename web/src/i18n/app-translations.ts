@@ -2232,6 +2232,8 @@ Object.assign(englishUi, {
   "All statuses": "Mọi trạng thái",
   Scheduled: "Đã lên lịch",
   Indexing: "Đang lập chỉ mục",
+  "Awaiting re-index": "Chờ lập chỉ mục lại",
+  "Search indexing failed": "Lỗi đưa vào chỉ mục tìm kiếm",
   Failed: "Thất bại",
   Deleting: "Đang xóa",
   Provider: "Nhà cung cấp",
