@@ -3545,6 +3545,60 @@ Object.assign(englishUi, {
     "Credential đã bị xóa trong lúc xác minh địa chỉ. Phạm vi đã lưu không đổi.",
 });
 
+Object.assign(englishUi, {
+  "Service account": "Service account",
+  "Service account key": "Khóa service account",
+  "Authentication method": "Phương thức xác thực",
+  "Service account {{v1}} acting as {{v2}}": "Service account {{v1}} thay mặt {{v2}}",
+  "{{v1}} (service account acting as {{v2}})": "{{v1}} (service account thay mặt {{v2}})",
+  "Needs a new key": "Cần khóa mới",
+  "Replace a service account key": "Thay khóa service account",
+  "Service account key replaced": "Đã thay khóa service account",
+  "Save service account": "Lưu service account",
+  "Primary admin email": "Email quản trị viên chính",
+  "admin@company.com": "admin@company.com",
+  "e.g. Company Google Workspace": "vd. Google Workspace của công ty",
+  "Use a service account with domain-wide delegation to index your company's Google Workspace.":
+    "Dùng service account có ủy quyền toàn miền (domain-wide delegation) để lập chỉ mục Google Workspace của công ty.",
+  "An active Google Workspace administrator. The service account acts as this user to read Drive, users and groups.":
+    "Một quản trị viên Google Workspace đang hoạt động. Service account thay mặt người này để đọc Drive, người dùng và nhóm.",
+  "Replacing the key affects all {{v1}} Sources using this credential. Use a key of the same service account; saved links and indexed documents are retained.":
+    "Thay khóa ảnh hưởng tới cả {{v1}} Nguồn đang dùng thông tin kết nối này. Hãy dùng khóa của cùng service account; liên kết đã lưu và tài liệu đã lập chỉ mục được giữ nguyên.",
+  "Verifying the service account with Google…": "Đang xác minh service account với Google…",
+  "Upload the JSON key of a service account with domain-wide delegation. MemoryOS reads Drive and the Google Workspace directory as the primary admin.":
+    "Tải lên khóa JSON của service account có ủy quyền toàn miền. MemoryOS đọc Drive và danh bạ Google Workspace thay mặt quản trị viên chính.",
+  "Enable the Drive, Docs, Sheets and Admin SDK APIs in your Google Cloud project, create a service account and download its JSON key.":
+    "Bật các API Drive, Docs, Sheets và Admin SDK trong dự án Google Cloud, tạo service account và tải khóa JSON của nó.",
+  "Google service account guide": "Hướng dẫn service account của Google",
+  "In the Google Admin console, open Security › API controls › Domain-wide delegation, add the service account's client ID and grant these scopes:":
+    "Trong Google Admin console, mở Bảo mật › Kiểm soát API › Ủy quyền toàn miền, thêm client ID của service account và cấp các scope sau:",
+  "Upload service account JSON key": "Tải lên khóa JSON của service account",
+  "Attach the service account JSON key": "Đính kèm khóa JSON của service account",
+  "Clear service account key": "Xóa khóa service account",
+  "Maximum 16 KiB. Contains a private key; sent only to MemoryOS, encrypted at rest, never saved in browser storage, and cleared when you continue or leave setup.":
+    "Tối đa 16 KiB. Chứa khóa riêng; chỉ gửi tới MemoryOS, được mã hóa khi lưu, không bao giờ lưu trong trình duyệt và bị xóa khi bạn tiếp tục hoặc rời thiết lập.",
+  "Reading service account key…": "Đang đọc khóa service account…",
+  "Choose a service account JSON key between 1 byte and 16 KiB.":
+    "Chọn khóa JSON của service account có kích thước từ 1 byte đến 16 KiB.",
+  "Use the JSON key downloaded for a Google Cloud service account, not an OAuth client.":
+    "Dùng khóa JSON đã tải về cho service account của Google Cloud, không phải OAuth client.",
+  "The file could not be read. Choose it again.": "Không đọc được tệp. Hãy chọn lại.",
+  "This destroys the saved key and stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Replace the key of the same service account to resume.":
+    "Thao tác này hủy khóa đã lưu và dừng đồng bộ cho cả {{v1}} Nguồn đang dùng thông tin kết nối này. Liên kết và tài liệu đã lưu được giữ nguyên. Thay khóa của cùng service account để tiếp tục.",
+  "Permanently delete this unused credential and its saved service account key. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn thông tin kết nối không dùng này cùng khóa service account đã lưu. Không thể xóa thông tin kết nối đang gắn với Nguồn nào.",
+  "Replace the key of this service account in Google Drive credentials to save links and synchronize. Saved roots are retained.":
+    "Thay khóa của service account này trong phần thông tin kết nối Google Drive để lưu liên kết và đồng bộ. Thư mục gốc đã lưu được giữ nguyên.",
+  "Disconnecting destroys the saved key and stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Replace the key of the same service account to resume.":
+    "Ngắt kết nối sẽ hủy khóa đã lưu và dừng thu thập cho cả {{v1}} Nguồn đang dùng thông tin kết nối này, kể cả Nguồn khác. Dữ liệu đã lưu không bị xóa. Thay khóa của cùng service account để tiếp tục.",
+  "Upload the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.":
+    "Tải lên khóa JSON đã tải về cho service account của Google Cloud, với khóa RSA tối thiểu 2048 bit.",
+  "Google refused the service account. In the Admin console, grant its client ID domain-wide delegation with every listed scope, then try again.":
+    "Google từ chối service account. Trong Admin console, cấp ủy quyền toàn miền cho client ID của nó với mọi scope đã liệt kê rồi thử lại.",
+  "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.":
+    "Email quản trị viên chính phải thuộc một quản trị viên Google Workspace đang hoạt động, có quyền đọc người dùng và nhóm.",
+});
+
 const unchanged = [
   "Account ID",
   "Google Sheets",

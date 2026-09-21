@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useApplicationSession,
   useCapabilityAuthority,
@@ -64,6 +65,8 @@ import {
 } from "./google-drive-oauth-client-input";
 import { sourceMutationError } from "./source-errors";
 import { GoogleDriveConnectionAccount } from "./google-drive-connection-account";
+import { googleDriveCredentialReady } from "./google-drive-credential";
+import { GoogleDriveServiceAccountForm } from "./google-drive-service-account-form";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
 import { sourceStatusMessage } from "./source-errors";
@@ -112,11 +115,14 @@ function GoogleDriveSourceSetup() {
   const revoke = useMutation(revokeGoogleDriveCredentialMutation());
   const remove = useMutation(deleteGoogleDriveCredentialMutation());
   const selected = credentials.data?.find((credential) => credential.id === credentialId);
-  const connected = selected?.status === "ACTIVE" && selected.oauthClientConfigured;
+  const connected = googleDriveCredentialReady(selected);
   const unavailable = !canManage || credentials.isPending || credentials.isError;
   const clientInput = useRef<GoogleDriveOAuthClientInputHandle>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [reconnecting, setReconnecting] = useState<GoogleDriveCredentialResponse | null>(null);
+  const [method, setMethod] = useState<GoogleDriveCredentialResponse["authMethod"]>("OAUTH");
+  const [replacingKey, setReplacingKey] = useState<GoogleDriveCredentialResponse | null>(null);
+  const [savingServiceAccount, setSavingServiceAccount] = useState(false);
   const [managedCredentialId, setManagedCredentialId] = useState<string | null>(null);
   const [replaceClient, setReplaceClient] = useState(false);
   const [clientReady, setClientReady] = useState(false);
@@ -133,7 +139,12 @@ function GoogleDriveSourceSetup() {
   const submittedProposal = useRef<CreateGoogleDriveSourceData["body"] | null>(null);
   const authorizationController = useRef<AbortController | null>(null);
   const busy =
-    authorizing || leaving || createSource.isPending || revoke.isPending || remove.isPending;
+    authorizing ||
+    leaving ||
+    savingServiceAccount ||
+    createSource.isPending ||
+    revoke.isPending ||
+    remove.isPending;
   const [linksTouched, setLinksTouched] = useState(false);
   const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
   // Readers of a Private Source are its groups; scoped managers also need groups for Auto Sync.
@@ -300,8 +311,47 @@ function GoogleDriveSourceSetup() {
     if (!open) {
       setName("");
       setReconnecting(null);
+      setReplacingKey(null);
+      setMethod("OAUTH");
     }
     setModalOpen(open);
+  }
+
+  function replaceKey(credential: GoogleDriveCredentialResponse) {
+    if (!credential.actions.includes("replace_key")) return;
+    changeModal(true);
+    setMethod("SERVICE_ACCOUNT");
+    setReplacingKey(credential);
+  }
+
+  function serviceAccountSaved(credential: GoogleDriveCredentialResponse) {
+    const replaced = Boolean(replacingKey);
+    setModalOpen(false);
+    setReplacingKey(null);
+    setMethod("OAUTH");
+    notify({
+      title: replaced ? "Service account key replaced" : "Credential connected",
+      description: appText("{{v1}} is connected and ready to use with a Source.", {
+        v1: credential.name,
+      }),
+      tone: "success",
+    });
+    void Promise.all([
+      credentials.refetch(),
+      ...(replaced
+        ? [
+            queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
+            queryClient.invalidateQueries({ queryKey: [{ _id: "getGoogleDriveConfiguration" }] }),
+          ]
+        : []),
+    ]);
+    if (!replaced) void navigate({ search: { credentialId: credential.id } });
+  }
+
+  function serviceAccountFailed(cause: unknown) {
+    if (isUnauthenticated(cause))
+      void queryClient.resetQueries({ queryKey: getCurrentIdentityQueryKey(), exact: true });
+    void credentials.refetch();
   }
 
   function editCredential(credential: GoogleDriveCredentialResponse) {
@@ -394,7 +444,7 @@ function GoogleDriveSourceSetup() {
         description:
           action === "revoke"
             ? `${credential.name} was revoked. Synchronization is stopped for Sources using it; saved content is retained.`
-            : `${credential.name} and its saved OAuth app were deleted.`,
+            : `${credential.name} was deleted.`,
         tone: "success",
       });
     } finally {
@@ -745,8 +795,8 @@ function GoogleDriveSourceSetup() {
                     </TableRow>
                   </TableHeader>
                   {credentials.data?.map((credential) => {
-                    const ready =
-                      credential.status === "ACTIVE" && credential.oauthClientConfigured;
+                    const ready = googleDriveCredentialReady(credential);
+                    const serviceAccount = credential.authMethod === "SERVICE_ACCOUNT";
                     return (
                       <TableBody
                         key={credential.id}
@@ -786,7 +836,14 @@ function GoogleDriveSourceSetup() {
                                   <span className="block wrap-anywhere font-medium text-content-primary">
                                     {credential.name}
                                   </span>
-                                  {credential.accountEmail !== credential.name ? (
+                                  {serviceAccount ? (
+                                    <span className="block wrap-anywhere text-content-secondary">
+                                      {ui("Service account {{v1}} acting as {{v2}}", {
+                                        v1: credential.serviceAccountEmail ?? "",
+                                        v2: credential.accountEmail,
+                                      })}
+                                    </span>
+                                  ) : credential.accountEmail !== credential.name ? (
                                     <span className="block wrap-anywhere text-content-secondary">
                                       {credential.accountEmail}
                                     </span>
@@ -796,7 +853,9 @@ function GoogleDriveSourceSetup() {
                                       <StatusBadge tone="warning">
                                         {credential.status === "REVOKED"
                                           ? ui("Revoked")
-                                          : ui("Needs reconnect")}
+                                          : serviceAccount
+                                            ? ui("Needs a new key")
+                                            : ui("Needs reconnect")}
                                       </StatusBadge>
                                     </span>
                                   ) : null}
@@ -862,6 +921,18 @@ function GoogleDriveSourceSetup() {
                                     {ui("Reconnect")}
                                   </Button>
                                 ) : null}
+                                {credential.actions.includes("replace_key") ? (
+                                  <Button
+                                    prominence="tertiary"
+                                    disabled={unavailable || busy || frozenProposal}
+                                    onClick={(event) => {
+                                      modalTrigger.current = event.currentTarget;
+                                      replaceKey(credential);
+                                    }}
+                                  >
+                                    {ui("Replace key")}
+                                  </Button>
+                                ) : null}
                                 {credential.actions.includes("revoke") &&
                                 credential.status !== "REVOKED" ? (
                                   <ConfirmDialog
@@ -875,10 +946,17 @@ function GoogleDriveSourceSetup() {
                                       </Button>
                                     }
                                     title={ui("Revoke {{v1}}?", { v1: credential.name })}
-                                    description={ui(
-                                      "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
-                                      { v1: credential.sourceCount },
-                                    )}
+                                    description={
+                                      serviceAccount
+                                        ? ui(
+                                            "This destroys the saved key and stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Replace the key of the same service account to resume.",
+                                            { v1: credential.sourceCount },
+                                          )
+                                        : ui(
+                                            "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
+                                            { v1: credential.sourceCount },
+                                          )
+                                    }
                                     confirmLabel={ui("Revoke")}
                                     pendingLabel={ui("Revoking")}
                                     onConfirm={() => changeCredential(credential, "revoke")}
@@ -904,9 +982,15 @@ function GoogleDriveSourceSetup() {
                                       </Button>
                                     }
                                     title={ui("Delete {{v1}}?", { v1: credential.name })}
-                                    description={ui(
-                                      "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
-                                    )}
+                                    description={
+                                      serviceAccount
+                                        ? ui(
+                                            "Permanently delete this unused credential and its saved service account key. Credentials attached to any Source cannot be deleted.",
+                                          )
+                                        : ui(
+                                            "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
+                                          )
+                                    }
                                     confirmLabel={ui("Delete credential")}
                                     pendingLabel={ui("Deleting")}
                                     onConfirm={() => changeCredential(credential, "delete")}
@@ -992,9 +1076,11 @@ function GoogleDriveSourceSetup() {
             <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
             {/* tailwind-merge cannot match font-heading-h3 against DialogTitle's defaults, so equal sizes displace them. */}
             <DialogTitle className="min-w-0 flex-1 font-heading-h3 text-lg leading-7 font-semibold">
-              {reconnecting
-                ? ui("Reconnect a Google Drive credential")
-                : ui("Create a Google Drive credential")}
+              {replacingKey
+                ? ui("Replace a service account key")
+                : reconnecting
+                  ? ui("Reconnect a Google Drive credential")
+                  : ui("Create a Google Drive credential")}
             </DialogTitle>
             <DialogClose asChild>
               <IconButton
@@ -1006,111 +1092,149 @@ function GoogleDriveSourceSetup() {
               </IconButton>
             </DialogClose>
           </header>
-          <form
-            className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void connect();
-            }}
-          >
+          <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6">
             <div>
               <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
               <DialogDescription
                 id="credential-modal-description"
                 className="mt-2 text-sm text-content-secondary"
               >
-                {ui("Authenticate with OAuth to access your Google Drive documents.")}
+                {method === "SERVICE_ACCOUNT"
+                  ? ui(
+                      "Use a service account with domain-wide delegation to index your company's Google Workspace.",
+                    )
+                  : ui("Authenticate with OAuth to access your Google Drive documents.")}
               </DialogDescription>
             </div>
-            <div>
-              <label
-                htmlFor="google-drive-credential-name"
-                className="text-sm font-medium text-content-primary"
+            {globalManage && !reconnecting && !replacingKey ? (
+              <Tabs
+                value={method}
+                onValueChange={(next) => {
+                  if (busy) return;
+                  clientInput.current?.clear();
+                  setClientReady(false);
+                  setError(null);
+                  setMethod(next === "SERVICE_ACCOUNT" ? "SERVICE_ACCOUNT" : "OAUTH");
+                }}
               >
-                {ui("Credential name")}
-              </label>
-              <Input
-                id="google-drive-credential-name"
-                value={name}
-                maxLength={120}
-                required
-                disabled={busy}
-                readOnly={Boolean(reconnecting)}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={ui("e.g. Team Google account")}
-                autoComplete="off"
-                className="mt-2"
-              />
-            </div>
-            {reconnecting ? (
-              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
-                {ui(
-                  "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
-                )}
-              </p>
+                <TabsList aria-label={ui("Authentication method")}>
+                  <TabsTrigger value="OAUTH" disabled={busy}>
+                    {ui("OAuth")}
+                  </TabsTrigger>
+                  <TabsTrigger value="SERVICE_ACCOUNT" disabled={busy}>
+                    {ui("Service account")}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             ) : null}
-            {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={replaceClient}
-                  disabled={busy}
-                  onCheckedChange={(event) => {
-                    clientInput.current?.clear();
-                    setClientReady(false);
-                    setReplaceClient(event === true);
-                  }}
-                />
-                {ui("Replace OAuth app on reconnect")}
-              </label>
-            ) : null}
-            {needsClient ? (
-              <GoogleDriveOAuthClientInput
-                ref={clientInput}
-                disabled={busy || !canManage}
-                onReadyChange={setClientReady}
+            {method === "SERVICE_ACCOUNT" ? (
+              <GoogleDriveServiceAccountForm
+                key={replacingKey?.id ?? "new"}
+                replacing={replacingKey}
+                disabled={unavailable || !globalManage}
+                onPendingChange={setSavingServiceAccount}
+                onSaved={serviceAccountSaved}
+                onFailed={serviceAccountFailed}
               />
-            ) : missingClient ? (
-              <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-                {ui(
-                  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
-                )}
-              </p>
             ) : (
-              <p className="text-sm text-content-secondary">
-                {ui("Reconnect reuses the OAuth app saved with this credential.")}
-              </p>
+              <form
+                className="space-y-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void connect();
+                }}
+              >
+                <div>
+                  <label
+                    htmlFor="google-drive-credential-name"
+                    className="text-sm font-medium text-content-primary"
+                  >
+                    {ui("Credential name")}
+                  </label>
+                  <Input
+                    id="google-drive-credential-name"
+                    value={name}
+                    maxLength={120}
+                    required
+                    disabled={busy}
+                    readOnly={Boolean(reconnecting)}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder={ui("e.g. Team Google account")}
+                    autoComplete="off"
+                    className="mt-2"
+                  />
+                </div>
+                {reconnecting ? (
+                  <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                    {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
+                    {ui(
+                      "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
+                    )}
+                  </p>
+                ) : null}
+                {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={replaceClient}
+                      disabled={busy}
+                      onCheckedChange={(event) => {
+                        clientInput.current?.clear();
+                        setClientReady(false);
+                        setReplaceClient(event === true);
+                      }}
+                    />
+                    {ui("Replace OAuth app on reconnect")}
+                  </label>
+                ) : null}
+                {needsClient ? (
+                  <GoogleDriveOAuthClientInput
+                    ref={clientInput}
+                    disabled={busy || !canManage}
+                    onReadyChange={setClientReady}
+                  />
+                ) : missingClient ? (
+                  <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
+                    {ui(
+                      "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-content-secondary">
+                    {ui("Reconnect reuses the OAuth app saved with this credential.")}
+                  </p>
+                )}
+                <p className="text-sm text-content-secondary">
+                  {ui(
+                    "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
+                  )}
+                </p>
+                {error ? (
+                  <Alert variant="destructive">
+                    <TriangleAlert aria-hidden="true" />
+                    <AlertDescription>{ui(error)}</AlertDescription>
+                  </Alert>
+                ) : null}
+                {leaving ? (
+                  <p role="status" className="text-sm text-content-secondary">
+                    {ui("Continuing to Google…")}
+                  </p>
+                ) : null}
+                <Button
+                  type="submit"
+                  pending={authorizing || leaving}
+                  disabled={
+                    busy ||
+                    unavailable ||
+                    missingClient ||
+                    !name.trim() ||
+                    (needsClient && !clientReady)
+                  }
+                >
+                  {ui("Authenticate")}
+                </Button>
+              </form>
             )}
-            <p className="text-sm text-content-secondary">
-              {ui(
-                "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
-              )}
-            </p>
-            {error ? (
-              <Alert variant="destructive">
-                <TriangleAlert aria-hidden="true" />
-                <AlertDescription>{ui(error)}</AlertDescription>
-              </Alert>
-            ) : null}
-            {leaving ? (
-              <p role="status" className="text-sm text-content-secondary">
-                {ui("Continuing to Google…")}
-              </p>
-            ) : null}
-            <Button
-              type="submit"
-              pending={authorizing || leaving}
-              disabled={
-                busy ||
-                unavailable ||
-                missingClient ||
-                !name.trim() ||
-                (needsClient && !clientReady)
-              }
-            >
-              {ui("Authenticate")}
-            </Button>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </SettingsLayout>
