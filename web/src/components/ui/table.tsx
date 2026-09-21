@@ -59,7 +59,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       data-slot="table-head"
       // MemoryOS headers carry long Vietnamese labels, so wrapping stays on by default.
       className={cn(
-        "h-10 px-2 text-left align-middle font-secondary-body text-content-muted [&:has([role=checkbox])]:pr-0",
+        "h-10 px-2 text-left align-middle font-secondary-action text-content-secondary [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}

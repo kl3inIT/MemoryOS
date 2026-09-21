@@ -14,12 +14,30 @@ public interface GoogleDriveProvider {
         FileMetadata metadata(String fileId);
         List<Permission> permissions(String fileId);
         AcquiredContent acquire(FileMetadata file);
+        /** Admin SDK {@code users.get}; a caller without Directory privileges gets ACCESS_DENIED. */
+        DirectoryUser directoryUser(String email);
+        /** One page of {@code groups.list} over a Workspace domain. */
+        DirectoryPage groups(String domain, @Nullable String pageToken);
+        /** One page of a group's active users, nested groups expanded ({@code includeDerivedMembership}). */
+        MemberPage groupMembers(String groupEmail, @Nullable String pageToken);
         @Nullable byte[] rotatedRefreshToken();
         @Override void close();
     }
 
-    record Credential(String clientId, byte[] clientSecret, byte[] refreshToken) implements AutoCloseable {
-        public Credential {
+    /** The scopes a service account's domain-wide delegation must grant; OAuth grants carry their own. */
+    List<String> SERVICE_ACCOUNT_SCOPES = List.of(
+            "https://www.googleapis.com/auth/drive.readonly",
+            "https://www.googleapis.com/auth/documents.readonly",
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/admin.directory.user.readonly",
+            "https://www.googleapis.com/auth/admin.directory.group.readonly");
+
+    sealed interface Credential extends AutoCloseable permits OAuthCredential, ServiceAccountCredential {
+        @Override void close();
+    }
+
+    record OAuthCredential(String clientId, byte[] clientSecret, byte[] refreshToken) implements Credential {
+        public OAuthCredential {
             Objects.requireNonNull(clientId, "clientId");
             clientSecret = Objects.requireNonNull(clientSecret, "clientSecret").clone();
             refreshToken = Objects.requireNonNull(refreshToken, "refreshToken").clone();
@@ -27,7 +45,29 @@ public interface GoogleDriveProvider {
         @Override public byte[] clientSecret() { return clientSecret.clone(); }
         @Override public byte[] refreshToken() { return refreshToken.clone(); }
         @Override public void close() { Arrays.fill(clientSecret, (byte) 0); Arrays.fill(refreshToken, (byte) 0); }
-        @Override public String toString() { return "Credential[redacted]"; }
+        @Override public String toString() { return "OAuthCredential[redacted]"; }
+    }
+
+    /** A domain-wide-delegated service account acting as {@code subject}, a user of its Workspace. */
+    record ServiceAccountCredential(GoogleDriveServiceAccountKey key, String subject) implements Credential {
+        public ServiceAccountCredential {
+            Objects.requireNonNull(key, "key");
+            if (Objects.requireNonNull(subject, "subject").isBlank()) throw new IllegalArgumentException("subject must not be blank");
+        }
+        @Override public void close() { key.close(); }
+        @Override public String toString() { return "ServiceAccountCredential[redacted]"; }
+    }
+
+    record DirectoryUser(String primaryEmail, boolean admin, boolean suspended) {}
+
+    /** Lower-case email addresses of one Directory page. */
+    record DirectoryPage(List<String> emails, @Nullable String nextPageToken) {
+        public DirectoryPage { emails = List.copyOf(emails); }
+    }
+
+    /** {@code wholeDomain} marks a page naming the whole organization (a CUSTOMER member) as a member. */
+    record MemberPage(List<String> emails, boolean wholeDomain, @Nullable String nextPageToken) {
+        public MemberPage { emails = List.copyOf(emails); }
     }
 
     record FilePage(List<FileMetadata> files, @Nullable String nextPageToken) {

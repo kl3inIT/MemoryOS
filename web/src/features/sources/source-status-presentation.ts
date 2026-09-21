@@ -57,20 +57,20 @@ export const sourceAccessPresentation: Record<
   SourceStatusPresentation & { title: string }
 > = {
   PUBLIC: {
-    label: "Workspace members",
-    title: "Available to workspace members, not the public Internet.",
+    label: "All members",
+    title: "Everyone can read it.",
     tone: "success",
     icon: Users,
   },
   PRIVATE: {
-    label: "Private",
-    title: "Only members of the associated groups can read this Source.",
+    label: "Specific groups",
+    title: "Only members of the chosen groups can read it.",
     tone: "warning",
     icon: Lock,
   },
   SYNC: {
-    label: "Auto Sync",
-    title: "Readers need access to each file in Google Drive.",
+    label: "Sync permissions from source",
+    title: "Permissions come from the source.",
     tone: "info",
     icon: RefreshCw,
   },

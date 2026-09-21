@@ -313,6 +313,9 @@ public class GoogleDriveSelectionOperationTest {
                 }
                 @Override public GoogleDriveProvider.AcquiredContent acquire(GoogleDriveProvider.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
                 @Override public List<GoogleDriveProvider.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
+                @Override public GoogleDriveProvider.DirectoryUser directoryUser(String email) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveProvider.DirectoryPage groups(String domain,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveProvider.MemberPage groupMembers(String group,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
                 @Override public byte[] rotatedRefreshToken() { return null; }
                 @Override public void close() {}
             };
@@ -320,7 +323,7 @@ public class GoogleDriveSelectionOperationTest {
             selections=new JdbcGoogleDriveSelectionRepository(jdbc);
             var indexing=new JdbcIndexAttemptRepository(jdbc,sources,documents,
                     new DefaultProviderAuthorityService(connections, org.mockito.Mockito.mock(SharePointConnectionService.class)));
-            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, documents, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+            service=new DefaultGoogleDriveSourceService(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), connections, roots, sources, sync, indexing, documents, content -> List.of(), manager, selections, credentials, new GoogleDriveSelectionPolicy(1000,3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
             try (var grant=new GoogleDriveAuthorizationService.Grant("subject","fixture@example.com",GoogleDriveAuthorizationService.REQUIRED_SCOPES,
                     "refresh".getBytes(StandardCharsets.UTF_8));
                  var client=new GoogleDriveOAuthClient("fixture.apps.googleusercontent.com","secret".getBytes(StandardCharsets.UTF_8))) {

@@ -86,7 +86,7 @@ class ChatArtifactCleanupIntegrationTest {
         artifacts = new JdbcInterpreterRepository(jdbc);
         pictures = new JdbcImageArtifactRepository(jdbc);
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
-                mock(IamAuthorization.class), tenants, writes, storage, jpa.transactionManager());
+                mock(IamAuthorization.class), tenants, writes, storage, jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         images = new ImageArtifactService(writes, storage, pictures, tenants, jpa.transactionManager());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());

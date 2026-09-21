@@ -296,6 +296,7 @@ class SessionSecurityIntegrationTest {
     void authenticatesAndSignsOutTheInitialOwnerWithoutProviderState() throws Exception {
         AUTHENTICATING_SUBJECT.set("initial-owner");
         TestProviderSessionConfiguration.reset(true);
+        var since = java.sql.Timestamp.from(java.time.Instant.now());
         UUID ownerActorId = jdbcClient.sql("""
                         SELECT actor_id FROM external_identity_bindings
                         WHERE issuer = :issuer AND subject = 'initial-owner'
@@ -383,6 +384,15 @@ class SessionSecurityIntegrationTest {
             );
             assertTrue(cookies.getCookieStore().getCookies().stream()
                     .noneMatch(cookie -> "SESSION".equals(cookie.getName())));
+            // The session's start and end are both on the audit stream, with the endpoint and client address.
+            var events = jdbcClient.sql("""
+                            SELECT action, outcome, endpoint, source_ip, details::text AS details FROM audit_event
+                            WHERE actor_id = :actor AND occurred_at >= :since ORDER BY occurred_at
+                            """).param("actor", ownerActorId).param("since", since).query().listOfRows();
+            assertEquals(List.of("auth.login", "auth.logout"), events.stream().map(row -> row.get("action")).toList());
+            assertTrue(String.valueOf(events.get(1).get("endpoint")).startsWith("POST /logout"));
+            assertNotNull(events.get(1).get("source_ip"));
+            assertTrue(String.valueOf(events.get(1).get("details")).contains("\"providerSessionEnded\": true"));
         }
     }
 
@@ -651,6 +661,10 @@ class SessionSecurityIntegrationTest {
                     401,
                     client.send(request("/api/identity/me"), HttpResponse.BodyHandlers.ofString()).statusCode()
             );
+            assertEquals("DENIED:{\"reason\": \"NOT_ADMITTED\"}", jdbcClient.sql("""
+                            SELECT outcome || ':' || details::text FROM audit_event
+                            WHERE action = 'auth.login_failure' AND actor_id = :actor
+                            """).param("actor", unprovisionedActorId).query(String.class).single());
         }
     }
 

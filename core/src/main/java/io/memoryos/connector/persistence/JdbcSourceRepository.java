@@ -452,4 +452,25 @@ public class JdbcSourceRepository {
 
     public record SourcePair(UUID connectorId, SourceId sourceId, SourceStatus status, long pairSequence) {
     }
+
+    /** What an audit record names a Source by: its name, provider and access at this moment. */
+    public record AuditView(String name, String provider, String access, @Nullable UUID manager) {}
+
+    public java.util.Optional<AuditView> auditView(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql("""
+                SELECT connector.name, connector.connector_type, pair.access_type, pair.manager_actor_id
+                FROM connector_credential_pairs pair
+                JOIN connectors connector ON connector.tenant_id = pair.tenant_id AND connector.id = pair.connector_id
+                WHERE pair.tenant_id = :tenantId AND pair.id = :pairId
+                """).param("tenantId", tenantId.value()).param("pairId", sourceId.value())
+                .query((r, ignored) -> new AuditView(r.getString("name"), r.getString("connector_type"),
+                        r.getString("access_type"), r.getObject("manager_actor_id", UUID.class)))
+                .optional();
+    }
+
+    /** Whether the Source exists at all, whoever may reach it: tells a scoped manager's refusal from a wrong id. */
+    public boolean exists(TenantId tenantId, SourceId sourceId) {
+        return jdbcClient.sql("SELECT EXISTS (SELECT 1 FROM connector_credential_pairs WHERE tenant_id = :tenantId AND id = :pairId)")
+                .param("tenantId", tenantId.value()).param("pairId", sourceId.value()).query(Boolean.class).single();
+    }
 }

@@ -159,6 +159,21 @@ public class GroupInvariantRepository {
     }
 
 
+    /** The names of the ordinary Groups a member belongs to, for the record of a change to them. */
+    public java.util.List<String> ordinaryGroupNames(TenantId tenantId, ActorId actorId) {
+        return jdbcClient.sql("""
+                        SELECT g.name
+                        FROM iam_group_memberships membership
+                        JOIN iam_groups g ON g.tenant_id = membership.tenant_id AND g.id = membership.group_id
+                        WHERE membership.tenant_id = :tenantId AND membership.actor_id = :actorId AND g.system_key IS NULL
+                        ORDER BY g.name
+                        """)
+                .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
+                .query(String.class)
+                .list();
+    }
+
     public Set<GroupId> existingOrdinaryGroups(TenantId tenantId, Collection<GroupId> groupIds) {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
         Set<GroupId> requiredGroupIds = Set.copyOf(groupIds);

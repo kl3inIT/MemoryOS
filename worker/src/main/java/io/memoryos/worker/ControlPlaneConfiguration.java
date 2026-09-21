@@ -185,6 +185,17 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
     }
 
+    /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */
+    @Bean
+    RecurringTask<Void> auditRetentionTask(io.memoryos.iam.audit.AuditRetention retention) {
+        return Tasks.recurring("memoryos-audit-retention-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> {
+                    for (int batch = 0; batch < 20 && retention.sweep() == io.memoryos.iam.audit.AuditRetention.BATCH; batch++) {
+                        // A full batch means more may be waiting.
+                    }
+                });
+    }
+
     /** Builds requested usage reports; a few per run, so a queue drains without holding the scheduler thread. */
     @Bean
     RecurringTask<Void> usageReportTask(io.memoryos.usage.report.UsageReportService reports) {

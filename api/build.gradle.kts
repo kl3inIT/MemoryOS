@@ -14,6 +14,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.commons.csv)
     implementation(project(":connector"))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
@@ -59,6 +60,8 @@ tasks.named<Test>("test") {
     systemProperty("arconia.dev.services.postgresql.enabled", "false")
     // Cached integration contexts own token vocabularies, HTTP servers and pools.
     systemProperty("spring.test.context.cache.maxSize", "2")
+    // Two cached full application contexts no longer fit Gradle's 512 MiB test default.
+    maxHeapSize = "1g"
     inputs.file(rootProject.file("openapi.yml"))
     inputs.property(
         "memoryosOpenApiWrite",

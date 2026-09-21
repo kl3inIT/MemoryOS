@@ -155,7 +155,8 @@ class ModelCatalogConstraintsTest {
         var service = new ModelCatalogService(catalog, new JdbcChatRepository(jdbc), mock(TenantAccessResolver.class),
                 authorization, new ChatProviderAdapters(List.of()), new ProviderCredentials("", ""),
                 mock(GroupScopeService.class), new PersonaProperties(),
-                new ModelCatalogService.Deployment("http://internal/v1", "hosted", settings));
+                new ModelCatalogService.Deployment("http://internal/v1", "hosted", settings),
+                mock(io.memoryos.iam.audit.AuditTrail.class));
         var foreignFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, foreign.toString(), 25)));
         var missingFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, UUID.randomUUID().toString(), 25)));
         assertEquals(missingFailure.code(), foreignFailure.code());

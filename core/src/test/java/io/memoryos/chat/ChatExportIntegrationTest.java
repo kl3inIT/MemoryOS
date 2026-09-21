@@ -140,7 +140,8 @@ class ChatExportIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, jpa.transactionManager());
+                authorization, tenants, writes, storage, jpa.transactionManager(),
+                io.memoryos.TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, as the archive service does.
         exports = new ChatExportService(tenants, new JdbcChatExportRepository(jdbc), chats,
                 new JdbcChatLibraryRepository(jdbc), new JdbcUserFileRepository(jdbc), writes, storage,

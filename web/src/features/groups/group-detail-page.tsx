@@ -8,7 +8,7 @@ import { DangerZone } from "@/components/composites/danger-zone";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SettingsLayout } from "@/components/ui/settings-layout";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { groupMutationError } from "./group-errors";
 import { GroupMembersSection } from "./group-members-section";
 import { GroupPermissionsSection } from "./group-permissions-section";
 import { GroupSourcesSection } from "./group-sources-section";
+import { type GroupDraftSectionHandle, type GroupDraftStateChange } from "./group-draft-section";
 import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
@@ -120,6 +121,13 @@ function GroupDetail({
   const renameGroup = useMutation(renameGroupMutation());
   const replaceCapabilities = useMutation(replaceGroupCapabilitiesMutation());
   const deleteGroup = useMutation(deleteGroupMutation());
+  const membersRef = useRef<GroupDraftSectionHandle>(null);
+  const sourcesRef = useRef<GroupDraftSectionHandle>(null);
+  const [membersDirty, setMembersDirty] = useState(false);
+  const [membersPending, setMembersPending] = useState(false);
+  const [sourcesDirty, setSourcesDirty] = useState(false);
+  const [sourcesPending, setSourcesPending] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [baselineName, setBaselineName] = useState(group.name);
   const [name, setName] = useState(group.name);
   const [baselineCapabilities, setBaselineCapabilities] = useState(
@@ -137,9 +145,16 @@ function GroupDetail({
   const baselineCapabilityKey = [...baselineCapabilities].sort().join("\u0000");
   const selectedCapabilityKey = [...selectedCapabilities].sort().join("\u0000");
   const capabilitiesDirty = canManageGrants && baselineCapabilityKey !== selectedCapabilityKey;
-  const dirty = nameDirty || capabilitiesDirty;
+  const settingsDirty = nameDirty || capabilitiesDirty;
+  const dirty = settingsDirty || membersDirty || sourcesDirty;
   const canSave = dirty;
-  const busy = renameGroup.isPending || replaceCapabilities.isPending || deleteGroup.isPending;
+  const busy =
+    saving ||
+    membersPending ||
+    sourcesPending ||
+    renameGroup.isPending ||
+    replaceCapabilities.isPending ||
+    deleteGroup.isPending;
   const incomingCapabilityKey = [...group.capabilities].sort().join("\u0000");
   const incomingSettingsKey = `${group.name}\u0000${incomingCapabilityKey}`;
   const seededIncomingKeyRef = useRef(incomingSettingsKey);
@@ -188,11 +203,25 @@ function GroupDetail({
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [dirty]);
 
+  const onMembersDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
+    setMembersDirty(nextDirty);
+    setMembersPending(pending);
+  }, []);
+  const onSourcesDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
+    setSourcesDirty(nextDirty);
+    setSourcesPending(pending);
+  }, []);
+
   async function saveSettings() {
     const nextName = name.trim();
     if (!canSave || !nextName || busy) return;
     setError(null);
+    setSaving(true);
     try {
+      const sourcesSaved = (await sourcesRef.current?.save()) ?? true;
+      if (!sourcesSaved) return;
+      const membersSaved = (await membersRef.current?.save()) ?? true;
+      if (!membersSaved) return;
       if (canRename && nameDirty) {
         await renameGroup.mutateAsync({
           path: { groupId: group.id },
@@ -214,10 +243,14 @@ function GroupDetail({
       await navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
     } catch (cause) {
       setError(groupMutationError(cause, capabilitiesDirty ? "capabilities" : "rename"));
+    } finally {
+      setSaving(false);
     }
   }
 
   function cancelSettings() {
+    membersRef.current?.reset();
+    sourcesRef.current?.reset();
     if (!dirty) {
       void navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
       return;
@@ -249,13 +282,11 @@ function GroupDetail({
               {ui("Cancel")}
             </Button>
             <Button
-              pending={renameGroup.isPending || replaceCapabilities.isPending}
+              pending={busy && !deleteGroup.isPending}
               disabled={!canSave || busy || !name.trim() || (capabilitiesDirty && registryError)}
               onClick={() => void saveSettings()}
             >
-              {renameGroup.isPending || replaceCapabilities.isPending
-                ? ui("Saving…")
-                : ui("Save Changes")}
+              {busy && !deleteGroup.isPending ? ui("Saving…") : ui("Save Changes")}
             </Button>
           </>
         }
@@ -299,7 +330,7 @@ function GroupDetail({
         />
       </div>
 
-      <GroupMembersSection group={group} onAuthorityChanged={onAuthorityChanged} />
+      <GroupMembersSection ref={membersRef} group={group} onDraftChange={onMembersDraftChange} />
       {systemGroup || canManageGrants ? (
         <GroupPermissionsSection
           registry={registry}
@@ -313,7 +344,7 @@ function GroupDetail({
         />
       ) : null}
       {!systemGroup ? (
-        <GroupSourcesSection group={group} onAuthorityChanged={onAuthorityChanged} />
+        <GroupSourcesSection ref={sourcesRef} group={group} onDraftChange={onSourcesDraftChange} />
       ) : null}
 
       {canDelete ? (

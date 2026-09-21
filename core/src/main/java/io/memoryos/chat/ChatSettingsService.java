@@ -21,11 +21,13 @@ public class ChatSettingsService {
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
     private final JdbcChatSessionPurgeRepository sessions;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public ChatSettingsService(JpaChatSettingsRepository settings, IamAuthorization authorization,
-                               TenantAccessResolver tenants, JdbcChatSessionPurgeRepository sessions) {
+                               TenantAccessResolver tenants, JdbcChatSessionPurgeRepository sessions,
+                               io.memoryos.iam.audit.AuditTrail audit) {
         this.settings = settings; this.authorization = authorization; this.tenants = tenants;
-        this.sessions = sessions;
+        this.sessions = sessions; this.audit = audit;
     }
 
     /** Deep research is enabled while an administrator has not saved settings, as Onyx reads an unset value. */
@@ -47,7 +49,9 @@ public class ChatSettingsService {
     public View save(ActorId actor, boolean deepResearchEnabled, long revision) {
         var entity = writable(actor, revision);
         entity.deepResearchEnabled(deepResearchEnabled);
-        return view(settings.saveAndFlush(entity));
+        var saved = settings.saveAndFlush(entity);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CHAT_SETTINGS_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("SETTING", "chat", "Chat").detail("deepResearchEnabled", deepResearchEnabled).build());
+        return view(saved);
     }
 
     /**

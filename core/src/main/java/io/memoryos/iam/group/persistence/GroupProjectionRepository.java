@@ -85,7 +85,7 @@ public class GroupProjectionRepository {
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
                                     'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
-                                    'AGENTS_CREATE', 'AGENTS_MANAGE'
+                                    'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ'
                                 )
                             )
                       )
@@ -139,7 +139,7 @@ public class GroupProjectionRepository {
                                 group_record.system_key IS NULL
                                 AND grant_record.capability IN (
                                     'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
-                                    'AGENTS_CREATE', 'AGENTS_MANAGE'
+                                    'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ'
                                 )
                             )
                       )

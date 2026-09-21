@@ -56,7 +56,10 @@ test("scoped setup uses credential actions and requires managed groups before pr
     .fill("https://drive.google.com/file/d/file-a/view");
   // A Source may start with no Group; its recorded manager attaches it when ready.
   await expect(page.getByRole("button", { name: "Create Source", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Access groups" }).click();
+  // Groups apply to a Source read by specific groups; synchronized permissions need none.
+  await page.getByRole("combobox", { name: "Visibility" }).click();
+  await page.getByRole("option", { name: /Specific groups/ }).click();
+  await page.getByRole("combobox", { name: "Access groups" }).click();
   await page.getByRole("option", { name: "Managed team" }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Remove Managed team" })).toBeVisible();
@@ -226,16 +229,20 @@ test("shared credential revoke is confirmed, reconnect reuses its app, and attac
   const unusedRow = page
     .getByRole("rowgroup")
     .filter({ has: page.getByRole("radio", { name: "Select Unused account" }) });
-  await sharedRow.getByRole("button", { name: `Manage ${credential.name}` }).click();
-  await expect(sharedRow.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+  const manageShared = sharedRow.getByRole("button", { name: `Manage ${credential.name}` });
+  await manageShared.click();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
   await sharedRow.getByRole("radio").check();
-  await sharedRow.getByRole("button", { name: "Revoke", exact: true }).click();
+  await manageShared.click();
+  await page.getByRole("menuitem", { name: "Revoke", exact: true }).click();
   const confirmation = page.getByRole("alertdialog");
   await expect(confirmation).toContainText("all 2 Sources");
   await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
   await confirmation.getByRole("button", { name: "Cancel" }).click();
   expect(revokes).toBe(0);
-  await sharedRow.getByRole("button", { name: "Revoke", exact: true }).click();
+  await manageShared.click();
+  await page.getByRole("menuitem", { name: "Revoke", exact: true }).click();
   await confirmation.getByRole("button", { name: "Revoke", exact: true }).click();
   await expect(confirmation.getByRole("alert")).toBeVisible();
   await expect(
@@ -249,7 +256,10 @@ test("shared credential revoke is confirmed, reconnect reuses its app, and attac
   ).toContainText(credential.name);
   await expect(sharedRow.getByRole("radio")).toBeDisabled();
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
-  await sharedRow.getByRole("button", { name: "Reconnect", exact: true }).click();
+  await manageShared.click();
+  await page.getByRole("menuitem", { name: "Reconnect", exact: true }).click();
+  await expect(confirmation).toContainText("all 2 Sources");
+  await confirmation.getByRole("button", { name: "Reconnect", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("all 2 Sources");
   await expect(page.getByRole("textbox", { name: "Upload or paste OAuth app JSON" })).toHaveCount(
     0,
@@ -260,8 +270,9 @@ test("shared credential revoke is confirmed, reconnect reuses its app, and attac
     page.getByRole("listitem", { name: "Credential connected", exact: true }),
   ).toContainText(credential.name);
   expect(reconnects).toBe(1);
-  await unusedRow.getByRole("button", { name: "Manage Unused account" }).click();
-  await unusedRow.getByRole("button", { name: "Delete", exact: true }).click();
+  const manageUnused = unusedRow.getByRole("button", { name: "Manage Unused account" });
+  await manageUnused.click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await confirmation.getByRole("button", { name: "Delete credential", exact: true }).click();
   await expect(confirmation.getByRole("alert")).toBeVisible();
   await expect(confirmation.getByRole("alert")).not.toContainText("private-provider-detail");
@@ -271,7 +282,8 @@ test("shared credential revoke is confirmed, reconnect reuses its app, and attac
   await confirmation.getByRole("button", { name: "Cancel" }).click();
   await expect(unusedRow).toBeVisible();
   rejectDelete = false;
-  await unusedRow.getByRole("button", { name: "Delete", exact: true }).click();
+  await manageUnused.click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await confirmation.getByRole("button", { name: "Delete credential", exact: true }).click();
   await expect(unusedRow).toHaveCount(0);
   await expect(

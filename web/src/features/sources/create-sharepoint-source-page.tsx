@@ -534,14 +534,16 @@ function SharePointSourceSetup() {
                             : ui("Private · selected group members")}
                         </dd>
                       </div>
-                      <div>
-                        <dt className="text-content-muted">{ui("Access groups")}</dt>
-                        <dd className="mt-1 text-content-primary">
-                          {groupIds.size > 0
-                            ? ui("{{v1}} selected", { v1: groupIds.size })
-                            : ui("None")}
-                        </dd>
-                      </div>
+                      {access === "PRIVATE" ? (
+                        <div>
+                          <dt className="text-content-muted">{ui("Access groups")}</dt>
+                          <dd className="mt-1 text-content-primary">
+                            {groupIds.size > 0
+                              ? ui("{{v1}} selected", { v1: groupIds.size })
+                              : ui("None")}
+                          </dd>
+                        </div>
+                      ) : null}
                     </dl>
                   </CardContent>
                 </Card>

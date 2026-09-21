@@ -38,6 +38,7 @@ public class JdbcSourceDocumentRepository {
     private static final String SYNC_GRANTS = """
             SELECT CASE entry.permission->>'type'
                      WHEN 'user' THEN 'google_user:' || LOWER(entry.permission->>'emailAddress')
+                     WHEN 'group' THEN 'google_group:' || LOWER(entry.permission->>'emailAddress')
                      WHEN 'domain' THEN 'google_domain:' || LOWER(entry.permission->>'domain')
                      ELSE 'everyone' END AS token
             FROM connector_items sync_item
@@ -49,18 +50,37 @@ public class JdbcSourceDocumentRepository {
                 AND COALESCE(entry.permission->>'deleted','false')<>'true'
                 AND (entry.permission->>'expirationTime' IS NULL
                     OR CAST(entry.permission->>'expirationTime' AS TIMESTAMPTZ)>statement_timestamp())
-                AND ((entry.permission->>'type'='user' AND BTRIM(COALESCE(entry.permission->>'emailAddress',''))<>'')
+                AND ((entry.permission->>'type' IN ('user','group') AND BTRIM(COALESCE(entry.permission->>'emailAddress',''))<>'')
                     OR (entry.permission->>'type'='domain' AND BTRIM(COALESCE(entry.permission->>'domain',''))<>''
                         AND COALESCE(entry.permission->>'allowFileDiscovery','true')<>'false')
                     OR entry.permission->>'type'='anyone')
             """;
-    /** The reader's provider identities: the verified login email and its domain. An unverified email grants nothing. */
+    /**
+     * The reader's provider identities in {@code :tenant}: the verified login email, its domain, and the Google
+     * Groups that list it in the active generation of an active service-account credential. A group whose members
+     * include the whole customer admits every reader of the primary admin's domain. An unverified email grants nothing.
+     */
     private static final String READER_TOKENS = """
             SELECT 'google_user:' || LOWER(profile.email) AS token FROM actor_profiles profile
             WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
             UNION ALL
             SELECT 'google_domain:' || LOWER(SPLIT_PART(profile.email,'@',2)) FROM actor_profiles profile
             WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
+            UNION ALL
+            SELECT 'google_group:' || grp.group_email FROM actor_profiles profile
+            JOIN google_drive_credentials g ON g.tenant_id=:tenant AND g.active_group_generation IS NOT NULL
+                AND g.connection_status='ACTIVE' AND g.auth_method='SERVICE_ACCOUNT'
+            JOIN credentials credential ON credential.tenant_id=g.tenant_id AND credential.id=g.credential_id
+                AND credential.status='ACTIVE'
+            JOIN google_group_sync_groups grp ON grp.tenant_id=g.tenant_id AND grp.credential_id=g.credential_id
+                AND grp.generation=g.active_group_generation
+            WHERE profile.actor_id=:actor AND profile.email_verified AND profile.email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
+                AND ((grp.whole_domain
+                        AND LOWER(SPLIT_PART(profile.email,'@',2))=LOWER(SPLIT_PART(g.account_email,'@',2)))
+                    OR EXISTS (SELECT 1 FROM google_group_members member
+                        WHERE member.tenant_id=grp.tenant_id AND member.credential_id=grp.credential_id
+                            AND member.generation=grp.generation AND member.group_email=grp.group_email
+                            AND member.member_email=LOWER(profile.email)))
             """;
     private static final String READ_SCOPE = """
             EXISTS (

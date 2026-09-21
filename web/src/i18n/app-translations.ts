@@ -1237,7 +1237,6 @@ export const englishUi: Record<string, string> = {
   "Already pending belongs to earlier work, not indexing owned by this run.":
     "Mục đã chờ xử lý thuộc công việc trước đó, không phải tác vụ lập chỉ mục của lần chạy này.",
   "File ID": "ID tệp",
-  "No retained error details on this page.": "Không còn chi tiết lỗi được lưu trên trang này.",
   "Run error pages": "Các trang lỗi của lần chạy",
   "Run errors": "Lỗi của lần chạy",
   Stage: "Giai đoạn",
@@ -1255,6 +1254,7 @@ export const englishUi: Record<string, string> = {
   "Error code": "Mã lỗi",
   "Run ID": "ID lần chạy",
   "Latest run": "Lần chạy gần nhất",
+  "Filter status": "Lọc trạng thái",
   "Clear status filter": "Xóa bộ lọc trạng thái",
   Trigger: "Kích hoạt",
   "Automatic schedule": "Lịch tự động",
@@ -1291,17 +1291,15 @@ export const englishUi: Record<string, string> = {
   None: "Không có",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
-  "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.":
-    "Với Nguồn riêng tư, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn.",
-  "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.":
-    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ Nguồn riêng tư. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn; quyền từng tệp trên Google Drive quyết định ai được đọc. Quyền quản lý Nguồn toàn Tenant không cấp quyền đọc tài liệu riêng tư nếu không là thành viên nhóm.",
+  "Only members of these groups can read this Source.":
+    "Chỉ thành viên các nhóm này đọc được Nguồn này.",
   "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
   "Select groups": "Chọn nhóm",
   "Type to find more groups.": "Nhập tên để tìm thêm nhóm.",
   "Auto Sync · people who can open each file in Google Drive":
     "Tự động đồng bộ · những người mở được từng tệp trên Google Drive",
-  "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.":
-    "Người đọc cần có quyền với từng tệp trên Google Drive và email đăng nhập đã xác minh trùng khớp. Nhóm chỉ quyết định ai quản lý Nguồn này.",
+  "Whoever can open the file in Google Drive can read it.":
+    "Ai mở được tệp trên Google Drive thì đọc được.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -1338,10 +1336,6 @@ export const englishUi: Record<string, string> = {
   "Canceled by pause. Resume the Source to continue synchronization and indexing.":
     "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
-  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
-    "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",
-  "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.":
-    "Mọi người trong Tenant này đọc được tài liệu công khai; thành viên nhóm liên kết đọc được tài liệu riêng tư. Tài liệu tự động đồng bộ chỉ đọc được bởi những người mở được tệp trên Google Drive, đối chiếu theo email đăng nhập đã xác minh.",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
   "Automatic synchronization": "Đồng bộ tự động",
@@ -1387,10 +1381,8 @@ export const englishUi: Record<string, string> = {
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
   "This Source is being deleted.": "Nguồn này đang được xóa.",
   "Responsible group manager": "Người quản lý nhóm phụ trách",
-  "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.":
-    "Người phụ trách liên kết nguồn này với các nhóm họ quản lý và giữ quyền cấu hình nội dung. Nếu không có ai phụ trách, chỉ quản trị viên làm được việc đó.",
-  "No responsible manager. Administrators only.":
-    "Chưa có người phụ trách. Chỉ quản trị viên thao tác được.",
+  "Add a manager for this Source. A manager must already manage a group, and attaches the Source to the groups they manage.":
+    "Thêm một người quản lý cho nguồn này. Người quản lý phải là quản lý của một nhóm, và gắn nguồn vào các nhóm họ quản lý.",
   "Responsible manager: {{v1}}": "Người phụ trách: {{v1}}",
   "No members match your search.": "Không có thành viên nào khớp với tìm kiếm.",
   Responsible: "Đang phụ trách",
@@ -1886,8 +1878,6 @@ Object.assign(englishUi, {
   "Replace OAuth app on reconnect": "Thay ứng dụng OAuth khi kết nối lại",
   "Reconnect reuses the OAuth app saved with this credential.":
     "Kết nối lại sử dụng ứng dụng OAuth đã lưu trong thông tin kết nối này.",
-  "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.":
-    "Cấp quyền lưu thông tin kết nối có thể dùng lại, chưa tạo nguồn. Sau đó tiếp tục đặt tên nguồn và chọn liên kết tệp, thư mục.",
   "Continuing to Google…": "Đang chuyển đến Google…",
   Authenticate: "Xác thực",
   "Selected content": "Nội dung đã chọn",
@@ -1910,25 +1900,18 @@ Object.assign(englishUi, {
   "{{v1}} explicit roots": "{{v1}} mục gốc được chọn",
   "Your Google OAuth app": "Ứng dụng Google OAuth của bạn",
   "OAuth app": "Ứng dụng OAuth",
-  "Upload OAuth app JSON from Google Cloud Console, then authenticate with the Google account whose Drive you want to index.":
-    "Tải lên JSON ứng dụng OAuth từ Google Cloud Console, rồi xác thực bằng tài khoản Google có Drive cần lập chỉ mục.",
   "Setup instructions": "Hướng dẫn thiết lập",
   "Enable the Drive, Sheets and Docs APIs, configure the consent screen, and create a Web application OAuth client in your Google Cloud project.":
     "Bật API Drive, Sheets và Docs, cấu hình màn hình cấp quyền và tạo ứng dụng OAuth loại Web trong dự án Google Cloud.",
   "Google OAuth setup guide": "Hướng dẫn thiết lập Google OAuth",
   "Authorized redirect URI for this MemoryOS instance:":
     "URI chuyển hướng được cấp phép cho hệ thống MemoryOS này:",
-  "Register this URI once in Google Cloud, then download the client JSON. Sources that reuse an existing credential do not need this setup or another Google authorization.":
-    "Đăng ký URI này một lần trong Google Cloud rồi tải JSON ứng dụng. Nguồn dùng lại thông tin kết nối hiện có không cần thiết lập hoặc cấp quyền Google lần nữa.",
   "Upload or paste OAuth app JSON": "Tải lên hoặc dán JSON ứng dụng OAuth",
   "Upload OAuth client JSON": "Tải lên JSON ứng dụng OAuth",
   "Clear client JSON": "Xóa JSON ứng dụng",
   "Attach file": "Đính kèm tệp",
-  "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.":
-    "Tối đa 16 KiB. Chứa khóa bí mật ứng dụng; chỉ gửi tới MemoryOS cho kết nối này, không lưu trong bộ nhớ trình duyệt và được xóa khi tiếp tục hoặc rời thiết lập.",
   "Reading client JSON…": "Đang đọc JSON ứng dụng…",
   "Every {{v1}}": "Mỗi {{v1}}",
-  "Members of its groups": "Thành viên các nhóm của nguồn",
   "People with access in Google Drive": "Người có quyền trên Google Drive",
   "Loading…": "Đang tải…",
   Unavailable: "Không khả dụng",
@@ -2423,15 +2406,15 @@ Object.assign(englishUi, {
   "Previous errors": "Trang lỗi trước",
   "Next errors": "Trang lỗi tiếp",
   "Source setup": "Thiết lập nguồn",
-  "Available to workspace members, not the public Internet.":
-    "Khả dụng với thành viên không gian làm việc, không công khai trên Internet.",
-  "Only members of the associated groups can read this Source.":
-    "Chỉ thành viên các nhóm liên kết mới đọc được Nguồn này.",
-  "Readers need access to each file in Google Drive.":
-    "Người đọc cần có quyền với từng tệp trên Google Drive.",
-  "Workspace members": "Thành viên không gian làm việc",
+  "Everyone can read it.": "Mọi người đều đọc được.",
+  "Only members of the chosen groups can read it.": "Chỉ thành viên các nhóm được chọn đọc được.",
+  "Permissions come from the source.": "Quyền được lấy theo quyền từ nguồn.",
+  "All members": "Toàn bộ thành viên",
+  "Specific groups": "Một số nhóm cụ thể",
+  "Sync permissions from source": "Đồng bộ quyền từ nguồn",
+  "Members of the chosen groups": "Thành viên các nhóm được chọn",
+  "Choose who can read this Source.": "Chọn ai được đọc Nguồn này.",
   Private: "Riêng tư",
-  "Auto Sync": "Tự động đồng bộ",
   "Source summary": "Tóm tắt nguồn",
   "Source status": "Trạng thái nguồn",
   Access: "Truy cập",
@@ -2467,6 +2450,8 @@ Object.assign(englishUi, {
   "All statuses": "Mọi trạng thái",
   Scheduled: "Đã lên lịch",
   Indexing: "Đang lập chỉ mục",
+  "Awaiting re-index": "Chờ lập chỉ mục lại",
+  "Search indexing failed": "Lỗi đưa vào chỉ mục tìm kiếm",
   Failed: "Thất bại",
   Deleting: "Đang xóa",
   Provider: "Nhà cung cấp",
@@ -3162,6 +3147,116 @@ Object.assign(englishUi, {
   "Manage agents": "Quản lý trợ lý",
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
+  "View audit log": "Xem nhật ký audit",
+  "Scrollable audit log": "Bảng nhật ký audit cuộn được",
+  "Audit log pages": "Các trang nhật ký audit",
+  "History of administrative changes in your organization. Events are kept for 365 days.":
+    "Lịch sử các thay đổi quản trị trong tổ chức. Sự kiện được lưu 365 ngày.",
+  Adapter: "Adapter",
+  Added: "Đã thêm",
+  Admission: "Cách vào",
+  Endpoint: "Endpoint",
+  Change: "Thay đổi",
+  Client: "Client",
+  Task: "Tác vụ",
+  "Join on first sign-in": "Tự tham gia khi đăng nhập lần đầu",
+  "Connected by": "Người kết nối",
+  "Provider session ended": "Đã kết thúc phiên ở nhà cung cấp",
+  "Available to everyone": "Mọi người dùng được",
+  Reason: "Lý do",
+  Kept: "Giữ nguyên",
+  Replaced: "Đã thay",
+  "Not admitted": "Chưa được nhận vào",
+  Yes: "Có",
+  No: "Không",
+  UTC: "UTC",
+  Trace: "Trace",
+  "Audit log": "Nhật ký audit",
+  "Export CSV": "Xuất CSV",
+  Category: "Nhóm sự kiện",
+  "All categories": "Mọi nhóm sự kiện",
+  "All outcomes": "Mọi kết quả",
+  "Search people or items": "Tìm người hoặc đối tượng",
+  "Loading the audit log…": "Đang tải nhật ký audit…",
+  "The audit log could not be loaded.": "Không tải được nhật ký audit.",
+  "No events match these filters.": "Không có sự kiện nào khớp bộ lọc.",
+  "Choose a longer period or clear the search.":
+    "Chọn khoảng thời gian dài hơn hoặc xoá từ khoá tìm kiếm.",
+  Time: "Thời gian",
+  Person: "Người thực hiện",
+  Action: "Hành động",
+  Item: "Đối tượng",
+  When: "Khi nào",
+  "Local time": "Giờ địa phương",
+  Who: "Ai",
+  "IP address": "Địa chỉ IP",
+  Request: "Yêu cầu",
+  What: "Cái gì",
+  Changes: "Thay đổi",
+  Field: "Trường",
+  Before: "Trước",
+  After: "Sau",
+  "Last 24 hours": "24 giờ qua",
+  "Last 90 days": "90 ngày qua",
+  "Sign-in": "Đăng nhập",
+  Accounts: "Tài khoản",
+  Succeeded: "Thành công",
+  Denied: "Bị từ chối",
+  "Signed in": "Đã đăng nhập",
+  "Sign-in refused": "Đăng nhập bị từ chối",
+  "Signed out": "Đã đăng xuất",
+  "Joined through single sign-on": "Tham gia qua đăng nhập một lần",
+  "Invited a user": "Đã mời người dùng",
+  "Renewed an invitation link": "Đã làm mới liên kết mời",
+  "Revoked an invitation": "Đã thu hồi lời mời",
+  "Accepted an invitation": "Đã nhận lời mời",
+  "Deactivated a user": "Đã vô hiệu hoá người dùng",
+  "Reactivated a user": "Đã kích hoạt lại người dùng",
+  "Changed a user's groups": "Đã đổi nhóm của người dùng",
+  "Created a group": "Đã tạo nhóm",
+  "Renamed a group": "Đã đổi tên nhóm",
+  "Deleted a group": "Đã xoá nhóm",
+  "Changed group members": "Đã đổi thành viên nhóm",
+  "Changed a group manager": "Đã đổi người quản lý nhóm",
+  "Changed group permissions": "Đã đổi quyền của nhóm",
+  "Added a model provider": "Đã thêm nhà cung cấp mô hình",
+  "Updated a model provider": "Đã sửa nhà cung cấp mô hình",
+  "Deleted a model provider": "Đã xoá nhà cung cấp mô hình",
+  "Added a model": "Đã thêm mô hình",
+  "Updated a model": "Đã sửa mô hình",
+  "Deleted a model": "Đã xoá mô hình",
+  "Changed the default model": "Đã đổi mô hình mặc định",
+  "Changed a task model": "Đã đổi mô hình theo tác vụ",
+  "Changed Web search": "Đã đổi Tìm kiếm Web",
+  "Changed voice": "Đã đổi Giọng nói",
+  "Changed image generation": "Đã đổi Tạo ảnh",
+  "Changed Code Interpreter": "Đã đổi Code Interpreter",
+  "Changed Chat settings": "Đã đổi cài đặt Chat",
+  "Added an MCP server": "Đã thêm máy chủ MCP",
+  "Updated an MCP server": "Đã sửa máy chủ MCP",
+  "Deleted an MCP server": "Đã xoá máy chủ MCP",
+  "Changed MCP tools": "Đã đổi công cụ MCP",
+  "Changed an MCP OAuth client": "Đã đổi OAuth client của MCP",
+  "Changed an MCP shared connection": "Đã đổi kết nối dùng chung của MCP",
+  "Added a sign-in provider": "Đã thêm nhà cung cấp đăng nhập",
+  "Updated a sign-in provider": "Đã sửa nhà cung cấp đăng nhập",
+  "Deleted a sign-in provider": "Đã xoá nhà cung cấp đăng nhập",
+  "Added a source": "Đã thêm nguồn dữ liệu",
+  "Updated a source": "Đã sửa nguồn dữ liệu",
+  "Deleted a source": "Đã xoá nguồn dữ liệu",
+  "Changed source visibility": "Đã đổi quyền xem nguồn dữ liệu",
+  "Changed a source manager": "Đã đổi người quản lý nguồn dữ liệu",
+  "Changed source groups": "Đã đổi nhóm của nguồn dữ liệu",
+  "Paused a source": "Đã tạm dừng nguồn dữ liệu",
+  "Resumed a source": "Đã chạy lại nguồn dữ liệu",
+  "Removed a document from a source": "Đã gỡ tài liệu khỏi nguồn dữ liệu",
+  "Added a credential": "Đã thêm thông tin xác thực",
+  "Updated a credential": "Đã sửa thông tin xác thực",
+  "Deleted a credential": "Đã xoá thông tin xác thực",
+  "Exported the audit log": "Đã xuất nhật ký audit",
+  "Access refused": "Bị từ chối truy cập",
+  "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.":
+    "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",
@@ -3782,6 +3877,56 @@ Object.assign(englishUi, {
     "Microsoft trả về phản hồi không đọc được. Hãy thử lại.",
   "The credential was deleted while the addresses were being verified. The saved scope is unchanged.":
     "Credential đã bị xóa trong lúc xác minh địa chỉ. Phạm vi đã lưu không đổi.",
+});
+
+Object.assign(englishUi, {
+  Account: "Tài khoản",
+  "Selected groups": "Nhóm đã chọn",
+  "Group limit reached.": "Đã chọn tối đa số nhóm.",
+  "Service account": "Service account",
+  "Service account key": "Khóa service account",
+  "Authentication method": "Phương thức xác thực",
+  "Service account {{v1}} acting as {{v2}}": "Service account {{v1}} thay mặt {{v2}}",
+  "{{v1}} (service account acting as {{v2}})": "{{v1}} (service account thay mặt {{v2}})",
+  "Needs a new key": "Cần khóa mới",
+  "Replace a service account key": "Thay khóa service account",
+  "Service account key replaced": "Đã thay khóa service account",
+  "Save service account": "Lưu service account",
+  "Primary admin email": "Email quản trị viên chính",
+  "admin@company.com": "admin@company.com",
+  "e.g. Company Google Workspace": "vd. Google Workspace của công ty",
+  "Connect with a service account key.": "Kết nối bằng khóa service account.",
+  "Replacing the key affects all {{v1}} Sources using this credential. Use a key of the same service account; saved links and indexed documents are retained.":
+    "Thay khóa ảnh hưởng tới cả {{v1}} Nguồn đang dùng thông tin kết nối này. Hãy dùng khóa của cùng service account; liên kết đã lưu và tài liệu đã lập chỉ mục được giữ nguyên.",
+  "Verifying the service account with Google…": "Đang xác minh service account với Google…",
+  "Enable the Drive, Docs, Sheets and Admin SDK APIs in your Google Cloud project, create a service account and download its JSON key.":
+    "Bật các API Drive, Docs, Sheets và Admin SDK trong dự án Google Cloud, tạo service account và tải khóa JSON của nó.",
+  "Google service account guide": "Hướng dẫn service account của Google",
+  "In the Google Admin console, open Security › API controls › Domain-wide delegation, add the service account's client ID and grant these scopes:":
+    "Trong Google Admin console, mở Bảo mật › Kiểm soát API › Ủy quyền toàn miền, thêm client ID của service account và cấp các scope sau:",
+  "Upload service account JSON key": "Tải lên khóa JSON của service account",
+  "Attach the service account JSON key": "Đính kèm khóa JSON của service account",
+  "Clear service account key": "Xóa khóa service account",
+  "Reading service account key…": "Đang đọc khóa service account…",
+  "Choose a service account JSON key between 1 byte and 16 KiB.":
+    "Chọn khóa JSON của service account có kích thước từ 1 byte đến 16 KiB.",
+  "Use the JSON key downloaded for a Google Cloud service account, not an OAuth client.":
+    "Dùng khóa JSON đã tải về cho service account của Google Cloud, không phải OAuth client.",
+  "The file could not be read. Choose it again.": "Không đọc được tệp. Hãy chọn lại.",
+  "This destroys the saved key and stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Replace the key of the same service account to resume.":
+    "Thao tác này hủy khóa đã lưu và dừng đồng bộ cho cả {{v1}} Nguồn đang dùng thông tin kết nối này. Liên kết và tài liệu đã lưu được giữ nguyên. Thay khóa của cùng service account để tiếp tục.",
+  "Permanently delete this unused credential and its saved service account key. Credentials attached to any Source cannot be deleted.":
+    "Xóa vĩnh viễn thông tin kết nối không dùng này cùng khóa service account đã lưu. Không thể xóa thông tin kết nối đang gắn với Nguồn nào.",
+  "Replace the key of this service account in Google Drive credentials to save links and synchronize. Saved roots are retained.":
+    "Thay khóa của service account này trong phần thông tin kết nối Google Drive để lưu liên kết và đồng bộ. Thư mục gốc đã lưu được giữ nguyên.",
+  "Disconnecting destroys the saved key and stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Replace the key of the same service account to resume.":
+    "Ngắt kết nối sẽ hủy khóa đã lưu và dừng thu thập cho cả {{v1}} Nguồn đang dùng thông tin kết nối này, kể cả Nguồn khác. Dữ liệu đã lưu không bị xóa. Thay khóa của cùng service account để tiếp tục.",
+  "Upload the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.":
+    "Tải lên khóa JSON đã tải về cho service account của Google Cloud, với khóa RSA tối thiểu 2048 bit.",
+  "Google refused the service account. In the Admin console, grant its client ID domain-wide delegation with every listed scope, then try again.":
+    "Google từ chối service account. Trong Admin console, cấp ủy quyền toàn miền cho client ID của nó với mọi scope đã liệt kê rồi thử lại.",
+  "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.":
+    "Email quản trị viên chính phải thuộc một quản trị viên Google Workspace đang hoạt động, có quyền đọc người dùng và nhóm.",
 });
 
 const unchanged = [
