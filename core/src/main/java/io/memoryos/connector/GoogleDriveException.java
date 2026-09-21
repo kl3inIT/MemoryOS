@@ -23,6 +23,16 @@ public final class GoogleDriveException extends BusinessException {
                 "Supply the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.");
     }
 
+    public static GoogleDriveException serviceAccountDelegationMissing() {
+        return new GoogleDriveException("GOOGLE_DRIVE_SERVICE_ACCOUNT_DELEGATION_MISSING", FailureCategory.VALIDATION,
+                "Google refused the service account. In the Admin console, grant its client ID domain-wide delegation with the required scopes, then try again.");
+    }
+
+    public static GoogleDriveException serviceAccountAdminRequired() {
+        return new GoogleDriveException("GOOGLE_DRIVE_SERVICE_ACCOUNT_ADMIN_REQUIRED", FailureCategory.VALIDATION,
+                "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.");
+    }
+
     public static GoogleDriveException notConfigured() {
         return new GoogleDriveException("GOOGLE_DRIVE_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
                 "Google Drive authorization is not configured. Contact the deployment owner.");
