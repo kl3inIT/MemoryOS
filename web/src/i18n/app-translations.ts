@@ -1166,10 +1166,8 @@ export const englishUi: Record<string, string> = {
     "Liên kết nguồn phải sử dụng các nhóm thông thường. Người quản lý theo phạm vi phải giữ lại ít nhất một nhóm và quản lý tất cả các nhóm được liên kết.",
   "This Source is being deleted.": "Nguồn này đang được xóa.",
   "Responsible group manager": "Người quản lý nhóm phụ trách",
-  "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.":
-    "Người phụ trách liên kết nguồn này với các nhóm họ quản lý và giữ quyền cấu hình nội dung. Nếu không có ai phụ trách, chỉ quản trị viên làm được việc đó.",
-  "No responsible manager. Administrators only.":
-    "Chưa có người phụ trách. Chỉ quản trị viên thao tác được.",
+  "Add a manager for this Source. A manager must already manage a group, and attaches the Source to the groups they manage.":
+    "Thêm một người quản lý cho nguồn này. Người quản lý phải là quản lý của một nhóm, và gắn nguồn vào các nhóm họ quản lý.",
   "Responsible manager: {{v1}}": "Người phụ trách: {{v1}}",
   "No members match your search.": "Không có thành viên nào khớp với tìm kiếm.",
   Responsible: "Đang phụ trách",
