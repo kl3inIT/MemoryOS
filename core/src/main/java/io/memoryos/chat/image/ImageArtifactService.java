@@ -31,10 +31,15 @@ public class ImageArtifactService {
     private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
+    private final io.memoryos.chat.ChatStorageQuotaService quotas;
+    private final io.memoryos.chat.application.ChatRetentionProperties retention;
+
     public ImageArtifactService(ObjectWriteService writes, ObjectStorage storage, JdbcImageArtifactRepository artifacts,
-                                TenantAccessResolver tenants, PlatformTransactionManager transactionManager) {
+                                TenantAccessResolver tenants, io.memoryos.chat.ChatStorageQuotaService quotas,
+                                io.memoryos.chat.application.ChatRetentionProperties retention,
+                                PlatformTransactionManager transactionManager) {
         this.writes = writes; this.storage = storage; this.artifacts = artifacts; this.tenants = tenants;
-        this.tx = new TransactionTemplate(transactionManager);
+        this.quotas = quotas; this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
     }
 
     public record Served(ObjectContent content, String mediaType) {}
@@ -71,7 +76,7 @@ public class ImageArtifactService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!artifacts.markDeleted(tenant, actor, id)) throw ChatException.unavailable();
+            if (!artifacts.markDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "IMAGE")
                 .log("Generated image hidden; the cleanup sweep releases its bytes");
@@ -103,6 +108,10 @@ public class ImageArtifactService {
     /** Persists an image; an edit records the generated image or attached file it was made from. */
     public UUID store(TenantId tenant, UUID messageId, ImageProviderClient.Result result,
                       @Nullable UUID sourceArtifactId, @Nullable UUID sourceFileId) {
+        // The image belongs to the owner of the conversation, so it is their storage limit that applies.
+        var owner = artifacts.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+                .orElseThrow(() -> new IllegalStateException("generated image has no answer in this tenant"));
+        quotas.requireRoom(tenant, owner, result.bytes().length);
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(
                 "image-" + id + extension(result.mediaType()), result.mediaType(), false), result.bytes());
