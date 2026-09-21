@@ -145,12 +145,15 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
+/** A file's row: the redesign renders each file as a list item rather than a table row. */
+const row = (name: string) => screen.getByText(name).closest("li") as HTMLElement;
+
 it("lists every source with its size, total and originating conversation", async () => {
   await show();
 
   expect(screen.getByText("2 tệp · 3 KB")).toBeInTheDocument();
   const user = userEvent.setup();
-  const generated = screen.getByRole("row", { name: /doanh-thu\.xlsx/ });
+  const generated = row("doanh-thu.xlsx");
   expect(within(generated).getByText("Do mã tạo")).toBeInTheDocument();
   await user.click(within(generated).getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
   expect(await screen.findByRole("menuitem", { name: "Mở hội thoại gốc" })).toHaveAttribute(
@@ -161,7 +164,7 @@ it("lists every source with its size, total and originating conversation", async
 
   // An upload belongs to its owner rather than one conversation, so it offers no conversation link, and a
   // Project holding it blocks the deletion with the holder named in its place.
-  const uploaded = screen.getByRole("row", { name: /ghi-chú\.pdf/ });
+  const uploaded = row("ghi-chú.pdf");
   expect(within(uploaded).getByText("Đang dùng trong Kế hoạch")).toBeInTheDocument();
   await user.click(within(uploaded).getByRole("button", { name: "Thao tác với ghi-chú.pdf" }));
   const menu = await screen.findByRole("menu");
@@ -178,7 +181,9 @@ it("sends the filters, the search and the sort to the server", async () => {
   await show();
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("button", { name: "Ảnh AI" }));
+  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
+  await user.click(await screen.findByRole("button", { name: "Ảnh AI" }));
+  await user.keyboard("{Escape}");
   await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "doanh");
   await user.selectOptions(screen.getByRole("combobox", { name: "Sắp xếp" }), "LARGEST");
 
@@ -373,7 +378,7 @@ it("lists uploads still being processed separately, with retry", async () => {
   });
   retryChatFile.mockResolvedValue({ data: undefined });
 
-  await user.click(screen.getByRole("tab", { name: "Đang xử lý / Lỗi" }));
+  await user.click(screen.getByRole("button", { name: "Đang xử lý" }));
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
@@ -433,7 +438,7 @@ it("searches inside files and shows the matching passages", async () => {
     ],
   });
 
-  await user.click(screen.getByRole("tab", { name: "Nội dung" }));
+  await user.click(screen.getByRole("radio", { name: "Nội dung" }));
   await user.type(screen.getByRole("textbox", { name: "Tìm trong nội dung tệp" }), "thanh toán");
 
   await waitFor(() =>
@@ -514,9 +519,10 @@ it("shows what the library holds against its limit and links to the largest file
   const user = userEvent.setup();
 
   const bar = await screen.findByRole("region", { name: "Dung lượng đã dùng" });
-  expect(within(bar).getByText("Đã dùng 3 KB / 10 KB")).toBeInTheDocument();
+  expect(within(bar).getByText(/3 KB/)).toBeInTheDocument();
+  expect(within(bar).getByText(/10 KB/)).toBeInTheDocument();
 
-  await user.click(within(bar).getByRole("button", { name: "Tệp lớn nhất" }));
+  await user.click(within(bar).getByRole("button", { name: "Xem tệp lớn nhất" }));
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
@@ -546,7 +552,7 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   listChatLibrary.mockResolvedValue({
     data: { items: [trashed], totalCount: 1, totalBytes: trashed.sizeBytes, hasMore: false },
   });
-  await user.click(screen.getByRole("tab", { name: "Thùng rác" }));
+  await user.click(screen.getByRole("button", { name: "Thùng rác" }));
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
@@ -581,4 +587,40 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   );
   await waitFor(() => expect(emptyChatLibraryTrash).toHaveBeenCalled());
   expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
+});
+
+it("asks for the favourites when the rail switches to them", async () => {
+  await show();
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("button", { name: "Yêu thích" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ favorite: true, offset: 0 }) }),
+    ),
+  );
+  // Favourites are a view, so the same thing is not also offered as a filter.
+  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
+  expect(
+    within(await screen.findByRole("dialog")).queryByText("Chỉ tệp yêu thích"),
+  ).not.toBeInTheDocument();
+});
+
+it("says what an empty view means and offers the way out of a filter", async () => {
+  listChatLibrary.mockResolvedValue({
+    data: { items: [], totalCount: 0, totalBytes: 0, hasMore: false },
+  });
+  await show([]);
+  const user = userEvent.setup();
+
+  expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
+
+  await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "khong-co");
+  expect(await screen.findByText("Không có tệp nào khớp")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Xoá bộ lọc" }));
+  expect(await screen.findByText("Thư viện đang trống")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Thùng rác" }));
+  expect(await screen.findByText("Thùng rác trống")).toBeInTheDocument();
 });

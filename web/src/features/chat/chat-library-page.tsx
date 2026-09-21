@@ -1,64 +1,37 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import {
-  Download,
-  FileSpreadsheet,
-  FileText,
-  FolderPlus,
-  Image as ImageIcon,
-  LayoutGrid,
-  List,
-  MessageSquare,
-  MoreHorizontal,
-  Pencil,
-  Presentation,
-  RotateCcw,
-  Search,
-  Undo2,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Select } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { chatActionError } from "./chat-action-utils";
 import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { ChatDialog } from "./chat-dialog";
 import { LibraryContentMatches } from "./chat-library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./chat-library-uploads";
+import { LibraryRail, type LibraryView } from "./chat-library-rail";
+import { FileActions, LibraryEmpty, LibraryList } from "./chat-library-rows";
+import {
+  LibraryFilterPills,
+  LibrarySelectionBar,
+  LibraryToolbar,
+  type LibraryLayout,
+  type LibrarySearchMode,
+} from "./chat-library-toolbar";
 import { archiveContentUrl, useLibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
 import { fileSize } from "./chat-code";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
-import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
-import { imageArtifactUrl } from "./chat-image";
+import { type PreviewTarget } from "./chat-file-preview";
 import {
   changeLibraryFile,
   chatLibraryKey,
@@ -68,37 +41,17 @@ import {
   loadTrashWindow,
   purgeLibraryFile,
   restoreLibraryFile,
-  groupByDay,
   libraryPreviewTarget,
   loadLibrary,
   refusedBy,
-  removeFromProject,
   searchLibraryContent,
-  usageLabel,
   LIBRARY_PAGE_SIZE,
+  type ContentMatch,
   type LibraryCategory,
   type LibraryFile,
   type LibrarySort,
   type LibrarySource,
 } from "./chat-library";
-import { retryChatFile } from "@/lib/hey-api/sdk.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
-
-const SOURCES: LibrarySource[] = ["UPLOAD", "GENERATED", "IMAGE"];
-const CATEGORIES: LibraryCategory[] = ["DOCUMENT", "SPREADSHEET", "IMAGE", "PRESENTATION", "OTHER"];
-
-function categoryIcon(category: LibraryCategory) {
-  switch (category) {
-    case "SPREADSHEET":
-      return <FileSpreadsheet className="size-4 text-content-muted" />;
-    case "IMAGE":
-      return <ImageIcon className="size-4 text-content-muted" />;
-    case "PRESENTATION":
-      return <Presentation className="size-4 text-content-muted" />;
-    default:
-      return <FileText className="size-4 text-content-muted" />;
-  }
-}
 
 /** The file library: uploads, files run_python generated and generated images in one owner-private list. */
 export function ChatLibraryPage() {
@@ -111,12 +64,11 @@ export function ChatLibraryPage() {
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
   const [sort, setSort] = useState<LibrarySort>("NEWEST");
   /** Name search reads the listing; content search asks the file search what a file contains. */
-  const [mode, setMode] = useState<"name" | "content">("name");
-  /** The usable files, the uploads still being processed, or what the owner deleted. */
-  const [view, setView] = useState<"ready" | "pending" | "trash">("ready");
-  const [favorite, setFavorite] = useState(false);
+  const [mode, setMode] = useState<LibrarySearchMode>("name");
+  /** Which slice of the library is on screen: the usable files, the favourites, what is arriving, the trash. */
+  const [view, setView] = useState<LibraryView>("ready");
   const [renaming, setRenaming] = useState<LibraryFile>();
-  const [layout, setLayout] = useState<"table" | "grid">("table");
+  const [layout, setLayout] = useState<LibraryLayout>("list");
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<PreviewTarget>();
@@ -131,6 +83,13 @@ export function ChatLibraryPage() {
     setSelected([]);
   };
   const showFirstPage = () => showPage(0);
+  /** Every filter change starts the list again: page 3 of the previous filter means nothing. */
+  const fromTheFirstPage =
+    <T,>(set: (next: T) => void) =>
+    (value: T) => {
+      set(value);
+      showFirstPage();
+    };
 
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();
@@ -139,18 +98,17 @@ export function ChatLibraryPage() {
       query: mode === "content" ? "" : query,
       sources,
       categories,
-      sort,
-      favorite: favorite || undefined,
-      status:
-        view === "ready"
-          ? undefined
-          : view === "pending"
-            ? ("PENDING" as const)
-            : ("TRASH" as const),
       // The trash reads by when a file was deleted, not by when it was made.
-      ...(view === "trash" ? { sort: "DELETED" as const } : {}),
+      sort: view === "trash" ? ("DELETED" as const) : sort,
+      favorite: view === "favorite" || undefined,
+      status:
+        view === "pending"
+          ? ("PENDING" as const)
+          : view === "trash"
+            ? ("TRASH" as const)
+            : undefined,
     }),
-    [mode, query, sources, categories, sort, favorite, view],
+    [mode, query, sources, categories, sort, view],
   );
   const page = useQuery({
     queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset],
@@ -174,10 +132,9 @@ export function ChatLibraryPage() {
     enabled: mode === "content" && query.length > 0,
   });
   const files = page.data?.items ?? [];
-  const groups = groupByDay(files);
-  // Every file can be selected: adding to a Project applies to all of them, and a delete names each refusal.
-  const selectable = files;
   const chosen = files.filter((file) => selected.includes(file.id));
+  const filtered = query.length > 0 || sources.length > 0 || categories.length > 0;
+  const searchingContent = mode === "content";
 
   /**
    * One request per file: a selection is normally part refused, and one refusal must not decide the rest. The
@@ -223,35 +180,33 @@ export function ChatLibraryPage() {
     await cache.invalidateQueries({ queryKey: chatLibraryKey });
   };
 
-  const sourceLabels: Record<LibrarySource, string> = {
-    UPLOAD: ui("Đã tải lên"),
-    GENERATED: ui("Do mã tạo"),
-    IMAGE: ui("Ảnh AI"),
+  const rowActions = {
+    onPreview: (file: LibraryFile) => setPreview(libraryPreviewTarget(file)),
+    onDelete: (file: LibraryFile) => setConfirming([file]),
+    onAddToProject: (file: LibraryFile) => setProjectFiles([file]),
+    onRename: (file: LibraryFile) => setRenaming(file),
+    onFavorite: (file: LibraryFile) => void change(file, { favorite: !file.favorite }),
+    onRestore: (file: LibraryFile) =>
+      act(
+        () => restoreLibraryFile(file, AbortSignal.timeout(30000)),
+        ui("Đã khôi phục {{name}}.", { name: file.filename }),
+      ),
+    onPurge: (file: LibraryFile) =>
+      act(
+        () => purgeLibraryFile(file, AbortSignal.timeout(30000)),
+        ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
+      ),
+    onRetried: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
+    onRemovedFromProject: async (name: string) => {
+      setNotice(ui("Đã gỡ khỏi dự án {{name}}.", { name }));
+      await cache.invalidateQueries({ queryKey: chatLibraryKey });
+    },
   };
-  const categoryLabels: Record<LibraryCategory, string> = {
-    DOCUMENT: ui("Tài liệu"),
-    SPREADSHEET: ui("Bảng tính"),
-    IMAGE: ui("Ảnh"),
-    PRESENTATION: ui("Trình chiếu"),
-    OTHER: ui("Khác"),
+  const clearFilters = () => {
+    fromTheFirstPage(setSources)([]);
+    setCategories([]);
+    setSearch("");
   };
-  const groupLabels = {
-    today: ui("Hôm nay"),
-    yesterday: ui("Hôm qua"),
-    earlier: ui("Trước đó"),
-  };
-
-  /** Every filter change starts the list again: page 3 of the previous filter means nothing. */
-  const fromTheFirstPage =
-    <T,>(set: (next: T) => void) =>
-    (value: T) => {
-      set(value);
-      showFirstPage();
-    };
-  const toggle = <T extends string>(values: T[], value: T, set: (next: T[]) => void) =>
-    fromTheFirstPage(set)(
-      values.includes(value) ? values.filter((item) => item !== value) : [...values, value],
-    );
 
   return (
     <AppShell pageTitle={ui("Thư viện")}>
@@ -267,471 +222,161 @@ export function ChatLibraryPage() {
                   })
                 : undefined
             }
-            actions={
-              <div className="flex items-center gap-2">
-                <LibraryUploadButton onFiles={uploads.start} />
-                <Tabs
-                  value={layout}
-                  onValueChange={(value) => setLayout(value as "table" | "grid")}
-                >
-                  <TabsList aria-label={ui("Cách hiển thị")}>
-                    <TabsTrigger value="table" aria-label={ui("Dạng bảng")}>
-                      <List className="size-4" />
-                    </TabsTrigger>
-                    <TabsTrigger value="grid" aria-label={ui("Dạng lưới")}>
-                      <LayoutGrid className="size-4" />
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            }
+            actions={<LibraryUploadButton onFiles={uploads.start} />}
           />
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted" />
-                <Input
-                  value={search}
-                  onChange={(event) => fromTheFirstPage(setSearch)(event.target.value)}
-                  placeholder={
-                    mode === "content" ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")
-                  }
-                  aria-label={
-                    mode === "content" ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")
-                  }
-                  maxLength={200}
-                  className="pl-9"
-                />
-              </div>
-              <Tabs
-                value={mode}
-                onValueChange={(value) => fromTheFirstPage(setMode)(value as "name" | "content")}
-              >
-                <TabsList aria-label={ui("Cách tìm")}>
-                  <TabsTrigger value="name">{ui("Tên")}</TabsTrigger>
-                  <TabsTrigger value="content">{ui("Nội dung")}</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              {mode === "name" && (
-                <Select
-                  className="w-52"
-                  aria-label={ui("Sắp xếp")}
-                  value={sort}
-                  onChange={(event) => fromTheFirstPage(setSort)(event.target.value as LibrarySort)}
-                >
-                  <option value="NEWEST">{ui("Mới nhất")}</option>
-                  <option value="OLDEST">{ui("Cũ nhất")}</option>
-                  <option value="NAME">{ui("Tên A → Z")}</option>
-                  <option value="LARGEST">{ui("Dung lượng giảm dần")}</option>
-                  <option value="SMALLEST">{ui("Dung lượng tăng dần")}</option>
-                </Select>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label={ui("Lọc tệp")}>
-              {SOURCES.map((source) => (
-                <FilterToggle
-                  key={source}
-                  label={sourceLabels[source]}
-                  pressed={sources.includes(source)}
-                  onToggle={() => toggle(sources, source, setSources)}
-                />
-              ))}
-              <span className="mx-1 w-px self-stretch bg-border-default" aria-hidden />
-              {CATEGORIES.map((category) => (
-                <FilterToggle
-                  key={category}
-                  label={categoryLabels[category]}
-                  pressed={categories.includes(category)}
-                  onToggle={() => toggle(categories, category, setCategories)}
-                />
-              ))}
-              <span className="mx-1 w-px self-stretch bg-border-default" aria-hidden />
-              <FilterToggle
-                label={ui("Yêu thích")}
-                pressed={favorite}
-                onToggle={() => fromTheFirstPage(setFavorite)(!favorite)}
-              />
-            </div>
-            {mode === "name" && usage.data && (
-              <StorageBar
-                usage={usage.data}
-                onShowLargest={() => {
-                  fromTheFirstPage(setView)("ready");
-                  fromTheFirstPage(setSort)("LARGEST");
+          <div className="mt-6 flex flex-col gap-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
+            <LibraryRail
+              view={view}
+              counts={{ [view]: page.data?.totalCount }}
+              usage={usage.data}
+              onView={(next) => {
+                fromTheFirstPage(setView)(next);
+                setRefusals([]);
+                setNotice(undefined);
+              }}
+              onShowLargest={() => {
+                fromTheFirstPage(setView)("ready");
+                setSort("LARGEST");
+              }}
+            />
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <LibraryToolbar
+                sortable={view === "ready" || view === "favorite"}
+                state={{ search, mode, sources, categories, sort, layout }}
+                handlers={{
+                  onSearch: fromTheFirstPage(setSearch),
+                  onMode: fromTheFirstPage(setMode),
+                  onSources: fromTheFirstPage(setSources),
+                  onCategories: fromTheFirstPage(setCategories),
+                  onSort: fromTheFirstPage(setSort),
+                  onLayout: setLayout,
                 }}
               />
-            )}
-            {mode === "name" && (
-              <Tabs
-                value={view}
-                onValueChange={(value) =>
-                  fromTheFirstPage(setView)(value as "ready" | "pending" | "trash")
-                }
-              >
-                <TabsList aria-label={ui("Trạng thái tệp")}>
-                  <TabsTrigger value="ready">{ui("Tệp")}</TabsTrigger>
-                  <TabsTrigger value="pending">{ui("Đang xử lý / Lỗi")}</TabsTrigger>
-                  <TabsTrigger value="trash">{ui("Thùng rác")}</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-          </div>
+              <LibraryFilterPills
+                state={{ search, mode, sources, categories, sort, layout }}
+                handlers={{
+                  onSearch: fromTheFirstPage(setSearch),
+                  onMode: fromTheFirstPage(setMode),
+                  onSources: fromTheFirstPage(setSources),
+                  onCategories: fromTheFirstPage(setCategories),
+                  onSort: fromTheFirstPage(setSort),
+                  onLayout: setLayout,
+                }}
+              />
 
-          {selected.length > 0 && (
-            <div className="flex items-center gap-3 rounded-lg border border-border-default bg-surface-raised px-4 py-2">
-              <span className="text-sm">
-                {ui("Đã chọn {{count}} tệp", { count: selected.length })}
-              </span>
-              <Button
-                size="sm"
-                prominence="secondary"
-                pending={archive.state.phase === "packing"}
-                onClick={() => void archive.start(chosen)}
-              >
-                <Download className="size-4" />
-                {ui("Tải về ZIP")}
-              </Button>
-              <Button size="sm" prominence="secondary" onClick={() => setProjectFiles(chosen)}>
-                <FolderPlus className="size-4" />
-                {ui("Thêm vào dự án")}
-              </Button>
-              <Button size="sm" tone="danger" onClick={() => setConfirming(chosen)}>
-                <Trash2 className="size-4" />
-                {ui("Xoá")}
-              </Button>
-              <Button size="sm" prominence="internal" onClick={() => setSelected([])}>
-                {ui("Bỏ chọn")}
-              </Button>
-            </div>
-          )}
-          {archive.state.phase === "packing" && (
-            <p role="status" className="text-sm text-content-secondary">
-              {ui("Đang đóng gói {{count}} tệp thành ZIP…", { count: archive.state.fileCount })}
-            </p>
-          )}
-          {archive.state.phase === "ready" && (
-            <p role="status" className="text-sm text-content-secondary">
-              {ui("ZIP đã sẵn sàng và đang được tải về.")}{" "}
-              {archive.state.archive.skipped.length > 0 &&
-                ui("Bỏ qua {{count}} tệp không còn khả dụng: {{names}}", {
-                  count: archive.state.archive.skipped.length,
-                  names: archive.state.archive.skipped.join(", "),
-                })}{" "}
-              <Button size="sm" prominence="internal" asChild>
-                <a
-                  href={archiveContentUrl(archive.state.archive.id)}
-                  download
-                  onClick={() => archive.reset()}
-                >
-                  {ui("Tải lại ZIP")}
-                </a>
-              </Button>
-            </p>
-          )}
-          {archive.state.phase === "failed" && (
-            <p role="alert" className="text-sm text-content-danger">
-              {archive.state.message ||
-                ui("Không đóng gói được ZIP. Hãy chọn ít tệp hơn rồi thử lại.")}
-            </p>
-          )}
-          {notice && (
-            <p role="status" className="text-sm text-content-secondary">
-              {notice}
-            </p>
-          )}
-          {refusals.length > 0 && (
-            <ul role="alert" className="flex flex-col gap-1 text-sm text-content-danger">
-              {refusals.map((refusal) => (
-                <li key={refusal}>{refusal}</li>
-              ))}
-            </ul>
-          )}
-
-          {mode === "content" && (
-            <>
-              <p className="text-sm text-content-muted">
-                {ui(
-                  "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.",
-                )}
-              </p>
-              {query.length === 0 && (
-                <p role="status" className="text-content-muted">
-                  {ui("Nhập điều bạn nhớ về nội dung tệp.")}
-                </p>
-              )}
-              {matches.isFetching && <p role="status">{ui("Đang tìm…")}</p>}
-              {matches.isError && (
-                <p role="alert">
-                  {ui("Không tìm được trong nội dung tệp.")}{" "}
-                  <Button prominence="internal" size="sm" onClick={() => void matches.refetch()}>
-                    {ui("Thử lại")}
-                  </Button>
-                </p>
-              )}
-              {matches.isSuccess &&
-                !matches.isFetching &&
-                matches.data.length === 0 &&
-                query.length > 0 && (
-                  <p role="status" className="text-content-muted">
-                    {ui("Không có tệp nào khớp nội dung này.")}
-                  </p>
-                )}
-              {matches.data && matches.data.length > 0 && (
-                <LibraryContentMatches
-                  matches={matches.data}
-                  query={query}
-                  onOpen={(match) => setPreview(libraryPreviewTarget(match.file))}
-                  actions={(match) => (
-                    <FileActions
-                      file={match.file}
-                      onDelete={() => setConfirming([match.file])}
-                      onAddToProject={() => setProjectFiles([match.file])}
-                      onRename={() => setRenaming(match.file)}
-                      onFavorite={() => void change(match.file, { favorite: !match.file.favorite })}
-                    />
-                  )}
+              {selected.length > 0 && (
+                <LibrarySelectionBar
+                  count={selected.length}
+                  packing={archive.state.phase === "packing"}
+                  onDownload={() => void archive.start(chosen)}
+                  onAddToProject={() => setProjectFiles(chosen)}
+                  onDelete={() => setConfirming(chosen)}
+                  onClear={() => setSelected([])}
                 />
               )}
-            </>
-          )}
 
-          {mode === "name" && view === "trash" && (
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-content-muted">
-                {trashWindow.data === 0
-                  ? ui("Máy chủ này xoá tệp ngay, không giữ trong thùng rác.")
-                  : ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", {
-                      days: trashWindow.data ?? 30,
-                    })}
-              </p>
-              <ConfirmDialog
-                trigger={
-                  <Button size="sm" tone="danger" prominence="secondary">
-                    <Trash2 className="size-4" />
-                    {ui("Dọn sạch thùng rác")}
-                  </Button>
-                }
-                title={ui("Dọn sạch thùng rác?")}
-                description={ui(
-                  "Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.",
-                )}
-                confirmLabel={ui("Dọn sạch")}
-                pendingLabel={ui("Đang dọn…")}
-                confirmTone="danger"
-                onConfirm={() =>
-                  act(async () => {
-                    const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
-                    return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
-                  }, ui("Đã dọn sạch thùng rác."))
-                }
+              <LibraryNotices
+                archive={archive}
+                notice={notice}
+                refusals={refusals}
+                onDismiss={() => {
+                  setNotice(undefined);
+                  setRefusals([]);
+                }}
               />
-            </div>
-          )}
 
-          {mode === "name" && page.isPending && <p role="status">{ui("Đang tải thư viện…")}</p>}
-          {mode === "name" && page.isError && (
-            <p role="alert">
-              {ui("Không tải được thư viện.")}{" "}
-              <Button prominence="internal" size="sm" onClick={() => void page.refetch()}>
-                {ui("Thử lại")}
-              </Button>
-            </p>
-          )}
-          {mode === "name" && page.isSuccess && files.length === 0 && (
-            <p role="status" className="text-content-muted">
-              {view === "pending"
-                ? ui("Không có tệp nào đang xử lý hoặc bị lỗi.")
-                : query || sources.length > 0 || categories.length > 0 || favorite
-                  ? ui("Không có tệp nào khớp bộ lọc.")
-                  : ui("Chưa có tệp nào. Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.")}
-            </p>
-          )}
+              {view === "trash" && (
+                <TrashBanner
+                  days={trashWindow.data}
+                  onEmpty={() =>
+                    act(async () => {
+                      const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
+                      return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
+                    }, ui("Đã dọn sạch thùng rác."))
+                  }
+                />
+              )}
 
-          {mode === "name" &&
-            files.length > 0 &&
-            (layout === "table" ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        aria-label={ui("Chọn tất cả")}
-                        checked={selectable.length > 0 && selected.length === selectable.length}
-                        onCheckedChange={(checked) =>
-                          setSelected(checked ? selectable.map((file) => file.id) : [])
-                        }
-                      />
-                    </TableHead>
-                    <TableHead>{ui("Tên tệp")}</TableHead>
-                    <TableHead>
-                      {view === "pending"
-                        ? ui("Trạng thái")
-                        : view === "trash"
-                          ? ui("Đã xoá")
-                          : ui("Nguồn tệp")}
-                    </TableHead>
-                    <TableHead>{ui("Dung lượng")}</TableHead>
-                    <TableHead>{ui("Ngày tạo")}</TableHead>
-                    <TableHead className="text-right">{ui("Thao tác")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map((file) => (
-                    <TableRow key={file.id}>
-                      <TableCell>
+              {searchingContent ? (
+                <ContentResults
+                  query={query}
+                  matches={matches}
+                  onOpen={(file) => setPreview(libraryPreviewTarget(file))}
+                  actions={rowActions}
+                />
+              ) : (
+                <>
+                  {page.isPending && <ListSkeleton />}
+                  {page.isError && (
+                    <Alert variant="destructive">
+                      <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
+                      <AlertDescription>
+                        <Button prominence="internal" size="sm" onClick={() => void page.refetch()}>
+                          {ui("Thử lại")}
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {page.isSuccess && files.length === 0 && (
+                    <LibraryEmpty
+                      view={view}
+                      filtered={filtered}
+                      action={<LibraryUploadButton onFiles={uploads.start} />}
+                      onClearFilters={clearFilters}
+                    />
+                  )}
+                  {files.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2 px-3">
                         <Checkbox
-                          aria-label={ui("Chọn {{name}}", { name: file.filename })}
-                          checked={selected.includes(file.id)}
-                          onCheckedChange={() =>
-                            setSelected(
-                              selected.includes(file.id)
-                                ? selected.filter((id) => id !== file.id)
-                                : [...selected, file.id],
-                            )
+                          aria-label={ui("Chọn tất cả")}
+                          checked={files.length > 0 && selected.length === files.length}
+                          onCheckedChange={(checked) =>
+                            setSelected(checked ? files.map((file) => file.id) : [])
                           }
                         />
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          type="button"
-                          className="flex min-w-0 items-center gap-2 text-left hover:underline"
-                          onClick={() => setPreview(libraryPreviewTarget(file))}
-                        >
-                          {categoryIcon(file.category)}
-                          <span className="truncate">{file.filename}</span>
-                        </button>
-                        <FileUsage
-                          file={file}
-                          onRemoved={async (name) => {
-                            setNotice(ui("Đã gỡ khỏi dự án {{name}}.", { name }));
-                            await cache.invalidateQueries({ queryKey: chatLibraryKey });
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell className="text-content-secondary">
-                        {view === "pending"
-                          ? statusLabel(file, ui)
-                          : view === "trash"
-                            ? file.deletedAt
-                              ? new Date(file.deletedAt).toLocaleDateString(i18n.language)
-                              : ""
-                            : sourceLabels[file.source]}
-                      </TableCell>
-                      <TableCell className="text-content-secondary">
-                        {fileSize(file.sizeBytes, i18n.language)}
-                      </TableCell>
-                      <TableCell className="text-content-secondary">
-                        {new Date(file.createdAt).toLocaleDateString(i18n.language)}
-                      </TableCell>
-                      <TableCell>
-                        {view === "trash" ? (
-                          <TrashActions
-                            file={file}
-                            onRestore={() =>
-                              act(
-                                () => restoreLibraryFile(file, AbortSignal.timeout(30000)),
-                                ui("Đã khôi phục {{name}}.", { name: file.filename }),
-                              )
-                            }
-                            onPurge={() =>
-                              act(
-                                () => purgeLibraryFile(file, AbortSignal.timeout(30000)),
-                                ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
-                              )
-                            }
-                          />
-                        ) : view === "pending" ? (
-                          <PendingActions
-                            file={file}
-                            onRetried={() => cache.invalidateQueries({ queryKey: chatLibraryKey })}
-                            onRemove={() => setConfirming([file])}
-                          />
-                        ) : (
-                          <FileActions
-                            file={file}
-                            onDelete={() => setConfirming([file])}
-                            onAddToProject={() => setProjectFiles([file])}
-                            onRename={() => setRenaming(file)}
-                            onFavorite={() => void change(file, { favorite: !file.favorite })}
-                          />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {groups.map((group) => (
-                  <section key={group.label} aria-label={groupLabels[group.label]}>
-                    <h2 className="mb-2 text-sm font-medium text-content-muted">
-                      {groupLabels[group.label]}
-                    </h2>
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {group.items.map((file) => (
-                        <li
-                          key={file.id}
-                          className="flex flex-col gap-2 rounded-lg border border-border-default p-3"
-                        >
-                          <button
-                            type="button"
-                            className="flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface-sunken"
-                            onClick={() => setPreview(libraryPreviewTarget(file))}
-                            aria-label={ui("Xem trước {{name}}", { name: file.filename })}
-                          >
-                            {file.source === "IMAGE" ? (
-                              <img
-                                src={imageArtifactUrl(file.id)}
-                                alt=""
-                                loading="lazy"
-                                className="size-full object-cover"
-                              />
-                            ) : (
-                              categoryIcon(file.category)
-                            )}
-                          </button>
-                          <span className="truncate text-sm" title={file.filename}>
-                            {file.filename}
-                          </span>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-content-muted">
-                              {fileSize(file.sizeBytes, i18n.language)}
-                            </span>
-                            <FileActions
-                              file={file}
-                              onDelete={() => setConfirming([file])}
-                              onAddToProject={() => setProjectFiles([file])}
-                              onRename={() => setRenaming(file)}
-                              onFavorite={() => void change(file, { favorite: !file.favorite })}
-                            />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            ))}
-
-          {(offset > 0 || page.data?.hasMore) && (
-            <div className="flex items-center justify-between">
-              <Button
-                prominence="internal"
-                disabled={offset === 0}
-                onClick={() => showPage(Math.max(0, offset - LIBRARY_PAGE_SIZE))}
-              >
-                {ui("Trang trước")}
-              </Button>
-              <Button
-                prominence="internal"
-                disabled={!page.data?.hasMore}
-                onClick={() => showPage(offset + LIBRARY_PAGE_SIZE)}
-              >
-                {ui("Trang sau")}
-              </Button>
+                        <span className="font-secondary-body text-content-muted">
+                          {ui("Chọn tất cả")}
+                        </span>
+                      </div>
+                      <LibraryList
+                        files={files}
+                        view={view}
+                        layout={layout}
+                        selected={selected}
+                        grouped={sort === "NEWEST" && view !== "trash"}
+                        actions={rowActions}
+                        onSelect={(file) =>
+                          setSelected(
+                            selected.includes(file.id)
+                              ? selected.filter((id) => id !== file.id)
+                              : [...selected, file.id],
+                          )
+                        }
+                      />
+                    </>
+                  )}
+                  {(offset > 0 || page.data?.hasMore) && (
+                    <TablePagination
+                      label={ui("Phân trang thư viện")}
+                      page={Math.floor(offset / LIBRARY_PAGE_SIZE)}
+                      totalPages={
+                        page.data ? Math.ceil(page.data.totalCount / LIBRARY_PAGE_SIZE) : undefined
+                      }
+                      previousDisabled={offset === 0}
+                      nextDisabled={!page.data?.hasMore}
+                      previousLabel={ui("Trang trước")}
+                      nextLabel={ui("Trang sau")}
+                      onPrevious={() => showPage(Math.max(0, offset - LIBRARY_PAGE_SIZE))}
+                      onNext={() => showPage(offset + LIBRARY_PAGE_SIZE)}
+                    />
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </LibraryDropZone>
       </SettingsLayout>
 
@@ -773,9 +418,7 @@ export function ChatLibraryPage() {
           trashWindow.data === 0
             ? ui(
                 "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
-                {
-                  count: confirming?.length ?? 0,
-                },
+                { count: confirming?.length ?? 0 },
               )
             : ui(
                 "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.",
@@ -791,216 +434,181 @@ export function ChatLibraryPage() {
   );
 }
 
-function FilterToggle({
-  label,
-  pressed,
-  onToggle,
+/** Everything the page has to say about the last command, in one place instead of five stacked paragraphs. */
+function LibraryNotices({
+  archive,
+  notice,
+  refusals,
+  onDismiss,
 }: {
-  label: string;
-  pressed: boolean;
-  onToggle: () => void;
+  archive: ReturnType<typeof useLibraryArchive>;
+  notice?: string;
+  refusals: string[];
+  onDismiss: () => void;
 }) {
+  const ui = useAppTranslation();
   return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onToggle}
-      className={cn(
-        "h-7 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
-        pressed
-          ? "border-transparent bg-surface-accent text-content-on-accent"
-          : "border-border-default text-content-secondary hover:text-content-primary",
+    <>
+      {archive.state.phase === "packing" && (
+        <Alert>
+          <Download />
+          <AlertTitle>
+            {ui("Đang đóng gói {{count}} tệp thành ZIP…", { count: archive.state.fileCount })}
+          </AlertTitle>
+        </Alert>
       )}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** What holds an upload, with a way to take it out of a Project; an assistant's files are edited on the assistant. */
-function FileUsage({
-  file,
-  onRemoved,
-}: {
-  file: LibraryFile;
-  onRemoved: (name: string) => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const [pending, setPending] = useState<string>();
-  const [failed, setFailed] = useState(false);
-  if (file.usedBy.length === 0) return null;
-  return (
-    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-content-muted">
-      <span>{ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}</span>
-      {file.usedBy
-        .filter((usage) => usage.kind === "PROJECT")
-        .map((usage) => (
-          <button
-            key={usage.id}
-            type="button"
-            disabled={pending !== undefined}
-            className="underline hover:text-content-primary disabled:opacity-50"
-            onClick={async () => {
-              setPending(usage.id);
-              setFailed(false);
-              try {
-                await removeFromProject(usage.id, file.id, AbortSignal.timeout(30000));
-                await onRemoved(usage.name);
-              } catch {
-                setFailed(true);
-              } finally {
-                setPending(undefined);
-              }
-            }}
-          >
-            {ui("Gỡ khỏi {{name}}", { name: usage.name })}
-          </button>
-        ))}
-      {failed && <span role="alert">{ui("Không gỡ được. Hãy thử lại.")}</span>}
-    </span>
-  );
-}
-
-/** Used against the limit, with the breakdown the owner can act on. */
-function StorageBar({
-  usage,
-  onShowLargest,
-}: {
-  usage: { usedBytes: number; fileCount: number; limitBytes?: number | null };
-  onShowLargest: () => void;
-}) {
-  const ui = useAppTranslation();
-  const limit = usage.limitBytes ?? null;
-  const percent = limit ? Math.min(100, Math.round((usage.usedBytes / limit) * 100)) : 0;
-  return (
-    <section
-      aria-label={ui("Dung lượng đã dùng")}
-      className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default px-4 py-2"
-    >
-      <span className="text-sm">
-        {limit
-          ? ui("Đã dùng {{used}} / {{limit}}", {
-              used: fileSize(usage.usedBytes, i18n.language),
-              limit: fileSize(limit, i18n.language),
-            })
-          : ui("Đã dùng {{used}} · không giới hạn", {
-              used: fileSize(usage.usedBytes, i18n.language),
-            })}
-      </span>
-      {limit !== null && (
-        <span className="min-w-40 flex-1">
-          <Progress value={percent} aria-label={ui("Dung lượng đã dùng")} />
-        </span>
+      {archive.state.phase === "ready" && (
+        <Alert variant="success">
+          <Download />
+          <AlertTitle>{ui("ZIP đã sẵn sàng và đang được tải về.")}</AlertTitle>
+          <AlertDescription>
+            {archive.state.archive.skipped.length > 0 &&
+              ui("Bỏ qua {{count}} tệp không còn khả dụng: {{names}}", {
+                count: archive.state.archive.skipped.length,
+                names: archive.state.archive.skipped.join(", "),
+              })}
+            <Button size="sm" prominence="internal" asChild>
+              <a
+                href={archiveContentUrl(archive.state.archive.id)}
+                download
+                onClick={() => archive.reset()}
+              >
+                {ui("Tải lại ZIP")}
+              </a>
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
-      <Button size="sm" prominence="internal" onClick={onShowLargest}>
-        {ui("Tệp lớn nhất")}
-      </Button>
-    </section>
+      {archive.state.phase === "failed" && (
+        <Alert variant="destructive">
+          <AlertTitle>
+            {archive.state.message ||
+              ui("Không đóng gói được ZIP. Hãy chọn ít tệp hơn rồi thử lại.")}
+          </AlertTitle>
+        </Alert>
+      )}
+      {notice && (
+        <Alert variant="success">
+          <AlertTitle>{notice}</AlertTitle>
+          <AlertDescription>
+            <Button size="sm" prominence="internal" onClick={onDismiss}>
+              {ui("Đóng")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {refusals.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>{ui("Một số tệp không xoá được")}</AlertTitle>
+          <AlertDescription>
+            <ul className="flex flex-col gap-1">
+              {refusals.map((refusal) => (
+                <li key={refusal}>{refusal}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+    </>
   );
 }
 
-/** A trashed file can only come back or go for good. */
-function TrashActions({
-  file,
-  onRestore,
-  onPurge,
-}: {
-  file: LibraryFile;
-  onRestore: () => Promise<void>;
-  onPurge: () => Promise<void>;
-}) {
+/** How long the trash keeps a file, and the one command that applies to all of it. */
+function TrashBanner({ days, onEmpty }: { days?: number; onEmpty: () => Promise<void> }) {
   const ui = useAppTranslation();
   return (
-    <div className="flex items-center justify-end gap-1">
-      <Button size="sm" prominence="internal" onClick={() => void onRestore()}>
-        <Undo2 className="size-4" aria-hidden="true" />
-        {ui("Khôi phục")}
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-subtle px-3 py-2">
+      <p className="font-secondary-body text-content-secondary">
+        {days === 0
+          ? ui("Máy chủ này xoá tệp ngay, không giữ trong thùng rác.")
+          : ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: days ?? 30 })}
+      </p>
       <ConfirmDialog
         trigger={
-          <IconButton
-            size="sm"
-            prominence="internal"
-            aria-label={ui("Xoá vĩnh viễn {{name}}", { name: file.filename })}
-          >
-            <Trash2 />
-          </IconButton>
+          <Button size="sm" tone="danger" prominence="secondary">
+            <Trash2 className="size-4" aria-hidden="true" />
+            {ui("Dọn sạch thùng rác")}
+          </Button>
         }
-        title={ui("Xoá vĩnh viễn?")}
-        description={ui(
-          "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.",
-        )}
-        confirmLabel={ui("Xoá vĩnh viễn")}
-        pendingLabel={ui("Đang xoá…")}
+        title={ui("Dọn sạch thùng rác?")}
+        description={ui("Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.")}
+        confirmLabel={ui("Dọn sạch")}
+        pendingLabel={ui("Đang dọn…")}
         confirmTone="danger"
-        onConfirm={onPurge}
+        onConfirm={onEmpty}
       />
     </div>
   );
 }
 
-function statusLabel(file: LibraryFile, ui: ReturnType<typeof useAppTranslation>) {
-  switch (file.status) {
-    case "UPLOADING":
-      return ui("Chưa xác nhận tải lên");
-    case "PROCESSING":
-      return ui("Đang xử lý…");
-    case "FAILED":
-      return file.errorCode === "UPLOAD_EXPIRED"
-        ? ui("Tải lên hết hạn · hãy tải lại tệp")
-        : ui("Xử lý lỗi");
-    default:
-      return ui("Sẵn sàng");
-  }
-}
-
-/** An upload that is not usable yet can only be retried or removed; it has nothing to preview or attach. */
-function PendingActions({
-  file,
-  onRetried,
-  onRemove,
+/** What a phrase inside a file found, which is a different list from the library's own. */
+function ContentResults({
+  query,
+  matches,
+  onOpen,
+  actions,
 }: {
-  file: LibraryFile;
-  onRetried: () => Promise<unknown>;
-  onRemove: () => void;
+  query: string;
+  matches: {
+    data?: ContentMatch[];
+    isFetching: boolean;
+    isError: boolean;
+    isSuccess: boolean;
+    refetch: () => unknown;
+  };
+  onOpen: (file: LibraryFile) => void;
+  actions: Parameters<typeof FileActions>[0]["actions"];
 }) {
   const ui = useAppTranslation();
-  const [busy, setBusy] = useState(false);
   return (
-    <div className="flex items-center justify-end gap-1">
-      {file.status === "FAILED" && file.errorCode !== "UPLOAD_EXPIRED" && (
-        <Button
-          size="sm"
-          prominence="internal"
-          pending={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await retryChatFile({
-                path: { fileId: file.id },
-                headers: sameOriginMutationHeaders,
-                signal: AbortSignal.timeout(30000),
-                throwOnError: true,
-              });
-              await onRetried();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <RotateCcw className="size-4" aria-hidden="true" />
-          {ui("Thử lại")}
-        </Button>
+    <div className="flex flex-col gap-3">
+      <p className="font-secondary-body text-content-muted">
+        {ui(
+          "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.",
+        )}
+      </p>
+      {query.length === 0 && (
+        <p role="status" className="text-content-muted">
+          {ui("Nhập điều bạn nhớ về nội dung tệp.")}
+        </p>
       )}
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-label={ui("Gỡ bỏ {{name}}", { name: file.filename })}
-        title={ui("Gỡ bỏ")}
-        onClick={onRemove}
-      >
-        <Trash2 />
-      </IconButton>
+      {matches.isFetching && <ListSkeleton />}
+      {matches.isError && (
+        <Alert variant="destructive">
+          <AlertTitle>{ui("Không tìm được trong nội dung tệp.")}</AlertTitle>
+          <AlertDescription>
+            <Button prominence="internal" size="sm" onClick={() => void matches.refetch()}>
+              {ui("Thử lại")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {matches.isSuccess &&
+        !matches.isFetching &&
+        matches.data?.length === 0 &&
+        query.length > 0 && (
+          <p role="status" className="text-content-muted">
+            {ui("Không có tệp nào khớp nội dung này.")}
+          </p>
+        )}
+      {matches.data && matches.data.length > 0 && (
+        <LibraryContentMatches
+          matches={matches.data}
+          query={query}
+          onOpen={(match) => onOpen(match.file)}
+          actions={(match) => <FileActions file={match.file} actions={actions} />}
+        />
+      )}
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="flex flex-col gap-2" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((row) => (
+        <Skeleton key={row} className="h-14 w-full rounded-lg" />
+      ))}
     </div>
   );
 }
@@ -1037,80 +645,5 @@ function RenameDialog({
         />
       </label>
     </ChatDialog>
-  );
-}
-
-function FileActions({
-  file,
-  onDelete,
-  onAddToProject,
-  onRename,
-  onFavorite,
-}: {
-  file: LibraryFile;
-  onDelete: () => void;
-  onAddToProject: () => void;
-  onRename: () => void;
-  onFavorite: () => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <IconButton
-        size="sm"
-        prominence="internal"
-        aria-pressed={file.favorite}
-        aria-label={
-          file.favorite
-            ? ui("Bỏ yêu thích {{name}}", { name: file.filename })
-            : ui("Đánh dấu yêu thích {{name}}", { name: file.filename })
-        }
-        onClick={onFavorite}
-      >
-        <Star className={file.favorite ? "fill-current text-status-warning-content" : undefined} />
-      </IconButton>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <IconButton
-            size="sm"
-            prominence="internal"
-            aria-label={ui("Thao tác với {{name}}", { name: file.filename })}
-          >
-            <MoreHorizontal />
-          </IconButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onRename}>
-            <Pencil />
-            {ui("Đổi tên")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onAddToProject}>
-            <FolderPlus />
-            {ui("Thêm vào dự án")}
-          </DropdownMenuItem>
-          {file.sessionId && (
-            <DropdownMenuItem asChild>
-              <Link to="/chat/$sessionId" params={{ sessionId: file.sessionId }}>
-                <MessageSquare />
-                {ui("Mở hội thoại gốc")}
-              </Link>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem asChild>
-            <a href={downloadUrl(libraryPreviewTarget(file))} download={file.filename}>
-              <Download />
-              {ui("Tải về")}
-            </a>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" disabled={!file.deletable} onSelect={onDelete}>
-            <Trash2 />
-            {file.deletable
-              ? ui("Xoá")
-              : ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   );
 }

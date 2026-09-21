@@ -1,5 +1,42 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
+  "Phần của thư viện": "Library sections",
+  "Tất cả tệp": "All files",
+  "Đang xử lý": "Processing",
+  "Gần hết dung lượng · {{percent}}%": "Almost full · {{percent}}%",
+  "Đã dùng {{percent}}%": "{{percent}}% used",
+  "{{count}} tệp": "{{count}} files",
+  "Xem tệp lớn nhất": "See the largest files",
+  "Xoá từ khoá tìm kiếm": "Clear the search",
+  "Bộ lọc": "Filters",
+  "Bộ lọc đang áp dụng": "Filters in force",
+  "Bỏ lọc {{name}}": "Drop the {{name}} filter",
+  "Xoá bộ lọc": "Clear the filters",
+  "Xoá tất cả": "Clear all",
+  "Loại tệp": "File kind",
+  "Dạng danh sách": "As a list",
+  "Phân trang thư viện": "Library pages",
+  "Một số tệp không xoá được": "Some files could not be deleted",
+  "Đã xoá {{date}}": "Deleted {{date}}",
+  "Xoá vĩnh viễn {{date}}": "Deleted for good on {{date}}",
+  "Tải về {{name}}": "Download {{name}}",
+  "Khôi phục {{name}}": "Restore {{name}}",
+  "Thử lại {{name}}": "Retry {{name}}",
+  "Không có tệp nào khớp": "No file matches",
+  "Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.": "Drop a filter or search for something else.",
+  "Thư viện đang trống": "The library is empty",
+  "Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.":
+    "Upload a file or let Chat make one, and it appears here.",
+  "Chưa có tệp yêu thích": "No favourites yet",
+  "Bấm ngôi sao trên một tệp để giữ nó ở chỗ dễ tìm.":
+    "Star a file to keep it where it is easy to find.",
+  "Không có tệp nào đang xử lý": "Nothing is being processed",
+  "Tệp mới tải lên sẽ hiện ở đây cho tới khi dùng được.":
+    "A file you upload stays here until it is usable.",
+  "Thùng rác trống": "The trash is empty",
+  "Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn.":
+    "A file you delete waits here before it is deleted for good.",
   // MEM-152 file library v2, phase 4: storage limits and the trash
   "Thùng rác": "Trash",
   "Thùng rác đang trống.": "The trash is empty.",
