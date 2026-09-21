@@ -1022,7 +1022,6 @@ export const englishUi: Record<string, string> = {
   "Already pending belongs to earlier work, not indexing owned by this run.":
     "Mục đã chờ xử lý thuộc công việc trước đó, không phải tác vụ lập chỉ mục của lần chạy này.",
   "File ID": "ID tệp",
-  "No retained error details on this page.": "Không còn chi tiết lỗi được lưu trên trang này.",
   "Run error pages": "Các trang lỗi của lần chạy",
   "Run errors": "Lỗi của lần chạy",
   Stage: "Giai đoạn",

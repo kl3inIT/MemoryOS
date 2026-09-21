@@ -779,7 +779,7 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
               {ui("Detailed errors expired; retained totals are shown.")}
             </p>
           </RunSection>
-        ) : hasErrors || runIsActive(run) ? (
+        ) : hasErrors ? (
           <RunSection title={ui("Error details")}>
             <RunErrors key={run.id} run={run} />
           </RunSection>
@@ -865,9 +865,7 @@ function RunErrors({ run }: { run: SourceRun }) {
                 </li>
               ))}
             </ul>
-          ) : (
-            <p>{ui("No retained error details on this page.")}</p>
-          )}
+          ) : null}
           {previous.length || errors.data.nextCursor ? (
             <TablePagination
               label={ui("Run error pages")}
