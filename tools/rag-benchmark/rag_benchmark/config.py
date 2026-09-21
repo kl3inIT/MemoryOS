@@ -21,6 +21,18 @@ def _required(name: str) -> str:
     return value
 
 
+def _whole(name: str, fallback: int) -> int:
+    """A malformed number is a configuration mistake; `cli.main` reports those instead of
+    letting a ValueError escape."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return fallback
+    try:
+        return int(value)
+    except ValueError as broken:
+        raise ConfigError(f"{name} must be a whole number, not {value!r}") from broken
+
+
 def _suffix(label: str) -> str:
     return label.upper().replace("-", "_")
 
@@ -31,8 +43,9 @@ class Actor:
     One identity the benchmark asks as; questions refer to it by label.
 
     The realm enables neither direct access grants nor implicit flows, so a password is never a
-    credential here: an actor authenticates through its own service-account client (client
-    credentials), whose subject is bound to the Actor, or through a bearer token for one run.
+    credential here. An actor authenticates, in order of preference, through a refresh token stored
+    by `rag-benchmark login`, its own service-account client (client credentials) whose subject is
+    bound to the Actor, or a bearer token captured for one short run.
     """
 
     label: str
@@ -40,16 +53,21 @@ class Actor:
     client_secret: str | None = None
     token: str | None = None
 
+    @property
+    def has_environment_credential(self) -> bool:
+        return bool(self.token or (self.client_id and self.client_secret))
+
     @staticmethod
     def from_environment(label: str) -> Actor:
+        """Reads the optional environment credential; a stored login is checked at run start."""
         suffix = _suffix(label)
         token = os.environ.get(f"MEMORYOS_BENCHMARK_TOKEN_{suffix}", "").strip()
         client_id = os.environ.get(f"MEMORYOS_BENCHMARK_CLIENT_{suffix}", "").strip()
         client_secret = os.environ.get(f"MEMORYOS_BENCHMARK_SECRET_{suffix}", "").strip()
-        if not token and not (client_id and client_secret):
+        if bool(client_id) != bool(client_secret):
             raise ConfigError(
-                f"Set MEMORYOS_BENCHMARK_TOKEN_{suffix}, or "
-                f"MEMORYOS_BENCHMARK_CLIENT_{suffix} and MEMORYOS_BENCHMARK_SECRET_{suffix}"
+                f"Set both MEMORYOS_BENCHMARK_CLIENT_{suffix} and "
+                f"MEMORYOS_BENCHMARK_SECRET_{suffix}"
             )
         return Actor(
             label=label,
@@ -67,8 +85,14 @@ class Config:
     judge_model: str
     judge_base_url: str
     judge_api_key: str
+    # How many times each answer is judged. A single verdict from a model that is not deterministic
+    # is a coin toss on the borderline answers; the majority of three is the recorded score.
+    judge_trials: int
     data_dir: Path
     out_dir: Path
+    token_store: Path
+    login_client_id: str = "memoryos-integration"
+    login_port: int = 8765
     timeout_seconds: float = 120.0
     reply_timeout_seconds: float = 600.0
     search_page_size: int = 20
@@ -80,7 +104,7 @@ class Config:
         if any(not label for label in labels):
             raise ConfigError(
                 "MEMORYOS_BENCHMARK_ACTORS is a comma-separated list of labels, "
-                'e.g. "authorized,unauthorized"'
+                'e.g. "exec,finance,all-departments,outsider"'
             )
         root = Path(__file__).resolve().parent.parent
         return Config(
@@ -92,6 +116,18 @@ class Config:
                 "MEMORYOS_JUDGE_BASE_URL", "https://openrouter.ai/api/v1"
             ).rstrip("/"),
             judge_api_key=os.environ.get("MEMORYOS_JUDGE_API_KEY", "").strip(),
+            judge_trials=max(1, _whole("MEMORYOS_JUDGE_TRIALS", 3)),
             data_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_DATA", root / "datasets")),
             out_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_OUT", root / "runs")),
+            # Outside the repository: a refresh token is a credential.
+            token_store=Path(
+                os.environ.get(
+                    "MEMORYOS_BENCHMARK_TOKENS",
+                    Path.home() / ".memoryos-rag-benchmark" / "tokens.json",
+                )
+            ),
+            login_client_id=os.environ.get(
+                "MEMORYOS_BENCHMARK_LOGIN_CLIENT", "memoryos-integration"
+            ).strip(),
+            login_port=_whole("MEMORYOS_BENCHMARK_LOGIN_PORT", 8765),
         )

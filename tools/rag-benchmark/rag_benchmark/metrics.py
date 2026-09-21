@@ -46,22 +46,32 @@ def citation_precision(cited: Sequence[str], gold: Sequence[str]) -> float:
     return len(set(cited) & set(gold)) / len(set(cited))
 
 
-def abstained(content: str, cited: Sequence[str]) -> bool:
+def abstained(content: str, cited: Sequence[str], forbidden: Sequence[str] = ()) -> bool:
     """
-    A reply abstains when it cites nothing and says so. Citations decide first: a reply that
-    cites a document is answering from it, whatever its wording.
+    A reply abstains when it says it has no evidence and reaches nothing it may not read. Citing a
+    permitted document while declining is still an abstention: the question is whether the reply
+    answered from evidence it should not have, not whether it cited anything at all.
     """
-    if cited:
+    if set(cited) & set(forbidden):
         return False
-    text = content.lower()
+    text = " ".join(content.lower().split())
     markers = (
         "không tìm thấy",
+        "chưa tìm thấy",
+        "không tìm được",
         "không có thông tin",
-        "không có tài liệu",
         "chưa có thông tin",
+        "không có tài liệu",
+        "chưa có tài liệu",
         "không đủ thông tin",
+        "chưa đủ thông tin",
+        "không thể xác định",
+        "chưa xác định được",
         "i could not find",
+        "i couldn't find",
         "no information",
+        "not enough information",
+        "cannot determine",
     )
     return any(marker in text for marker in markers)
 
