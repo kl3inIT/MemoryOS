@@ -13666,7 +13666,12 @@ export type GetChatImageArtifactData = {
     path: {
         artifactId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Which rendering to read; a thumbnail is what the file library shows
+         */
+        variant?: 'ORIGINAL' | 'THUMBNAIL';
+    };
     url: '/api/chat/image-artifacts/{artifactId}/content';
 };
 

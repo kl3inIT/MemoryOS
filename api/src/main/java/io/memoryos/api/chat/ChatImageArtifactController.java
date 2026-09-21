@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -50,15 +51,19 @@ class ChatImageArtifactController {
     @ApiResponse(responseCode = "200", description = "Generated image bytes",
             content = @Content(schema = @Schema(type = "string", format = "binary")))
     void content(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
-        var served = images.open(identity.actorId(), artifactId);
-        try (var content = served.content()) {
+            @PathVariable UUID artifactId,
+            @Parameter(description = "Which rendering to read; a thumbnail is what the file library shows")
+            @RequestParam(defaultValue = "ORIGINAL") ImageArtifactService.Variant variant,
+            HttpServletResponse response) throws IOException {
+        try (var served = images.open(identity.actorId(), artifactId, variant)) {
             response.setContentType(served.mediaType());
-            response.setHeader("Cache-Control", "no-store");
+            // An artifact's bytes never change under its id, and the route authorizes every read, so the
+            // owner's own browser may keep them. A shared cache must not: the response is owner-private.
+            response.setHeader("Cache-Control", "private, max-age=31536000, immutable");
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", "inline");
-            response.setContentLengthLong(content.metadata().sizeBytes());
-            content.inputStream().transferTo(response.getOutputStream());
+            response.setContentLengthLong(served.sizeBytes());
+            served.inputStream().transferTo(response.getOutputStream());
         }
     }
 }

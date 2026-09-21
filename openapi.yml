@@ -13877,6 +13877,17 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: variant
+        in: query
+        description: Which rendering to read; a thumbnail is what the file library
+          shows
+        required: false
+        schema:
+          type: string
+          default: ORIGINAL
+          enum:
+          - ORIGINAL
+          - THUMBNAIL
       responses:
         "400":
           description: Invalid image request

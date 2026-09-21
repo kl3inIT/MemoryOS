@@ -167,7 +167,12 @@ function LibraryRow({
       />
       <ItemMedia variant={file.source === "IMAGE" ? "image" : "icon"}>
         {file.source === "IMAGE" ? (
-          <img src={imageArtifactUrl(file.id)} alt="" loading="lazy" />
+          <img
+            src={imageArtifactUrl(file.id, "thumbnail")}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           categoryIcon(file)
         )}
@@ -271,9 +276,10 @@ function LibraryCard({
       >
         {file.source === "IMAGE" ? (
           <img
-            src={imageArtifactUrl(file.id)}
+            src={imageArtifactUrl(file.id, "thumbnail")}
             alt=""
             loading="lazy"
+            decoding="async"
             className="size-full object-cover"
           />
         ) : (

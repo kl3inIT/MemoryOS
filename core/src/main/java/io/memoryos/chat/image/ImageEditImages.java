@@ -123,7 +123,8 @@ public final class ImageEditImages {
         return Math.max(MIN_SIDE, (int) Math.round(value / MULTIPLE) * MULTIPLE);
     }
 
-    private static BufferedImage scale(BufferedImage source, int width, int height) {
+    /** Area-averaged reduction to an exact size; thumbnails reuse it so both paths scale alike. */
+    static BufferedImage scale(BufferedImage source, int width, int height) {
         var current = rgb(source);
         int w = current.getWidth();
         int h = current.getHeight();
