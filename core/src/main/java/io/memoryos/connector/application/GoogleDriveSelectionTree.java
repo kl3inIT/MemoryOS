@@ -29,6 +29,9 @@ import org.jspecify.annotations.Nullable;
 /** One bounded metadata-only read; the service fences database authority before and after it. */
 final class GoogleDriveSelectionTree {
     private final JdbcGoogleDriveSourceRepository drive;
+    private final GoogleDriveMetadataCache cache;
+    /** One credential sees one Drive, so cached files are shared only within that credential's revision. */
+    private final String cacheScope;
     private final TenantId tenant;
     private final SourceId source;
     private final JdbcGoogleDriveSourceRepository.ConfigurationRow config;
@@ -46,10 +49,12 @@ final class GoogleDriveSelectionTree {
     private GoogleDriveProvider.@Nullable Session session;
     private int operations;
 
-    GoogleDriveSelectionTree(JdbcGoogleDriveSourceRepository drive, TenantId tenant, SourceId source,
+    GoogleDriveSelectionTree(JdbcGoogleDriveSourceRepository drive, GoogleDriveMetadataCache cache,
+            TenantId tenant, SourceId source,
             JdbcGoogleDriveSourceRepository.ConfigurationRow config, GoogleDriveConnectionService.State state,
             List<Root> roots, boolean usable, @Nullable String parentId, @Nullable String cursor, int size) {
         this.drive = drive;
+        this.cache = cache;
         this.tenant = tenant;
         this.source = source;
         this.config = config;
@@ -59,6 +64,7 @@ final class GoogleDriveSelectionTree {
                 && config.discoveryCredentialRevision() == state.credentialRevision();
         this.parentId = parentId;
         this.size = size;
+        this.cacheScope = tenant + "|" + state.credentialId() + "|" + state.credentialRevision();
         this.prefix = "tree|" + tenant + "|" + source + "|" + config.revision() + "|" + config.discoveryRevision()
                 + "|" + state.credentialId() + "|" + state.credentialRevision() + "|" + (parentId == null ? "" : parentId) + "|";
         this.position = Position.parse(prefix, cursor);
@@ -160,6 +166,8 @@ final class GoogleDriveSelectionTree {
                 throw new GoogleDriveProviderException(Failure.INCONSISTENT);
             metadata.putIfAbsent(file.id(), file);
         }
+        // Every child is now known, so expanding one of them starts without a metadata call of its own.
+        cache.putAll(cacheScope, page.files());
         String fingerprint = position.offset() > 0 || page.files().size() > size ? fingerprint(page) : "";
         if (position.offset() > page.files().size() || position.offset() > 0 && !fingerprint.equals(position.fingerprint()))
             throw SourceException.staleConfiguration();
@@ -211,6 +219,16 @@ final class GoogleDriveSelectionTree {
         if (cached != null) return cached;
         var failure = failures.get(id);
         if (failure != null) throw new GoogleDriveProviderException(failure);
+        // "root" resolves to whichever Drive the credential owns, so it is never answered from the shared cache.
+        if (!"root".equals(id)) {
+            var shared = cache.find(cacheScope, id);
+            if (shared.isPresent()) {
+                var file = shared.get();
+                validateMetadata(id, file);
+                metadata.put(id, file);
+                return file;
+            }
+        }
         operation();
         try {
             var file = Objects.requireNonNull(session).metadata(id);
@@ -218,6 +236,7 @@ final class GoogleDriveSelectionTree {
             validateMetadata(id, file);
             metadata.put(id, file);
             metadata.putIfAbsent(file.id(), file);
+            if (!"root".equals(id)) cache.put(cacheScope, file);
             return file;
         } catch (GoogleDriveProviderException exception) {
             failures.put(id, exception.failure());

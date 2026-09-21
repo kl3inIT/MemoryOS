@@ -3,7 +3,7 @@ import type { AppCopy } from "@/i18n/app-text";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { replaceEqualDeep, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, KeyRound, Pencil, RefreshCw, Unplug } from "lucide-react";
+import { ChevronDown, KeyRound, Pencil, Play, RefreshCw, Unplug } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
 } from "@/features/identity/application-session-context";
 import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import {
   getCurrentIdentityQueryKey,
   getGoogleDriveConfigurationOptions,
@@ -63,7 +64,6 @@ import {
   sourceStatusMessage,
 } from "./source-errors";
 import { SourceSectionIcon } from "./source-section-icon";
-import { SourceHint } from "./source-hint";
 import { SourceSummaryCard } from "./source-summary-card";
 import {
   formatSyncInterval,
@@ -149,6 +149,9 @@ export function GoogleDrivePanel({
     enabled: canListCredentials,
     retry: false,
   });
+  // This panel polls every few seconds, so its refresh controls follow the press, not the poll.
+  const statusRefresh = useManualRefresh(refreshStatus);
+  const credentialRefresh = useManualRefresh(refreshCredentials);
   const credential = credentials.data?.find(
     (entry) => entry.id === configurationQuery.data?.credentialId,
   );
@@ -705,8 +708,8 @@ export function GoogleDrivePanel({
               </p>
               <Button
                 prominence="secondary"
-                pending={configurationQuery.isFetching}
-                onClick={() => void refreshStatus()}
+                pending={statusRefresh.pending}
+                onClick={statusRefresh.refresh}
               >
                 {ui("Retry connection status")}
               </Button>
@@ -738,16 +741,15 @@ export function GoogleDrivePanel({
                 </HelpPopover>
               </div>
               <div className="flex items-center gap-2">
-                <SourceHint hint={ui("Refresh status")}>
-                  <IconButton
-                    aria-label={ui("Refresh status")}
-                    disabled={disabled || busy}
-                    pending={configurationQuery.isFetching}
-                    onClick={() => void refreshStatus()}
-                  >
-                    <RefreshCw aria-hidden="true" />
-                  </IconButton>
-                </SourceHint>
+                <Button
+                  prominence="tertiary"
+                  disabled={disabled || busy}
+                  pending={statusRefresh.pending}
+                  onClick={statusRefresh.refresh}
+                >
+                  <RefreshCw aria-hidden="true" />
+                  {ui("Refresh status")}
+                </Button>
                 {connected && canSynchronize ? (
                   <Button
                     disabled={
@@ -759,7 +761,7 @@ export function GoogleDrivePanel({
                     pending={activeAction === "sync" || observingSynchronization}
                     onClick={() => run("sync", sync)}
                   >
-                    <RefreshCw /> {ui("Synchronize now")}
+                    <Play /> {ui("Synchronize now")}
                   </Button>
                 ) : null}
               </div>
@@ -1000,8 +1002,8 @@ export function GoogleDrivePanel({
                     </p>
                     <Button
                       prominence="secondary"
-                      pending={credentials.isFetching}
-                      onClick={() => void refreshCredentials()}
+                      pending={credentialRefresh.pending}
+                      onClick={credentialRefresh.refresh}
                     >
                       {ui("Retry credential details")}
                     </Button>

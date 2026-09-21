@@ -11,6 +11,7 @@ import io.memoryos.chat.persistence.JdbcAgentRepository.AgentRef;
 import io.memoryos.chat.persistence.JdbcAgentRepository.AgentUserShare;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
+import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
 import io.memoryos.chat.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persistence.PersonaEntity;
 import io.memoryos.chat.persistence.PersonaRevisions;
@@ -59,17 +60,20 @@ public class ChatPersonaService {
     private final PersonaProperties defaults;
     private final ModelCatalogService models;
     private final SourceSearchService sources;
+    private final DocumentSetService documentSets;
+    private final JdbcDocumentSetRepository documentSetRows;
     private final ChatFileService files;
     private final JdbcUserFileRepository userFiles;
     private final ChatFileContentService content;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
-            ModelCatalogService models, SourceSearchService sources, ChatFileService files, JdbcUserFileRepository userFiles,
-            ChatFileContentService content) {
+            ModelCatalogService models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
+            ChatFileService files, JdbcUserFileRepository userFiles, ChatFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;
-        this.sources = sources; this.files = files; this.userFiles = userFiles; this.content = content;
+        this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
+        this.files = files; this.userFiles = userFiles; this.content = content;
     }
 
     /**
@@ -77,19 +81,21 @@ public class ChatPersonaService {
      * on create. A null knowledge cutoff clears it; an icon removes the avatar image, and omitting both keeps the image.
      */
     public record PersonaInput(String name, String description, String instructions, @Nullable String taskPrompt,
-                               List<String> starterPrompts, List<UUID> sourceIds, @Nullable Set<String> tools,
-                               @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
+                               List<String> starterPrompts, List<UUID> sourceIds, @Nullable List<UUID> documentSetIds,
+                               @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
                                @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
                                @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
                                @Nullable Boolean replaceBaseSystemPrompt, @Nullable Boolean datetimeAware, @Nullable Instant knowledgeCutoff) {
     }
 
     public record AgentSourceRef(UUID id, String name) {}
+    public record DocumentSetRef(UUID id, String name) {}
     public record PersonaView(UUID id, boolean builtin, PersonaPermissions permissions, long revision, String name,
                               String description, String instructions, String taskPrompt, List<String> starterPrompts,
-                              List<UUID> sourceIds, List<AgentSourceRef> sources, Set<String> tools, List<AgentRef> mcpServers,
-                              @Nullable UUID modelConfigurationId, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
-                              List<UUID> fileIds, @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
+                              List<UUID> sourceIds, List<AgentSourceRef> sources, List<UUID> documentSetIds, List<DocumentSetRef> documentSets,
+                              Set<String> tools, List<AgentRef> mcpServers, @Nullable UUID modelConfigurationId,
+                              @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, List<UUID> fileIds,
+                              @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               Permission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
                               boolean replaceBaseSystemPrompt, boolean datetimeAware, @Nullable Instant knowledgeCutoff,
@@ -139,7 +145,7 @@ public class ChatPersonaService {
         var entity = new PersonaEntity(UUID.randomUUID(), tenant.value(), actor.value(), defaults.getModel());
         apply(actor, tenant, entity, input, true);
         entity = settings.saveAndFlush(entity);
-        relations(tenant, entity, input, true);
+        relations(tenant, actor, entity, input, true);
         validateModel(actor, entity);
         return views(tenant, actor, manages(actor), List.of(entity.id())).getFirst();
     }
@@ -152,7 +158,7 @@ public class ChatPersonaService {
         if (entity.deleted() || !access(tenant, actor, manage, id).edits()) throw ChatException.unavailable();
         if (entity.revision() != revision) throw ChatException.conflict();
         apply(actor, tenant, entity, input, false);
-        relations(tenant, entity, input, false);
+        relations(tenant, actor, entity, input, false);
         revisions.advance(entity);
         settings.flush();
         validateModel(actor, entity);
@@ -429,7 +435,14 @@ public class ChatPersonaService {
                 input.knowledgeCutoff()));
     }
 
-    private void relations(TenantId tenant, PersonaEntity entity, PersonaInput input, boolean creating) {
+    private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
+        if (input.documentSetIds() != null || creating) {
+            List<UUID> documentSetIds = input.documentSetIds() == null
+                    ? (creating ? List.of() : documentSetRows.personaSets(tenant.value(), List.of(entity.id())).getOrDefault(entity.id(), List.of()))
+                    : input.documentSetIds();
+            documentSets.admitAttachments(actor, tenant, documentSetIds);
+            documentSetRows.replacePersonaSets(tenant.value(), entity.id(), documentSetIds);
+        }
         if (input.tools() != null || input.mcpServerIds() != null || creating) {
             Set<String> tools = input.tools() == null
                     ? (creating ? TOOLS : agents.tools(tenant.value(), entity.id())) : input.tools();
@@ -469,6 +482,9 @@ public class ChatPersonaService {
             }
             names(tenant, batch, names);
         }
+        var attachedSets = documentSetRows.personaSets(tenant.value(), ids);
+        var setIds = attachedSets.values().stream().flatMap(Collection::stream).collect(Collectors.toCollection(LinkedHashSet::new));
+        var setNames = documentSetRows.names(tenant.value(), setIds);
         var result = new ArrayList<PersonaView>();
         for (UUID id : ids) {
             var entity = entities.get(id);
@@ -481,9 +497,11 @@ public class ChatPersonaService {
                     granted.owns(), !entity.builtin() && granted.owns(),
                     !entity.builtin() && (personallyOwned || granted.owns() && !manage || manage && granted.vacant()),
                     leave, manage);
+            var documentSetIds = attachedSets.getOrDefault(id, List.of());
             result.add(new PersonaView(id, entity.builtin(), permissions, entity.revision(), entity.name(), entity.description(),
                     entity.instructions(), entity.taskPrompt(), entity.starterPrompts(), entity.sourceIds(),
                     entity.sourceIds().stream().map(source -> new AgentSourceRef(source, names.getOrDefault(source, ""))).toList(),
+                    documentSetIds, documentSetIds.stream().map(set -> new DocumentSetRef(set, setNames.getOrDefault(set, ""))).toList(),
                     details.tools().getOrDefault(id, Set.of()), details.mcpServers().getOrDefault(id, List.of()),
                     entity.modelConfigurationId(), entity.contextTokenLimit(), entity.outputTokenLimit(), entity.fileIds(),
                     entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),

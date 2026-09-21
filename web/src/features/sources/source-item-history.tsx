@@ -27,6 +27,7 @@ import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceIndexAttemptsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceIndexAttempt } from "@/lib/hey-api/types.gen";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceStatusMessage } from "./source-errors";
 import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
@@ -50,6 +51,8 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
     refetchInterval: (query) =>
       query.state.data?.items.some((operation) => !attemptFinished(operation)) ? 1_500 : false,
   });
+  // An open attempt is polled, so the refresh control follows the press rather than the poll.
+  const manualRefresh = useManualRefresh(history.refetch);
   const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
   // Polling keeps the open attempt current while it stays on the displayed page.
   const detailAttempt =
@@ -76,8 +79,8 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
         <Button
           size="sm"
           prominence="tertiary"
-          pending={history.isFetching}
-          onClick={() => void history.refetch()}
+          pending={manualRefresh.pending}
+          onClick={manualRefresh.refresh}
         >
           <RefreshCw aria-hidden="true" /> {ui("Refresh")}
         </Button>

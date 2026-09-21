@@ -49,11 +49,13 @@ export function CreateFileSourcePage() {
   const showGroups = scoped || access === "PRIVATE";
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<AppCopy | null>(null);
   const [phase, setPhase] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement | null>(null);
   const busy = phase !== null;
@@ -74,32 +76,35 @@ export function CreateFileSourcePage() {
     controllerRef.current?.abort();
   }, [authorityKey]);
 
-  function selectFiles(files: FileList | null) {
-    if (busy || pendingFinalize || uploadAccepted || !files?.length) return;
+  function selectFiles(selected: FileList | null) {
+    if (busy || pendingFinalize || uploadAccepted || sourceId || !selected?.length) return;
     setDragging(false);
-    setFile(null);
-    const selected = files[0]!;
-    if (files.length !== 1) {
-      setError("Choose one file at a time. You can add more files after creating the source.");
+    const batch = [...selected];
+    if (batch.some((file) => !/\.(pdf|docx|pptx|xlsx|csv|txt|md)$/i.test(file.name))) {
+      setError("Choose only PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files.");
       return;
     }
-    if (!/\.(pdf|docx|pptx|xlsx|csv|txt|md)$/i.test(selected.name)) {
-      setError("Choose a PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file.");
-      return;
-    }
-    if (selected.size === 0 || selected.size > 100 * 1024 * 1024) {
-      setError("Choose a file between 1 byte and 100 MiB.");
+    if (batch.some((file) => file.size === 0 || file.size > 100 * 1024 * 1024)) {
+      setError("Choose files between 1 byte and 100 MiB each.");
       return;
     }
     setError(null);
-    setFile(selected);
-    if (!sourceName.trim() && !sourceId) {
-      setSourceName(selected.name.replace(/\.[^.]+$/, "").slice(0, 120));
+    setFiles(batch);
+    setCompletedCount(0);
+    setCurrentIndex(0);
+    if (batch.length === 1 && !sourceName.trim() && !sourceId) {
+      setSourceName(batch[0]!.name.replace(/\.[^.]+$/, "").slice(0, 120));
     }
   }
 
   async function submit() {
-    if (authority === "none" || controllerRef.current || blocked || !file || !sourceName.trim())
+    if (
+      authority === "none" ||
+      controllerRef.current ||
+      blocked ||
+      files.length === 0 ||
+      !sourceName.trim()
+    )
       return;
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -107,72 +112,91 @@ export function CreateFileSourcePage() {
     let targetId = sourceId;
     let stage: "create" | "upload" = targetId ? "upload" : "create";
     let accepted = uploadAccepted;
+    let current: File | null = null;
     try {
       if (accepted && targetId) {
         setPhase("Opening source…");
         await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
         return;
       }
-      let receipt = ownPending;
-      if (!receipt) {
-        setPhase("Preparing file…");
-        const checksum = await sha256(file, controller.signal);
-        if (!targetId) {
-          setPhase("Creating source…");
-          const created = await createSource.mutateAsync({
-            body: {
-              name: sourceName.trim(),
-              groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
-              access: scoped ? "PRIVATE" : access,
-            },
-            headers: sameOriginMutationHeaders,
-            signal: controller.signal,
-          });
-          targetId = created.id;
-          setSourceId(targetId);
-          void queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
-        }
-        stage = "upload";
-        setPhase("Preparing upload…");
-        const authorization = await initiateUpload.mutateAsync({
-          path: { sourceId: targetId },
-          headers: sameOriginMutationHeaders,
+      if (!targetId) {
+        setPhase("Creating source…");
+        const created = await createSource.mutateAsync({
           body: {
-            filename: file.name,
-            mediaType: file.type || "application/octet-stream",
-            sizeBytes: file.size,
-            sha256: checksum,
+            name: sourceName.trim(),
+            groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
+            access: scoped ? "PRIVATE" : access,
           },
+          headers: sameOriginMutationHeaders,
           signal: controller.signal,
         });
-        setProgress(0);
-        setPhase("Uploading file…");
-        await putAuthorizedObject(authorization, file, controller.signal, setProgress);
-        receipt = { sourceId: targetId, uploadId: authorization.uploadId, filename: file.name };
-        setPendingFinalize(receipt);
+        targetId = created.id;
+        setSourceId(targetId);
+        void queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
       }
-      setPhase("Finishing upload…");
-      await finalizeUpload.mutateAsync({
-        path: { sourceId: receipt.sourceId, uploadId: receipt.uploadId },
-        headers: sameOriginMutationHeaders,
-        signal: controller.signal,
-      });
-      controller.signal.throwIfAborted();
+      stage = "upload";
+      let receipt = ownPending;
+      let completed = completedCount;
+      for (let index = completed; index < files.length; index++) {
+        current = files[index]!;
+        setCurrentIndex(index);
+        if (!receipt) {
+          setPhase("Preparing file…");
+          const checksum = await sha256(current, controller.signal);
+          setPhase("Preparing upload…");
+          const authorization = await initiateUpload.mutateAsync({
+            path: { sourceId: targetId },
+            headers: sameOriginMutationHeaders,
+            body: {
+              filename: current.name,
+              mediaType: current.type || "application/octet-stream",
+              sizeBytes: current.size,
+              sha256: checksum,
+            },
+            signal: controller.signal,
+          });
+          setProgress(0);
+          setPhase("Uploading file…");
+          await putAuthorizedObject(authorization, current, controller.signal, setProgress);
+          receipt = {
+            sourceId: targetId,
+            uploadId: authorization.uploadId,
+            filename: current.name,
+          };
+          setPendingFinalize(receipt);
+        }
+        setPhase("Finishing upload…");
+        await finalizeUpload.mutateAsync({
+          path: { sourceId: receipt.sourceId, uploadId: receipt.uploadId },
+          headers: sameOriginMutationHeaders,
+          signal: controller.signal,
+        });
+        controller.signal.throwIfAborted();
+        receipt = null;
+        setPendingFinalize(null);
+        completed = index + 1;
+        setCompletedCount(completed);
+      }
       accepted = true;
       setUploadAccepted(true);
-      setPendingFinalize(null);
       await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
       controller.signal.throwIfAborted();
       notify({
         title: "Source created; upload accepted",
-        description: appText(
-          "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.",
-          { v1: sourceName.trim(), v2: receipt.filename },
-        ),
+        description:
+          files.length === 1
+            ? appText(
+                "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.",
+                { v1: sourceName.trim(), v2: files[0]!.name },
+              )
+            : appText(
+                "{{v1}} was created. {{v2}} files were accepted for indexing; indexing is not complete yet.",
+                { v1: sourceName.trim(), v2: files.length },
+              ),
         tone: "info",
         surviveNavigation: true,
       });
-      await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: receipt.sourceId } });
+      await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
     } catch (cause) {
       if (!controller.signal.aborted) {
         captureWorkflowFailure(cause, {
@@ -183,7 +207,10 @@ export function CreateFileSourcePage() {
         const message = accepted
           ? "Your upload was accepted, but the Source page could not be opened. Open the Source again; do not upload the file again."
           : cause instanceof DirectUploadError
-            ? "The file could not be uploaded. Check your connection and retry; your source is already created."
+            ? appText(
+                "{{v1}} could not be uploaded. Check your connection and retry; your source is already created.",
+                { v1: current?.name ?? "" },
+              )
             : sourceMutationError(cause, stage);
         setError(message);
         notify({
@@ -204,16 +231,18 @@ export function CreateFileSourcePage() {
 
   return (
     <SettingsLayout>
-      <Button asChild prominence="tertiary" disabled={busy}>
-        <Link to="/admin/sources/new">
-          <ArrowLeft />
-          {ui("Exit setup")}
-        </Link>
-      </Button>
       <PageHeader
         icon={<FileText />}
         title={ui("Add file source")}
         description={ui("Upload a document to start indexing.")}
+        actions={
+          <Button asChild prominence="secondary" disabled={busy}>
+            <Link to="/admin/sources/new">
+              <ArrowLeft />
+              {ui("Exit setup")}
+            </Link>
+          </Button>
+        }
       />
       <form
         className="min-w-0 space-y-6"
@@ -265,12 +294,12 @@ export function CreateFileSourcePage() {
           />
         ) : null}
         <div>
-          <span className="text-sm font-medium text-content-primary">{ui("File")}</span>
+          <span className="text-sm font-medium text-content-primary">{ui("Files")}</span>
           <div
             className={`relative mt-2 rounded-lg border border-dashed px-4 py-10 text-center transition-colors ${dragging ? "border-content-primary bg-surface-subtle" : "border-border-default bg-surface-sunken"}`}
             onDragOver={(event) => {
               event.preventDefault();
-              if (!busy && !pendingFinalize && !uploadAccepted) setDragging(true);
+              if (!busy && !pendingFinalize && !uploadAccepted && !sourceId) setDragging(true);
             }}
             onDragLeave={() => setDragging(false)}
             onDrop={(event) => {
@@ -281,59 +310,75 @@ export function CreateFileSourcePage() {
           >
             <Upload className="mx-auto mb-3 size-6 text-content-muted" aria-hidden="true" />
             <p className="font-main-ui-body text-content-primary">
-              {ui("Drag and drop your file here")}
+              {ui("Drag and drop your files here")}
             </p>
             <Button
               type="button"
               prominence="secondary"
               className="mt-3"
-              disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
+              disabled={busy || Boolean(pendingFinalize) || uploadAccepted || Boolean(sourceId)}
               onClick={() => picker.current?.click()}
             >
-              {ui("Choose file")}
+              {ui("Choose files")}
             </Button>
             <input
               ref={picker}
               type="file"
+              multiple
               className="sr-only"
               tabIndex={-1}
-              aria-label={ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file")}
+              aria-label={ui("Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files")}
               accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md"
-              disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
+              disabled={busy || Boolean(pendingFinalize) || uploadAccepted || Boolean(sourceId)}
               onChange={(event) => {
                 selectFiles(event.target.files);
                 event.target.value = "";
               }}
             />
             <p className="mt-3 text-sm text-content-muted">
-              {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB")}
+              {ui("PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB each")}
             </p>
           </div>
-          {file ? (
-            <div className="mt-3 flex items-center gap-3 rounded-lg border border-border-subtle px-4 py-3">
-              <FileText className="size-5 shrink-0 text-content-muted" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <p className="break-all text-sm font-medium text-content-primary">{file.name}</p>
-                <p className="text-sm text-content-muted">
-                  {file.size < 1024
-                    ? ui("{{v1}} B", { v1: file.size })
-                    : ui("{{v1}} KiB", { v1: (file.size / 1024).toFixed(1) })}
-                </p>
-              </div>
-              <Button
-                type="button"
-                prominence="tertiary"
-                size="sm"
-                aria-label={ui("Remove selected file")}
-                disabled={busy || Boolean(pendingFinalize) || uploadAccepted}
-                onClick={() => {
-                  setFile(null);
-                  setError(null);
-                }}
-              >
-                <X />
-              </Button>
-            </div>
+          {files.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {files.map((selected, index) => (
+                <li
+                  key={`${selected.name}:${index}`}
+                  className="flex items-center gap-3 rounded-lg border border-border-subtle px-4 py-3"
+                >
+                  <FileText className="size-5 shrink-0 text-content-muted" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-sm font-medium text-content-primary">
+                      {selected.name}
+                    </p>
+                    <p className="text-sm text-content-muted">
+                      {selected.size < 1024
+                        ? ui("{{v1}} B", { v1: selected.size })
+                        : ui("{{v1}} KiB", { v1: (selected.size / 1024).toFixed(1) })}
+                    </p>
+                  </div>
+                  {index < completedCount ? (
+                    <span className="shrink-0 text-sm text-content-muted">{ui("Accepted")}</span>
+                  ) : (
+                    <Button
+                      type="button"
+                      prominence="tertiary"
+                      size="sm"
+                      aria-label={ui("Remove {{v1}}", { v1: selected.name })}
+                      disabled={
+                        busy || Boolean(pendingFinalize) || uploadAccepted || Boolean(sourceId)
+                      }
+                      onClick={() => {
+                        setFiles(files.filter((_, position) => position !== index));
+                        setError(null);
+                      }}
+                    >
+                      <X />
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
         {error ? (
@@ -367,6 +412,11 @@ export function CreateFileSourcePage() {
           >
             <p>
               {phase ? ui(phase) : null}
+              {files.length > 1
+                ? ui(" · {{v1}}", {
+                    v1: ui("File {{v1}} of {{v2}}", { v1: currentIndex + 1, v2: files.length }),
+                  })
+                : null}
               {phase === "Uploading file…" ? ui(" {{v1}}%", { v1: progress }) : ""}
             </p>
             {phase === "Uploading file…" ? (
@@ -385,7 +435,9 @@ export function CreateFileSourcePage() {
           <Button
             type="submit"
             pending={busy}
-            disabled={authority === "none" || busy || blocked || !file || !sourceName.trim()}
+            disabled={
+              authority === "none" || busy || blocked || files.length === 0 || !sourceName.trim()
+            }
           >
             <Upload />
             {uploadAccepted

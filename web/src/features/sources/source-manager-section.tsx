@@ -68,7 +68,7 @@ export function SourceManagerSection({
   return (
     <section
       aria-labelledby="source-manager-heading"
-      className="mt-8 border-t border-border-subtle pt-6"
+      className="mt-6 rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
     >
       <div className="flex items-center gap-3">
         <SourceSectionIcon icon={UserCog} />

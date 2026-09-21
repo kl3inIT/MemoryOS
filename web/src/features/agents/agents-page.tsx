@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Globe,
   Lock,
+  Library,
   Pencil,
   Pin,
   Plus,
@@ -32,6 +33,7 @@ import { FilterChips } from "@/components/composites/filter-chips";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import {
+  useAdminAccess,
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
@@ -58,6 +60,7 @@ export function AgentsPage() {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
   const canCreate = useGlobalCapability("AGENTS_CREATE");
+  const { canReadSources } = useAdminAccess();
   const cache = useQueryClient();
   const navigate = useNavigate();
   const [view, setView] = useState<AgentView>("ALL");
@@ -194,20 +197,31 @@ export function AgentsPage() {
             "Trợ lý theo chủ đề cho từng phòng ban, với hướng dẫn, nguồn tài liệu và công cụ riêng.",
           )}
           actions={
-            canCreate ? (
-              createButton
-            ) : (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0}>{createButton}</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {ui("Bạn chưa có quyền tạo trợ lý. Liên hệ quản trị viên để được cấp quyền.")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )
+            <div className="flex gap-2">
+              {canReadSources ? (
+                <Button
+                  prominence="secondary"
+                  onClick={() => void navigate({ to: "/admin/document-sets" })}
+                >
+                  <Library aria-hidden="true" />
+                  {ui("Bộ tài liệu")}
+                </Button>
+              ) : null}
+              {canCreate ? (
+                createButton
+              ) : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={0}>{createButton}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {ui("Bạn chưa có quyền tạo trợ lý. Liên hệ quản trị viên để được cấp quyền.")}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
           }
         />
 

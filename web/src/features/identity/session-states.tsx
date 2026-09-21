@@ -6,20 +6,12 @@ import { AuthFrame } from "@/components/states/auth-frame";
 import { RoutePending } from "@/components/states/route-states";
 import { Button } from "@/components/ui/button";
 import { redirectToSignIn, SIGN_IN_PATH } from "@/features/identity/sign-in-redirect";
-import { whenBootSplashDone } from "@/lib/boot-splash";
 
 export function SignInRedirect() {
   const { t } = useTranslation("identity");
 
   useEffect(() => {
-    let active = true;
-    // Let the boot splash finish (the full intro on a tab's first load) before leaving for sign-in.
-    void whenBootSplashDone().then(() => {
-      if (active) redirectToSignIn();
-    });
-    return () => {
-      active = false;
-    };
+    redirectToSignIn();
   }, []);
 
   return <RoutePending label={t("redirecting")} />;
@@ -34,6 +26,25 @@ export function AccessNotProvisionedScreen() {
       <p className="mt-3 font-main-ui-body text-content-muted">{t("notProvisionedDescription")}</p>
       <Button asChild size="lg" className="mt-8 w-full">
         <a href={SIGN_IN_PATH}>{t("anotherAccount")}</a>
+      </Button>
+    </AuthFrame>
+  );
+}
+
+/**
+ * Authentication itself failed, which the browser cannot tell apart from an unadmitted identity. The server routes it
+ * here instead of to the not-provisioned screen, so a member does not read that their access was revoked when the API
+ * was simply restarting mid-login.
+ */
+export function SignInFailedScreen() {
+  const { t } = useTranslation("identity");
+  return (
+    <AuthFrame>
+      <RefreshCw className="mb-4 size-6 text-content-muted" aria-hidden="true" />
+      <h1 className="font-heading-h2 text-content-primary">{t("signInFailed")}</h1>
+      <p className="mt-3 font-main-ui-body text-content-muted">{t("signInFailedDescription")}</p>
+      <Button asChild size="lg" className="mt-8 w-full">
+        <a href={SIGN_IN_PATH}>{t("signInAgain")}</a>
       </Button>
     </AuthFrame>
   );

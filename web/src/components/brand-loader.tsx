@@ -24,9 +24,9 @@ type BrandLoaderProps = {
 };
 
 /**
- * Loading indicator in the short form of the boot splash: ribbons draw the MemoryOS wordmark once,
- * then a light sheen crosses it for as long as the loader is mounted. It is visual only; callers keep
- * ownership of status semantics (role, live region, busy state).
+ * Loading indicator: ribbons draw the MemoryOS wordmark once, then a light sheen crosses it for as
+ * long as the loader is mounted. It is visual only; callers keep ownership of status semantics
+ * (role, live region, busy state).
  */
 export function BrandLoader({ label, size = "sm" }: BrandLoaderProps) {
   const id = `brand-loader-${useId().replace(/[^\w-]/g, "")}`;

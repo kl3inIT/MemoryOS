@@ -13,8 +13,11 @@ import {
   Paperclip,
   Plug,
   SquareTerminal,
+  WifiOff,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { BrandLoader } from "@/components/brand-loader";
+import { EmptyState } from "@/components/composites/empty-state";
 import {
   ModelSelectorContent,
   ModelSelectorEmpty,
@@ -50,6 +53,7 @@ import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import {
   agentLabelSchema,
   agentTools,
+  loadDocumentSets,
   loadPersonaSources,
   personaSchema,
   type AgentTool,
@@ -85,6 +89,7 @@ const formSchema = z.object({
   taskPrompt: z.string(),
   starters: z.array(z.string()),
   sourceIds: z.array(z.string()),
+  documentSetIds: z.array(z.string()),
   fileIds: z.array(z.string()),
   cutoff: z.string(),
   tools: z.array(z.string()),
@@ -109,6 +114,7 @@ function initialForm(agent?: Persona): AgentForm {
     taskPrompt: agent?.taskPrompt ?? "",
     starters: agent?.starterPrompts ?? [],
     sourceIds: agent?.sourceIds ?? [],
+    documentSetIds: agent?.documentSetIds ?? [],
     fileIds: agent?.fileIds ?? [],
     cutoff: agent?.knowledgeCutoff?.slice(0, 10) ?? "",
     tools: agent?.tools ?? [...agentTools],
@@ -158,16 +164,22 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
   return (
     <AppShell pageTitle={title}>
       {agentId && agent.isPending ? (
-        <p role="status" className="px-(--page-gutter) pt-10 text-content-muted">
-          {ui("Đang tải trợ lý…")}
-        </p>
+        <div role="status" className="flex justify-center px-(--page-gutter) pt-16">
+          <BrandLoader label={ui("Đang tải trợ lý…")} />
+        </div>
       ) : agentId && agent.isError ? (
-        <p role="alert" className="px-(--page-gutter) pt-10 text-status-danger-content">
-          {chatActionError(agent.error)}{" "}
-          <Button size="sm" prominence="tertiary" onClick={() => void agent.refetch()}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <EmptyState
+          role="alert"
+          className="px-(--page-gutter) pt-10"
+          icon={<WifiOff />}
+          title={ui("Không mở được trợ lý")}
+          detail={chatActionError(agent.error)}
+          action={
+            <Button size="sm" prominence="secondary" onClick={() => void agent.refetch()}>
+              {ui("Tải lại")}
+            </Button>
+          }
+        />
       ) : (
         <AgentEditor key={agent.data?.revision ?? "new"} agent={agent.data} />
       )}
@@ -205,6 +217,10 @@ function AgentEditor({ agent }: { agent?: Persona }) {
   const sources = useQuery({
     queryKey: ["chat-persona-sources", actorId, authorizationVersion],
     queryFn: ({ signal }) => loadPersonaSources(signal),
+  });
+  const documentSets = useQuery({
+    queryKey: ["document-sets", actorId, authorizationVersion],
+    queryFn: ({ signal }) => loadDocumentSets(signal),
   });
   const models = useQuery({
     queryKey: ["chat-persona-models", actorId, authorizationVersion, agent?.id],
@@ -306,6 +322,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       taskPrompt: form.taskPrompt,
       starterPrompts,
       sourceIds: form.sourceIds,
+      documentSetIds: form.documentSetIds,
       tools: form.tools,
       mcpServerIds: agent?.builtin ? [] : form.mcpServerIds,
       fileIds: agent?.builtin ? undefined : form.fileIds,
@@ -540,6 +557,19 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                 disabled={!editable}
                 onRetry={() => void sources.refetch()}
                 onChange={(sourceIds) => set({ sourceIds })}
+              />
+            </Field>
+            <Field label={ui("Bộ tài liệu")}>
+              <AgentSourcePicker
+                kind="document-set"
+                options={documentSets.data ?? []}
+                known={agent?.documentSets ?? []}
+                value={form.documentSetIds}
+                pending={documentSets.isPending}
+                failed={documentSets.isError}
+                disabled={!editable}
+                onRetry={() => void documentSets.refetch()}
+                onChange={(documentSetIds) => set({ documentSetIds })}
               />
             </Field>
             <SettingRows>
