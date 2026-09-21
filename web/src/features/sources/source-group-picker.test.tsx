@@ -63,14 +63,14 @@ describe("SourceGroupPicker", () => {
     const user = userEvent.setup();
     const { onChange } = renderPicker();
 
-    await user.click(screen.getByRole("button", { name: "Access groups" }));
+    await user.click(screen.getByRole("combobox", { name: "Access groups" }));
     const option = await screen.findByRole("option", { name: "Knowledge team" });
     expect(screen.queryByRole("option", { name: "Admin" })).toBeNull();
     await user.click(option);
     expect(onChange).toHaveBeenLastCalledWith(new Set([team.id]));
-    expect(option).toHaveAttribute("aria-checked", "true");
+    // A chosen group leaves the list and stays only as its chip.
+    expect(screen.queryByRole("option", { name: "Knowledge team" })).toBeNull();
 
-    await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Remove Knowledge team" }));
     expect(onChange).toHaveBeenLastCalledWith(new Set());
     expect(screen.queryByRole("button", { name: "Remove Knowledge team" })).toBeNull();
@@ -80,8 +80,7 @@ describe("SourceGroupPicker", () => {
     const user = userEvent.setup();
     const { searches } = renderPicker();
 
-    await user.click(screen.getByRole("button", { name: "Access groups" }));
-    await user.type(await screen.findByRole("combobox"), "zzz");
+    await user.type(screen.getByRole("combobox", { name: "Access groups" }), "zzz");
     expect(await screen.findByText("No groups match your search.")).toBeVisible();
     expect(searches).toContain("zzz");
   });

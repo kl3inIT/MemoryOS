@@ -101,11 +101,26 @@ const attemptStatusLabels: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
+/**
+ * Extracted content is not the same as searchable content: a reconnected credential invalidates
+ * every retrieval mapping, and a search write can fail on its own. A file in either state must not
+ * claim to be indexed while the Source reports no indexed documents.
+ */
+const searchPresentation: Record<
+  SourceItem["searchStatus"],
+  { label: string; tone: "info" | "danger" | "neutral"; Icon: typeof Clock3 } | null
+> = {
+  READY: null,
+  INDEXING: { label: "Indexing", tone: "info", Icon: LoaderCircle },
+  WAITING: { label: "Awaiting re-index", tone: "neutral", Icon: Clock3 },
+  FAILED: { label: "Search indexing failed", tone: "danger", Icon: CircleX },
+};
+
 export function ItemStatus({
   item,
   sourcePaused = false,
 }: {
-  item: Pick<SourceItem, "status"> & {
+  item: Pick<SourceItem, "status" | "searchStatus"> & {
     latestAttempt?: SourceItem["latestAttempt"] | null;
   };
   /** A paused Source runs nothing, so its unindexed files are held rather than waiting their turn. */
@@ -113,6 +128,7 @@ export function ItemStatus({
 }) {
   const ui = useAppTranslation();
 
+  const search = item.status === "INDEXED" ? searchPresentation[item.searchStatus] : null;
   const attemptStatus = item.latestAttempt?.status;
   const attemptLabel =
     attemptStatus && Object.hasOwn(attemptStatusLabels, attemptStatus)
@@ -120,40 +136,48 @@ export function ItemStatus({
       : "Unknown";
   const running = attemptStatus === "NOT_STARTED" || attemptStatus === "IN_PROGRESS";
   const held = sourcePaused && item.status === "PENDING" && !running;
-  const label = held
-    ? "Paused"
-    : item.status === "PENDING" && running
-      ? attemptLabel
-      : Object.hasOwn(itemStatusLabels, item.status)
-        ? itemStatusLabels[item.status]
-        : "Unknown";
-  const tone =
-    item.status === "INDEXED"
+  const label = search
+    ? search.label
+    : held
+      ? "Paused"
+      : item.status === "PENDING" && running
+        ? attemptLabel
+        : Object.hasOwn(itemStatusLabels, item.status)
+          ? itemStatusLabels[item.status]
+          : "Unknown";
+  const tone = search
+    ? search.tone
+    : item.status === "INDEXED"
       ? "success"
       : item.status === "FAILED"
         ? "danger"
         : item.status === "PENDING" && !held
           ? "info"
           : "neutral";
-  const Icon = held
-    ? Pause
-    : item.status === "INDEXED"
-      ? CircleCheck
-      : item.status === "FAILED"
-        ? CircleX
-        : item.status === "DELETING"
-          ? Trash2
-          : item.status === "PENDING"
-            ? attemptStatus === "IN_PROGRESS"
-              ? LoaderCircle
-              : Clock3
-            : CircleHelp;
+  const Icon = search
+    ? search.Icon
+    : held
+      ? Pause
+      : item.status === "INDEXED"
+        ? CircleCheck
+        : item.status === "FAILED"
+          ? CircleX
+          : item.status === "DELETING"
+            ? Trash2
+            : item.status === "PENDING"
+              ? attemptStatus === "IN_PROGRESS"
+                ? LoaderCircle
+                : Clock3
+              : CircleHelp;
+  const spinning = search
+    ? search.Icon === LoaderCircle
+    : item.status === "PENDING" && attemptStatus === "IN_PROGRESS";
   return (
     <>
       <StatusBadge tone={tone} className={`${statusPill(tone)} px-2.5 py-1`}>
         <Icon
           aria-hidden="true"
-          className={`size-3.5 shrink-0 ${item.status === "PENDING" && attemptStatus === "IN_PROGRESS" ? "motion-safe:animate-spin" : ""}`}
+          className={`size-3.5 shrink-0 ${spinning ? "motion-safe:animate-spin" : ""}`}
         />
         {ui(label)}
       </StatusBadge>

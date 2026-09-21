@@ -41,6 +41,7 @@ class SessionSecurityConfiguration {
             TrustedIdentityAdmission trustedIdentityAdmission,
             JitAdmissionPolicy jitAdmissionPolicy,
             ProviderSessionTerminator providerSessionTerminator,
+            io.memoryos.iam.audit.AuditTrail audit,
             @Value("${memoryos.initial-tenant.id}") UUID tenantId,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {
@@ -79,13 +80,14 @@ class SessionSecurityConfiguration {
                                 trustedIdentityAdmission,
                                 jitAdmissionPolicy,
                                 new TenantId(tenantId),
-                                trustedIssuer
+                                trustedIssuer,
+                                audit
                         ))
                         .failureHandler(new OAuth2LoginFailureHandler()))
                 .logout(logout -> logout
                         .logoutRequestMatcher(sessionLogoutRequest)
                         // Added handlers run before the session is invalidated, while the provider session id is readable.
-                        .addLogoutHandler(new ProviderSessionLogoutHandler(providerSessionTerminator))
+                        .addLogoutHandler(new ProviderSessionLogoutHandler(providerSessionTerminator, audit, tenantAccessResolver))
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
                         .deleteCookies("SESSION")

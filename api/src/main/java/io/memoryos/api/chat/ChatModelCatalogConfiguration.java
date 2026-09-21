@@ -68,8 +68,9 @@ class ChatModelCatalogConfiguration {
     @Bean
     ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment) {
-        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment);
+            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment,
+            io.memoryos.iam.audit.AuditTrail audit) {
+        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment, audit);
     }
     @Bean
     ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,

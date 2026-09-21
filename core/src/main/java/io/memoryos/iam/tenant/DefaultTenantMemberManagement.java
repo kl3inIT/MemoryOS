@@ -1,5 +1,8 @@
 package io.memoryos.iam.tenant;
 
+import io.memoryos.iam.audit.AuditAction;
+import io.memoryos.iam.audit.AuditRecord;
+import io.memoryos.iam.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.IamAuthorization;
@@ -25,21 +28,24 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
     private final IamAuthorization authorization;
     private final JpaTenantRepository tenants;
     private final GroupAdministrationGuard administrationGuard;
+    private final AuditTrail audit;
     private final Clock clock;
 
     @Autowired
     public DefaultTenantMemberManagement(
             IamAuthorization authorization,
             JpaTenantRepository tenants,
-            GroupAdministrationGuard administrationGuard
+            GroupAdministrationGuard administrationGuard,
+            AuditTrail audit
     ) {
-        this(authorization, tenants, administrationGuard, Clock.systemUTC());
+        this(authorization, tenants, administrationGuard, audit, Clock.systemUTC());
     }
 
     DefaultTenantMemberManagement(
             IamAuthorization authorization,
             JpaTenantRepository tenants,
             GroupAdministrationGuard administrationGuard,
+            AuditTrail audit,
             Clock clock
     ) {
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
@@ -48,6 +54,7 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
                 administrationGuard,
                 "administrationGuard must not be null"
         );
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -86,5 +93,10 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
             administrationGuard.requireCanDeactivate(tenantId, target);
         }
         member.changeStatus(requestedStatus, clock.instant());
+        var person = audit.person(target);
+        audit.record(AuditRecord.of(requestedStatus == TenantMembershipStatus.ACTIVE
+                        ? AuditAction.USER_REACTIVATE : AuditAction.USER_DEACTIVATE, tenantId)
+                .actor(administrator).resource("USER", target.value(), person.label())
+                .detail("email", person.email()).build());
     }
 }

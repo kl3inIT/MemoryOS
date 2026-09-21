@@ -8,6 +8,7 @@ import {
   FileSearch,
   FolderCog,
   Plug,
+  ScrollText,
   ShieldCheck,
   UserCog,
   Users,
@@ -30,6 +31,7 @@ const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>>
   MCP_MANAGE: Plug,
   AGENTS_CREATE: Bot,
   AGENTS_MANAGE: Bot,
+  AUDIT_READ: ScrollText,
 };
 
 function permissionSection(id: CapabilityId) {

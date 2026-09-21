@@ -47,7 +47,7 @@ const drive: SourceSummary = {
 };
 const groupsOnly =
   "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.";
-const perFile = /Readers need access to each file in Google Drive/;
+const perFile = "Whoever can open the file in Google Drive can read it.";
 
 function renderCard(source: SourceSummary, groups: SourceGroup[] = []) {
   listSourceGroupsMock.mockResolvedValue({ data: { items: groups } });
@@ -71,19 +71,22 @@ async function openReadersHelp() {
 }
 
 describe("SourceSummaryCard", () => {
-  it("names Auto Sync readers briefly and explains the Google Drive rule in its help", async () => {
-    renderCard(drive);
+  it("names source-permission readers briefly and explains the Google Drive rule in its help", async () => {
+    renderCard(drive, [{ id: "finance", name: "Finance", systemKey: null }]);
 
     expect(screen.getByText("People with access in Google Drive")).toBeTruthy();
     await openReadersHelp();
     expect(await screen.findByText(perFile)).toBeTruthy();
     expect(screen.queryByText(groupsOnly)).toBeNull();
+    // Groups never decide who reads it, so the summary neither lists nor loads them.
+    expect(screen.queryByText("Groups")).toBeNull();
+    expect(listSourceGroupsMock).not.toHaveBeenCalled();
   });
 
   it("explains that a Private Drive Source follows its groups", async () => {
     renderCard({ ...drive, access: "PRIVATE" });
 
-    expect(screen.getByText("Members of its groups")).toBeTruthy();
+    expect(screen.getByText("Members of the chosen groups")).toBeTruthy();
     await openReadersHelp();
     expect(await screen.findByText(groupsOnly)).toBeTruthy();
     expect(screen.queryByText(perFile)).toBeNull();
@@ -92,16 +95,14 @@ describe("SourceSummaryCard", () => {
   it("describes a Public Drive Source and a FILE Source like their access badges", async () => {
     renderCard({ ...drive, access: "PUBLIC" });
     await openReadersHelp();
-    expect(
-      await screen.findByText("Available to workspace members, not the public Internet."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Everyone can read it.")).toBeTruthy();
+    expect(screen.queryByText("Groups")).toBeNull();
+    expect(listSourceGroupsMock).not.toHaveBeenCalled();
     cleanup();
 
     renderCard({ ...drive, id: "file", type: "FILE", access: "PRIVATE" });
     await openReadersHelp();
-    expect(
-      await screen.findByText("Only members of the associated groups can read this Source."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Only members of the chosen groups can read it.")).toBeTruthy();
     expect(screen.queryByText(groupsOnly)).toBeNull();
     expect(screen.queryByText(perFile)).toBeNull();
   });

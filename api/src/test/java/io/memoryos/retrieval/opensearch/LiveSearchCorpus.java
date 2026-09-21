@@ -46,7 +46,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
             container.start();
             var config = new SearchInfrastructureConfiguration();
             var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
-                    "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, 500, .5,
+                    "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 500, .5,
                     .70, Duration.ofSeconds(30), "memoryos-acceptance", 0);
             opened = config.searchTransport(properties);
             transport = opened;

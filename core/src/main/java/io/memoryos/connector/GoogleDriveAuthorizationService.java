@@ -23,8 +23,10 @@ public interface GoogleDriveAuthorizationService {
     List<CredentialView> list(ActorId actorId);
     void delete(ActorId actorId, CredentialId credentialId, long expectedRevision);
 
+    /** {@code accountEmail} is the connected account for OAuth and the acting primary admin for a service account. */
     record CredentialView(CredentialId id, String name, String accountEmail, String status,
-                          long credentialRevision, boolean oauthClientConfigured,
+                          long credentialRevision, String authMethod, @Nullable String serviceAccountEmail,
+                          boolean oauthClientConfigured,
                           Instant createdAt, Instant updatedAt, long sourceCount, List<String> actions) {}
 
     record Preparation(TenantId tenantId, String name, @Nullable CredentialId credentialId, @Nullable Long expectedRevision,

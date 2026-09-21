@@ -26,6 +26,7 @@ public class InterpreterService {
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final TransactionTemplate tx;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     private final io.memoryos.chat.ChatStorageQuotaService quotas;
     private final io.memoryos.chat.application.ChatRetentionProperties retention;
@@ -34,7 +35,8 @@ public class InterpreterService {
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
                               io.memoryos.chat.ChatStorageQuotaService quotas,
                               io.memoryos.chat.application.ChatRetentionProperties retention,
-                              PlatformTransactionManager transactionManager) {
+                              PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.repository = repository; this.properties = properties; this.authorization = authorization;
         this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
         this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
@@ -70,6 +72,7 @@ public class InterpreterService {
         if (current != revision) throw ChatException.conflict();
         if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.INTERPRETER_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant.value())).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
         return new Settings(properties.configured(), saved.enabled(), saved.revision());
     }
 

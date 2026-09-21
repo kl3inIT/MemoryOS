@@ -24,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import io.memoryos.iam.audit.AuditAction;
+import io.memoryos.iam.audit.AuditRecord;
+import io.memoryos.iam.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.identity.ExternalIdentityRegistrar;
@@ -69,6 +72,7 @@ public class DefaultInvitationService implements InvitationService {
     private final KeycloakRecipientProvisioner keycloakProvisioner;
     private final IamAuthorization authorization;
     private final IamLockRepository locks;
+    private final AuditTrail audit;
     private final TransactionOperations transactions;
     private final Clock clock;
     private final Duration timeToLive;
@@ -84,6 +88,7 @@ public class DefaultInvitationService implements InvitationService {
             KeycloakRecipientProvisioner keycloakProvisioner,
             IamAuthorization authorization,
             IamLockRepository locks,
+            AuditTrail audit,
             PlatformTransactionManager transactionManager,
             @Value("${memoryos.invitation.time-to-live:PT72H}") Duration timeToLive
     ) {
@@ -96,6 +101,7 @@ public class DefaultInvitationService implements InvitationService {
                 keycloakProvisioner,
                 authorization,
                 locks,
+                audit,
                 new TransactionTemplate(Objects.requireNonNull(
                         transactionManager,
                         "transactionManager must not be null"
@@ -114,6 +120,7 @@ public class DefaultInvitationService implements InvitationService {
             KeycloakRecipientProvisioner keycloakProvisioner,
             IamAuthorization authorization,
             IamLockRepository locks,
+            AuditTrail audit,
             TransactionOperations transactions,
             Clock clock,
             Duration timeToLive
@@ -132,6 +139,7 @@ public class DefaultInvitationService implements InvitationService {
         );
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.locks = Objects.requireNonNull(locks, "locks must not be null");
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.transactions = Objects.requireNonNull(transactions, "transactions must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.timeToLive = requireTimeToLive(timeToLive);
@@ -165,7 +173,7 @@ public class DefaultInvitationService implements InvitationService {
                     throw notOwner();
                 }
                 invitations.expirePending(tenantId, normalizedEmail, now);
-                return JpaInvitationRepository.view(invitations.create(
+                InvitationView created = JpaInvitationRepository.view(invitations.create(
                         invitationId,
                         tenantId,
                         normalizedEmail,
@@ -174,6 +182,10 @@ public class DefaultInvitationService implements InvitationService {
                         now,
                         expiresAt
                 ));
+                audit.record(AuditRecord.of(AuditAction.USER_INVITE, tenantId).actor(administrator)
+                        .resource("INVITATION", invitationId, normalizedEmail)
+                        .detail("email", normalizedEmail).detail("expiresAt", expiresAt.toString()).build());
+                return created;
             }), "invitation transaction returned null");
         } catch (DataIntegrityViolationException exception) {
             throw new InvitationException(
@@ -212,6 +224,9 @@ public class DefaultInvitationService implements InvitationService {
         try {
             invitation.rotate(digest(plaintextSecret), now, expiresAt);
             invitations.flush();
+            audit.record(AuditRecord.of(AuditAction.USER_INVITE_ROTATE, new TenantId(invitation.getTenant().getId()))
+                    .actor(administrator).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
+                    .detail("email", invitation.getNormalizedEmail()).detail("expiresAt", expiresAt.toString()).build());
         } catch (DataIntegrityViolationException exception) {
             throw new InvitationException(InvitationFailureReason.CONFLICT, "could not rotate invitation", exception);
         }
@@ -228,6 +243,9 @@ public class DefaultInvitationService implements InvitationService {
         InvitationEntity invitation = pendingAdministrativeInvitation(administrator, invitationId);
         invitation.revoke(invitations.requireActor(administrator), clock.instant());
         invitations.flush();
+        audit.record(AuditRecord.of(AuditAction.USER_INVITE_REVOKE, new TenantId(invitation.getTenant().getId()))
+                .actor(administrator).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
+                .detail("email", invitation.getNormalizedEmail()).build());
     }
 
     @Override
@@ -324,6 +342,10 @@ public class DefaultInvitationService implements InvitationService {
             ActorEntity actor = invitations.requireActor(actorId);
             invitation.accept(actor, clock.instant());
             invitations.flush();
+            // The new member is both who acted and who joined; a profile may not exist yet, so name them by e-mail.
+            audit.record(AuditRecord.of(AuditAction.USER_JOIN, target.tenantId()).actor(actorId, normalizedEmail)
+                    .resource("USER", actorId.value(), normalizedEmail)
+                    .detail("email", normalizedEmail).detail("admission", "INVITATION").build());
             return actorId;
         } catch (DataIntegrityViolationException exception) {
             throw new InvitationException(

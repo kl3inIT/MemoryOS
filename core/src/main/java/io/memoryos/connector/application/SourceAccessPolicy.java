@@ -26,12 +26,14 @@ public class SourceAccessPolicy {
     private final IamAuthorization authorization;
     private final JdbcSourceRepository sources;
     private final GroupScopeService groupScopes;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public SourceAccessPolicy(IamAuthorization authorization, JdbcSourceRepository sources,
-            GroupScopeService groupScopes) {
+            GroupScopeService groupScopes, io.memoryos.iam.audit.AuditTrail audit) {
         this.authorization = Objects.requireNonNull(authorization);
         this.sources = Objects.requireNonNull(sources);
         this.groupScopes = Objects.requireNonNull(groupScopes);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     public IamAccess read(ActorId actorId, SourceId sourceId) {
@@ -42,14 +44,46 @@ public class SourceAccessPolicy {
 
     public IamAccess manage(ActorId actorId, SourceId sourceId) {
         IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
-        sources.requireAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL, true);
+        try {
+            sources.requireAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL, true);
+        } catch (SourceException refused) {
+            recordRefusal(access, actorId, sourceId);
+            throw refused;
+        }
         return access;
+    }
+
+    /** Whether the actor may manage the Source: a probe for which actions to offer, so its refusal is not recorded. */
+    public boolean canManage(ActorId actorId, SourceId sourceId) {
+        try {
+            IamAccess access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
+            sources.requireAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL, true);
+            return true;
+        } catch (io.memoryos.BusinessException denied) {
+            return false;
+        }
+    }
+
+    /** A Source manager reaching a Source that exists but is not theirs: the refusal Onyx records as denied. */
+    private void recordRefusal(IamAccess access, ActorId actorId, SourceId sourceId) {
+        if (access.authority() == Authority.SCOPED && sources.exists(access.tenantId(), sourceId)) {
+            audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.PERMISSION_DENIED, access.tenantId())
+                    .outcome(io.memoryos.iam.audit.AuditOutcome.DENIED).actor(actorId)
+                    .resource("SOURCE", sourceId.value(), sources.auditView(access.tenantId(), sourceId)
+                            .map(JdbcSourceRepository.AuditView::name).orElse(null))
+                    .detail("capability", IamCapability.SOURCES_MANAGE.name()).detail("scope", "SOURCE").build());
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public IamAccess lockManage(ActorId actorId, SourceId sourceId) {
         IamAccess access = authorization.lockAndRequire(actorId, IamCapability.SOURCES_MANAGE, true);
-        sources.lockAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL);
+        try {
+            sources.lockAuthorized(access.tenantId(), actorId, sourceId, access.authority() == Authority.GLOBAL);
+        } catch (SourceException refused) {
+            recordRefusal(access, actorId, sourceId);
+            throw refused;
+        }
         IamAccess current = manage(actorId, sourceId);
         if (!access.tenantId().equals(current.tenantId())) throw SourceException.notFound();
         return current;

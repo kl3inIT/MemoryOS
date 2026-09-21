@@ -97,6 +97,8 @@ memoryos:
     drive-api-base-url: https://www.googleapis.com/drive/v3
     sheets-api-base-url: https://sheets.googleapis.com/v4
     docs-api-base-url: https://docs.googleapis.com/v1
+    admin-api-base-url: https://admin.googleapis.com/admin/directory/v1
+    group-sync-interval: ${MEMORYOS_GOOGLE_DRIVE_GROUP_SYNC_INTERVAL:PT1H}
     connect-timeout: 3s
     request-timeout: 30s
     acquisition-timeout: 120s

@@ -16,6 +16,7 @@ public record GoogleDriveConfigurationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String credentialStatus,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long credentialRevision,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean oauthClientConfigured,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"OAUTH", "SERVICE_ACCOUNT"}) String credentialAuthMethod,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "2147483647") int syncIntervalMinutes,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1") long scheduleRevision,
@@ -31,7 +32,8 @@ public record GoogleDriveConfigurationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable SourceOperationResponse pendingSelectionOperation) {
     public static GoogleDriveConfigurationResponse from(Configuration configuration) {
         return new GoogleDriveConfigurationResponse(configuration.sourceId().value(), configuration.credentialId().value(), configuration.accountEmail(),
-                configuration.credentialStatus(), configuration.credentialRevision(), configuration.oauthClientConfigured(), configuration.revision(),
+                configuration.credentialStatus(), configuration.credentialRevision(), configuration.oauthClientConfigured(), configuration.credentialAuthMethod(),
+                configuration.revision(),
                 configuration.syncIntervalMinutes(), configuration.scheduleRevision(), configuration.syncPaused(), configuration.scopeMode(),
                 GoogleDriveSelectionResponse.Counts.from(configuration.counts()),
                 configuration.discoveryRevision(), configuration.discoveredAt(),

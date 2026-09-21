@@ -156,7 +156,7 @@ describe("Source execution and current-file history", () => {
           new URL((request as Request).url).searchParams.getAll("status").join(","),
         );
 
-    await user.click(screen.getByRole("button", { name: /^Status$/ }));
+    await user.click(screen.getByRole("button", { name: /^Filter status$/ }));
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Failed" }));
     // The menu stays open, so a second status is one more click.
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Completed" }));
@@ -168,7 +168,7 @@ describe("Source execution and current-file history", () => {
     await waitFor(() => expect(statusesOf()).toContain("SUCCEEDED,FAILED"));
 
     await user.click(screen.getByRole("button", { name: "Clear status filter" }));
-    expect(screen.getByRole("button", { name: /^Status$/ })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Filter status$/ })).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Clear status filter" })).not.toBeInTheDocument();
     await waitFor(() => expect(statusesOf().at(-1)).toBe(""));
   });
@@ -297,6 +297,7 @@ describe("Current file processing status", () => {
   it("distinguishes queued retries from active processing without using the retained first start", () => {
     const item = {
       status: "PENDING",
+      searchStatus: "WAITING" as const,
       latestAttempt: {
         ...attempt,
         startedAt: "2026-09-09T09:01:00Z",
@@ -317,13 +318,20 @@ describe("Current file processing status", () => {
   });
 
   it("does not invent queued work when a pending file has no retained attempt", () => {
-    render(<ItemStatus item={{ status: "PENDING", latestAttempt: null }} />);
+    render(
+      <ItemStatus item={{ status: "PENDING", searchStatus: "WAITING", latestAttempt: null }} />,
+    );
     expect(screen.getByText("Pending", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText(/Queued|Processing|Indexed/)).not.toBeInTheDocument();
   });
 
   it("holds a pending file as paused while the Source is paused", () => {
-    render(<ItemStatus item={{ status: "PENDING", latestAttempt: null }} sourcePaused />);
+    render(
+      <ItemStatus
+        item={{ status: "PENDING", searchStatus: "WAITING", latestAttempt: null }}
+        sourcePaused
+      />,
+    );
     expect(screen.getByText("Paused", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText("Pending", { exact: true })).not.toBeInTheDocument();
   });
@@ -331,7 +339,11 @@ describe("Current file processing status", () => {
   it("keeps work that is still running visible while the Source pauses", () => {
     render(
       <ItemStatus
-        item={{ status: "PENDING", latestAttempt: { ...attempt, status: "IN_PROGRESS" } }}
+        item={{
+          status: "PENDING",
+          searchStatus: "WAITING",
+          latestAttempt: { ...attempt, status: "IN_PROGRESS" },
+        }}
         sourcePaused
       />,
     );
@@ -344,6 +356,7 @@ describe("Current file processing status", () => {
       <ItemStatus
         item={{
           status: "PENDING",
+          searchStatus: "WAITING",
           latestAttempt: { ...attempt, status: "SUCCEEDED" },
         }}
       />,
@@ -358,6 +371,7 @@ describe("Current file processing status", () => {
       <ItemStatus
         item={{
           status: "INDEXED",
+          searchStatus: "READY",
           latestAttempt: { ...attempt, status: "FAILED" },
         }}
       />,
@@ -371,6 +385,7 @@ describe("Current file processing status", () => {
       <ItemStatus
         item={{
           status: "DELETING",
+          searchStatus: "WAITING",
           latestAttempt: { ...attempt, status: "IN_PROGRESS" },
         }}
       />,
@@ -383,10 +398,40 @@ describe("Current file processing status", () => {
   it("preserves unknown states without inventing queued or successful work", () => {
     const item = {
       status: "UNKNOWN",
+      searchStatus: "WAITING",
       latestAttempt: { ...attempt, status: "UNKNOWN" },
-    };
+    } as const;
     render(<ItemStatus item={item} />);
     expect(screen.getByText("Unknown", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText(/Queued|Processing|Indexed|scheduled/i)).not.toBeInTheDocument();
+  });
+
+  it("does not claim a file is indexed while its content is no longer searchable", () => {
+    render(
+      <ItemStatus
+        item={{
+          status: "INDEXED",
+          searchStatus: "WAITING",
+          latestAttempt: { ...attempt, status: "SUCCEEDED" },
+        }}
+      />,
+    );
+    expect(screen.getByText("Awaiting re-index", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Indexed", { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText("Latest attempt: Indexed")).toBeInTheDocument();
+  });
+
+  it("reports search indexing still running and search indexing failure separately", () => {
+    const item = {
+      status: "INDEXED",
+      searchStatus: "INDEXING",
+      latestAttempt: { ...attempt, status: "SUCCEEDED" },
+    } as const;
+    const { rerender } = render(<ItemStatus item={item} />);
+    expect(screen.getByText("Indexing", { exact: true })).toBeInTheDocument();
+
+    rerender(<ItemStatus item={{ ...item, searchStatus: "FAILED" }} />);
+    expect(screen.getByText("Search indexing failed", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Indexing", { exact: true })).not.toBeInTheDocument();
   });
 });

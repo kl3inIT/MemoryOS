@@ -680,6 +680,52 @@ class SourceApiIntegrationTest {
     }
 
     @Test
+    void serviceAccountsAreVerifiedAsTheirAdminAndNeverEchoTheKey() throws Exception {
+        googleCredential("Session fixture");
+        when(googleSession.directoryUser(anyString()))
+                .thenReturn(new GoogleDriveProvider.DirectoryUser("admin@example.com", true, false));
+        String keyJson = serviceAccountKeyJson();
+        String body = io.swagger.v3.core.util.Json.mapper().writeValueAsString(Map.of(
+                "name", "Workspace", "serviceAccountKeyJson", keyJson, "adminEmail", "Admin@Example.com"));
+
+        mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(member))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+        mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+
+        String created = mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.authMethod").value("SERVICE_ACCOUNT"))
+                .andExpect(jsonPath("$.accountEmail").value("admin@example.com"))
+                .andExpect(jsonPath("$.serviceAccountEmail").value("indexer@memoryos-prod.iam.gserviceaccount.com"))
+                .andExpect(jsonPath("$.actions[0]").value("replace_key"))
+                .andReturn().getResponse().getContentAsString();
+        assertFalse(created.contains("PRIVATE KEY"));
+        String id = io.swagger.v3.core.util.Json.mapper().readTree(created).path("id").asText();
+
+        mockMvc.perform(put("/api/credentials/google-drive/{id}/service-account", id).with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.replace("Workspace", "Rotated")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Rotated"))
+                .andExpect(jsonPath("$.credentialRevision").value(2));
+
+        when(googleSession.directoryUser(anyString()))
+                .thenReturn(new GoogleDriveProvider.DirectoryUser("admin@example.com", false, false));
+        mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GOOGLE_DRIVE_SERVICE_ACCOUNT_ADMIN_REQUIRED"));
+        mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content(body.replace("service_account", "authorized_user")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY_INVALID"));
+    }
+
+    @Test
     void scheduleWritesUseIndependentEtagsAndRemainAvailableWithoutAGrant() throws Exception {
         var credential = googleCredential("Scheduled account");
         String source = createGoogleSource(credential, "Scheduled source", "scheduled-doc");
@@ -1082,6 +1128,16 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1))
                 .andExpect(jsonPath("$.discoveryRevision").value(0));
+    }
+
+    private static String serviceAccountKeyJson() throws Exception {
+        var generator = java.security.KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        String pem = "-----BEGIN PRIVATE KEY-----\n" + java.util.Base64.getEncoder()
+                .encodeToString(generator.generateKeyPair().getPrivate().getEncoded()) + "\n-----END PRIVATE KEY-----\n";
+        return io.swagger.v3.core.util.Json.mapper().writeValueAsString(Map.of("type", "service_account",
+                "private_key_id", "3f2a9c", "private_key", pem,
+                "client_email", "indexer@memoryos-prod.iam.gserviceaccount.com", "client_id", "1045"));
     }
 
     private CredentialId googleCredential(String name) {

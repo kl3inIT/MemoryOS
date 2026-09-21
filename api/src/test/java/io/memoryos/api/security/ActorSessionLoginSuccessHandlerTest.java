@@ -60,6 +60,7 @@ class ActorSessionLoginSuccessHandlerTest {
         var invitations = mock(InvitationService.class);
         when(invitations.acceptVerifiedEmail(any())).thenThrow(new InvitationException(
                 InvitationFailureReason.NOT_AVAILABLE, "No eligible invitation"));
+        var audit = mock(io.memoryos.iam.audit.AuditTrail.class);
         var handler = new ActorSessionLoginSuccessHandler(
                 _ -> Optional.empty(),
                 mock(TenantAccessResolver.class),
@@ -68,7 +69,8 @@ class ActorSessionLoginSuccessHandlerTest {
                 (_, _) -> new ActorId(UUID.randomUUID()),
                 claim -> claim instanceof String alias && aliases.contains(alias),
                 new TenantId(UUID.randomUUID()),
-                ISSUER
+                ISSUER,
+                audit
         );
         var claims = new HashMap<String, Object>();
         claims.put("iss", issuer);
@@ -88,5 +90,12 @@ class ActorSessionLoginSuccessHandlerTest {
         assertEquals("/access-not-provisioned", response.getRedirectedUrl());
         assertNull(request.getSession(false));
         assertNull(SecurityContextHolder.getContext().getAuthentication());
+        // The refused sign-in is recorded, naming the person by the e-mail their provider asserted.
+        var event = org.mockito.ArgumentCaptor.forClass(io.memoryos.iam.audit.AuditRecord.class);
+        org.mockito.Mockito.verify(audit).recordSeparately(event.capture());
+        assertEquals(io.memoryos.iam.audit.AuditAction.LOGIN_FAILURE, event.getValue().action());
+        assertEquals(io.memoryos.iam.audit.AuditOutcome.DENIED, event.getValue().outcome());
+        assertEquals("member@example.test", event.getValue().actorLabel());
+        assertEquals("NOT_ADMITTED", event.getValue().details().get("reason"));
     }
 }

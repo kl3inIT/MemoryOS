@@ -211,17 +211,16 @@ for (const failure of ["none", "create", "upload", "finalize"] as const) {
     await expect(submit).toBeEnabled();
     if (failure === "none") {
       const visibility = page.getByRole("combobox", { name: "Visibility" });
-      const groups = page.getByRole("button", { name: "Access groups" });
+      const groups = page.getByRole("combobox", { name: "Access groups" });
       await expect(groups).toHaveCount(0);
       await visibility.click();
-      await page.getByRole("option", { name: /^Private/ }).click();
-      await groups.click();
-      await page.getByPlaceholder("Search groups…").fill("Knowledge team");
+      await page.getByRole("option", { name: /^Specific groups/ }).click();
+      await groups.fill("Knowledge team");
       await expect(page.getByRole("option", { name: "Knowledge team" })).toBeVisible();
       expect(creates).toBe(0);
       await page.keyboard.press("Escape");
       await visibility.click();
-      await page.getByRole("option", { name: /^Workspace members/ }).click();
+      await page.getByRole("option", { name: /^All members/ }).click();
       await expect(groups).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath("file-setup-desktop.png"),
@@ -551,7 +550,7 @@ test("scoped File creation stays private and may start without a group", async (
   // A Group is optional now, so the submit is live before one is picked and nothing is created yet.
   await expect(page.getByRole("button", { name: "Upload and create" })).toBeEnabled();
   expect(created).toBe(false);
-  await page.getByRole("button", { name: "Access groups" }).click();
+  await page.getByRole("combobox", { name: "Access groups" }).click();
   await page.getByRole("option", { name: "Managed team" }).click();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Upload and create" }).click();

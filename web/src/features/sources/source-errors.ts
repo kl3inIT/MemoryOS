@@ -45,6 +45,12 @@ const statusMessages: Record<string, string> = {
     "This connection needs your Google OAuth app. Upload or paste a Web application OAuth client JSON, then reconnect.",
   GOOGLE_DRIVE_OAUTH_CLIENT_INVALID:
     "Supply valid Google Web application OAuth client JSON with this MemoryOS callback registered as an authorized redirect URI.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY_INVALID:
+    "Upload the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_DELEGATION_MISSING:
+    "Google refused the service account. In the Admin console, grant its client ID domain-wide delegation with every listed scope, then try again.",
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_ADMIN_REQUIRED:
+    "The primary admin email must belong to an active Google Workspace administrator who can read users and groups.",
   GOOGLE_DRIVE_AUTHENTICATION:
     "Google could not authorize this request. Reconnect the Google account.",
   GOOGLE_DRIVE_SCOPE_INSUFFICIENT:

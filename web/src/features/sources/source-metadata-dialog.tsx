@@ -108,15 +108,7 @@ export function SourceMetadataDialog({
               {field === "name" ? ui("Rename source") : ui("Change visibility")}
             </DialogTitle>
             {field === "access" ? (
-              <DialogDescription>
-                {source.type === "GOOGLE_DRIVE"
-                  ? ui(
-                      "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.",
-                    )
-                  : ui(
-                      "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.",
-                    )}
-              </DialogDescription>
+              <DialogDescription>{ui("Choose who can read this Source.")}</DialogDescription>
             ) : null}
           </DialogHeader>
           {field === "name" ? (

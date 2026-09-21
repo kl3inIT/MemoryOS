@@ -78,17 +78,17 @@ export function SourceManagerSection({
       </div>
       <p className="mt-3 font-main-ui-body text-content-muted">
         {ui(
-          "The responsible manager attaches this Source to the groups they manage and keeps its content settings. Without one, only administrators can do that.",
+          "Add a manager for this Source. A manager must already manage a group, and attaches the Source to the groups they manage.",
         )}
       </p>
 
-      <p className="mt-4 font-main-ui-body text-content-primary">
-        {source.managerActorId === null
-          ? ui("No responsible manager. Administrators only.")
-          : ui("Responsible manager: {{v1}}", {
-              v1: source.managerName ?? source.managerActorId,
-            })}
-      </p>
+      {source.managerActorId === null ? null : (
+        <p className="mt-4 font-main-ui-body text-content-primary">
+          {ui("Responsible manager: {{v1}}", {
+            v1: source.managerName ?? source.managerActorId,
+          })}
+        </p>
+      )}
 
       {error ? (
         <p
