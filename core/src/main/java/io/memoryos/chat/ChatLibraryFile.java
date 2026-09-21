@@ -13,7 +13,8 @@ import org.jspecify.annotations.Nullable;
  */
 public record ChatLibraryFile(Source source, UUID id, String filename, String mediaType, long sizeBytes,
                               Instant createdAt, Category category, @Nullable UUID sessionId,
-                              @Nullable String sessionTitle, @Nullable UUID messageId, List<Usage> usedBy) {
+                              @Nullable String sessionTitle, @Nullable UUID messageId, boolean favorite,
+                              UserFile.Status status, @Nullable String errorCode, List<Usage> usedBy) {
     public ChatLibraryFile { usedBy = List.copyOf(usedBy); }
 
     /** Where the file came from: an upload, a {@code run_python} result, or a generated image. */
@@ -21,7 +22,7 @@ public record ChatLibraryFile(Source source, UUID id, String filename, String me
 
     public enum Category { DOCUMENT, SPREADSHEET, IMAGE, PRESENTATION, OTHER }
 
-    public enum Sort { NEWEST, OLDEST, LARGEST, SMALLEST }
+    public enum Sort { NEWEST, OLDEST, LARGEST, SMALLEST, NAME }
 
     public record Usage(Kind kind, UUID id, String name) {
         public enum Kind { AGENT, PROJECT }
@@ -29,7 +30,7 @@ public record ChatLibraryFile(Source source, UUID id, String filename, String me
 
     public ChatLibraryFile withUsedBy(List<Usage> usages) {
         return new ChatLibraryFile(source, id, filename, mediaType, sizeBytes, createdAt, category,
-                sessionId, sessionTitle, messageId, usages);
+                sessionId, sessionTitle, messageId, favorite, status, errorCode, usages);
     }
 
     /** Only an upload can be attached to a Project or Agent, so only an upload is ever undeletable. */

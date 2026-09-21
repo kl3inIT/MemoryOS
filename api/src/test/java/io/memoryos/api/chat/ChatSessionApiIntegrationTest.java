@@ -575,6 +575,68 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void theLibraryRenamesStarsAndShowsUploadsStillBeingProcessed() throws Exception {
+        when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
+                new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
+        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
+                "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
+        var created = mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andReturn();
+        String id = Json.mapper().readTree(created.getResponse().getContentAsString()).path("file").path("id").asText();
+        jdbc.sql("UPDATE chat_user_file SET status='READY' WHERE id=:id").param("id", UUID.fromString(id)).update();
+        String file = "/api/chat/library/UPLOAD/" + id;
+
+        // A rename keeps the extension and reaches every surface, because it rewrites the file's own name.
+        mockMvc.perform(patch(file).with(authentication(actor)).contentType(MediaType.APPLICATION_JSON).content("{\"filename\":\"Ghi chú quý 3\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(patch(file).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"filename\":\"Ghi chú quý 3\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filename").value("Ghi chú quý 3.txt"));
+        mockMvc.perform(get("/api/chat/files/" + id).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filename").value("Ghi chú quý 3.txt"));
+        for (var body : List.of("{}", "{\"filename\":\"a/b.txt\"}", "{\"filename\":\"  \"}"))
+            mockMvc.perform(patch(file).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest());
+
+        // Starring is per owner: another member can neither see nor change the file.
+        mockMvc.perform(patch(file).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.favorite").value(true));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("favorite","true"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.items[0].filename").value("Ghi chú quý 3.txt"));
+        mockMvc.perform(patch(file).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(patch(file).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.favorite").value(false));
+
+        // An upload still being processed is out of the usable list and in the pending one, with its status.
+        jdbc.sql("UPDATE chat_user_file SET status='FAILED', error_code='EXTRACTION_FAILED' WHERE id=:id")
+                .param("id", UUID.fromString(id)).update();
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("status","PENDING"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.items[0].status").value("FAILED"))
+                .andExpect(jsonPath("$.items[0].errorCode").value("EXTRACTION_FAILED"));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("status","BOGUS"))
+                .andExpect(status().isBadRequest());
+
+        // Content search is owner-private and rejects an empty query; nothing is indexed in this suite.
+        mockMvc.perform(get("/api/chat/library/search").with(authentication(actor)).param("query"," "))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/library/search").with(authentication(actor)).param("query","điều khoản"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/library/search").param("query","điều khoản")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void filePolicyAndAdmissionRejectOverLimitAndMalformedChecksum() throws Exception {
         mockMvc.perform(get("/api/chat/files/policy").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.maxSizeBytes").value(104857600));
