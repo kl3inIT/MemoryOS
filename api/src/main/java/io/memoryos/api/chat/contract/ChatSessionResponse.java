@@ -20,9 +20,23 @@ public record ChatSessionResponse(
         // express the null, so the level travels as a string here.
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
                 description = "Pinned reasoning level: OFF, LOW, MEDIUM or HIGH")
-        @Nullable String reasoningEffort) {
+        @Nullable String reasoningEffort,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time",
+                description = "When the owner archived it; null while it is on the sidebar")
+        @Nullable Instant archivedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
+                description = "The conversation this one was branched from")
+        @Nullable UUID branchedFromSessionId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
+                description = "The message this one was branched from")
+        @Nullable UUID branchedFromMessageId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "A temporary conversation: listed nowhere, and deleted with its uploads after its window")
+        boolean temporary) {
     public static ChatSessionResponse from(ChatSession session) {
         return new ChatSessionResponse(session.id(), session.personaId(), session.rootMessageId(), session.title(),
-                session.createdAt(), session.updatedAt(), session.projectId(), session.reasoningEffort() == null ? null : session.reasoningEffort().name());
+                session.createdAt(), session.updatedAt(), session.projectId(),
+                session.reasoningEffort() == null ? null : session.reasoningEffort().name(), session.archivedAt(),
+                session.branchedFromSessionId(), session.branchedFromMessageId(), session.temporary());
     }
 }

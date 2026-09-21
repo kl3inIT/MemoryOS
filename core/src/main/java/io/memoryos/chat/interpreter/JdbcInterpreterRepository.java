@@ -70,6 +70,15 @@ public class JdbcInterpreterRepository {
      * Records the file against its answer. Owner and conversation come from the answer itself, so the file
      * library reads them without joining and a caller cannot record a foreign owner.
      */
+    /** Who owns the conversation an answer belongs to; their library holds whatever that answer generates. */
+    public java.util.Optional<UUID> owner(TenantId tenant, UUID messageId) {
+        return jdbc.sql("""
+                SELECT s.owner_actor_id FROM chat_message m JOIN chat_session s ON s.id = m.session_id
+                WHERE m.id = :message AND s.tenant_id = :tenant
+                """).param("message", messageId).param("tenant", tenant.value())
+                .query((row, ignored) -> row.getObject("owner_actor_id", UUID.class)).optional();
+    }
+
     public void insertArtifact(TenantId tenant, UUID messageId, UUID id, UUID storedObjectId, ObjectKey key,
                                String filename, String mediaType, long sizeBytes, @org.jspecify.annotations.Nullable String chart) {
         int inserted = jdbc.sql("""
@@ -89,13 +98,43 @@ public class JdbcInterpreterRepository {
      * Hides the file from the library and every serving route; a worker sweep releases its bytes. Deleting a
      * file the sweep has already removed still succeeds: an absent row is the outcome the caller asked for.
      */
-    public boolean markArtifactDeleted(TenantId tenant, ActorId actor, UUID id) {
+    public boolean markArtifactDeleted(TenantId tenant, ActorId actor, UUID id, java.time.Duration trashFor) {
         boolean hidden = jdbc.sql("""
-                UPDATE chat_file_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP)
+                UPDATE chat_file_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP),
+                    purge_after = COALESCE(purge_after, CURRENT_TIMESTAMP + make_interval(secs => :trash))
                 WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor
-                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .param("trash", trashFor.toSeconds()).update() == 1;
         return hidden || jdbc.sql("SELECT count(*) FROM chat_file_artifact WHERE id = :id")
                 .param("id", id).query(Long.class).single() == 0;
+    }
+
+    /** Takes a generated file out of the trash while its bytes are still there. */
+    public boolean restoreArtifact(TenantId tenant, ActorId actor, UUID id) {
+        return jdbc.sql("""
+                UPDATE chat_file_artifact SET deleted_at = NULL, purge_after = NULL, cleanup_token = NULL,
+                    cleanup_until = NULL
+                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+    }
+
+    /** Lets the sweep release a trashed generated file's bytes now instead of when its window ends. */
+    public boolean purgeArtifactNow(TenantId tenant, ActorId actor, UUID id) {
+        return jdbc.sql("""
+                UPDATE chat_file_artifact SET purge_after = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+    }
+
+    /** Ends the window for every trashed generated file of this owner; answers how many. */
+    public int purgeTrashedArtifacts(TenantId tenant, ActorId actor, int limit) {
+        return jdbc.sql("""
+                UPDATE chat_file_artifact SET purge_after = CURRENT_TIMESTAMP
+                WHERE (tenant_id, id) IN (
+                    SELECT tenant_id, id FROM chat_file_artifact
+                    WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                    ORDER BY deleted_at LIMIT :limit)
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
     }
 
     /** Chart data of a generated file the actor owns, as JSON text. */

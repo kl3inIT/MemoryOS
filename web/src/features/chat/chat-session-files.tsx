@@ -10,7 +10,17 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +41,6 @@ import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { chatActionError } from "./chat-action-utils";
 import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { fileSize } from "./chat-code";
@@ -50,9 +59,8 @@ import {
   type LibraryCategory,
   type LibraryFile,
 } from "./chat-library";
+import { LibraryCategoryFilter } from "./chat-library-toolbar";
 import { composerAttachment } from "./use-composer-file-selection";
-
-const CATEGORIES: LibraryCategory[] = ["DOCUMENT", "SPREADSHEET", "IMAGE", "PRESENTATION", "OTHER"];
 
 /**
  * "Files in this conversation" (MEM-144): the library list narrowed to one conversation, so a person can find
@@ -111,13 +119,6 @@ export function ChatSessionFiles({
     wasRunning.current = running;
   }, [running, cache]);
 
-  const categoryLabels: Record<LibraryCategory, string> = {
-    DOCUMENT: ui("Tài liệu"),
-    SPREADSHEET: ui("Bảng tính"),
-    IMAGE: ui("Ảnh"),
-    PRESENTATION: ui("Trình chiếu"),
-    OTHER: ui("Khác"),
-  };
   const sourceLabels = {
     UPLOAD: ui("Đã tải lên"),
     GENERATED: ui("Do mã tạo"),
@@ -230,144 +231,139 @@ export function ChatSessionFiles({
                 className="pl-9"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={ui("Lọc tệp")}>
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  aria-pressed={categories.includes(category)}
-                  onClick={() =>
-                    setCategories(
-                      categories.includes(category)
-                        ? categories.filter((item) => item !== category)
-                        : [...categories, category],
-                    )
-                  }
-                  className={cn(
-                    "h-6 rounded-full border px-2.5 text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
-                    categories.includes(category)
-                      ? "border-transparent bg-surface-accent text-content-on-accent"
-                      : "border-border-default text-content-secondary hover:text-content-primary",
-                  )}
-                >
-                  {categoryLabels[category]}
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2">
+              <LibraryCategoryFilter categories={categories} onCategories={setCategories} />
+              <span className="font-secondary-body tabular-nums text-content-muted">
+                {ui("{{count}} tệp", { count: items.length })}
+              </span>
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
             {notice && (
-              <p
-                role={notice.tone === "danger" ? "alert" : "status"}
-                className={cn(
-                  "text-sm",
-                  notice.tone === "danger" ? "text-content-danger" : "text-content-secondary",
-                )}
-              >
-                {notice.text}
-              </p>
+              <Alert variant={notice.tone === "danger" ? "destructive" : "success"}>
+                <AlertTitle>{notice.text}</AlertTitle>
+              </Alert>
             )}
-            {files.isError && <p role="alert">{ui("Không tải được thư viện.")}</p>}
+            {files.isError && (
+              <Alert variant="destructive">
+                <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
+              </Alert>
+            )}
             {files.isSuccess && items.length === 0 && (
-              <p role="status" className="text-content-muted">
-                {query || categories.length > 0
-                  ? ui("Không có tệp nào khớp bộ lọc.")
-                  : ui("Hội thoại này chưa có tệp nào.")}
-              </p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Paperclip />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {query || categories.length > 0
+                      ? ui("Không có tệp nào khớp")
+                      : ui("Hội thoại này chưa có tệp nào")}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {query || categories.length > 0
+                      ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")
+                      : ui("Tệp bạn đính kèm và tệp Chat tạo ra sẽ xuất hiện ở đây.")}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
             {items.map((file) => (
-              <div
+              <Item
                 key={`${file.source}:${file.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border-default px-3 py-2"
+                variant="outline"
+                size="sm"
+                className="hover:bg-surface-subtle"
               >
-                <button
-                  type="button"
-                  className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-sunken"
-                  aria-label={ui("Xem trước {{name}}", { name: file.filename })}
-                  onClick={() => setPreview(libraryPreviewTarget(file))}
-                >
-                  {file.source === "IMAGE" ? (
-                    <img
-                      src={imageArtifactUrl(file.id)}
-                      alt=""
-                      loading="lazy"
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <DocumentKindIcon
-                      mediaType={file.mediaType}
-                      filename={file.filename}
-                      className="size-4"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left hover:underline"
-                  onClick={() => setPreview(libraryPreviewTarget(file))}
-                >
-                  <span className="block truncate text-sm">{file.filename}</span>
-                  <span className="block truncate text-xs text-content-muted">
+                <ItemMedia variant={file.source === "IMAGE" ? "image" : "icon"}>
+                  <button
+                    type="button"
+                    className="grid size-full place-items-center overflow-hidden rounded-sm bg-surface-sunken outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+                    aria-label={ui("Xem trước {{name}}", { name: file.filename })}
+                    onClick={() => setPreview(libraryPreviewTarget(file))}
+                  >
+                    {file.source === "IMAGE" ? (
+                      <img src={imageArtifactUrl(file.id)} alt="" loading="lazy" />
+                    ) : (
+                      <DocumentKindIcon
+                        mediaType={file.mediaType}
+                        filename={file.filename}
+                        className="size-4"
+                      />
+                    )}
+                  </button>
+                </ItemMedia>
+                <ItemContent className="min-w-0">
+                  <button
+                    type="button"
+                    className="min-w-0 truncate text-left font-main-ui-action hover:underline"
+                    onClick={() => setPreview(libraryPreviewTarget(file))}
+                  >
+                    {file.filename}
+                  </button>
+                  <ItemDescription>
                     {[sourceLabels[file.source], fileSize(file.sizeBytes, i18n.language)].join(
                       " · ",
                     )}
-                  </span>
+                  </ItemDescription>
                   {usageLabel(file) && (
-                    <span className="block truncate text-xs text-content-muted">
+                    <Badge variant="outline" className="mt-0.5 w-fit">
                       {ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}
-                    </span>
+                    </Badge>
                   )}
-                </button>
-                <IconButton
-                  size="sm"
-                  prominence="internal"
-                  aria-label={ui("Đính kèm {{name}} vào câu hỏi", { name: file.filename })}
-                  title={ui("Đính kèm vào câu hỏi tiếp theo")}
-                  pending={working === file.id}
-                  disabled={working !== undefined}
-                  onClick={() => void attach(file)}
-                >
-                  <Paperclip />
-                </IconButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <IconButton
-                      size="sm"
-                      prominence="internal"
-                      aria-label={ui("Thao tác với {{name}}", { name: file.filename })}
-                    >
-                      <MoreHorizontal />
-                    </IconButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {file.messageId && onShowMessage && (
-                      <DropdownMenuItem onSelect={() => void show(file)}>
-                        <LocateFixed />
-                        {ui("Xem trong hội thoại")}
+                </ItemContent>
+                <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100">
+                  <IconButton
+                    size="sm"
+                    prominence="internal"
+                    aria-label={ui("Đính kèm {{name}} vào câu hỏi", { name: file.filename })}
+                    title={ui("Đính kèm vào câu hỏi tiếp theo")}
+                    pending={working === file.id}
+                    disabled={working !== undefined}
+                    onClick={() => void attach(file)}
+                  >
+                    <Paperclip />
+                  </IconButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <IconButton
+                        size="sm"
+                        prominence="internal"
+                        aria-label={ui("Thao tác với {{name}}", { name: file.filename })}
+                      >
+                        <MoreHorizontal />
+                      </IconButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {file.messageId && onShowMessage && (
+                        <DropdownMenuItem onSelect={() => void show(file)}>
+                          <LocateFixed />
+                          {ui("Xem trong hội thoại")}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onSelect={() => setProjectFiles([file])}>
+                        <FolderPlus />
+                        {ui("Thêm vào dự án")}
                       </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onSelect={() => setProjectFiles([file])}>
-                      <FolderPlus />
-                      {ui("Thêm vào dự án")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={downloadUrl(libraryPreviewTarget(file))} download={file.filename}>
-                        <Download />
-                        {ui("Tải về")}
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      disabled={!file.deletable}
-                      onSelect={() => setConfirming(file)}
-                    >
-                      <Trash2 />
-                      {ui("Xoá")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                      <DropdownMenuItem asChild>
+                        <a href={downloadUrl(libraryPreviewTarget(file))} download={file.filename}>
+                          <Download />
+                          {ui("Tải về")}
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={!file.deletable}
+                        onSelect={() => setConfirming(file)}
+                      >
+                        <Trash2 />
+                        {ui("Xoá")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </ItemActions>
+              </Item>
             ))}
           </div>
         </SheetContent>

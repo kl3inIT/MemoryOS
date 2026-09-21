@@ -216,6 +216,8 @@ test("Add mode replaces member browsing instead of stacking searches and paginat
 test("scoped group managers can delegate peers but cannot remove their own scope or a member's last group", async ({
   page,
 }) => {
+  let managerWrites = 0;
+  let memberRemovals = 0;
   await mockGroups(page, false);
   const self = {
     actorId: "10000000-0000-0000-0000-000000000001",
@@ -233,6 +235,7 @@ test("scoped group managers can delegate peers but cannot remove their own scope
   };
   await page.route(`**/api/groups/${customId}/members**`, async (route) => {
     if (new URL(route.request().url()).pathname.endsWith("/remove")) {
+      memberRemovals += 1;
       await route.fulfill({ status: 409, json: { status: 409, code: "IAM_LAST_GROUP_PROTECTED" } });
     } else {
       await route.fulfill({
@@ -241,6 +244,7 @@ test("scoped group managers can delegate peers but cannot remove their own scope
     }
   });
   await page.route(`**/api/groups/${customId}/members/*/*-manager`, async (route) => {
+    managerWrites += 1;
     expect(route.request().headers()["x-memoryos-csrf"]).toBe("1");
     peer.isManager = new URL(route.request().url()).pathname.endsWith("/assign-manager");
     await route.fulfill({ status: 204 });
@@ -260,11 +264,24 @@ test("scoped group managers can delegate peers but cannot remove their own scope
   await expect(
     page.getByRole("button", { name: "Remove manager for peer@example.com" }),
   ).toBeVisible();
+  expect(managerWrites).toBe(0);
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await page.waitForURL((url) => url.pathname === "/admin/groups");
+  expect(managerWrites).toBe(1);
+
+  await page.goto(`/admin/groups/${customId}`);
   await page.getByRole("button", { name: "Remove peer@example.com from HROD" }).click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Remove member", exact: true })
     .click();
-  await expect(page.getByRole("alertdialog")).toContainText("Add them to another group first");
-  await expect(page.getByText("peer@example.com", { exact: true })).toBeVisible();
+  expect(memberRemovals).toBe(0);
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await expect(
+    page.getByText(
+      "This change would leave a standard user without a group. Add them to another group first, then try again.",
+    ),
+  ).toBeVisible();
+  expect(managerWrites).toBe(1);
+  expect(memberRemovals).toBe(1);
 });

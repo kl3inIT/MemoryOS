@@ -29,4 +29,8 @@
 
 ## Phase 4 — limits and safety
 
-Not started.
+- [x] **Storage usage and quota.** `JdbcChatLibraryRepository.usage`; V98 `chat_settings.storage_quota_bytes` and `chat_storage_quota`; `ChatStorageQuotaService` (usage, `requireRoom`, administration); `GET /api/chat/library/usage`, `GET/PUT /api/chat/storage-quota`, `PUT /api/chat/storage-quota/{actorId}`; refusals wired into uploads, server-side copies, generated files and generated images; the storage bar on `/library` and the `/admin/file-storage` page.
+- [x] **Trash with restore.** [ADR 0014](../../../decisions/0014-file-library-trash.md); V99 `deleted_at`/`purge_after`; `memoryos.chat.retention.trash-after`; `ChatLibraryTrashService`; `status=TRASH`, restore, purge and empty routes; the `memoryos-chat-library-trash-v1` Worker task; the Trash view with restore, delete-for-good, empty-the-trash and a confirmation that follows the window.
+- [x] **Tests.** `ChatLibraryTrashIntegrationTest`, `ChatSessionApiIntegrationTest.aStorageLimitIsAdministeredByModelManagersAndRefusesAnUploadBeforeItIsAuthorized`, `ChatSessionApiIntegrationTest.aDeletedUploadWaitsInTheTrashWhereItsOwnerRestoresOrEndsIt`, `chat-library-page.test.tsx` (storage bar, trash) and `chat-storage-quota-page.test.tsx`.
+- [x] **Docs.** Phase 4 decisions here, ADR 0014, chat spec, verification matrix.
+- [ ] **Evidence.** Local 2026-09-21: the listed Java tests and `OpenApiContractTest` pass; the `chat` web suite passes (175 tests), with typecheck, oxlint, oxfmt and the i18n audit clean. CI on the pull request runs `clean check`.

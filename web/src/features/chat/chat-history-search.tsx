@@ -11,6 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
@@ -199,11 +200,18 @@ export function ChatHistorySearch({
                           aria-hidden="true"
                         />
                         <span className="min-w-0 flex-1">
-                          <span
-                            className="block truncate font-main-ui-body text-content-primary"
-                            title={session.title}
-                          >
-                            {session.title}
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              className="min-w-0 truncate font-main-ui-body text-content-primary"
+                              title={session.title}
+                            >
+                              {session.title}
+                            </span>
+                            {session.archivedAt ? (
+                              <Badge variant="secondary" className="shrink-0">
+                                {ui("Đã lưu trữ")}
+                              </Badge>
+                            ) : null}
                           </span>
                           {session.snippet ? (
                             <span className="mt-0.5 line-clamp-2 text-xs text-content-secondary">

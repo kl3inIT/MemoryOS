@@ -11,7 +11,8 @@ public interface GoogleDriveConnectionService {
     boolean current(TenantId tenantId, SourceId sourceId, long credentialRevision);
     void authenticationFailed(TenantId tenantId, SourceId sourceId, long credentialRevision);
 
-    record State(CredentialId credentialId, String accountEmail, String status, long credentialRevision, boolean oauthClientConfigured) {}
+    record State(CredentialId credentialId, String accountEmail, String status, long credentialRevision, boolean oauthClientConfigured,
+            String authMethod) {}
     record Connection(GoogleDriveProvider.Session session, long credentialRevision) implements AutoCloseable {
         @Override public void close() { session.close(); }
     }

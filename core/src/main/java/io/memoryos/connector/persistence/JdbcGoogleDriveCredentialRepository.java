@@ -7,6 +7,8 @@ import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.GoogleDriveConnectionService.State;
 import io.memoryos.connector.GoogleDriveException;
+import io.memoryos.connector.GoogleDriveProvider;
+import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceStatus;
@@ -28,13 +30,14 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcGoogleDriveCredentialRepository {
     private static final String REFRESH_TOKEN = "refresh-token";
+    private static final String SERVICE_ACCOUNT_KEY = "service-account-key";
     private static final String SELECT = """
             SELECT google.*, credential.owner_actor_id, credential.status AS credential_status, tenant.status AS tenant_status
             FROM credentials credential
             JOIN google_drive_credentials google ON google.tenant_id = credential.tenant_id AND google.credential_id = credential.id
             JOIN tenants tenant ON tenant.id = credential.tenant_id
             WHERE credential.tenant_id = :tenantId AND credential.id = :credentialId
-              AND credential.credential_kind = 'GOOGLE_OAUTH'
+              AND credential.credential_kind IN ('GOOGLE_OAUTH', 'GOOGLE_SERVICE_ACCOUNT')
             """;
     private final JdbcClient jdbc;
     private final JdbcSourceRepository sources;
@@ -65,10 +68,10 @@ public class JdbcGoogleDriveCredentialRepository {
         jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status, owner_actor_id) VALUES (:id, :tenant, :name, 'GOOGLE_OAUTH', 'ACTIVE', :owner)")
                 .param("id", credentialId).param("tenant", tenantId.value()).param("name", name).param("owner", owner.value()).update();
         jdbc.sql("""
-                INSERT INTO google_drive_credentials (tenant_id, credential_id, account_subject, account_email,
+                INSERT INTO google_drive_credentials (tenant_id, credential_id, auth_method, account_subject, account_email,
                     granted_scopes, connection_status, refresh_token_ciphertext, refresh_token_nonce, key_version,
                     oauth_client_ciphertext, oauth_client_nonce, oauth_client_key_version)
-                VALUES (:tenant, :credential, :subject, :email, :scopes, 'ACTIVE', :ciphertext, :nonce, :version,
+                VALUES (:tenant, :credential, 'OAUTH', :subject, :email, :scopes, 'ACTIVE', :ciphertext, :nonce, :version,
                     :clientCiphertext, :clientNonce, :clientVersion)
                 """).param("tenant", tenantId.value()).param("credential", credentialId)
                 .param("subject", grant.accountSubject()).param("email", grant.accountEmail().toLowerCase(Locale.ROOT))
@@ -79,22 +82,90 @@ public class JdbcGoogleDriveCredentialRepository {
         return new CredentialId(credentialId);
     }
 
+    /** A service account never has an owner: it reaches the whole Workspace, so only global managers hold one. */
+    public CredentialId createServiceAccount(TenantId tenantId, String name, GoogleDriveServiceAccountKey key, String adminEmail) {
+        if (!sources.lockActiveTenant(tenantId)) throw SourceException.notFound();
+        UUID credentialId = UUID.randomUUID();
+        var encrypted = encryptKey(tenantId, credentialId, key);
+        jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :tenant, :name, 'GOOGLE_SERVICE_ACCOUNT', 'ACTIVE')")
+                .param("id", credentialId).param("tenant", tenantId.value()).param("name", name).update();
+        jdbc.sql("""
+                INSERT INTO google_drive_credentials (tenant_id, credential_id, auth_method, account_subject, account_email,
+                    granted_scopes, connection_status, service_account_email, service_account_key_ciphertext,
+                    service_account_key_nonce, service_account_key_version)
+                VALUES (:tenant, :credential, 'SERVICE_ACCOUNT', :subject, :email, :scopes, 'ACTIVE', :serviceAccount,
+                    :ciphertext, :nonce, :version)
+                """).param("tenant", tenantId.value()).param("credential", credentialId)
+                .param("subject", key.clientId()).param("email", adminEmail)
+                .param("scopes", String.join(" ", new TreeSet<>(GoogleDriveProvider.SERVICE_ACCOUNT_SCOPES)))
+                .param("serviceAccount", key.clientEmail()).param("ciphertext", encrypted.ciphertext())
+                .param("nonce", encrypted.nonce()).param("version", encrypted.keyVersion()).update();
+        return new CredentialId(credentialId);
+    }
+
+    /**
+     * Replaces the key and acting admin of the same service account. A different service account is a different
+     * credential; changing the admin changes what the credential reads, so every attached Source is invalidated.
+     */
+    public long replaceServiceAccount(TenantId tenantId, CredentialId credentialId, String name, long expectedRevision,
+            GoogleDriveServiceAccountKey key, String adminEmail) {
+        var row = lock(tenantId, credentialId).orElseThrow(SourceException::notFound);
+        requireRevision(row, expectedRevision);
+        if (!row.serviceAccount()) throw SourceException.conflict("Google credential is not a service account");
+        if (!row.subject().equals(key.clientId())) throw SourceException.conflict("Google service account changed");
+        var encrypted = encryptKey(tenantId, row.credentialId(), key);
+        jdbc.sql("""
+                UPDATE google_drive_credentials SET account_email = :email, connection_status = 'ACTIVE',
+                    service_account_key_ciphertext = :ciphertext, service_account_key_nonce = :nonce,
+                    service_account_key_version = :version, credential_revision = credential_revision + 1,
+                    payload_revision = payload_revision + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND credential_id = :credential
+                """).param("email", adminEmail).param("ciphertext", encrypted.ciphertext())
+                .param("nonce", encrypted.nonce()).param("version", encrypted.keyVersion())
+                .param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
+        status(tenantId, row, "ACTIVE");
+        jdbc.sql("UPDATE credentials SET name = :name WHERE tenant_id = :tenant AND id = :credential")
+                .param("name", name).param("tenant", tenantId.value()).param("credential", credentialId.value()).update();
+        invalidateSources(tenantId, credentialId);
+        return expectedRevision + 1;
+    }
+
+    public GoogleDriveServiceAccountKey serviceAccountKey(TenantId tenantId, Stored row) {
+        if (!row.serviceAccount() || row.keyCiphertext() == null || row.keyNonce() == null || row.keyCipherVersion() == null) {
+            throw GoogleDriveException.needsReauthorization();
+        }
+        byte[] payload;
+        try {
+            payload = encryption.cipher().decrypt(tenantId, row.credentialId(), SERVICE_ACCOUNT_KEY,
+                    new CredentialCipher.EncryptedCredential(row.keyCiphertext(), row.keyNonce(), row.keyCipherVersion()));
+        } catch (IllegalStateException exception) { throw GoogleDriveException.notConfigured(); }
+        try { return GoogleDriveServiceAccountKey.decode(payload); }
+        finally { Arrays.fill(payload, (byte) 0); }
+    }
+
+    private CredentialCipher.EncryptedCredential encryptKey(TenantId tenantId, UUID credentialId, GoogleDriveServiceAccountKey key) {
+        byte[] payload = key.encode();
+        try { return encryption.cipher().encrypt(tenantId, credentialId, SERVICE_ACCOUNT_KEY, payload); }
+        finally { Arrays.fill(payload, (byte) 0); }
+    }
+
     public List<CredentialView> list(TenantId tenantId, @Nullable ActorId owner) {
         return jdbc.sql("""
-                SELECT c.id, c.name, g.account_email, g.connection_status, g.credential_revision,
+                SELECT c.id, c.name, g.account_email, g.connection_status, g.credential_revision, g.auth_method,
+                  g.service_account_email,
                   g.oauth_client_ciphertext IS NOT NULL AS configured, c.created_at, c.updated_at,
                   (SELECT COUNT(*) FROM connector_credential_pairs p
                    WHERE p.tenant_id = c.tenant_id AND p.credential_id = c.id) AS source_count
                 FROM credentials c
                 JOIN google_drive_credentials g ON g.tenant_id = c.tenant_id AND g.credential_id = c.id
-                WHERE c.tenant_id = :tenant AND c.credential_kind = 'GOOGLE_OAUTH'
+                WHERE c.tenant_id = :tenant AND c.credential_kind IN ('GOOGLE_OAUTH', 'GOOGLE_SERVICE_ACCOUNT')
                   AND (:global OR c.owner_actor_id = :owner)
                 ORDER BY c.created_at, c.id
                 """).param("tenant", tenantId.value()).param("global", owner == null)
                 .param("owner", owner == null ? null : owner.value()).query((r, _) -> new CredentialView(
                         new CredentialId(r.getObject("id", UUID.class)), r.getString("name"),
                         r.getString("account_email"), r.getString("connection_status"), r.getLong("credential_revision"),
-                        r.getBoolean("configured"), r.getTimestamp("created_at").toInstant(),
+                        r.getString("auth_method"), r.getString("service_account_email"), r.getBoolean("configured"), r.getTimestamp("created_at").toInstant(),
                         r.getTimestamp("updated_at").toInstant(), r.getLong("source_count"), List.of())).list();
     }
 
@@ -122,7 +193,7 @@ public class JdbcGoogleDriveCredentialRepository {
     public State state(TenantId tenantId, SourceId sourceId) {
         var id = credentialId(tenantId, sourceId);
         var row = read(tenantId, id, false).orElseThrow(SourceException::notFound);
-        return new State(id, row.email(), row.status(), row.revision(), row.oauthClientConfigured());
+        return new State(id, row.email(), row.status(), row.revision(), row.oauthClientConfigured(), row.authMethod());
     }
 
     public Stored readUsable(TenantId tenantId, CredentialId credentialId) {
@@ -160,7 +231,9 @@ public class JdbcGoogleDriveCredentialRepository {
                         row.getString("connection_status"), row.getLong("credential_revision"), row.getLong("payload_revision"),
                         row.getBytes("refresh_token_ciphertext"), row.getBytes("refresh_token_nonce"), row.getString("key_version"),
                         row.getBytes("oauth_client_ciphertext"), row.getBytes("oauth_client_nonce"),
-                        row.getString("oauth_client_key_version"), row.getObject("owner_actor_id", UUID.class),
+                        row.getString("oauth_client_key_version"), row.getString("auth_method"),
+                        row.getBytes("service_account_key_ciphertext"), row.getBytes("service_account_key_nonce"),
+                        row.getString("service_account_key_version"), row.getObject("owner_actor_id", UUID.class),
                         "ACTIVE".equals(row.getString("connection_status")) && "ACTIVE".equals(row.getString("credential_status"))
                                 && "ACTIVE".equals(row.getString("tenant_status"))))
                 .optional();
@@ -257,14 +330,16 @@ public class JdbcGoogleDriveCredentialRepository {
         var row = lock(tenantId, credentialId).orElseThrow(SourceException::notFound);
         requireRevision(row, expectedRevision);
         byte[] token = new byte[0];
-        if (!"REVOKED".equals(row.status())) {
+        if (!"REVOKED".equals(row.status()) && !row.serviceAccount()) {
             try { token = decrypt(tenantId, row); }
             catch (GoogleDriveException ignored) { /* Destroy local authority even if its encryption key is unavailable. */ }
         }
         try {
             jdbc.sql("""
                     UPDATE google_drive_credentials SET connection_status = 'REVOKED', refresh_token_ciphertext = NULL,
-                        refresh_token_nonce = NULL, key_version = NULL, credential_revision = credential_revision + 1,
+                        refresh_token_nonce = NULL, key_version = NULL, service_account_key_ciphertext = NULL,
+                        service_account_key_nonce = NULL, service_account_key_version = NULL,
+                        credential_revision = credential_revision + 1,
                         payload_revision = payload_revision + 1,
                         updated_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND credential_id = :credential
                     """).param("tenant", tenantId.value()).param("credential", row.credentialId()).update();
@@ -385,9 +460,14 @@ public class JdbcGoogleDriveCredentialRepository {
     public record Stored(UUID credentialId, String subject, String email, String status, long revision, long payloadRevision,
             byte @Nullable [] ciphertext, byte @Nullable [] nonce, @Nullable String keyVersion,
             byte @Nullable [] clientCiphertext, byte @Nullable [] clientNonce, @Nullable String clientKeyVersion,
+            String authMethod, byte @Nullable [] keyCiphertext, byte @Nullable [] keyNonce, @Nullable String keyCipherVersion,
             @Nullable UUID ownerActorId, boolean usable) {
+        public boolean serviceAccount() { return "SERVICE_ACCOUNT".equals(authMethod); }
         public boolean oauthClientConfigured() { return clientCiphertext != null && clientNonce != null && clientKeyVersion != null; }
-        @Override public boolean usable() { return usable && ciphertext != null && nonce != null && keyVersion != null && oauthClientConfigured(); }
+        @Override public boolean usable() {
+            if (serviceAccount()) return usable && keyCiphertext != null && keyNonce != null && keyCipherVersion != null;
+            return usable && ciphertext != null && nonce != null && keyVersion != null && oauthClientConfigured();
+        }
         @Override public String toString() { return "StoredGoogleCredential[redacted]"; }
     }
 }

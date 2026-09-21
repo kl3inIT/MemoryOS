@@ -53,7 +53,7 @@ public interface GoogleDriveSourceService {
     }
     record DiscoveryError(String fileId, String fileName, String code) {}
     record Configuration(SourceId sourceId, CredentialId credentialId, String accountEmail, String credentialStatus,
-            long credentialRevision, boolean oauthClientConfigured, long revision, int syncIntervalMinutes,
+            long credentialRevision, boolean oauthClientConfigured, String credentialAuthMethod, long revision, int syncIntervalMinutes,
             long scheduleRevision, boolean syncPaused, ScopeMode scopeMode, SelectionCounts counts, long discoveryRevision,
             @Nullable Instant discoveredAt, List<DiscoveryError> discoveryErrors,
             @Nullable Instant lastSyncedAt, boolean pendingWork, @Nullable String errorCode,

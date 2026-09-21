@@ -39,6 +39,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private static final int MAX_STEPS = 16;
+    private static final String SERVICE_ACCOUNT = "SERVICE_ACCOUNT";
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
     private final JdbcSourceSyncRepository sync;
     private final JdbcSourceRepository sources;
@@ -50,13 +51,14 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
     private final GoogleDriveConnectionService connections;
     private final ObjectWriteService writes;
     private final DefaultSharePointSyncService sharePoint;
+    private final GoogleGroupSynchronizer groups;
     private final TransactionTemplate transactions;
 
     public DefaultConnectorSyncService(JdbcSourceSyncRepository sync, JdbcSourceRepository sources,
             JdbcGoogleDriveSourceRepository drive, JdbcGoogleDriveAclRepository acls, JdbcSourceItemRepository items,
             JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
             GoogleDriveConnectionService connections, ObjectWriteService writes,
-            DefaultSharePointSyncService sharePoint, PlatformTransactionManager manager) {
+            DefaultSharePointSyncService sharePoint, GoogleGroupSynchronizer groups, PlatformTransactionManager manager) {
         this.sync = sync;
         this.sources = sources;
         this.drive = drive;
@@ -67,6 +69,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         this.connections = connections;
         this.writes = writes;
         this.sharePoint = sharePoint;
+        this.groups = groups;
         this.transactions = new TransactionTemplate(manager);
     }
 
@@ -110,6 +113,7 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         if (type == io.memoryos.connector.SourceType.SHAREPOINT) return sharePoint.execute(work);
         try {
             var scopeMode = fenced(work, () -> drive.scopeMode(work.tenantId(), work.sourceId()));
+            var credential = fenced(work, () -> connections.state(work.tenantId(), work.sourceId()));
             try (var connection = connections.open(work.tenantId(), work.sourceId())) {
                 if (connection.credentialRevision() != work.credentialRevision()) throw new StaleSyncException();
                 Set<String> roots = new HashSet<>();
@@ -118,9 +122,14 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                 String generalRoot = scopeMode == ScopeMode.GENERAL
                         ? verifyGeneralRoot(connection.session(), roots) : null;
                 long deadline = System.nanoTime() + EXECUTION_NANOS;
+                var groupSync = new GroupSync(work, credential, connection.session());
                 for (int step = 0; step < MAX_STEPS && System.nanoTime() < deadline; step++) {
+                    groupSync.advance();
                     var result = step(work, connection.session(), roots, approved, generalRoot);
-                    if (result != null) return result;
+                    if (result != null) {
+                        while (System.nanoTime() < deadline && groupSync.advance()) { }
+                        return result;
+                    }
                 }
             }
             fenced(work, () -> { sync.continuation(work, null); return true; });
@@ -402,6 +411,33 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
         }
     }
 
+
+    /**
+     * Google Group membership of a service-account credential rides along the Drive sync steps one Directory page
+     * at a time; it stops asking once nothing is due during this execution.
+     */
+    private final class GroupSync {
+        private final Work work;
+        private final GoogleDriveConnectionService.State credential;
+        private final GoogleDriveProvider.Session session;
+        private boolean pending;
+
+        GroupSync(Work work, GoogleDriveConnectionService.State credential, GoogleDriveProvider.Session session) {
+            this.work = work;
+            this.credential = credential;
+            this.session = session;
+            this.pending = SERVICE_ACCOUNT.equals(credential.authMethod())
+                    && credential.credentialRevision() == work.credentialRevision();
+        }
+
+        boolean advance() {
+            if (pending) {
+                pending = groups.advance(work.tenantId(), credential.credentialId(), work.credentialRevision(),
+                        credential.accountEmail(), session);
+            }
+            return pending;
+        }
+    }
 
     private static final class StaleSyncException extends RuntimeException {}
 }

@@ -19,7 +19,17 @@ public class ChatWorkspaceService {
 
     @Transactional
     public ChatSession create(ActorId actor, String title, @Nullable UUID personaId, @Nullable UUID projectId) {
-        var session = projectId == null ? sessions.create(actor, title) : projects.createConversation(actor, projectId, title);
+        return create(actor, title, personaId, projectId, false);
+    }
+
+    /** A temporary conversation (MEM-153) leaves no history, so it never belongs to a Project. */
+    @Transactional
+    public ChatSession create(ActorId actor, String title, @Nullable UUID personaId, @Nullable UUID projectId,
+                              boolean temporary) {
+        if (temporary && projectId != null)
+            throw ChatException.invalid("A temporary conversation cannot belong to a Project.");
+        var session = projectId == null ? sessions.create(actor, title, temporary)
+                : projects.createConversation(actor, projectId, title);
         return personaId == null ? session : personas.select(actor, session.id(), personaId);
     }
 

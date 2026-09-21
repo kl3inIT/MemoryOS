@@ -3,6 +3,11 @@ import { i18n } from "@/i18n";
 import {
   changeChatLibraryFile,
   copyChatLibraryFile,
+  emptyChatLibraryTrash,
+  getChatLibraryTrashWindow,
+  getChatLibraryUsage,
+  purgeChatLibraryFile,
+  restoreChatLibraryFile,
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
@@ -23,7 +28,8 @@ import { projectSchema } from "./chat-workspace-api";
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
 export type LibraryCategory = ChatLibraryFile["category"];
-export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST" | "NAME";
+export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST" | "NAME" | "DELETED";
+export type LibraryStatus = "READY" | "PENDING" | "TRASH";
 export type ContentMatch = ChatLibraryContentMatch;
 
 export const chatLibraryKey = ["chat-library"] as const;
@@ -38,8 +44,11 @@ export type LibraryFilter = {
   sessionId?: string;
   /** Only starred files (MEM-152). */
   favorite?: boolean;
-  /** PENDING lists the owner's uploads still uploading, processing or failed instead of the usable ones. */
-  status?: "READY" | "PENDING";
+  /**
+   * PENDING lists the owner's uploads still uploading, processing or failed; TRASH lists what they deleted and
+   * may still restore.
+   */
+  status?: LibraryStatus;
 };
 
 export async function loadLibrary(
@@ -273,4 +282,44 @@ export function highlightParts(text: string, query: string): { text: string; mat
   }
   if (from < text.length) parts.push({ text: text.slice(from), match: false });
   return parts.length > 0 ? parts : [{ text, match: false }];
+}
+
+/** What the caller's library holds and the limit that applies to them (MEM-152). */
+export async function loadLibraryUsage(signal: AbortSignal) {
+  const { data } = await getChatLibraryUsage({ signal, throwOnError: true });
+  return data;
+}
+
+/** How many days a deleted file stays restorable in this deployment. */
+export async function loadTrashWindow(signal: AbortSignal) {
+  const { data } = await getChatLibraryTrashWindow({ signal, throwOnError: true });
+  return data.days;
+}
+
+export async function restoreLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
+  await restoreChatLibraryFile({
+    path: { source: file.source, id: file.id },
+    headers: sameOriginMutationHeaders,
+    signal,
+    throwOnError: true,
+  });
+}
+
+/** Ends one file's trash window, so its bytes are released by the usual routes. */
+export async function purgeLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
+  await purgeChatLibraryFile({
+    path: { source: file.source, id: file.id },
+    headers: sameOriginMutationHeaders,
+    signal,
+    throwOnError: true,
+  });
+}
+
+export async function emptyLibraryTrash(signal: AbortSignal): Promise<number> {
+  const { data } = await emptyChatLibraryTrash({
+    headers: sameOriginMutationHeaders,
+    signal,
+    throwOnError: true,
+  });
+  return data.purged;
 }

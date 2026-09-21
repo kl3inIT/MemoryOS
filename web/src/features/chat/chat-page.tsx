@@ -2,7 +2,7 @@ import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import type { ImageMode } from "./chat-image";
 import { ChatEditingContext } from "./chat-editing-context";
 import { ChatImageEditContext } from "./chat-image-edit-context";
 import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
+import { ChatTemporaryBadge, ChatTemporaryNotice, ChatTemporaryToggle } from "./chat-temporary";
 import { ChatConversationSearch } from "./chat-conversation-search";
 import {
   branchSchema,
@@ -139,6 +140,9 @@ function ChatConversation({
   useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
   const model = useChatModelChoice(transport);
   const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
+  /** Decided before the first question: a conversation cannot become temporary once it exists (MEM-153). */
+  const [temporary, setTemporary] = useState(transport.temporary);
+  const navigate = useNavigate();
   const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
   const [image, setImage] = useState<ImageMode>(transport.image);
   const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
@@ -355,6 +359,17 @@ function ChatConversation({
       pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
       headerActions={
         <div className="flex items-center gap-1">
+          <ChatTemporaryBadge temporary={headerSession?.temporary ?? temporary} />
+          {!session && !project && (
+            <ChatTemporaryToggle
+              value={temporary}
+              disabled={busy}
+              onChange={(next) => {
+                transport.selectTemporary(next);
+                setTemporary(next);
+              }}
+            />
+          )}
           <ChatConversationSearch key={headerSession?.id ?? "new"} />
           <ChatSessionSettings
             session={headerSession}
@@ -375,6 +390,7 @@ function ChatConversation({
           <ChatEditingContext.Provider
             value={{
               sessionId: session?.id,
+              sessionTitle: headerSession?.title,
               busy,
               branches: branches.data ?? [],
               feedback: feedback.data ?? [],
@@ -456,7 +472,17 @@ function ChatConversation({
               sendDisabled={!persona}
               welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
               afterComposer={
-                project && !session ? <ProjectConversationList projectId={project.id} /> : undefined
+                (headerSession?.temporary ?? (temporary && !session)) ? (
+                  <ChatTemporaryNotice
+                    onLeave={() => {
+                      transport.selectTemporary(false);
+                      setTemporary(false);
+                      void navigate({ to: "/" });
+                    }}
+                  />
+                ) : project && !session ? (
+                  <ProjectConversationList projectId={project.id} />
+                ) : undefined
               }
               starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
               composerMenu={

@@ -96,7 +96,14 @@ class ChatPersistenceIntegrationTest {
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
-                mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
+                mock(io.memoryos.objectstorage.ObjectUploadService.class),
+                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
+                new ChatStorageQuotaService(tenants, authorization,
+                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
+                        new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
@@ -355,15 +362,15 @@ class ChatPersistenceIntegrationTest {
         assertEquals(0, library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
 
         // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
-        assertTrue(interpreter.markArtifactDeleted(scope, owner, generated));
-        assertFalse(interpreter.markArtifactDeleted(scope, other, generated));
+        assertTrue(interpreter.markArtifactDeleted(scope, owner, generated, java.time.Duration.ZERO));
+        assertFalse(interpreter.markArtifactDeleted(scope, other, generated, java.time.Duration.ZERO));
         assertTrue(interpreter.ownedArtifact(scope, owner, generated).isEmpty());
         assertFalse(interpreter.attachPreview(scope, generated, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("p/late"), 10));
-        assertTrue(images.markDeleted(scope, owner, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
         // Deleting again succeeds while another member still cannot delete the same image.
-        assertTrue(images.markDeleted(scope, owner, image));
-        assertFalse(images.markDeleted(scope, other, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
+        assertFalse(images.markDeleted(scope, other, image, java.time.Duration.ZERO));
         assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
         assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
         // History keeps both as tombstones so the answer does not silently lose its cards.
@@ -374,7 +381,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(images.byMessages(scope, List.of(reply.assistantMessageId()), false).isEmpty());
         // Once the sweep has removed the row, the owner's repeated delete is still the outcome they asked for.
         jdbc.sql("DELETE FROM chat_image_artifact WHERE id=:id").param("id", image).update();
-        assertTrue(images.markDeleted(scope, owner, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
 
         // Deleting the conversation withdraws its artifacts from the library; the upload is the owner's.
         var kept = sessions.create(owner, "Kept");
@@ -579,7 +586,7 @@ class ChatPersistenceIntegrationTest {
         turns.delete(owner, session.id());
         assertFalse(turns.finish(session.id(), regeneration.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late answer"));
         assertThrows(ChatException.class, () -> sessions.get(owner, session.id()));
-        assertTrue(sessions.list(owner, 0, 100).isEmpty());
+        assertTrue(sessions.list(owner, false, 0, 100).isEmpty());
     }
 
     @Test
@@ -770,8 +777,8 @@ class ChatPersistenceIntegrationTest {
         assertEquals(first.personaId(), second.personaId());
         assertEquals(first, sessions.get(owner, first.id()));
         assertTrue(sessions.history(owner, first.id(), null, 20).isEmpty());
-        assertEquals(2, sessions.list(owner, 0, 30).size());
-        assertTrue(sessions.list(other, 0, 30).isEmpty());
+        assertEquals(2, sessions.list(owner, false, 0, 30).size());
+        assertTrue(sessions.list(other, false, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
         assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.tenant.TenantId(UUID.randomUUID()),

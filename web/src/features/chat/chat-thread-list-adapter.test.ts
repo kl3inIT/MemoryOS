@@ -19,6 +19,10 @@ const session: ChatSession = {
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-10T00:00:00Z",
   reasoningEffort: null,
+  archivedAt: null,
+  branchedFromSessionId: null,
+  branchedFromMessageId: null,
+  temporary: false,
 };
 const message = (id: string, role: ChatMessage["role"], status: ChatMessage["status"]) =>
   ({
@@ -75,11 +79,27 @@ describe("assistant-ui thread list adapter over the session API", () => {
 
     const first = await adapter.list();
 
-    expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30"]);
+    expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30&archived=false"]);
     expect(first.nextCursor).toBe("30");
     expect(sessionFromThread(threadMetadata(page[1]!))).toEqual(page[1]);
     await adapter.list({ after: "30" });
-    expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30");
+    expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30&archived=false");
+  });
+
+  it("archives and unarchives through the session routes, and holds an archived row as archived", async () => {
+    const archived = { ...session, archivedAt: "2026-09-21T00:00:00Z" };
+    const requests = stubFetch((request) => json(request.method === "POST" ? archived : session));
+    const { adapter } = setup();
+
+    await adapter.archive!(session.id);
+    expect(requests.at(-1)).toBe(`POST /api/chat/sessions/${session.id}/archive`);
+    await adapter.unarchive!(session.id);
+    expect(requests.at(-1)).toBe(`POST /api/chat/sessions/${session.id}/unarchive`);
+
+    // The thread list keeps an archived conversation as archived rather than dropping it.
+    expect(threadMetadata(archived).status).toBe("archived");
+    expect(threadMetadata(session).status).toBe("regular");
+    expect(sessionFromThread(threadMetadata(archived))).toEqual(archived);
   });
 
   it("initializes from the transport's session and allows retry after a failed first send", async () => {

@@ -106,10 +106,12 @@ const outcomeLegend: Array<
 /** Run statuses a reader filters by, labelled and coloured like the outcome legend. */
 const runStatusFilter: {
   label: string;
+  addLabel: string;
   clearLabel: string;
   options: readonly SourceFilterOption[];
 } = {
   label: "Status",
+  addLabel: "Filter status",
   clearLabel: "Clear status filter",
   options: [
     { value: "SUCCEEDED", label: "Completed", tone: "success" },
@@ -158,7 +160,14 @@ const toneText: Record<StatusTone, string> = {
   neutral: "text-content-muted",
 };
 
-export function SourceRunHistory({ sourceId }: { sourceId: string }) {
+export function SourceRunHistory({
+  sourceId,
+  kinds = false,
+}: {
+  sourceId: string;
+  /** SharePoint alone runs refreshes and prunes; one kind of run needs no column. */
+  kinds?: boolean;
+}) {
   const ui = useAppTranslation();
   const [size, setSize] = useState(5);
   const [statuses, setStatuses] = useState<SourceRun["status"][]>([]);
@@ -309,9 +318,11 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                     <TableHead scope="col" className="px-4 font-medium">
                       {ui("Status")}
                     </TableHead>
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Kind")}
-                    </TableHead>
+                    {kinds ? (
+                      <TableHead scope="col" className="px-4 font-medium">
+                        {ui("Kind")}
+                      </TableHead>
+                    ) : null}
                     <TableHead scope="col" className="px-4 font-medium">
                       {ui("Trigger")}
                     </TableHead>
@@ -354,15 +365,17 @@ export function SourceRunHistory({ sourceId }: { sourceId: string }) {
                       <TableCell className="px-4 py-3">
                         <RunOutcome run={run} />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3">
-                        {run.runKind ? (
-                          <StatusBadge tone="neutral">
-                            {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
-                          </StatusBadge>
-                        ) : (
-                          <span className="text-content-muted">—</span>
-                        )}
-                      </TableCell>
+                      {kinds ? (
+                        <TableCell className="whitespace-nowrap px-4 py-3">
+                          {run.runKind ? (
+                            <StatusBadge tone="neutral">
+                              {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
+                            </StatusBadge>
+                          ) : (
+                            <span className="text-content-muted">—</span>
+                          )}
+                        </TableCell>
+                      ) : null}
                       <TableCell className="whitespace-nowrap px-4 py-3 text-content-secondary">
                         <RunTrigger run={run} />
                       </TableCell>
@@ -766,7 +779,7 @@ function RunDetails({ initialRun }: { initialRun: SourceRun }) {
               {ui("Detailed errors expired; retained totals are shown.")}
             </p>
           </RunSection>
-        ) : hasErrors || runIsActive(run) ? (
+        ) : hasErrors ? (
           <RunSection title={ui("Error details")}>
             <RunErrors key={run.id} run={run} />
           </RunSection>
@@ -852,9 +865,7 @@ function RunErrors({ run }: { run: SourceRun }) {
                 </li>
               ))}
             </ul>
-          ) : (
-            <p>{ui("No retained error details on this page.")}</p>
-          )}
+          ) : null}
           {previous.length || errors.data.nextCursor ? (
             <TablePagination
               label={ui("Run error pages")}

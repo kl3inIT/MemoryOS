@@ -1,6 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.application.ChatFileProperties;
+import io.memoryos.chat.application.ChatRetentionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.identity.ActorId;
@@ -21,19 +22,23 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@EnableConfigurationProperties(ChatFileProperties.class)
+@EnableConfigurationProperties({ChatFileProperties.class, ChatRetentionProperties.class})
 public class ChatFileService {
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;
     private final JdbcUserFileRepository files;
     private final ObjectUploadService uploads;
     private final ChatFileProperties policy;
+    private final ChatStorageQuotaService quotas;
+    private final ChatRetentionProperties retention;
     private final TransactionTemplate tx;
 
     public ChatFileService(TenantAccessResolver tenants, JdbcChatRepository chats, JdbcUserFileRepository files,
-            ObjectUploadService uploads, ChatFileProperties policy, PlatformTransactionManager transactionManager) {
+            ObjectUploadService uploads, ChatFileProperties policy, ChatStorageQuotaService quotas,
+            ChatRetentionProperties retention, PlatformTransactionManager transactionManager) {
         this.tenants = tenants; this.chats = chats; this.files = files; this.uploads = uploads;
-        this.policy = policy; this.tx = new TransactionTemplate(transactionManager);
+        this.policy = policy; this.quotas = quotas; this.retention = retention;
+        this.tx = new TransactionTemplate(transactionManager);
     }
 
     public record UploadInput(UUID requestId, String filename, String mediaType, long sizeBytes, String sha256) {}
@@ -58,6 +63,8 @@ public class ChatFileService {
                 return new UploadReceipt(row.file(), row.file().status() == UserFile.Status.UPLOADING
                         ? uploads.resume(tenant, row.uploadId(), ObjectUploadPurpose.CHAT_FILE).authorization() : null);
             }
+            // Refused before the upload is authorized, so a file over the limit is never written at all.
+            quotas.requireRoom(tenant, actor, spec.sizeBytes());
             var upload = uploads.initiate(tenant, spec);
             var id = files.create(tenant, actor, input.requestId(), upload.uploadId(), spec);
             return new UploadReceipt(owned(tenant, actor, id, false).file(), upload.authorization());
@@ -130,7 +137,8 @@ public class ChatFileService {
                 var usage = files.usage(tenant, List.of(id));
                 if (!usage.isEmpty()) throw new ChatFileInUseException(usage.stream()
                         .map(used -> new ChatFileInUseException.Usage(used.kind().name(), used.id(), used.name())).toList());
-                files.delete(tenant, id, file.status() == UserFile.Status.UPLOADING || "UPLOAD_EXPIRED".equals(file.errorCode()));
+                files.delete(tenant, id, file.status() == UserFile.Status.UPLOADING || "UPLOAD_EXPIRED".equals(file.errorCode()),
+                        retention.trashAfter());
             }
             return owned(tenant, actor, id, false).file();
         }));

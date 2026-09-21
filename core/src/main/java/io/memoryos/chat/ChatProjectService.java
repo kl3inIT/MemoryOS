@@ -81,8 +81,10 @@ public class ChatProjectService {
     @Transactional
     public ChatSession move(ActorId actor, UUID session, @Nullable UUID project) {
         var tenant = write(actor);
-        chats.findOwned(tenant, actor, session, true).orElseThrow(ChatException::unavailable);
+        var owned = chats.findOwned(tenant, actor, session, true).orElseThrow(ChatException::unavailable);
         if (chats.hasActiveReply(session)) throw ChatException.conflict();
+        // A Project keeps its conversations; a temporary one is deleting itself, so it never joins one (MEM-153).
+        if (owned.temporary()) throw ChatException.invalid("A temporary conversation cannot belong to a Project.");
         if (project != null) owned(tenant, actor, project, true);
         chats.moveProject(session, project);
         return chats.findOwned(tenant, actor, session, false).orElseThrow();
