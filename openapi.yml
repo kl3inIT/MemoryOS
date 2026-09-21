@@ -9451,6 +9451,84 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/reports:
+    get:
+      tags:
+      - AI costs
+      summary: "The Tenant's usage reports, newest first; requires model management"
+      operationId: listUsageReports
+      responses:
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageReport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - AI costs
+      summary: Queue a usage report for a UTC day range; requires model management
+      operationId: requestUsageReport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageReportRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: Queued; the Worker builds it in the background
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/settings:
     get:
       tags:
@@ -13300,6 +13378,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AiCostSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/reports/{reportId}/content:
+    get:
+      tags:
+      - AI costs
+      summary: Download a ready usage report as a ZIP; requires model management
+      operationId: downloadUsageReport
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: ZIP bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No ready report with this id in the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -17818,6 +17941,73 @@ components:
         expiresAt:
           type: string
           format: date-time
+    UsageReportRequest:
+      type: object
+      description: An inclusive UTC day range of at most 366 days
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+      required:
+      - from
+      - to
+    UsageReport:
+      type: object
+      description: "A generated usage report: a ZIP of usage_by_user.csv, users.csv\
+        \ and, unless it could not be rendered, usage_report.pdf"
+      properties:
+        id:
+          type: string
+          format: uuid
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        requester:
+          type: string
+          description: Display name or e-mail of the manager who asked for it
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        hasPdf:
+          type: boolean
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - failure
+      - finishedAt
+      - from
+      - hasPdf
+      - id
+      - requester
+      - sizeBytes
+      - status
+      - to
     VoiceSettingsRequest:
       type: object
       properties:

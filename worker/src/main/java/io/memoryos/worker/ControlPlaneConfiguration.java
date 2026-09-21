@@ -155,6 +155,17 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
     }
 
+    /** Builds requested usage reports; a few per run, so a queue drains without holding the scheduler thread. */
+    @Bean
+    RecurringTask<Void> usageReportTask(io.memoryos.usage.report.UsageReportService reports) {
+        return Tasks.recurring("memoryos-ai-usage-report-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    for (int built = 0; built < 4 && reports.buildNext(); built++) {
+                        // Each call builds and stores one report.
+                    }
+                });
+    }
+
     @Bean
     RecurringTask<Void> searchProjectionTask(SearchProjectionMaintenance maintenance) {
         return Tasks.recurring("memoryos-search-projection-reconcile-v1", FixedDelay.of(Duration.ofMinutes(1)))

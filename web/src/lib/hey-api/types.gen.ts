@@ -1484,6 +1484,33 @@ export type UploadAuthorization = {
     expiresAt?: string;
 };
 
+/**
+ * An inclusive UTC day range of at most 366 days
+ */
+export type UsageReportRequest = {
+    from: string;
+    to: string;
+};
+
+/**
+ * A generated usage report: a ZIP of usage_by_user.csv, users.csv and, unless it could not be rendered, usage_report.pdf
+ */
+export type UsageReport = {
+    id: string;
+    from: string;
+    to: string;
+    status: 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    /**
+     * Display name or e-mail of the manager who asked for it
+     */
+    requester: string;
+    sizeBytes: number | null;
+    hasPdf: boolean;
+    failure: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+};
+
 export type VoiceSettingsRequest = {
     autoSend?: boolean;
     autoPlayback?: boolean;
@@ -9858,6 +9885,78 @@ export type CreateDocumentSetResponses = {
 
 export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
 
+export type ListUsageReportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/reports';
+};
+
+export type ListUsageReportsErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListUsageReportsError = ListUsageReportsErrors[keyof ListUsageReportsErrors];
+
+export type ListUsageReportsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<UsageReport>;
+};
+
+export type ListUsageReportsResponse = ListUsageReportsResponses[keyof ListUsageReportsResponses];
+
+export type RequestUsageReportData = {
+    body: UsageReportRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/reports';
+};
+
+export type RequestUsageReportErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type RequestUsageReportError = RequestUsageReportErrors[keyof RequestUsageReportErrors];
+
+export type RequestUsageReportResponses = {
+    /**
+     * Queued; the Worker builds it in the background
+     */
+    202: UsageReport;
+};
+
+export type RequestUsageReportResponse = RequestUsageReportResponses[keyof RequestUsageReportResponses];
+
 export type GetChatVoiceSettingsData = {
     body?: never;
     path?: never;
@@ -12806,6 +12905,45 @@ export type GetAiCostSummaryResponses = {
 };
 
 export type GetAiCostSummaryResponse = GetAiCostSummaryResponses[keyof GetAiCostSummaryResponses];
+
+export type DownloadUsageReportData = {
+    body?: never;
+    path: {
+        reportId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/reports/{reportId}/content';
+};
+
+export type DownloadUsageReportErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * No ready report with this id in the Tenant
+     */
+    404: ApiProblem;
+};
+
+export type DownloadUsageReportError = DownloadUsageReportErrors[keyof DownloadUsageReportErrors];
+
+export type DownloadUsageReportResponses = {
+    /**
+     * ZIP bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadUsageReportResponse = DownloadUsageReportResponses[keyof DownloadUsageReportResponses];
 
 export type GetMyAiCostsData = {
     body?: never;

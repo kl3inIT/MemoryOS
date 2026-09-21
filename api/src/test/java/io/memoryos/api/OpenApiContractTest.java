@@ -105,6 +105,8 @@ class OpenApiContractTest {
             "/api/ai-costs/breakdown",
             "/api/ai-costs/detail",
             "/api/ai-costs/mine",
+            "/api/ai-costs/reports",
+            "/api/ai-costs/reports/{reportId}/content",
             "/api/chat/preferences",
             "/api/chat/model-flows/{flow}",
             "/api/chat/models",
