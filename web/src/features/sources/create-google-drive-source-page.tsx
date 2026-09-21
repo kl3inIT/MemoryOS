@@ -4,12 +4,11 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Ellipsis, KeyRound, Plus, TriangleAlert, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, KeyRound, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogClose,
@@ -66,6 +65,7 @@ import {
 import { sourceMutationError } from "./source-errors";
 import { GoogleDriveConnectionAccount } from "./google-drive-connection-account";
 import { googleDriveCredentialReady } from "./google-drive-credential";
+import { GoogleDriveCredentialActions } from "./google-drive-credential-actions";
 import { GoogleDriveServiceAccountForm } from "./google-drive-service-account-form";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
@@ -123,7 +123,6 @@ function GoogleDriveSourceSetup() {
   const [method, setMethod] = useState<GoogleDriveCredentialResponse["authMethod"]>("OAUTH");
   const [replacingKey, setReplacingKey] = useState<GoogleDriveCredentialResponse | null>(null);
   const [savingServiceAccount, setSavingServiceAccount] = useState(false);
-  const [managedCredentialId, setManagedCredentialId] = useState<string | null>(null);
   const [replaceClient, setReplaceClient] = useState(false);
   const [clientReady, setClientReady] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
@@ -793,6 +792,9 @@ function GoogleDriveSourceSetup() {
                       <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
                         {ui("Last Updated")}
                       </TableHead>
+                      <TableHead scope="col" className="w-14 py-3">
+                        <span className="sr-only">{ui("Actions")}</span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   {credentials.data?.map((credential) => {
@@ -804,7 +806,7 @@ function GoogleDriveSourceSetup() {
                         className="block border-b border-border-subtle sm:table-row-group"
                       >
                         <TableRow
-                          className={`grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 py-3 sm:table-row ${
+                          className={`grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] gap-x-2 gap-y-2 py-3 sm:table-row ${
                             credential.id === credentialId && ready ? "bg-surface-subtle" : ""
                           }`}
                         >
@@ -830,7 +832,7 @@ function GoogleDriveSourceSetup() {
                               <TooltipContent className="font-mono">{credential.id}</TooltipContent>
                             </Tooltip>
                           </TableCell>
-                          <TableCell className="order-first col-span-2 px-2 py-2 align-middle">
+                          <TableCell className="order-first px-2 py-2 align-middle">
                             <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
                                 <span className="min-w-0 flex-1 text-sm">
@@ -862,155 +864,38 @@ function GoogleDriveSourceSetup() {
                                   ) : null}
                                 </span>
                               </div>
-                              {credential.actions.length > 0 ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <IconButton
-                                      aria-label={ui("Manage {{v1}}", { v1: credential.name })}
-                                      aria-expanded={managedCredentialId === credential.id}
-                                      aria-controls={`credential-actions-${credential.id}`}
-                                      className="size-11"
-                                      onClick={() =>
-                                        setManagedCredentialId(
-                                          managedCredentialId === credential.id
-                                            ? null
-                                            : credential.id,
-                                        )
-                                      }
-                                    >
-                                      <Ellipsis />
-                                    </IconButton>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{ui("Manage credential")}</TooltipContent>
-                                </Tooltip>
-                              ) : null}
                             </div>
                           </TableCell>
-                          <TableCell className="col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
-                            <span className="mb-1 block sm:hidden">{ui("Created")}</span>
+                          <TableCell className="col-span-2 col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
+                            <span className="mr-2 sm:hidden">{ui("Created")}</span>
                             <time dateTime={credential.createdAt}>
                               {new Date(credential.createdAt).toLocaleDateString(uiLocale())}
                             </time>
                           </TableCell>
-                          <TableCell className="px-2 py-2 align-middle text-xs text-content-secondary">
-                            <span className="mb-1 block sm:hidden">{ui("Last Updated")}</span>
+                          <TableCell className="col-span-2 col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
+                            <span className="mr-2 sm:hidden">{ui("Last Updated")}</span>
                             <time dateTime={credential.updatedAt}>
                               {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
                             </time>
                           </TableCell>
+                          <TableCell className="order-first px-0 py-2 text-right align-middle">
+                            <GoogleDriveCredentialActions
+                              credential={credential}
+                              disabled={unavailable || busy || frozenProposal}
+                              onReconnect={(trigger) => {
+                                modalTrigger.current = trigger;
+                                editCredential(credential);
+                              }}
+                              onReplaceKey={(trigger) => {
+                                modalTrigger.current = trigger;
+                                replaceKey(credential);
+                              }}
+                              onRevoke={() => changeCredential(credential, "revoke")}
+                              onDelete={() => changeCredential(credential, "delete")}
+                              errorMessage={(cause) => sourceMutationError(cause, "google-drive")}
+                            />
+                          </TableCell>
                         </TableRow>
-                        {managedCredentialId === credential.id && credential.actions.length > 0 ? (
-                          <TableRow
-                            id={`credential-actions-${credential.id}`}
-                            className="block sm:table-row"
-                          >
-                            <TableCell colSpan={5} className="block px-2 py-3 sm:table-cell">
-                              <p className="mb-2 text-sm text-content-secondary">
-                                {ui("Used by")} {credential.sourceCount}{" "}
-                                {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}.
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {credential.actions.includes("reauthorize") ? (
-                                  <Button
-                                    prominence="tertiary"
-                                    disabled={unavailable || busy || frozenProposal}
-                                    onClick={(event) => {
-                                      modalTrigger.current = event.currentTarget;
-                                      editCredential(credential);
-                                    }}
-                                  >
-                                    {ui("Reconnect")}
-                                  </Button>
-                                ) : null}
-                                {credential.actions.includes("replace_key") ? (
-                                  <Button
-                                    prominence="tertiary"
-                                    disabled={unavailable || busy || frozenProposal}
-                                    onClick={(event) => {
-                                      modalTrigger.current = event.currentTarget;
-                                      replaceKey(credential);
-                                    }}
-                                  >
-                                    {ui("Replace key")}
-                                  </Button>
-                                ) : null}
-                                {credential.actions.includes("revoke") &&
-                                credential.status !== "REVOKED" ? (
-                                  <ConfirmDialog
-                                    trigger={
-                                      <Button
-                                        tone="danger"
-                                        prominence="tertiary"
-                                        disabled={unavailable || busy || frozenProposal}
-                                      >
-                                        {ui("Revoke")}
-                                      </Button>
-                                    }
-                                    title={ui("Revoke {{v1}}?", { v1: credential.name })}
-                                    description={
-                                      serviceAccount
-                                        ? ui(
-                                            "This destroys the saved key and stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Replace the key of the same service account to resume.",
-                                            { v1: credential.sourceCount },
-                                          )
-                                        : ui(
-                                            "This stops synchronization for all {{v1}} Sources using this credential. Saved links and documents are retained. Reconnect the same Google account to resume.",
-                                            { v1: credential.sourceCount },
-                                          )
-                                    }
-                                    confirmLabel={ui("Revoke")}
-                                    pendingLabel={ui("Revoking")}
-                                    onConfirm={() => changeCredential(credential, "revoke")}
-                                    errorMessage={(cause) =>
-                                      sourceMutationError(cause, "google-drive")
-                                    }
-                                  />
-                                ) : null}
-                                {credential.actions.includes("delete") ? (
-                                  <ConfirmDialog
-                                    trigger={
-                                      <Button
-                                        tone="danger"
-                                        prominence="tertiary"
-                                        disabled={
-                                          unavailable ||
-                                          busy ||
-                                          frozenProposal ||
-                                          credential.sourceCount !== 0
-                                        }
-                                      >
-                                        {ui("Delete")}
-                                      </Button>
-                                    }
-                                    title={ui("Delete {{v1}}?", { v1: credential.name })}
-                                    description={
-                                      serviceAccount
-                                        ? ui(
-                                            "Permanently delete this unused credential and its saved service account key. Credentials attached to any Source cannot be deleted.",
-                                          )
-                                        : ui(
-                                            "Permanently delete this unused credential and its saved OAuth app. You will need to authorize again to use it. Credentials attached to any Source cannot be deleted.",
-                                          )
-                                    }
-                                    confirmLabel={ui("Delete credential")}
-                                    pendingLabel={ui("Deleting")}
-                                    onConfirm={() => changeCredential(credential, "delete")}
-                                    errorMessage={(cause) =>
-                                      sourceMutationError(cause, "google-drive")
-                                    }
-                                  />
-                                ) : null}
-                                {credential.actions.includes("delete") && credential.sourceCount ? (
-                                  <p className="w-full text-xs text-content-muted">
-                                    {ui(
-                                      "Delete all attached Sources before deleting this credential",
-                                    )}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : null}
                       </TableBody>
                     );
                   })}
