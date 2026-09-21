@@ -1860,8 +1860,12 @@ class ChatSessionApiIntegrationTest {
             doCallRealMethod().when(providerAdapter).reportedModels(any(), any());
             String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
             var provider = createProvider(endpoint, true).path("id").asText();
+            String saved = """
+                    {"adapterType":"openai","baseUrl":"%s","credential":{"action":"KEEP"},"providerId":"%s"}"""
+                    .formatted(endpoint, provider);
             var reported = Json.mapper().readTree(mockMvc.perform(
-                            get("/api/chat/providers/" + provider + "/reported-models").with(authentication(actor)))
+                            post("/api/chat/providers/reported-models").with(authentication(actor)).with(csrf())
+                                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(saved))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(List.of("gpt-4.1-mini", "gpt-5", "qwen/qwen3.8-27b"),
                     reported.path("models").valueStream().map(model -> model.path("modelName").asText()).toList());
@@ -1875,8 +1879,18 @@ class ChatSessionApiIntegrationTest {
             assertTrue(routed.path("capabilities").path("toolCalling").asBoolean());
             assertEquals(2.55, routed.path("pricing").path("outputPerMillion").asDouble());
             assertEquals("Bearer fixture-byok", authorization.get());
-            mockMvc.perform(get("/api/chat/providers/" + provider + "/reported-models")
-                    .with(authentication(other))).andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/chat/providers/reported-models").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(saved)).andExpect(status().isForbidden());
+            // The provider form lists models before the provider exists, with the key the administrator just typed.
+            String unsaved = """
+                    {"adapterType":"openai","baseUrl":"%s","credential":{"action":"REPLACE","value":"fixture-byok"}}"""
+                    .formatted(endpoint);
+            var drafted = Json.mapper().readTree(mockMvc.perform(
+                            post("/api/chat/providers/reported-models").with(authentication(actor)).with(csrf())
+                                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(unsaved))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(List.of("gpt-4.1-mini", "gpt-5", "qwen/qwen3.8-27b"),
+                    drafted.path("models").valueStream().map(model -> model.path("modelName").asText()).toList());
         } finally { server.stop(0); }
     }
 

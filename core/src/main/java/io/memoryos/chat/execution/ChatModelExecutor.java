@@ -179,7 +179,7 @@ public final class ChatModelExecutor {
             selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
                     agent.guard()::availableContextTokens, agent.events(), cancellation, List.of(new com.embabel.chat.UserMessage(agent.task())),
-                    timings, setup.options().sourceIds(), agent.evidence(), agent.activity())
+                    timings, setup.options().sourceAllowlist(), agent.evidence(), agent.activity())
                     .knowledgeCutoff(setup.options().knowledgeCutoff());
             tools.addAll(Tool.fromInstance(searchTool));
         }
@@ -283,7 +283,7 @@ public final class ChatModelExecutor {
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());
                 searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits,
-                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceIds(), setup.evidence(), activity)
+                        guard::checkActive, guard::availableContextTokens, events::accept, cancellation, setup.messages(), timings, setup.options().sourceAllowlist(), setup.evidence(), activity)
                         .knowledgeCutoff(setup.options().knowledgeCutoff());
                 if (sandbox != null) searchTool.withSandbox(sandbox);
                 runner = runner.withTools(Tool.fromInstance(searchTool));

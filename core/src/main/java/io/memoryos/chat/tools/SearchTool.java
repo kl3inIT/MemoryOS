@@ -29,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.HashSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
@@ -69,7 +70,8 @@ public final class SearchTool implements AutoCloseable {
     private final String question;
     private @Nullable QueryExpansion queryExpansion;
     private final SearchTimings timings;
-    private final Set<UUID> allowedSourceIds;
+    /** Sources the agent restricts the turn to, or null when it restricts nothing. An empty allowlist searches nothing. */
+    private final @Nullable Set<UUID> allowedSourceIds;
     private boolean scopeDecisionSettled;
     private boolean timeDetected;
     private SearchFilters timeFilters = SearchFilters.NONE;
@@ -120,7 +122,7 @@ public final class SearchTool implements AutoCloseable {
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      SearchTimings timings, List<UUID> allowedSourceIds) {
+                      SearchTimings timings, @Nullable Collection<UUID> allowedSourceIds) {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation,
                 messages, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence(), new io.memoryos.chat.ChatToolActivity(events));
         evidence.publishTo(events);
@@ -129,11 +131,11 @@ public final class SearchTool implements AutoCloseable {
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      SearchTimings timings, List<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
+                      SearchTimings timings, @Nullable Collection<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
                       io.memoryos.chat.ChatToolActivity activity) {
         this.evidence = evidence;
         this.activity = activity;
-        this.allowedSourceIds = Set.copyOf(allowedSourceIds);
+        this.allowedSourceIds = allowedSourceIds == null ? null : Set.copyOf(allowedSourceIds);
         this.search = search; this.actor = actor; this.selectionRunner = selectionRunner; this.tokens = tokens;
         this.limits = limits;
         this.work = new SearchTasks.Scope(limits.cleanupTimeout());
@@ -187,7 +189,7 @@ public final class SearchTool implements AutoCloseable {
         } catch (SearchRequestException invalid) { return "Invalid search query. Each query must contain 1-2000 characters."; }
         try {
             var scope = search.scope(actor);
-            if (!allowedSourceIds.isEmpty()) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
+            if (allowedSourceIds != null) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
                     .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)),
                     scope.accessTokens());

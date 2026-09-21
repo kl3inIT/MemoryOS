@@ -76,6 +76,8 @@ class ChatPersistenceIntegrationTest {
     private UUID sourceId;
     private IamAuthorization authorization;
     private ChatPromptShortcutService shortcuts;
+    private DocumentSetService documentSets;
+    private SourceSearchService sourceScope;
 
     @BeforeEach
     void setup() throws Exception {
@@ -111,12 +113,15 @@ class ChatPersistenceIntegrationTest {
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
                 UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
                 new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
-        var sources = mock(SourceSearchService.class); sourceId = UUID.randomUUID();
+        var sources = mock(SourceSearchService.class); sourceScope = sources; sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
+        var agentRows = new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc);
+        var documentSetRows = new io.memoryos.chat.persistence.JdbcDocumentSetRepository(jdbc);
+        documentSets = service(new DocumentSetService(tenants, authorization, sources, agentRows, documentSetRows), DocumentSetService.class);
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc), new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
-                new PersonaProperties(), models, sources, fileService, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
-                mock(ChatFileContentService.class)), ChatPersonaService.class);
+                agentRows, new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
+                new PersonaProperties(), models, sources, documentSets, documentSetRows, fileService,
+                new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc), mock(ChatFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
                 new io.memoryos.chat.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
@@ -130,6 +135,79 @@ class ChatPersistenceIntegrationTest {
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var factory = new ProxyFactory(target); factory.setProxyTargetClass(true); factory.addAdvice(interceptor);
         return contract.cast(factory.getProxy());
+    }
+
+    @Test
+    void documentSetsShareAndAttachToPersonasWithoutReplacingDirectSources() {
+        var set = documentSets.create(owner, new DocumentSetService.Input("Finance", "Monthly reports", List.of(), false));
+        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Finance assistant", "", "Use reports.", null,
+                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
+                null, false, false, null));
+
+        assertEquals(List.of(set.id()), personas.get(owner, agent.id()).documentSetIds());
+        assertEquals(List.of("Finance"), personas.get(owner, agent.id()).documentSets().stream().map(ChatPersonaService.DocumentSetRef::name).toList());
+
+        documentSets.share(owner, set.id(), set.revision(), new DocumentSetService.DocumentSetSharingInput(List.of(other.value()), List.of()));
+        assertEquals(List.of(set.id()), documentSets.list(other, 0, 100).stream().map(DocumentSetService.View::id).toList());
+    }
+
+    @Test
+    void publicDocumentSetsAreUsableWithoutSharesAndHideSourcesTheViewerCannotSelect() {
+        source(sourceId);
+        var set = documentSets.create(owner, new DocumentSetService.Input("Company reports", "", List.of(sourceId), true));
+        assertTrue(set.isPublic());
+        // The viewer holds no Source authority, so the set narrows for them without naming its Sources.
+        when(sourceScope.scope(other)).thenReturn(new SourceSearchScope(new TenantId(tenant), other, Map.of()));
+
+        var seen = documentSets.list(other, 0, 100);
+        assertEquals(List.of(set.id()), seen.stream().map(DocumentSetService.View::id).toList());
+        assertEquals(List.of(), seen.getFirst().sources());
+        assertEquals(1, seen.getFirst().hiddenSources());
+        assertFalse(seen.getFirst().permissions().edit());
+        assertEquals(List.of(new DocumentSetService.SourceRef(sourceId, "")), documentSets.get(owner, set.id()).sources());
+
+        var privateAgain = documentSets.update(owner, set.id(), documentSets.get(owner, set.id()).revision(),
+                new DocumentSetService.Input("Company reports", "", List.of(sourceId), false));
+        assertFalse(privateAgain.isPublic());
+        assertEquals(List.of(), documentSets.list(other, 0, 100));
+    }
+
+    @Test
+    void anAgentWhoseDocumentSetIsUnusableSearchesNothingInsteadOfEveryAuthorizedSource() {
+        source(sourceId);
+        when(authorization.effectiveCapabilities(other)).thenReturn(Set.of(IamCapability.CHAT_READ, IamCapability.CHAT_WRITE));
+        var set = documentSets.create(owner, new DocumentSetService.Input("Owner only", "", List.of(sourceId), false));
+        var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Reports", "", "Use reports.", null,
+                List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
+                null, false, false, null));
+        personas.share(owner, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
+                List.of(), List.of(), true, JdbcAgentRepository.Permission.VIEWER));
+
+        var session = sessions.create(other, "Shared agent");
+        personas.select(other, session.id(), agent.id());
+        var options = tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(session.id(), false, false)).options();
+
+        assertTrue(options.sourcesRestricted(), "The agent attaches a Document Set, so the turn stays restricted");
+        assertEquals(List.of(), options.sourceIds(), "The viewer cannot use the Set, so it contributes no Source");
+        assertEquals(List.of(), options.sourceAllowlist(), "An unusable attachment searches nothing, never everything");
+
+        var ownerSession = sessions.create(owner, "Own agent");
+        personas.select(owner, ownerSession.id(), agent.id());
+        assertEquals(List.of(sourceId), tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(ownerSession.id(), false, false))
+                .options().sourceAllowlist());
+    }
+
+    /** A Source row the Document Set foreign keys accept. */
+    private void source(UUID id) {
+        UUID credential = UUID.randomUUID();
+        jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Test','NO_AUTH','ACTIVE')")
+                .param("id", credential).param("tenant", tenant).update();
+        jdbc.sql("INSERT INTO connectors(id,tenant_id,name,connector_type,status) VALUES(:id,:tenant,'Test','FILE','ACTIVE')")
+                .param("id", id).param("tenant", tenant).update();
+        jdbc.sql("""
+                        INSERT INTO connector_credential_pairs(id,tenant_id,connector_id,credential_id,access_type,status)
+                        VALUES(:id,:tenant,:id,:credential,'PUBLIC','ACTIVE')
+                        """).param("id", id).param("tenant", tenant).param("credential", credential).update();
     }
 
     @Test
@@ -253,7 +331,7 @@ class ChatPersistenceIntegrationTest {
         assertEquals("Báo cáo", workbook.sessionTitle());
         // An upload belongs to its owner, not to one conversation.
         assertNull(all.items().stream().filter(file -> file.id().equals(upload)).findFirst().orElseThrow().sessionId());
-        // A generated image is named and measured, and its prompt is searchable (V89).
+        // A generated image is named and measured, and its prompt is searchable (V90).
         var picture = all.items().stream().filter(file -> file.id().equals(image)).findFirst().orElseThrow();
         assertTrue(picture.filename().startsWith("image-") && picture.filename().endsWith(".png"), picture.filename());
         assertEquals(512, picture.sizeBytes());
@@ -981,7 +1059,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> personas.createLabel(creator, "tài chính"));
         assertThrows(ChatException.class, () -> personas.renameLabel(reader, label.id(), "Finance"));
         var agent = personas.create(creator, new ChatPersonaService.PersonaInput("Finance", "", "", "Always cite the report month.",
-                List.of(), List.of(), Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),
+                List.of(), List.of(), null, Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),
                 false, false, java.time.Instant.parse("2026-01-01T00:00:00Z")));
         assertEquals(List.of(label), agent.labels());
         var published = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), true, null));
@@ -1107,7 +1185,7 @@ class ChatPersistenceIntegrationTest {
 
     private static ChatPersonaService.PersonaInput input(String name, String instructions, List<String> starters, List<UUID> sources,
             boolean search, Integer context, Integer output, List<UUID> files) {
-        return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources,
+        return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources, null,
                 search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null);
     }
 

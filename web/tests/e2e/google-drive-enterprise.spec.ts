@@ -14,7 +14,7 @@ const owner = {
   authorizationVersion: 1,
   uiLanguage: "en",
   tenant: { displayName: "Team", role: "OWNER" },
-  capabilities: ["SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
+  capabilities: ["SYSTEM_ADMIN", "SOURCES_READ", "SOURCES_MANAGE", "SOURCES_DELETE"],
   scopedCapabilities: [],
 };
 const credential = {
@@ -29,6 +29,13 @@ const credential = {
   sourceCount: 0,
   actions: ["reauthorize", "replace_oauth_client", "revoke", "delete"],
 };
+const sourceGroups = [
+  { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
+  { id: "e3ca7510-2218-4c25-827a-f93bb6d271d5", name: "Finance", systemKey: null },
+  { id: "ec18b4fa-b980-47ca-8117-55f0ee5b7e91", name: "Legal", systemKey: null },
+  { id: "6d6c5686-9ba6-49fc-992e-b8e1df1b8d2a", name: "Operations", systemKey: null },
+  { id: "ca39e714-03a9-4ff2-8f05-29b35e7597ee", name: "Support", systemKey: null },
+];
 const source: SourceSummary = {
   id: "46337ebd-a134-41de-b322-196cd9be22c4",
   name: "Team knowledge",
@@ -39,6 +46,8 @@ const source: SourceSummary = {
   documentCount: 0,
   lastSucceededAt: null,
   errorCode: null,
+  managerActorId: null,
+  managerName: null,
   permissions: {
     edit: true,
     delete: true,
@@ -288,12 +297,10 @@ async function enterprisePage(page: Page, existing = false) {
     if (path === "/api/sources/group-options") {
       await route.fulfill({
         json: {
-          items: [
-            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
-          ],
+          items: sourceGroups,
           page: 0,
           size: 25,
-          totalItems: 1,
+          totalItems: sourceGroups.length,
           totalPages: 1,
         },
       });
@@ -307,9 +314,7 @@ async function enterprisePage(page: Page, existing = false) {
     if (path.endsWith("/groups")) {
       await route.fulfill({
         json: {
-          items: [
-            { id: "8d11ec56-34c6-44fe-9ad0-f147f37f571c", name: "Knowledge team", systemKey: null },
-          ],
+          items: sourceGroups,
         },
       });
       return;
@@ -459,13 +464,24 @@ async function enterprisePage(page: Page, existing = false) {
   };
 }
 
+test("source summary caps group names and reveals the remainder on hover", async ({ page }) => {
+  await enterprisePage(page, true);
+  await page.goto(`/admin/sources/${source.id}`);
+  const summary = page.getByLabel("Source summary");
+  await expect(summary.getByText("Knowledge team, Finance, Legal")).toBeVisible();
+  const additionalGroups = summary.getByText("+2 more groups");
+  await expect(additionalGroups).toBeVisible();
+  await additionalGroups.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Additional groups: Operations, Support");
+});
+
 test("Drive action refresh withdraws deep editors while retaining allowed scoped operations", async ({
   page,
 }) => {
   const server = await enterprisePage(page, true);
   const entry = server.saved.get(source.id)!;
   await page.goto(`/admin/sources/${source.id}`);
-  await page.getByText("File and folder links", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refresh status" })).toHaveText("Refresh status");
   await page.getByRole("button", { name: "Edit selection", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toBeVisible();
   entry.source.permissions = {
@@ -477,7 +493,7 @@ test("Drive action refresh withdraws deep editors while retaining allowed scoped
   };
   await page.getByRole("button", { name: "Refresh status" }).click();
   await expect(page.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Discover linked docs" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Find links in files" })).toHaveCount(0);
   const automaticSync = page.getByRole("switch", { name: "Automatic synchronization" });
   await automaticSync.click();
   await expect(automaticSync).not.toBeChecked();
@@ -572,20 +588,10 @@ test("selection preserves hidden approvals across search and paging and restores
   await expect(items.getByText("Project index", { exact: true })).toBeVisible();
   await expect(items.getByText("Project budget", { exact: true })).toHaveCount(0);
   expect(server.requestedUrls.some((url) => url.includes("selection-draft"))).toBe(false);
-  await expect(selection.getByRole("button", { name: "Edit selection", exact: true })).toBeHidden();
-  const linkDisclosure = selection
-    .locator('[data-slot="collapsible-trigger"]')
-    .filter({ hasText: "File and folder links" });
-  await linkDisclosure.focus();
-  await linkDisclosure.press("Enter");
   await expect(
     selection.getByRole("button", { name: "Edit selection", exact: true }),
   ).toBeVisible();
-  await selection.getByRole("button", { name: "Load saved links", exact: true }).click();
-  const savedLinks = selection.getByRole("textbox", { name: "File or folder links" });
-  await expect(savedLinks).toHaveValue([fileLink, folderLink].join("\n"));
-  await expect(savedLinks).not.toBeEditable();
-  await expect(selection.getByRole("heading")).toHaveCount(1);
+  await expect(selection.getByRole("textbox", { name: "File or folder links" })).toHaveCount(0);
   const expand = selection.getByRole("button", { name: "Expand Project index", exact: true });
   await expand.focus();
   await expand.press("Enter");
@@ -608,7 +614,7 @@ test("selection preserves hidden approvals across search and paging and restores
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
   await selection.getByRole("button", { name: "Show search" }).click();
-  await selection.getByRole("textbox", { name: "Search selected content" }).fill("budget");
+  await selection.getByRole("textbox", { name: "Search selected files" }).fill("budget");
   await selection.getByRole("button", { name: "Search", exact: true }).click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
   await selection
@@ -650,7 +656,6 @@ test("selection preserves hidden approvals across search and paging and restores
   await expect(links).toHaveCount(0);
   await page.reload();
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
-  await linkDisclosure.click();
   await edit.click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
   await selection.getByRole("button", { name: "Filter selected content" }).click();
@@ -675,29 +680,25 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   const selection = page.getByRole("region", { name: "Selected content", exact: true });
   await expect(selection.getByText("Project archive", { exact: true })).toBeVisible();
   expect(server.requestedUrls.some((url) => new URL(url).searchParams.has("parentId"))).toBe(false);
-  // Each branch shows one page at a time; the pager replaces it instead of appending.
-  const rootNext = selection.getByRole("button", { name: "Next page of selected content" });
-  const rootPrevious = selection.getByRole("button", { name: "Previous page of selected content" });
-  await expect(selection.getByText("Items 1–2", { exact: true })).toBeVisible();
-  await rootNext.focus();
-  await rootNext.press("Enter");
+  // Each branch loads one page at a time and keeps what was read, so the list grows.
+  const rootMore = selection.getByRole("button", { name: "Load more selected content" });
+  await expect(selection.getByText("Retained project notes", { exact: true })).toHaveCount(0);
+  await rootMore.focus();
+  await rootMore.press("Enter");
   await expect(selection.getByText("Retained project notes", { exact: true })).toBeVisible();
-  await expect(selection.getByText("Project archive", { exact: true })).toHaveCount(0);
-  await expect(selection.getByText("Items 3–3", { exact: true })).toBeVisible();
-  await expect(rootNext).toBeDisabled();
-  await expect(rootPrevious).toBeFocused();
-  await rootPrevious.press("Enter");
+  await expect(selection.getByText("Project archive", { exact: true })).toBeVisible();
+  // The last page leaves nothing to load, so the pager goes away.
+  await expect(rootMore).toHaveCount(0);
   const folder = selection.getByRole("button", { name: "Expand Project archive", exact: true });
   await folder.focus();
   await folder.press("Enter");
   await expect(selection.getByText("Archive index", { exact: true })).toBeVisible();
   await expect(selection.getByText("Notes without recorded links", { exact: true })).toHaveCount(0);
-  await selection.getByRole("button", { name: "Next page in Project archive" }).click();
+  await selection.getByRole("button", { name: "Load more items in Project archive" }).click();
   await expect(selection.getByText("Notes without recorded links", { exact: true })).toBeVisible();
-  await expect(selection.getByText("Archive index", { exact: true })).toHaveCount(0);
+  await expect(selection.getByText("Archive index", { exact: true })).toBeVisible();
   await selection.getByRole("button", { name: "Expand Notes without recorded links" }).click();
   await expect(selection.getByText(/No discovered links are recorded for this file/)).toBeVisible();
-  await selection.getByRole("button", { name: "Previous page in Project archive" }).click();
   await selection.getByRole("button", { name: "Expand Archive index", exact: true }).click();
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
   const select = selection.getByRole("button", {
@@ -711,30 +712,26 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(checkboxes.first()).toBeFocused();
   await expect(checkboxes.first()).toBeChecked();
   await expect(checkboxes.last()).toBeChecked();
-  const linkDisclosure = selection
-    .locator('[data-slot="collapsible-trigger"]')
-    .filter({ hasText: "File and folder links" });
+  const edit = selection.getByRole("button", { name: "Edit selection", exact: true });
   const rootLinks = selection.getByRole("textbox", { name: "File or folder links" });
-  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
+  await expect(edit).toBeVisible();
   await expect(rootLinks).toHaveCount(0);
   await expect(
     selection.getByRole("button", { name: "Save selection", exact: true }),
   ).toBeVisible();
   await checkboxes.first().uncheck();
   await expect(checkboxes.first()).not.toBeChecked();
-  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
+  await expect(edit).toBeVisible();
   await expect(rootLinks).toHaveCount(0);
   await checkboxes.first().check();
   await checkboxes.first().uncheck();
   await expect(checkboxes.last()).not.toBeChecked();
   await checkboxes.last().check();
   await expect(checkboxes.first()).toBeChecked();
-  await rootNext.click();
+  // A choice made on one page reaches the linked occurrence loaded with a later one.
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
-  // Paging back restores the folders that were open on the first page.
-  await rootPrevious.click();
   await expect(checkboxes).toHaveCount(2);
   expect(server.requestBodies).toHaveLength(0);
   for (const viewport of [
@@ -754,22 +751,17 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(select).toHaveCount(2);
   expect(server.requestBodies).toHaveLength(0);
   await select.last().click();
-  await linkDisclosure.press("Enter");
   await expect(rootLinks).toHaveCount(0);
-  const edit = selection.getByRole("button", { name: "Edit selection", exact: true });
   await edit.click();
   await expect(rootLinks).toBeFocused();
   await expect(rootLinks).toHaveValue([fileLink, folderLink].join("\n"));
   await expect(checkboxes.first()).toBeChecked();
-  await rootNext.click();
   await expect(
     selection.getByRole("checkbox", { name: "Sync Retained project notes" }),
   ).toBeChecked();
-  await rootPrevious.click();
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(edit).toBeFocused();
   expect(server.requestBodies).toHaveLength(0);
-  await linkDisclosure.press("Enter");
   await select.last().click();
   await selection.getByRole("button", { name: "Save selection", exact: true }).click();
   await expect(selection.getByText("Pending validation", { exact: true })).toBeVisible();
@@ -783,7 +775,6 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(selection.getByRole("button", { name: "Save selection", exact: true })).toHaveCount(
     0,
   );
-  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await expect(rootLinks).toHaveCount(0);
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
   await selection.getByRole("button", { name: "Expand Project budget", exact: true }).click();
@@ -803,7 +794,6 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await deselect.click();
   await expect(checkboxes).not.toBeChecked();
   await expect(checkboxes).toBeFocused();
-  await expect(linkDisclosure).toHaveAttribute("data-state", "closed");
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(deselect).toBeFocused();
   expect(server.requestBodies).toHaveLength(1);
@@ -828,6 +818,13 @@ test("the credentials disclosure shows Close and turns its chevron while open", 
   await enterprisePage(page, true);
   await page.goto(`/admin/sources/${source.id}`);
   await page.getByRole("tab", { name: "Connection and settings" }).click();
+  const groupAssociations = page.getByRole("region", { name: "Group associations" });
+  const responsibleManager = page.getByRole("region", { name: "Responsible group manager" });
+  await expect(groupAssociations).toBeVisible();
+  await expect(responsibleManager).toBeVisible();
+  await expect(
+    responsibleManager.getByRole("button", { name: "Appoint a responsible manager" }),
+  ).toBeVisible();
   const credentials = page.getByRole("region", { name: "Credentials" });
   const chevron = credentials.locator("svg.lucide-chevron-down");
   await credentials.getByRole("button", { name: /Manage connection$/ }).click();
@@ -889,18 +886,18 @@ test("tree distinguishes failed branches from empty files and rejects stale auth
   page,
 }) => {
   const server = await enterprisePage(page, true);
-  let attempt = 0;
+  // Pointing at a row warms its children, so the branch answers by phase rather than by call count.
+  let phase: "failed" | "stale" | "current" = "failed";
   await page.route("**/google-drive/selection-tree?*", async (route) => {
     if (new URL(route.request().url()).searchParams.get("parentId") !== "folder-a") {
       await route.fallback();
       return;
     }
-    attempt++;
-    if (attempt === 1) {
+    if (phase === "failed") {
       await route.fulfill({ status: 503 });
       return;
     }
-    if (attempt === 2) {
+    if (phase === "stale") {
       await route.fulfill({
         json: {
           revision: 0,
@@ -926,9 +923,11 @@ test("tree distinguishes failed branches from empty files and rejects stale auth
   await selection.getByRole("button", { name: "Expand Project archive", exact: true }).click();
   await expect(selection.getByRole("alert")).toContainText("This content could not be loaded");
   await expect(selection.getByText(/No accessible items/)).toHaveCount(0);
+  phase = "stale";
   await selection.getByRole("button", { name: "Retry loading content" }).click();
   await expect(selection.getByRole("alert")).toContainText("Selection or discovery changed");
   await expect(selection.getByText("Stale folder content", { exact: true })).toHaveCount(0);
+  phase = "current";
   await selection.getByRole("button", { name: "Refresh selected content" }).click();
   await expect(selection.getByText("Archive index", { exact: true })).toBeVisible();
   expect(server.requestBodies).toHaveLength(0);

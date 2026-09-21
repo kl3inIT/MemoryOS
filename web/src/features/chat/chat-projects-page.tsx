@@ -42,7 +42,7 @@ export function ChatProjectsPage() {
     <AppShell pageTitle={ui("Dự án")}>
       <div className="mx-auto w-full max-w-3xl overflow-y-auto px-6 py-10">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-medium">{ui("Dự án")}</h1>
+          <h1 className="font-heading-h2 text-content-primary">{ui("Dự án")}</h1>
           <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
             {ui("Tạo dự án")}
@@ -105,7 +105,9 @@ export function ProjectContextPanel({ project }: { project: Project }) {
     <div className="space-y-5 pt-4 text-left">
       <div className="flex items-center gap-3">
         <Folder className="size-7 shrink-0 text-content-muted" />
-        <h1 className="min-w-0 flex-1 break-words text-2xl font-medium">{project.name}</h1>
+        <h1 className="min-w-0 flex-1 break-words font-heading-h2 text-content-primary">
+          {project.name}
+        </h1>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <IconButton

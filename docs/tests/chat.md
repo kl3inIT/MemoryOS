@@ -10,6 +10,7 @@ Conversation history search: `ChatSessionApiIntegrationTest.searchChatHistoryUse
 - `sources.test.tsx`: bounded/deduplicated icon stack, localized generic Sources label, accessible count, document privacy and upstream favicon fallback/domain changes.
 - `chat-sources-toolbar.spec.ts`: mixed Web/document toolbar, panel toggle and Web selection, focus restoration and viewport bounds on desktop/mobile.
 - `chat.spec.ts`: compact editor at 1440/390 pixels, original branch retention, existing source range/denied-reader behavior and mobile drawer navigation to the Search documents entry without a header mode menu. These browser tests use local backend/model fixtures, not staging acceptance.
+- `ChatPersistenceIntegrationTest.documentSetsShareAndAttachToPersonasWithoutReplacingDirectSources`: V84 migration-backed owner creation, direct user sharing and Persona attachment while direct `persona_source` remains independent.
 
 ## External Web search
 
@@ -279,7 +280,8 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Earlier generated images are named on their answers, even an answer without text | `ChatTurnSetupTest` |
 | Turn context names generated images; edit sources stay in their owner's session; lineage is stored and one source kind is enforced (V62) | `ChatPersistenceIntegrationTest.generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession` |
 | `edit_image` guidance appears only with the tool, under the single tools heading | `ChatWebPromptsTest` |
-| `run_python` guidance keeps the Onyx text plus the executor lines (including `recalc-xlsx`) and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
+| `run_python` guidance keeps the Onyx text plus the executor lines (including `recalc-xlsx` and the `.docx` structure rules with `check-docx`) and appears only with the tool | `ChatWebPromptsTest.runPythonGuidanceKeepsOnyxTextAndAppearsOnlyWithTheTool` |
+| `check-docx` names a flat document's faults (no heading, typed bullet, self-numbered line, line break inside a paragraph, borderless table, empty header row), reports nothing for a structured one and reports an unreadable argument instead of raising | `interpreter/service/tests/integration_tests/test_office_stack.py::test_check_docx_names_the_formatting_faults_and_passes_a_structured_document` |
 | The executor recalculates openpyxl and stale xlsxwriter formula values in place, keeps formulas and charts, reports error cells and refuses `.xlsm`, through the service and a real Docker executor | `interpreter/service/tests/integration_tests/test_office_stack.py::test_recalc_xlsx_fills_formula_values_and_reports_errors` |
 | `run_python` stages attachments in the Onyx order, file cap, byte budget and notice; reuses uploads in a turn; stores, links and deletes generated files; reports oversized files; truncates output; returns exit -1 with the exception text; sanitizes and de-duplicates names as Onyx; stages searched source files after the attachments through citation authority; uses the fixed per-call timeout | `RunPythonToolTest` |
 | `search_knowledge` records the stored original behind a hit and prefixes its evidence with the Onyx `FILE_ASSOCIATED_GUIDANCE` | `SearchToolTest.aHitWithAStoredOriginalIsStagedAndItsEvidenceSaysSoLikeOnyx` |
@@ -311,6 +313,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | Stop during an agent's retrieval interrupts it, runs no report and persists the plan and the agent as failed | `ChatSessionApiIntegrationTest.stopDuringResearchAgentSearchInterruptsItSkipsTheReportAndPersistsThePlanAndFailedAgent` |
 | Setting readable by members, changed with `MODELS_MANAGE` and revision, research commands rejected while off | `ChatSessionApiIntegrationTest.deepResearchSettingIsReadByMembersChangedByManagersAndRejectsResearchCommandsWhileOff` |
 | Clarification flag, plan and agent tree stored with the terminal outcome, bounded, assistant rows only | `ChatPersistenceIntegrationTest.researchClarificationAndPlanAreStoredWithTheTerminalOutcomeAndBounded` (real PostgreSQL); `ChatResearchRecorderTest` |
+| The provider form lists an unsaved endpoint's models with the typed key, adds the chosen ones on one save and keeps no key in a query cache; the endpoint answers a saved provider and a draft alike | `models-consumer.test.tsx` "lists the endpoint's models with the typed key", `ChatSessionApiIntegrationTest.reportedModelsListsWhatTheProviderEndpointServes` |
 | A rejected reasoning effort is retried once with an accepted value, whether the provider demands `none` or lists its supported values, and the accepted value is reused; unrelated rejections and started streams are not retried | `OpenAiReasoningFallbackTest` |
 | Research guard prompts unchanged, shared admission ledger, required tool choice only with tools | `ChatModelGuardTest`, `OpenAiChatRequestPolicyTest.requiredToolChoiceAppliesOnlyToRequestsWithTools` |
 | Citation marker parsing and renumbering, language section, prompt helpers | `ResearchExecutorTest` |
@@ -393,7 +396,7 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | A selection made on one page is dropped when the page changes, so a bulk delete cannot silently delete nothing | `chat-library-page.test.tsx` |
 | The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/chat/chat-library-page.test.tsx` |
 | A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
-| V89 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |
+| V90 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |
 
 ## Hard deletion of deleted conversations (MEM-143)
 

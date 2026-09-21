@@ -389,8 +389,6 @@ function setup(
 }
 
 async function edit(user: UserEvent) {
-  const disclosure = await screen.findByRole("button", { name: "File and folder links" });
-  if (disclosure.getAttribute("aria-expanded") !== "true") await user.click(disclosure);
   await user.click(await screen.findByRole("button", { name: "Edit selection" }));
   return screen.findByRole("textbox", { name: "File or folder links" });
 }
@@ -460,7 +458,7 @@ describe("Google Drive enterprise selection", () => {
     await user.click(screen.getByRole("button", { name: "Next selection page" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Research" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Show search" }));
-    await user.type(screen.getByRole("textbox", { name: "Search selected content" }), "Budget");
+    await user.type(screen.getByRole("textbox", { name: "Search selected files" }), "Budget");
     await user.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByRole("checkbox", { name: "Sync Budget" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Save selection" }));
@@ -480,6 +478,15 @@ describe("Google Drive enterprise selection", () => {
     await server.finish();
     expect(await screen.findByRole("button", { name: "Edit selection" })).toBeEnabled();
     expect(screen.queryByRole("textbox", { name: "File or folder links" })).not.toBeInTheDocument();
+  });
+
+  it("keeps selection editing prominent and explains link discovery", async () => {
+    setup({ discoveredAt: null });
+
+    expect(await screen.findByRole("button", { name: "Edit selection" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Find links in files" })).toBeVisible();
+    expect(screen.queryByText("No discovery yet.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load saved links" })).not.toBeInTheDocument();
   });
 
   it("retains the idempotency key after a lost response and does not replace active roots before activation", async () => {

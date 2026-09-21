@@ -64,7 +64,12 @@ export function AgentPrincipalPicker({
     onPick(principal);
   };
   return (
-    <Command shouldFilter={false} className="relative overflow-visible bg-transparent">
+    // cmdk labels its input from this text; without it the field is nameless whatever the placeholder says.
+    <Command
+      label={groups ? ui("Thêm người hoặc Group") : ui("Tìm người")}
+      shouldFilter={false}
+      className="relative overflow-visible bg-transparent"
+    >
       <div className="flex h-10 items-center gap-2 rounded-xl border border-border-default bg-surface-raised px-3 focus-within:border-border-strong">
         <Search aria-hidden="true" className="size-4 shrink-0 text-content-disabled" />
         <CommandPrimitive.Input

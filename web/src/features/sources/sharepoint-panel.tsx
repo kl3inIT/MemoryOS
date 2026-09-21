@@ -15,6 +15,7 @@ import { useCapabilityAuthority } from "@/features/identity/application-session-
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { can } from "@/lib/resource-permissions";
 import { captureWorkflowFailure } from "@/lib/sentry";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import {
   getSharePointConfigurationOptions,
   getSharePointRootsOptions,
@@ -77,6 +78,9 @@ export function SharePointPanel({
       query.state.data?.pendingWork || source.pendingWork ? 1_500 : 5_000,
   });
   const configuration = configurationQuery.data;
+  // This panel polls every few seconds, so its refresh controls follow the press, not the poll.
+  const connectionRetry = useManualRefresh(configurationQuery.refetch);
+  const statusRefresh = useManualRefresh(refresh);
   const credentials = useQuery({
     ...listSharePointCredentialsOptions(),
     enabled: authority !== "none",
@@ -304,8 +308,8 @@ export function SharePointPanel({
               </p>
               <Button
                 prominence="secondary"
-                pending={configurationQuery.isFetching}
-                onClick={() => void configurationQuery.refetch()}
+                pending={connectionRetry.pending}
+                onClick={connectionRetry.refresh}
               >
                 {ui("Retry connection status")}
               </Button>
@@ -366,8 +370,8 @@ export function SharePointPanel({
           <Button
             prominence="tertiary"
             disabled={disabled || busy}
-            pending={configurationQuery.isFetching}
-            onClick={() => void refresh()}
+            pending={statusRefresh.pending}
+            onClick={statusRefresh.refresh}
           >
             <RefreshCw /> {ui("Refresh status")}
           </Button>

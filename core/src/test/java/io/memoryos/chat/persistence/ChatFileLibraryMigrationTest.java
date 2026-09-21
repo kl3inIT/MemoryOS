@@ -9,12 +9,12 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
-/** V89 gives existing artifacts an owner, a conversation and, for an image, a name and a size. */
+/** V90 gives existing artifacts an owner, a conversation and, for an image, a name and a size. */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatFileLibraryMigrationTest {
     @Test
     void backfillsOwnerConversationImageNameAndSizeForArtifactsWrittenBeforeTheLibrary() throws Exception {
-        try (var database = TestDatabase.freshPostgres("88")) {
+        try (var database = TestDatabase.freshPostgres("89")) {
             var jdbc = JdbcClient.create(database);
             UUID tenant = UUID.randomUUID(), owner = UUID.randomUUID(), persona = UUID.randomUUID();
             UUID session = UUID.randomUUID(), root = UUID.randomUUID(), answer = UUID.randomUUID();
@@ -54,7 +54,7 @@ class ChatFileLibraryMigrationTest {
                     VALUES(:id,:tenant,:message,:object,'raw/pic.png','image/png',TIMESTAMPTZ '2026-03-04 05:06:07+00')
                     """).param("id", image).param("tenant", tenant).param("message", answer).param("object", imageObject).update();
 
-            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("89").load();
+            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("90").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
 
             assertEquals(owner, one(jdbc, "SELECT owner_actor_id FROM chat_file_artifact WHERE id='" + file + "'"));

@@ -15,21 +15,28 @@ import {
   listChatGroupOptionsOptions,
   listChatProvidersOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
+import { createChatModel, createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
+import type { ProviderTestInput } from "@/lib/hey-api/types.gen";
 import { CatalogDialog } from "./catalog-dialog";
 import { DataBoundaryField, radioCard, type DataBoundary } from "./data-boundary";
 import {
+  modelBody,
   refreshModelCatalog,
+  reportedDraft,
   type CredentialAction,
   type InstalledAdapter,
+  type ManagedModel,
   type ManagedProvider,
   type ProviderBody,
+  type ReportedModel,
 } from "./model-catalog";
 import { useProviderTest } from "./provider-test";
+import { ProviderModelsField } from "./provider-models-field";
 import { useModelAction } from "./use-model-action";
 
 export function ProviderEditor({
   initial,
+  models = [],
   providers,
   adapters,
   preferredAdapterType,
@@ -38,6 +45,7 @@ export function ProviderEditor({
   onClose,
 }: {
   initial?: ManagedProvider;
+  models?: ManagedModel[];
   providers: ManagedProvider[];
   adapters: InstalledAdapter[];
   preferredAdapterType?: string;
@@ -71,6 +79,9 @@ export function ProviderEditor({
   const secret = useRef("");
   const [keyReady, setKeyReady] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Models chosen from the endpoint listing are created once the provider itself is saved.
+  const [chosenModels, setChosenModels] = useState<ReportedModel[]>([]);
+  const [unsavedModels, setUnsavedModels] = useState<string[]>([]);
   const connection = useProviderTest();
   const adapter = adapters.find((entry) => entry.type === adapterType);
   const latest = baseline && providers.find((provider) => provider.id === baseline.id);
@@ -95,6 +106,19 @@ export function ProviderEditor({
     (credentialAction === "REPLACE"
       ? keyReady
       : credentialAction === "KEEP" && Boolean(baseline?.credentialConfigured));
+
+  function draftConnection(): ProviderTestInput | null {
+    if (!testable) return null;
+    return {
+      adapterType,
+      baseUrl: baseUrl.trim(),
+      providerId: baseline?.id,
+      credential:
+        credentialAction === "REPLACE"
+          ? { action: "REPLACE", value: secret.current }
+          : { action: "KEEP" },
+    };
+  }
 
   function changed() {
     setSaved(false);
@@ -172,9 +196,30 @@ export function ProviderEditor({
         signal.throwIfAborted();
         setBaseline(result.data);
         setCredentialAction("KEEP");
+        // The provider exists now, so its chosen models are created one by one; a failure keeps the
+        // editor open naming what is left, because the provider itself is already saved.
+        const failed: string[] = [];
+        for (const model of chosenModels) {
+          try {
+            await createChatModel({
+              path: { providerId: result.data.id },
+              body: modelBody(reportedDraft(model, adapter)),
+              headers: sameOriginMutationHeaders,
+              signal,
+              throwOnError: true,
+            });
+          } catch (cause) {
+            signal.throwIfAborted();
+            if (cause instanceof Error && cause.name === "AbortError") throw cause;
+            failed.push(model.modelName);
+          }
+          signal.throwIfAborted();
+        }
+        setChosenModels(chosenModels.filter((model) => failed.includes(model.modelName)));
+        setUnsavedModels(failed);
         await refreshModelCatalog(client);
         signal.throwIfAborted();
-        setSaved(true);
+        setSaved(failed.length === 0);
       });
     } catch {
       /* Safe action-local feedback is owned by useModelAction. */
@@ -382,6 +427,22 @@ export function ProviderEditor({
             </p>
           )}
         </fieldset>
+        <ProviderModelsField
+          connection={draftConnection}
+          configured={models}
+          selected={chosenModels}
+          onSelected={setChosenModels}
+          disabled={action.pending || conflicted}
+        />
+        {unsavedModels.length > 0 && (
+          <p role="alert">
+            {ui(
+              appText("The provider was saved. These models were not added: {{models}}", {
+                models: unsavedModels.join(", "),
+              }),
+            )}
+          </p>
+        )}
         {conflicted && (
           <div role="alert" className="space-y-2">
             <p>

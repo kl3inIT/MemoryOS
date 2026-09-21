@@ -3,17 +3,12 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { DatabaseZap, FileText, LoaderCircle, Upload, X } from "lucide-react";
+import { DatabaseZap, FileText, LoaderCircle, Trash2, Upload, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DangerZone } from "@/components/composites/danger-zone";
+import { DetailHeader } from "@/components/composites/detail-header";
+import { EmptyState } from "@/components/composites/empty-state";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -22,7 +17,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { Progress } from "@/components/ui/progress";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { SettingsLayout } from "@/components/ui/settings-layout";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -52,6 +47,8 @@ import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
 import { SourceSummaryCard } from "./source-summary-card";
+import { cn } from "@/lib/utils";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { FileTypeIcon } from "./file-type-icon";
 import { findSourceProvider } from "./source-provider-catalog";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
@@ -121,6 +118,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const backLinkRef = useRef<HTMLAnchorElement>(null);
   const actionsTrigger = useRef<HTMLButtonElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
   const [sourceDialog, setSourceDialog] = useState<SourceMetadataField | "delete" | null>(null);
   const cleanupController = useRef<AbortController | null>(null);
 
@@ -171,6 +169,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           ? 5_000
           : false,
   });
+  // Both queries poll, so their refresh controls follow the press rather than the poll.
+  const sourceRefresh = useManualRefresh(refreshSource);
+  const filesRefresh = useManualRefresh(itemsQuery.refetch);
   const filesTotalPages = itemsQuery.data
     ? Math.ceil(itemsQuery.data.totalItems / filesSize)
     : undefined;
@@ -745,8 +746,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           {detail.pendingWork ? <LoadingLabel label={ui("Work pending")} /> : null}
           <Button
             prominence="tertiary"
-            pending={itemsQuery.isFetching}
-            onClick={() => void itemsQuery.refetch()}
+            pending={filesRefresh.pending}
+            onClick={filesRefresh.refresh}
           >
             {ui("Refresh files")}
           </Button>
@@ -766,7 +767,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       ) : itemsQuery.data?.items.length === 0 ? (
         <EmptyState
           title={previous.length ? ui("No files on this page") : ui("No files yet")}
-          detail={
+          detail={ui(
             previous.length
               ? "Files may have been removed. Return to the previous page or refresh this page."
               : detail.type === "GOOGLE_DRIVE"
@@ -775,8 +776,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   ? "Files appear here after synchronization acquires them from SharePoint."
                   : canUpload
                     ? "Upload one supported file to start indexing."
-                    : "No files are indexed in this Source."
-          }
+                    : "No files are indexed in this Source.",
+          )}
         />
       ) : itemsQuery.data ? (
         <div
@@ -821,7 +822,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
-                      <p className="mt-1 text-xs text-status-danger-content">
+                      // Work stopped by the operator's own pause is expected, so it reads as a note.
+                      <p
+                        className={cn(
+                          "mt-1 text-xs",
+                          item.errorCode === "SOURCE_PAUSED"
+                            ? "text-content-muted"
+                            : "text-status-danger-content",
+                        )}
+                      >
                         {ui(sourceStatusMessage(item.errorCode))}
                       </p>
                     ) : null}
@@ -830,7 +839,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
                   </TableCell>
                   <TableCell className="px-4 py-4 text-content-secondary">
-                    <ItemStatus item={item} />
+                    <ItemStatus item={item} sourcePaused={paused} />
                   </TableCell>
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
@@ -860,8 +869,10 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
         totalPages={filesTotalPages}
         previousLabel={ui("Previous files")}
         nextLabel={ui("Next files")}
-        previousDisabled={!previous.length || itemsQuery.isFetching}
-        nextDisabled={!itemsQuery.data?.nextCursor || itemsQuery.isFetching || itemsQuery.isError}
+        previousDisabled={!previous.length || itemsQuery.isPlaceholderData}
+        nextDisabled={
+          !itemsQuery.data?.nextCursor || itemsQuery.isPlaceholderData || itemsQuery.isError
+        }
         onPrevious={() => {
           filesHeading.current?.focus();
           setCursor(previous.at(-1));
@@ -878,7 +889,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           rowsLabel={ui("Rows")}
           value={filesSize}
           sizes={[5, 10, 25, 50, 100]}
-          disabled={itemsQuery.isFetching}
+          disabled={itemsQuery.isPlaceholderData}
           onSizeChange={(size) => {
             setFilesSize(size);
             setCursor(undefined);
@@ -891,48 +902,55 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
 
   return (
     <SettingsLayout wide>
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link
-                ref={backLinkRef}
-                to="/admin"
-                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              >
-                {ui("Sources")}
-              </Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {detail ? (
-            <>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate">{detail.name}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </>
-          ) : null}
-        </BreadcrumbList>
-      </Breadcrumb>
+      <DetailHeader
+        parent={{ label: ui("Sources"), to: "/admin" }}
+        backRef={backLinkRef}
+        icon={detail ? <ProviderIcon /> : undefined}
+        iconSize="lg"
+        title={detail?.name}
+        description={
+          detail ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <SourceStatusBadge status={detail.status} />
+              <SourceAccessBadge access={detail.access} />
+              {/* The header icon shows the provider but is hidden from assistive technology. */}
+              {provider ? <span className="sr-only">{ui(provider.name)}</span> : null}
+            </span>
+          ) : undefined
+        }
+        actions={
+          detail ? (
+            <SourceActionsMenu
+              triggerRef={actionsTrigger}
+              disabled={busy || detail.status === "DELETING"}
+              status={detail.status}
+              onRename={canRename ? () => setSourceDialog("name") : undefined}
+              onChangeAccess={canChangeAccess ? () => setSourceDialog("access") : undefined}
+              onPause={canRename ? () => void togglePause(false) : undefined}
+              onResume={canRename ? () => void togglePause(true) : undefined}
+            />
+          ) : undefined
+        }
+      />
 
       {error ? (
         <p
           role="alert"
-          className="mt-5 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
+          className="rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
         >
           {ui(error)}
         </p>
       ) : null}
 
       {sourceQuery.isError && detail && !providerPanel(detail.type) ? (
-        <div className="mt-5 space-y-3">
+        <div className="space-y-3">
           <p role="alert" className="text-sm text-status-danger-content">
             {ui("Source status could not be refreshed. Displayed values may be out of date.")}
           </p>
           <Button
             prominence="secondary"
-            pending={sourceQuery.isFetching}
-            onClick={() => void refreshSource()}
+            pending={sourceRefresh.pending}
+            onClick={sourceRefresh.refresh}
           >
             {ui("Refresh source")}
           </Button>
@@ -940,7 +958,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       ) : null}
 
       {canUpload && pendingFinalize && !activePendingFinalize ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-content-secondary">
             {pendingFinalize.filename} {ui("is stored and still needs finalization.")}
           </p>
@@ -959,48 +977,29 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           </div>
         ) : !detail ? (
           <div className="px-6 py-16">
-            <EmptyState title={ui("Source unavailable")} detail="It may have completed deletion." />
-            <Button
-              prominence="secondary"
-              className="mt-4"
-              pending={sourceQuery.isFetching}
-              onClick={() => void refreshSource()}
-            >
-              {ui("Try again")}
-            </Button>
+            <EmptyState
+              role="alert"
+              icon={<DatabaseZap />}
+              title={ui("Source unavailable")}
+              detail={ui("It may have completed deletion.")}
+              action={
+                <Button
+                  prominence="secondary"
+                  pending={sourceRefresh.pending}
+                  onClick={sourceRefresh.refresh}
+                >
+                  {ui("Try again")}
+                </Button>
+              }
+            />
           </div>
         ) : (
           <Tabs value={section} onValueChange={setSection} className="block">
-            <PageHeader
-              icon={<ProviderIcon />}
-              iconSize={providerPanel(detail.type) ? "lg" : "sm"}
-              title={detail.name}
-              description={
-                <span className="flex flex-wrap items-center gap-2">
-                  <SourceStatusBadge status={detail.status} />
-                  <SourceAccessBadge access={detail.access} />
-                  {/* The header icon shows the provider but is hidden from assistive technology. */}
-                  {provider ? <span className="sr-only">{ui(provider.name)}</span> : null}
-                </span>
-              }
-              actions={
-                <SourceActionsMenu
-                  triggerRef={actionsTrigger}
-                  disabled={busy || detail.status === "DELETING"}
-                  status={detail.status}
-                  onRename={canRename ? () => setSourceDialog("name") : undefined}
-                  onChangeAccess={canChangeAccess ? () => setSourceDialog("access") : undefined}
-                  onPause={canRename ? () => void togglePause(false) : undefined}
-                  onResume={canRename ? () => void togglePause(true) : undefined}
-                  onDelete={canDelete ? () => setSourceDialog("delete") : undefined}
-                />
-              }
-            />
             {canDelete ? (
               <ConfirmDialog
                 open={sourceDialog === "delete"}
                 onOpenChange={(open) => setSourceDialog(open ? "delete" : null)}
-                restoreFocusRef={actionsTrigger}
+                restoreFocusRef={deleteTrigger}
                 successFocusRef={backLinkRef}
                 title={ui("Delete {{v1}}?", { v1: detail.name })}
                 description={ui(
@@ -1027,20 +1026,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             {!providerPanel(detail.type) ? (
               <SourceSummaryCard source={detail} className="my-6" />
             ) : null}
-            {detail.errorCode && !providerPanel(detail.type) ? (
-              <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                {ui(sourceStatusMessage(detail.errorCode))}
-              </p>
-            ) : null}
-            {detail.status === "PAUSED" || detail.status === "PAUSING" ? (
-              <p role="status" className="mt-4 text-sm text-status-warning-content">
-                {detail.status === "PAUSING"
-                  ? ui(
-                      "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.",
-                    )
-                  : ui(
-                      "Automatic synchronization and indexing are paused. Indexed data and permissions may become stale until the Source is resumed.",
-                    )}
+            {/* A paused Source is a state, not a failure: the badge carries it, and only the transient
+                pausing step needs a word about the work still finishing. */}
+            {detail.status === "PAUSING" ? (
+              <p role="status" className="mt-4 text-sm text-content-muted">
+                {ui(
+                  "Pausing — waiting for in-flight file processing to finish. New synchronization and indexing work is blocked.",
+                )}
               </p>
             ) : null}
 
@@ -1054,12 +1046,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   activeSection={section}
                   content={filesPanel}
                   settings={
-                    <SourceGroupsSection
-                      sourceId={selectedId}
-                      editable={canManageGroups}
-                      restricted={detail.access !== "PUBLIC"}
-                      onAuthorityChanged={refreshAuthorityViews}
-                    />
+                    <>
+                      <SourceGroupsSection
+                        sourceId={selectedId}
+                        editable={canManageGroups}
+                        restricted={detail.access !== "PUBLIC"}
+                        onAuthorityChanged={refreshAuthorityViews}
+                      />
+                      {isAdministrator ? (
+                        <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                      ) : null}
+                    </>
                   }
                   navigation={<SourceSectionTabs sections={googleDriveSections} />}
                 />
@@ -1096,6 +1093,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     restricted={detail.access !== "PUBLIC"}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
+                  {isAdministrator ? (
+                    <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                  ) : null}
                 </TabsContent>
               </>
             ) : (
@@ -1238,11 +1238,32 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                     restricted={detail.access !== "PUBLIC"}
                     onAuthorityChanged={refreshAuthorityViews}
                   />
+                  {isAdministrator ? (
+                    <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+                  ) : null}
                 </TabsContent>
               </>
             )}
-            {isAdministrator ? (
-              <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
+            {canDelete ? (
+              <DangerZone
+                className="mt-8"
+                icon={<Trash2 />}
+                title={ui("Delete this source")}
+                description={ui(
+                  "Every indexed document from this source becomes unavailable. Cleanup continues in the background and cannot be undone.",
+                )}
+                action={
+                  <Button
+                    ref={deleteTrigger}
+                    tone="danger"
+                    prominence="secondary"
+                    disabled={busy || detail.status === "DELETING"}
+                    onClick={() => setSourceDialog("delete")}
+                  >
+                    {ui("Delete source")}
+                  </Button>
+                }
+              />
             ) : null}
           </Tabs>
         )}
@@ -1270,18 +1291,6 @@ function LoadingLabel({ label }: { label: string }) {
       <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
       {label}
     </span>
-  );
-}
-
-function EmptyState({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="py-8 text-center">
-      <span className="mx-auto mb-4 grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-        <DatabaseZap className="size-5" aria-hidden="true" />
-      </span>
-      <h2 className="font-heading-h3 text-content-primary">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md font-main-ui-body text-content-muted">{detail}</p>
-    </div>
   );
 }
 

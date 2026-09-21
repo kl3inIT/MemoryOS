@@ -1,9 +1,10 @@
 package io.memoryos.retrieval;
 
+import io.memoryos.connector.DocumentSourceMetadata;
+import io.memoryos.connector.SourceCollectionScopeResolver;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceSearchScope;
-import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
@@ -41,13 +42,15 @@ public class DocumentSearchService {
     private final OpenSearchIndexService search;
     private final MeterRegistry metrics;
     private final SourceSearchService sourceSearch;
+    private final SourceCollectionScopeResolver documentSets;
     private final SearchTimings timings;
 
     public DocumentSearchService(TenantAccessResolver tenants, IamAuthorization authorization, SourceDocumentAccessResolver access,
-            DocumentChunkPort documents, OpenSearchIndexService search, MeterRegistry metrics, SourceSearchService sourceSearch, SearchTimings timings) {
+            DocumentChunkPort documents, OpenSearchIndexService search, MeterRegistry metrics, SourceSearchService sourceSearch,
+            SourceCollectionScopeResolver documentSets, SearchTimings timings) {
         this.tenants = tenants; this.authorization = authorization; this.access = access;
         this.documents = documents; this.search = search; this.metrics = metrics;
-        this.sourceSearch = sourceSearch;
+        this.sourceSearch = sourceSearch; this.documentSets = documentSets;
         this.timings = timings;
     }
 
@@ -57,8 +60,17 @@ public class DocumentSearchService {
         long started = System.nanoTime();
         String outcome = "failed";
         try {
-            var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
-            var hits = authorized(actor, tenant, search.search(tenant, actor, request.query(), request.mediaTypes(), request.updatedSince(), tokens));
+            SourceSearchScope scope = null;
+            List<SearchHit> raw;
+            if (request.documentSetIds().isEmpty()) {
+                var tokens = timings.measure(SearchTimings.Stage.PREFETCH, () -> sourceSearch.accessTokens(tenant, actor));
+                raw = search.search(tenant, actor, request.query(), request.mediaTypes(), request.updatedSince(), tokens);
+            } else {
+                scope = timings.measure(SearchTimings.Stage.PREFETCH, () -> documentSets.narrow(actor, request.documentSetIds()));
+                if (!tenant.equals(scope.tenant())) throw new SearchDocumentUnavailableException();
+                raw = search.search(scope, request.query(), request.mediaTypes(), request.updatedSince());
+            }
+            var hits = authorized(actor, tenant, raw);
             requireSearchAccess(actor, tenant);
             var grouped = new LinkedHashMap<UUID, List<SearchHit>>();
             hits.stream()
@@ -71,7 +83,7 @@ public class DocumentSearchService {
             }).toList();
             // Connector counts, the connector filter and page metadata all come from the Source mappings this actor may
             // read, so a connector the actor cannot read is neither counted nor matched.
-            var origins = readableOrigins(actor, candidates);
+            var origins = scope == null ? readableOrigins(actor, candidates) : readableOrigins(scope, candidates);
             var all = request.sourceTypes().isEmpty() ? candidates : candidates.stream()
                     .filter(result -> origins.getOrDefault(result.documentId(), List.of()).stream()
                             .anyMatch(origin -> request.sourceTypes().contains(origin.type())))
@@ -91,7 +103,11 @@ public class DocumentSearchService {
 
     private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(ActorId actor, List<SearchPage.Result> candidates) {
         if (candidates.isEmpty()) return Map.of();
-        var scope = sourceSearch.scope(actor);
+        return readableOrigins(sourceSearch.scope(actor), candidates);
+    }
+
+    private Map<UUID, List<DocumentSourceMetadata>> readableOrigins(SourceSearchScope scope, List<SearchPage.Result> candidates) {
+        if (candidates.isEmpty()) return Map.of();
         var ids = candidates.stream().map(SearchPage.Result::documentId).toList();
         var origins = new HashMap<UUID, List<DocumentSourceMetadata>>();
         for (int offset = 0; offset < ids.size(); offset += 1000)

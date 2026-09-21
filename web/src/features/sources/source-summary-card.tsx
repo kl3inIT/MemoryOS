@@ -8,6 +8,7 @@ import { listSourceGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { sourceAccessPresentation } from "./source-status-presentation";
+import { SourceHint } from "./source-hint";
 
 /** Who reads a Google Drive Source depends on its mode; Public reads like any other Source. */
 const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
@@ -22,6 +23,8 @@ const readersLabel: Record<SourceSummary["access"], string> = {
   PRIVATE: "Members of its groups",
   SYNC: "People with access in Google Drive",
 };
+
+const shownGroupCount = 3;
 
 /**
  * Facts about a Source that its header badges do not carry: counts and schedule first, then who
@@ -49,13 +52,18 @@ export function SourceSummaryCard({
   const groupNames = (groups.data?.items ?? [])
     .filter((group) => group.systemKey === null)
     .map((group) => group.name);
+  const shownGroupNames = groupNames.slice(0, shownGroupCount);
+  const additionalGroupNames = groupNames.slice(shownGroupCount);
   const readers =
     (source.type === "GOOGLE_DRIVE" ? googleDriveAccessHelp[source.access] : undefined) ??
     sourceAccessPresentation[source.access].title;
 
   return (
     <div
-      className={cn("rounded-xl border border-border-subtle bg-surface-raised text-sm", className)}
+      className={cn(
+        "rounded-xl border border-border-subtle bg-surface-raised font-main-ui-body",
+        className,
+      )}
     >
       {header ? <div className="border-b border-border-subtle px-5 py-3">{header}</div> : null}
       <dl aria-label={ui("Source summary")}>
@@ -72,8 +80,8 @@ export function SourceSummaryCard({
             </dd>
           </div>
           <div>
-            <dt className="text-content-muted">{ui("Last indexed successfully")}</dt>
-            <dd className="mt-1 flex min-h-8 items-center text-content-primary">
+            <dt className={statLabelClass}>{ui("Last indexed successfully")}</dt>
+            <dd className={cn("mt-1 flex min-h-8 items-center", statValueClass)}>
               {source.lastSucceededAt ? (
                 <time dateTime={source.lastSucceededAt}>
                   {new Date(source.lastSucceededAt).toLocaleString(uiLocale())}
@@ -87,7 +95,7 @@ export function SourceSummaryCard({
         </div>
         <div className="flex flex-wrap gap-x-10 gap-y-2 border-t border-border-subtle px-5 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <dt className="text-content-muted">{ui("Who can read")}</dt>
+            <dt className={statLabelClass}>{ui("Who can read")}</dt>
             <dd className="flex min-w-0 items-center gap-0.5 text-content-primary">
               {ui(readersLabel[source.access])}
               <HelpPopover label={ui("Who can read")}>
@@ -96,15 +104,41 @@ export function SourceSummaryCard({
             </dd>
           </div>
           <div className="flex min-h-8 min-w-0 items-center gap-2">
-            <dt className="text-content-muted">{ui("Groups")}</dt>
+            <dt className={statLabelClass}>{ui("Groups")}</dt>
             <dd className="min-w-0 break-words text-content-primary">
-              {groups.isPending
-                ? ui("Loading…")
-                : groups.isError
-                  ? ui("Unavailable")
-                  : groupNames.length
-                    ? groupNames.join(", ")
-                    : ui("None")}
+              {groups.isPending ? (
+                ui("Loading…")
+              ) : groups.isError ? (
+                ui("Unavailable")
+              ) : groupNames.length ? (
+                <>
+                  {shownGroupNames.join(", ")}
+                  {additionalGroupNames.length ? (
+                    <>
+                      {" "}
+                      <SourceHint
+                        hint={ui("Additional groups: {{v1}}", {
+                          v1: additionalGroupNames.join(", "),
+                        })}
+                      >
+                        <span
+                          tabIndex={0}
+                          aria-label={ui("Additional groups: {{v1}}", {
+                            v1: additionalGroupNames.join(", "),
+                          })}
+                          className="cursor-default font-secondary-action text-content-secondary underline decoration-dotted underline-offset-2 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        >
+                          {ui("+{{count}} more groups", {
+                            count: additionalGroupNames.length,
+                          })}
+                        </span>
+                      </SourceHint>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                ui("None")
+              )}
             </dd>
           </div>
         </div>

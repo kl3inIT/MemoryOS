@@ -218,6 +218,13 @@ public class OpenSearchIndexService implements SearchIndex {
         return searchPrepared(tenant, query, embeddings.query(query, queryCaller(tenant, actor)), mediaTypes, since, SearchFilters.NONE, List.of(), accessTokens);
     }
 
+    /** Search a pre-authorized Source scope; an empty scope intentionally produces no indexed results. */
+    public List<SearchHit> search(SourceSearchScope scope, String query, List<String> mediaTypes, Instant since) {
+        if (scope.sources().isEmpty() || !gateway.exists("/" + readAlias())) return List.of();
+        return searchPrepared(scope.tenant(), query, embeddings.query(query), mediaTypes, since, SearchFilters.NONE,
+                scope.sources().keySet().stream().map(UUID::toString).toList(), scope.accessTokens());
+    }
+
     /** Resolve the alias and embed each distinct text once for this Search call. */
     public List<List<SearchHit>> batch(SourceSearchScope scope, List<SearchQuery> queries, SearchFilters filters, Runnable checkActive) {
         if (queries.isEmpty() || queries.size() > 8) throw new SearchRequestException();

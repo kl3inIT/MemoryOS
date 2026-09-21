@@ -25,7 +25,7 @@ Onyx `f9e3de36c8`:
 ## Decisions
 
 1. **One listing endpoint over three sources.** `GET /api/chat/library` returns the caller's own files in the active Tenant from `chat_user_file`, `chat_file_artifact` and `chat_image_artifact` as one paginated list. The repository builds a `UNION ALL` of three owner-filtered branches and wraps it for the name search, the source filter, the category filter and the sort; `COUNT(*) OVER ()` and `SUM(size_bytes) OVER ()` produce `totalCount` and `totalBytes` from the filtered set in the same statement, because window functions are evaluated before `LIMIT`. Paging is offset-based with `hasMore`, as `recent()` and `searchChatSessions` already page; it is live, not a snapshot.
-2. **The artifact tables gain the columns a library needs (V89).**
+2. **The artifact tables gain the columns a library needs (V90).**
    - `deleted_at`, `cleanup_token`, `cleanup_until` on both artifact tables carry the soft hide and the durable cleanup claim.
    - `owner_actor_id` and `session_id` are denormalized onto both artifact tables and backfilled through `chat_message` → `chat_session`. Without them every page of the union joins two tables per branch and sorts outside any index; with them each branch reads `(tenant_id, owner_actor_id, created_at DESC, id) WHERE deleted_at IS NULL`. Both are written at insert beside `message_id`, which remains the row's link to its answer.
    - `chat_image_artifact` gains `filename` and `size_bytes`; it had neither, so a generated image could not be named, searched or measured. `size_bytes` backfills from `stored_objects`.

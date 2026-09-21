@@ -2,7 +2,15 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { SourceItem, SourceRun } from "@/lib/hey-api/types.gen";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CircleCheck, CircleHelp, CircleX, Clock3, LoaderCircle, Trash2 } from "lucide-react";
+import {
+  CircleCheck,
+  CircleHelp,
+  CircleX,
+  Clock3,
+  LoaderCircle,
+  Pause,
+  Trash2,
+} from "lucide-react";
 import { historyRelativeTime, runHasNoChanges, runIsActive } from "./source-history";
 import { SourceHint } from "./source-hint";
 import { statusPill } from "./source-status-presentation";
@@ -95,10 +103,13 @@ const attemptStatusLabels: Record<string, string> = {
 
 export function ItemStatus({
   item,
+  sourcePaused = false,
 }: {
   item: Pick<SourceItem, "status"> & {
     latestAttempt?: SourceItem["latestAttempt"] | null;
   };
+  /** A paused Source runs nothing, so its unindexed files are held rather than waiting their turn. */
+  sourcePaused?: boolean;
 }) {
   const ui = useAppTranslation();
 
@@ -107,9 +118,11 @@ export function ItemStatus({
     attemptStatus && Object.hasOwn(attemptStatusLabels, attemptStatus)
       ? attemptStatusLabels[attemptStatus]
       : "Unknown";
-  const label =
-    item.status === "PENDING" &&
-    (attemptStatus === "NOT_STARTED" || attemptStatus === "IN_PROGRESS")
+  const running = attemptStatus === "NOT_STARTED" || attemptStatus === "IN_PROGRESS";
+  const held = sourcePaused && item.status === "PENDING" && !running;
+  const label = held
+    ? "Paused"
+    : item.status === "PENDING" && running
       ? attemptLabel
       : Object.hasOwn(itemStatusLabels, item.status)
         ? itemStatusLabels[item.status]
@@ -119,11 +132,12 @@ export function ItemStatus({
       ? "success"
       : item.status === "FAILED"
         ? "danger"
-        : item.status === "PENDING"
+        : item.status === "PENDING" && !held
           ? "info"
           : "neutral";
-  const Icon =
-    item.status === "INDEXED"
+  const Icon = held
+    ? Pause
+    : item.status === "INDEXED"
       ? CircleCheck
       : item.status === "FAILED"
         ? CircleX
