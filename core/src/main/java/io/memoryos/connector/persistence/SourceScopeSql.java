@@ -32,8 +32,8 @@ final class SourceScopeSql {
             """.formatted(OWNER_GROUPLESS, ACTIVE_MANAGER);
     /**
      * Scoped operational authority belongs to the Source's recorded manager while that Actor still manages an
-     * ordinary Group. Associating the Source with further Groups never widens it, and managers of those Groups do
-     * not gain it; their only Source-level authority is detaching it from a Group they manage.
+     * ordinary Group. Associating the Source with further Groups never widens it, and managers of those Groups gain
+     * no authority over it, including detaching it from their own Group.
      */
     static final String WRITE = """
             (%s AND pair.access_type <> 'PUBLIC' AND pair.manager_actor_id = :actorId)

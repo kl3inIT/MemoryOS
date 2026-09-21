@@ -1159,7 +1159,7 @@ class SourceApiIntegrationTest {
     }
 
     @Test
-    void groupManagerDetachesSourcesAndAdministratorsAppointTheResponsibleManager() throws Exception {
+    void onlyTheResponsibleManagerDetachesSourcesAndAdministratorsAppointThem() throws Exception {
         UUID tenantId = jdbcClient.sql("SELECT id FROM tenants WHERE slug = 'sources'")
                 .query(UUID.class)
                 .single();
@@ -1175,25 +1175,22 @@ class SourceApiIntegrationTest {
         String onlySourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Only source",
                 List.of(managed), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
 
-        // Both associations answer to this Group's manager, whatever authority they hold over the Sources.
+        // Managing the Group gives no authority over Sources somebody else is responsible for.
         mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(2))
                 .andExpect(jsonPath("$.items[0].permissions.edit").value(false))
-                .andExpect(jsonPath("$.removableSourceIds.length()").value(2));
+                .andExpect(jsonPath("$.removableSourceIds.length()").value(0));
         for (String sourceId : List.of(onlySourceId, sharedSourceId)) {
             mockMvc.perform(post("/api/groups/{groupId}/sources/{sourceId}/remove", managedGroupId, sourceId)
                             .with(authentication(manager))
                             .header("X-MemoryOS-CSRF", "1"))
-                    .andExpect(status().isNoContent());
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("SOURCE_NOT_FOUND"));
         }
         mockMvc.perform(get("/api/sources/{sourceId}/groups", sharedSourceId).with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(otherGroupId.toString()));
-        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(0));
+                .andExpect(jsonPath("$.items.length()").value(2));
 
         mockMvc.perform(post("/api/sources/{sourceId}/manager", sharedSourceId)
                         .with(authentication(manager))
@@ -1218,6 +1215,20 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{sourceId}", sharedSourceId).with(authentication(manager)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permissions.edit").value(true));
+
+        // Once responsible, the manager detaches that Source from their Group and attaches it again.
+        mockMvc.perform(get("/api/groups/{groupId}/sources", managedGroupId).with(authentication(manager)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.removableSourceIds.length()").value(1))
+                .andExpect(jsonPath("$.removableSourceIds[0]").value(sharedSourceId));
+        mockMvc.perform(post("/api/groups/{groupId}/sources/{sourceId}/remove", managedGroupId, sharedSourceId)
+                        .with(authentication(manager))
+                        .header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/sources/{sourceId}/groups", sharedSourceId).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(otherGroupId.toString()));
         mockMvc.perform(post("/api/sources/{sourceId}/groups", sharedSourceId)
                         .with(authentication(manager))
                         .header("X-MemoryOS-CSRF", "1")

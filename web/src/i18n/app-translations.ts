@@ -1237,8 +1237,11 @@ export const englishUi: Record<string, string> = {
     "Nguồn riêng tư. Liên kết nhóm là tùy chọn và có thể thêm sau.",
   "You can no longer change one of these Sources for this group. Refresh and try again.":
     "Bạn không còn quyền thay đổi một trong các nguồn này cho nhóm. Làm mới rồi thử lại.",
-  "Sources with a lock are being deleted and can't be removed from this group.":
-    "Các nguồn có biểu tượng khóa đang được xóa nên không gỡ khỏi nhóm này được.",
+  "Sources with a lock can't be removed from this group: they are being deleted, or only their responsible manager can remove them.":
+    "Không gỡ được các nguồn có biểu tượng khóa khỏi nhóm này: nguồn đang được xóa, hoặc chỉ người phụ trách nguồn mới gỡ được.",
+  "Only {{v1}}, the responsible manager, can remove this Source.":
+    "Chỉ {{v1}}, người phụ trách, mới gỡ được nguồn này.",
+  "Only administrators can remove this Source.": "Chỉ quản trị viên mới gỡ được nguồn này.",
   "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",
