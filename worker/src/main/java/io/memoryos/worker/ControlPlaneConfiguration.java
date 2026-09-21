@@ -166,6 +166,16 @@ class ControlPlaneConfiguration {
                 });
     }
 
+    /**
+     * Queues the byte release of uploads whose trash window has passed (MEM-152 phase 4); the existing file
+     * DELETE work then owns the release itself.
+     */
+    @Bean
+    RecurringTask<Void> chatLibraryTrashTask(io.memoryos.chat.persistence.JdbcUserFileRepository files) {
+        return Tasks.recurring("memoryos-chat-library-trash-v1", FixedDelay.of(Duration.ofMinutes(5)))
+                .execute((_, _) -> files.enqueueDuePurges(100));
+    }
+
     /** Packs requested library archives and releases the ones that expired (MEM-152). */
     @Bean
     RecurringTask<Void> chatLibraryArchiveTask(io.memoryos.chat.application.ChatLibraryArchiveService archives) {

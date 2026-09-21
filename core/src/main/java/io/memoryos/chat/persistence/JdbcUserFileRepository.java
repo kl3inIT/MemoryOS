@@ -168,15 +168,78 @@ public class JdbcUserFileRepository {
         enqueue(tenant, id, "PROCESS");
     }
 
-    public void delete(TenantId tenant, UUID id, boolean uploading) {
+    /**
+     * Moves an upload to the trash: it leaves every listing at once, and the byte-releasing work is queued only
+     * when {@code trashFor} has passed, so the owner can restore it until then. An upload that never finished
+     * uploading has nothing to release and is closed immediately.
+     */
+    public void delete(TenantId tenant, UUID id, boolean uploading, java.time.Duration trashFor) {
         jdbc.sql("""
                 UPDATE chat_file_work SET status='CANCELLED',claim_token=NULL,lease_expires_at=NULL,
                     dispatch_token=NULL,dispatch_lease_expires_at=NULL,completed_at=CURRENT_TIMESTAMP
                 WHERE tenant_id=:tenant AND file_id=:file AND status IN ('NOT_STARTED','IN_PROGRESS')
                 """).param("tenant", tenant.value()).param("file", id).update();
-        jdbc.sql("UPDATE chat_user_file SET status=:status,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=:tenant AND id=:file")
-                .param("status", uploading ? "DELETED" : "DELETING").param("tenant", tenant.value()).param("file", id).update();
-        if (!uploading) enqueue(tenant, id, "DELETE");
+        jdbc.sql("""
+                UPDATE chat_user_file SET status=:status, updated_at=CURRENT_TIMESTAMP,
+                    deleted_at=CURRENT_TIMESTAMP, purge_after=CURRENT_TIMESTAMP + make_interval(secs => :trash)
+                WHERE tenant_id=:tenant AND id=:file
+                """).param("status", uploading ? "DELETED" : "DELETING").param("trash", trashFor.toSeconds())
+                .param("tenant", tenant.value()).param("file", id).update();
+        if (!uploading && trashFor.isZero()) enqueue(tenant, id, "DELETE");
+    }
+
+    /**
+     * Takes an upload out of the trash. Its document and extracted text were never removed, because the release
+     * work had not run, so the file is usable again at once. False when it is not in the trash any more.
+     */
+    public boolean restore(TenantId tenant, ActorId actor, UUID id) {
+        return jdbc.sql("""
+                UPDATE chat_user_file SET status='READY', deleted_at=NULL, purge_after=NULL,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE tenant_id=:tenant AND owner_actor_id=:actor AND id=:id AND status='DELETING'
+                  AND NOT EXISTS (SELECT 1 FROM chat_file_work w WHERE w.tenant_id=:tenant AND w.file_id=:id
+                      AND w.action='DELETE' AND w.status IN ('NOT_STARTED','IN_PROGRESS','COMPLETED'))
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+    }
+
+    /** Releases an upload's bytes now instead of when its trash window ends. */
+    public boolean purgeNow(TenantId tenant, ActorId actor, UUID id) {
+        boolean due = jdbc.sql("""
+                UPDATE chat_user_file SET purge_after=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+                WHERE tenant_id=:tenant AND owner_actor_id=:actor AND id=:id AND status='DELETING'
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+        if (due) enqueue(tenant, id, "DELETE");
+        return due;
+    }
+
+    /** Every upload the owner has in the trash, so emptying it needs no client round trip per file. */
+    public List<UUID> trashed(TenantId tenant, ActorId actor, int limit) {
+        return jdbc.sql("""
+                SELECT id FROM chat_user_file
+                WHERE tenant_id=:tenant AND owner_actor_id=:actor AND status='DELETING'
+                ORDER BY deleted_at, id LIMIT :limit
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit)
+                .query(UUID.class).list();
+    }
+
+    /**
+     * Queues the byte-releasing work for uploads whose trash window has passed; the existing DELETE work then
+     * owns the release and its retries. Returns how many were queued.
+     */
+    public int enqueueDuePurges(int limit) {
+        var due = jdbc.sql("""
+                SELECT tenant_id, id FROM chat_user_file
+                WHERE status='DELETING' AND purge_after IS NOT NULL AND purge_after < CURRENT_TIMESTAMP
+                  AND NOT EXISTS (SELECT 1 FROM chat_file_work w WHERE w.tenant_id=chat_user_file.tenant_id
+                      AND w.file_id=chat_user_file.id AND w.action='DELETE'
+                      AND w.status IN ('NOT_STARTED','IN_PROGRESS'))
+                ORDER BY purge_after LIMIT :limit FOR UPDATE SKIP LOCKED
+                """).param("limit", limit)
+                .query((row, ignored) -> new java.util.AbstractMap.SimpleEntry<>(
+                        new TenantId(row.getObject("tenant_id", UUID.class)), row.getObject("id", UUID.class)))
+                .list();
+        due.forEach(entry -> enqueue(entry.getKey(), entry.getValue(), "DELETE"));
+        return due.size();
     }
 
     /** What an upload is attached to. A file with any of these cannot be deleted; the library labels it. */

@@ -45,6 +45,7 @@ public class JdbcChatArtifactCleanupRepository {
                 WITH candidates AS (
                     SELECT a.tenant_id, a.id FROM chat_file_artifact a
                     WHERE a.deleted_at IS NOT NULL
+                      AND (a.purge_after IS NULL OR a.purge_after < CURRENT_TIMESTAMP)
                       AND (a.cleanup_until IS NULL OR a.cleanup_until < CURRENT_TIMESTAMP)
                     ORDER BY a.deleted_at LIMIT :limit FOR UPDATE SKIP LOCKED
                 )
@@ -61,6 +62,7 @@ public class JdbcChatArtifactCleanupRepository {
                 WITH candidates AS (
                     SELECT a.tenant_id, a.id FROM chat_image_artifact a
                     WHERE a.deleted_at IS NOT NULL
+                      AND (a.purge_after IS NULL OR a.purge_after < CURRENT_TIMESTAMP)
                       AND (a.cleanup_until IS NULL OR a.cleanup_until < CURRENT_TIMESTAMP)
                     ORDER BY a.deleted_at LIMIT :limit FOR UPDATE SKIP LOCKED
                 )
