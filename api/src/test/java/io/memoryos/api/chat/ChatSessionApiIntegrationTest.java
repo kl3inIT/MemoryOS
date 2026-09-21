@@ -2898,6 +2898,38 @@ class ChatSessionApiIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}")).andExpect(status().isNotFound());
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+
+            String heading = """
+                    {"organization":"CÔNG TY CỔ PHẦN TASCO","number":"12","about":"giao ban tuần",
+                     "place":"Phòng họp A","opened":"09 giờ 00","closed":"10 giờ 15","chair":"Nguyễn Văn An",
+                     "chairRole":"Giám đốc","secretary":"Trần Thị Bình","secretaryRole":"Chuyên viên",
+                     "attendees":["Anh Thanh","Chị Lan"]}
+                    """;
+            var exported = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertEquals('P', exported[0], "the biên bản is a Word package");
+            assertEquals('K', exported[1]);
+            // The endpoint answers a Word document, so its failures must still answer a problem document.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
+                    .andExpect(status().isNotFound())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+            UUID unwritten = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Chưa có biên bản', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", unwritten)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            mockMvc.perform(post("/api/meetings/" + unwritten + "/minutes/export").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
             assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
                     .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
         } finally {

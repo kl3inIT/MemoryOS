@@ -76,7 +76,9 @@ class MeetingController {
         MeetingMinutesDocument.Heading toHeading() {
             return new MeetingMinutesDocument.Heading(text(organization), text(parentOrganization), text(number),
                     text(about), text(place), text(opened), text(closed), text(chair), text(chairRole), text(secretary),
-                    text(secretaryRole), attendees == null ? List.of() : attendees);
+                    text(secretaryRole),
+                    attendees == null ? List.of()
+                            : attendees.stream().map(HeadingRequest::text).toList());
         }
 
         private static String text(@Nullable String value) {
