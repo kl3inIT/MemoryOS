@@ -17,6 +17,21 @@ The publication tree integrates main `287ca9c` (Chat/JIT) and `3f236d5` (Search 
 
 Main V1–V20 remains byte-identical; the twelve Drive migrations moved from V18–V29 to V21–V32 without content changes. Verification uses disposable databases and isolated build outputs, not `memoryos_main_review`, `memoryos_drive_review` or their Flyway histories. Publication does not authorize a runtime cutover, PR, issue closure, reindex, extraction retry or changes to retained Sources, credentials, selections, schedules or Google content.
 
+## MEM-90 Google service accounts and Group membership — 2026-09-21
+
+| Boundary | Cases | What they establish |
+| --- | --- | --- |
+| `GoogleDriveServiceAccountKeyTest` | 3 | The downloaded key parses only as a strict service-account JSON with an RSA key of at least 2048 bits and Google's fixed endpoints; its private key never appears in `toString` and is zeroed on close |
+| `RestGoogleDriveProviderTest.serviceAccountsExchangeASignedAssertionForTheImpersonatedUser`, `directoryReadsUsersGroupsAndDerivedMembersPageByPage` | 2 | The JWT bearer assertion is RS256-signed with the key ID, names the impersonated admin and every scope; Directory users, groups and derived members page with cycle detection, keep ACTIVE users and treat a CUSTOMER member as the whole domain |
+| `GoogleDriveServiceAccountCredentialTest` | 6 | A verified key is stored encrypted, ownerless and acting as the canonical admin; refused delegation and a non-admin store nothing; only global managers hold one; replacement keeps the service account; revocation destroys the key; group sync reads one page per call, promotes only a completed generation, treats a vanished group as empty, keeps the active generation after a failure and forgets it on revocation |
+| `PostgresGoogleDriveAclRepositoryTest.serviceAccountCredentialKeepsEvidenceCurrentWithoutAnOAuthApp` | 1 | A service account is an active ACL context without an OAuth app or refresh token |
+| `SourceSyncAccessTest` | 4 | A `group` permission grants `google_group:<email>`; only the active generation of an active service account admits its members; a whole-domain member admits the admin's domain only; a running generation never replaces the active one; a credential needing reauthorization stops granting membership; index-time access and the recheck agree |
+| `PostgresGoogleDriveSyncTest.serviceAccountSourcesAdvanceGroupMembershipAlongsideTheirSyncSteps` | 1 | Drive sync steps advance group membership for a service-account Source until nothing is due, and never for an OAuth Source |
+| `SourceApiIntegrationTest.serviceAccountsAreVerifiedAsTheirAdminAndNeverEchoTheKey` | 1 | Create and replace require CSRF and global authority, return `authMethod` and the service-account email without key material, honour `If-Match`, and surface the admin and key failures as typed problems |
+| `google-drive-service-account-form.test.tsx` | 3 | The form refuses a non-service-account file without echoing it, sends the key once and never renders it, and replaces a key with the revision precondition |
+
+The Orca browser verified the Service account tab against the real API and Google: a syntactic key for an unknown service account was refused by Google, the form showed the delegation message in Vietnamese, cleared the key, and nothing was stored. Live Workspace acceptance with a delegated service account is still open.
+
 ## MEM-126 SharePoint connector — 2026-09-16
 
 Backend evidence for the SharePoint connector as implemented on the MEM-126 branch. This is automated proof against real PostgreSQL with Microsoft replaced by doubles; it is not live-tenant acceptance and covers no browser surface, which waits on MEM-106.
