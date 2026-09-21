@@ -113,7 +113,8 @@ class ChatLibraryArchiveIntegrationTest {
                 new io.memoryos.chat.ChatStorageQuotaService(tenants, mock(IamAuthorization.class),
                         new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
                         new JdbcChatLibraryRepository(jdbc)),
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // The service is used directly: its @Transactional boundaries are Spring's, and each call here is one
         // statement group against real PostgreSQL, which auto-commits without them.

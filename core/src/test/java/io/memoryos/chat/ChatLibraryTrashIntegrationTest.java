@@ -111,12 +111,14 @@ class ChatLibraryTrashIntegrationTest {
                 new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc), library);
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
-                new ChatRetentionProperties(false, WINDOW), jpa.transactionManager(),
+                new ChatRetentionProperties(false, WINDOW, java.time.Duration.ZERO,
+                        java.time.Duration.ofHours(24)), jpa.transactionManager(),
                 io.memoryos.TestDatabase.noAudit());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
         trash = new ChatLibraryTrashService(tenants, new JdbcChatRepository(jdbc), files, artifacts,
-                new JdbcImageArtifactRepository(jdbc), new ChatRetentionProperties(false, WINDOW),
+                new JdbcImageArtifactRepository(jdbc), new ChatRetentionProperties(false, WINDOW, java.time.Duration.ZERO,
+                        java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
         seedConversation();
     }

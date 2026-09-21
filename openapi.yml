@@ -1757,6 +1757,64 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/retention:
+    put:
+      tags:
+      - Chat Settings
+      summary: Bound how long this Tenant keeps conversations nobody has touched (Onyx
+        maximum_chat_retention_days)
+      operationId: saveChatRetention
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRetentionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved retention policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -7585,6 +7643,13 @@ paths:
       summary: List the actor's private chat sessions
       operationId: listChatSessions
       parameters:
+      - name: archived
+        in: query
+        description: List the conversations the caller archived instead of the sidebar's
+        required: false
+        schema:
+          type: boolean
+          default: false
       - name: offset
         in: query
         required: false
@@ -7719,6 +7784,57 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/unarchive:
+    post:
+      tags:
+      - Chat
+      summary: Put an archived conversation back on the sidebar
+      operationId: unarchiveChatSession
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The conversation as it is now listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7998,6 +8114,69 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/sessions/{sessionId}/messages/{messageId}/branch:
+    post:
+      tags:
+      - Chat
+      summary: Copy this conversation's selected path up to one message into a new
+        conversation
+      operationId: branchChatSession
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchChatSessionRequest"
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: The new conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/messages/{assistantMessageId}/cancel:
     post:
       tags:
@@ -8064,6 +8243,103 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Cancellation"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/{sessionId}/archive:
+    post:
+      tags:
+      - Chat
+      summary: Take one of the caller's conversations off the sidebar while keeping
+        it
+      operationId: archiveChatSession
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The conversation as it is now archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/sessions/archive-all:
+    post:
+      tags:
+      - Chat
+      summary: Archive the caller's conversations in one command
+      operationId: archiveAllChatSessions
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid request or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Conversation or message not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: How many conversations were archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionsArchived"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -9912,6 +10188,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatFileUploadResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/exports:
+    get:
+      tags:
+      - Chat
+      summary: The caller's exports that are still worth offering
+      operationId: listChatExports
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Exports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatExport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Ask for a ZIP of the caller's own conversations and files
+      operationId: requestChatExport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: The export being prepared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatExport"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11858,6 +12228,57 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatMessage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/settings/retention/preview:
+    get:
+      tags:
+      - Chat Settings
+      summary: How many conversations a retention policy would delete now
+      operationId: previewChatRetention
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          maximum: 3650
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: What the policy would delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatRetentionPreview"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14089,6 +14510,102 @@ paths:
             application/json:
               schema:
                 type: object
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/exports/{exportId}:
+    get:
+      tags:
+      - Chat
+      summary: How far one export has got
+      operationId: getChatExport
+      parameters:
+      - name: exportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatExport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/exports/{exportId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Download a finished export
+      operationId: downloadChatExport
+      parameters:
+      - name: exportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The ZIP
+          content:
+            application/octet-stream: {}
       security:
       - bearerAuth: []
       - browserSession: []
@@ -16522,12 +17039,34 @@ components:
           type: boolean
           description: "Deep research: agentic research across the web and connected\
             \ sources; uses significantly more tokens per query."
+        chatRetentionDays:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Days of inactivity after which a conversation is deleted; null
+            is no policy
         revision:
           type: integer
           format: int64
       required:
+      - chatRetentionDays
       - deepResearchEnabled
       - revision
+    ChatRetentionRequest:
+      type: object
+      properties:
+        chatRetentionDays:
+          type: integer
+          format: int32
+          description: Days of inactivity after which a conversation is deleted; leave
+            it out to clear the policy
+          maximum: 3650
+          minimum: 1
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
     Title:
       type: object
       properties:
@@ -16567,13 +17106,39 @@ components:
           - string
           - "null"
           description: "Pinned reasoning level: OFF, LOW, MEDIUM or HIGH"
+        archivedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the owner archived it; null while it is on the sidebar
+        branchedFromSessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation this one was branched from
+        branchedFromMessageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The message this one was branched from
+        temporary:
+          type: boolean
+          description: "A temporary conversation: listed nowhere, and deleted with\
+            \ its uploads after its window"
       required:
+      - archivedAt
+      - branchedFromMessageId
+      - branchedFromSessionId
       - createdAt
       - id
       - personaId
       - projectId
       - reasoningEffort
       - rootMessageId
+      - temporary
       - title
       - updatedAt
     Sharing:
@@ -18830,6 +19395,10 @@ components:
           - type: string
             format: uuid
           - type: "null"
+        temporary:
+          type: boolean
+          description: "Leave no history: listed nowhere, deleted with its uploads\
+            \ after its window"
       required:
       - title
     Send:
@@ -18973,6 +19542,15 @@ components:
       required:
       - clientRequestId
       - text
+    BranchChatSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: What to call the branch; the server names it after its origin
+            when absent
+          maxLength: 200
+          minLength: 0
     Cancellation:
       type: object
       properties:
@@ -18989,6 +19567,14 @@ components:
       required:
       - assistantMessageId
       - status
+    ChatSessionsArchived:
+      type: object
+      properties:
+        archived:
+          type: integer
+          format: int32
+      required:
+      - archived
     ProviderTestInput:
       type: object
       properties:
@@ -19301,6 +19887,57 @@ components:
         expiresAt:
           type: string
           format: date-time
+    ChatExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: "PENDING, RUNNING, READY or FAILED"
+        sessionCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        fileCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        skipped:
+          type: array
+          description: Names of the files the export left out
+          items:
+            type: string
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - expiresAt
+      - failure
+      - fileCount
+      - id
+      - sessionCount
+      - sizeBytes
+      - skipped
+      - status
     UsageReportRequest:
       type: object
       description: An inclusive UTC day range of at most 366 days
@@ -21316,6 +21953,21 @@ components:
         retrievedAt:
           type: string
           format: date-time
+    ChatRetentionPreview:
+      type: object
+      properties:
+        days:
+          type:
+          - integer
+          - "null"
+          format: int32
+        affected:
+          type: integer
+          format: int64
+          description: How many conversations this policy would delete now
+      required:
+      - affected
+      - days
     TextDeltaEvent:
       type: object
       properties:

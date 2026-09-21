@@ -1,6 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
+  CalendarClock,
   ArrowLeft,
   AudioLines,
   Blocks,
@@ -53,6 +54,7 @@ export type AdminPage =
   | "images"
   | "interpreter"
   | "file-storage"
+  | "retention"
   | "providers"
   | "models"
   | "mcp"
@@ -331,6 +333,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Code Interpreter")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/chat-retention"
+                  icon={<CalendarClock className="size-4" />}
+                  selected={adminPage === "retention"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Lưu giữ hội thoại")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

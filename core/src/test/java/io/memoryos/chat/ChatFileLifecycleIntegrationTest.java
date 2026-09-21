@@ -85,7 +85,8 @@ class ChatFileLifecycleIntegrationTest {
                         new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
                 // This suite covers the release itself, so deletion releases at once; the trash window is
                 // covered by ChatLibraryTrashIntegrationTest.
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
         fileContent = new ChatFileContentService(new JdbcUserFileRepository(jdbc), tenants, storage);
         documents = TestDatabase.transactionalProxy(new JdbcDocumentRepository(jdbc, new ObjectMapper(), ignored -> {}),

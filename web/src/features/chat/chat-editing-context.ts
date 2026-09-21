@@ -2,6 +2,8 @@ import { createContext } from "react";
 import type { Branch, Feedback } from "./chat-workspace-api";
 export const ChatEditingContext = createContext<{
   sessionId?: string;
+  /** The conversation's own title, so a branch taken from it can be named after it. */
+  sessionTitle?: string;
   busy: boolean;
   branches: Branch[];
   feedback: Feedback[];

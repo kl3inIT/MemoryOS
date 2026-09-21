@@ -52,11 +52,13 @@ class ChatSessionController {
     private final ImageArtifactService images;
     private final io.memoryos.chat.interpreter.InterpreterService interpreter;
     private final io.memoryos.chat.ChatTurnService turns;
+    private final io.memoryos.chat.application.ChatBranchService branches;
 
     ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
-            io.memoryos.chat.interpreter.InterpreterService interpreter, io.memoryos.chat.ChatTurnService turns) {
+            io.memoryos.chat.interpreter.InterpreterService interpreter, io.memoryos.chat.ChatTurnService turns,
+            io.memoryos.chat.application.ChatBranchService branches) {
         this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
-        this.turns = turns;
+        this.turns = turns; this.branches = branches;
     }
 
     @DeleteMapping
@@ -73,16 +75,63 @@ class ChatSessionController {
     @ApiResponse(responseCode = "201", description = "Created private session", useReturnTypeSchema = true)
     ChatSessionResponse create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody CreateChatSession request) {
-        return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(), request.projectId()));
+        return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(),
+                request.projectId(), Boolean.TRUE.equals(request.temporary())));
     }
 
     @GetMapping
     @Operation(operationId = "listChatSessions", summary = "List the actor's private chat sessions")
     @ApiResponse(responseCode = "200", description = "Owned sessions", useReturnTypeSchema = true)
     List<ChatSessionResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Parameter(description = "List the conversations the caller archived instead of the sidebar's")
+            @RequestParam(defaultValue = "false") boolean archived,
             @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "30") int limit) {
-        return sessions.list(identity.actorId(), offset, limit).stream().map(ChatSessionResponse::from).toList();
+        return sessions.list(identity.actorId(), archived, offset, limit).stream().map(ChatSessionResponse::from).toList();
     }
+
+    @PostMapping("/{sessionId}/archive")
+    @Operation(operationId = "archiveChatSession",
+            summary = "Take one of the caller's conversations off the sidebar while keeping it")
+    @ApiResponse(responseCode = "200", description = "The conversation as it is now archived", useReturnTypeSchema = true)
+    ChatSessionResponse archive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID sessionId) {
+        return ChatSessionResponse.from(sessions.archive(identity.actorId(), sessionId, true));
+    }
+
+    @PostMapping("/{sessionId}/unarchive")
+    @Operation(operationId = "unarchiveChatSession", summary = "Put an archived conversation back on the sidebar")
+    @ApiResponse(responseCode = "200", description = "The conversation as it is now listed", useReturnTypeSchema = true)
+    ChatSessionResponse unarchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID sessionId) {
+        return ChatSessionResponse.from(sessions.archive(identity.actorId(), sessionId, false));
+    }
+
+    @Schema(name = "ChatSessionsArchived")
+    record ArchivedResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int archived) {}
+
+    @PostMapping("/archive-all")
+    @Operation(operationId = "archiveAllChatSessions", summary = "Archive the caller's conversations in one command")
+    @ApiResponse(responseCode = "200", description = "How many conversations were archived", useReturnTypeSchema = true)
+    ArchivedResponse archiveAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return new ArchivedResponse(sessions.archiveAll(identity.actorId()));
+    }
+
+    @PostMapping("/{sessionId}/messages/{messageId}/branch")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(operationId = "branchChatSession",
+            summary = "Copy this conversation's selected path up to one message into a new conversation")
+    @ApiResponse(responseCode = "201", description = "The new conversation", useReturnTypeSchema = true)
+    ChatSessionResponse branch(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID sessionId, @PathVariable UUID messageId,
+            @RequestBody(required = false) BranchChatSession request) {
+        return ChatSessionResponse.from(branches.branch(identity.actorId(), sessionId, messageId,
+                request == null ? null : request.title()));
+    }
+
+    @Schema(name = "BranchChatSessionRequest")
+    record BranchChatSession(
+            @Schema(description = "What to call the branch; the server names it after its origin when absent")
+            @Size(max = 200) @Nullable String title) {}
 
     @GetMapping("/{sessionId}")
     @Operation(operationId = "getChatSession", summary = "Read an owned chat session")
@@ -122,5 +171,8 @@ class ChatSessionController {
                                 file.sizeBytes(), file.chart(), file.deleted())).toList())).toList();
     }
 
-    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}
+    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId,
+            @Nullable UUID projectId,
+            @Schema(description = "Leave no history: listed nowhere, deleted with its uploads after its window")
+            @Nullable Boolean temporary) {}
 }

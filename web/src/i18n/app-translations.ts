@@ -91,6 +91,88 @@ export const vietnameseUi: Record<string, string> = {
   "Hạn mức": "Limit",
   "Bỏ hạn mức riêng của {{name}}": "Remove the individual limit of {{name}}",
   "Không giới hạn": "No limit",
+  // MEM-153 phase 3: taking one's own conversations and files out
+  "Dữ liệu của tôi": "My data",
+  "Xuất dữ liệu": "Export my data",
+  "Một tệp ZIP gồm mọi hội thoại của bạn (JSON và trang HTML đọc được) cùng tệp trong thư viện.":
+    "One ZIP with every conversation of yours — as JSON and as a readable page — and the files in your library.",
+  "Đang chuẩn bị…": "Preparing…",
+  "Bản xuất đang được đóng gói. Bạn có thể rời trang và quay lại sau.":
+    "The export is being packed. You can leave this page and come back.",
+  "Bản xuất đã sẵn sàng: {{sessions}} hội thoại, {{files}} tệp · {{size}}":
+    "The export is ready: {{sessions}} conversations, {{files}} files · {{size}}",
+  "Liên kết tải hết hạn {{date}}.": "The download expires on {{date}}.",
+  "Không đưa vào {{count}} tệp: {{names}}": "{{count}} files were left out: {{names}}",
+  "Tải bản xuất": "Download the export",
+  "Không đóng gói được bản xuất.": "The export could not be packed.",
+  // MEM-153 phase 2: the Tenant's chat retention policy
+  "Lưu giữ hội thoại": "Conversation retention",
+  "Hội thoại không có hoạt động nào trong số ngày này sẽ bị xoá như chính người sở hữu xoá nó. Tệp tải lên giữ vòng đời riêng.":
+    "A conversation with no activity for this many days is deleted as its owner deleting it would. Uploads keep their own lifecycle.",
+  "Không tải được cài đặt hội thoại.": "The conversation settings could not be loaded.",
+  "Bật chính sách lưu giữ": "Enforce a retention policy",
+  "Khi tắt, hội thoại được giữ cho tới khi người sở hữu xoá.":
+    "With it off, a conversation is kept until its owner deletes it.",
+  "Số ngày không hoạt động": "Days of inactivity",
+  "Số ngày phải từ 1 đến {{max}}.": "The number of days must be between 1 and {{max}}.",
+  "{{count}} hội thoại sẽ bị xoá khi lưu.":
+    "{{count}} conversations will be deleted when this is saved.",
+  "Không có hội thoại nào bị xoá ngay.": "No conversation is deleted right away.",
+  "Đã lưu chính sách lưu giữ.": "The retention policy was saved.",
+  "Lưu chính sách": "Save the policy",
+  // MEM-153 phase 2: temporary conversations
+  "Chat tạm thời": "Temporary chat",
+  "Bật chat tạm thời": "Turn on temporary chat",
+  "Tắt chat tạm thời": "Turn off temporary chat",
+  "Chat tạm thời đang bật": "Temporary chat is on",
+  "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
+    "For when you do not want this conversation kept.",
+  "Bắt đầu": "Start",
+  "Không vào lịch sử": "Not in history",
+  "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
+    "It is not on the sidebar and search does not find it.",
+  "Tự xoá": "Deletes itself",
+  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xoá sau khi bạn dừng hỏi.":
+    "The conversation and the files you send into it are deleted once you stop asking.",
+  "Không chia sẻ, không dự án": "No link, no Project",
+  "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
+    "It cannot be given a share link or put in a Project.",
+  "Tạm thời": "Temporary",
+  "Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó.":
+    "This conversation is not kept, and it deletes itself with its files.",
+  // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
+  "Lưu trữ": "Archive",
+  "Bỏ lưu trữ": "Unarchive",
+  "Đã lưu trữ": "Archived",
+  "Lưu trữ hội thoại": "Archiving conversations",
+  "Hội thoại đã lưu trữ": "Archived conversations",
+  "Hội thoại đã lưu trữ không còn trên thanh bên, nhưng vẫn mở được và vẫn tìm được.":
+    "An archived conversation leaves the sidebar, but still opens and is still found by search.",
+  "Xem, bỏ lưu trữ hoặc xoá những hội thoại bạn đã cất đi.":
+    "See, unarchive or delete what you put away.",
+  Mở: "Open",
+  "Lưu trữ tất cả hội thoại": "Archive every conversation",
+  "Lưu trữ tất cả hội thoại?": "Archive every conversation?",
+  "Dọn thanh bên mà vẫn giữ lại mọi hội thoại.": "Clear the sidebar and keep every conversation.",
+  "Thanh bên sẽ trống, nhưng mọi hội thoại vẫn còn trong trang Hội thoại đã lưu trữ.":
+    "The sidebar empties, and every conversation stays on the archived conversations page.",
+  "Lưu trữ tất cả": "Archive all",
+  "Đang lưu trữ…": "Archiving…",
+  "Đã lưu trữ {{count}} hội thoại.": "{{count}} conversations were archived.",
+  "Tìm trong hội thoại đã lưu trữ": "Search the archived conversations",
+  "Không tải được hội thoại đã lưu trữ.": "The archived conversations could not be loaded.",
+  "Không có hội thoại nào khớp": "No conversation matches",
+  "Chưa lưu trữ hội thoại nào": "Nothing is archived yet",
+  "Hãy thử từ khoá khác.": "Try another word.",
+  "Lưu trữ một hội thoại để dọn thanh bên mà vẫn giữ lại nó.":
+    "Archive a conversation to clear the sidebar and still keep it.",
+  "Đã lưu trữ {{date}}": "Archived {{date}}",
+  "Xoá hội thoại {{name}}": "Delete {{name}}",
+  "Gửi tin nhắn mới vào một hội thoại đã lưu trữ sẽ tự bỏ lưu trữ nó.":
+    "Asking an archived conversation something takes it back out of the archive.",
+  "Tách sang hội thoại mới": "Branch into a new chat",
+  "Tách từ hội thoại gốc": "Branched from",
+  "Nhánh của {{title}}": "Branch of {{title}}",
   // MEM-152 file library v2, phase 3: ZIP download and richer previews
   "Tải về ZIP": "Download as ZIP",
   "Đang đóng gói {{count}} tệp thành ZIP…": "Packing {{count}} files into a ZIP…",

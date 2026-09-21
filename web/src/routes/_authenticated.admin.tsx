@@ -57,6 +57,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
     const fileStorageSelected = Boolean(matchRoute({ to: "/admin/file-storage" }));
+    const retentionSelected = Boolean(matchRoute({ to: "/admin/chat-retention" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
@@ -81,19 +82,21 @@ export const Route = createFileRoute("/_authenticated/admin")({
                     ? "file-storage"
                     : interpreterSelected
                       ? "interpreter"
-                      : mcpSelected
-                        ? "mcp"
-                        : agentsSelected
-                          ? "agents"
-                          : costsSelected
-                            ? "costs"
-                            : auditSelected
-                              ? "audit"
-                              : documentSetsSelected
-                                ? "documentSets"
-                                : addSourceSelected
-                                  ? "addSource"
-                                  : "sources";
+                      : retentionSelected
+                        ? "retention"
+                        : mcpSelected
+                          ? "mcp"
+                          : agentsSelected
+                            ? "agents"
+                            : costsSelected
+                              ? "costs"
+                              : auditSelected
+                                ? "audit"
+                                : documentSetsSelected
+                                  ? "documentSets"
+                                  : addSourceSelected
+                                    ? "addSource"
+                                    : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -107,6 +110,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 page === "images" ||
                 page === "interpreter" ||
                 page === "file-storage" ||
+                page === "retention" ||
                 page === "costs"
               ? canManageModels
               : page === "mcp"
@@ -144,19 +148,21 @@ export const Route = createFileRoute("/_authenticated/admin")({
                           ? "Dung lượng tệp"
                           : page === "interpreter"
                             ? "Code Interpreter"
-                            : page === "mcp"
-                              ? "Máy chủ MCP"
-                              : page === "agents"
-                                ? "Quản lý trợ lý"
-                                : page === "costs"
-                                  ? "AI costs"
-                                  : page === "audit"
-                                    ? "Audit log"
-                                    : page === "documentSets"
-                                      ? "Bộ tài liệu"
-                                      : page === "addSource"
-                                        ? "Add a source"
-                                        : "Sources",
+                            : page === "retention"
+                              ? "Lưu giữ hội thoại"
+                              : page === "mcp"
+                                ? "Máy chủ MCP"
+                                : page === "agents"
+                                  ? "Quản lý trợ lý"
+                                  : page === "costs"
+                                    ? "AI costs"
+                                    : page === "audit"
+                                      ? "Audit log"
+                                      : page === "documentSets"
+                                        ? "Bộ tài liệu"
+                                        : page === "addSource"
+                                          ? "Add a source"
+                                          : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

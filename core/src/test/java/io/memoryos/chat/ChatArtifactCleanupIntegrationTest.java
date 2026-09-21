@@ -91,10 +91,12 @@ class ChatArtifactCleanupIntegrationTest {
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         images = new ImageArtifactService(writes, storage, pictures, tenants, quotas,
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());

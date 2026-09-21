@@ -491,7 +491,8 @@ class WorkerFileProcessingIntegrationTest {
                         new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbcClient),
                         new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbcClient)),
                 // This suite drives the worker's own release path, so deletion releases at once.
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO), transactions);
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), transactions);
         byte[] content;
         try (var output = new java.io.ByteArrayOutputStream()) {
             var image = new java.awt.image.BufferedImage(3000, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
