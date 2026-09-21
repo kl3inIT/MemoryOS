@@ -6,11 +6,13 @@ history.
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
+from .auth import AuthError, ClientCredentials, RefreshToken, StaticToken, TokenSource, TokenStore
 from .config import Actor, Config
 
 
@@ -25,7 +27,13 @@ class Reply:
     message_id: str
     status: str
     content: str
+    # Documents the reply cited.
     document_ids: list[str]
+    # Documents the Chat timeline showed as read while answering, cited or not.
+    read_document_ids: list[str]
+    # One entry per tool step: its queries, its effective filters and what it read. An empty
+    # answer is diagnosed from the filters, which a bare step count cannot explain.
+    timeline: list[dict[str, Any]]
     steps: int
     seconds: float
 
@@ -37,10 +45,22 @@ class ActorClient:
         self._config = config
         self._actor = actor
         self._http = httpx.Client(base_url=config.base_url, timeout=config.timeout_seconds)
-        self._token = actor.token or self._client_credentials_token()
+        self._auth_http = httpx.Client(timeout=config.timeout_seconds)
+        self._tokens = self._token_source()
+        # Fail at start rather than at the first question.
+        try:
+            self._tokens.bearer()
+        except AuthError as failure:
+            self.close()
+            raise BenchmarkError(str(failure)) from failure
+
+    @property
+    def label(self) -> str:
+        return self._actor.label
 
     def close(self) -> None:
         self._http.close()
+        self._auth_http.close()
 
     def __enter__(self) -> ActorClient:
         return self
@@ -48,38 +68,54 @@ class ActorClient:
     def __exit__(self, *_: object) -> None:
         self.close()
 
-    def _client_credentials_token(self) -> str:
-        assert self._actor.client_id and self._actor.client_secret  # noqa: S101 - checked in config
-        response = httpx.post(
-            f"{self._config.issuer}/protocol/openid-connect/token",
-            data={
-                "grant_type": "client_credentials",
-                "client_id": self._actor.client_id,
-                "client_secret": self._actor.client_secret,
-            },
-            timeout=self._config.timeout_seconds,
-        )
-        if response.status_code != 200:
-            raise BenchmarkError(
-                f"{self._actor.label}: token request failed ({response.status_code})"
+    def _token_source(self) -> TokenSource:
+        token_url = f"{self._config.issuer}/protocol/openid-connect/token"
+        store = TokenStore(self._config.token_store)
+        if store.refresh_token(self._actor.label):
+            return RefreshToken(
+                self._auth_http,
+                token_url,
+                self._config.login_client_id,
+                store,
+                self._actor.label,
             )
-        token = response.json().get("access_token")
-        if not isinstance(token, str) or not token:
-            raise BenchmarkError(f"{self._actor.label}: token response carried no access token")
-        return token
+        if self._actor.client_id and self._actor.client_secret:
+            return ClientCredentials(
+                self._auth_http,
+                token_url,
+                self._actor.client_id,
+                self._actor.client_secret,
+                self._actor.label,
+            )
+        if self._actor.token:
+            return StaticToken(self._actor.token)
+        raise BenchmarkError(
+            f"{self._actor.label}: no credential; run `rag-benchmark login --actor "
+            f"{self._actor.label}`"
+        )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:  # noqa: ANN401
         # The bearer filter chain disables CSRF; the header is what the browser sends and costs
         # nothing here.
-        headers = {
-            "Authorization": f"Bearer {self._token}",
-            "X-MemoryOS-CSRF": "1",
-            **kwargs.pop("headers", {}),
-        }
-        response = self._http.request(method, path, headers=headers, **kwargs)
+        extra = kwargs.pop("headers", {})
+        response = self._send(method, path, extra, kwargs)
+        if response.status_code == 401:
+            # The token lapsed between renewal and use; renew once, then give up.
+            self._tokens.invalidate()
+            response = self._send(method, path, extra, kwargs)
         if response.status_code in (401, 403):
             raise BenchmarkError(f"{self._actor.label}: {path} refused ({response.status_code})")
         return response
+
+    def _send(
+        self, method: str, path: str, extra: dict[str, str], kwargs: dict[str, Any]
+    ) -> httpx.Response:
+        try:
+            bearer = self._tokens.bearer()
+        except AuthError as failure:
+            raise BenchmarkError(str(failure)) from failure
+        headers = {"Authorization": f"Bearer {bearer}", "X-MemoryOS-CSRF": "1", **extra}
+        return self._http.request(method, path, headers=headers, **kwargs)
 
     # Retrieval -----------------------------------------------------------------
 
@@ -102,11 +138,28 @@ class ActorClient:
             page += 1
         return results[:limit]
 
+    def readable(self, document_id: str, generation: str) -> bool:
+        """
+        Whether this actor may read a document, as the server decides it: the Chat citation reader
+        applies the same eligibility and generation checks as retrieval and needs only membership.
+        """
+        response = self._request(
+            "GET",
+            f"/api/chat/documents/{document_id}",
+            params={"generation": generation, "from": 0},
+        )
+        if response.status_code == 200:
+            return True
+        if response.status_code == 404:
+            return False
+        raise BenchmarkError(f"document read failed ({response.status_code}) for {document_id}")
+
     # Chat ----------------------------------------------------------------------
 
     def ask(self, question: str) -> Reply:
         """One question in its own session, read from saved history so no event stream is parsed."""
-        session = self._request("POST", "/api/chat/sessions", json={"title": None})
+        # The API requires a non-blank title; the session is deleted as soon as the reply is read.
+        session = self._request("POST", "/api/chat/sessions", json={"title": "rag-benchmark"})
         if session.status_code not in (200, 201):
             raise BenchmarkError(f"session creation failed ({session.status_code})")
         session_body = session.json()
@@ -121,7 +174,12 @@ class ActorClient:
         accepted = self._request(
             "POST",
             f"/api/chat/sessions/{session_id}/messages",
-            json={"parentMessageId": parent_message_id, "text": question},
+            json={
+                "parentMessageId": parent_message_id,
+                # Request identity: a fresh one per ask, so no two asks are deduplicated into one.
+                "clientRequestId": str(uuid.uuid4()),
+                "text": question,
+            },
         )
         if accepted.status_code != 202:
             raise BenchmarkError(f"message rejected ({accepted.status_code})")
@@ -158,6 +216,35 @@ class ActorClient:
             document_ids=sorted(
                 {source["documentId"] for source in sources if source.get("documentId")}
             ),
+            read_document_ids=sorted(
+                {
+                    str(document["documentId"])
+                    for step in activity.get("steps") or []
+                    for document in step.get("documents") or []
+                    if document.get("documentId")
+                }
+            ),
+            timeline=[
+                {
+                    "position": step.get("position"),
+                    "tool": step.get("toolName"),
+                    "status": step.get("status"),
+                    "failure": step.get("failure"),
+                    "durationMs": step.get("durationMs"),
+                    "queries": step.get("queries") or [],
+                    "filters": step.get("filters"),
+                    "documents": [
+                        {
+                            "documentId": document.get("documentId"),
+                            "title": document.get("title"),
+                            "from": document.get("startOrdinal"),
+                            "to": document.get("endOrdinal"),
+                        }
+                        for document in step.get("documents") or []
+                    ],
+                }
+                for step in activity.get("steps") or []
+            ],
             steps=len(activity.get("steps", [])),
             seconds=seconds,
         )

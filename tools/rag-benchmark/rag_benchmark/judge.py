@@ -1,6 +1,6 @@
 """
-The answer judge: one model call per question, temperature 0, verdict plus reason so a score can be
-reread.
+The answer judge: a few model calls per question at temperature 0, the majority verdict plus a
+reason, so a score can be reread and a borderline answer does not swing on one call.
 """
 
 from __future__ import annotations
@@ -19,12 +19,25 @@ SYSTEM = (
     "Thiếu thông tin chính, sai số liệu, hoặc thêm thông tin không có trong đáp án chuẩn "
     "thì tính sai."
 )
+# The actor may read only part of the evidence; the gold answer names what it may answer. Requiring
+# the reply to announce the absence of the rest marked correct answers wrong, so it is not
+# required; what is required is that the reply does not supply the part it could not read.
+PARTIAL = (
+    " Người hỏi chỉ được đọc một phần tài liệu. Câu trả lời đúng khi nêu đúng phần đáp án "
+    "chuẩn cho phép và không khẳng định phần còn lại. Không bắt buộc phải nói ra rằng phần "
+    "còn lại thiếu. Tự điền phần còn lại bằng suy đoán hoặc kiến thức chung, kể cả khi điều "
+    "đó có thể đúng, thì tính sai."
+)
 
 
 @dataclass(frozen=True)
 class Verdict:
     correct: bool
     reason: str
+    # How many trials returned the recorded verdict, out of how many ran. A verdict that was
+    # not unanimous is a weaker measurement; hiding that presents one call as the truth.
+    agreed: int = 1
+    trials: int = 1
 
 
 class Judge:
@@ -41,14 +54,40 @@ class Judge:
     def available(self) -> bool:
         return self._available
 
-    def score(self, question: str, gold_answer: str, reply: str) -> Verdict:
+    def score(self, question: str, gold_answer: str, reply: str, partial: bool = False) -> Verdict:
         if not self._available:
             return Verdict(correct=False, reason="unavailable: no judge key configured")
+        verdicts: list[Verdict] = []
+        for _ in range(self._config.judge_trials):
+            verdict = self._once(question, gold_answer, reply, partial)
+            if verdict.reason.startswith(("judge call failed", "unparsed verdict")):
+                # A broken call is not a vote: report it rather than let two trials outvote it.
+                return verdict
+            verdicts.append(verdict)
+        agreed = sum(verdict.correct for verdict in verdicts)
+        correct = agreed * 2 > len(verdicts)
+        winner = next(verdict for verdict in verdicts if verdict.correct == correct)
+        majority = agreed if correct else len(verdicts) - agreed
+        if agreed not in (0, len(verdicts)):
+            return Verdict(
+                correct=correct,
+                reason=f"{agreed}/{len(verdicts)} chấm đúng · {winner.reason}"[:500],
+                agreed=majority,
+                trials=len(verdicts),
+            )
+        return Verdict(
+            correct=winner.correct,
+            reason=winner.reason,
+            agreed=majority,
+            trials=len(verdicts),
+        )
+
+    def _once(self, question: str, gold_answer: str, reply: str, partial: bool) -> Verdict:
         body = {
             "model": self._config.judge_model,
             "temperature": 0,
             "messages": [
-                {"role": "system", "content": SYSTEM},
+                {"role": "system", "content": SYSTEM + (PARTIAL if partial else "")},
                 {
                     "role": "user",
                     "content": (
