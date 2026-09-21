@@ -127,7 +127,9 @@ public class ChatFileService {
             var tenant = write(actor);
             var file = owned(tenant, actor, id, true).file();
             if (file.status() != UserFile.Status.DELETING && file.status() != UserFile.Status.DELETED) {
-                if (files.usedByWorkspace(tenant, id)) throw ChatException.conflict();
+                var usage = files.usage(tenant, List.of(id));
+                if (!usage.isEmpty()) throw new ChatFileInUseException(usage.stream()
+                        .map(used -> new ChatFileInUseException.Usage(used.kind().name(), used.id(), used.name())).toList());
                 files.delete(tenant, id, file.status() == UserFile.Status.UPLOADING || "UPLOAD_EXPIRED".equals(file.errorCode()));
             }
             return owned(tenant, actor, id, false).file();

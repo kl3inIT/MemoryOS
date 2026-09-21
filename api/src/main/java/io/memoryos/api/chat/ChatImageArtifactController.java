@@ -14,9 +14,12 @@ import java.io.IOException;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,6 +35,15 @@ import org.springframework.web.bind.annotation.RestController;
 class ChatImageArtifactController {
     private final ImageArtifactService images;
     ChatImageArtifactController(ImageArtifactService images) { this.images = images; }
+
+    @DeleteMapping("/{artifactId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "deleteChatImageArtifact",
+            summary = "Delete an owner-private generated image; the answer keeps a deleted card and a sweep releases the bytes")
+    @ApiResponse(responseCode = "204", description = "Image deleted")
+    void delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID artifactId) {
+        images.delete(identity.actorId(), artifactId);
+    }
 
     @GetMapping(value = "/{artifactId}/content", produces = {"image/png", "image/jpeg", "image/webp"})
     @Operation(operationId = "getChatImageArtifact", summary = "Read an owner-private generated image")

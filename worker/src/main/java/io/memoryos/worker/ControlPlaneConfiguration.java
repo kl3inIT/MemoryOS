@@ -126,6 +126,18 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-session-purge-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> sessions.purge());
+    }
+
+    @Bean
+    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
+        return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> artifacts.cleanup());
+    }
+
+    @Bean
     RecurringTask<Void> extractionArtifactCleanupTask(ExtractionArtifactPort artifacts) {
         return Tasks.recurring("memoryos-extraction-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());

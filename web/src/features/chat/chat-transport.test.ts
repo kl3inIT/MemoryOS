@@ -182,6 +182,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       sizeBytes: 12_698,
       chart: false,
+      deleted: false,
     };
     expect(
       toUiMessages([{ ...row, generatedFiles: [generated] }])[0]?.metadata?.generatedFiles,

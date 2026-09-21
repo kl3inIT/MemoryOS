@@ -71,6 +71,10 @@ management:
           include: readinessState,db,redis,dbScheduler,objectStorage
 
 memoryos:
+  chat:
+    retention:
+      # Onyx HARD_DELETE_CHATS: off keeps a deleted conversation and its generated files, on removes them.
+      hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:false}
   extraction:
     docling:
       endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}

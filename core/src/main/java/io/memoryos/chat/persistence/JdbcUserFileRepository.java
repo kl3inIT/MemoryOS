@@ -151,11 +151,28 @@ public class JdbcUserFileRepository {
         if (!uploading) enqueue(tenant, id, "DELETE");
     }
 
-    public boolean usedByWorkspace(TenantId tenant, UUID id) {
+    /** What an upload is attached to. A file with any of these cannot be deleted; the library labels it. */
+    public record Usage(UUID fileId, Kind kind, UUID id, String name) {
+        public enum Kind { AGENT, PROJECT }
+    }
+
+    /** Attachments of several files in one query, as Onyx resolves them for a page rather than per file. */
+    public List<Usage> usage(TenantId tenant, java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
         return jdbc.sql("""
-                SELECT EXISTS(SELECT 1 FROM persona WHERE tenant_id=:tenant AND deleted_at IS NULL AND (file_ids @> CAST(:file AS jsonb) OR avatar_file_id=:id))
-                    OR EXISTS(SELECT 1 FROM chat_project WHERE tenant_id=:tenant AND file_ids @> CAST(:file AS jsonb))
-                """).param("tenant", tenant.value()).param("file", "[\"" + id + "\"]").param("id", id).query(Boolean.class).single();
+                SELECT f.id AS file_id, 'AGENT' AS kind, p.id, p.name FROM chat_user_file f
+                    JOIN persona p ON p.tenant_id=f.tenant_id AND p.deleted_at IS NULL
+                        AND (p.file_ids @> jsonb_build_array(CAST(f.id AS text)) OR p.avatar_file_id=f.id)
+                WHERE f.tenant_id=:tenant AND f.id IN (:ids)
+                UNION ALL
+                SELECT f.id AS file_id, 'PROJECT' AS kind, c.id, c.name FROM chat_user_file f
+                    JOIN chat_project c ON c.tenant_id=f.tenant_id AND c.file_ids @> jsonb_build_array(CAST(f.id AS text))
+                WHERE f.tenant_id=:tenant AND f.id IN (:ids)
+                ORDER BY kind, name
+                """).param("tenant", tenant.value()).param("ids", ids)
+                .query((row, ignored) -> new Usage(row.getObject("file_id", UUID.class),
+                        Usage.Kind.valueOf(row.getString("kind")), row.getObject("id", UUID.class), row.getString("name")))
+                .list();
     }
 
     private static Row map(ResultSet row) throws SQLException {

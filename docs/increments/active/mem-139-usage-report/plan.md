@@ -4,7 +4,7 @@ One pull request on `kl3inIT/mem-139-usage-report`.
 
 - [x] 1. PDF spike: embed Hanken Grotesk and render a Vietnamese string with PDFBox; a test proves the
       text survives extraction.
-- [x] 2. Data: `V90__ai_usage_report.sql`; the export query over `ai_usage` (rows, members, Groups);
+- [x] 2. Data: `V91__ai_usage_report.sql`; the export query over `ai_usage` (rows, members, Groups);
       `UsageReportData`, which aggregates as Onyx's `build_usage_report_data` does (top 10 people,
       top 8 models, flows and Groups, "Other (n)", daily cost and active people, idle members).
 - [x] 3. Files: the CSV writer with its formula guard; the PDF renderer (cover, Adoption, Spend over time,

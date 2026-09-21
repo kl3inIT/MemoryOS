@@ -2036,12 +2036,20 @@ export type GeneratedFileRef = {
      * Chart data is available at /api/chat/file-artifacts/{id}/chart
      */
     chart: boolean;
+    /**
+     * The file was deleted from the library; its content routes no longer serve it
+     */
+    deleted: boolean;
 };
 
 export type ImageRef = {
     id: string;
     mediaType: string;
     revisedPrompt: string | null;
+    /**
+     * The image was deleted from the library; its content route no longer serves it
+     */
+    deleted: boolean;
 };
 
 export type Interval = {
@@ -2269,6 +2277,48 @@ export type ChatPersona = {
 export type ChatPersonaPage = {
     items: Array<ChatPersona>;
     nextCursor: string | null;
+};
+
+export type ChatLibraryFile = {
+    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+    id: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    createdAt: string;
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    /**
+     * The conversation that produced the file; null for an upload
+     */
+    sessionId: string | null;
+    sessionTitle: string | null;
+    /**
+     * Projects and assistants holding this file
+     */
+    usedBy: Array<ChatLibraryFileUsage>;
+    /**
+     * False while a project or assistant holds the file
+     */
+    deletable: boolean;
+};
+
+export type ChatLibraryFileUsage = {
+    kind: 'AGENT' | 'PROJECT';
+    id: string;
+    name: string;
+};
+
+export type ChatLibraryPage = {
+    items: Array<ChatLibraryFile>;
+    /**
+     * Files matching the filter, not only this page
+     */
+    totalCount: number;
+    /**
+     * Total size of the files matching the filter
+     */
+    totalBytes: number;
+    hasMore: boolean;
 };
 
 export type InterpreterHealthResponse = {
@@ -11830,6 +11880,60 @@ export type ListChatModelFlowsResponses = {
 
 export type ListChatModelFlowsResponse = ListChatModelFlowsResponses[keyof ListChatModelFlowsResponses];
 
+export type ListChatLibraryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * Empty means every source
+         */
+        sources?: Array<string>;
+        /**
+         * Empty means every category
+         */
+        categories?: Array<string>;
+        /**
+         * Only this conversation's own files; the caller must own it
+         */
+        sessionId?: string;
+        sort?: string;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library';
+};
+
+export type ListChatLibraryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+};
+
+export type ListChatLibraryError = ListChatLibraryErrors[keyof ListChatLibraryErrors];
+
+export type ListChatLibraryResponses = {
+    /**
+     * A page of the caller's files
+     */
+    200: ChatLibraryPage;
+};
+
+export type ListChatLibraryResponse = ListChatLibraryResponses[keyof ListChatLibraryResponses];
+
 export type GetChatInterpreterHealthData = {
     body?: never;
     path?: never;
@@ -13173,3 +13277,101 @@ export type LeaveChatPersonaResponses = {
 };
 
 export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChatPersonaResponses];
+
+export type DeleteChatImageArtifactData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/image-artifacts/{artifactId}';
+};
+
+export type DeleteChatImageArtifactErrors = {
+    /**
+     * Invalid image request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Image not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatImageArtifactError = DeleteChatImageArtifactErrors[keyof DeleteChatImageArtifactErrors];
+
+export type DeleteChatImageArtifactResponses = {
+    /**
+     * Image deleted
+     */
+    204: void;
+};
+
+export type DeleteChatImageArtifactResponse = DeleteChatImageArtifactResponses[keyof DeleteChatImageArtifactResponses];
+
+export type DeleteChatFileArtifactData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}';
+};
+
+export type DeleteChatFileArtifactErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatFileArtifactError = DeleteChatFileArtifactErrors[keyof DeleteChatFileArtifactErrors];
+
+export type DeleteChatFileArtifactResponses = {
+    /**
+     * File deleted
+     */
+    204: void;
+};
+
+export type DeleteChatFileArtifactResponse = DeleteChatFileArtifactResponses[keyof DeleteChatFileArtifactResponses];
