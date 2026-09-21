@@ -156,7 +156,7 @@ describe("Source execution and current-file history", () => {
           new URL((request as Request).url).searchParams.getAll("status").join(","),
         );
 
-    await user.click(screen.getByRole("button", { name: /^Status$/ }));
+    await user.click(screen.getByRole("button", { name: /^Filter status$/ }));
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Failed" }));
     // The menu stays open, so a second status is one more click.
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Completed" }));
@@ -168,7 +168,7 @@ describe("Source execution and current-file history", () => {
     await waitFor(() => expect(statusesOf()).toContain("SUCCEEDED,FAILED"));
 
     await user.click(screen.getByRole("button", { name: "Clear status filter" }));
-    expect(screen.getByRole("button", { name: /^Status$/ })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Filter status$/ })).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Clear status filter" })).not.toBeInTheDocument();
     await waitFor(() => expect(statusesOf().at(-1)).toBe(""));
   });

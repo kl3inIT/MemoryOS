@@ -106,10 +106,12 @@ const outcomeLegend: Array<
 /** Run statuses a reader filters by, labelled and coloured like the outcome legend. */
 const runStatusFilter: {
   label: string;
+  addLabel: string;
   clearLabel: string;
   options: readonly SourceFilterOption[];
 } = {
   label: "Status",
+  addLabel: "Filter status",
   clearLabel: "Clear status filter",
   options: [
     { value: "SUCCEEDED", label: "Completed", tone: "success" },

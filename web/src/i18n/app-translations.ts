@@ -1040,6 +1040,7 @@ export const englishUi: Record<string, string> = {
   "Error code": "Mã lỗi",
   "Run ID": "ID lần chạy",
   "Latest run": "Lần chạy gần nhất",
+  "Filter status": "Lọc trạng thái",
   "Clear status filter": "Xóa bộ lọc trạng thái",
   Trigger: "Kích hoạt",
   "Automatic schedule": "Lịch tự động",
