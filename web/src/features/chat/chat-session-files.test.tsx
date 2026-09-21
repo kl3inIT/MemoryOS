@@ -50,6 +50,9 @@ const generated: ChatLibraryFile = {
   sessionId: SESSION,
   sessionTitle: "Báo cáo",
   messageId: ANSWER,
+  favorite: false,
+  status: "READY",
+  errorCode: null,
   usedBy: [],
   deletable: true,
 };

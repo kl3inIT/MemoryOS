@@ -22,13 +22,25 @@ vi.mock("@/features/identity/application-session-context", () => ({
 
 const base: Pick<
   ChatLibraryFile,
-  "sizeBytes" | "createdAt" | "sessionId" | "sessionTitle" | "messageId" | "usedBy" | "deletable"
+  | "sizeBytes"
+  | "createdAt"
+  | "sessionId"
+  | "sessionTitle"
+  | "messageId"
+  | "favorite"
+  | "status"
+  | "errorCode"
+  | "usedBy"
+  | "deletable"
 > = {
   sizeBytes: 1024,
   createdAt: new Date().toISOString(),
   sessionId: null,
   sessionTitle: null,
   messageId: null,
+  favorite: false,
+  status: "READY",
+  errorCode: null,
   usedBy: [],
   deletable: true,
 };

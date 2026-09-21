@@ -1,5 +1,44 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
+  "Khớp nội dung tệp.": "Matches the file's contents.",
+  "Tìm trong nội dung tệp": "Search inside files",
+  "Cách tìm": "Search by",
+  "Nội dung": "Contents",
+  "Tên A → Z": "Name A → Z",
+  "Yêu thích": "Favourites",
+  "Trạng thái tệp": "File state",
+  "Đang xử lý / Lỗi": "Processing / failed",
+  "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.":
+    "Searches inside the files you uploaded once they are indexed. Files Chat created are found by name only.",
+  "Nhập điều bạn nhớ về nội dung tệp.": "Type what you remember of the contents.",
+  "Không tìm được trong nội dung tệp.": "The contents could not be searched.",
+  "Không có tệp nào khớp nội dung này.": "No file contains this.",
+  "Không có tệp nào đang xử lý hoặc bị lỗi.": "No file is being processed or has failed.",
+  "Chưa có tệp nào. Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.":
+    "No files yet. Upload one or let Chat create one, and it appears here.",
+  "Trạng thái": "State",
+  "Chưa xác nhận tải lên": "Upload not confirmed",
+  "Tải lên hết hạn · hãy tải lại tệp": "Upload expired · upload the file again",
+  "Sẵn sàng": "Ready",
+  "Gỡ bỏ {{name}}": "Remove {{name}}",
+  "Gỡ bỏ": "Remove",
+  "Đổi tên tệp": "Rename file",
+  "Tên mới hiển thị ở mọi nơi và khi tải về. Phần đuôi tệp được giữ nguyên.":
+    "The new name is shown everywhere and used for downloads. The extension is kept.",
+  "Bỏ yêu thích {{name}}": "Unstar {{name}}",
+  "Đánh dấu yêu thích {{name}}": "Star {{name}}",
+  "Thả tệp vào đây để tải lên": "Drop files here to upload them",
+  "Tải lên": "Upload",
+  "Tải tệp lên thư viện": "Upload files to the library",
+  "Tiến trình tải lên": "Upload progress",
+  "Đang tải lên {{count}} tệp": "Uploading {{count}} files",
+  "Đã tải lên xong": "Uploads finished",
+  "Đóng danh sách tải lên": "Close the upload list",
+  "Đã tải lên · {{size}}": "Uploaded · {{size}}",
+  "Đã huỷ": "Cancelled",
+  "Tải lên lỗi": "Upload failed",
+  "Huỷ tải {{name}}": "Cancel uploading {{name}}",
   // MEM-152 file library v2
   "Thêm vào dự án": "Add to project",
   "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.":

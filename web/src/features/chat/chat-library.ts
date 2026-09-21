@@ -1,14 +1,21 @@
 import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { i18n } from "@/i18n";
 import {
+  changeChatLibraryFile,
   copyChatLibraryFile,
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
   getChatProject,
   listChatLibrary,
+  searchChatLibraryContent,
   updateChatProject,
 } from "@/lib/hey-api/sdk.gen";
-import type { ChatLibraryFile, ChatLibraryPage } from "@/lib/hey-api/types.gen";
+import type {
+  ChatLibraryContentMatch,
+  ChatLibraryFile,
+  ChatLibraryPage,
+} from "@/lib/hey-api/types.gen";
 import type { PreviewTarget } from "./chat-file-preview";
 import { chatFileSchema, waitForChatFile, type ChatFile } from "./chat-files";
 import { projectSchema } from "./chat-workspace-api";
@@ -16,7 +23,8 @@ import { projectSchema } from "./chat-workspace-api";
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
 export type LibraryCategory = ChatLibraryFile["category"];
-export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST";
+export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST" | "NAME";
+export type ContentMatch = ChatLibraryContentMatch;
 
 export const chatLibraryKey = ["chat-library"] as const;
 export const LIBRARY_PAGE_SIZE = 50;
@@ -28,6 +36,10 @@ export type LibraryFilter = {
   sort: LibrarySort;
   /** Only this conversation's own files (MEM-144); absent lists the whole library. */
   sessionId?: string;
+  /** Only starred files (MEM-152). */
+  favorite?: boolean;
+  /** PENDING lists the owner's uploads still uploading, processing or failed instead of the usable ones. */
+  status?: "READY" | "PENDING";
 };
 
 export async function loadLibrary(
@@ -41,6 +53,8 @@ export async function loadLibrary(
       sources: filter.sources,
       categories: filter.categories,
       sessionId: filter.sessionId,
+      favorite: filter.favorite,
+      status: filter.status,
       sort: filter.sort,
       offset,
       limit: LIBRARY_PAGE_SIZE,
@@ -218,4 +232,45 @@ export function branchSteps(
     node = parent;
   }
   return node ? steps : [];
+}
+
+/** Renames a file or stars it; the library shows the result at once, as does every surface reading its name. */
+export async function changeLibraryFile(
+  file: LibraryFile,
+  change: { filename?: string; favorite?: boolean },
+  signal: AbortSignal,
+): Promise<LibraryFile> {
+  const { data } = await changeChatLibraryFile({
+    path: { source: file.source, id: file.id },
+    body: change,
+    headers: sameOriginMutationHeaders,
+    signal,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Finds the caller's own indexed uploads by what they contain, with the passages that matched. */
+export async function searchLibraryContent(
+  query: string,
+  signal: AbortSignal,
+): Promise<ContentMatch[]> {
+  const { data } = await searchChatLibraryContent({ query: { query }, signal, throwOnError: true });
+  return data;
+}
+
+/** The query's occurrences inside a passage, so a match can be seen without opening the file. */
+export function highlightParts(text: string, query: string): { text: string; match: boolean }[] {
+  const needle = query.trim().toLocaleLowerCase(i18n.language);
+  if (!needle) return [{ text, match: false }];
+  const parts: { text: string; match: boolean }[] = [];
+  const haystack = text.toLocaleLowerCase(i18n.language);
+  let from = 0;
+  for (let at = haystack.indexOf(needle, from); at >= 0; at = haystack.indexOf(needle, from)) {
+    if (at > from) parts.push({ text: text.slice(from, at), match: false });
+    parts.push({ text: text.slice(at, at + needle.length), match: true });
+    from = at + needle.length;
+  }
+  if (from < text.length) parts.push({ text: text.slice(from), match: false });
+  return parts.length > 0 ? parts : [{ text, match: false }];
 }
