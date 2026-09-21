@@ -12,7 +12,12 @@
 
 ## Phase 2 — bring in and find
 
-Not started.
+- [x] **Direct upload.** *Upload* button, whole-page drop target and per-file progress tray on `/library`, over the composer's own upload pipeline; `status=PENDING` view with *Retry* and *Remove*, polling while anything is processing.
+- [x] **Content search.** `GET /api/chat/library/search`; `JdbcUserFileRepository.searchable`; `ChatLibraryService.searchContent` over `ChatFileSearchService`; a Name/Contents switch with marked passages.
+- [x] **Rename and favourite.** V93 `favorite_at`; `PATCH /api/chat/library/{source}/{id}` renaming the file's own name and keeping its extension; `favorite=true` filter, `sort=NAME`, star and rename in the row menu.
+- [x] **Tests.** `ChatPersistenceIntegrationTest.theLibraryRenamesStarsAndListsPendingUploadsOnlyForTheirOwner`, `ChatLibraryRenameTest`, `ChatLibraryContentSearchTest`, `ChatSessionApiIntegrationTest.theLibraryRenamesStarsAndShowsUploadsStillBeingProcessed`, and the web tests for upload, pending view, rename/star, content search and highlighting.
+- [x] **Docs.** Phase 2 decisions here, chat spec, verification matrix.
+- [ ] **Evidence.** Local 2026-09-21: the listed Java tests and `OpenApiContractTest` pass; `chat-library*` and `chat-session-files` web tests pass (25), with typecheck, oxlint, oxfmt and the i18n audit clean. CI on the pull request runs `clean check`.
 
 ## Phase 3 — many files
 
