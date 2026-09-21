@@ -52,7 +52,9 @@ class StaticToken:
         return self._token
 
     def invalidate(self) -> None:
-        raise AuthError("the captured bearer token expired; use `rag-benchmark login` instead")
+        # Nothing to renew. Raising here would escape the client's 401 retry and end the run, so the
+        # request is retried with the same token and the second 401 fails that ask alone.
+        return None
 
 
 @dataclass
@@ -182,7 +184,13 @@ class TokenStore:
     def _read(self) -> dict[str, object]:
         if not self._path.exists():
             return {}
-        rows = json.loads(self._path.read_text(encoding="utf-8"))
+        try:
+            rows = json.loads(self._path.read_text(encoding="utf-8"))
+        except ValueError as broken:
+            raise AuthError(
+                f"{self._path} is not readable JSON ({broken}); "
+                "delete it and run `rag-benchmark login` again"
+            ) from broken
         return rows if isinstance(rows, dict) else {}
 
 

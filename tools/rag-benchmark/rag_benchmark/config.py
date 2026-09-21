@@ -21,6 +21,18 @@ def _required(name: str) -> str:
     return value
 
 
+def _whole(name: str, fallback: int) -> int:
+    """A malformed number is a configuration mistake; `cli.main` reports those instead of
+    letting a ValueError escape."""
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return fallback
+    try:
+        return int(value)
+    except ValueError as broken:
+        raise ConfigError(f"{name} must be a whole number, not {value!r}") from broken
+
+
 def _suffix(label: str) -> str:
     return label.upper().replace("-", "_")
 
@@ -104,7 +116,7 @@ class Config:
                 "MEMORYOS_JUDGE_BASE_URL", "https://openrouter.ai/api/v1"
             ).rstrip("/"),
             judge_api_key=os.environ.get("MEMORYOS_JUDGE_API_KEY", "").strip(),
-            judge_trials=max(1, int(os.environ.get("MEMORYOS_JUDGE_TRIALS", "3"))),
+            judge_trials=max(1, _whole("MEMORYOS_JUDGE_TRIALS", 3)),
             data_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_DATA", root / "datasets")),
             out_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_OUT", root / "runs")),
             # Outside the repository: a refresh token is a credential.
@@ -117,5 +129,5 @@ class Config:
             login_client_id=os.environ.get(
                 "MEMORYOS_BENCHMARK_LOGIN_CLIENT", "memoryos-integration"
             ).strip(),
-            login_port=int(os.environ.get("MEMORYOS_BENCHMARK_LOGIN_PORT", "8765")),
+            login_port=_whole("MEMORYOS_BENCHMARK_LOGIN_PORT", 8765),
         )

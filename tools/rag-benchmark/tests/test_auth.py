@@ -12,6 +12,7 @@ import pytest
 from rag_benchmark.auth import (
     AuthError,
     RefreshToken,
+    StaticToken,
     TokenStore,
     account_of,
     authorization_url,
@@ -171,3 +172,13 @@ def test_login_refuses_a_port_another_login_still_holds(tmp_path: Path) -> None:
                 open_browser=lambda _url: None,
                 timeout_seconds=1,
             )
+
+
+def test_a_captured_token_does_not_end_the_run_when_it_expires() -> None:
+    # The client invalidates on 401 and retries; raising here escaped that retry and ended the run.
+    token = StaticToken("captured")
+
+    token.invalidate()
+
+    # Still usable: the second 401 fails that one ask, not the run.
+    assert token.bearer() == "captured"
