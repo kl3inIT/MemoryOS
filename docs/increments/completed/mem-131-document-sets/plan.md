@@ -18,7 +18,8 @@ Ship shared, Source-narrowing Document Sets for agents and direct Search without
 - `gradlew.bat :core:test --tests "io.memoryos.chat.ChatPersistenceIntegrationTest" --tests "io.memoryos.retrieval.DocumentSearchServiceTest" --tests "io.memoryos.retrieval.SearchRequestTest"` passed.
 - `pnpm check` passed: generated-client stability, i18n, lint, format, typecheck, 87 Vitest files/431 tests, route validation and production build.
 - `gradlew.bat clean check` passed after the strict Modulith gate required the retrieval-to-connector `SourceCollectionScopeResolver` port; retrieval no longer depends on Chat.
-- Browser smoke reached `/document-sets`, where the running frontend correctly rendered the authenticated-session error boundary because no local API/identity runtime was available. No privileged page interaction could be exercised.
+- Browser smoke reached `/document-sets`, where the running frontend correctly rendered the authenticated-session error boundary because no local API/identity runtime was available.
+- The reviewer accepted the authenticated admin surfaces manually on 2026-09-21, after the implementation merged in PR #258. That acceptance is the reviewer's own observation; it is not reproduced by an automated check here.
 
 ## Done when
 
