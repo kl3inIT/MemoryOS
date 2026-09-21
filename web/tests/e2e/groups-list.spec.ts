@@ -265,6 +265,11 @@ test("scoped group managers can delegate peers but cannot remove their own scope
     page.getByRole("button", { name: "Remove manager for peer@example.com" }),
   ).toBeVisible();
   expect(managerWrites).toBe(0);
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await page.waitForURL((url) => url.pathname === "/admin/groups");
+  expect(managerWrites).toBe(1);
+
+  await page.goto(`/admin/groups/${customId}`);
   await page.getByRole("button", { name: "Remove peer@example.com from HROD" }).click();
   await page
     .getByRole("alertdialog")
