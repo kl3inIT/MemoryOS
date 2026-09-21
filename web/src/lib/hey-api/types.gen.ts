@@ -2391,7 +2391,9 @@ export type AuditEvent = {
     resourceType: string | null;
     resourceId: string | null;
     resourceLabel: string | null;
-    details: string;
+    details: {
+        [key: string]: unknown;
+    };
     traceId: string | null;
     endpoint: string | null;
     sourceIp: string | null;

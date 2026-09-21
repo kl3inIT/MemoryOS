@@ -67,7 +67,7 @@ class AuditLogController {
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceType,
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceId,
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String resourceLabel,
-                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, type = "object", additionalPropertiesSchema = Object.class)
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
                          Map<String, Object> details,
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String traceId,
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String endpoint,

@@ -68,7 +68,9 @@ public class SourceAccessPolicy {
     private void recordRefusal(IamAccess access, ActorId actorId, SourceId sourceId) {
         if (access.authority() == Authority.SCOPED && sources.exists(access.tenantId(), sourceId)) {
             audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.PERMISSION_DENIED, access.tenantId())
-                    .outcome(io.memoryos.iam.audit.AuditOutcome.DENIED).actor(actorId).resource("SOURCE", sourceId.value(), null)
+                    .outcome(io.memoryos.iam.audit.AuditOutcome.DENIED).actor(actorId)
+                    .resource("SOURCE", sourceId.value(), sources.auditView(access.tenantId(), sourceId)
+                            .map(JdbcSourceRepository.AuditView::name).orElse(null))
                     .detail("capability", IamCapability.SOURCES_MANAGE.name()).detail("scope", "SOURCE").build());
         }
     }

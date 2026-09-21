@@ -20950,7 +20950,7 @@ components:
           - string
           - "null"
         details:
-          type: string
+          type: object
           additionalProperties: {}
         traceId:
           type:

@@ -607,7 +607,8 @@ public class DefaultGroupService implements GroupService {
                 && !invariants.isManagedBy(access.tenantId(), actorId, groupId)) {
             // A Group manager reaching past the Groups they manage, the refusal Onyx records as permission.denied.
             audit.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId())
-                    .outcome(AuditOutcome.DENIED).actor(actorId).resource("GROUP", groupId.value(), null)
+                    .outcome(AuditOutcome.DENIED).actor(actorId)
+                    .resource("GROUP", groupId.value(), groups.find(access.tenantId(), groupId).map(GroupEntity::getName).orElse(null))
                     .detail("capability", IamCapability.GROUPS_MANAGE.name()).detail("scope", "GROUP").build());
             throw groupNotFound(groupId);
         }

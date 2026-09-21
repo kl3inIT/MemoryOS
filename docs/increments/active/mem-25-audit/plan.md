@@ -18,7 +18,7 @@ One pull request on `kl3inIT/mem-25-audit`, one commit per step.
       SharePoint credentials.
 - [x] 6. Read: `AUDIT_READ` (implied by `SYSTEM_ADMIN`), the reader with cursor pagination and filters, three
       endpoints, `audit.export` recorded on export, OpenAPI regenerated, `pnpm generate:api`.
-- [ ] 7. Web: Monitoring › Audit log — one filter row (period, actor, action, outcome), a table of time, actor,
+- [x] 7. Web: Monitoring › Audit log — one filter row (period, actor, action, outcome), a table of time, actor,
       action sentence with its code, resource, outcome and IP, a When / Who / What detail panel with a before-and-after
       table, CSV export of the current filters, and a line stating retention and who may read it. Vietnamese copy;
       action sentences translated, codes left as data.

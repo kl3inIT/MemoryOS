@@ -1,6 +1,18 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { capabilityCopy } from "./group-capability-copy";
-import { Bot, ChevronsDownUp, ChevronsUpDown, Cpu, FileSearch, FolderCog, Plug, ScrollText, ShieldCheck, UserCog, Users } from "lucide-react";
+import {
+  Bot,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Cpu,
+  FileSearch,
+  FolderCog,
+  Plug,
+  ScrollText,
+  ShieldCheck,
+  UserCog,
+  Users,
+} from "lucide-react";
 import { Collapsible, Switch } from "radix-ui";
 import type { ComponentProps, ComponentType } from "react";
 import { Button } from "@/components/ui/button";
