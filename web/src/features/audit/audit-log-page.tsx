@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { CircleAlert, Download, ScrollText, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/composites/empty-state";
+import { PersonAvatar } from "@/components/composites/person-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -218,13 +219,12 @@ export function AuditLogPage() {
             tabIndex={0}
             className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 focus-visible:ring-inset"
           >
-            <Table className="w-full min-w-[52rem] table-fixed border-collapse">
+            <Table className="w-full min-w-[48rem] table-fixed border-collapse">
               <TableCaption className="sr-only">{ui("Audit log")}</TableCaption>
               <colgroup>
-                <col className="w-[11rem]" />
-                <col className="w-[24%]" />
+                <col className="w-[9.5rem]" />
+                <col className="w-[30%]" />
                 <col />
-                <col className="w-[22%]" />
                 <col className="w-[8.5rem]" />
               </colgroup>
               <TableHeader className="border-b border-border-subtle bg-surface-subtle text-left">
@@ -236,66 +236,89 @@ export function AuditLogPage() {
                     {ui("Person")}
                   </TableHead>
                   <TableHead scope="col" className="h-11 px-4">
-                    {ui("Action")}
+                    {ui("Activity")}
                   </TableHead>
                   <TableHead scope="col" className="h-11 px-4">
-                    {ui("Item")}
-                  </TableHead>
-                  <TableHead scope="col" className="h-11 px-4">
-                    {ui("Outcome")}
+                    {ui("IP address")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border-subtle">
-                {rows.map((event) => (
-                  <TableRow
-                    key={event.id}
-                    className="cursor-pointer bg-surface-raised align-middle transition-colors hover:bg-surface-subtle"
-                    onClick={() => setOpen(event)}
-                  >
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-content-secondary tabular-nums">
-                      {formatUiDate(event.occurredAt, { dateStyle: "medium", timeStyle: "short" })}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <span
-                        className="block truncate font-main-ui-action text-content-primary"
-                        title={event.actorLabel ?? undefined}
-                      >
-                        {event.actorLabel ?? ui("System")}
-                      </span>
-                      {event.actorEmail && event.actorEmail !== event.actorLabel ? (
-                        <span className="mt-0.5 block truncate font-secondary-body text-content-muted">
-                          {event.actorEmail}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <button
-                        type="button"
-                        className="rounded-sm text-left text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-                        onClick={(click) => {
-                          click.stopPropagation();
-                          setOpen(event);
-                        }}
-                      >
-                        {actionLabels[event.action]
-                          ? ui(actionLabels[event.action]!)
-                          : event.action}
-                      </button>
-                    </TableCell>
-                    <TableCell
-                      className="truncate px-4 py-3 text-content-secondary"
-                      title={event.resourceLabel ?? undefined}
+                {rows.map((event) => {
+                  const person = event.actorLabel ?? ui("System");
+                  return (
+                    <TableRow
+                      key={event.id}
+                      className="cursor-pointer bg-surface-raised align-middle transition-colors hover:bg-surface-subtle"
+                      onClick={() => setOpen(event)}
                     >
-                      {event.resourceLabel ?? "—"}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <StatusBadge tone={outcomeTones[event.outcome]}>
-                        {ui(outcomeLabels[event.outcome])}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell className="h-16 px-4 py-3 tabular-nums">
+                        <span className="block text-content-primary">
+                          {formatUiDate(event.occurredAt, {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <span className="block font-secondary-body text-content-muted">
+                          {formatUiDate(event.occurredAt, { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <PersonAvatar name={person} seed={event.actorId ?? person} />
+                          <span className="min-w-0">
+                            <span
+                              className="block truncate font-main-ui-action text-content-primary"
+                              title={person}
+                            >
+                              {person}
+                            </span>
+                            {event.actorEmail && event.actorEmail !== event.actorLabel ? (
+                              <span className="block truncate font-secondary-body text-content-muted">
+                                {event.actorEmail}
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {/* One sentence with its object, as 1Password and PlanetScale write an event. */}
+                        <button
+                          type="button"
+                          className="block max-w-full truncate rounded-sm text-left text-content-secondary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+                          onClick={(click) => {
+                            click.stopPropagation();
+                            setOpen(event);
+                          }}
+                        >
+                          {actionLabels[event.action]
+                            ? ui(actionLabels[event.action]!)
+                            : event.action}
+                          {event.resourceLabel ? (
+                            <span className="font-main-ui-action text-content-primary">
+                              {" "}
+                              {event.resourceLabel}
+                            </span>
+                          ) : null}
+                        </button>
+                        {/* Most events succeed; only the ones that did not carry a mark. */}
+                        {event.outcome !== "SUCCESS" ? (
+                          <StatusBadge
+                            tone={outcomeTones[event.outcome]}
+                            size="sm"
+                            className="mt-1"
+                          >
+                            {ui(outcomeLabels[event.outcome])}
+                          </StatusBadge>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 font-secondary-body text-content-muted tabular-nums">
+                        {event.sourceIp ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

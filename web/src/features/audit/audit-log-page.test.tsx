@@ -55,11 +55,14 @@ function mount(pages: { items: AuditEvent[]; nextCursor: string | null }[] | "er
 describe("audit log", () => {
   it("lists events with a readable action beside its code, and opens one with what changed", async () => {
     mount([{ items: [event({})], nextCursor: null }]);
-    const row = (await screen.findByText("Updated a model provider")).closest("tr")!;
+    const row = (await screen.findByText("OpenAI")).closest("tr")!;
     expect(within(row).queryByText("llm_provider.update")).toBeNull();
     expect(within(row).getByText("Trần Thu Hà")).toBeVisible();
-    expect(within(row).getByText("OpenAI")).toBeVisible();
-    await userEvent.click(within(row).getByRole("button", { name: "Updated a model provider" }));
+    expect(within(row).getByRole("button")).toHaveTextContent("Updated a model provider OpenAI");
+    expect(within(row).getByText("10.0.4.12")).toBeVisible();
+    // A success carries no mark; only an event that did not succeed does.
+    expect(within(row).queryByText("Succeeded")).toBeNull();
+    await userEvent.click(within(row).getByRole("button", { name: /^Updated a model provider/ }));
     const panel = await screen.findByRole("dialog");
     expect(within(panel).getByText("10.0.4.12")).toBeVisible();
     // Only the field that changed is shown before and after.
@@ -107,7 +110,7 @@ describe("audit log", () => {
 
   it("shows an unknown action by its code rather than failing", async () => {
     mount([{ items: [event({ action: "future.action", details: {} })], nextCursor: null }]);
-    expect(await screen.findByRole("button", { name: "future.action" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: /^future\.action/ })).toBeVisible();
   });
 
   it("compares a changed setting field by field", () => {
