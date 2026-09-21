@@ -25,7 +25,10 @@ public class JdbcChatArtifactCleanupRepository {
 
     public enum Kind { GENERATED_FILE, IMAGE }
 
-    /** {@code preview} is the converted PDF of a presentation (V73); images never have one. */
+    /**
+     * {@code preview} is the second object an artifact owns: the converted PDF of a presentation (V73) for a
+     * generated file, and the library thumbnail (V100) for an image. Both are released with the artifact.
+     */
     public record Claim(Kind kind, TenantId tenantId, UUID id, UUID token,
                         StoredObjectId object, ObjectKey key,
                         @Nullable StoredObjectId previewObject, @Nullable ObjectKey previewKey) {}
@@ -72,7 +75,8 @@ public class JdbcChatArtifactCleanupRepository {
                     cleanup_until = CURRENT_TIMESTAMP + INTERVAL '2' MINUTE
                 FROM candidates c WHERE a.tenant_id = c.tenant_id AND a.id = c.id
                 RETURNING a.tenant_id, a.id, a.cleanup_token, a.stored_object_id, a.object_key,
-                          NULL::uuid AS preview_stored_object_id, NULL::varchar AS preview_object_key
+                          a.thumbnail_stored_object_id AS preview_stored_object_id,
+                          a.thumbnail_object_key AS preview_object_key
                 """).param("limit", limit).query((row, ignored) -> map(Kind.IMAGE, row)).list();
     }
 
@@ -84,8 +88,9 @@ public class JdbcChatArtifactCleanupRepository {
     public boolean remove(Claim claim) {
         boolean image = claim.kind() == Kind.IMAGE;
         String table = image ? "chat_image_artifact" : "chat_file_artifact";
-        // V73 keeps the three preview columns all set or all empty, so they go together.
-        String preview = image ? ""
+        // V73 and V106 each keep their three columns all set or all empty, so they go together.
+        String preview = image
+                ? ", thumbnail_stored_object_id = NULL, thumbnail_object_key = NULL, thumbnail_media_type = NULL"
                 : ", preview_stored_object_id = NULL, preview_object_key = NULL, preview_size_bytes = NULL";
         return jdbc.sql(("""
                 UPDATE %s SET purged_at = CURRENT_TIMESTAMP, stored_object_id = NULL, object_key = NULL,

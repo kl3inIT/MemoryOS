@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -521,7 +522,10 @@ class ChatSessionApiIntegrationTest {
             byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
             return new io.memoryos.objectstorage.ObjectContent() {
                 private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return null; }
+                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
+                    return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png",
+                            new io.memoryos.objectstorage.ContentSha256("b".repeat(64)));
+                }
                 @Override public java.io.InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
@@ -542,6 +546,25 @@ class ChatSessionApiIntegrationTest {
                     .param("session", UUID.fromString(session.path("id").asText())).param("size", png.length)
                     .param("deleted", artifact.equals(gone) ? java.sql.Timestamp.from(Instant.now()) : null).update();
         }
+        // Every rendering is cacheable by the owner's own browser and by nothing in between, so a library page
+        // revisited costs no transfer. These bytes are not a decodable image, so the thumbnail a library asks
+        // for falls back to the artifact itself rather than failing the request.
+        for (var variant : List.of("ORIGINAL", "THUMBNAIL")) {
+            byte[] served = mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content")
+                            .param("variant", variant).with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(content().contentType("image/png"))
+                    .andExpect(header().string("Cache-Control", "private, max-age=31536000, immutable"))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertArrayEquals(png, served);
+        }
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chat_image_artifact WHERE thumbnail_object_key IS NOT NULL")
+                .query(Long.class).single());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content").param("variant", "SOMETHING")
+                        .with(authentication(actor))).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content").with(authentication(other)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content")).andExpect(status().isUnauthorized());
+
         String copyUrl = "/api/chat/library/IMAGE/" + image + "/copy";
 
         mockMvc.perform(post(copyUrl).with(authentication(actor))).andExpect(status().isForbidden());

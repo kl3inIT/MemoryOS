@@ -24,6 +24,14 @@ public class JdbcImageArtifactRepository {
     public record Artifact(UUID id, String mediaType, @Nullable String revisedPrompt, boolean deleted) {}
     public record Content(ObjectKey key, String mediaType) {}
 
+    /**
+     * What a serving read needs: the artifact's own object, and the derived thumbnail once one has been
+     * written. A thumbnail is absent until the library first asks for one, and for an artifact whose bytes
+     * this build cannot decode it stays absent.
+     */
+    public record Servable(ObjectKey key, String mediaType,
+                           @Nullable ObjectKey thumbnailKey, @Nullable String thumbnailMediaType) {}
+
     /** Who owns the conversation an answer belongs to; their library holds whatever that answer generates. */
     public Optional<UUID> owner(TenantId tenant, UUID messageId) {
         return jdbc.sql("""
@@ -132,16 +140,35 @@ public class JdbcImageArtifactRepository {
     }
 
     /** Serving lookup: the actor must own the chat that produced the artifact. */
-    public Optional<Content> owned(TenantId tenant, ActorId actor, UUID id) {
+    public Optional<Servable> owned(TenantId tenant, ActorId actor, UUID id) {
         return jdbc.sql("""
-                SELECT a.object_key, a.media_type FROM chat_image_artifact a
+                SELECT a.object_key, a.media_type, a.thumbnail_object_key, a.thumbnail_media_type
+                FROM chat_image_artifact a
                 JOIN chat_message m ON m.id = a.message_id
                 JOIN chat_session s ON s.id = m.session_id AND s.tenant_id = a.tenant_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
                   AND a.deleted_at IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
-                .query((row, ignored) -> new Content(new ObjectKey(row.getString("object_key")), row.getString("media_type")))
+                .query((row, ignored) -> {
+                    String thumbnailKey = row.getString("thumbnail_object_key");
+                    return new Servable(new ObjectKey(row.getString("object_key")), row.getString("media_type"),
+                            thumbnailKey == null ? null : new ObjectKey(thumbnailKey), row.getString("thumbnail_media_type"));
+                })
                 .optional();
+    }
+
+    /**
+     * Records the thumbnail written for an artifact. Answers false when the artifact already has one, which is
+     * how two requests that rendered the same image at once settle: the loser releases the object it staged.
+     * A deleted artifact is never given one, so the sweep cannot be raced into leaving bytes behind.
+     */
+    public boolean attachThumbnail(TenantId tenant, UUID id, UUID storedObjectId, ObjectKey key, String mediaType) {
+        return jdbc.sql("""
+                UPDATE chat_image_artifact SET thumbnail_stored_object_id = :object, thumbnail_object_key = :key,
+                    thumbnail_media_type = :type
+                WHERE tenant_id = :tenant AND id = :id AND thumbnail_object_key IS NULL AND deleted_at IS NULL
+                """).param("tenant", tenant.value()).param("id", id).param("object", storedObjectId)
+                .param("key", key.value()).param("type", mediaType).update() == 1;
     }
 
     /** Edit-source lookup: an image generated in this owner's session, never one from another conversation. */
