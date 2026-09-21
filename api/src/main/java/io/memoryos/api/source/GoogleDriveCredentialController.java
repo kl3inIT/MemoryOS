@@ -2,13 +2,17 @@ package io.memoryos.api.source;
 
 import io.memoryos.api.source.contract.GoogleDriveAuthorizationResponse;
 import io.memoryos.api.source.contract.GoogleDriveCredentialResponse;
+import io.memoryos.api.source.contract.GoogleDriveServiceAccountRequest;
 import io.memoryos.api.source.contract.RevokeGoogleDriveCredentialRequest;
 import io.memoryos.api.source.contract.StartGoogleDriveAuthorizationRequest;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
+import io.memoryos.connector.GoogleDriveServiceAccountService;
+import io.memoryos.connector.SourceException;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,10 +44,13 @@ final class GoogleDriveCredentialController {
     private final GoogleDriveAuthorizationService authorizations;
     private final GoogleDriveAccountClient accounts;
     private final GoogleDriveOAuthProperties properties;
+    private final GoogleDriveServiceAccountService serviceAccounts;
 
     GoogleDriveCredentialController(GoogleDriveAuthorizationService authorizations,
-            GoogleDriveAccountClient accounts, GoogleDriveOAuthProperties properties) {
+            GoogleDriveAccountClient accounts, GoogleDriveOAuthProperties properties,
+            GoogleDriveServiceAccountService serviceAccounts) {
         this.authorizations = authorizations; this.accounts = accounts; this.properties = properties;
+        this.serviceAccounts = serviceAccounts;
     }
 
     @Operation(operationId = "listGoogleDriveCredentials", summary = "List reusable Tenant-owned Google Drive credentials")
@@ -68,6 +76,36 @@ final class GoogleDriveCredentialController {
                         .body(new GoogleDriveAuthorizationResponse(accounts.authorizationUrl(state, client.clientId())));
             }
         }
+    }
+
+    @Operation(operationId = "createGoogleDriveServiceAccount",
+            summary = "Verify a domain-wide-delegated service account as its admin and store it; nothing is stored when Google rejects it")
+    @ApiResponse(responseCode = "201", description = "Stored Google Drive credential", useReturnTypeSchema = true)
+    @PostMapping(value = "/service-account", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<GoogleDriveCredentialResponse> createServiceAccount(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Valid @RequestBody GoogleDriveServiceAccountRequest body) {
+        var credentialId = serviceAccounts.create(identity.actorId(), body.name(), body.serviceAccountKeyJson(), body.adminEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(find(identity, credentialId));
+    }
+
+    @Operation(operationId = "replaceGoogleDriveServiceAccount",
+            summary = "Replace the key and acting admin of the same service account with a revision precondition")
+    @ApiResponse(responseCode = "200", description = "Updated Google Drive credential", useReturnTypeSchema = true)
+    @PutMapping(value = "/{credentialId}/service-account", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<GoogleDriveCredentialResponse> replaceServiceAccount(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch,
+            @Valid @RequestBody GoogleDriveServiceAccountRequest body) {
+        var id = new CredentialId(credentialId);
+        serviceAccounts.replace(identity.actorId(), id, GoogleDriveSourceController.revision(ifMatch), body.name(),
+                body.serviceAccountKeyJson(), body.adminEmail());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(find(identity, id));
+    }
+
+    private GoogleDriveCredentialResponse find(IdentityContext identity, CredentialId credentialId) {
+        return authorizations.list(identity.actorId()).stream().filter(view -> view.id().equals(credentialId))
+                .findFirst().map(GoogleDriveCredentialResponse::from).orElseThrow(SourceException::notFound);
     }
 
     @Operation(operationId = "revokeGoogleDriveCredential", summary = "Revoke a shared Google Drive credential and disconnect all attached Sources")

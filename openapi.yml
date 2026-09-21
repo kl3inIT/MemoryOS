@@ -1133,6 +1133,49 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/credentials/google-drive/{credentialId}/service-account:
+    put:
+      tags:
+      - Credentials
+      summary: Replace the key and acting admin of the same service account with a
+        revision precondition
+      operationId: replaceGoogleDriveServiceAccount
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: credentialId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleDriveServiceAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: Updated Google Drive credential
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveCredentialResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/web/selection:
     put:
       tags:
@@ -6997,6 +7040,38 @@ paths:
       responses:
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/credentials/google-drive/service-account:
+    post:
+      tags:
+      - Credentials
+      summary: Verify a domain-wide-delegated service account as its admin and store
+        it; nothing is stored when Google rejects it
+      operationId: createGoogleDriveServiceAccount
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleDriveServiceAccountRequest"
+        required: true
+      responses:
+        "201":
+          description: Stored Google Drive credential
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/GoogleDriveCredentialResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14921,6 +14996,11 @@ components:
           format: int64
         oauthClientConfigured:
           type: boolean
+        credentialAuthMethod:
+          type: string
+          enum:
+          - OAUTH
+          - SERVICE_ACCOUNT
         revision:
           type: integer
           format: int64
@@ -14973,6 +15053,7 @@ components:
       required:
       - accountEmail
       - counts
+      - credentialAuthMethod
       - credentialId
       - credentialRevision
       - credentialStatus
@@ -15724,6 +15805,79 @@ components:
       - directoryId
       - id
       - name
+      - sourceCount
+      - status
+      - updatedAt
+    GoogleDriveServiceAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        serviceAccountKeyJson:
+          type: string
+          description: The JSON key downloaded for the service account
+          maxLength: 16384
+          minLength: 0
+        adminEmail:
+          type: string
+          description: A Google Workspace administrator the service account acts as
+          maxLength: 320
+          minLength: 0
+      required:
+      - adminEmail
+      - name
+      - serviceAccountKeyJson
+    GoogleDriveCredentialResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        accountEmail:
+          type: string
+        status:
+          type: string
+        credentialRevision:
+          type: integer
+          format: int64
+        authMethod:
+          type: string
+          enum:
+          - OAUTH
+          - SERVICE_ACCOUNT
+        serviceAccountEmail:
+          type: string
+          description: The service account's email; absent for OAuth credentials
+        oauthClientConfigured:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        sourceCount:
+          type: integer
+          format: int64
+        actions:
+          type: array
+          items:
+            type: string
+      required:
+      - accountEmail
+      - actions
+      - authMethod
+      - createdAt
+      - credentialRevision
+      - id
+      - name
+      - oauthClientConfigured
       - sourceCount
       - status
       - updatedAt
@@ -20161,48 +20315,6 @@ components:
       - id
       - implies
       - label
-    GoogleDriveCredentialResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        accountEmail:
-          type: string
-        status:
-          type: string
-        credentialRevision:
-          type: integer
-          format: int64
-        oauthClientConfigured:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        sourceCount:
-          type: integer
-          format: int64
-        actions:
-          type: array
-          items:
-            type: string
-      required:
-      - accountEmail
-      - actions
-      - createdAt
-      - credentialRevision
-      - id
-      - name
-      - oauthClientConfigured
-      - sourceCount
-      - status
-      - updatedAt
     WebAvailabilityResponse:
       type: object
       properties:

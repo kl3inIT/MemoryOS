@@ -87,18 +87,18 @@ describe("SourceMetadataDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
     await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
     expect(await screen.findAllByRole("option")).toHaveLength(2);
-    expect(screen.queryByRole("option", { name: /auto sync/i })).toBeNull();
+    expect(screen.queryByRole("option", { name: /sync permissions from source/i })).toBeNull();
   });
 
-  it("offers Auto Sync for Google Drive Sources", async () => {
+  it("offers source permissions for Google Drive Sources", async () => {
     const user = userEvent.setup();
     renderDialog("access", { type: "GOOGLE_DRIVE", access: "SYNC" });
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
     const visibility = within(dialog).getByRole("combobox", { name: "Visibility" });
-    expect(visibility).toHaveTextContent("Auto Sync");
+    expect(visibility).toHaveTextContent("Sync permissions from source");
     await user.click(visibility);
     expect(await screen.findAllByRole("option")).toHaveLength(3);
-    expect(screen.getByRole("option", { name: /auto sync/i })).toHaveAttribute(
+    expect(screen.getByRole("option", { name: /sync permissions from source/i })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -114,7 +114,7 @@ describe("SourceMetadataDialog", () => {
     const save = within(dialog).getByRole("button", { name: "Save visibility" });
     expect(save).toBeDisabled();
     await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
-    await user.click(await screen.findByRole("option", { name: /private/i }));
+    await user.click(await screen.findByRole("option", { name: /specific groups/i }));
     await user.click(save);
 
     expect(await within(dialog).findByRole("alert")).toBeVisible();

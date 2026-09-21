@@ -280,9 +280,9 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={anyFilterValue}>{ui("All access")}</SelectItem>
-                <SelectItem value="PUBLIC">{ui("Workspace members")}</SelectItem>
-                <SelectItem value="PRIVATE">{ui("Private")}</SelectItem>
-                <SelectItem value="SYNC">{ui("Auto Sync")}</SelectItem>
+                <SelectItem value="PUBLIC">{ui("All members")}</SelectItem>
+                <SelectItem value="PRIVATE">{ui("Specific groups")}</SelectItem>
+                <SelectItem value="SYNC">{ui("Sync permissions from source")}</SelectItem>
               </SelectContent>
             </Select>
           </label>

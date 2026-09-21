@@ -71,10 +71,9 @@ import { can } from "@/lib/resource-permissions";
 
 type UploadPhase = "idle" | "preparing" | "uploading" | "finalizing" | "finalize-retry";
 
-const fileSections: readonly SourceSection[] = [
+const fileContentSections: readonly SourceSection[] = [
   { value: "content", label: "Files" },
   { value: "history", label: "Indexing history" },
-  { value: "settings", label: "Groups" },
 ];
 
 const googleDriveSections: readonly SourceSection[] = [
@@ -679,9 +678,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const canRemoveItems = can(detail, "removeItems");
   const canDelete = can(detail, "delete");
   const canManageGroups = can(detail, "edit");
+  // Only group access reads through groups, so other Sources have none to manage.
+  const showGroups = detail?.access === "PRIVATE";
   const canRename = can(detail, "edit");
   const canChangeAccess = can(detail, "publish");
   const isAdministrator = useGlobalCapability("SYSTEM_ADMIN");
+  // The settings tab holds group associations and the administrator's manager appointment; without either it is dropped.
+  const fileSections: readonly SourceSection[] = showGroups
+    ? [...fileContentSections, { value: "settings", label: "Groups" }]
+    : isAdministrator
+      ? [...fileContentSections, { value: "settings", label: "Manager" }]
+      : fileContentSections;
   if (
     (sourceDialog === "name" && !canRename) ||
     (sourceDialog === "access" && !canChangeAccess) ||
@@ -786,13 +793,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           role="region"
           aria-label={ui("Source files table")}
         >
-          <Table className="w-full min-w-[42rem] table-fixed text-left text-sm">
+          <Table className="w-full min-w-[54rem] table-fixed text-left text-sm">
             <colgroup>
               <col />
               <col className="w-24" />
-              <col className="w-36" />
-              <col className="w-36" />
-              <col className="w-24" />
+              <col className="w-56" />
+              <col className="w-40" />
+              <col className="w-20" />
             </colgroup>
             <TableHeader className="border-b border-border-subtle bg-surface-sunken text-content-muted">
               <TableRow>
@@ -841,7 +848,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <TableCell className="px-4 py-4 text-content-secondary">
                     <ItemStatus item={item} sourcePaused={paused} />
                   </TableCell>
-                  <TableCell className="px-4 py-4 text-content-secondary">
+                  <TableCell className="px-4 py-4 whitespace-nowrap text-content-secondary">
                     <HistoryTime value={item.lastIndexedAt} />
                   </TableCell>
                   <TableCell className="px-4 py-4 text-right">
@@ -994,7 +1001,15 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             />
           </div>
         ) : (
-          <Tabs value={section} onValueChange={setSection} className="block">
+          <Tabs
+            value={
+              detail.type !== "GOOGLE_DRIVE" && !fileSections.some((item) => item.value === section)
+                ? "content"
+                : section
+            }
+            onValueChange={setSection}
+            className="block"
+          >
             {canDelete ? (
               <ConfirmDialog
                 open={sourceDialog === "delete"}
@@ -1047,12 +1062,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   content={filesPanel}
                   settings={
                     <>
-                      <SourceGroupsSection
-                        sourceId={selectedId}
-                        editable={canManageGroups}
-                        restricted={detail.access !== "PUBLIC"}
-                        onAuthorityChanged={refreshAuthorityViews}
-                      />
+                      {showGroups ? (
+                        <SourceGroupsSection
+                          sourceId={selectedId}
+                          editable={canManageGroups}
+                          onAuthorityChanged={refreshAuthorityViews}
+                        />
+                      ) : null}
                       {isAdministrator ? (
                         <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
                       ) : null}
@@ -1083,16 +1099,17 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   value="history"
                   className="mt-5 space-y-6 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
                 >
-                  <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} />
+                  <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} kinds />
                   <SourceItemHistory key={selectedId} sourceId={selectedId} />
                 </TabsContent>
                 <TabsContent value="settings" className="mt-5 outline-none">
-                  <SourceGroupsSection
-                    sourceId={selectedId}
-                    editable={canManageGroups}
-                    restricted={detail.access !== "PUBLIC"}
-                    onAuthorityChanged={refreshAuthorityViews}
-                  />
+                  {showGroups ? (
+                    <SourceGroupsSection
+                      sourceId={selectedId}
+                      editable={canManageGroups}
+                      onAuthorityChanged={refreshAuthorityViews}
+                    />
+                  ) : null}
                   {isAdministrator ? (
                     <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
                   ) : null}
@@ -1232,12 +1249,13 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   <SourceItemHistory key={selectedId} sourceId={selectedId} />
                 </TabsContent>
                 <TabsContent value="settings" className="mt-5 outline-none">
-                  <SourceGroupsSection
-                    sourceId={selectedId}
-                    editable={canManageGroups}
-                    restricted={detail.access !== "PUBLIC"}
-                    onAuthorityChanged={refreshAuthorityViews}
-                  />
+                  {showGroups ? (
+                    <SourceGroupsSection
+                      sourceId={selectedId}
+                      editable={canManageGroups}
+                      onAuthorityChanged={refreshAuthorityViews}
+                    />
+                  ) : null}
                   {isAdministrator ? (
                     <SourceManagerSection source={detail} onAssigned={refreshAuthorityViews} />
                   ) : null}

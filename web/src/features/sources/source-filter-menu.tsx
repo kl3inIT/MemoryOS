@@ -29,17 +29,20 @@ function ToneDot({ tone }: { tone: StatusTone }) {
 }
 
 /**
- * A multi-choice filter chip in Stripe's list style: a dashed "+ Status" while unset, then
+ * A multi-choice filter chip in Stripe's list style: a dashed "+ Filter status" while unset, then
  * "Status | chosen values" with its own clear button. The menu stays open while values are ticked.
  */
 export function SourceFilterMenu({
   label,
+  addLabel,
   clearLabel,
   options,
   value,
   onValueChange,
 }: {
   label: string;
+  /** Names the action while the filter is unset, where the bare label reads as a column heading. */
+  addLabel: string;
   clearLabel: string;
   options: readonly SourceFilterOption[];
   value: readonly string[];
@@ -86,7 +89,7 @@ export function SourceFilterMenu({
             className={cn("min-w-0", selected.length && "rounded-l-none pl-1")}
           >
             {selected.length ? null : <CirclePlus aria-hidden="true" />}
-            {ui(label)}
+            {selected.length ? ui(label) : ui(addLabel)}
             {selected.length ? (
               <>
                 <span className="sr-only">: </span>

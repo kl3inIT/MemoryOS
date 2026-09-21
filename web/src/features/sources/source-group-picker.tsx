@@ -1,28 +1,30 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Command as CommandPrimitive } from "cmdk";
+import { Search, Users, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { ClampedList } from "@/components/ui/clamped-list";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceGroup } from "@/lib/hey-api/types.gen";
-import { cn } from "@/lib/utils";
 
 const optionPageSize = 25;
 const searchDelayMs = 250;
 const selectionLimit = 100;
+/** Rows of chips kept in view before the rest move behind "+N". */
+const visibleRows = 3;
 
 /**
- * Groups for a new Source: the chosen groups as chips in the field, searchable options in a
- * popover. System groups never associate with a Source, so they are not offered.
+ * Groups for a new Source: a search field listing the groups not chosen yet, with the selection
+ * as chips below, like the document set Source picker. System groups never associate with a
+ * Source, so they are not offered.
  */
 export function SourceGroupPicker({
   label,
@@ -53,15 +55,15 @@ export function SourceGroupPicker({
     retry: false,
   });
   const groups = (options.data?.items ?? []).filter((group) => !group.systemKey);
+  const unselected = groups.filter((group) => !selected.has(group.id));
+  const full = selected.size >= selectionLimit;
   const nameOf = (id: string) =>
     names.get(id) ?? groups.find((group) => group.id === id)?.name ?? id;
 
-  function toggle(group: SourceGroup) {
-    const next = new Set(selected);
-    if (next.has(group.id)) next.delete(group.id);
-    else next.add(group.id);
+  function add(group: SourceGroup) {
     setNames((current) => new Map(current).set(group.id, group.name));
-    onChange(next);
+    onChange(new Set(selected).add(group.id));
+    setSearch("");
   }
 
   function remove(id: string) {
@@ -71,104 +73,99 @@ export function SourceGroupPicker({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-3">
       <span id={labelId} className="text-sm font-medium text-content-primary">
         {label}
       </span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverAnchor asChild>
-          <div
-            className={cn(
-              "flex min-h-[var(--control-height-md)] w-full flex-wrap items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-raised py-1 pr-1 pl-2 sm:max-w-md",
-              disabled && "opacity-60",
-            )}
+      {/* cmdk labels its input from this text; without it the field is nameless whatever the placeholder says. */}
+      <Command
+        label={label}
+        shouldFilter={false}
+        className="relative overflow-visible bg-transparent"
+      >
+        <div className="flex h-10 items-center gap-2 rounded-xl border border-border-default bg-surface-raised px-3 focus-within:border-border-strong">
+          <Search aria-hidden="true" className="size-4 shrink-0 text-content-disabled" />
+          <CommandPrimitive.Input
+            value={search}
+            disabled={disabled || full}
+            aria-labelledby={labelId}
+            onValueChange={(next) => {
+              setSearch(next);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setOpen(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setOpen(false);
+            }}
+            placeholder={full ? ui("Group limit reached.") : placeholder}
+            className="h-full min-w-0 flex-1 bg-transparent font-main-ui-body outline-none placeholder:text-content-muted disabled:cursor-not-allowed"
+          />
+        </div>
+        {open && !full ? (
+          <CommandList
+            onMouseDown={(event) => event.preventDefault()}
+            className="absolute top-full left-0 z-50 mt-1 max-h-72 w-full rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-md"
           >
-            {[...selected].map((id) => (
-              <Badge key={id} variant="secondary" className="gap-1 pr-0.5">
+            {options.isPending ? (
+              <p role="status" className="py-6 text-center text-sm text-content-muted">
+                {ui("Loading groups")}
+              </p>
+            ) : options.isError ? (
+              <p role="alert" className="px-3 py-6 text-center text-sm text-content-secondary">
+                {ui("Available groups could not be loaded. Your selection is unchanged.")}
+              </p>
+            ) : (
+              <>
+                <CommandEmpty>
+                  {query ? ui("No groups match your search.") : ui("No groups are available.")}
+                </CommandEmpty>
+                <CommandGroup>
+                  {unselected.map((group) => (
+                    <CommandItem key={group.id} value={group.id} onSelect={() => add(group)}>
+                      <Users aria-hidden="true" className="size-4 shrink-0" />
+                      <span className="truncate" title={group.name}>
+                        {group.name}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                {options.data && options.data.totalPages > 1 ? (
+                  <p className="border-t border-border-subtle px-3 py-2 text-xs text-content-muted">
+                    {ui("Type to find more groups.")}
+                  </p>
+                ) : null}
+              </>
+            )}
+          </CommandList>
+        ) : null}
+      </Command>
+      {selected.size > 0 ? (
+        <ClampedList
+          maxRows={visibleRows}
+          label={ui("Selected groups")}
+          items={[...selected].map((id) => (
+            <span
+              key={id}
+              className="flex max-w-full items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-raised py-1 pr-1 pl-2.5 font-secondary-body"
+            >
+              <Users aria-hidden="true" className="size-4 shrink-0" />
+              <span className="truncate" title={nameOf(id)}>
                 {nameOf(id)}
-                <button
-                  type="button"
-                  disabled={disabled}
-                  aria-label={ui("Remove {{v1}}", { v1: nameOf(id) })}
-                  className="rounded-sm p-0.5 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-focus-ring disabled:pointer-events-none"
-                  onClick={() => remove(id)}
-                >
-                  <X className="size-3" aria-hidden="true" />
-                </button>
-              </Badge>
-            ))}
-            <PopoverTrigger asChild>
-              <button
-                type="button"
+              </span>
+              <IconButton
+                prominence="internal"
+                size="sm"
                 disabled={disabled}
-                aria-labelledby={labelId}
-                className="flex min-h-8 min-w-24 flex-1 items-center justify-between gap-2 rounded-md px-1 text-left text-sm text-content-muted outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed"
+                aria-label={ui("Remove {{v1}}", { v1: nameOf(id) })}
+                onClick={() => remove(id)}
               >
-                {selected.size ? null : <span>{placeholder}</span>}
-                <ChevronDown className="ml-auto size-4 shrink-0" aria-hidden="true" />
-              </button>
-            </PopoverTrigger>
-          </div>
-        </PopoverAnchor>
-        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-72 p-0">
-          <Command shouldFilter={false}>
-            <CommandInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder={ui("Search groups…")}
-            />
-            <CommandList>
-              {options.isPending ? (
-                <p role="status" className="py-6 text-center text-sm text-content-muted">
-                  {ui("Loading groups")}
-                </p>
-              ) : options.isError ? (
-                <p role="alert" className="px-3 py-6 text-center text-sm text-content-secondary">
-                  {ui("Available groups could not be loaded. Your selection is unchanged.")}
-                </p>
-              ) : (
-                <>
-                  <CommandEmpty>
-                    {query ? ui("No groups match your search.") : ui("No groups are available.")}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {groups.map((group) => {
-                      const checked = selected.has(group.id);
-                      return (
-                        <CommandItem
-                          key={group.id}
-                          value={group.id}
-                          aria-checked={checked}
-                          disabled={!checked && selected.size >= selectionLimit}
-                          onSelect={() => toggle(group)}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              "grid size-4 shrink-0 place-items-center rounded-sm border",
-                              checked
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border-default",
-                            )}
-                          >
-                            {checked ? <Check className="size-3" /> : null}
-                          </span>
-                          <span className="truncate">{group.name}</span>
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                  {options.data && options.data.totalPages > 1 ? (
-                    <p className="border-t border-border-subtle px-3 py-2 text-xs text-content-muted">
-                      {ui("Type to find more groups.")}
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                <X />
+              </IconButton>
+            </span>
+          ))}
+        />
+      ) : null}
     </div>
   );
 }

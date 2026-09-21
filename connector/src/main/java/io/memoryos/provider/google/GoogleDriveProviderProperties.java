@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("memoryos.google-drive")
 public record GoogleDriveProviderProperties(
         URI tokenUri, URI driveApiBaseUrl,
-        URI sheetsApiBaseUrl, URI docsApiBaseUrl, Duration connectTimeout,
+        URI sheetsApiBaseUrl, URI docsApiBaseUrl, URI adminApiBaseUrl, Duration connectTimeout,
         Duration requestTimeout, Duration acquisitionTimeout, int pageSize,
         int maxRequests, int maxTabs, int maxCells, int maxBinaryBytes, int maxSnapshotBytes) {
     public GoogleDriveProviderProperties {
@@ -17,6 +17,7 @@ public record GoogleDriveProviderProperties(
         driveApiBaseUrl = driveApiBaseUrl == null ? URI.create("https://www.googleapis.com/drive/v3") : driveApiBaseUrl;
         sheetsApiBaseUrl = sheetsApiBaseUrl == null ? URI.create("https://sheets.googleapis.com/v4") : sheetsApiBaseUrl;
         docsApiBaseUrl = docsApiBaseUrl == null ? URI.create("https://docs.googleapis.com/v1") : docsApiBaseUrl;
+        adminApiBaseUrl = adminApiBaseUrl == null ? URI.create("https://admin.googleapis.com/admin/directory/v1") : adminApiBaseUrl;
         connectTimeout = connectTimeout == null ? Duration.ofSeconds(3) : connectTimeout;
         requestTimeout = requestTimeout == null ? Duration.ofSeconds(30) : requestTimeout;
         acquisitionTimeout = acquisitionTimeout == null ? Duration.ofSeconds(120) : acquisitionTimeout;
@@ -31,7 +32,7 @@ public record GoogleDriveProviderProperties(
     // Validation is operation-local: absent Google settings must not prevent FILE startup.
     void validate() {
         if (!endpoint(tokenUri) || !endpoint(driveApiBaseUrl) || !endpoint(sheetsApiBaseUrl)
-                || !endpoint(docsApiBaseUrl) || !duration(connectTimeout, 30)
+                || !endpoint(docsApiBaseUrl) || !endpoint(adminApiBaseUrl) || !duration(connectTimeout, 30)
                 || !duration(requestTimeout, 120) || !duration(acquisitionTimeout, 120)
                 || pageSize < 1 || pageSize > 1_000 || maxRequests < 1 || maxRequests > 256
                 || maxTabs < 1 || maxTabs > 100 || maxCells < 1 || maxCells > 200_000
