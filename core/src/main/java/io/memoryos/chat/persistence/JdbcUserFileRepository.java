@@ -61,6 +61,16 @@ public class JdbcUserFileRepository {
                 .query((row, ignored) -> map(row)).list();
     }
 
+    /** The owner's most recent READY uploads that have an indexed document, the scope of a content search. */
+    public List<UUID> searchable(TenantId tenant, ActorId actor, int limit) {
+        return jdbc.sql("""
+                SELECT id FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
+                    AND status='READY' AND document_id IS NOT NULL
+                ORDER BY created_at DESC, id LIMIT :limit
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit)
+                .query(UUID.class).list();
+    }
+
     public List<UserFile> recent(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
                 SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor

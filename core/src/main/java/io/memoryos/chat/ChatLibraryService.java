@@ -48,30 +48,119 @@ public class ChatLibraryService {
     private final ObjectUploadService uploads;
     private final ChatFileProperties policy;
     private final TransactionTemplate tx;
+    private final ChatFileSearchService fileSearch;
 
     public ChatLibraryService(TenantAccessResolver tenants, JdbcChatLibraryRepository library, JdbcUserFileRepository files,
                               JdbcChatRepository chats, ObjectStorage storage, ObjectUploadService uploads,
-                              ChatFileProperties policy, PlatformTransactionManager transactionManager) {
+                              ChatFileProperties policy, PlatformTransactionManager transactionManager,
+                              ChatFileSearchService fileSearch) {
         this.tenants = tenants; this.library = library; this.files = files; this.chats = chats;
-        this.storage = storage; this.uploads = uploads; this.policy = policy;
+        this.storage = storage; this.uploads = uploads; this.policy = policy; this.fileSearch = fileSearch;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
     public record Page(List<ChatLibraryFile> items, long totalCount, long totalBytes, boolean hasMore) {}
 
-    /** {@code session} narrows the list to one conversation's own files (MEM-144); null lists everything. */
+    /**
+     * What to list. {@code session} narrows it to one conversation's own files (MEM-144); {@code favorites} to the
+     * starred ones; {@code pending} lists the owner's uploads still uploading, processing or failed instead of the
+     * READY files, so the library can show an upload's progress and let it be retried (MEM-152).
+     */
+    public record Listing(String query, Set<ChatLibraryFile.Source> sources, Set<ChatLibraryFile.Category> categories,
+                          @Nullable UUID session, boolean favorites, boolean pending, ChatLibraryFile.Sort sort,
+                          int offset, int limit) {
+        public Listing {
+            sources = Set.copyOf(sources); categories = Set.copyOf(categories);
+        }
+    }
+
     @Transactional(readOnly = true)
-    public Page list(ActorId actor, String query, Set<ChatLibraryFile.Source> sources,
-                     Set<ChatLibraryFile.Category> categories, @Nullable UUID session,
-                     ChatLibraryFile.Sort sort, int offset, int limit) {
+    public Page list(ActorId actor, Listing listing) {
+        String query = listing.query();
         if (query.length() > 200 || query.indexOf('\0') >= 0) throw ChatException.invalid("Invalid search text.");
-        ChatPersonaService.page(offset, limit);
+        ChatPersonaService.page(listing.offset(), listing.limit());
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var filter = new JdbcChatLibraryRepository.Filter(query.trim(), names(listing.sources()),
+                names(listing.categories()), listing.session(), listing.favorites(), listing.pending(), null);
         // One extra row answers hasMore without counting twice; the window total already covers the filter.
-        var page = library.page(tenant, actor, query.trim(), names(sources), names(categories), session, sort, offset, limit + 1);
-        boolean hasMore = page.items().size() > limit;
-        var items = hasMore ? page.items().subList(0, limit) : page.items();
+        var page = library.page(tenant, actor, filter, listing.sort(), listing.offset(), listing.limit() + 1);
+        boolean hasMore = page.items().size() > listing.limit();
+        var items = hasMore ? page.items().subList(0, listing.limit()) : page.items();
         return new Page(withUsage(tenant, items), page.totalCount(), page.totalBytes(), hasMore);
+    }
+
+    /** A file the owner renamed or starred, as the library now lists it. */
+    public ChatLibraryFile update(ActorId actor, ChatLibraryFile.Source source, UUID id,
+                                  @Nullable String filename, @Nullable Boolean favorite) {
+        if (filename == null && favorite == null) throw ChatException.invalid("Nothing to change.");
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        String name = null;
+        if (filename != null) {
+            var current = one(tenant, actor, source, id).orElseThrow(ChatException::unavailable);
+            name = renamed(current.filename(), filename, source == ChatLibraryFile.Source.UPLOAD ? 255 : 200);
+        }
+        if (!library.update(tenant, actor, source, id, name, favorite)) throw ChatException.unavailable();
+        return one(tenant, actor, source, id).orElseThrow(ChatException::unavailable);
+    }
+
+    /**
+     * A new name for a file: trimmed, without control characters or path separators, and keeping the extension
+     * the file has, because the extension is what previews, categories and the model read the type from.
+     */
+    static String renamed(String current, String requested, int limit) {
+        String name = requested.strip();
+        if (name.isEmpty() || name.codePoints().anyMatch(point -> Character.isISOControl(point) || point == '/' || point == '\\'))
+            throw ChatException.invalid("Use a file name without control characters or slashes.");
+        int dot = current.lastIndexOf('.');
+        String extension = dot > 0 ? current.substring(dot) : "";
+        if (!extension.isEmpty() && !name.toLowerCase(java.util.Locale.ROOT).endsWith(extension.toLowerCase(java.util.Locale.ROOT)))
+            name = name + extension;
+        if (name.length() > limit || name.equals(extension)) throw ChatException.invalid("Use a file name of 1 to " + limit + " characters.");
+        return name;
+    }
+
+    private java.util.Optional<ChatLibraryFile> one(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id) {
+        // An upload is renamed while pending too, so both the READY and the pending lists are consulted.
+        for (boolean pending : new boolean[] {false, true}) {
+            var page = library.page(tenant, actor, new JdbcChatLibraryRepository.Filter("", Set.of(source.name()), Set.of(),
+                    null, false, pending, Set.of(id)), ChatLibraryFile.Sort.NEWEST, 0, 1);
+            if (!page.items().isEmpty()) return java.util.Optional.of(withUsage(tenant, page.items()).getFirst());
+        }
+        return java.util.Optional.empty();
+    }
+
+    public record ContentMatch(ChatLibraryFile file, List<Passage> passages) {
+        public ContentMatch { passages = List.copyOf(passages); }
+    }
+
+    public record Passage(String text, int ordinal) {}
+
+    /** The most recent uploads a content search looks through; the file search bounds its scope near this. */
+    private static final int CONTENT_SEARCH_SCOPE = 4000;
+
+    /**
+     * Finds the owner's uploads by what they contain (MEM-152), through the same owner-private file search Chat's
+     * `search_files` tool uses: only the caller's READY, indexed uploads are in scope, never a Source document or
+     * another member's file. Generated files are not indexed, so they are found by name only.
+     */
+    public List<ContentMatch> searchContent(ActorId actor, String query) {
+        String text = query.strip();
+        if (text.isEmpty() || text.length() > 500 || text.indexOf('\0') >= 0) throw ChatException.invalid("Invalid search text.");
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var scope = new java.util.LinkedHashSet<>(files.searchable(tenant, actor, CONTENT_SEARCH_SCOPE));
+        if (scope.isEmpty()) return List.of();
+        var passages = new LinkedHashMap<UUID, List<Passage>>();
+        for (var hit : fileSearch.search(actor, tenant, scope, text)) {
+            var list = passages.computeIfAbsent(hit.fileId(), ignored -> new ArrayList<>());
+            if (list.size() < 3) list.add(new Passage(hit.passage().content(), hit.passage().ordinal()));
+        }
+        if (passages.isEmpty()) return List.of();
+        var page = library.page(tenant, actor, new JdbcChatLibraryRepository.Filter("", Set.of("UPLOAD"), Set.of(), null,
+                false, false, passages.keySet()), ChatLibraryFile.Sort.NEWEST, 0, passages.size());
+        var rows = new LinkedHashMap<UUID, ChatLibraryFile>();
+        withUsage(tenant, page.items()).forEach(file -> rows.put(file.id(), file));
+        return passages.entrySet().stream().filter(entry -> rows.containsKey(entry.getKey()))
+                .map(entry -> new ContentMatch(rows.get(entry.getKey()), entry.getValue())).toList();
     }
 
     /**

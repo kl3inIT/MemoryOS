@@ -92,6 +92,8 @@ class OpenApiContractTest {
             "/api/chat/image-artifacts/{artifactId}/content",
             "/api/chat/library",
             "/api/chat/library/{source}/{id}/copy",
+            "/api/chat/library/{source}/{id}",
+            "/api/chat/library/search",
             "/api/chat/file-artifacts/{artifactId}",
             "/api/chat/file-artifacts/{artifactId}/content",
             "/api/chat/file-artifacts/{artifactId}/preview",
