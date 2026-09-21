@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileSearch,
+  FolderOpen,
   GripVertical,
   PinOff,
   Plus,
@@ -88,6 +89,15 @@ export function ChatNavigation({
         onClick={onNavigate}
       >
         {ui("Trợ lý")}
+      </SidebarTab>
+      <SidebarTab
+        to="/library"
+        icon={<FolderOpen className="size-4" />}
+        collapsed={collapsed}
+        selected={pathname === "/library"}
+        onClick={onNavigate}
+      >
+        {ui("Thư viện")}
       </SidebarTab>
       {collapsed ? (
         <SidebarTab

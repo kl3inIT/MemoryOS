@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +62,8 @@ class SpringAiEmbeddingHttpTest {
             when(properties.model()).thenReturn("text-embedding-3-large");
             when(properties.dimensions()).thenReturn(3072);
             when(properties.timeout()).thenReturn(Duration.ofSeconds(3));
+            when(properties.embeddingTimeout()).thenReturn(Duration.ofSeconds(3));
+            when(properties.embeddingRetries()).thenReturn(2);
             var model = new SearchInfrastructureConfiguration().searchEmbeddingModel(properties, ObservationRegistry.NOOP);
             var embeddings = new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2);
             assertEquals(3072, embeddings.query("Chính sách nghỉ phép").length);
@@ -68,6 +71,50 @@ class SpringAiEmbeddingHttpTest {
             assertNull(failure.getCause());
             assertFalse(failure.toString().contains("private provider"));
             assertEquals(2, calls.get());
+        } finally { server.stop(0); }
+    }
+
+    @Test
+    void aStalledEmbeddingAttemptTimesOutAndTheRetryAnswersTheQuery() throws Exception {
+        var mapper = new ObjectMapper();
+        var calls = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.createContext("/v1/embeddings", exchange -> {
+            try {
+                exchange.getRequestBody().readAllBytes();
+                // The first attempt stalls like a dropped connection: no response until well after the attempt timeout.
+                if (calls.incrementAndGet() == 1) Thread.sleep(5_000);
+                float[] vector = new float[3072]; vector[0] = 1;
+                byte[] response = mapper.writeValueAsBytes(Map.of("object", "list", "model", "text-embedding-3-large",
+                        "data", List.of(Map.of("object", "embedding", "index", 0, "embedding", vector)),
+                        "usage", Map.of("prompt_tokens", 8, "total_tokens", 8)));
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length);
+                exchange.getResponseBody().write(response);
+            } catch (InterruptedException | java.io.IOException ignored) {
+                // The client gave up on the stalled attempt.
+            } finally { exchange.close(); }
+        });
+        server.start();
+        try {
+            var properties = mock(SearchProperties.class);
+            when(properties.embeddingEndpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
+            when(properties.apiKey()).thenReturn("test-only-credential");
+            when(properties.model()).thenReturn("text-embedding-3-large");
+            when(properties.dimensions()).thenReturn(3072);
+            when(properties.timeout()).thenReturn(Duration.ofSeconds(30));
+            when(properties.embeddingTimeout()).thenReturn(Duration.ofMillis(500));
+            when(properties.embeddingRetries()).thenReturn(2);
+            var model = new SearchInfrastructureConfiguration().searchEmbeddingModel(properties, ObservationRegistry.NOOP);
+            var embeddings = new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2);
+
+            long started = System.nanoTime();
+            assertEquals(3072, embeddings.query("Chính sách nghỉ phép").length);
+
+            assertEquals(2, calls.get());
+            // Answered by the retry, not by waiting out the stalled attempt.
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(4)) < 0);
         } finally { server.stop(0); }
     }
 }

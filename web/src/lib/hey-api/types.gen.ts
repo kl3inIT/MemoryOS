@@ -1298,7 +1298,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     permissions: GroupPermissions;
 };
 
@@ -1313,7 +1313,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
 };
 
 export type SharePointCredentialTestResponse = {
@@ -1475,12 +1475,6 @@ export type ChatModelValidationResult = {
     failureCode: string | null;
 };
 
-export type ImageConnectionTestRequest = {
-    endpoint: string;
-    model: string;
-    credentialValue?: string;
-};
-
 export type ChatFileResponse = {
     id?: string;
     filename?: string;
@@ -1491,6 +1485,38 @@ export type ChatFileResponse = {
     updatedAt?: string;
     errorCode?: string;
     searchReady?: boolean;
+};
+
+export type ChatLibraryArchiveFile = {
+    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+    id: string;
+};
+
+export type ChatLibraryArchiveRequest = {
+    /**
+     * The files to pack, at most 100 and at most 30 MiB together
+     */
+    files: Array<ChatLibraryArchiveFile>;
+};
+
+export type ChatLibraryArchive = {
+    id: string;
+    status: 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    fileCount: number;
+    sizeBytes: number | null;
+    /**
+     * Files that were no longer available when packing
+     */
+    skipped: Array<string>;
+    failure: string | null;
+    createdAt: string;
+    expiresAt: string | null;
+};
+
+export type ImageConnectionTestRequest = {
+    endpoint: string;
+    model: string;
+    credentialValue?: string;
 };
 
 export type ChatFileUploadRequest = {
@@ -1515,6 +1541,33 @@ export type UploadAuthorization = {
     expiresAt?: string;
 };
 
+/**
+ * An inclusive UTC day range of at most 366 days
+ */
+export type UsageReportRequest = {
+    from: string;
+    to: string;
+};
+
+/**
+ * A generated usage report: a ZIP of usage_by_user.csv, users.csv and, unless it could not be rendered, usage_report.pdf
+ */
+export type UsageReport = {
+    id: string;
+    from: string;
+    to: string;
+    status: 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    /**
+     * Display name or e-mail of the manager who asked for it
+     */
+    requester: string;
+    sizeBytes: number | null;
+    hasPdf: boolean;
+    failure: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+};
+
 export type VoiceSettingsRequest = {
     autoSend?: boolean;
     autoPlayback?: boolean;
@@ -1525,6 +1578,62 @@ export type VoiceSettingsResponse = {
     autoSend: boolean;
     autoPlayback: boolean;
     playbackSpeed: number;
+};
+
+export type ChatLibraryFileChange = {
+    /**
+     * A new name; the file keeps its extension
+     */
+    filename?: string;
+    /**
+     * Star or unstar the file
+     */
+    favorite?: boolean;
+};
+
+export type ChatLibraryFile = {
+    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+    id: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    createdAt: string;
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    /**
+     * The conversation that produced the file; null for an upload
+     */
+    sessionId: string | null;
+    sessionTitle: string | null;
+    /**
+     * The answer that produced an artifact, or the first message in the filtered conversation that attached an upload; null for an upload listed without a conversation
+     */
+    messageId: string | null;
+    /**
+     * Starred by its owner
+     */
+    favorite: boolean;
+    /**
+     * READY unless listed with status=PENDING, which shows uploads still in progress or failed
+     */
+    status: 'UPLOADING' | 'PROCESSING' | 'READY' | 'FAILED';
+    /**
+     * Why a FAILED upload failed
+     */
+    errorCode: string | null;
+    /**
+     * Projects and assistants holding this file
+     */
+    usedBy: Array<ChatLibraryFileUsage>;
+    /**
+     * False while a project or assistant holds the file
+     */
+    deletable: boolean;
+};
+
+export type ChatLibraryFileUsage = {
+    kind: 'AGENT' | 'PROJECT';
+    id: string;
+    name: string;
 };
 
 export type AccountType = 'STANDARD';
@@ -1813,11 +1922,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -1878,11 +1987,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
 };
 
 export type WebAvailabilityResponse = {
@@ -2027,12 +2136,20 @@ export type GeneratedFileRef = {
      * Chart data is available at /api/chat/file-artifacts/{id}/chart
      */
     chart: boolean;
+    /**
+     * The file was deleted from the library; its content routes no longer serve it
+     */
+    deleted: boolean;
 };
 
 export type ImageRef = {
     id: string;
     mediaType: string;
     revisedPrompt: string | null;
+    /**
+     * The image was deleted from the library; its content route no longer serves it
+     */
+    deleted: boolean;
 };
 
 export type Interval = {
@@ -2262,6 +2379,32 @@ export type ChatPersonaPage = {
     nextCursor: string | null;
 };
 
+export type ChatLibraryPage = {
+    items: Array<ChatLibraryFile>;
+    /**
+     * Files matching the filter, not only this page
+     */
+    totalCount: number;
+    /**
+     * Total size of the files matching the filter
+     */
+    totalBytes: number;
+    hasMore: boolean;
+};
+
+export type ChatLibraryContentMatch = {
+    file: ChatLibraryFile;
+    /**
+     * Up to three matching passages
+     */
+    passages: Array<ChatLibraryPassage>;
+};
+
+export type ChatLibraryPassage = {
+    text: string;
+    ordinal: number;
+};
+
 export type InterpreterHealthResponse = {
     connected: boolean;
     error: string;
@@ -2312,6 +2455,52 @@ export type ChatSpreadsheetSheet = {
 export type ChatFilePolicyResponse = {
     maxSizeBytes?: number;
     deploymentCeilingBytes?: number;
+};
+
+/**
+ * One recorded change: who, what and to which resource, with the declared details of its action
+ */
+export type AuditEvent = {
+    id: string;
+    occurredAt: string;
+    /**
+     * An append-only action value such as user.deactivate
+     */
+    action: string;
+    eventClass: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+    outcome: 'SUCCESS' | 'FAILURE' | 'DENIED';
+    actorId: string | null;
+    actorLabel: string | null;
+    actorEmail: string | null;
+    resourceType: string | null;
+    resourceId: string | null;
+    resourceLabel: string | null;
+    details: {
+        [key: string]: unknown;
+    };
+    traceId: string | null;
+    endpoint: string | null;
+    sourceIp: string | null;
+};
+
+export type AuditEventPage = {
+    items: Array<AuditEvent>;
+    /**
+     * Pass back to read the next, older page; null on the last page
+     */
+    nextCursor: string | null;
+};
+
+/**
+ * Every action the stream can hold, newest catalog first; values never change meaning
+ */
+export type AuditCatalog = {
+    actions: Array<AuditCatalogAction>;
+};
+
+export type AuditCatalogAction = {
+    action: string;
+    eventClass: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
 };
 
 /**
@@ -9588,6 +9777,144 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type CopyChatLibraryFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}/copy';
+};
+
+export type CopyChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CopyChatLibraryFileError = CopyChatLibraryFileErrors[keyof CopyChatLibraryFileErrors];
+
+export type CopyChatLibraryFileResponses = {
+    /**
+     * The upload holding the copy; it is PROCESSING until extracted
+     */
+    200: ChatFileResponse;
+};
+
+export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof CopyChatLibraryFileResponses];
+
+export type ListChatLibraryArchivesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/archives';
+};
+
+export type ListChatLibraryArchivesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryArchivesError = ListChatLibraryArchivesErrors[keyof ListChatLibraryArchivesErrors];
+
+export type ListChatLibraryArchivesResponses = {
+    /**
+     * Archives, newest first
+     */
+    200: Array<ChatLibraryArchive>;
+};
+
+export type ListChatLibraryArchivesResponse = ListChatLibraryArchivesResponses[keyof ListChatLibraryArchivesResponses];
+
+export type RequestChatLibraryArchiveData = {
+    body: ChatLibraryArchiveRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/archives';
+};
+
+export type RequestChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RequestChatLibraryArchiveError = RequestChatLibraryArchiveErrors[keyof RequestChatLibraryArchiveErrors];
+
+export type RequestChatLibraryArchiveResponses = {
+    /**
+     * The archive request as recorded
+     */
+    202: ChatLibraryArchive;
+};
+
+export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveResponses[keyof RequestChatLibraryArchiveResponses];
+
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     headers: {
@@ -9873,6 +10200,78 @@ export type CreateDocumentSetResponses = {
 
 export type CreateDocumentSetResponse = CreateDocumentSetResponses[keyof CreateDocumentSetResponses];
 
+export type ListUsageReportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/reports';
+};
+
+export type ListUsageReportsErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListUsageReportsError = ListUsageReportsErrors[keyof ListUsageReportsErrors];
+
+export type ListUsageReportsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<UsageReport>;
+};
+
+export type ListUsageReportsResponse = ListUsageReportsResponses[keyof ListUsageReportsResponses];
+
+export type RequestUsageReportData = {
+    body: UsageReportRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/reports';
+};
+
+export type RequestUsageReportErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type RequestUsageReportError = RequestUsageReportErrors[keyof RequestUsageReportErrors];
+
+export type RequestUsageReportResponses = {
+    /**
+     * Queued; the Worker builds it in the background
+     */
+    202: UsageReport;
+};
+
+export type RequestUsageReportResponse = RequestUsageReportResponses[keyof RequestUsageReportResponses];
+
 export type GetChatVoiceSettingsData = {
     body?: never;
     path?: never;
@@ -9960,6 +10359,56 @@ export type UpdateChatVoiceSettingsResponses = {
 };
 
 export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[keyof UpdateChatVoiceSettingsResponses];
+
+export type ChangeChatLibraryFileData = {
+    body: ChatLibraryFileChange;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}';
+};
+
+export type ChangeChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ChangeChatLibraryFileError = ChangeChatLibraryFileErrors[keyof ChangeChatLibraryFileErrors];
+
+export type ChangeChatLibraryFileResponses = {
+    /**
+     * The file as the library now lists it
+     */
+    200: ChatLibraryFile;
+};
+
+export type ChangeChatLibraryFileResponse = ChangeChatLibraryFileResponses[keyof ChangeChatLibraryFileResponses];
 
 export type ListUsersData = {
     body?: never;
@@ -11796,6 +12245,201 @@ export type ListChatModelFlowsResponses = {
 
 export type ListChatModelFlowsResponse = ListChatModelFlowsResponses[keyof ListChatModelFlowsResponses];
 
+export type ListChatLibraryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * Empty means every source
+         */
+        sources?: Array<string>;
+        /**
+         * Empty means every category
+         */
+        categories?: Array<string>;
+        /**
+         * Only this conversation's own files; the caller must own it
+         */
+        sessionId?: string;
+        /**
+         * Only starred files
+         */
+        favorite?: boolean;
+        /**
+         * READY lists usable files; PENDING lists uploads still uploading, processing or failed
+         */
+        status?: 'READY' | 'PENDING';
+        sort?: string;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library';
+};
+
+export type ListChatLibraryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryError = ListChatLibraryErrors[keyof ListChatLibraryErrors];
+
+export type ListChatLibraryResponses = {
+    /**
+     * A page of the caller's files
+     */
+    200: ChatLibraryPage;
+};
+
+export type ListChatLibraryResponse = ListChatLibraryResponses[keyof ListChatLibraryResponses];
+
+export type SearchChatLibraryContentData = {
+    body?: never;
+    path?: never;
+    query: {
+        query: string;
+    };
+    url: '/api/chat/library/search';
+};
+
+export type SearchChatLibraryContentErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SearchChatLibraryContentError = SearchChatLibraryContentErrors[keyof SearchChatLibraryContentErrors];
+
+export type SearchChatLibraryContentResponses = {
+    /**
+     * Matching files, best first
+     */
+    200: Array<ChatLibraryContentMatch>;
+};
+
+export type SearchChatLibraryContentResponse = SearchChatLibraryContentResponses[keyof SearchChatLibraryContentResponses];
+
+export type GetChatLibraryArchiveData = {
+    body?: never;
+    path: {
+        archiveId: string;
+    };
+    query?: never;
+    url: '/api/chat/library/archives/{archiveId}';
+};
+
+export type GetChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatLibraryArchiveError = GetChatLibraryArchiveErrors[keyof GetChatLibraryArchiveErrors];
+
+export type GetChatLibraryArchiveResponses = {
+    /**
+     * The archive
+     */
+    200: ChatLibraryArchive;
+};
+
+export type GetChatLibraryArchiveResponse = GetChatLibraryArchiveResponses[keyof GetChatLibraryArchiveResponses];
+
+export type DownloadChatLibraryArchiveData = {
+    body?: never;
+    path: {
+        archiveId: string;
+    };
+    query?: never;
+    url: '/api/chat/library/archives/{archiveId}/content';
+};
+
+export type DownloadChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DownloadChatLibraryArchiveError = DownloadChatLibraryArchiveErrors[keyof DownloadChatLibraryArchiveErrors];
+
+export type DownloadChatLibraryArchiveResponses = {
+    /**
+     * The ZIP bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadChatLibraryArchiveResponse = DownloadChatLibraryArchiveResponses[keyof DownloadChatLibraryArchiveResponses];
+
 export type GetChatInterpreterHealthData = {
     body?: never;
     path?: never;
@@ -12730,6 +13374,164 @@ export type ReadChatDocumentOriginalResponses = {
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
 
+export type ExportAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+        action?: string;
+        outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
+        actorId?: string;
+    };
+    url: '/api/audit/export';
+};
+
+export type ExportAuditEventsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ExportAuditEventsError = ExportAuditEventsErrors[keyof ExportAuditEventsErrors];
+
+export type ExportAuditEventsResponses = {
+    /**
+     * CSV
+     */
+    200: Blob | File;
+};
+
+export type ExportAuditEventsResponse = ExportAuditEventsResponses[keyof ExportAuditEventsResponses];
+
+export type ListAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+        action?: string;
+        outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
+        actorId?: string;
+        resourceType?: string;
+        resourceId?: string;
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/audit/events';
+};
+
+export type ListAuditEventsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAuditEventsError = ListAuditEventsErrors[keyof ListAuditEventsErrors];
+
+export type ListAuditEventsResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditEventPage;
+};
+
+export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
+
+export type GetAuditEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/audit/events/{eventId}';
+};
+
+export type GetAuditEventErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * No event with this id in the Tenant
+     */
+    404: ApiProblem;
+};
+
+export type GetAuditEventError = GetAuditEventErrors[keyof GetAuditEventErrors];
+
+export type GetAuditEventResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditEvent;
+};
+
+export type GetAuditEventResponse = GetAuditEventResponses[keyof GetAuditEventResponses];
+
+export type GetAuditCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/audit/catalog';
+};
+
+export type GetAuditCatalogErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetAuditCatalogError = GetAuditCatalogErrors[keyof GetAuditCatalogErrors];
+
+export type GetAuditCatalogResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditCatalog;
+};
+
+export type GetAuditCatalogResponse = GetAuditCatalogResponses[keyof GetAuditCatalogResponses];
+
 export type GetAiCostSummaryData = {
     body?: never;
     path?: never;
@@ -12767,6 +13569,45 @@ export type GetAiCostSummaryResponses = {
 };
 
 export type GetAiCostSummaryResponse = GetAiCostSummaryResponses[keyof GetAiCostSummaryResponses];
+
+export type DownloadUsageReportData = {
+    body?: never;
+    path: {
+        reportId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/reports/{reportId}/content';
+};
+
+export type DownloadUsageReportErrors = {
+    /**
+     * Invalid period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * No ready report with this id in the Tenant
+     */
+    404: ApiProblem;
+};
+
+export type DownloadUsageReportError = DownloadUsageReportErrors[keyof DownloadUsageReportErrors];
+
+export type DownloadUsageReportResponses = {
+    /**
+     * ZIP bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadUsageReportResponse = DownloadUsageReportResponses[keyof DownloadUsageReportResponses];
 
 export type GetMyAiCostsData = {
     body?: never;
@@ -13100,3 +13941,101 @@ export type LeaveChatPersonaResponses = {
 };
 
 export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChatPersonaResponses];
+
+export type DeleteChatImageArtifactData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/image-artifacts/{artifactId}';
+};
+
+export type DeleteChatImageArtifactErrors = {
+    /**
+     * Invalid image request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Image not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatImageArtifactError = DeleteChatImageArtifactErrors[keyof DeleteChatImageArtifactErrors];
+
+export type DeleteChatImageArtifactResponses = {
+    /**
+     * Image deleted
+     */
+    204: void;
+};
+
+export type DeleteChatImageArtifactResponse = DeleteChatImageArtifactResponses[keyof DeleteChatImageArtifactResponses];
+
+export type DeleteChatFileArtifactData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/chat/file-artifacts/{artifactId}';
+};
+
+export type DeleteChatFileArtifactErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteChatFileArtifactError = DeleteChatFileArtifactErrors[keyof DeleteChatFileArtifactErrors];
+
+export type DeleteChatFileArtifactResponses = {
+    /**
+     * File deleted
+     */
+    204: void;
+};
+
+export type DeleteChatFileArtifactResponse = DeleteChatFileArtifactResponses[keyof DeleteChatFileArtifactResponses];

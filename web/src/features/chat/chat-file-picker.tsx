@@ -158,6 +158,7 @@ export function ChatFilePickerContent({
   disabled = false,
   compact = false,
   onMore,
+  moreLabel,
   uploadAction,
 }: {
   selected: string[];
@@ -165,6 +166,8 @@ export function ChatFilePickerContent({
   disabled?: boolean;
   compact?: boolean;
   onMore?: () => void;
+  /** The compact list's way to the full list; the composer opens the whole library instead. */
+  moreLabel?: string;
   uploadAction?: ReactNode;
 }) {
   const ui = useAppTranslation();
@@ -402,7 +405,7 @@ export function ChatFilePickerContent({
       </div>
       {compact ? (
         <Button type="button" size="sm" prominence="internal" onClick={onMore}>
-          {ui("Tất cả tệp gần đây")}
+          {moreLabel ?? ui("Tất cả tệp gần đây")}
         </Button>
       ) : (
         <div className="flex gap-2">

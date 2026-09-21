@@ -126,6 +126,18 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
+    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-session-purge-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> sessions.purge());
+    }
+
+    @Bean
+    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
+        return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
+                .execute((_, _) -> artifacts.cleanup());
+    }
+
+    @Bean
     RecurringTask<Void> extractionArtifactCleanupTask(ExtractionArtifactPort artifacts) {
         return Tasks.recurring("memoryos-extraction-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());
@@ -141,6 +153,40 @@ class ControlPlaneConfiguration {
     RecurringTask<Void> userFileRelayTask(RedisOperationRelay relay, RedisExecutionProperties properties) {
         return Tasks.recurring("memoryos-redis-user-file-relay-v1", FixedDelay.of(properties.relayInterval()))
                 .execute((_, _) -> relay.relay(OperationWorkload.USER_FILE));
+    }
+
+    /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */
+    @Bean
+    RecurringTask<Void> auditRetentionTask(io.memoryos.iam.audit.AuditRetention retention) {
+        return Tasks.recurring("memoryos-audit-retention-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> {
+                    for (int batch = 0; batch < 20 && retention.sweep() == io.memoryos.iam.audit.AuditRetention.BATCH; batch++) {
+                        // A full batch means more may be waiting.
+                    }
+                });
+    }
+
+    /** Builds requested usage reports; a few per run, so a queue drains without holding the scheduler thread. */
+    @Bean
+    RecurringTask<Void> usageReportTask(io.memoryos.usage.report.UsageReportService reports) {
+        return Tasks.recurring("memoryos-ai-usage-report-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    for (int built = 0; built < 4 && reports.buildNext(); built++) {
+                        // Each call builds and stores one report.
+                    }
+                });
+    }
+
+    /** Packs requested library archives and releases the ones that expired (MEM-152). */
+    @Bean
+    RecurringTask<Void> chatLibraryArchiveTask(io.memoryos.chat.application.ChatLibraryArchiveService archives) {
+        return Tasks.recurring("memoryos-chat-library-archive-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    for (int packed = 0; packed < 4 && archives.buildNext(); packed++) {
+                        // Each call packs and stores one archive.
+                    }
+                    archives.sweepExpired();
+                });
     }
 
     @Bean

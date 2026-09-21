@@ -94,7 +94,8 @@ class GoogleDriveServiceAccountCredentialTest {
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials, authorization,
                 new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(
                         new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc),
-                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), groups),
+                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()),
+                        groups, io.memoryos.TestDatabase.noAudit()),
                 GoogleDriveAuthorizationService.class, transactions);
     }
 

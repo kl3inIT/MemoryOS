@@ -608,7 +608,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void rejectsOverlappingAndUnsupportedRootsWithoutChangingTheAcceptedScope() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         files.put("document", file("document", false, "1"));
         var overlap = finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("folder"), link("document")), List.of()));
         assertThat(overlap.status()).isEqualTo(SourceOperationStatus.FAILED);
@@ -649,7 +649,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void rejectsDuplicateLinksAndWholeDriveRootsWithoutChangingSelection() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         org.junit.jupiter.api.Assertions.assertThrows(SourceException.class,
                 () -> replaceAndActivate(configuration, owner, 2, List.of(link("folder"), "https://drive.google.com/open?id=folder"), List.of()));
         assertThat(calls).isEmpty();
@@ -687,7 +687,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void acceptsAnExplicitSharedDriveFolderAndIndexesOnlyItsChildren() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         files.put("shared-folder", new GoogleDriveProvider.FileMetadata("shared-folder", "Team folder",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
         listing(new GoogleDriveProvider.FileMetadata("document", "Team document", "text/plain", "1",
@@ -702,7 +702,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void unconfiguredSourceCannotScheduleAccountWideSynchronization() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         jdbc.sql("DELETE FROM google_drive_roots").update();
         org.junit.jupiter.api.Assertions.assertThrows(SourceException.class,
                 () -> configuration.synchronize(owner, source));
@@ -1180,7 +1180,7 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private GoogleDriveSourceService scheduleConfiguration() {
-        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
+        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
     }
 
     private SourceOperationView finishSelection(GoogleDriveSourceService configuration, GoogleDriveSourceService.SelectionReceipt receipt) {

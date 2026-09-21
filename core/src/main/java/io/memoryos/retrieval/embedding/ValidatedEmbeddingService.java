@@ -7,6 +7,8 @@ import io.memoryos.usage.AiUsageRecorder;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +21,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 
 /** Both ingestion and query paths use the same model space and response validation. */
 public final class ValidatedEmbeddingService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ValidatedEmbeddingService.class);
     private final EmbeddingModel model;
     private final String modelName;
     private final int dimensions;
@@ -76,25 +79,25 @@ public final class ValidatedEmbeddingService {
         boolean acquired = false;
         try {
             acquired = permits.tryAcquire(5, TimeUnit.SECONDS);
-            if (!acquired) throw new SearchUnavailableException();
+            if (!acquired) throw unavailable("capacity", null);
             var response = model.call(new EmbeddingRequest(inputs,
                     EmbeddingOptions.builder().model(modelName).dimensions(dimensions).build()));
             if (response.getResults().size() != inputs.size()
                     || !modelName.equals(response.getMetadata().getModel())) {
-                throw new SearchUnavailableException();
+                throw unavailable("invalid_response", null);
             }
             float[][] vectors = new float[inputs.size()][];
             for (var result : response.getResults()) {
                 int position = result.getIndex();
                 float[] vector = result.getOutput();
                 if (position < 0 || position >= vectors.length || vectors[position] != null
-                        || vector.length != dimensions) throw new SearchUnavailableException();
+                        || vector.length != dimensions) throw unavailable("invalid_response", null);
                 double norm = 0;
                 for (float value : vector) {
-                    if (!Float.isFinite(value)) throw new SearchUnavailableException();
+                    if (!Float.isFinite(value)) throw unavailable("invalid_response", null);
                     norm += (double) value * value;
                 }
-                if (norm == 0) throw new SearchUnavailableException();
+                if (norm == 0) throw unavailable("invalid_response", null);
                 vectors[position] = vector.clone();
             }
             record(caller, response.getMetadata().getUsage());
@@ -102,12 +105,31 @@ public final class ValidatedEmbeddingService {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new SearchUnavailableException();
+        } catch (SearchUnavailableException alreadyLogged) {
+            throw alreadyLogged;
         } catch (RuntimeException failure) {
             // The OpenAI SDK exception may include request details. Keep it out of logs/API causes.
-            throw new SearchUnavailableException();
+            throw unavailable("provider", failure);
         } finally {
             if (acquired) permits.release();
         }
+    }
+
+    /**
+     * Names why an embedding failed, by category and exception class only: the provider's message can carry request
+     * details, so it is never logged or kept as the API cause.
+     */
+    private SearchUnavailableException unavailable(String reason, @Nullable Throwable failure) {
+        var event = LOGGER.atWarn().addKeyValue("event", "search.embedding.failed")
+                .addKeyValue("reason", reason).addKeyValue("provider", providerName);
+        if (failure != null) {
+            Throwable root = failure;
+            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+            event = event.addKeyValue("error_type", failure.getClass().getName())
+                    .addKeyValue("root_error_type", root.getClass().getName());
+        }
+        event.log("Embedding call failed");
+        return new SearchUnavailableException();
     }
 
     private void record(@Nullable Caller caller, org.springframework.ai.chat.metadata.@Nullable Usage reported) {

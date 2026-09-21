@@ -284,7 +284,7 @@ public class ChatTurnPersistence {
         // History keeps assistant replies as text; name their images so a later turn can edit one.
         var generated = new LinkedHashMap<UUID, List<UUID>>();
         imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
-                .map(ChatMessage::id).toList()).forEach((message, images) ->
+                .map(ChatMessage::id).toList(), false).forEach((message, images) ->
                 generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
                 settings.options().withSampling(sampling(tenant, actor, settings)), plaintext, workspaceFiles,

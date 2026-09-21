@@ -67,7 +67,8 @@ class DefaultGroupServiceAuthorizationTest {
                 grants,
                 projections,
                 invariants,
-                administrationGuard
+                administrationGuard,
+                mock(io.memoryos.iam.audit.AuditTrail.class)
         );
         GroupEntity group = new GroupEntity(
                 new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"),
@@ -99,7 +100,8 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupCapabilityGrantRepository.class),
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
-                mock(GroupAdministrationGuard.class)
+                mock(GroupAdministrationGuard.class),
+                mock(io.memoryos.iam.audit.AuditTrail.class)
         );
 
         for (IamCapability capability : Set.of(
@@ -123,7 +125,8 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupCapabilityGrantRepository.class),
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
-                mock(GroupAdministrationGuard.class)
+                mock(GroupAdministrationGuard.class),
+                mock(io.memoryos.iam.audit.AuditTrail.class)
         );
 
         var registry = service.capabilities(MANAGER);
@@ -177,6 +180,6 @@ class DefaultGroupServiceAuthorizationTest {
         assertEquals(EnumSet.allOf(IamCapability.class), registered);
         assertEquals(Set.of(IamCapability.USERS_MANAGE, IamCapability.GROUPS_MANAGE,
                 IamCapability.SOURCES_MANAGE, IamCapability.MODELS_MANAGE, IamCapability.MCP_MANAGE,
-                IamCapability.AGENTS_CREATE, IamCapability.AGENTS_MANAGE), editable);
+                IamCapability.AGENTS_CREATE, IamCapability.AGENTS_MANAGE, IamCapability.AUDIT_READ), editable);
     }
 }

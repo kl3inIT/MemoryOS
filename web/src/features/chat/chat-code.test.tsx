@@ -57,6 +57,18 @@ describe("files run_python generated", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
+  it("keeps a deleted file as a card without a download or a preview", () => {
+    render(<Thread custom={{ generatedFiles: [{ ...file, chart: true, deleted: true }] }} />);
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText(file.filename)).toBeVisible();
+    expect(within(row).getByText("Tệp đã bị xoá")).toBeVisible();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("button", { name: `Xem trước ${file.filename}` })).toBeNull();
+    // A deleted PNG has no chart to open either: its bytes and chart data are both gone.
+    expect(within(row).queryByText("12,4 KB")).toBeNull();
+  });
+
   it("opens the file in the preview modal from its name", () => {
     const opened: unknown[] = [];
     render(

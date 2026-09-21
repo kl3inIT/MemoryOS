@@ -16,6 +16,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
+  ReceiptText,
+  ScrollText,
   Settings,
   Sparkles,
   SquareTerminal,
@@ -23,7 +25,6 @@ import {
   UserRound,
   Users,
   X,
-  ReceiptText,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
@@ -54,7 +55,8 @@ export type AdminPage =
   | "models"
   | "mcp"
   | "agents"
-  | "costs";
+  | "costs"
+  | "audit";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -151,6 +153,7 @@ function SidebarContents({
     canManageProviders,
     canManageMcp,
     canManageAgents,
+    canReadAudit,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -320,17 +323,30 @@ function SidebarContents({
                 </SidebarTab>
               </SidebarSection>
             ) : null}
-            {canManageModels ? (
+            {canManageModels || canReadAudit ? (
               <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/ai-costs"
-                  icon={<ReceiptText className="size-4" />}
-                  selected={adminPage === "costs"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("AI costs")}
-                </SidebarTab>
+                {canManageModels ? (
+                  <SidebarTab
+                    to="/admin/ai-costs"
+                    icon={<ReceiptText className="size-4" />}
+                    selected={adminPage === "costs"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("AI costs")}
+                  </SidebarTab>
+                ) : null}
+                {canReadAudit ? (
+                  <SidebarTab
+                    to="/admin/audit"
+                    icon={<ScrollText className="size-4" />}
+                    selected={adminPage === "audit"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Audit log")}
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
             {canManageAgents ? (

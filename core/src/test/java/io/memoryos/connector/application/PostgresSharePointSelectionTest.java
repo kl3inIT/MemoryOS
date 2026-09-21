@@ -91,7 +91,7 @@ class PostgresSharePointSelectionTest {
         selections = new JdbcSharePointSelectionRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sourceRows);
         var access = new SourceAccessPolicy(authorization, sourceRows,
-                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)));
+                new DefaultGroupScopeService(new GroupInvariantRepository(jdbc), new GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit());
 
         session = mock(SharePointProvider.Session.class);
         when(session.root()).thenReturn(new SharePointProvider.RootSite("site-1", "https://contoso.sharepoint.com",
@@ -110,7 +110,7 @@ class PostgresSharePointSelectionTest {
                 new io.memoryos.connector.persistence.JdbcSharePointSyncRepository(jdbc, new JdbcSourceSyncRepository(jdbc)),
                 new JdbcIndexAttemptRepository(jdbc, sourceRows, documents,
                         mock(io.memoryos.connector.ProviderAuthorityService.class)),
-                documents, new SharePointSelectionPolicy(1000, 3_145_728), manager);
+                documents, new SharePointSelectionPolicy(1000, 3_145_728), manager, io.memoryos.TestDatabase.noAudit());
         sources = TestDatabase.transactionalProxy(service, SharePointSourceService.class, manager);
         processor = new DefaultSharePointSelectionProcessor(selections, service, connections, manager);
     }

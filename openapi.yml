@@ -6511,9 +6511,10 @@ paths:
       tags:
       - Groups
       summary: Remove one source from one group
-      description: Global source managers may remove any association. A group manager
-        may remove a non-public source that stays associated with another group; other
-        groups keep their associations.
+      description: "Global source managers may remove any association. Otherwise only\
+        \ the source's responsible manager may remove it, from a group they manage;\
+        \ other managers of that group may not. The source's other groups keep their\
+        \ associations."
       operationId: removeGroupSource
       parameters:
       - name: X-MemoryOS-CSRF
@@ -9172,6 +9173,174 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/{source}/{id}/copy:
+    post:
+      tags:
+      - Chat
+      summary: "Copy a generated file or image into an upload of the caller, so it\
+        \ can be attached to a message, a Project or an assistant; asking again returns\
+        \ the same upload"
+      operationId: copyChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The upload holding the copy; it is PROCESSING until extracted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/archives:
+    get:
+      tags:
+      - Chat
+      summary: The caller's own archives that have not expired
+      operationId: listChatLibraryArchives
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Archives, newest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Ask for a ZIP of the selected files; a worker packs it and its owner
+        downloads it until it expires
+      operationId: requestChatLibraryArchive
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatLibraryArchiveRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: The archive request as recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/connections/{provider}/test:
     post:
       tags:
@@ -9526,6 +9695,84 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/reports:
+    get:
+      tags:
+      - AI costs
+      summary: "The Tenant's usage reports, newest first; requires model management"
+      operationId: listUsageReports
+      responses:
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageReport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - AI costs
+      summary: Queue a usage report for a UTC day range; requires model management
+      operationId: requestUsageReport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageReportRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "202":
+          description: Queued; the Worker builds it in the background
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/settings:
     get:
       tags:
@@ -9621,6 +9868,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/{source}/{id}:
+    patch:
+      tags:
+      - Chat
+      summary: Rename or star one of the caller's files
+      operationId: changeChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatLibraryFileChange"
+        required: true
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The file as the library now lists it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryFile"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12092,6 +12411,267 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library:
+    get:
+      tags:
+      - Chat
+      summary: "List the caller's own uploads, generated files and generated images\
+        \ as one paginated library, optionally narrowed to one conversation, to starred\
+        \ files, or to uploads still in progress"
+      operationId: listChatLibrary
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: sources
+        in: query
+        description: Empty means every source
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: categories
+        in: query
+        description: Empty means every category
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sessionId
+        in: query
+        description: Only this conversation's own files; the caller must own it
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: favorite
+        in: query
+        description: Only starred files
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: status
+        in: query
+        description: "READY lists usable files; PENDING lists uploads still uploading,\
+          \ processing or failed"
+        required: false
+        schema:
+          type: string
+          enum:
+          - READY
+          - PENDING
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: NEWEST
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: A page of the caller's files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/search:
+    get:
+      tags:
+      - Chat
+      summary: "Find the caller's own indexed uploads by what they contain, with the\
+        \ matching passages"
+      operationId: searchChatLibraryContent
+      parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Matching files, best first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryContentMatch"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/archives/{archiveId}:
+    get:
+      tags:
+      - Chat
+      summary: "One archive of the caller, with its status"
+      operationId: getChatLibraryArchive
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The archive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/archives/{archiveId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Download the caller's own archive while it lives
+      operationId: downloadChatLibraryArchive
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The ZIP bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter/health:
     get:
       tags:
@@ -13227,6 +13807,265 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/audit/export:
+    get:
+      tags:
+      - Audit
+      summary: "The events the filters select as CSV, at most 50,000 rows; the export\
+        \ is itself recorded; requires AUDIT_READ"
+      operationId: exportAuditEvents
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: eventClass
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/events:
+    get:
+      tags:
+      - Audit
+      summary: "The Tenant's audit events, newest first, one page at a time; requires\
+        \ AUDIT_READ"
+      operationId: listAuditEvents
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: eventClass
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: resourceType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: resourceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/events/{eventId}:
+    get:
+      tags:
+      - Audit
+      summary: One audit event; requires AUDIT_READ
+      operationId: getAuditEvent
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEvent"
+        "404":
+          description: No event with this id in the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/catalog:
+    get:
+      tags:
+      - Audit
+      summary: "Every action the audit stream can hold, for the viewer's action filter;\
+        \ requires AUDIT_READ"
+      operationId: getAuditCatalog
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditCatalog"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/summary:
     get:
       tags:
@@ -13288,6 +14127,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AiCostSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/reports/{reportId}/content:
+    get:
+      tags:
+      - AI costs
+      summary: Download a ready usage report as a ZIP; requires model management
+      operationId: downloadUsageReport
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: ZIP bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No ready report with this id in the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Model management, Tenant membership or CSRF requirement not\
+            \ met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13756,6 +14640,114 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/image-artifacts/{artifactId}:
+    delete:
+      tags:
+      - Chat
+      summary: Delete an owner-private generated image; the answer keeps a deleted
+        card and a sweep releases the bytes
+      operationId: deleteChatImageArtifact
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid image request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Image deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}:
+    delete:
+      tags:
+      - Chat
+      summary: Delete an owner-private generated file; the answer keeps a deleted
+        card and a sweep releases the bytes
+      operationId: deleteChatFileArtifact
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: File deleted
       security:
       - bearerAuth: []
       - browserSession: []
@@ -17187,6 +18179,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -17253,6 +18246,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -17679,24 +18673,6 @@ components:
       required:
       - failureCode
       - reachable
-    ImageConnectionTestRequest:
-      type: object
-      properties:
-        endpoint:
-          type: string
-          maxLength: 2048
-          minLength: 0
-        model:
-          type: string
-          maxLength: 200
-          minLength: 0
-        credentialValue:
-          type: string
-          maxLength: 8192
-          minLength: 0
-      required:
-      - endpoint
-      - model
     ChatFileResponse:
       type: object
       properties:
@@ -17729,6 +18705,97 @@ components:
           type: string
         searchReady:
           type: boolean
+    ChatLibraryArchiveFile:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+        id:
+          type: string
+          format: uuid
+      required:
+      - id
+      - source
+    ChatLibraryArchiveRequest:
+      type: object
+      properties:
+        files:
+          type: array
+          description: "The files to pack, at most 100 and at most 30 MiB together"
+          items:
+            $ref: "#/components/schemas/ChatLibraryArchiveFile"
+          maxLength: 100
+      required:
+      - files
+    ChatLibraryArchive:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        fileCount:
+          type: integer
+          format: int32
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        skipped:
+          type: array
+          description: Files that were no longer available when packing
+          items:
+            type: string
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - expiresAt
+      - failure
+      - fileCount
+      - id
+      - sizeBytes
+      - skipped
+      - status
+    ImageConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+      - model
     ChatFileUploadRequest:
       type: object
       properties:
@@ -17777,6 +18844,73 @@ components:
         expiresAt:
           type: string
           format: date-time
+    UsageReportRequest:
+      type: object
+      description: An inclusive UTC day range of at most 366 days
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+      required:
+      - from
+      - to
+    UsageReport:
+      type: object
+      description: "A generated usage report: a ZIP of usage_by_user.csv, users.csv\
+        \ and, unless it could not be rendered, usage_report.pdf"
+      properties:
+        id:
+          type: string
+          format: uuid
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        requester:
+          type: string
+          description: Display name or e-mail of the manager who asked for it
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        hasPdf:
+          type: boolean
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - failure
+      - finishedAt
+      - from
+      - hasPdf
+      - id
+      - requester
+      - sizeBytes
+      - status
+      - to
     VoiceSettingsRequest:
       type: object
       properties:
@@ -17803,6 +18937,122 @@ components:
       - autoPlayback
       - autoSend
       - playbackSpeed
+    ChatLibraryFileChange:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: A new name; the file keeps its extension
+          maxLength: 255
+        favorite:
+          type: boolean
+          description: Star or unstar the file
+    ChatLibraryFile:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        category:
+          type: string
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        sessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation that produced the file; null for an upload
+        sessionTitle:
+          type:
+          - string
+          - "null"
+        messageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The answer that produced an artifact, or the first message\
+            \ in the filtered conversation that attached an upload; null for an upload\
+            \ listed without a conversation"
+        favorite:
+          type: boolean
+          description: Starred by its owner
+        status:
+          type: string
+          description: "READY unless listed with status=PENDING, which shows uploads\
+            \ still in progress or failed"
+          enum:
+          - UPLOADING
+          - PROCESSING
+          - READY
+          - FAILED
+        errorCode:
+          type:
+          - string
+          - "null"
+          description: Why a FAILED upload failed
+        usedBy:
+          type: array
+          description: Projects and assistants holding this file
+          items:
+            $ref: "#/components/schemas/ChatLibraryFileUsage"
+        deletable:
+          type: boolean
+          description: False while a project or assistant holds the file
+      required:
+      - category
+      - createdAt
+      - deletable
+      - errorCode
+      - favorite
+      - filename
+      - id
+      - mediaType
+      - messageId
+      - sessionId
+      - sessionTitle
+      - sizeBytes
+      - source
+      - status
+      - usedBy
+    ChatLibraryFileUsage:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - AGENT
+          - PROJECT
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - kind
+      - name
     AccountType:
       type: string
       enum:
@@ -18819,6 +20069,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -18843,6 +20094,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         authorizationVersion:
           type: integer
           format: int64
@@ -19027,6 +20279,7 @@ components:
           - MCP_MANAGE
           - AGENTS_CREATE
           - AGENTS_MANAGE
+          - AUDIT_READ
         label:
           type: string
         description:
@@ -19055,6 +20308,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
       required:
       - description
       - editable
@@ -19485,8 +20739,13 @@ components:
         chart:
           type: boolean
           description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
+        deleted:
+          type: boolean
+          description: The file was deleted from the library; its content routes no
+            longer serve it
       required:
       - chart
+      - deleted
       - filename
       - id
       - mediaType
@@ -19503,7 +20762,12 @@ components:
           type:
           - string
           - "null"
+        deleted:
+          type: boolean
+          description: The image was deleted from the library; its content route no
+            longer serves it
       required:
+      - deleted
       - id
       - mediaType
       - revisedPrompt
@@ -20134,6 +21398,52 @@ components:
       required:
       - items
       - nextCursor
+    ChatLibraryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryFile"
+        totalCount:
+          type: integer
+          format: int64
+          description: "Files matching the filter, not only this page"
+        totalBytes:
+          type: integer
+          format: int64
+          description: Total size of the files matching the filter
+        hasMore:
+          type: boolean
+      required:
+      - hasMore
+      - items
+      - totalBytes
+      - totalCount
+    ChatLibraryContentMatch:
+      type: object
+      properties:
+        file:
+          $ref: "#/components/schemas/ChatLibraryFile"
+        passages:
+          type: array
+          description: Up to three matching passages
+          items:
+            $ref: "#/components/schemas/ChatLibraryPassage"
+      required:
+      - file
+      - passages
+    ChatLibraryPassage:
+      type: object
+      properties:
+        text:
+          type: string
+        ordinal:
+          type: integer
+          format: int32
+      required:
+      - ordinal
+      - text
     InterpreterHealthResponse:
       type: object
       properties:
@@ -20249,6 +21559,132 @@ components:
         deploymentCeilingBytes:
           type: integer
           format: int64
+    AuditEvent:
+      type: object
+      description: "One recorded change: who, what and to which resource, with the\
+        \ declared details of its action"
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+          description: An append-only action value such as user.deactivate
+        eventClass:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+        outcome:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        actorLabel:
+          type:
+          - string
+          - "null"
+        actorEmail:
+          type:
+          - string
+          - "null"
+        resourceType:
+          type:
+          - string
+          - "null"
+        resourceId:
+          type:
+          - string
+          - "null"
+        resourceLabel:
+          type:
+          - string
+          - "null"
+        details:
+          type: object
+          additionalProperties: {}
+        traceId:
+          type:
+          - string
+          - "null"
+        endpoint:
+          type:
+          - string
+          - "null"
+        sourceIp:
+          type:
+          - string
+          - "null"
+      required:
+      - action
+      - actorEmail
+      - actorId
+      - actorLabel
+      - details
+      - endpoint
+      - eventClass
+      - id
+      - occurredAt
+      - outcome
+      - resourceId
+      - resourceLabel
+      - resourceType
+      - sourceIp
+      - traceId
+    AuditEventPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: "Pass back to read the next, older page; null on the last page"
+      required:
+      - items
+      - nextCursor
+    AuditCatalog:
+      type: object
+      description: "Every action the stream can hold, newest catalog first; values\
+        \ never change meaning"
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditCatalogAction"
+      required:
+      - actions
+    AuditCatalogAction:
+      type: object
+      properties:
+        action:
+          type: string
+        eventClass:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      required:
+      - action
+      - eventClass
     AiCostSummary:
       type: object
       description: "Known costs in USD; calls without a price or reported usage are\

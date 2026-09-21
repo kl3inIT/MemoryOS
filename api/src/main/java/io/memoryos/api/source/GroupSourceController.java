@@ -50,8 +50,9 @@ final class GroupSourceController {
     @Operation(
             operationId = "removeGroupSource",
             summary = "Remove one source from one group",
-            description = "Global source managers may remove any association. A group manager may remove a non-public "
-                    + "source that stays associated with another group; other groups keep their associations."
+            description = "Global source managers may remove any association. Otherwise only the source's responsible "
+                    + "manager may remove it, from a group they manage; other managers of that group may not. "
+                    + "The source's other groups keep their associations."
     )
     @PostMapping("/{sourceId}/remove")
     @ResponseStatus(HttpStatus.NO_CONTENT)

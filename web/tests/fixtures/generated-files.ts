@@ -226,6 +226,7 @@ export async function generatedFileMessages(
       mediaType: fixture.mediaType,
       sizeBytes: "sizeBytes" in fixture ? fixture.sizeBytes : (await bytes(fixture)).length,
       chart: fixture.chart !== undefined,
+      deleted: false,
     })),
   );
   const common = {

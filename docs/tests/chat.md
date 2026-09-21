@@ -383,3 +383,57 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | --- | --- |
 | A pinned level outranks the model configuration, a member default only reaches a model without one, a non-reasoning model takes no level, a reasoning model takes no creativity, and a helper call keeps its own low effort | `api/src/test/java/io/memoryos/api/chat/ChatSamplingTest.java` |
 | Pinning and clearing a conversation's level, rejection of an unknown level, another member's conversation, and the member's own starting values with their range | `ChatSessionApiIntegrationTest.reasoningLevelIsPinnedPerConversationAndDefaultsBelongToTheMember` |
+
+## File library (MEM-142)
+
+| Contract | Test and boundary |
+| --- | --- |
+| The union lists the three sources for their owner only, with the derived category, the window totals, the conversation of an artifact and none for an upload, the name and prompt search matched literally, the source and category filters, the four sorts and offset paging | `ChatPersistenceIntegrationTest.theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted` |
+| A deleted artifact leaves the library, the serving and edit-source lookups and the pptx preview at once, stays in history as a tombstone, and a soft-deleted conversation withdraws its artifacts while the owner's upload remains | the same test |
+| A page past the end of the filter still reports the filter's totals, deleting twice succeeds including after the sweep removed the row, and another member still cannot delete the artifact | the same test |
+| Deleting an artifact releases its bytes, its V73 preview and its object metadata; a storage failure keeps the claim retryable and loses no row; a conversion finishing after the deletion is discarded, not left adopted; one sweep claims both tables and only deleted rows | `ChatArtifactCleanupIntegrationTest` |
+| The endpoint is owner-private and Tenant-scoped, rejects an unknown sort, names the Project holding an upload in `409 CHAT_FILE_IN_USE`, and the artifact delete routes require CSRF and owner authority | `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
+| A selection made on one page is dropped when the page changes, so a bulk delete cannot silently delete nothing | `chat-library-page.test.tsx` |
+| The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/chat/chat-library-page.test.tsx` |
+| A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
+| V90 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |
+
+## Hard deletion of deleted conversations (MEM-143)
+
+| Contract | Test and boundary |
+| --- | --- |
+| With the switch on, a purge removes the deleted conversation's command, feedback, sharing, message and session rows, marks its generated file and image for the artifact sweep, and leaves a live conversation and the owner's upload untouched | `ChatSessionPurgeIntegrationTest.purgesOnlyDeletedConversationsAndLeavesTheOwnersUploadAlone` |
+| With the switch off nothing is purged and no artifact is marked | `ChatSessionPurgeIntegrationTest.keepsEveryDeletedConversationWhileTheSwitchIsOff` |
+| A deleted conversation whose reply is still RUNNING is left for a later run, then purged once the reply ends | `ChatSessionPurgeIntegrationTest.leavesADeletedConversationWhoseReplyIsStillRunning` |
+
+## Files in this conversation (MEM-144)
+
+| Contract | Test and boundary |
+| --- | --- |
+| The filter returns the conversation's artifacts and the uploads attached in it, excludes another conversation's files and an upload never attached there, and matches nothing for a conversation the caller does not own or one that does not exist | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt`, `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
+| The panel counts the conversation's files on its button, lists them with size and total, searches and filters within the conversation on the server, says so when there are none, and deletes after the confirmation | `web/src/features/chat/chat-session-files.test.tsx` |
+
+## File library v2 (MEM-152)
+
+| Contract | Test and boundary |
+| --- | --- |
+| A server write is a verified upload adopted by its caller; bytes that disagree with their checksum are never verified, a size mismatch is refused, and a write never adopted is reclaimed by the abandoned-upload cleanup | `ObjectUploadLifecycleIntegrationTest.aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne` |
+| Copying a generated image yields a PROCESSING upload queued for extraction; asking again returns it; another member, a deleted artifact, `UPLOAD` and an unknown source are refused; CSRF is required; deleting the copy lets it be copied again; deleting the artifact leaves the copy readable | `ChatSessionApiIntegrationTest.aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt` |
+| A conversation's rows name the message to scroll to: the answer that made an artifact and the question that attached an upload | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt` |
+| The library picker attaches an upload as it is and a generated image through its ready copy, marks what is already on the draft, filters by source on the server, and stays open naming a failed copy | `web/src/features/chat/chat-library-picker.test.tsx` |
+| The panel attaches a generated file to the next question through its copy and jumps to the message a file belongs to | `web/src/features/chat/chat-session-files.test.tsx` |
+| Version selections that bring a message onto the selected path are computed from the top down, and none for a message already shown or outside the conversation | `web/src/features/chat/chat-library.test.ts` |
+| `/library` adds a generated file to a Project through its copy and the Project's revisioned update, and removes an upload from a Project without deleting it | `web/src/features/chat/chat-library-page.test.tsx` |
+| A pending listing holds only the owner's uploads still uploading, processing or failed, with their status and reason; a rename rewrites the file's own name so the name search follows it; starring filters and clears; another member, a foreign source and a deleted artifact cannot be changed | `ChatPersistenceIntegrationTest.theLibraryRenamesStarsAndListsPendingUploadsOnlyForTheirOwner` |
+| A new name is trimmed, keeps the file's extension, and refuses control characters, slashes, an empty name and an overlong one | `ChatLibraryRenameTest` |
+| Content search scopes the file search to the owner's indexed uploads, keeps its order, carries at most three passages per file, drops a file the library no longer lists, asks nothing without indexed uploads, and refuses an empty or overlong query | `ChatLibraryContentSearchTest` |
+| `PATCH` requires CSRF and owner authority, keeps the extension in the rename, reports the star, refuses an empty change or an invalid name; `status=PENDING` lists a failed upload with its reason while the default list hides it; an unknown status and an empty content query are refused, and content search requires authentication | `ChatSessionApiIntegrationTest.theLibraryRenamesStarsAndShowsUploadsStillBeingProcessed` |
+| The page uploads dropped or chosen files with per-file progress and cancellation, lists pending uploads separately with retry, renames and stars a file, and searches contents showing marked passages | `web/src/features/chat/chat-library-page.test.tsx` |
+| Every occurrence of the query is marked in a passage, whatever its case, and a passage without a match is left alone | `web/src/features/chat/chat-library-highlight.test.ts` |
+| A selection is packed into one ZIP with colliding names suffixed, a file deleted before packing is skipped and named, and only its owner reads the archive | `ChatLibraryArchiveIntegrationTest.packsTheSelectionIntoOneZipWithUniqueNamesAndSkipsWhatIsGone` |
+| An expired archive leaves the listing and its download at once, and the sweep releases its bytes, its metadata and its row while the files keep theirs | `ChatLibraryArchiveIntegrationTest.releasesTheBytesOfAnExpiredArchiveAndRefusesItBeforehand` |
+| An empty, oversized, foreign or partly unknown selection is refused, a duplicate counts once, and one owner may queue only a few at a time | `ChatLibraryArchiveIntegrationTest.refusesAnEmptyOversizedOrForeignSelectionAndTooManyAtOnce` |
+| A request whose files have all lost their bytes fails with its own reason, is not claimed again and is not offered | `ChatLibraryArchiveIntegrationTest.aRequestThatKeepsFailingStopsBeingRetried` |
+| The archive routes require CSRF and owner authority, refuse an empty selection, answer 202 with PENDING, serve the ZIP with its attachment name once packed, and answer nothing to another member | `ChatSessionApiIntegrationTest.aSelectionIsPackedIntoOneOwnerPrivateZipAndRefusesWhatItCannotPack` |
+| The page packs a selection, polls it, downloads the ZIP and names the files that were skipped | `web/src/features/chat/chat-library-page.test.tsx` |
+| The preview steps through the files beside the one opened by button and arrow key, rotates an image, and offers no navigation for a single file | `web/src/features/chat/chat-file-preview-gallery.test.tsx` |

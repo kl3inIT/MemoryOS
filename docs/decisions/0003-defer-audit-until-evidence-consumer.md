@@ -1,6 +1,6 @@
 # ADR 0003: Defer audit until an evidence consumer exists
 
-- Status: Accepted
+- Status: Superseded by [ADR 0013](0013-server-authored-audit-evidence.md) on 2026-09-21, when MEM-125 and MEM-123 named the evidence consumer this ADR waited for.
 - Date: 2026-08-19
 - Decision owner: MemoryOS
 

@@ -29,9 +29,12 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     private final IamAuthorization authorization;
     private final SourceAccessPolicy sourceAccess;
     private final JdbcGoogleGroupRepository groups;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public DefaultGoogleDriveAuthorizationService(JdbcGoogleDriveCredentialRepository credentials,
-            IamAuthorization authorization, SourceAccessPolicy sourceAccess, JdbcGoogleGroupRepository groups) {
+            IamAuthorization authorization, SourceAccessPolicy sourceAccess, JdbcGoogleGroupRepository groups,
+            io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.credentials = credentials;
         this.authorization = authorization;
         this.sourceAccess = sourceAccess;
@@ -91,11 +94,16 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
         requireGrant(grant);
         try (var client = credentials.snapshot(actorId, preparation)) {
             String name = requireName(preparation.name());
-            if (preparation.credentialId() == null) return credentials.create(tenantId, actorId, name, grant, client);
+            if (preparation.credentialId() == null) {
+                var created = credentials.create(tenantId, actorId, name, grant, client);
+                audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_CREATE, tenantId).actor(actorId).resource("CREDENTIAL", created.value(), name).detail("provider", "GOOGLE_DRIVE").detail("authentication", "OAUTH").build());
+                return created;
+            }
             CredentialId credentialId = preparation.credentialId();
             var stored = requireOAuthCredential(requireCredentialMutation(actorId, tenantId, credentialId));
             requireOAuthClientMutation(actorId, tenantId, stored, client);
             credentials.reauthorize(tenantId, credentialId, name, Objects.requireNonNull(preparation.expectedRevision()), grant, client);
+            audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "GOOGLE_DRIVE").detail("change", "REAUTHORIZE").build());
             return credentialId;
         }
     }
@@ -105,10 +113,11 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     public byte[] disconnect(ActorId actorId, CredentialId credentialId, long expectedRevision) {
         var tenant = requireManagement(actorId);
         requireCredentialMutation(actorId, tenant, credentialId);
-        byte[] token = credentials.disconnect(tenant, credentialId, expectedRevision);
+        byte[] revoked = credentials.disconnect(tenant, credentialId, expectedRevision);
         // A revoked service account's Google Group memberships stop granting access at once.
         groups.removeAll(tenant, credentialId);
-        return token;
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenant).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").detail("change", "REVOKE").build());
+        return revoked;
     }
 
     @Override
@@ -122,8 +131,7 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
                     if (!editable) {
                         editable = true;
                         for (var source : attached) {
-                            try { sourceAccess.manage(actorId, source); }
-                            catch (io.memoryos.BusinessException denied) { editable = false; break; }
+                            if (!sourceAccess.canManage(actorId, source)) { editable = false; break; }
                         }
                     }
                     var actions = new java.util.ArrayList<String>();
@@ -149,6 +157,7 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
         var tenant = requireManagement(actorId);
         requireCredentialMutation(actorId, tenant, credentialId);
         credentials.delete(tenant, credentialId, expectedRevision);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_DELETE, tenant).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").build());
     }
 
     private TenantId requireManagement(ActorId actorId) {

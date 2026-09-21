@@ -33,6 +33,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-26 — Chat reply stream replay in Redis](docs/increments/active/mem-26-chat-stream-redis/design.md) owns moving the Chat reply replay buffer to Redis, the Onyx-style resume endpoint behavior and the browser recovery rule; several API replicas are excluded.
+- [MEM-152 — File library v2](docs/increments/active/mem-152-file-library-v2/design.md) owns reusing library files (server-side copy of generated files into uploads, the composer library picker, conversation-panel actions, adding to Projects), then direct upload, content search, rename/favourite, ZIP download, previews, quota and trash, one pull request per phase.
 - [MEM-141 — RAG benchmark](docs/increments/active/mem-141-rag-benchmark/design.md) owns the retrieval and answer benchmark under `tools/rag-benchmark`: a frozen corpus, seven question categories including Group authority, and the zero-regression gate.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
@@ -78,6 +79,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Keycloak invitation provisioning decision](docs/decisions/0005-keycloak-invited-user-provisioning.md)
 - [Shared identity runtime decision](docs/decisions/0004-memoryos-owned-shared-identity-runtime.md)
 - [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)
+- [Audit evidence contract](docs/specs/audit.md) and [verification matrix](docs/tests/audit.md)
 - [Identity and IAM authorization contract](docs/specs/identity.md)
 - [Identity and IAM verification matrix](docs/tests/identity.md)
 - [Tenant contract](docs/specs/tenant.md)

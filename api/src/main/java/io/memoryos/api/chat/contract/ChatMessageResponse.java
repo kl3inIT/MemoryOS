@@ -33,7 +33,9 @@ public record ChatMessageResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Chart data is available at /api/chat/file-artifacts/{id}/chart") boolean chart) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Chart data is available at /api/chat/file-artifacts/{id}/chart") boolean chart,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "The file was deleted from the library; its content routes no longer serve it") boolean deleted) {}
 
     /** Deep research state: a clarification question makes the next research turn skip clarification. */
     @Schema(name = "ChatMessageResearch")
@@ -60,7 +62,9 @@ public record ChatMessageResponse(
     /** A generated image attached to an assistant reply; bytes are served at /api/chat/image-artifacts/{id}/content. */
     public record ImageRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "The image was deleted from the library; its content route no longer serves it") boolean deleted) {}
     public static ChatMessageResponse from(ChatMessage message) {
         return from(message, List.of(), List.of());
     }

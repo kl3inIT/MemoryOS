@@ -17,12 +17,14 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated._
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
 import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
+import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated.library'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
@@ -94,6 +96,11 @@ const AuthenticatedAssistantsRoute = AuthenticatedAssistantsRouteImport.update({
   path: '/assistants',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -126,6 +133,11 @@ const AuthenticatedAdminAiCostsRoute =
     path: '/ai-costs',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminCodeInterpreterRoute =
   AuthenticatedAdminCodeInterpreterRouteImport.update({
     id: '/code-interpreter',
@@ -324,10 +336,12 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
+  '/library': typeof AuthenticatedLibraryRoute
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -369,9 +383,11 @@ export interface FileRoutesByTo {
   '/sign-in-failed': typeof SignInFailedRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
+  '/library': typeof AuthenticatedLibraryRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -414,10 +430,12 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
+  '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -463,10 +481,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/assistants'
+    | '/library'
     | '/search'
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/audit'
     | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
@@ -508,9 +528,11 @@ export interface FileRouteTypes {
     | '/sign-in-failed'
     | '/agents'
     | '/assistants'
+    | '/library'
     | '/search'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/audit'
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -552,10 +574,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/agents'
     | '/_authenticated/assistants'
+    | '/_authenticated/library'
     | '/_authenticated/search'
     | '/_authenticated/settings'
     | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-costs'
+    | '/_authenticated/admin/audit'
     | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
@@ -657,6 +681,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAssistantsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/library': {
+      id: '/_authenticated/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/search': {
       id: '/_authenticated/search'
       path: '/search'
@@ -697,6 +728,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-costs'
       fullPath: '/admin/ai-costs'
       preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/code-interpreter': {
@@ -987,6 +1025,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
+  AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
@@ -1007,6 +1046,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
+  AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
@@ -1061,6 +1101,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
+  AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
@@ -1074,6 +1115,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
+  AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedAgentsCreateRoute: AuthenticatedAgentsCreateRoute,

@@ -24,20 +24,30 @@ export function ChatImages() {
   if (!generating && resolved.length === 0) return null;
   return (
     <div className="mt-3 flex flex-col gap-3">
-      {resolved.map((image) => (
-        <ImageGeneration
-          key={image.id}
-          generating={false}
-          src={imageArtifactUrl(image.id)}
-          prompt={image.revisedPrompt ?? undefined}
-          label={image.revisedPrompt ?? ui("Ảnh đã tạo")}
-          downloadLabel={ui("Tải ảnh")}
-          viewLabel={ui("Xem ảnh phóng to")}
-          closeLabel={ui("Đóng")}
-          editLabel={ui("Sửa ảnh")}
-          onEdit={editing ? () => setTarget(image.id) : undefined}
-        />
-      ))}
+      {resolved.map((image) =>
+        image.deleted ? (
+          <p
+            key={image.id}
+            data-slot="image-deleted"
+            className="rounded-lg border border-border-default px-3 py-2 text-sm text-content-muted"
+          >
+            {ui("Ảnh đã bị xoá")}
+          </p>
+        ) : (
+          <ImageGeneration
+            key={image.id}
+            generating={false}
+            src={imageArtifactUrl(image.id)}
+            prompt={image.revisedPrompt ?? undefined}
+            label={image.revisedPrompt ?? ui("Ảnh đã tạo")}
+            downloadLabel={ui("Tải ảnh")}
+            viewLabel={ui("Xem ảnh phóng to")}
+            closeLabel={ui("Đóng")}
+            editLabel={ui("Sửa ảnh")}
+            onEdit={editing ? () => setTarget(image.id) : undefined}
+          />
+        ),
+      )}
       {generating && <ImageGeneration generating label={ui("Đang tạo ảnh…")} />}
       {editing && target && (
         <ChatImageEditDialog

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { DailyChart } from "./daily-chart";
+import { UsageReports } from "./usage-reports";
 import { Link } from "@tanstack/react-router";
 import {
   Activity,
@@ -165,6 +166,8 @@ export function AiCostsPage() {
           )}
         </CardContent>
       </Card>
+
+      <UsageReports />
 
       <PersonDialog person={person} range={range} onClose={() => setPerson(null)} />
     </SettingsLayout>

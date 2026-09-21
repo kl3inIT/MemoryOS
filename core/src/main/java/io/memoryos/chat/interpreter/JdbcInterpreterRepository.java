@@ -23,20 +23,27 @@ public class JdbcInterpreterRepository {
         }
     }
     /** {@code chart} says chart data is stored beside the PNG; it is read separately to keep lists small. */
-    public record GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes, boolean chart) {}
+    public record GeneratedFile(UUID id, String filename, String mediaType, long sizeBytes, boolean chart, boolean deleted) {}
 
-    /** Generated files of an already-authorized page of messages, keyed by message id. */
+    /**
+     * Generated files of an already-authorized page of messages, keyed by message id. A file deleted from the
+     * library is still returned, marked deleted, so the answer keeps its card instead of losing it silently.
+     */
     public java.util.Map<UUID, java.util.List<GeneratedFile>> byMessages(TenantId tenant, java.util.Collection<UUID> messageIds) {
         if (messageIds.isEmpty()) return java.util.Map.of();
         var result = new java.util.LinkedHashMap<UUID, java.util.List<GeneratedFile>>();
         jdbc.sql("""
-                SELECT message_id, id, filename, media_type, size_bytes, chart IS NOT NULL AS has_chart FROM chat_file_artifact
+                SELECT message_id, id, filename, media_type, size_bytes, chart IS NOT NULL AS has_chart,
+                       deleted_at IS NOT NULL AS deleted
+                FROM chat_file_artifact
                 WHERE tenant_id = :tenant AND message_id IN (:messages) ORDER BY created_at, id
                 """).param("tenant", tenant.value()).param("messages", messageIds)
                 .query((row, ignored) -> {
+                    boolean deleted = row.getBoolean("deleted");
                     result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new java.util.ArrayList<>())
                             .add(new GeneratedFile(row.getObject("id", UUID.class), row.getString("filename"),
-                                    row.getString("media_type"), row.getLong("size_bytes"), row.getBoolean("has_chart")));
+                                    row.getString("media_type"), deleted ? 0 : row.getLong("size_bytes"),
+                                    !deleted && row.getBoolean("has_chart"), deleted));
                     return true;
                 }).list();
         return result;
@@ -59,14 +66,36 @@ public class JdbcInterpreterRepository {
                 .query((row, ignored) -> new Setting(row.getBoolean("enabled"), row.getLong("revision"))).single();
     }
 
+    /**
+     * Records the file against its answer. Owner and conversation come from the answer itself, so the file
+     * library reads them without joining and a caller cannot record a foreign owner.
+     */
     public void insertArtifact(TenantId tenant, UUID messageId, UUID id, UUID storedObjectId, ObjectKey key,
                                String filename, String mediaType, long sizeBytes, @org.jspecify.annotations.Nullable String chart) {
-        jdbc.sql("""
-                INSERT INTO chat_file_artifact(id, tenant_id, message_id, stored_object_id, object_key, filename, media_type, size_bytes, chart)
-                VALUES(:id, :tenant, :message, :object, :key, :filename, :type, :size, CAST(:chart AS jsonb))
+        int inserted = jdbc.sql("""
+                INSERT INTO chat_file_artifact(id, tenant_id, message_id, stored_object_id, object_key, filename, media_type,
+                                               size_bytes, chart, owner_actor_id, session_id)
+                SELECT :id, :tenant, :message, :object, :key, :filename, :type, :size, CAST(:chart AS jsonb),
+                       s.owner_actor_id, s.id
+                FROM chat_message m JOIN chat_session s ON s.id = m.session_id
+                WHERE m.id = :message AND s.tenant_id = :tenant
                 """).param("id", id).param("tenant", tenant.value()).param("message", messageId).param("object", storedObjectId)
                 .param("key", key.value()).param("filename", filename).param("type", mediaType).param("size", sizeBytes)
                 .param("chart", chart).update();
+        if (inserted != 1) throw new IllegalStateException("generated file has no answer in this tenant");
+    }
+
+    /**
+     * Hides the file from the library and every serving route; a worker sweep releases its bytes. Deleting a
+     * file the sweep has already removed still succeeds: an absent row is the outcome the caller asked for.
+     */
+    public boolean markArtifactDeleted(TenantId tenant, ActorId actor, UUID id) {
+        boolean hidden = jdbc.sql("""
+                UPDATE chat_file_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP)
+                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
+        return hidden || jdbc.sql("SELECT count(*) FROM chat_file_artifact WHERE id = :id")
+                .param("id", id).query(Long.class).single() == 0;
     }
 
     /** Chart data of a generated file the actor owns, as JSON text. */
@@ -76,7 +105,7 @@ public class JdbcInterpreterRepository {
                 JOIN chat_message m ON m.id = a.message_id
                 JOIN chat_session s ON s.id = m.session_id AND s.tenant_id = a.tenant_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
-                  AND a.chart IS NOT NULL
+                  AND a.deleted_at IS NULL AND a.chart IS NOT NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query((row, ignored) -> row.getString("chart")).optional();
     }
@@ -88,6 +117,7 @@ public class JdbcInterpreterRepository {
                 JOIN chat_message m ON m.id = a.message_id
                 JOIN chat_session s ON s.id = m.session_id AND s.tenant_id = a.tenant_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
+                  AND a.deleted_at IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query((row, ignored) -> new Artifact(new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"),
@@ -95,12 +125,15 @@ public class JdbcInterpreterRepository {
                 .optional();
     }
 
-    /** Records a converted preview once; returns false when another request already recorded one. */
+    /**
+     * Records a converted preview once; returns false when another request already recorded one, or when the
+     * file was deleted while the conversion ran, so the caller discards the object it staged.
+     */
     public boolean attachPreview(TenantId tenant, UUID id, UUID storedObjectId, ObjectKey key, long sizeBytes) {
         return jdbc.sql("""
                 UPDATE chat_file_artifact SET preview_stored_object_id = :object, preview_object_key = :key,
                     preview_size_bytes = :size
-                WHERE tenant_id = :tenant AND id = :id AND preview_object_key IS NULL
+                WHERE tenant_id = :tenant AND id = :id AND preview_object_key IS NULL AND deleted_at IS NULL
                 """).param("tenant", tenant.value()).param("id", id).param("object", storedObjectId)
                 .param("key", key.value()).param("size", sizeBytes).update() == 1;
     }
