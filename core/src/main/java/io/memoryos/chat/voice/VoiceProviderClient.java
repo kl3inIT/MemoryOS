@@ -40,6 +40,7 @@ public class VoiceProviderClient {
                 case OPENAI, OPENAI_COMPATIBLE -> listModels(probe);
                 case ELEVENLABS -> requireArray(probe.baseUrl() + "/models", "xi-api-key", probe.key());
                 case AZURE -> requireArray(probe.baseUrl() + AzureSpeech.VOICES_PATH, "Ocp-Apim-Subscription-Key", probe.key());
+                case SONIOX -> requireSonioxListing(probe);
             }
             outcome = "succeeded";
         } finally {
@@ -63,6 +64,29 @@ public class VoiceProviderClient {
                 body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1);
             }
             if (body.length > MAX_MODEL_LIST_BYTES || !JSON.readTree(body).path("data").isArray())
+                throw ChatException.providerUnavailable();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw ChatException.providerUnavailable();
+        } catch (ChatException expected) {
+            throw expected;
+        } catch (IOException | RuntimeException failure) {
+            throw ChatException.providerUnavailable();
+        }
+    }
+
+    /** Soniox has no model listing; an authorized one-item transcription listing proves the key (Anarlog provider validation). */
+    private static void requireSonioxListing(VoiceConnectionService.Probe probe) {
+        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CHECK_TIMEOUT).build()) {
+            var request = HttpRequest.newBuilder(URI.create(probe.baseUrl() + "/transcriptions?limit=1")).timeout(CHECK_TIMEOUT)
+                    .header("Accept", "application/json").header("Authorization", "Bearer " + probe.key()).GET().build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            byte[] body;
+            try (var stream = response.body()) {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
+                body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1);
+            }
+            if (body.length > MAX_MODEL_LIST_BYTES || !JSON.readTree(body).path("transcriptions").isArray())
                 throw ChatException.providerUnavailable();
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();

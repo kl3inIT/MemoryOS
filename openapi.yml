@@ -1356,6 +1356,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       requestBody:
         content:
           application/json:
@@ -1428,6 +1429,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       - name: revision
         in: query
         required: true
@@ -7322,6 +7324,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       responses:
         "400":
           description: Invalid voice configuration
@@ -15359,6 +15362,7 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         model:
           type: string
           maxLength: 200
@@ -15419,6 +15423,7 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         endpoint:
           type: string
         sttModel:
@@ -19727,12 +19732,16 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         requiresKey:
           type: boolean
         requiresEndpoint:
           type: boolean
         defaultEndpoint:
           type: string
+        speech:
+          type: boolean
+          description: Whether the provider can read text aloud.
         sttModels:
           type: array
           items:
@@ -19750,6 +19759,7 @@ components:
       - provider
       - requiresEndpoint
       - requiresKey
+      - speech
       - sttModels
       - ttsModels
       - voices

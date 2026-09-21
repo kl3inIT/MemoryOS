@@ -114,6 +114,8 @@ public class VoiceConnectionService {
             for (var connection : connections.findByTenantIdOrderByProvider(tenant)) select(connection, function, false);
             return;
         }
+        if (function == VoiceFunction.TTS && !provider.speech())
+            throw ChatException.invalid("This provider does not read text aloud.");
         var selected = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(ChatException::unavailable);
         if (model != null) selected.useTtsModel(model);
         if (!serves(selected, function)) throw ChatException.providerUnavailable();
@@ -174,6 +176,8 @@ public class VoiceConnectionService {
         if (replace ? credential.value() == null || credential.value().isBlank() || credential.value().length() > MAX_CREDENTIAL
                 : credential.value() != null)
             throw ChatException.invalid("Invalid provider credential.");
+        if (!provider.speech() && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
+            throw ChatException.invalid("This provider does not read text aloud.");
         if (provider.requiresEndpoint() && input.endpoint().isEmpty())
             throw ChatException.invalid("This provider requires its own endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());

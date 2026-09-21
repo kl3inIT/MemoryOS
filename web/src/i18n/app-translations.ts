@@ -2907,6 +2907,8 @@ Object.assign(vietnameseUi, {
   "Bật tiếng": "Unmute",
   "Tắt tiếng": "Mute",
   "Nhận dạng tiếng Việt và tiếng Anh qua REST": "Vietnamese and English recognition over REST",
+  "Nhận dạng tiếng Việt theo thời gian thực, tách người nói":
+    "Real-time Vietnamese recognition with speaker separation",
   "Giọng Neural tiếng Việt và tiếng Anh": "Vietnamese and English neural voices",
   "Địa chỉ tài nguyên Speech": "Speech resource endpoint",
   "Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.":

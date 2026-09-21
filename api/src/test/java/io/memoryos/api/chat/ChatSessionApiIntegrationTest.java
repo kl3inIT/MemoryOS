@@ -2397,7 +2397,17 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(jsonPath("$[0].provider").value("OPENAI")).andExpect(jsonPath("$[0].ttsModels[1]").value("tts-1-hd"))
                     .andExpect(jsonPath("$[1].requiresEndpoint").value(true))
                     .andExpect(jsonPath("$[2].provider").value("ELEVENLABS")).andExpect(jsonPath("$[2].sttModels[0]").value("scribe_v2"))
-                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true));
+                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true))
+                    .andExpect(jsonPath("$[0].speech").value(true))
+                    .andExpect(jsonPath("$[4].provider").value("SONIOX")).andExpect(jsonPath("$[4].speech").value(false))
+                    .andExpect(jsonPath("$[4].sttModels[0]").value("stt-rt-v5"));
+            // A speech-to-text-only provider refuses read-aloud settings before any provider is contacted.
+            var sonioxSpeech = Json.mapper().createObjectNode().put("endpoint", "").put("sttModel", "stt-rt-v5")
+                    .put("ttsModel", "tts-1").put("ttsVoice", "alloy").put("credentialAction", "REPLACE")
+                    .put("credentialValue", "soniox-secret").putNull("activate").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/SONIOX").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(sonioxSpeech.toString()))
+                    .andExpect(status().isBadRequest());
             var draft = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
                     .put("sttModel", "whisper-1").put("ttsModel", "kokoro").put("ttsVoice", "af_heart")
                     .put("credentialAction", "REPLACE").put("credentialValue", "wrong-secret").put("activate", "STT").put("revision", 0);

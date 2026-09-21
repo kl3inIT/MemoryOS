@@ -405,7 +405,7 @@ export type WebConnectionResponse = {
 
 export type VoiceSelectionRequest = {
     function: 'STT' | 'TTS';
-    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     model?: string;
 };
 
@@ -421,7 +421,7 @@ export type VoiceConnectionRequest = {
 };
 
 export type VoiceConnectionResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     endpoint: string;
     sttModel: string;
     ttsModel: string;
@@ -1966,10 +1966,14 @@ export type VoiceAvailabilityResponse = {
 };
 
 export type VoiceProviderResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     requiresKey: boolean;
     requiresEndpoint: boolean;
     defaultEndpoint: string;
+    /**
+     * Whether the provider can read text aloud.
+     */
+    speech: boolean;
     sttModels: Array<string>;
     ttsModels: Array<string>;
     voices: Array<string>;
@@ -3501,7 +3505,7 @@ export type DeleteChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query: {
         revision: number;
@@ -3556,7 +3560,7 @@ export type SaveChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}';
@@ -8216,7 +8220,7 @@ export type TestChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}/test';
