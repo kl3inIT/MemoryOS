@@ -84,7 +84,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   }
 
   return (
-    <article className="groups-list-card group">
+    <article className="group min-h-[74px] rounded-2xl border border-border-subtle bg-surface-raised p-4">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 size-5 shrink-0 text-content-secondary">
           {group.systemKey === "ADMIN" ? (
@@ -141,7 +141,9 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                 {group.name}
               </h2>
               {builtIn ? (
-                <span className="groups-default-tag shrink-0">{ui("Default")}</span>
+                <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-px font-figure-small-label text-content-muted">
+                  {ui("Default")}
+                </span>
               ) : null}
               {canRename ? (
                 <IconButton

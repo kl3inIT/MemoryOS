@@ -290,7 +290,7 @@ export function ChatLibraryPage() {
                     />
                   </TableHead>
                   <TableHead>{ui("Tên tệp")}</TableHead>
-                  <TableHead>{ui("Nguồn")}</TableHead>
+                  <TableHead>{ui("Nguồn tệp")}</TableHead>
                   <TableHead>{ui("Dung lượng")}</TableHead>
                   <TableHead>{ui("Ngày tạo")}</TableHead>
                   <TableHead className="text-right">{ui("Thao tác")}</TableHead>

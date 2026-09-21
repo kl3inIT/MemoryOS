@@ -29,7 +29,7 @@ export const vietnameseUi: Record<string, string> = {
     "No files yet. What you upload or Chat generates appears here.",
   "Chọn tất cả": "Select all",
   "Tên tệp": "File name",
-  Nguồn: "Source",
+  "Nguồn tệp": "Source",
   "Dung lượng": "Size",
   "Ngày tạo": "Created",
   "Chọn {{name}}": "Select {{name}}",
@@ -609,6 +609,72 @@ export const vietnameseUi: Record<string, string> = {
     "Name, description and labels help colleagues find the right assistant in the library.",
   "Thêm câu gợi ý": "Add starter prompt",
   "Thêm nguồn": "Add source",
+  Nguồn: "sources",
+  "Bộ tài liệu": "Document Sets",
+  "Công khai bộ tài liệu này?": "Make this Document Set public?",
+  "Bật thì mọi người trong tổ chức đều dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng, nên bộ công khai không cấp thêm quyền cho ai.":
+    "When set, every Tenant member can use this Document Set. Access to each Source and document is still checked separately, so a public set grants nobody extra access.",
+  "Bộ tài liệu đang công khai nên ai cũng dùng được. Danh sách dưới đây chỉ có tác dụng khi bạn tắt công khai.":
+    "The Document Set is public, so everyone can use it. The list below only applies once you turn public off.",
+  "+{{n}} nguồn bạn không có quyền đọc": "+{{n}} Sources you cannot read",
+  "Bộ tài liệu mới": "New Document Set",
+  "Bạn không có quyền sửa bộ tài liệu này.": "You don't have permission to edit this Document Set.",
+  "Đã cập nhật bộ tài liệu": "Document Set updated",
+  "Đã tạo bộ tài liệu": "Document Set created",
+  "Đã lưu bộ tài liệu nhưng chưa lưu được chia sẻ":
+    "Document Set saved, but its sharing wasn't saved",
+  "Nhập tên bộ tài liệu.": "Enter a Document Set name.",
+  "Tên của bộ tài liệu": "A name for the Document Set",
+  "Mô tả bộ tài liệu này gồm những gì": "Describe what the Document Set represents",
+  "Chia sẻ bộ tài liệu": "Share the Document Set",
+  "Chỉ bạn, quản trị viên trợ lý và những người hoặc nhóm được chia sẻ mới dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng.":
+    "Only you, agent administrators, and the people or Groups it is shared with can use this Document Set. Access to each Source and document is still checked separately.",
+  "Đã chia sẻ với": "Shared with",
+  "Chọn nguồn": "Pick your Sources",
+  "Mọi tài liệu đã lập chỉ mục từ các nguồn được chọn sẽ thuộc bộ tài liệu này.":
+    "All documents indexed from the selected Sources will be part of this Document Set.",
+  "Chọn ít nhất một nguồn.": "Select at least one Source.",
+  "Cập nhật bộ tài liệu": "Update Document Set",
+  "(không bắt buộc)": "(optional)",
+  "Bỏ {{v1}}": "Remove {{v1}}",
+  "Đã chọn tất cả nguồn": "All Sources selected",
+  "Không có nguồn nào bạn được phép chọn.": "No Sources are available to you.",
+  "Nguồn đã chọn": "Selected Sources",
+  "Chưa chọn nguồn nào. Tìm và chọn nguồn ở ô phía trên.":
+    "No Sources selected. Search and select Sources above.",
+  "Bộ tài liệu gom các nguồn có liên quan thành một nhóm. Dùng bộ tài liệu làm bộ lọc khi tìm kiếm hoặc gắn vào trợ lý để giới hạn phạm vi tìm. Bộ tài liệu không cấp thêm quyền đọc nguồn hay tài liệu.":
+    "Document Sets group related Sources into a single bundle. Use them as a Search filter or attach them to agents to limit where they look. A Document Set never grants access to a Source or document.",
+  "Bộ tài liệu hiện có": "Existing Document Sets",
+  "Bảng bộ tài liệu": "Document Sets table",
+  "Xem thêm {{n}} nguồn": "Show {{n}} more Sources",
+  "Xem thêm {{n}} bộ tài liệu": "Show {{n}} more Document Sets",
+  "Quyền truy cập": "Access",
+  "Mọi người trong tổ chức dùng được bộ tài liệu này.":
+    "Every Tenant member can use this Document Set.",
+  "Chỉ những người và nhóm được chia sẻ mới dùng được bộ tài liệu này.":
+    "Only the people and Groups it is shared with can use this Document Set.",
+  "Chỉ bạn và quản trị viên trợ lý dùng được bộ tài liệu này.":
+    "Only you and agent administrators can use this Document Set.",
+  "Xóa {{v1}}": "Delete {{v1}}",
+  "Xóa {{v1}}?": "Delete {{v1}}?",
+  "Bộ tài liệu sẽ bị gỡ khỏi mọi trợ lý đang dùng nó. Nguồn và tài liệu không bị xóa.":
+    "The Document Set will be removed from every agent that uses it. Sources and documents are not deleted.",
+  "Xóa bộ tài liệu": "Delete Document Set",
+  "Trang bộ tài liệu": "Document Set pages",
+  "Tạo bộ tài liệu": "Create Document Set",
+  "Đang tải bộ tài liệu…": "Loading Document Sets…",
+  "Không tải được bộ tài liệu.": "Could not load Document Sets.",
+  "Sửa bộ tài liệu": "Edit Document Set",
+  "Thêm bộ tài liệu": "Add Document Set",
+  "Tất cả bộ tài liệu": "All Document Sets",
+  "Tìm bộ tài liệu…": "Search Document Sets…",
+  "Không tìm thấy bộ tài liệu.": "No Document Sets found.",
+  "Không có bộ tài liệu nào được chọn": "No Document Sets selected",
+  "Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.":
+    "Choose Document Sets so the assistant answers only from their sources.",
+  "Bộ tài liệu không còn khả dụng (đang giữ lựa chọn)":
+    "Document Set is unavailable (selection retained)",
+  "Bỏ bộ tài liệu {{v1}}": "Remove Document Set {{v1}}",
   "Theo model": "Model default",
   "Thông tin chung": "General",
   "Tìm hoặc tạo nhãn…": "Search or create a label…",
@@ -633,6 +699,7 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá bộ lọc người tạo": "Clear creator filter",
   "Sửa {{v1}}": "Edit {{v1}}",
   "Sửa trợ lý": "Edit assistant",
+  "Không mở được trợ lý": "The assistant could not be opened",
   "Chia sẻ trợ lý": "Share assistant",
   "Bắt đầu chat": "Start chat",
   "Dự án": "Projects",
@@ -946,6 +1013,8 @@ export const englishUi: Record<string, string> = {
   "Source actions": "Thao tác nguồn",
   "Indexing history": "Lịch sử lập chỉ mục",
   "Who can read": "Ai có thể đọc",
+  "+{{count}} more groups": "+{{count}} nhóm khác",
+  "Additional groups: {{v1}}": "Các nhóm khác: {{v1}}",
   Activity: "Hoạt động",
   Duration: "Thời lượng",
   Content: "Nội dung",
@@ -1084,6 +1153,9 @@ export const englishUi: Record<string, string> = {
   "Rename source": "Đổi tên nguồn",
   "Change visibility": "Thay đổi chế độ hiển thị",
   "Pause source": "Tạm dừng nguồn",
+  Pausing: "Đang tạm dừng",
+  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file":
+    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
   "Resume source": "Tiếp tục nguồn",
   "Pausing…": "Đang tạm dừng…",
   "Source paused": "Đã tạm dừng nguồn",
@@ -1125,6 +1197,10 @@ export const englishUi: Record<string, string> = {
   "MemoryOS manages this group. Its name and permissions are fixed. Membership changes follow the group’s access rules.":
     "MemoryOS quản lý nhóm này. Tên và quyền của nhóm là cố định. Việc thay đổi thành viên tuân theo các quy tắc truy cập của nhóm.",
   "Group Name": "Tên nhóm",
+  "Membership, permissions and the Sources this group may read.":
+    "Thành viên, quyền và các nguồn nhóm này được đọc.",
+  "Groups carry permissions and the Sources their members may read.":
+    "Nhóm mang quyền và các nguồn mà thành viên được đọc.",
   "Group Permissions": "Quyền của nhóm",
   "Toggle group permissions": "Mở hoặc thu gọn quyền của nhóm",
   "Group permission grants": "Các quyền được cấp cho nhóm",
@@ -1214,7 +1290,7 @@ export const englishUi: Record<string, string> = {
   Tenant: "Tổ chức",
   Users: "Người dùng",
   Groups: "Nhóm",
-  Knowledge: "Tri thức",
+  "Documents & Knowledge": "Tài liệu và tri thức",
   Sources: "Nguồn dữ liệu",
   Configuration: "Cấu hình",
   "Exit Connector Setup": "Thoát thiết lập kết nối",
@@ -1541,13 +1617,15 @@ Object.assign(englishUi, {
     "Để trống để liên kết nguồn mới với nhóm quản trị được bảo vệ.",
   File: "Tệp",
   "File name": "Tên tệp",
-  "Drag and drop your file here": "Kéo và thả tệp vào đây",
-  "Choose file": "Chọn tệp",
-  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file":
-    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
-  "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB":
-    "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB",
-  "Remove selected file": "Bỏ tệp đã chọn",
+  "Drag and drop your files here": "Kéo và thả các tệp vào đây",
+  "Choose files": "Chọn các tệp",
+  "Choose PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files":
+    "Chọn các tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown",
+  "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Up to 100 MiB each":
+    "PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown · Tối đa 100 MiB mỗi tệp",
+  Accepted: "Đã nhận",
+  "File {{v1}} of {{v2}}": "Tệp {{v1}} trên {{v2}}",
+  " · {{v1}}": " · {{v1}}",
   "The file reached object storage; retry finalization without uploading it again.":
     "Tệp đã được lưu; hãy thử xác nhận hoàn tất mà không tải lên lại.",
   "Finish your pending upload first.": "Hãy hoàn tất lần tải lên đang chờ trước.",
@@ -1926,6 +2004,10 @@ Object.assign(englishUi, {
   "This credential authorizes importing files. MemoryOS Source groups control who can search and read the imported documents.":
     "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
+  "Expand everything in {{v1}}": "Mở tất cả bên trong {{v1}}",
+  "Load more": "Tải thêm",
+  "Load more items in {{v1}}": "Tải thêm mục trong {{v1}}",
+  "Load more selected content": "Tải thêm nội dung đã chọn",
   "Save selection": "Lưu lựa chọn",
   "Close draft": "Đóng bản nháp",
   "Reload saved selection": "Tải lại lựa chọn đã lưu",
@@ -1962,11 +2044,13 @@ Object.assign(englishUi, {
   "Last discovery · {{v1}}": "Lần tìm liên kết gần nhất · {{v1}}",
   "No discovery yet.": "Chưa tìm liên kết.",
   "Discover linked documents": "Tìm tài liệu liên kết",
+  "Find links in files": "Tìm links trong các tệp",
   "The list below shows the active selection, not the unverified links in your draft.":
     "Danh sách bên dưới hiển thị lựa chọn đang dùng, không phải liên kết chưa xác thực trong bản nháp.",
   "Discovery could not check": "Không kiểm tra được",
   inputs: "đầu vào",
   "Search selected content": "Tìm nội dung đã chọn",
+  "Search selected files": "Tìm tệp đã chọn",
   "Filter selected content": "Lọc nội dung đã chọn",
   "Show search": "Hiện ô tìm kiếm",
   "Hide search": "Ẩn ô tìm kiếm",
@@ -1989,6 +2073,8 @@ Object.assign(englishUi, {
   "Search scope": "Phạm vi tìm kiếm",
   "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.":
     "Tìm kiếm bao gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp bên trong thư mục đã chọn. Nội dung thư mục có thể tìm được sau khi nguồn đồng bộ.",
+  "Search finds selected folders, selected files, linked documents and files synchronized from selected folders.":
+    "Tìm kiếm gồm thư mục, tệp đã chọn, tài liệu liên kết và tệp đã đồng bộ từ các thư mục đã chọn.",
   "In scope": "Trong phạm vi",
   Linked: "Liên kết",
   "Loading folder contents…": "Đang tải nội dung thư mục…",
@@ -2046,6 +2132,10 @@ Object.assign(englishUi, {
   "Refresh source": "Làm mới nguồn",
   "is stored and still needs finalization.": "đã được lưu và vẫn cần xác nhận hoàn tất.",
   "Loading source": "Đang tải nguồn",
+  "It may have completed deletion.": "Có thể nguồn đã bị xoá xong.",
+  "Delete this source": "Xoá nguồn này",
+  "Every indexed document from this source becomes unavailable. Cleanup continues in the background and cannot be undone.":
+    "Mọi tài liệu đã lập chỉ mục từ nguồn này sẽ không còn dùng được. Việc dọn dẹp chạy nền và không thể hoàn tác.",
   "Source unavailable": "Nguồn không khả dụng",
   "Delete source": "Xóa nguồn",
   "Deleting “{{v1}}” makes every indexed document from this source unavailable. Cleanup continues asynchronously and cannot be undone.":
@@ -2556,11 +2646,10 @@ Object.assign(englishUi, {
   "Indexing failed": "Lập chỉ mục thất bại",
   Checked: "Đã kiểm tra",
   Unchanged: "Không đổi",
-  "Choose one file at a time. You can add more files after creating the source.":
-    "Chọn từng tệp một. Bạn có thể thêm tệp sau khi tạo nguồn.",
-  "Choose a PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown file.":
-    "Chọn tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown.",
-  "Choose a file between 1 byte and 100 MiB.": "Chọn tệp có dung lượng từ 1 byte đến 100 MiB.",
+  "Choose only PDF, DOCX, PPTX, XLSX, CSV, TXT, or Markdown files.":
+    "Chỉ chọn các tệp PDF, DOCX, PPTX, XLSX, CSV, TXT hoặc Markdown.",
+  "Choose files between 1 byte and 100 MiB each.":
+    "Chọn các tệp có dung lượng từ 1 byte đến 100 MiB mỗi tệp.",
   "Opening source…": "Đang mở nguồn…",
   "Preparing file…": "Đang chuẩn bị tệp…",
   "Creating source…": "Đang tạo nguồn…",
@@ -2570,8 +2659,8 @@ Object.assign(englishUi, {
   "Source created; upload accepted": "Đã tạo nguồn và nhận tệp tải lên",
   "Your upload was accepted, but the Source page could not be opened. Open the Source again; do not upload the file again.":
     "Đã nhận tệp tải lên nhưng không mở được trang nguồn. Hãy mở lại nguồn, không tải tệp lên lại.",
-  "The file could not be uploaded. Check your connection and retry; your source is already created.":
-    "Không tải được tệp. Kiểm tra kết nối rồi thử lại; nguồn đã được tạo.",
+  "{{v1}} could not be uploaded. Check your connection and retry; your source is already created.":
+    "Không tải được {{v1}}. Kiểm tra kết nối rồi thử lại; nguồn đã được tạo.",
   "Source created; unable to open": "Đã tạo nguồn nhưng chưa mở được",
   "Source created; upload needs attention": "Đã tạo nguồn; cần kiểm tra lần tải lên",
   "Source creation failed": "Tạo nguồn thất bại",
@@ -2607,6 +2696,8 @@ Object.assign(englishUi, {
   "Revoking…": "Đang thu hồi…",
   "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.":
     "Đã tạo {{v1}}. Đã nhận {{v2}} để lập chỉ mục; quá trình chưa hoàn tất.",
+  "{{v1}} was created. {{v2}} files were accepted for indexing; indexing is not complete yet.":
+    "Đã tạo {{v1}}. Đã nhận {{v2}} tệp để lập chỉ mục; quá trình chưa hoàn tất.",
   "{{v1}} is connected and ready to use with a Source.":
     "{{v1}} đã kết nối và sẵn sàng dùng với nguồn.",
   "{{v1}}: displayed values may be out of date. Try refreshing again.":
@@ -3305,11 +3396,17 @@ Object.assign(englishUi, {
   "Output price": "Giá output",
   Capabilities: "Capabilities",
   "Advanced options": "Tuỳ chọn nâng cao",
-  "Fetch models from the provider": "Lấy danh sách model từ provider",
-  "Models reported by the provider": "Model có trên provider",
-  "The provider did not answer.": "Provider không phản hồi.",
+  "List models": "Lấy danh sách model",
+  "Select all shown": "Chọn tất cả đang hiện",
+  "Clear selection": "Bỏ chọn",
+  "{{shown}} of {{total}} models · {{selected}} selected":
+    "{{shown}}/{{total}} model · đã chọn {{selected}}",
+  "Read the endpoint to list the models it serves.": "Lấy danh sách model mà endpoint này phục vụ.",
   "This endpoint reported no models.": "Endpoint này không trả về model nào.",
-  "Edit first": "Sửa trước khi thêm",
+  "The provider was saved. These models were not added: {{models}}":
+    "Đã lưu provider. Chưa thêm được các model: {{models}}",
+  Tools: "Tools",
+  Vision: "Vision",
   "Provider default": "Mặc định của provider",
   "Add {{count}} models": "Thêm {{count}} model",
   "{{shown}} of {{total}} models": "{{shown}}/{{total}} model",

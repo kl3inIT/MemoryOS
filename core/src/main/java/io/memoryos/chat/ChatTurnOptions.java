@@ -6,7 +6,11 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Agent restrictions resolved for one turn; empty sourceIds means all currently authorized sources.
+ * Agent restrictions resolved for one turn.
+ *
+ * @param sourcesRestricted whether the agent attaches Sources or Document Sets at all. An agent that attaches none
+ *                          searches every authorized Source, while one whose attachments resolve to nothing for this
+ *                          actor searches nothing: an unusable attachment must never widen retrieval.
  *
  * @param knowledgeCutoff lower bound for document update time (Onyx {@code search_start_date})
  * @param taskPrompt      agent reminder sent after the latest message of every inference (Onyx {@code task_prompt})
@@ -14,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  * @param sampling        creativity and reasoning level settled for this turn ({@link ChatSampling#NONE}: use the
  *                        model configuration as it stands)
  */
-public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds,
+public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
                               @Nullable Instant knowledgeCutoff, String taskPrompt, boolean codeInterpreter,
                               ChatSampling sampling) {
@@ -25,18 +29,22 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds,
         sampling = sampling == null ? ChatSampling.NONE : sampling;
     }
     public ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit) {
-        this(searchEnabled, sourceIds, contextTokenLimit, outputTokenLimit, null, "", true, ChatSampling.NONE);
-    }
-    public ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, @Nullable Integer contextTokenLimit,
-                           @Nullable Integer outputTokenLimit, @Nullable Instant knowledgeCutoff, String taskPrompt,
-                           boolean codeInterpreter) {
-        this(searchEnabled, sourceIds, contextTokenLimit, outputTokenLimit, knowledgeCutoff, taskPrompt, codeInterpreter,
+        this(searchEnabled, sourceIds, false, contextTokenLimit, outputTokenLimit, null, "", true,
                 ChatSampling.NONE);
+    }
+    public ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
+                           @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
+                           @Nullable Instant knowledgeCutoff, String taskPrompt, boolean codeInterpreter) {
+        this(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit, knowledgeCutoff,
+                taskPrompt, codeInterpreter, ChatSampling.NONE);
     }
 
     /** The same restrictions with this turn's creativity and reasoning level. */
     public ChatTurnOptions withSampling(ChatSampling value) {
-        return new ChatTurnOptions(searchEnabled, sourceIds, contextTokenLimit, outputTokenLimit, knowledgeCutoff,
-                taskPrompt, codeInterpreter, value);
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
+                knowledgeCutoff, taskPrompt, codeInterpreter, value);
     }
+
+    /** The Sources a turn may search, or {@code null} when the agent restricts nothing. */
+    public @Nullable List<UUID> sourceAllowlist() { return sourcesRestricted ? sourceIds : null; }
 }

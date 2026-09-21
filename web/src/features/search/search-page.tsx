@@ -41,6 +41,7 @@ import {
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
+import { loadDocumentSets } from "@/features/chat/chat-workspace-api";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
@@ -115,6 +116,7 @@ function AuthorizedSearchPage() {
   const [mediaType, setMediaType] = useState<string | null>(null);
   const [sourceType, setSourceType] = useState<DocumentSourceType | null>(null);
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
+  const [documentSetId, setDocumentSetId] = useState<string | null>(null);
   const [request, setRequest] = useState<SearchRequest | null>(null);
   const [submitFeedback, setSubmitFeedback] = useState(false);
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
@@ -130,6 +132,10 @@ function AuthorizedSearchPage() {
   const [voiceFailure, setVoiceFailure] = useState<AppCopy>();
   // Voice search uses the Tenant's speech-to-text provider through MemoryOS, never browser recognition.
   const voiceSearchAvailable = useVoiceAvailability().data?.sttAvailable === true;
+  const documentSets = useQuery({
+    queryKey: ["document-sets", actorId],
+    queryFn: ({ signal }) => loadDocumentSets(signal),
+  });
   const isListening = voiceStatus === "listening";
   const hasRequest = request !== null;
   const result = useQuery({
@@ -258,6 +264,7 @@ function AuthorizedSearchPage() {
       mediaTypes: mediaType ? [mediaType] : [],
       sourceTypes: sourceType ? [sourceType] : [],
       updatedSince: updatedSinceForTimeRange(timeRange),
+      documentSetIds: documentSetId ? [documentSetId] : [],
       page: 0,
       pageSize: PAGE_SIZE,
     };
@@ -268,10 +275,18 @@ function AuthorizedSearchPage() {
   function clearFilters() {
     setMediaType(null);
     setSourceType(null);
+    setDocumentSetId(null);
     setTimeRange("all");
     setSelected(null);
     if (request) {
-      setRequest({ ...request, mediaTypes: [], sourceTypes: [], updatedSince: undefined, page: 0 });
+      setRequest({
+        ...request,
+        mediaTypes: [],
+        sourceTypes: [],
+        documentSetIds: [],
+        updatedSince: undefined,
+        page: 0,
+      });
     }
   }
 
@@ -306,6 +321,18 @@ function AuthorizedSearchPage() {
     }
   }
 
+  function selectDocumentSet(value: string) {
+    const nextDocumentSetId = value === "all" ? null : value;
+    setDocumentSetId(nextDocumentSetId);
+    setSelected(null);
+    if (request)
+      setRequest({
+        ...request,
+        documentSetIds: nextDocumentSetId ? [nextDocumentSetId] : [],
+        page: 0,
+      });
+  }
+
   function openDocument(
     item: SearchResult,
     section: Section | undefined,
@@ -336,8 +363,12 @@ function AuthorizedSearchPage() {
 
   const isSearchUpdating = result.isFetching || submitFeedback;
   const statusMessage = searchStatus(request, result, isSearchUpdating);
-  const hasFilters = Boolean(mediaType || sourceType || timeRange !== "all");
+  const hasFilters = Boolean(mediaType || sourceType || documentSetId || timeRange !== "all");
   const sourceOptions = searchSourceOptions(result.data?.sourceFacets, sourceType);
+  const documentSetOptions: SearchFilterOption[] = [
+    { value: "all", label: ui("Tất cả bộ tài liệu") },
+    ...(documentSets.data ?? []).map((set) => ({ value: set.id, label: set.name })),
+  ];
   // Shown for every search so filters never move the search box or the results column.
   const showSourceFilter = request !== null;
   const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
@@ -468,6 +499,13 @@ function AuthorizedSearchPage() {
                   options={fileTypeOptions}
                   icon={<FileStack className="size-3.5" />}
                   onChange={selectMediaType}
+                />
+                <SearchFilterMenu
+                  label={ui("Bộ tài liệu")}
+                  value={documentSetId ?? "all"}
+                  options={documentSetOptions}
+                  icon={<Files className="size-3.5" />}
+                  onChange={selectDocumentSet}
                 />
                 {showSourceFilter ? (
                   // Large screens use the rail beside the results instead.

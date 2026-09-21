@@ -201,6 +201,25 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void authenticationThatFailsIsNotReportedAsAnUnadmittedIdentity() throws Exception {
+        // A callback whose state the session never issued fails authentication itself: the provider, the token or
+        // UserInfo did not answer, or this application restarted mid-login. Telling that member their access was not
+        // provisioned blames the wrong thing, so the browser is sent somewhere it can simply sign in again.
+        try (var browser = client(new CookieManager(null, CookiePolicy.ACCEPT_ALL))) {
+            var callback = browser.send(
+                    request("/login/oauth2/code/memoryos?code=unused&state=never-issued"),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            assertEquals(302, callback.statusCode());
+            assertEquals(baseUri().resolve("/sign-in-failed").toString(),
+                    callback.headers().firstValue("location").orElseThrow());
+            assertEquals(401, browser.send(request("/api/identity/me"),
+                    HttpResponse.BodyHandlers.ofString()).statusCode());
+        }
+    }
+
+    @Test
     void rejectsUntrustedOrMalformedBrowserProviderClaimsAndNeverJitsBearerClaims() throws Exception {
         String subject = "untrusted-jit-" + UUID.randomUUID();
         long actors = count("actors");

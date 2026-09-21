@@ -48,9 +48,11 @@ public class JdbcSourceQueryRepository {
                    CASE WHEN pair.status = 'PAUSED' AND (EXISTS (
                        SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
                          AND sync.source_id = pair.id AND sync.status = 'IN_PROGRESS'
+                         AND sync.lease_expires_at > CURRENT_TIMESTAMP
                    ) OR EXISTS (
                        SELECT 1 FROM index_attempts attempt WHERE attempt.tenant_id = pair.tenant_id
                          AND attempt.connector_credential_pair_id = pair.id AND attempt.status = 'IN_PROGRESS'
+                         AND attempt.lease_expires_at > CURRENT_TIMESTAMP
                    )) THEN 'PAUSING' WHEN pair.status <> 'DELETING' AND EXISTS (
                        SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
                          AND sync.source_id = pair.id AND sync.status IN ('NOT_STARTED', 'IN_PROGRESS')

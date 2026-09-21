@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 class ChatModelExecutorToolPolicyTest {
     @Test
     void runPythonRequiresAnAgentThatAllowsTheCodeInterpreter() {
-        var allowed = new ChatTurnOptions(true, List.of(), null, null, null, "", true);
-        var denied = new ChatTurnOptions(true, List.of(), null, null, null, "", false);
+        var allowed = new ChatTurnOptions(true, List.of(), false, null, null, null, "", true);
+        var denied = new ChatTurnOptions(true, List.of(), false, null, null, null, "", false);
         assertTrue(ChatModelExecutor.pythonAllowed(true, allowed));
         assertFalse(ChatModelExecutor.pythonAllowed(true, denied));
         assertFalse(ChatModelExecutor.pythonAllowed(false, allowed));

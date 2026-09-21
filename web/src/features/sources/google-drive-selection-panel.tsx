@@ -93,8 +93,7 @@ export function GoogleDriveSelectionPanel({
     staleTime: 60_000,
   });
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [savedLinks, setSavedLinks] = useState<GoogleDriveSelectionDraftResponse | null>(null);
-  const [action, setAction] = useState<"load" | "save" | "discover" | "links" | null>(null);
+  const [action, setAction] = useState<"load" | "save" | "discover" | null>(null);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
@@ -245,7 +244,6 @@ export function GoogleDriveSelectionPanel({
     setProcessed(operation.id);
     if (operation.status === "SUCCEEDED") {
       setDraft(null);
-      setSavedLinks(null);
       setError(null);
       setRevisionConflict(false);
     } else {
@@ -499,16 +497,30 @@ export function GoogleDriveSelectionPanel({
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        {configuration.scopeMode === "SPECIFIC" ? (
+        {configuration.scopeMode === "SPECIFIC" && configuration.discoveredAt ? (
           <p className="min-w-0 text-xs text-content-muted">
-            {configuration.discoveredAt
-              ? ui("Last discovery · {{v1}}", {
-                  v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
-                })
-              : ui("No discovery yet.")}
+            {ui("Last discovery · {{v1}}", {
+              v1: new Date(configuration.discoveredAt).toLocaleString(uiLocale()),
+            })}
           </p>
         ) : null}
         <div className="ml-auto flex flex-wrap items-center gap-1">
+          {configuration.scopeMode === "SPECIFIC" && !draft?.editingRoots ? (
+            <Button
+              ref={editButton}
+              prominence="secondary"
+              disabled={disabled || busy || tracking.recovering || tracking.uncertain}
+              pending={action === "load"}
+              onClick={() => {
+                if (draft) {
+                  selectionControl.current = null;
+                  setDraft({ ...draft, editingRoots: true });
+                } else loadDraft();
+              }}
+            >
+              {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
+            </Button>
+          ) : null}
           {configuration.scopeMode === "SPECIFIC" ? (
             <Button
               prominence="secondary"
@@ -530,7 +542,7 @@ export function GoogleDriveSelectionPanel({
                 })
               }
             >
-              {ui("Discover linked documents")}
+              {ui("Find links in files")}
             </Button>
           ) : null}
           <IconButton
@@ -669,94 +681,32 @@ export function GoogleDriveSelectionPanel({
         </Button>
       ) : null}
       {draft && !draft.editingRoots ? draftActions : null}
-      {configuration.scopeMode === "SPECIFIC" ? (
-        <Collapsible className="text-sm">
-          <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
-            {ui("File and folder links")}
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="flex flex-wrap items-start gap-2">
-              {!draft?.editingRoots ? (
-                <Button
-                  ref={editButton}
-                  prominence="secondary"
-                  disabled={disabled || busy || tracking.recovering || tracking.uncertain}
-                  pending={action === "load"}
-                  onClick={() => {
-                    if (draft) {
-                      selectionControl.current = null;
-                      setDraft({ ...draft, editingRoots: true });
-                    } else loadDraft();
-                  }}
-                >
-                  {pending ? ui("Edit replacement proposal") : ui("Edit selection")}
-                </Button>
-              ) : null}
-              {draft?.editingRoots ? (
-                <div
-                  className="w-full space-y-3 rounded-lg border border-border-default p-4"
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
-                      event.preventDefault();
-                      setDraft(null);
-                      setError(null);
-                    }
-                  }}
-                >
-                  <GoogleDriveLinks
-                    policy={policy.data}
-                    scopeMode={configuration.scopeMode}
-                    value={draft.links}
-                    inputRef={input}
-                    disabled={controlsDisabled || conflicted}
-                    errorMessage=""
-                    onChange={(value) => {
-                      if (tracking.terminal) tracking.forget();
-                      setDraft({ ...draft, links: value });
-                      setError(null);
-                    }}
-                  />
-                  {draftActions}
-                </div>
-              ) : null}
-              {!draft?.editingRoots ? (
-                <>
-                  {savedLinks && savedLinks.revision === configuration.revision ? (
-                    <div className="w-full">
-                      <GoogleDriveLinks
-                        policy={policy.data}
-                        scopeMode="SPECIFIC"
-                        value={savedLinks.links.join("\n")}
-                        disabled={false}
-                        readOnly
-                        onChange={() => {}}
-                      />
-                    </div>
-                  ) : (
-                    <Button
-                      prominence="secondary"
-                      pending={action === "links"}
-                      disabled={busy}
-                      onClick={() =>
-                        void perform("links", async (signal) => {
-                          const { data } = await getGoogleDriveSelectionDraft({
-                            path: { sourceId },
-                            signal,
-                            throwOnError: true,
-                          });
-                          signal.throwIfAborted();
-                          setSavedLinks(data);
-                        })
-                      }
-                    >
-                      {ui("Load saved links")}
-                    </Button>
-                  )}
-                </>
-              ) : null}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+      {configuration.scopeMode === "SPECIFIC" && draft?.editingRoots ? (
+        <div
+          className="space-y-3 rounded-lg border border-border-default p-4"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !busy && !submitted && !tracking.uncertain) {
+              event.preventDefault();
+              setDraft(null);
+              setError(null);
+            }
+          }}
+        >
+          <GoogleDriveLinks
+            policy={policy.data}
+            scopeMode={configuration.scopeMode}
+            value={draft.links}
+            inputRef={input}
+            disabled={controlsDisabled || conflicted}
+            errorMessage=""
+            onChange={(value) => {
+              if (tracking.terminal) tracking.forget();
+              setDraft({ ...draft, links: value });
+              setError(null);
+            }}
+          />
+          {draftActions}
+        </div>
       ) : null}
       {configuration.scopeMode === "SPECIFIC" && configuration.discoveryErrors.length ? (
         <Collapsible className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
@@ -784,18 +734,18 @@ export function GoogleDriveSelectionPanel({
           }}
         >
           <label className="min-w-0 flex-1">
-            <span className="sr-only">{ui("Search selected content")}</span>
+            <span className="sr-only">{ui("Search selected files")}</span>
             <Input
               autoFocus
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder={ui("Search selected content")}
+              placeholder={ui("Search selected files")}
             />
           </label>
           <HelpPopover label={ui("Search scope")}>
             <p>
               {ui(
-                "Search covers selected folders, files, linked documents and files inside selected folders. Folder contents become searchable after the source syncs.",
+                "Search finds selected folders, selected files, linked documents and files synchronized from selected folders.",
               )}
             </p>
           </HelpPopover>

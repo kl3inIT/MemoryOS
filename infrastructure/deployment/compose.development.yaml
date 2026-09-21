@@ -1,0 +1,54 @@
+name: memoryos-development
+
+# Stable direct-development dependencies. API and worker run from Gradle/IntelliJ
+# and connect through the loopback ports below; do not add application services here.
+services:
+  postgres:
+    image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+    container_name: memoryos-development-postgres
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: arconia
+      POSTGRES_USER: arconia
+      POSTGRES_PASSWORD: arconia
+    ports:
+      - 127.0.0.1:55432:5432
+    volumes:
+      - memoryos_development_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arconia -d arconia"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    stop_grace_period: 60s
+    shm_size: 128m
+
+  redis:
+    image: redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    container_name: memoryos-development-redis
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - 127.0.0.1:56379:6379
+    volumes:
+      - memoryos_development_redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10s
+    stop_grace_period: 30s
+
+volumes:
+  memoryos_development_postgres:
+    name: memoryos-development-postgres-data
+  memoryos_development_redis:
+    name: memoryos-development-redis-data

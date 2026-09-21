@@ -272,6 +272,7 @@ Regenerate the backend snapshot using `MEMORYOS_OPENAPI_WRITE=true` and `:api:te
 - [x] Test connection in the provider dialog and a quick check on each saved provider row.
 - [x] Vendor marks by model name in the Chat picker, Persona editor, provider model list and discovery.
 - [x] Chat picker grouped by provider when there is more than one.
+- [x] Model discovery moved into the provider form (2026-09-20): the separate dialog is gone, `POST /api/chat/providers/reported-models` lists an unsaved draft's models beside a refresh button, and one save creates the provider and the chosen models, as Onyx's provider form does.
 - [x] Screens reviewed at 1280 px with realistic fixtures (dialog success and rejection, provider rows, discovery, Chat picker).
 
 ## Acceptance checklist

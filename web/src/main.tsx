@@ -7,7 +7,6 @@ import "@/i18n";
 import { ApplicationErrorBoundary } from "@/components/states/application-error-boundary";
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import "@/lib/api";
-import { dismissBootSplash } from "@/lib/boot-splash";
 import { setupPreloadErrorReloadHandler } from "@/lib/preload-error-reload";
 import { queryClient } from "@/lib/query-client";
 import { captureReactRenderError, initializeSentry } from "@/lib/sentry";
@@ -37,5 +36,3 @@ createRoot(rootElement).render(
     </QueryClientProvider>
   </StrictMode>,
 );
-
-dismissBootSplash();
