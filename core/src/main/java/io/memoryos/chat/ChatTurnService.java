@@ -42,6 +42,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatModelResolver models;
     private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
+    private final io.memoryos.usage.@Nullable AiUsageLimitService spending;
     private final @Nullable ChatSettingsService settings;
     private final io.memoryos.chat.research.@Nullable ResearchProperties research;
     private final io.memoryos.mcp.@Nullable McpTurnService mcp;
@@ -86,6 +87,17 @@ public final class ChatTurnService implements AutoCloseable {
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
             io.memoryos.chat.research.@Nullable ResearchProperties research,
             io.memoryos.mcp.@Nullable McpTurnService mcp) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            io.memoryos.chat.web.@Nullable WebConnectionService web,
+            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            io.memoryos.chat.research.@Nullable ResearchProperties research,
+            io.memoryos.mcp.@Nullable McpTurnService mcp,
+            io.memoryos.usage.@Nullable AiUsageLimitService spending) {
+        this.spending = spending;
         this.research = research;
         this.persistence = persistence;
         this.model = model;
@@ -110,6 +122,11 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             var input = persistence.claimTitle(actor, session);
             if (input.isEmpty()) return;
+            // A spent budget leaves the session's short title rather than failing it, as Onyx does.
+            if (spending != null) {
+                try { spending.enforce(actor); }
+                catch (io.memoryos.usage.AiUsageLimitException refused) { return; }
+            }
             try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
                 // The callback records usage even when naming fails.
                 var title = model.generateTitle(selected.binding(), input.orElseThrow().messages(), accounting -> recordNaming(actor, selected, accounting));
@@ -155,6 +172,8 @@ public final class ChatTurnService implements AutoCloseable {
         if (command.image() != ImageMode.off && !agent.tools().contains("image_generation")) throw ChatException.providerUnavailable();
         if (agent.mcpServerIds() != null && !agent.mcpServerIds().containsAll(command.mcpServerIds()))
             throw ChatException.providerUnavailable();
+        // MEM-123: what the Tenant, the Group and the person may spend, weighed before a provider is chosen.
+        if (spending != null) spending.enforce(actor);
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;
