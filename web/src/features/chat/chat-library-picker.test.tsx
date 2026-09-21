@@ -161,3 +161,31 @@ it("keeps the dialog open and says so when a copy fails", async () => {
   ).toBeInTheDocument();
   expect(onAttach).not.toHaveBeenCalled();
 });
+
+it("names what it will attach and takes a file back off that list", async () => {
+  show();
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole("checkbox", { name: "Chọn hop-dong.pdf" }));
+  const tray = screen.getByRole("list", { name: "Tệp sẽ đính kèm" });
+  expect(within(tray).getByText("hop-dong.pdf")).toBeInTheDocument();
+
+  await user.click(within(tray).getByRole("button", { name: "Bỏ chọn hop-dong.pdf" }));
+
+  expect(screen.queryByRole("list", { name: "Tệp sẽ đính kèm" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Đính kèm 0 tệp" })).toBeDisabled();
+});
+
+it("narrows the library to one file kind from the filter", async () => {
+  show();
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole("button", { name: "Loại tệp" }));
+  await user.click(await screen.findByRole("button", { name: "Ảnh" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ categories: ["IMAGE"] }) }),
+    ),
+  );
+});

@@ -110,7 +110,7 @@ it("says so when the conversation has no files", async () => {
 
   await user.click(await screen.findByRole("button", { name: "Tệp trong hội thoại" }));
 
-  expect(await screen.findByText("Hội thoại này chưa có tệp nào.")).toBeInTheDocument();
+  expect(await screen.findByText("Hội thoại này chưa có tệp nào")).toBeInTheDocument();
 });
 
 it("searches and filters within the conversation on the server", async () => {
@@ -118,7 +118,8 @@ it("searches and filters within the conversation on the server", async () => {
   const { user, panel } = await openPanel();
 
   await user.type(within(panel).getByRole("textbox", { name: "Tìm theo tên tệp" }), "doanh");
-  await user.click(within(panel).getByRole("button", { name: "Bảng tính" }));
+  await user.click(within(panel).getByRole("button", { name: "Loại tệp" }));
+  await user.click(await screen.findByRole("button", { name: "Bảng tính" }));
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(

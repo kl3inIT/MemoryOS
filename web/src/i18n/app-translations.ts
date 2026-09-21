@@ -35,6 +35,11 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp mới tải lên sẽ hiện ở đây cho tới khi dùng được.":
     "A file you upload stays here until it is usable.",
   "Thùng rác trống": "The trash is empty",
+  "Hội thoại này chưa có tệp nào": "This conversation holds no files yet",
+  "Tệp sẽ đính kèm": "Files to attach",
+  "Bỏ chọn {{name}}": "Unselect {{name}}",
+  "Tệp bạn đính kèm và tệp Chat tạo ra sẽ xuất hiện ở đây.":
+    "What you attach and what Chat makes appears here.",
   "Tệp bạn xoá sẽ nằm ở đây trước khi bị xoá vĩnh viễn.":
     "A file you delete waits here before it is deleted for good.",
   // MEM-152 file library v2, phase 4: storage limits and the trash

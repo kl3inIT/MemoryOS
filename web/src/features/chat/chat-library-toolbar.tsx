@@ -343,3 +343,66 @@ export function LibrarySelectionBar({
     </div>
   );
 }
+
+/**
+ * The file-kind filter on its own, for the surfaces that only narrow by kind: the conversation panel and the
+ * composer's library picker. One button with a count reads the same on a sheet as on the page.
+ */
+export function LibraryCategoryFilter({
+  categories,
+  onCategories,
+  size = "sm",
+}: {
+  categories: LibraryCategory[];
+  onCategories: (next: LibraryCategory[]) => void;
+  size?: "sm" | "md";
+}) {
+  const ui = useAppTranslation();
+  const labels = categoryLabels(ui);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size={size} prominence="secondary">
+          <ListFilter className="size-4" aria-hidden="true" />
+          {ui("Loại tệp")}
+          {categories.length > 0 && (
+            <Badge variant="secondary" className="tabular-nums">
+              {categories.length}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-secondary-body text-content-muted">{ui("Loại tệp")}</legend>
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map((category) => (
+              <FilterChip
+                key={category}
+                label={labels[category]}
+                pressed={categories.includes(category)}
+                onToggle={() =>
+                  onCategories(
+                    categories.includes(category)
+                      ? categories.filter((item) => item !== category)
+                      : [...categories, category],
+                  )
+                }
+              />
+            ))}
+          </div>
+          {categories.length > 0 && (
+            <Button
+              size="sm"
+              prominence="internal"
+              className="self-start"
+              onClick={() => onCategories([])}
+            >
+              {ui("Xoá bộ lọc")}
+            </Button>
+          )}
+        </fieldset>
+      </PopoverContent>
+    </Popover>
+  );
+}
