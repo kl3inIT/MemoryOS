@@ -80,6 +80,11 @@ public class MeetingRecordingService {
         if (meeting.status() != Meeting.Status.RECORDING) throw MeetingException.ended();
         if (!meetings.utterances(tenant, id).isEmpty())
             throw MeetingException.invalid("This meeting already has a transcript.");
+        var available = transcription.transcribers(actor);
+        if (available.isEmpty())
+            throw MeetingException.invalid("No speech connection in this Tenant transcribes a recording.");
+        if (upload.provider() != null && available.stream().noneMatch(t -> t.provider() == upload.provider()))
+            throw MeetingException.invalid("That provider does not transcribe a recording.");
         var specification = new ObjectUploadSpecification(filename(upload.filename()), mediaType(upload.mediaType()),
                 size(upload.sizeBytes(), upload.provider()), new ContentSha256(upload.sha256()),
                 ObjectUploadPurpose.MEETING_AUDIO);
@@ -91,17 +96,21 @@ public class MeetingRecordingService {
     }
 
     /** Accepts the uploaded bytes and queues the recording for transcription. */
-    @Transactional
     public Meeting.Detail finalizeUpload(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
-        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
-        if (meeting.audioStatus() != Meeting.AudioStatus.WAITING)
+        var waiting = service.get(actor, id);
+        if (waiting.audio().status() != Meeting.AudioStatus.WAITING)
             throw MeetingException.invalid("No recording is waiting for this meeting.");
         UUID uploadId = meetings.audioUpload(tenant, id).orElseThrow(MeetingException::notFound);
+        // Verifying reads object storage; it runs before the meeting row is locked, as a chat file upload does.
         var verified = uploads.verify(new TenantId(tenant), new ObjectUploadId(uploadId),
                 ObjectUploadPurpose.MEETING_AUDIO);
-        uploads.adopt(new TenantId(tenant), verified.uploadId(), verified.token());
-        meetings.queueAudio(tenant, id, verified.object().key().value());
+        tx.executeWithoutResult(ignored -> {
+            meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+            uploads.adopt(new TenantId(tenant), verified.uploadId(), verified.token());
+            if (!meetings.queueAudio(tenant, id, verified.object().key().value()))
+                throw MeetingException.invalid("No recording is waiting for this meeting.");
+        });
         return service.get(actor, id);
     }
 
@@ -170,9 +179,13 @@ public class MeetingRecordingService {
     /** Deletes a meeting and the recording it still holds; the bytes never outlive the meeting. */
     public void delete(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
+        var meeting = service.get(actor, id);
         UUID upload = meetings.audioUpload(tenant, id).orElse(null);
+        boolean adopted = meeting.audio().status() != Meeting.AudioStatus.NONE
+                && meeting.audio().status() != Meeting.AudioStatus.WAITING;
         service.delete(actor, id);
-        retire(tenant, id, upload);
+        // A reservation the browser never filled was not adopted; the abandoned-upload cleanup owns it.
+        if (adopted) retire(tenant, id, upload);
     }
 
     private static String reason(RuntimeException failure) {

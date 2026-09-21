@@ -33,8 +33,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class BatchTranscriptionService {
-    /** One recording at a time per process: a provider call holds its bytes in memory for as long as it runs. */
-    private static final int MAX_CONCURRENT = 2;
+    /** One recording at a time per process: a provider call holds the whole file in memory for as long as it runs. */
+    private static final int MAX_CONCURRENT = 1;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     /** Providers transcribe faster than real time; this is the ceiling for a five-hour recording. */
     private static final Duration MAX_TIMEOUT = Duration.ofMinutes(45);
@@ -139,20 +139,23 @@ public class BatchTranscriptionService {
         String base = connection.provider().baseUrl(connection.endpoint());
         return call(client -> {
             String boundary = "memoryos-" + UUID.randomUUID();
-            var body = new java.io.ByteArrayOutputStream(recording.audio().length + 512);
-            field(body, boundary, "model", connection.sttModel());
-            field(body, boundary, "response_format", "verbose_json");
-            if (options.language() != null) field(body, boundary, "language", options.language());
-            body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\""
-                    + recording.filename().replaceAll("[\"\\r\\n\\\\]", "") + "\"\r\nContent-Type: "
-                    + recording.mediaType() + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-            body.writeBytes(recording.audio());
-            body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            var fields = new StringBuilder();
+            field(fields, boundary, "model", connection.sttModel());
+            field(fields, boundary, "response_format", "verbose_json");
+            if (options.language() != null) field(fields, boundary, "language", options.language());
+            fields.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"file\"; filename=\"")
+                    .append(recording.filename().replaceAll("[\"\\r\\n\\\\]", "")).append("\"\r\nContent-Type: ")
+                    .append(recording.mediaType()).append("\r\n\r\n");
+            // Sent as three parts, so the recording is never copied into a second buffer.
+            var body = HttpRequest.BodyPublishers.concat(
+                    HttpRequest.BodyPublishers.ofString(fields.toString(), StandardCharsets.UTF_8),
+                    HttpRequest.BodyPublishers.ofByteArray(recording.audio()),
+                    HttpRequest.BodyPublishers.ofString("\r\n--" + boundary + "--\r\n", StandardCharsets.UTF_8));
             var request = HttpRequest.newBuilder(URI.create(base + "/audio/transcriptions")).timeout(MAX_TIMEOUT)
                     .header("Authorization", "Bearer " + (key.isEmpty() ? "not-required" : key))
                     .header("Accept", "application/json")
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build();
+                    .POST(body).build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
             return segments(JSON.readTree(response.body()));
@@ -179,9 +182,9 @@ public class BatchTranscriptionService {
         return List.copyOf(segments);
     }
 
-    private static void field(java.io.ByteArrayOutputStream body, String boundary, String name, String value) {
-        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + name + "\"\r\n\r\n" + value
-                + "\r\n").getBytes(StandardCharsets.UTF_8));
+    private static void field(StringBuilder body, String boundary, String name, String value) {
+        body.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"").append(name)
+                .append("\"\r\n\r\n").append(value).append("\r\n");
     }
 
     /** The recorded length the provider reported, not the file's size: compressed bytes say nothing about seconds. */

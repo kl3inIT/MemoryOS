@@ -3,7 +3,6 @@ package io.memoryos.chat.voice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.memoryos.chat.ChatException;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -29,8 +28,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 final class SonioxAsync {
     static final String DEFAULT_MODEL = "stt-async-v5";
-    /** Soniox transcribes at most five hours in one request. */
-    static final Duration MAX_DURATION = Duration.ofMinutes(300);
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(1);
     /** A sentence ends at a speaker change or a pause; without one it would run for the whole recording. */
     private static final long SEGMENT_GAP_MS = 800;
@@ -151,15 +148,17 @@ final class SonioxAsync {
     private static JsonNode upload(HttpClient client, String baseUrl, String key, byte[] audio, String filename,
             String mediaType, Duration timeout) throws IOException, InterruptedException {
         String boundary = "memoryos-" + UUID.randomUUID();
-        var body = new ByteArrayOutputStream(audio.length + 256);
-        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\""
-                + safe(filename) + "\"\r\nContent-Type: " + mediaType + "\r\n\r\n").getBytes(UTF_8));
-        body.writeBytes(audio);
-        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(UTF_8));
+        // The parts are sent one after another, so a 500 MB recording is never copied into a second buffer.
+        var body = HttpRequest.BodyPublishers.concat(
+                HttpRequest.BodyPublishers.ofByteArray(("--" + boundary
+                        + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + safe(filename)
+                        + "\"\r\nContent-Type: " + mediaType + "\r\n\r\n").getBytes(UTF_8)),
+                HttpRequest.BodyPublishers.ofByteArray(audio),
+                HttpRequest.BodyPublishers.ofByteArray(("\r\n--" + boundary + "--\r\n").getBytes(UTF_8)));
         return send(client, HttpRequest.newBuilder(URI.create(baseUrl + "/files")).timeout(timeout)
                 .header("Authorization", "Bearer " + key).header("Accept", "application/json")
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build());
+                .POST(body).build());
     }
 
     /** Soniox detects the container itself, but the name must not break the multipart header. */

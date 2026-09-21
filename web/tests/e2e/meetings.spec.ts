@@ -320,6 +320,9 @@ test("a member uploads a recording and watches it being transcribed", async ({ p
   // The provider's limits are stated before the file is sent, not after it fails.
   await expect(dialog.getByText("Tách được người nói")).toBeVisible();
   await expect(dialog.getByText("Tối đa 500 MB")).toBeVisible();
+  // A recording made elsewhere still needs the statement that everyone in it knew.
+  await expect(dialog.getByRole("button", { name: "Tải lên và nhận dạng" })).toBeDisabled();
+  await dialog.getByLabel("Những người trong bản ghi đã biết buổi họp được ghi lại.").click();
   await page.screenshot({ path: "../output/playwright/meetings-upload-1440.png" });
 
   await dialog.getByRole("button", { name: "Tải lên và nhận dạng" }).click();

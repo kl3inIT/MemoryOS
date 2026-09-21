@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -70,6 +71,7 @@ export function UploadRecordingDialog({
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState("");
   const [provider, setProvider] = useState<MeetingTranscriber["provider"]>();
+  const [consent, setConsent] = useState(false);
   const [percent, setPercent] = useState<number>();
   const [error, setError] = useState<string>();
 
@@ -83,10 +85,11 @@ export function UploadRecordingDialog({
     transcribers.data?.find((item) => item.selected);
   const pending = percent !== undefined;
   const tooLarge = !!file && !!chosen && file.size > chosen.maxBytes;
+  const nobody = transcribers.isSuccess && transcribers.data.length === 0;
 
   async function upload(event: FormEvent) {
     event.preventDefault();
-    if (!file || pending || tooLarge) return;
+    if (!file || pending || tooLarge || nobody || !consent) return;
     setPercent(0);
     setError(undefined);
     const controller = new AbortController();
@@ -131,7 +134,17 @@ export function UploadRecordingDialog({
           <DialogHeader>
             <DialogTitle>{ui("Tải file ghi âm")}</DialogTitle>
           </DialogHeader>
-          <fieldset disabled={pending} className="grid gap-4">
+          {nobody && (
+            <p
+              role="status"
+              className="rounded-xl bg-status-warning-surface px-4 py-3 text-sm text-status-warning-content"
+            >
+              {ui(
+                "Chưa có kết nối nhận dạng giọng nói nào đọc được file. Hãy nhờ quản trị viên cấu hình.",
+              )}
+            </p>
+          )}
+          <fieldset disabled={pending || nobody} className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-file`}>{ui("File ghi âm")}</Label>
               <Input
@@ -188,6 +201,18 @@ export function UploadRecordingDialog({
                 <span>{ui("Tối đa {{size}} MB", { size: megabytes(chosen.maxBytes) })}</span>
               </p>
             )}
+            <Label
+              htmlFor={`${id}-consent`}
+              className="flex items-start gap-3 font-normal text-content-secondary"
+            >
+              <Checkbox
+                id={`${id}-consent`}
+                checked={consent}
+                className="mt-0.5"
+                onCheckedChange={(checked) => setConsent(checked === true)}
+              />
+              {ui("Những người trong bản ghi đã biết buổi họp được ghi lại.")}
+            </Label>
           </fieldset>
           {tooLarge && chosen && (
             <p role="alert" className="text-sm text-status-danger-content">
@@ -215,7 +240,11 @@ export function UploadRecordingDialog({
             <Button type="button" prominence="tertiary" onClick={() => close(false)}>
               {ui("Huỷ")}
             </Button>
-            <Button type="submit" pending={pending} disabled={!file || tooLarge}>
+            <Button
+              type="submit"
+              pending={pending}
+              disabled={!file || tooLarge || nobody || !consent}
+            >
               <FileAudio aria-hidden="true" />
               {ui("Tải lên và nhận dạng")}
             </Button>

@@ -96,6 +96,11 @@ export const vietnameseUi: Record<string, string> = {
   "Kết thúc": "End",
   "Xuất biên bản": "Export the minutes",
   "Tải file ghi âm": "Upload a recording",
+  "Đang nhận dạng": "Transcribing",
+  "Những người trong bản ghi đã biết buổi họp được ghi lại.":
+    "Everyone in the recording knew the meeting was being recorded.",
+  "Chưa có kết nối nhận dạng giọng nói nào đọc được file. Hãy nhờ quản trị viên cấu hình.":
+    "No speech connection here can read a file. Ask an administrator to configure one.",
   "Bản ghi tải lên": "Uploaded recording",
   "Transcript sẽ hiện khi nhận dạng xong.": "The transcript appears once it has been recognised.",
   "File ghi âm": "Recording",

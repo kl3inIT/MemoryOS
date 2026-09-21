@@ -47,7 +47,7 @@ function groupMeetings(items: readonly MeetingSummary[], now = new Date()): Grou
 function matchingMeetings(
   meetings: readonly MeetingSummary[],
   query: string,
-  status: "all" | "RECORDING" | "ENDED",
+  status: "all" | "RECORDING" | "TRANSCRIBING" | "ENDED",
   period: "30" | "90" | "all",
   now = Date.now(),
 ) {
@@ -67,7 +67,7 @@ export function MeetingsPage() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | "RECORDING" | "ENDED">("all");
+  const [status, setStatus] = useState<"all" | "RECORDING" | "TRANSCRIBING" | "ENDED">("all");
   const [period, setPeriod] = useState<"30" | "90" | "all">("30");
   const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
@@ -146,6 +146,7 @@ export function MeetingsPage() {
               >
                 <option value="all">{ui("Mọi trạng thái")}</option>
                 <option value="RECORDING">{ui("Chưa kết thúc")}</option>
+                <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
                 <option value="ENDED">{ui("Đã kết thúc")}</option>
               </Select>
               <Select
@@ -239,6 +240,8 @@ export function MeetingsPage() {
                           <StatusBadge tone="danger">
                             {live?.meetingId === meeting.id ? ui("Đang ghi") : ui("Chưa kết thúc")}
                           </StatusBadge>
+                        ) : meeting.status === "TRANSCRIBING" ? (
+                          <StatusBadge tone="info">{ui("Đang nhận dạng")}</StatusBadge>
                         ) : (
                           <StatusBadge tone="neutral">{ui("Đã kết thúc")}</StatusBadge>
                         )}
