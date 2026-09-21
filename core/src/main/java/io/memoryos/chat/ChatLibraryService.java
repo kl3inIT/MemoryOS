@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +29,10 @@ public class ChatLibraryService {
 
     public record Page(List<ChatLibraryFile> items, long totalCount, long totalBytes, boolean hasMore) {}
 
-    @Transactional(readOnly = true)
     /** {@code session} narrows the list to one conversation's own files (MEM-144); null lists everything. */
+    @Transactional(readOnly = true)
     public Page list(ActorId actor, String query, Set<ChatLibraryFile.Source> sources,
-                     Set<ChatLibraryFile.Category> categories, @org.jspecify.annotations.Nullable UUID session,
+                     Set<ChatLibraryFile.Category> categories, @Nullable UUID session,
                      ChatLibraryFile.Sort sort, int offset, int limit) {
         if (query.length() > 200 || query.indexOf('\0') >= 0) throw ChatException.invalid("Invalid search text.");
         ChatPersonaService.page(offset, limit);
