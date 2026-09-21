@@ -140,6 +140,11 @@ jobs:
             -f infrastructure/deployment/compose.base.yaml \
             -f infrastructure/deployment/compose.staging.yaml \
             -f infrastructure/deployment/compose.search.staging.yaml config --quiet
+          # The production overlay has no example file of its own yet; the staging values interpolate it
+          # until MEM-171 adds production.env.example. This validates the overlay, not those values.
+          docker compose --env-file infrastructure/deployment/staging.env.example \
+            -f infrastructure/deployment/compose.base.yaml \
+            -f infrastructure/deployment/compose.production.yaml config --quiet
           docker compose --env-file infrastructure/observability/observability.env.example \
             -f infrastructure/observability/compose.observability.yaml config --quiet
           docker run --rm --network none --entrypoint promtool \
@@ -205,6 +210,17 @@ jobs:
           corepack enable
           corepack install --global pnpm@11.22.0
 
+      - name: Restore the pnpm store
+        id: pnpm-store-web1
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store-web1.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
       - name: Install frontend dependencies
         run: pnpm --dir web install --frozen-lockfile
 
@@ -258,6 +274,17 @@ jobs:
           corepack enable
           corepack install --global pnpm@11.22.0
 
+      - name: Restore the pnpm store
+        id: pnpm-store-web2
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store-web2.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
       - name: Install frontend dependencies
         run: pnpm --dir web install --frozen-lockfile
 
@@ -294,6 +321,17 @@ jobs:
         run: |
           corepack enable
           corepack install --global pnpm@11.22.0
+
+      - name: Restore the pnpm store
+        id: pnpm-store-web3
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store-web3.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
 
       - name: Install frontend dependencies
         run: pnpm --dir web install --frozen-lockfile
@@ -430,17 +468,46 @@ jobs:
           corepack enable
           corepack install --global pnpm@11.22.0
 
+      - name: Restore the pnpm store
+        id: pnpm-store-landing1
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store-landing1.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('landing/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
       - name: Install landing dependencies
         run: pnpm --dir landing install --frozen-lockfile
 
       - name: Verify landing page
         run: pnpm --dir landing check
 
-      - name: Build and exercise the landing image
+      - name: Resolve image metadata
+        id: meta
+        run: echo "build-date=$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the landing image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: landing
+          tags: memoryos-landing:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=gha,scope=landing
+          cache-to: type=gha,mode=max,scope=landing
+
+      - name: Exercise the landing image
         run: |
-          docker build --tag "memoryos-landing:sha-$GITHUB_SHA" \
-            --build-arg "VCS_REF=$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$(git show -s --format=%cI HEAD)" landing
           bash landing/scripts/smoke-image.sh "memoryos-landing:sha-$GITHUB_SHA"
           MEMORYOS_LANDING_IMAGE="memoryos-landing:sha-$GITHUB_SHA" \
             docker compose --file infrastructure/deployment/compose.landing.yaml config --quiet
@@ -485,6 +552,9 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: interpreter/service/uv.lock
 
       - name: Resolve image metadata
         id: meta
@@ -497,25 +567,44 @@ jobs:
           uv run ruff format --check .
           uv run mypy .
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
       # Integration and e2e tests start real executor containers from this image on the runner's daemon.
       - name: Build executor image
-        working-directory: interpreter/executor
-        env:
-          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
-        run: |
-          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
-            --tag ghcr.io/kl3init/memoryos-interpreter-executor:latest \
-            --tag "memoryos-interpreter-executor:sha-$GITHUB_SHA" .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: interpreter/executor
+          tags: |
+            ghcr.io/kl3init/memoryos-interpreter-executor:latest
+            memoryos-interpreter-executor:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=gha,scope=interpreter-executor
+          cache-to: type=gha,mode=max,scope=interpreter-executor
 
       - name: Run integration tests
         run: uv run pytest tests/integration_tests --tb=short
 
       - name: Build service image
-        env:
-          BUILD_DATE: ${{ steps.meta.outputs.build-date }}
-        run: |
-          docker build --build-arg VCS_REF="$GITHUB_SHA" --build-arg BUILD_DATE="$BUILD_DATE" \
-            --tag memoryos-interpreter:ci --tag "memoryos-interpreter:sha-$GITHUB_SHA" .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: interpreter/service
+          tags: |
+            memoryos-interpreter:ci
+            memoryos-interpreter:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=gha,scope=interpreter-service
+          cache-to: type=gha,mode=max,scope=interpreter-service
 
       # test_concurrent_execute.py sends 5 requests at once; the default limit of 4 would reject one.
       - name: Run e2e tests against the service container
@@ -634,8 +723,14 @@ jobs:
             --output "$RUNNER_TEMP/gitleaks.tar.gz"
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
-          # Full checkout fetches every remote branch; scan only the checked-out main/PR ancestry.
-          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="HEAD" .
+          # History below the merge base cannot change, so a pull request scans only the commits it
+          # adds. A main push rescans the whole ancestry it publishes.
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            range="HEAD^1..HEAD"
+          else
+            range="HEAD"
+          fi
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="$range" .
 
   gate:
     name: CI Gate
