@@ -1,5 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Download, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  Loader2,
+  RotateCw,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
@@ -160,17 +171,43 @@ const SIZES = {
 
 /** Onyx PreviewModal: a centered modal sized by variant, with a header description and a floating footer. */
 export function ChatFilePreviewModal({
-  target,
+  target: opened,
+  siblings,
   onClose,
   onCloseAutoFocus,
 }: {
   target: PreviewTarget;
+  /** The files shown beside this one, in the order the page lists them; enables previous/next. */
+  siblings?: readonly PreviewTarget[];
   onClose: () => void;
   onCloseAutoFocus?: (event: Event) => void;
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [zoom, setZoom] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const [shown, setShown] = useState(opened);
+  const target = shown;
+  const gallery = siblings ?? [];
+  const at = gallery.findIndex((file) => file.source === target.source && file.id === target.id);
+  const step = (delta: number) => {
+    const next = gallery[at + delta];
+    if (at < 0 || !next) return;
+    setShown(next);
+    setZoom(100);
+    setRotation(0);
+  };
+  // Arrow keys step through the gallery, as an image viewer does; the dialog keeps Escape for closing.
+  useEffect(() => {
+    if (at < 0) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key === "ArrowLeft") step(-1);
+      else if (event.key === "ArrowRight") step(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   const loaded = useQuery({
     queryKey: ["chat-file-preview", actorId, authorizationVersion, target.source, target.id],
     gcTime: 0,
@@ -207,6 +244,31 @@ export function ChatFilePreviewModal({
                 <p className="mt-0.5 truncate text-xs text-content-muted">{view.description}</p>
               )}
             </div>
+            {at >= 0 && gallery.length > 1 && (
+              <div className="flex shrink-0 items-center gap-1">
+                <IconButton
+                  prominence="internal"
+                  size="sm"
+                  aria-label={ui("Tệp trước")}
+                  disabled={at === 0}
+                  onClick={() => step(-1)}
+                >
+                  <ChevronLeft />
+                </IconButton>
+                <span className="text-xs text-content-muted tabular-nums">
+                  {ui("{{position}}/{{total}}", { position: at + 1, total: gallery.length })}
+                </span>
+                <IconButton
+                  prominence="internal"
+                  size="sm"
+                  aria-label={ui("Tệp sau")}
+                  disabled={at === gallery.length - 1}
+                  onClick={() => step(1)}
+                >
+                  <ChevronRight />
+                </IconButton>
+              </div>
+            )}
             <Dialog.Close asChild>
               <IconButton prominence="internal" size="sm" aria-label={ui("Đóng xem trước")}>
                 <X />
@@ -235,12 +297,22 @@ export function ChatFilePreviewModal({
             ) : (
               <>
                 <div className="flex min-h-0 flex-1 flex-col overflow-auto pb-20">
-                  <Content loaded={loaded.data} target={target} zoom={zoom} onDocx={setDocxWords} />
+                  <Content
+                    loaded={loaded.data}
+                    target={target}
+                    zoom={zoom}
+                    rotation={rotation}
+                    onDocx={setDocxWords}
+                  />
                 </div>
                 <footer className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-linear-to-t from-surface-subtle from-40% to-transparent p-4">
                   <div className="pointer-events-auto text-sm text-content-secondary">
                     {kind === "image" ? (
-                      <ZoomControls zoom={zoom} onZoom={setZoom} />
+                      <ImageControls
+                        zoom={zoom}
+                        onZoom={setZoom}
+                        onRotate={() => setRotation((current) => (current + 90) % 360)}
+                      />
                     ) : view?.footer ? (
                       <span className="rounded-lg bg-surface-base/90 px-2 py-1 shadow-sm">
                         {view.footer}
@@ -332,17 +404,21 @@ function Content({
   loaded,
   target,
   zoom,
+  rotation,
   onDocx,
 }: {
   loaded: Loaded;
   target: PreviewTarget;
   zoom: number;
+  rotation: number;
   onDocx: (result: { words: number; text: string }) => void;
 }) {
   const ui = useAppTranslation();
   switch (loaded.kind) {
     case "image":
-      return <ImagePreview blob={loaded.blob} alt={target.filename} zoom={zoom} />;
+      return (
+        <ImagePreview blob={loaded.blob} alt={target.filename} zoom={zoom} rotation={rotation} />
+      );
     case "pdf":
       return <PdfPreview blob={loaded.blob} />;
     case "xlsx":
@@ -409,16 +485,59 @@ function Unavailable({ target, message }: { target: PreviewTarget; message: stri
   );
 }
 
-function ImagePreview({ blob, alt, zoom }: { blob: Blob; alt: string; zoom: number }) {
+/** Zoomed images are dragged rather than scrolled, as an image viewer does; at 100% there is nothing to pan. */
+function ImagePreview({
+  blob,
+  alt,
+  zoom,
+  rotation,
+}: {
+  blob: Blob;
+  alt: string;
+  zoom: number;
+  rotation: number;
+}) {
   const src = useObjectUrl(blob);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const from = useRef<{ x: number; y: number } | null>(null);
+  const pannable = zoom > 100;
+  // At 100% there is nothing to pan, so the offset is derived away rather than reset in an effect.
+  const offset = pannable ? pan : { x: 0, y: 0 };
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4",
+        pannable && (dragging ? "cursor-grabbing" : "cursor-grab"),
+      )}
+      onPointerDown={(event) => {
+        if (!pannable) return;
+        from.current = { x: event.clientX - offset.x, y: event.clientY - offset.y };
+        setDragging(true);
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!from.current) return;
+        setPan({ x: event.clientX - from.current.x, y: event.clientY - from.current.y });
+      }}
+      onPointerUp={() => {
+        from.current = null;
+        setDragging(false);
+      }}
+      onPointerCancel={() => {
+        from.current = null;
+        setDragging(false);
+      }}
+    >
       {src && (
         <img
           src={src}
           alt={alt}
+          draggable={false}
           className="max-h-full max-w-full object-contain transition-transform duration-300 ease-in-out"
-          style={{ transform: `scale(${zoom / 100})` }}
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
+          }}
         />
       )}
     </div>
@@ -434,7 +553,15 @@ function PdfPreview({ blob }: { blob: Blob }) {
   );
 }
 
-function ZoomControls({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) => void }) {
+function ImageControls({
+  zoom,
+  onZoom,
+  onRotate,
+}: {
+  zoom: number;
+  onZoom: (zoom: number) => void;
+  onRotate: () => void;
+}) {
   const ui = useAppTranslation();
   return (
     <div className="flex items-center gap-1 rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg">
@@ -456,6 +583,9 @@ function ZoomControls({ zoom, onZoom }: { zoom: number; onZoom: (zoom: number) =
         onClick={() => onZoom(Math.min(zoom + 25, 200))}
       >
         <ZoomIn />
+      </IconButton>
+      <IconButton prominence="internal" size="sm" aria-label={ui("Xoay ảnh")} onClick={onRotate}>
+        <RotateCw />
       </IconButton>
     </div>
   );

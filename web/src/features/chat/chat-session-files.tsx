@@ -372,7 +372,13 @@ export function ChatSessionFiles({
           </div>
         </SheetContent>
       </Sheet>
-      {preview && <ChatFilePreviewModal target={preview} onClose={() => setPreview(undefined)} />}
+      {preview && (
+        <ChatFilePreviewModal
+          target={preview}
+          siblings={items.map(libraryPreviewTarget)}
+          onClose={() => setPreview(undefined)}
+        />
+      )}
       <ChatAddToProjectDialog
         files={projectFiles}
         onOpenChange={(next) => !next && setProjectFiles(undefined)}
