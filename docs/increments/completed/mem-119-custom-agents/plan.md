@@ -55,5 +55,5 @@ One pull request on `kl3inIT/mem-119-custom-agents`, committed in compiling slic
 
 ## 8. Documentation and gates
 
-- [ ] `docs/specs/chat.md`, `chat-models.md`, `identity.md`, `docs/tests/chat.md`, `identity.md`, `ARCHITECTURE.md`, `verification.md`.
-- [ ] `gradlew clean check`; web lint/typecheck/test; PR through the MemoryOS PR loop.
+- [x] `docs/specs/chat.md`, `chat-models.md`, `identity.md`, `docs/tests/chat.md`, `identity.md`, `ARCHITECTURE.md`. (2026-09-21: agent capabilities and use/edit authority in `identity.md`, the agent provider rule in `chat-models.md`, the agent runtime shape in `ARCHITECTURE.md`, the identity matrix row; Chat behavior and its matrix were consolidated with the implementation. No separate `verification.md` was kept: the evidence is the merged tests the matrices cite.)
+- [x] `gradlew clean check`; web lint/typecheck/test; PR through the MemoryOS PR loop. (Merged with green CI in `6bc42f21`, `fa64c2de`, `29dffcf3` and the review fixes `ff02d4ec`.)
