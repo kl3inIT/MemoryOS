@@ -259,6 +259,7 @@ function create(title = "Browser conversation", mode = "normal"): Session {
     archivedAt: null,
     branchedFromSessionId: null,
     branchedFromMessageId: null,
+    temporary: false,
     projectId: null,
     title,
     createdAt: now,

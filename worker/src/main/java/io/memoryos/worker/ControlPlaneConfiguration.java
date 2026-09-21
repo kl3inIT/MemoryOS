@@ -131,6 +131,23 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> sessions.purge());
     }
 
+    /**
+     * Temporary conversations delete themselves a while after their last message (MEM-153); the purge task
+     * above then removes their rows and hands their uploads to the file work.
+     */
+    @Bean
+    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-temporary-session-v1", FixedDelay.of(Duration.ofMinutes(5)))
+                .execute((_, _) -> sessions.expireTemporary());
+    }
+
+    /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
+    @Bean
+    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> sessions.applyRetentionPolicies());
+    }
+
     @Bean
     RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
         return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))

@@ -39,13 +39,19 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession create(ActorId actor, String title) {
+        return create(actor, title, false);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession create(ActorId actor, String title, boolean temporary) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         var personaId = chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        return chats.create(tenant, actor, personaId, title.strip());
+        return chats.create(tenant, actor, personaId, title.strip(), temporary);
     }
 
     @Override

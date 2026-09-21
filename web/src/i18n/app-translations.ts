@@ -1,5 +1,40 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-153 phase 2: the Tenant's chat retention policy
+  "Lưu giữ hội thoại": "Conversation retention",
+  "Hội thoại không có hoạt động nào trong số ngày này sẽ bị xoá như chính người sở hữu xoá nó. Tệp tải lên giữ vòng đời riêng.":
+    "A conversation with no activity for this many days is deleted as its owner deleting it would. Uploads keep their own lifecycle.",
+  "Không tải được cài đặt hội thoại.": "The conversation settings could not be loaded.",
+  "Bật chính sách lưu giữ": "Enforce a retention policy",
+  "Khi tắt, hội thoại được giữ cho tới khi người sở hữu xoá.":
+    "With it off, a conversation is kept until its owner deletes it.",
+  "Số ngày không hoạt động": "Days of inactivity",
+  "Số ngày phải từ 1 đến {{max}}.": "The number of days must be between 1 and {{max}}.",
+  "{{count}} hội thoại sẽ bị xoá khi lưu.":
+    "{{count}} conversations will be deleted when this is saved.",
+  "Không có hội thoại nào bị xoá ngay.": "No conversation is deleted right away.",
+  "Đã lưu chính sách lưu giữ.": "The retention policy was saved.",
+  "Lưu chính sách": "Save the policy",
+  // MEM-153 phase 2: temporary conversations
+  "Chat tạm thời": "Temporary chat",
+  "Bật chat tạm thời": "Turn on temporary chat",
+  "Tắt chat tạm thời": "Turn off temporary chat",
+  "Chat tạm thời đang bật": "Temporary chat is on",
+  "Dùng khi bạn không muốn cuộc trò chuyện này được lưu lại.":
+    "For when you do not want this conversation kept.",
+  "Bắt đầu": "Start",
+  "Không vào lịch sử": "Not in history",
+  "Cuộc trò chuyện không hiện trên thanh bên và không tìm được.":
+    "It is not on the sidebar and search does not find it.",
+  "Tự xoá": "Deletes itself",
+  "Cuộc trò chuyện và tệp bạn gửi vào đó bị xoá sau khi bạn dừng hỏi.":
+    "The conversation and the files you send into it are deleted once you stop asking.",
+  "Không chia sẻ, không dự án": "No link, no Project",
+  "Không tạo được liên kết chia sẻ và không thêm được vào dự án.":
+    "It cannot be given a share link or put in a Project.",
+  "Tạm thời": "Temporary",
+  "Cuộc trò chuyện này không được lưu và sẽ tự xoá cùng tệp của nó.":
+    "This conversation is not kept, and it deletes itself with its files.",
   // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
   "Lưu trữ": "Archive",
   "Bỏ lưu trữ": "Unarchive",

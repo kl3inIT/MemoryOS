@@ -55,6 +55,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
+    const retentionSelected = Boolean(matchRoute({ to: "/admin/chat-retention" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
@@ -76,17 +77,19 @@ export const Route = createFileRoute("/_authenticated/admin")({
                   ? "images"
                   : interpreterSelected
                     ? "interpreter"
-                    : mcpSelected
-                      ? "mcp"
-                      : agentsSelected
-                        ? "agents"
-                        : costsSelected
-                          ? "costs"
-                          : documentSetsSelected
-                            ? "documentSets"
-                            : addSourceSelected
-                              ? "addSource"
-                              : "sources";
+                    : retentionSelected
+                      ? "retention"
+                      : mcpSelected
+                        ? "mcp"
+                        : agentsSelected
+                          ? "agents"
+                          : costsSelected
+                            ? "costs"
+                            : documentSetsSelected
+                              ? "documentSets"
+                              : addSourceSelected
+                                ? "addSource"
+                                : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -99,6 +102,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 page === "voice" ||
                 page === "images" ||
                 page === "interpreter" ||
+                page === "retention" ||
                 page === "costs"
               ? canManageModels
               : page === "mcp"

@@ -442,7 +442,19 @@ export type ChatSettingsResponse = {
      * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
      */
     deepResearchEnabled: boolean;
+    /**
+     * Days of inactivity after which a conversation is deleted; null is no policy
+     */
+    chatRetentionDays: number | null;
     revision: number;
+};
+
+export type ChatRetentionRequest = {
+    /**
+     * Days of inactivity after which a conversation is deleted; null clears the policy
+     */
+    chatRetentionDays?: number | null;
+    revision?: number;
 };
 
 export type Title = {
@@ -473,6 +485,10 @@ export type ChatSession = {
      * The message this one was branched from
      */
     branchedFromMessageId: string | null;
+    /**
+     * A temporary conversation: listed nowhere, and deleted with its uploads after its window
+     */
+    temporary: boolean;
 };
 
 export type Sharing = {
@@ -1348,6 +1364,10 @@ export type CreateChatSession = {
     title: string;
     personaId?: string | null;
     projectId?: string | null;
+    /**
+     * Leave no history: listed nowhere, deleted with its uploads after its window
+     */
+    temporary?: boolean;
 };
 
 export type Send = {
@@ -2184,6 +2204,14 @@ export type WebLocation = {
     url?: string;
     excerpt?: string;
     retrievedAt?: string;
+};
+
+export type ChatRetentionPreview = {
+    days: number | null;
+    /**
+     * How many conversations this policy would delete now
+     */
+    affected: number;
 };
 
 export type TextDeltaEvent = {
@@ -3729,6 +3757,53 @@ export type SaveChatSettingsResponses = {
 };
 
 export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
+
+export type SaveChatRetentionData = {
+    body: ChatRetentionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/retention';
+};
+
+export type SaveChatRetentionErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatRetentionError = SaveChatRetentionErrors[keyof SaveChatRetentionErrors];
+
+export type SaveChatRetentionResponses = {
+    /**
+     * Saved retention policy
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatRetentionResponse = SaveChatRetentionResponses[keyof SaveChatRetentionResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -11659,6 +11734,49 @@ export type GetSharedChatHistoryResponses = {
 };
 
 export type GetSharedChatHistoryResponse = GetSharedChatHistoryResponses[keyof GetSharedChatHistoryResponses];
+
+export type PreviewChatRetentionData = {
+    body?: never;
+    path?: never;
+    query?: {
+        days?: number;
+    };
+    url: '/api/chat/settings/retention/preview';
+};
+
+export type PreviewChatRetentionErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type PreviewChatRetentionError = PreviewChatRetentionErrors[keyof PreviewChatRetentionErrors];
+
+export type PreviewChatRetentionResponses = {
+    /**
+     * What the policy would delete
+     */
+    200: ChatRetentionPreview;
+};
+
+export type PreviewChatRetentionResponse = PreviewChatRetentionResponses[keyof PreviewChatRetentionResponses];
 
 export type DeleteChatSessionData = {
     body?: never;

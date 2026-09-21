@@ -161,6 +161,8 @@ class OpenApiContractTest {
             "/api/chat/sessions/{sessionId}/unarchive",
             "/api/chat/sessions/archive-all",
             "/api/chat/sessions/{sessionId}/messages/{messageId}/branch",
+            "/api/chat/settings/retention",
+            "/api/chat/settings/retention/preview",
             "/api/chat/sessions/{sessionId}/branch",
             "/api/chat/sessions/{sessionId}/persona",
             "/api/chat/sessions/{sessionId}/project",

@@ -65,7 +65,7 @@ public class JdbcChatLibraryRepository {
                         WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id
                         ORDER BY m.created_at, m.id LIMIT 1) END AS message_id
             FROM chat_user_file u
-            WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor
+            WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor AND u.temporary_session_id IS NULL
               AND (CASE WHEN :pending THEN u.status IN ('UPLOADING', 'PROCESSING', 'FAILED') ELSE u.status = 'READY' END)
               AND (:allSessions OR EXISTS (
                     SELECT 1 FROM chat_message m
@@ -77,13 +77,15 @@ public class JdbcChatLibraryRepository {
             SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL,
                    a.favorite_at, 'READY', NULL, a.message_id
             FROM chat_file_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
-            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL
+              AND s.deleted_at IS NULL AND NOT s.temporary
               AND (:allSessions OR a.session_id = :session)
             UNION ALL
             SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt,
                    a.favorite_at, 'READY', NULL, a.message_id
             FROM chat_image_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
-            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL
+              AND s.deleted_at IS NULL AND NOT s.temporary
               AND (:allSessions OR a.session_id = :session)
             """;
 

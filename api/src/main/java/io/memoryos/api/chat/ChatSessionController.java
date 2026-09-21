@@ -75,7 +75,8 @@ class ChatSessionController {
     @ApiResponse(responseCode = "201", description = "Created private session", useReturnTypeSchema = true)
     ChatSessionResponse create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody CreateChatSession request) {
-        return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(), request.projectId()));
+        return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(),
+                request.projectId(), Boolean.TRUE.equals(request.temporary())));
     }
 
     @GetMapping
@@ -163,5 +164,8 @@ class ChatSessionController {
                                 file.sizeBytes(), file.chart(), file.deleted())).toList())).toList();
     }
 
-    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId, @Nullable UUID projectId) {}
+    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId,
+            @Nullable UUID projectId,
+            @Schema(description = "Leave no history: listed nowhere, deleted with its uploads after its window")
+            @Nullable Boolean temporary) {}
 }

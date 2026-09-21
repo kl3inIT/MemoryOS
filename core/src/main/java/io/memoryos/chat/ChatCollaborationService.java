@@ -41,6 +41,8 @@ public class ChatCollaborationService {
     @Transactional
     public Sharing share(ActorId actor, UUID session, boolean enabled, long revision) {
         var tenant = ownedWrite(actor, session);
+        // A temporary conversation leaves no history, so there is nothing to give a link to (MEM-153).
+        if (enabled && chats.temporary(session)) throw ChatException.invalid("A temporary conversation cannot be shared.");
         var entity = shares.findByTenantIdAndSessionId(tenant.value(), session)
                 .orElseGet(() -> shares.saveAndFlush(new ChatSharingEntity(tenant.value(), session)));
         if (entity.revision() != revision) throw ChatException.conflict();

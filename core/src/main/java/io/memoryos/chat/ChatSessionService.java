@@ -8,6 +8,12 @@ import org.jspecify.annotations.Nullable;
 /** Authenticated session operations; message execution is owned by the Chat capability. */
 public interface ChatSessionService {
     ChatSession create(ActorId actor, String title);
+
+    /**
+     * A temporary conversation (MEM-153) is listed nowhere, cannot be shared or put in a Project, and deletes
+     * itself with its uploads a while after its last message.
+     */
+    ChatSession create(ActorId actor, String title, boolean temporary);
     /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
     List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit);
 

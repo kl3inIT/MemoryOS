@@ -29,6 +29,7 @@ export type ChatThreadCustom = Pick<
   | "archivedAt"
   | "branchedFromSessionId"
   | "branchedFromMessageId"
+  | "temporary"
 >;
 
 export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
@@ -42,6 +43,7 @@ export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
     archivedAt: session.archivedAt ?? null,
     branchedFromSessionId: session.branchedFromSessionId ?? null,
     branchedFromMessageId: session.branchedFromMessageId ?? null,
+    temporary: session.temporary,
   };
   return {
     // An archived conversation is kept, so the thread list holds it as archived rather than dropping it.

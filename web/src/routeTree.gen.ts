@@ -24,6 +24,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
+import { Route as AuthenticatedAdminChatRetentionRouteImport } from './routes/_authenticated.admin.chat-retention'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
@@ -131,6 +132,12 @@ const AuthenticatedAdminAiCostsRoute =
   AuthenticatedAdminAiCostsRouteImport.update({
     id: '/ai-costs',
     path: '/ai-costs',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminChatRetentionRoute =
+  AuthenticatedAdminChatRetentionRouteImport.update({
+    id: '/chat-retention',
+    path: '/chat-retention',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminCodeInterpreterRoute =
@@ -342,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -388,6 +396,7 @@ export interface FileRoutesByTo {
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -436,6 +445,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
+  '/_authenticated/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/chat-retention'
     | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
@@ -533,6 +544,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/agents'
     | '/admin/ai-costs'
+    | '/admin/chat-retention'
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -580,6 +592,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-costs'
+    | '/_authenticated/admin/chat-retention'
     | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
@@ -729,6 +742,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-costs'
       fullPath: '/admin/ai-costs'
       preLoaderRoute: typeof AuthenticatedAdminAiCostsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/chat-retention': {
+      id: '/_authenticated/admin/chat-retention'
+      path: '/chat-retention'
+      fullPath: '/admin/chat-retention'
+      preLoaderRoute: typeof AuthenticatedAdminChatRetentionRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/code-interpreter': {
@@ -1026,6 +1046,7 @@ const AuthenticatedAdminSourcesNewRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
+  AuthenticatedAdminChatRetentionRoute: typeof AuthenticatedAdminChatRetentionRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
@@ -1046,6 +1067,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
+  AuthenticatedAdminChatRetentionRoute: AuthenticatedAdminChatRetentionRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,

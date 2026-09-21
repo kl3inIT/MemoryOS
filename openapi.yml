@@ -1571,6 +1571,64 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/retention:
+    put:
+      tags:
+      - Chat Settings
+      summary: Bound how long this Tenant keeps conversations nobody has touched (Onyx
+        maximum_chat_retention_days)
+      operationId: saveChatRetention
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRetentionRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved retention policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -11680,6 +11738,57 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/retention/preview:
+    get:
+      tags:
+      - Chat Settings
+      summary: How many conversations a retention policy would delete now
+      operationId: previewChatRetention
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          maximum: 3650
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: What the policy would delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatRetentionPreview"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}:
     get:
       tags:
@@ -15873,12 +15982,36 @@ components:
           type: boolean
           description: "Deep research: agentic research across the web and connected\
             \ sources; uses significantly more tokens per query."
+        chatRetentionDays:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Days of inactivity after which a conversation is deleted; null
+            is no policy
         revision:
           type: integer
           format: int64
       required:
+      - chatRetentionDays
       - deepResearchEnabled
       - revision
+    ChatRetentionRequest:
+      type: object
+      properties:
+        chatRetentionDays:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Days of inactivity after which a conversation is deleted; null
+            clears the policy
+          maximum: 3650
+          minimum: 1
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
     Title:
       type: object
       properties:
@@ -15936,6 +16069,10 @@ components:
           - "null"
           format: uuid
           description: The message this one was branched from
+        temporary:
+          type: boolean
+          description: "A temporary conversation: listed nowhere, and deleted with\
+            \ its uploads after its window"
       required:
       - archivedAt
       - branchedFromMessageId
@@ -15946,6 +16083,7 @@ components:
       - projectId
       - reasoningEffort
       - rootMessageId
+      - temporary
       - title
       - updatedAt
     Sharing:
@@ -18200,6 +18338,10 @@ components:
           - type: string
             format: uuid
           - type: "null"
+        temporary:
+          type: boolean
+          description: "Leave no history: listed nowhere, deleted with its uploads\
+            \ after its window"
       required:
       - title
     Send:
@@ -20710,6 +20852,21 @@ components:
         retrievedAt:
           type: string
           format: date-time
+    ChatRetentionPreview:
+      type: object
+      properties:
+        days:
+          type:
+          - integer
+          - "null"
+          format: int32
+        affected:
+          type: integer
+          format: int64
+          description: How many conversations this policy would delete now
+      required:
+      - affected
+      - days
     TextDeltaEvent:
       type: object
       properties:

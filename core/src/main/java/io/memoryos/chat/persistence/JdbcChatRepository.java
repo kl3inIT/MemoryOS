@@ -57,14 +57,15 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).query(UUID.class).single();
     }
 
-    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title) {
+    public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary) {
         UUID id = UUID.randomUUID();
         UUID root = UUID.randomUUID();
         var session = jdbc.sql("""
-                        INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title)
-                        VALUES (:id, :tenant, :actor, :persona, :root, :title) RETURNING *
+                        INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
+                                                 temporary)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :temporary) RETURNING *
                         """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
-                .param("persona", personaId).param("root", root).param("title", title)
+                .param("persona", personaId).param("root", root).param("title", title).param("temporary", temporary)
                 .query(JdbcChatRepository::session).single();
         jdbc.sql("""
                 INSERT INTO chat_message(id, session_id, role, status, finished_at)
@@ -159,7 +160,8 @@ public class JdbcChatRepository {
     public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, int offset, int limit) {
         return jdbc.sql("""
                         SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
-                            AND deleted_at IS NULL AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
+                            AND deleted_at IS NULL AND NOT temporary
+                            AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
                         ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
                         LIMIT :limit OFFSET :offset
                         """).param("tenant", tenant.value()).param("actor", actor.value()).param("archived", archived)
@@ -185,6 +187,7 @@ public class JdbcChatRepository {
                 WHERE (tenant_id, id) IN (
                     SELECT tenant_id, id FROM chat_session
                     WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL AND archived_at IS NULL
+                      AND NOT temporary
                     ORDER BY updated_at DESC LIMIT :limit)
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
     }
@@ -465,6 +468,26 @@ public class JdbcChatRepository {
                 .param("session", session).param("persona", persona).update();
     }
 
+    /** A conversation that leaves no history cannot be put in a Project or shared; both commands refuse it. */
+    public boolean temporary(UUID session) {
+        return Boolean.TRUE.equals(jdbc.sql("SELECT temporary FROM chat_session WHERE id = :session")
+                .param("session", session).query(Boolean.class).optional().orElse(false));
+    }
+
+    /**
+     * Marks the uploads a temporary conversation's question carried as belonging to that conversation, so the
+     * library stops listing them and the purge releases them with it.
+     */
+    public void claimTemporaryUploads(TenantId tenant, ActorId actor, UUID session, java.util.Collection<UUID> files) {
+        if (files.isEmpty()) return;
+        jdbc.sql("""
+                UPDATE chat_user_file SET temporary_session_id = :session
+                WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id IN (:files)
+                  AND temporary_session_id IS NULL
+                """).param("session", session).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("files", files).update();
+    }
+
     public void moveProject(UUID session, @Nullable UUID project) {
         jdbc.sql("UPDATE chat_session SET project_id=:project,updated_at=CURRENT_TIMESTAMP WHERE id=:session")
                 .param("session", session).param("project", project, Types.OTHER).update();
@@ -613,7 +636,7 @@ public class JdbcChatRepository {
                 row.getObject("project_id", UUID.class),
                 effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort),
                 archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
-                row.getObject("branched_from_message_id", UUID.class));
+                row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

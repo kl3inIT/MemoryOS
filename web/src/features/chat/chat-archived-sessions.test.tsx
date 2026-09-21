@@ -39,6 +39,7 @@ const archived: ChatSession = {
   archivedAt: "2026-09-20T09:00:00Z",
   branchedFromSessionId: null,
   branchedFromMessageId: null,
+  temporary: false,
 };
 
 function show(sessions: ChatSession[] = [archived]) {

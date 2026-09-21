@@ -22,6 +22,7 @@ const session: ChatSession = {
   archivedAt: null,
   branchedFromSessionId: null,
   branchedFromMessageId: null,
+  temporary: false,
 };
 const message = (id: string, role: ChatMessage["role"], status: ChatMessage["status"]) =>
   ({
