@@ -218,7 +218,7 @@ public class JdbcChatLibraryRepository {
                 SELECT a.object_key, a.filename, a.media_type, a.size_bytes FROM %s a
                 JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
                 WHERE a.tenant_id = :tenant AND a.id = :id AND a.owner_actor_id = :actor
-                  AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+                  AND a.deleted_at IS NULL AND s.deleted_at IS NULL AND NOT s.temporary
                 """.formatted(table)).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query((row, ignored) -> new Artifact(new ObjectKey(row.getString("object_key")), row.getString("filename"),
                         row.getString("media_type"), row.getLong("size_bytes")))

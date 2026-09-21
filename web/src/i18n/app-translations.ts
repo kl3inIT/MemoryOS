@@ -1,5 +1,19 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-153 phase 3: taking one's own conversations and files out
+  "Dữ liệu của tôi": "My data",
+  "Xuất dữ liệu": "Export my data",
+  "Một tệp ZIP gồm mọi hội thoại của bạn (JSON và trang HTML đọc được) cùng tệp trong thư viện.":
+    "One ZIP with every conversation of yours — as JSON and as a readable page — and the files in your library.",
+  "Đang chuẩn bị…": "Preparing…",
+  "Bản xuất đang được đóng gói. Bạn có thể rời trang và quay lại sau.":
+    "The export is being packed. You can leave this page and come back.",
+  "Bản xuất đã sẵn sàng: {{sessions}} hội thoại, {{files}} tệp · {{size}}":
+    "The export is ready: {{sessions}} conversations, {{files}} files · {{size}}",
+  "Liên kết tải hết hạn {{date}}.": "The download expires on {{date}}.",
+  "Không đưa vào {{count}} tệp: {{names}}": "{{count}} files were left out: {{names}}",
+  "Tải bản xuất": "Download the export",
+  "Không đóng gói được bản xuất.": "The export could not be packed.",
   // MEM-153 phase 2: the Tenant's chat retention policy
   "Lưu giữ hội thoại": "Conversation retention",
   "Hội thoại không có hoạt động nào trong số ngày này sẽ bị xoá như chính người sở hữu xoá nó. Tệp tải lên giữ vòng đời riêng.":
@@ -67,6 +81,7 @@ export const vietnameseUi: Record<string, string> = {
     "Asking an archived conversation something takes it back out of the archive.",
   "Tách sang hội thoại mới": "Branch into a new chat",
   "Tách từ hội thoại gốc": "Branched from",
+  "Nhánh của {{title}}": "Branch of {{title}}",
   // MEM-152 file library v2, phase 3: ZIP download and richer previews
   "Tải về ZIP": "Download as ZIP",
   "Đang đóng gói {{count}} tệp thành ZIP…": "Packing {{count}} files into a ZIP…",

@@ -122,9 +122,16 @@ class ChatSessionController {
             summary = "Copy this conversation's selected path up to one message into a new conversation")
     @ApiResponse(responseCode = "201", description = "The new conversation", useReturnTypeSchema = true)
     ChatSessionResponse branch(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID sessionId, @PathVariable UUID messageId) {
-        return ChatSessionResponse.from(branches.branch(identity.actorId(), sessionId, messageId));
+            @PathVariable UUID sessionId, @PathVariable UUID messageId,
+            @RequestBody(required = false) BranchChatSession request) {
+        return ChatSessionResponse.from(branches.branch(identity.actorId(), sessionId, messageId,
+                request == null ? null : request.title()));
     }
+
+    @Schema(name = "BranchChatSessionRequest")
+    record BranchChatSession(
+            @Schema(description = "What to call the branch; the server names it after its origin when absent")
+            @Size(max = 200) @Nullable String title) {}
 
     @GetMapping("/{sessionId}")
     @Operation(operationId = "getChatSession", summary = "Read an owned chat session")

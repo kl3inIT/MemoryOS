@@ -17,10 +17,13 @@ import { chatSessionsKey } from "./chat-api";
 export function ChatBranchAction({
   sessionId,
   messageId,
+  originTitle,
   disabled,
 }: {
   sessionId: string;
   messageId: string;
+  /** The branch is named here, so its title reads in the language the person is using. */
+  originTitle?: string;
   disabled?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -42,6 +45,9 @@ export function ChatBranchAction({
           setError(undefined);
           void branchChatSession({
             path: { sessionId, messageId },
+            body: originTitle
+              ? { title: ui("Nhánh của {{title}}", { title: originTitle }).slice(0, 200) }
+              : {},
             headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(120_000),
             throwOnError: true,

@@ -141,6 +141,19 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> sessions.expireTemporary());
     }
 
+    /**
+     * One export per tick, plus the sweep that releases an expired one, exactly as the library archive task
+     * works; an export reads a whole account, so one at a time is deliberate.
+     */
+    @Bean
+    RecurringTask<Void> chatExportTask(io.memoryos.chat.application.ChatExportService exports) {
+        return Tasks.recurring("memoryos-chat-export-v1", FixedDelay.of(Duration.ofSeconds(10)))
+                .execute((_, _) -> {
+                    exports.buildNext();
+                    exports.sweepExpired();
+                });
+    }
+
     /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
     @Bean
     RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {

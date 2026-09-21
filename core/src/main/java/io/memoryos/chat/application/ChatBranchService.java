@@ -12,6 +12,7 @@ import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectWriteService;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -69,8 +70,20 @@ public class ChatBranchService {
      * caller does not own are all refused.
      */
     public ChatSession branch(ActorId actor, UUID sessionId, UUID messageId) {
+        return branch(actor, sessionId, messageId, null);
+    }
+
+    /**
+     * {@code title} is what the browser calls the branch, so the name reads in the language the person is
+     * using; without one the server falls back to its own prefix. It is trimmed and bounded like any title.
+     */
+    public ChatSession branch(ActorId actor, UUID sessionId, UUID messageId,
+                              @Nullable String title) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var origin = chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        // A branch outlives what it was taken from, which is exactly what a temporary conversation promised
+        // would not happen; there is nothing to copy it into.
+        if (origin.temporary()) throw ChatException.invalid("A temporary conversation cannot be branched.");
         if (!chats.onSelectedBranch(origin, messageId)) throw ChatException.unavailable();
         var path = pathTo(origin, messageId);
         // Every copy's id is chosen up front: a question's row names the answer that follows it, a message names
@@ -83,7 +96,7 @@ public class ChatBranchService {
         try {
             stage(tenant, path, copies, staged);
             var branch = Objects.requireNonNull(tx.execute(ignored -> {
-                var created = chats.createBranch(tenant, actor, origin, messageId, title(origin.title()));
+                var created = chats.createBranch(tenant, actor, origin, messageId, title(origin.title(), title));
                 chats.copyMessages(origin.id(), created.id(), plan(path, copies, created.rootMessageId()));
                 chats.selectChild(created.id(), created.rootMessageId(), copies.get(path.getFirst().id()));
                 for (var copy : staged) {
@@ -184,8 +197,9 @@ public class ChatBranchService {
     }
 
     /** A title says where the branch came from, and stays inside what a title may hold. */
-    private String title(String origin) {
-        String title = TITLE_PREFIX + origin;
+    private String title(String origin, @Nullable String requested) {
+        String title = requested == null || requested.isBlank() ? TITLE_PREFIX + origin : requested.strip();
+        if (title.indexOf('\0') >= 0) throw ChatException.invalid("Invalid title.");
         return title.length() <= MAX_TITLE ? title : title.substring(0, MAX_TITLE);
     }
 

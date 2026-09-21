@@ -451,9 +451,9 @@ export type ChatSettingsResponse = {
 
 export type ChatRetentionRequest = {
     /**
-     * Days of inactivity after which a conversation is deleted; null clears the policy
+     * Days of inactivity after which a conversation is deleted; leave it out to clear the policy
      */
-    chatRetentionDays?: number | null;
+    chatRetentionDays?: number;
     revision?: number;
 };
 
@@ -1418,6 +1418,13 @@ export type Edit = {
     mcpServerIds?: Array<string>;
 };
 
+export type BranchChatSessionRequest = {
+    /**
+     * What to call the branch; the server names it after its origin when absent
+     */
+    title?: string;
+};
+
 export type Cancellation = {
     assistantMessageId: string;
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
@@ -1544,6 +1551,24 @@ export type UploadAuthorization = {
         [key: string]: string;
     };
     expiresAt?: string;
+};
+
+export type ChatExport = {
+    id: string;
+    /**
+     * PENDING, RUNNING, READY or FAILED
+     */
+    status: string;
+    sessionCount: number | null;
+    fileCount: number | null;
+    /**
+     * Names of the files the export left out
+     */
+    skipped: Array<string>;
+    sizeBytes: number | null;
+    failure: string | null;
+    createdAt: string;
+    expiresAt: string | null;
 };
 
 /**
@@ -8756,7 +8781,7 @@ export type EditChatMessageResponses = {
 export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMessageResponses];
 
 export type BranchChatSessionData = {
-    body?: never;
+    body?: BranchChatSessionRequest;
     headers: {
         /**
          * Same-origin non-simple request guard for browser-session mutations.
@@ -10287,6 +10312,94 @@ export type InitiateChatFileUploadResponses = {
 };
 
 export type InitiateChatFileUploadResponse = InitiateChatFileUploadResponses[keyof InitiateChatFileUploadResponses];
+
+export type ListChatExportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/exports';
+};
+
+export type ListChatExportsErrors = {
+    /**
+     * Invalid export request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No such export
+     */
+    404: ApiProblem;
+    /**
+     * An export is already being prepared
+     */
+    409: ApiProblem;
+};
+
+export type ListChatExportsError = ListChatExportsErrors[keyof ListChatExportsErrors];
+
+export type ListChatExportsResponses = {
+    /**
+     * Exports
+     */
+    200: Array<ChatExport>;
+};
+
+export type ListChatExportsResponse = ListChatExportsResponses[keyof ListChatExportsResponses];
+
+export type RequestChatExportData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/exports';
+};
+
+export type RequestChatExportErrors = {
+    /**
+     * Invalid export request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No such export
+     */
+    404: ApiProblem;
+    /**
+     * An export is already being prepared
+     */
+    409: ApiProblem;
+};
+
+export type RequestChatExportError = RequestChatExportErrors[keyof RequestChatExportErrors];
+
+export type RequestChatExportResponses = {
+    /**
+     * The export being prepared
+     */
+    202: ChatExport;
+};
+
+export type RequestChatExportResponse = RequestChatExportResponses[keyof RequestChatExportResponses];
 
 export type ListDocumentSetsData = {
     body?: never;
@@ -13482,6 +13595,92 @@ export type GetChatFileArtifactChartResponses = {
 };
 
 export type GetChatFileArtifactChartResponse = GetChatFileArtifactChartResponses[keyof GetChatFileArtifactChartResponses];
+
+export type GetChatExportData = {
+    body?: never;
+    path: {
+        exportId: string;
+    };
+    query?: never;
+    url: '/api/chat/exports/{exportId}';
+};
+
+export type GetChatExportErrors = {
+    /**
+     * Invalid export request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No such export
+     */
+    404: ApiProblem;
+    /**
+     * An export is already being prepared
+     */
+    409: ApiProblem;
+};
+
+export type GetChatExportError = GetChatExportErrors[keyof GetChatExportErrors];
+
+export type GetChatExportResponses = {
+    /**
+     * The export
+     */
+    200: ChatExport;
+};
+
+export type GetChatExportResponse = GetChatExportResponses[keyof GetChatExportResponses];
+
+export type DownloadChatExportData = {
+    body?: never;
+    path: {
+        exportId: string;
+    };
+    query?: never;
+    url: '/api/chat/exports/{exportId}/content';
+};
+
+export type DownloadChatExportErrors = {
+    /**
+     * Invalid export request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * No such export
+     */
+    404: ApiProblem;
+    /**
+     * An export is already being prepared
+     */
+    409: ApiProblem;
+};
+
+export type DownloadChatExportError = DownloadChatExportErrors[keyof DownloadChatExportErrors];
+
+export type DownloadChatExportResponses = {
+    /**
+     * The ZIP
+     */
+    200: Blob | File;
+};
+
+export type DownloadChatExportResponse = DownloadChatExportResponses[keyof DownloadChatExportResponses];
 
 export type ReadChatDocumentPassagesData = {
     body?: never;

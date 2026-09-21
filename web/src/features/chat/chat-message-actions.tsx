@@ -227,6 +227,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
       <ChatBranchAction
         sessionId={sessionId}
         messageId={message.id}
+        originTitle={editing.sessionTitle}
         disabled={editing.busy || removing}
       />
       {error && (

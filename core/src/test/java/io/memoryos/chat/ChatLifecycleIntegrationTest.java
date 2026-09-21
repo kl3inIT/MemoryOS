@@ -250,6 +250,13 @@ class ChatLifecycleIntegrationTest {
         assertEquals("CHAT_UNAVAILABLE",
                 assertThrows(ChatException.class, () -> branches.branch(owner, origin.id(), UUID.randomUUID())).code());
 
+        // A temporary conversation is not branched: the branch would outlive what promised to leave nothing.
+        var temporary = sessions.create(owner, "Tạm thời", true);
+        var temporaryPair = reserve(temporary, temporary.rootMessageId(), "Câu hỏi");
+        turns.finish(temporary.id(), temporaryPair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Trả lời");
+        assertEquals("CHAT_INVALID_REQUEST", assertThrows(ChatException.class,
+                () -> branches.branch(owner, temporary.id(), temporaryPair.assistantMessageId())).code());
+
         // A generated file whose bytes are gone stops the copy rather than producing a branch missing them.
         var second = reserve(origin, pair.assistantMessageId(), "Second question");
         turns.finish(origin.id(), second.assistantMessageId(), ChatMessage.Status.COMPLETED, "Second answer");

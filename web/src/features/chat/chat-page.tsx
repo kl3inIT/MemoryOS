@@ -380,6 +380,7 @@ function ChatConversation({
           <ChatEditingContext.Provider
             value={{
               sessionId: session?.id,
+              sessionTitle: headerSession?.title,
               busy,
               branches: branches.data ?? [],
               feedback: feedback.data ?? [],

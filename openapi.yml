@@ -7924,6 +7924,11 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchChatSessionRequest"
       responses:
         "400":
           description: Invalid request or cursor
@@ -9789,6 +9794,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatFileUploadResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/exports:
+    get:
+      tags:
+      - Chat
+      summary: The caller's exports that are still worth offering
+      operationId: listChatExports
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Exports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatExport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Ask for a ZIP of the caller's own conversations and files
+      operationId: requestChatExport
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: The export being prepared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatExport"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13933,6 +14032,102 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/exports/{exportId}:
+    get:
+      tags:
+      - Chat
+      summary: How far one export has got
+      operationId: getChatExport
+      parameters:
+      - name: exportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatExport"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/exports/{exportId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Download a finished export
+      operationId: downloadChatExport
+      parameters:
+      - name: exportId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such export
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: An export is already being prepared
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The ZIP
+          content:
+            application/octet-stream: {}
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/documents/{documentId}:
     get:
       tags:
@@ -16000,12 +16195,10 @@ components:
       type: object
       properties:
         chatRetentionDays:
-          type:
-          - integer
-          - "null"
+          type: integer
           format: int32
-          description: Days of inactivity after which a conversation is deleted; null
-            clears the policy
+          description: Days of inactivity after which a conversation is deleted; leave
+            it out to clear the policy
           maximum: 3650
           minimum: 1
         revision:
@@ -18485,6 +18678,15 @@ components:
       required:
       - clientRequestId
       - text
+    BranchChatSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: What to call the branch; the server names it after its origin
+            when absent
+          maxLength: 200
+          minLength: 0
     Cancellation:
       type: object
       properties:
@@ -18813,6 +19015,57 @@ components:
         expiresAt:
           type: string
           format: date-time
+    ChatExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: "PENDING, RUNNING, READY or FAILED"
+        sessionCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        fileCount:
+          type:
+          - integer
+          - "null"
+          format: int32
+        skipped:
+          type: array
+          description: Names of the files the export left out
+          items:
+            type: string
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - expiresAt
+      - failure
+      - fileCount
+      - id
+      - sessionCount
+      - sizeBytes
+      - skipped
+      - status
     UsageReportRequest:
       type: object
       description: An inclusive UTC day range of at most 366 days
