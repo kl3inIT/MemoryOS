@@ -82,18 +82,21 @@ class ChatLibraryController {
 
     @GetMapping
     @Operation(operationId = "listChatLibrary",
-            summary = "List the caller's own uploads, generated files and generated images as one paginated library")
+            summary = "List the caller's own uploads, generated files and generated images as one paginated library,"
+                    + " optionally narrowed to one conversation")
     @ApiResponse(responseCode = "200", description = "A page of the caller's files", useReturnTypeSchema = true)
     ResponseEntity<LibraryPageResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(defaultValue = "") String query,
             @Parameter(description = "Empty means every source") @RequestParam(required = false) @Nullable List<String> sources,
             @Parameter(description = "Empty means every category") @RequestParam(required = false) @Nullable List<String> categories,
+            @Parameter(description = "Only this conversation's own files; the caller must own it")
+            @RequestParam(required = false) @Nullable UUID sessionId,
             @RequestParam(defaultValue = "NEWEST") String sort,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "50") int limit) {
         var page = library.list(identity.actorId(), query,
                 parse(sources, ChatLibraryFile.Source.class), parse(categories, ChatLibraryFile.Category.class),
-                value(sort, ChatLibraryFile.Sort.class), offset, limit);
+                sessionId, value(sort, ChatLibraryFile.Sort.class), offset, limit);
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(new LibraryPageResponse(
                 page.items().stream().map(LibraryFileResponse::from).toList(),
                 page.totalCount(), page.totalBytes(), page.hasMore()));

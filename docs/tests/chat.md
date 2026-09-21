@@ -397,3 +397,18 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | The page lists every source with size, total and conversation link, hides the link for an upload, labels and disables a file a Project holds, sends the filters/search/sort to the server, and deletes a selection through each source's route while naming a refusal | `web/src/features/chat/chat-library-page.test.tsx` |
 | A deleted generated file keeps its card without a download, preview or chart | `chat-code.test.tsx` |
 | V90 gives artifacts written before the library an owner and a conversation, and an image its creation-time name and stored size | `ChatFileLibraryMigrationTest` |
+
+## Hard deletion of deleted conversations (MEM-143)
+
+| Contract | Test and boundary |
+| --- | --- |
+| With the switch on, a purge removes the deleted conversation's command, feedback, sharing, message and session rows, marks its generated file and image for the artifact sweep, and leaves a live conversation and the owner's upload untouched | `ChatSessionPurgeIntegrationTest.purgesOnlyDeletedConversationsAndLeavesTheOwnersUploadAlone` |
+| With the switch off nothing is purged and no artifact is marked | `ChatSessionPurgeIntegrationTest.keepsEveryDeletedConversationWhileTheSwitchIsOff` |
+| A deleted conversation whose reply is still RUNNING is left for a later run, then purged once the reply ends | `ChatSessionPurgeIntegrationTest.leavesADeletedConversationWhoseReplyIsStillRunning` |
+
+## Files in this conversation (MEM-144)
+
+| Contract | Test and boundary |
+| --- | --- |
+| The filter returns the conversation's artifacts and the uploads attached in it, excludes another conversation's files and an upload never attached there, and matches nothing for a conversation the caller does not own or one that does not exist | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt`, `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
+| The panel asks for the conversation's files only once opened, lists them with size, total and download, says so when there are none, and deletes after the confirmation | `web/src/features/chat/chat-session-files.test.tsx` |

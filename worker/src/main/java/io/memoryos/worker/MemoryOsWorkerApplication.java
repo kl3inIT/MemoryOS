@@ -23,7 +23,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         io.memoryos.chat.application.DefaultUserFileWorkService.class,
         // MEM-142: the sweep that releases the bytes of deleted Chat artifacts.
         io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository.class,
-        io.memoryos.chat.application.ChatArtifactCleanupService.class})
+        io.memoryos.chat.application.ChatArtifactCleanupService.class,
+        // MEM-143: the sweep that removes conversations their owner deleted.
+        io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository.class,
+        io.memoryos.chat.application.ChatSessionPurgeService.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

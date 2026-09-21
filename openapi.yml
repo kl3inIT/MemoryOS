@@ -12022,7 +12022,7 @@ paths:
       tags:
       - Chat
       summary: "List the caller's own uploads, generated files and generated images\
-        \ as one paginated library"
+        \ as one paginated library, optionally narrowed to one conversation"
       operationId: listChatLibrary
       parameters:
       - name: query
@@ -12047,6 +12047,13 @@ paths:
           type: array
           items:
             type: string
+      - name: sessionId
+        in: query
+        description: Only this conversation's own files; the caller must own it
+        required: false
+        schema:
+          type: string
+          format: uuid
       - name: sort
         in: query
         required: false
