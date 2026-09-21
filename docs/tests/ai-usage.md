@@ -20,6 +20,10 @@ Contract: [AI usage and costs](../specs/ai-usage.md).
 | The PDF draws Vietnamese across the cover and section pages, numbers pages, survives an undrawable character, and is one page for an empty period; top lists fold into "Other" but never a single row | `core/src/test/java/io/memoryos/usage/report/UsageReportPdfTest.java` |
 | The CSV guard prefixes every formula character Onyx guards and leaves ordinary text alone | `core/src/test/java/io/memoryos/usage/report/UsageReportCsvTest.java` |
 | The Usage reports section lists ready, building and failed reports, blocks a second request while one builds, requests the chosen period and offers a retry | `web/src/features/usage/usage-reports.test.tsx` |
+| A person, Group and Tenant budget each bind and free on their own window; system work never counts; an unpriced call adds no cost; a disabled limit refuses nothing; the tightest budget is the one a person sees | `core/src/test/java/io/memoryos/usage/AiUsageLimitServiceTest.java` |
+| Limits are set only by model managers, the change is audited, a spent budget refuses a turn with 429 and `Retry-After`, and indexing fills no one's budget | `ChatSessionApiIntegrationTest.spendingLimitsAreSetByModelManagersAndRefuseATurnWithTheBudgetSpent` |
+| The Limits section reads a budget beside its usage, keeps a budget when switched off and refuses to save a limit with no budget | `web/src/features/usage/usage-limits.test.tsx` |
+| A member sees the budget that binds them, and nothing when the Tenant sets none | `web/src/features/usage/my-usage-page.test.tsx` |
 | HTTP paths and schemas are in the checked-in contract | `api/src/test/java/io/memoryos/api/OpenApiContractTest.java` |
 | The page shows known and unpriced spend, ranks people and opens a person's detail | `web/src/features/usage/ai-costs.test.tsx` |
 | Pricing forms keep unknown pricing distinct from 0/0 and carry the optional cache-read price | `web/src/features/models/model-catalog.test.ts` |

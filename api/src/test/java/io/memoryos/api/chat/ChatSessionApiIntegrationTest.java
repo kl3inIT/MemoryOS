@@ -1144,6 +1144,63 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void spendingLimitsAreSetByModelManagersAndRefuseATurnWithTheBudgetSpent() throws Exception {
+        jdbc.sql("DELETE FROM ai_usage_limit WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        String body = "{\"scope\":\"PERSON\",\"tokenBudget\":1000,\"periodDays\":7,\"enabled\":true}";
+        mockMvc.perform(post("/api/ai-costs/limits").contentType(MediaType.APPLICATION_JSON).content(body)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isForbidden());
+        grantModelManagement();
+        String limitId = Json.mapper().readTree(mockMvc.perform(post("/api/ai-costs/limits")
+                        .contentType(MediaType.APPLICATION_JSON).content(body)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        // The change is evidence: MEM-25 records who capped what.
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM audit_event WHERE tenant_id=:tenant AND action='ai_limit.create'")
+                .param("tenant", TENANT).query(Long.class).single());
+
+        // Indexing carries no person, so it fills no one's budget.
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, NULL, CAST(:day AS date), 'EMBEDDING_INDEXING', 'OpenAI', 'text-embedding-3-large', NULL, 2, 50000, 0, 0.01, 0)
+                """).param("tenant", TENANT).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/limits/mine").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.tokensUsed").value(0))
+                .andExpect(jsonPath("$.scope").value("PERSON"));
+
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5.1', 'EXTERNAL', 3, 900, 200, 0.05, 0)
+                """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/limits").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].tokensUsed").value(1100));
+
+        // A turn that would exceed the budget is refused before any provider is called.
+        var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Hạn mức\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        var opened = Json.mapper().readTree(created.getResponse().getContentAsString());
+        mockMvc.perform(post("/api/chat/sessions/" + opened.path("id").asText() + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(Json.mapper().createObjectNode().put("parentMessageId", opened.path("rootMessageId").asText())
+                                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "xin chào").toString())
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.code").value("AI_USAGE_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.scope").value("PERSON"))
+                .andExpect(jsonPath("$.resetsAt").exists());
+
+        mockMvc.perform(delete("/api/ai-costs/limits/" + limitId)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+    }
+
+    @Test
     void usageReportsAreQueuedBuiltAndDownloadedOnlyByModelManagers() throws Exception {
         jdbc.sql("DELETE FROM ai_usage_report WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();

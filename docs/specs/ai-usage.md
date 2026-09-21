@@ -46,6 +46,38 @@ Every endpoint except `/mine` requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN
 | `GET /api/ai-costs/reports` | The Tenant's 50 newest `UsageReport`s, whoever requested them |
 | `GET /api/ai-costs/reports/{reportId}/content` | The ZIP of a `READY` report (`application/zip`, attachment); 404 for any other state, id or Tenant |
 
+## Spending limits
+
+`ai_usage_limit` (V96) caps what may be spent, as Onyx's `token_rate_limit` does. One row per Tenant and scope:
+`TENANT`, `GROUP` (one row per Group) or `PERSON`, where `PERSON` is one budget applied to each person separately,
+not a budget for one named person. A row sets a token budget, an estimated cost budget, or both, over a trailing
+window of `period_days` whole UTC days, and can be kept but switched off.
+
+- **What counts.** Input and output tokens, and known cost, from rows that carry an actor. System work has no actor,
+  so indexing a Source never fills anyone's budget. Cache reads are excluded from the token budget, as in Onyx.
+- **What an unpriced model does.** It adds tokens and one `unknown_cost_calls`, never a cost, so a cost budget does
+  not bind a local provider, an image or a voice call. Only a token budget binds every flow.
+- **Where it is enforced.** A chat turn, and a session name, before the model is resolved and before anything is
+  persisted. Onyx checks the same family and leaves images, voice, embeddings and indexing alone. Naming swallows the
+  refusal and keeps its fallback name. A reply already streaming is never cut off.
+- **What the check reads.** Spend that has settled. Turns still running are invisible, so turns starting together can
+  overshoot a cap; the next turn is refused. Onyx overshoots further, writing usage from a queue seconds later.
+- **Groups.** A Group limit binds every member of that Group, and a person in two capped Groups is bound by the
+  tighter one. Onyx instead lets any Group under budget unblock the person.
+- **A refused turn.** `429` with `Retry-After`, and a body naming the scope, the Group where there is one, and
+  `resetsAt`: the instant the trailing window drops under the budget. Refusals are counted in
+  `memoryos.usage.limit.refusals`, not written to the audit stream; at chat volume they would drown it.
+- **Changes are evidence.** Creating, changing and removing a limit is recorded through
+  [audit](audit.md) as `ai_limit.create`, `ai_limit.update` and `ai_limit.delete`.
+
+| Method and path | Contract |
+| --- | --- |
+| `GET /api/ai-costs/limits` | The Tenant's limits with what has been spent against each in its own window; a per-person limit reports the busiest person. Requires `MODELS_MANAGE` |
+| `POST /api/ai-costs/limits` | Sets one limit; at least one budget, 1–366 days. Requires `MODELS_MANAGE` |
+| `PUT /api/ai-costs/limits/{limitId}` | Changes the budgets, the period or the switch; who a limit applies to is fixed |
+| `DELETE /api/ai-costs/limits/{limitId}` | Removes it |
+| `GET /api/ai-costs/limits/mine` | The budget that binds the caller and what they have spent against it, or nothing; any member |
+
 ## Usage reports
 
 A usage report is Onyx's usage report export for one period, bounded like the page (at most 366 UTC days, no "All time"). A model manager requests it; the Worker task `memoryos-ai-usage-report-v1` claims the oldest `PENDING` report every 5 s with a 10-minute lease, builds it and stores the ZIP through `ObjectWriteService`. A failed attempt returns the report to the queue; the third failure, or a lease that lapses on the third attempt, marks it `FAILED`. A Worker whose lease lapsed cannot mark the report ready.
@@ -60,4 +92,7 @@ Chat message metadata (Onyx `chat_messages.csv`) is not exported; message-level 
 
 ## Administration
 
-"Monitoring › AI costs" (`/admin/ai-costs`, vi "Theo dõi › Chi phí AI"): period (last 7 days, last 30 days, this month, last month), one summary strip, daily spend stacked by Internal/External or by model, breakdown tabs by user, Group, model, flow and provider with proportion bars, a per-user modal as Onyx `UserUsageDetailModal`, and "Usage reports" at the foot of the page as in Onyx: a Generate report menu over the page's periods, a pending row polled every 3 s with a hint after 20 s, and a row per report with its requester, time and a download link. Unpriced calls link to the Models page, where the model editor has an optional cache-read price. Copy follows Onyx, Orca and the OpenAI and LangChain usage screens.
+"Monitoring › AI costs" (`/admin/ai-costs`, vi "Theo dõi › Chi phí AI"): period (last 7 days, last 30 days, this month, last month), one summary strip, daily spend stacked by Internal/External or by model, breakdown tabs by user, Group, model, flow and provider with proportion bars, a per-user modal as Onyx `UserUsageDetailModal`, and "Usage reports" at the foot of the page as in Onyx: a Generate report menu over the page's periods, a pending row polled every 3 s with a hint after 20 s, and a row per report with its requester, time and a download link. A "Spending limits" section sits under the figures, so a manager sets a cap while reading what is being spent: each
+row carries the budget beside the usage counted against it, a bar that turns amber near the cap and red once it is
+spent, the period, a switch and a way to remove it. Settings › Usage shows a member the budget that binds them and
+when it frees. Unpriced calls link to the Models page, where the model editor has an optional cache-read price. Copy follows Onyx, Orca and the OpenAI and LangChain usage screens.
