@@ -1,7 +1,7 @@
 # 0013 — Server-authored audit evidence
 
 Status: Accepted, implementation started 2026-09-21. Supersedes [ADR 0003](0003-defer-audit-until-evidence-consumer.md).
-The increment is [MEM-25](../increments/active/mem-25-audit/design.md).
+The increment is [MEM-25](../increments/completed/mem-25-audit/design.md).
 
 ## Context
 
