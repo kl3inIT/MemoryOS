@@ -2708,6 +2708,120 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    @Test
+    void meetingsAreOwnerPrivateAndStoreUtterancesFromATicketedTrackSocket() throws Exception {
+        grantModelManagement();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            byte[] body = "{\"data\":[]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.createContext("/v1/audio/transcriptions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = "{\"text\":\"Em sẽ gửi báo giá trước thứ Sáu.\"}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        try {
+            var connection = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "whisper-1").put("ttsModel", "").put("ttsVoice", "").put("credentialAction", "KEEP")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/meetings").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"  Giao ban tuần \",\"kind\":\"IN_PERSON\",\"language\":\"vi\","
+                            + "\"participants\":[\"Anh Thanh\",\"Anh Thanh\",\" \"],\"terms\":[\"Tasco\"]}"))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.title").value("Giao ban tuần"))
+                    .andExpect(jsonPath("$.participants.length()").value(1)).andExpect(jsonPath("$.status").value("RECORDING"))
+                    .andReturn().getResponse().getContentAsString());
+            String id = created.path("id").asText();
+            mockMvc.perform(get("/api/meetings/" + id).with(authentication(other))).andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("MEETING_NOT_FOUND"));
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+            // An in-person meeting has no shared tab to record.
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"TAB\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isNotFound());
+            String ticket = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + id + "/tickets")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"track\":\"MIC\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                    .path("ticket").asText();
+
+            var client = new StandardWebSocketClient();
+            var headers = new WebSocketHttpHeaders();
+            headers.add("Authorization", "Bearer " + token(actor));
+            headers.add("Origin", "http://localhost:" + port);
+            var messages = new LinkedBlockingQueue<String>();
+            var closed = new CompletableFuture<CloseStatus>();
+            var listener = new AbstractWebSocketHandler() {
+                @Override
+                protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                    messages.add(message.getPayload());
+                }
+
+                @Override
+                public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+                    closed.complete(status);
+                }
+            };
+            String stream = "ws://localhost:" + port + "/api/meeting-stream?meeting=" + id + "&track=MIC&offset=60000&ticket=";
+            var session = client.execute(listener, headers, URI.create(stream + ticket)).get(10, TimeUnit.SECONDS);
+            assertEquals("ready", Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS)).path("type").asText());
+            byte[] speech = voiceTone(2);
+            for (int offset = 0; offset < speech.length; offset += 48_000)
+                session.sendMessage(new BinaryMessage(ByteBuffer.wrap(speech, offset, Math.min(48_000, speech.length - offset))));
+            session.sendMessage(new TextMessage("{\"type\":\"end\"}"));
+            var utterance = Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS));
+            assertEquals("utterance", utterance.path("type").asText());
+            assertEquals("Em sẽ gửi báo giá trước thứ Sáu.", utterance.path("utterance").path("text").asText());
+            assertEquals(60_000, utterance.path("utterance").path("startMs").asLong(), "the offset continues the meeting clock");
+            assertEquals("finished", Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS)).path("type").asText());
+            assertEquals(CloseStatus.NORMAL.getCode(), closed.get(10, TimeUnit.SECONDS).getCode());
+            assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, headers,
+                    URI.create(stream + ticket)).get(10, TimeUnit.SECONDS), "a spent ticket is refused");
+
+            mockMvc.perform(put("/api/meetings/" + id + "/speakers/MIC/1").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Anh Thanh\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.speakers[0].name").value("Anh Thanh"))
+                    .andExpect(jsonPath("$.utterances[0].speaker").value("1"))
+                    .andExpect(jsonPath("$.provider").value("OPENAI_COMPATIBLE")).andExpect(jsonPath("$.diarized").value(false));
+            mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":7}")).andExpect(status().isConflict());
+            mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":0}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.notes").value("Hỏi hạn mức"));
+            mockMvc.perform(post("/api/meetings/" + id + "/end").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENDED"));
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MEETING_ENDED"));
+            mockMvc.perform(get("/api/meetings").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].durationMs").value(62_000));
+            mockMvc.perform(delete("/api/meetings/" + id).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNoContent());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM meeting_utterance WHERE tenant_id=:tenant").param("tenant", TENANT)
+                    .query(Integer.class).single());
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
     private String voiceTicket(ActorAuthenticationToken authentication) throws Exception {
         var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
                 .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

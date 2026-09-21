@@ -96,7 +96,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Eight capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `core` | Ten capability implementations and public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -111,6 +111,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, shared Document Sets, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
+| `meeting` | Owner-private meetings: live track recording through the `chat` voice named interface, stored utterances, speaker names and notes; audio is never stored (MEM-92, in progress) | [Meetings](docs/specs/meeting.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 ## Durable ingestion and Search projection
