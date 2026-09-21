@@ -9165,6 +9165,107 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/archives:
+    get:
+      tags:
+      - Chat
+      summary: The caller's own archives that have not expired
+      operationId: listChatLibraryArchives
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Archives, newest first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Chat
+      summary: Ask for a ZIP of the selected files; a worker packs it and its owner
+        downloads it until it expires
+      operationId: requestChatLibraryArchive
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatLibraryArchiveRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "202":
+          description: The archive request as recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/connections/{provider}/test:
     post:
       tags:
@@ -12394,6 +12495,105 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChatLibraryContentMatch"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/archives/{archiveId}:
+    get:
+      tags:
+      - Chat
+      summary: "One archive of the caller, with its status"
+      operationId: getChatLibraryArchive
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The archive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryArchive"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/archives/{archiveId}/content:
+    get:
+      tags:
+      - Chat
+      summary: Download the caller's own archive while it lives
+      operationId: downloadChatLibraryArchive
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The ZIP bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
       security:
       - bearerAuth: []
       - browserSession: []
@@ -18090,6 +18290,79 @@ components:
           type: string
         searchReady:
           type: boolean
+    ChatLibraryArchiveFile:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+        id:
+          type: string
+          format: uuid
+      required:
+      - id
+      - source
+    ChatLibraryArchiveRequest:
+      type: object
+      properties:
+        files:
+          type: array
+          description: "The files to pack, at most 100 and at most 30 MiB together"
+          items:
+            $ref: "#/components/schemas/ChatLibraryArchiveFile"
+          maxLength: 100
+      required:
+      - files
+    ChatLibraryArchive:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        fileCount:
+          type: integer
+          format: int32
+        sizeBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+        skipped:
+          type: array
+          description: Files that were no longer available when packing
+          items:
+            type: string
+        failure:
+          type:
+          - string
+          - "null"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - createdAt
+      - expiresAt
+      - failure
+      - fileCount
+      - id
+      - sizeBytes
+      - skipped
+      - status
     ImageConnectionTestRequest:
       type: object
       properties:

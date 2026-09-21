@@ -27,6 +27,8 @@ const changeChatLibraryFile = vi.hoisted(() => vi.fn());
 const searchChatLibraryContent = vi.hoisted(() => vi.fn());
 const retryChatFile = vi.hoisted(() => vi.fn());
 const uploadChatFile = vi.hoisted(() => vi.fn());
+const requestChatLibraryArchive = vi.hoisted(() => vi.fn());
+const getChatLibraryArchive = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
@@ -41,6 +43,8 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   changeChatLibraryFile: (...args: unknown[]) => changeChatLibraryFile(...args),
   searchChatLibraryContent: (...args: unknown[]) => searchChatLibraryContent(...args),
   retryChatFile: (...args: unknown[]) => retryChatFile(...args),
+  requestChatLibraryArchive: (...args: unknown[]) => requestChatLibraryArchive(...args),
+  getChatLibraryArchive: (...args: unknown[]) => getChatLibraryArchive(...args),
 }));
 
 vi.mock("./chat-files", async (importOriginal) => ({
@@ -429,4 +433,62 @@ it("searches inside files and shows the matching passages", async () => {
   expect(listChatLibrary).not.toHaveBeenCalledWith(
     expect.objectContaining({ query: expect.objectContaining({ query: "thanh toán" }) }),
   );
+});
+
+it("packs a selection into a ZIP, then downloads it and names what was skipped", async () => {
+  await show();
+  const user = userEvent.setup();
+  const archiveId = "99999999-9999-4999-8999-999999999999";
+  requestChatLibraryArchive.mockResolvedValue({
+    data: {
+      id: archiveId,
+      status: "PENDING",
+      fileCount: 2,
+      sizeBytes: null,
+      skipped: [],
+      failure: null,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+    },
+  });
+  getChatLibraryArchive.mockResolvedValue({
+    data: {
+      id: archiveId,
+      status: "READY",
+      fileCount: 2,
+      sizeBytes: 4096,
+      skipped: ["ghi-chú.pdf"],
+      failure: null,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+    },
+  });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("button", { name: "Tải về ZIP" }));
+
+  expect(await screen.findByText(/Đang đóng gói 2 tệp/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(requestChatLibraryArchive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {
+          files: [
+            { source: "GENERATED", id: file().id },
+            { source: "UPLOAD", id: upload.id },
+          ],
+        },
+      }),
+    ),
+  );
+  // The browser polls the archive every 1.5s, so this waits past one poll.
+  expect(await screen.findByText(/ZIP đã sẵn sàng/, {}, { timeout: 5000 })).toBeInTheDocument();
+  // The skipped file is named in the notice, not only in the list it came from.
+  expect(screen.getByText(/Bỏ qua 1 tệp không còn khả dụng: ghi-chú\.pdf/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Tải lại ZIP" })).toHaveAttribute(
+    "href",
+    `/api/chat/library/archives/${archiveId}/content`,
+  );
+  expect(click).toHaveBeenCalled();
+  click.mockRestore();
 });

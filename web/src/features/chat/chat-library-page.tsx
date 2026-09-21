@@ -51,6 +51,7 @@ import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { ChatDialog } from "./chat-dialog";
 import { LibraryContentMatches } from "./chat-library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./chat-library-uploads";
+import { archiveContentUrl, useLibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
 import { fileSize } from "./chat-code";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
@@ -125,6 +126,7 @@ export function ChatLibraryPage() {
   const showFirstPage = () => showPage(0);
 
   const uploads = useLibraryUploads();
+  const archive = useLibraryArchive();
   const filter = useMemo(
     () => ({
       query: mode === "content" ? "" : query,
@@ -333,6 +335,15 @@ export function ChatLibraryPage() {
               <span className="text-sm">
                 {ui("Đã chọn {{count}} tệp", { count: selected.length })}
               </span>
+              <Button
+                size="sm"
+                prominence="secondary"
+                pending={archive.state.phase === "packing"}
+                onClick={() => void archive.start(chosen)}
+              >
+                <Download className="size-4" />
+                {ui("Tải về ZIP")}
+              </Button>
               <Button size="sm" prominence="secondary" onClick={() => setProjectFiles(chosen)}>
                 <FolderPlus className="size-4" />
                 {ui("Thêm vào dự án")}
@@ -345,6 +356,36 @@ export function ChatLibraryPage() {
                 {ui("Bỏ chọn")}
               </Button>
             </div>
+          )}
+          {archive.state.phase === "packing" && (
+            <p role="status" className="text-sm text-content-secondary">
+              {ui("Đang đóng gói {{count}} tệp thành ZIP…", { count: archive.state.fileCount })}
+            </p>
+          )}
+          {archive.state.phase === "ready" && (
+            <p role="status" className="text-sm text-content-secondary">
+              {ui("ZIP đã sẵn sàng và đang được tải về.")}{" "}
+              {archive.state.archive.skipped.length > 0 &&
+                ui("Bỏ qua {{count}} tệp không còn khả dụng: {{names}}", {
+                  count: archive.state.archive.skipped.length,
+                  names: archive.state.archive.skipped.join(", "),
+                })}{" "}
+              <Button size="sm" prominence="internal" asChild>
+                <a
+                  href={archiveContentUrl(archive.state.archive.id)}
+                  download
+                  onClick={() => archive.reset()}
+                >
+                  {ui("Tải lại ZIP")}
+                </a>
+              </Button>
+            </p>
+          )}
+          {archive.state.phase === "failed" && (
+            <p role="alert" className="text-sm text-content-danger">
+              {archive.state.message ||
+                ui("Không đóng gói được ZIP. Hãy chọn ít tệp hơn rồi thử lại.")}
+            </p>
           )}
           {notice && (
             <p role="status" className="text-sm text-content-secondary">
@@ -585,7 +626,13 @@ export function ChatLibraryPage() {
         </LibraryDropZone>
       </SettingsLayout>
 
-      {preview && <ChatFilePreviewModal target={preview} onClose={() => setPreview(undefined)} />}
+      {preview && (
+        <ChatFilePreviewModal
+          target={preview}
+          siblings={files.map(libraryPreviewTarget)}
+          onClose={() => setPreview(undefined)}
+        />
+      )}
       <LibraryUploadTray
         uploads={uploads.uploads}
         onCancel={uploads.cancel}
