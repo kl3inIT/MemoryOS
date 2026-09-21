@@ -12,7 +12,8 @@ public record SourceItemView(
         Instant uploadedAt,
         @Nullable Instant lastIndexedAt,
         @Nullable SourceIndexAttemptView latestAttempt,
-        @Nullable String errorCode,
-        String searchStatus
+    @Nullable String errorCode,
+    @Nullable String searchErrorCode,
+    String searchStatus
 ) {
 }

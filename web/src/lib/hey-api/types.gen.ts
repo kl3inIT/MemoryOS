@@ -1066,6 +1066,10 @@ export type SourceItem = {
     lastIndexedAt: string | null;
     latestAttempt: SourceIndexAttempt;
     errorCode: string | null;
+    /**
+     * Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT.
+     */
+    searchErrorCode: string | null;
     searchStatus: 'WAITING' | 'INDEXING' | 'READY' | 'FAILED';
 };
 

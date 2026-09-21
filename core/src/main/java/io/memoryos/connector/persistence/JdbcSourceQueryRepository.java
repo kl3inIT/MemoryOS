@@ -118,6 +118,7 @@ public class JdbcSourceQueryRepository {
                    attempt.completed_at AS attempt_completed_at,
                    attempt.filename AS attempt_filename,
                    success.completed_at AS last_indexed_at,
+                   doc.search_error_code,
                    CASE WHEN doc.id IS NULL OR mapping.retrieval_eligible=FALSE THEN 'WAITING'
                         WHEN doc.searchable_generation=doc.content_generation THEN 'READY'
                         WHEN doc.search_error_code IS NOT NULL THEN 'FAILED'
@@ -330,6 +331,7 @@ public class JdbcSourceQueryRepository {
                         JdbcSourceRepository.instant(resultSet, "attempt_completed_at"),
                         resultSet.getString("error_code")),
                 resultSet.getString("error_code"),
+                resultSet.getString("search_error_code"),
                 resultSet.getString("search_status")
         );
     }

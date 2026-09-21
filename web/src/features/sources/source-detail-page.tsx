@@ -841,6 +841,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                         {ui(sourceStatusMessage(item.errorCode))}
                       </p>
                     ) : null}
+                    {item.searchStatus === "FAILED" && item.searchErrorCode ? (
+                      <p className="mt-1 text-xs text-status-danger-content">
+                        {ui(sourceStatusMessage(item.searchErrorCode))}
+                      </p>
+                    ) : null}
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-4 text-content-muted">
                     {item.sizeBytes == null ? ui("Unknown") : formatBytes(item.sizeBytes)}
