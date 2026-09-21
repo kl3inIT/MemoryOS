@@ -90,6 +90,7 @@ class ApiExceptionHandlerTest {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
             case GONE -> HttpStatus.GONE;
+            case LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
             case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
@@ -101,6 +102,7 @@ class ApiExceptionHandlerTest {
             case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
             case GONE -> "Unavailable";
+            case LIMIT_EXCEEDED -> "Limit reached";
             case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }

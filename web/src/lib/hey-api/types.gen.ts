@@ -908,6 +908,29 @@ export type DocumentSetSharingInput = {
     groupIds?: Array<string>;
 };
 
+export type AiUsageLimitRequest = {
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupId?: string;
+    tokenBudget?: number;
+    costBudgetUsd?: number;
+    periodDays: number;
+    enabled: boolean;
+};
+
+/**
+ * A cap on AI spending. A model without a price adds tokens but no cost, so only a token budget binds it
+ */
+export type AiUsageLimit = {
+    id: string;
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupId?: string;
+    groupName?: string;
+    tokenBudget?: number;
+    costBudgetUsd?: number;
+    periodDays: number;
+    enabled: boolean;
+};
+
 export type ReplaceUserGroupsRequest = {
     groupIds: Array<string>;
 };
@@ -2534,6 +2557,20 @@ export type AiCostRow = {
     inputTokens: number;
     outputTokens: number;
     cost: number;
+};
+
+/**
+ * The budget that binds the caller, and what they have spent against it
+ */
+export type AiUsageStanding = {
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupName?: string;
+    tokenBudget?: number;
+    tokensUsed: number;
+    costBudgetUsd?: number;
+    costUsed: number;
+    periodDays: number;
+    resetsAt: string;
 };
 
 export type ApiProblem = {
@@ -6178,6 +6215,88 @@ export type ShareDocumentSetResponses = {
 };
 
 export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
+export type DeleteAiUsageLimitData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        limitId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/limits/{limitId}';
+};
+
+export type DeleteAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type DeleteAiUsageLimitError = DeleteAiUsageLimitErrors[keyof DeleteAiUsageLimitErrors];
+
+export type DeleteAiUsageLimitResponses = {
+    /**
+     * Removed
+     */
+    204: void;
+};
+
+export type DeleteAiUsageLimitResponse = DeleteAiUsageLimitResponses[keyof DeleteAiUsageLimitResponses];
+
+export type UpdateAiUsageLimitData = {
+    body: AiUsageLimitRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        limitId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/limits/{limitId}';
+};
+
+export type UpdateAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type UpdateAiUsageLimitError = UpdateAiUsageLimitErrors[keyof UpdateAiUsageLimitErrors];
+
+export type UpdateAiUsageLimitResponses = {
+    /**
+     * Updated
+     */
+    200: AiUsageLimit;
+};
+
+export type UpdateAiUsageLimitResponse = UpdateAiUsageLimitResponses[keyof UpdateAiUsageLimitResponses];
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
@@ -10207,6 +10326,78 @@ export type RequestUsageReportResponses = {
 
 export type RequestUsageReportResponse = RequestUsageReportResponses[keyof RequestUsageReportResponses];
 
+export type ListAiUsageLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits';
+};
+
+export type ListAiUsageLimitsErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAiUsageLimitsError = ListAiUsageLimitsErrors[keyof ListAiUsageLimitsErrors];
+
+export type ListAiUsageLimitsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<AiUsageLimit>;
+};
+
+export type ListAiUsageLimitsResponse = ListAiUsageLimitsResponses[keyof ListAiUsageLimitsResponses];
+
+export type CreateAiUsageLimitData = {
+    body: AiUsageLimitRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits';
+};
+
+export type CreateAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type CreateAiUsageLimitError = CreateAiUsageLimitErrors[keyof CreateAiUsageLimitErrors];
+
+export type CreateAiUsageLimitResponses = {
+    /**
+     * Created
+     */
+    201: AiUsageLimit;
+};
+
+export type CreateAiUsageLimitResponse = CreateAiUsageLimitResponses[keyof CreateAiUsageLimitResponses];
+
 export type GetChatVoiceSettingsData = {
     body?: never;
     path?: never;
@@ -13579,6 +13770,39 @@ export type GetMyAiCostsResponses = {
 };
 
 export type GetMyAiCostsResponse = GetMyAiCostsResponses[keyof GetMyAiCostsResponses];
+
+export type GetMyAiUsageStandingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits/mine';
+};
+
+export type GetMyAiUsageStandingErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetMyAiUsageStandingError = GetMyAiUsageStandingErrors[keyof GetMyAiUsageStandingErrors];
+
+export type GetMyAiUsageStandingResponses = {
+    /**
+     * The binding budget, or nothing when the Tenant sets no limit
+     */
+    200: AiUsageStanding;
+};
+
+export type GetMyAiUsageStandingResponse = GetMyAiUsageStandingResponses[keyof GetMyAiUsageStandingResponses];
 
 export type GetAiCostDetailData = {
     body?: never;

@@ -41,6 +41,7 @@ public class AiUsageLimitService {
     private final Clock clock;
     private final Map<UUID, Cached> configured = new ConcurrentHashMap<>();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AiUsageLimitService(IamAuthorization authorization, AiUsageLimitRepository limits, AuditTrail audit) {
         this(authorization, limits, audit, Clock.systemUTC());
     }
