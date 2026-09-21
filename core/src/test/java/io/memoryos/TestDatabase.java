@@ -142,7 +142,9 @@ public final class TestDatabase {
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var proxyFactory = new ProxyFactory();
         proxyFactory.setTarget(target);
-        proxyFactory.setInterfaces(contract);
+        // A service without an interface is proxied by subclass, as Spring proxies it in the application.
+        if (contract.isInterface()) proxyFactory.setInterfaces(contract);
+        else proxyFactory.setProxyTargetClass(true);
         proxyFactory.addAdvice(interceptor);
         return contract.cast(proxyFactory.getProxy());
     }

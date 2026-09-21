@@ -1267,7 +1267,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     permissions: GroupPermissions;
 };
 
@@ -1282,7 +1282,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
 };
 
 export type SharePointCredentialTestResponse = {
@@ -1809,11 +1809,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -1874,11 +1874,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
 };
 
 export type GoogleDriveCredentialResponse = {
@@ -2371,6 +2371,50 @@ export type ChatSpreadsheetSheet = {
 export type ChatFilePolicyResponse = {
     maxSizeBytes?: number;
     deploymentCeilingBytes?: number;
+};
+
+/**
+ * One recorded change: who, what and to which resource, with the declared details of its action
+ */
+export type AuditEvent = {
+    id: string;
+    occurredAt: string;
+    /**
+     * An append-only action value such as user.deactivate
+     */
+    action: string;
+    eventClass: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+    outcome: 'SUCCESS' | 'FAILURE' | 'DENIED';
+    actorId: string | null;
+    actorLabel: string | null;
+    actorEmail: string | null;
+    resourceType: string | null;
+    resourceId: string | null;
+    resourceLabel: string | null;
+    details: string;
+    traceId: string | null;
+    endpoint: string | null;
+    sourceIp: string | null;
+};
+
+export type AuditEventPage = {
+    items: Array<AuditEvent>;
+    /**
+     * Pass back to read the next, older page; null on the last page
+     */
+    nextCursor: string | null;
+};
+
+/**
+ * Every action the stream can hold, newest catalog first; values never change meaning
+ */
+export type AuditCatalog = {
+    actions: Array<AuditCatalogAction>;
+};
+
+export type AuditCatalogAction = {
+    action: string;
+    eventClass: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
 };
 
 /**
@@ -12867,6 +12911,164 @@ export type ReadChatDocumentOriginalResponses = {
 };
 
 export type ReadChatDocumentOriginalResponse = ReadChatDocumentOriginalResponses[keyof ReadChatDocumentOriginalResponses];
+
+export type ExportAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+        action?: string;
+        outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
+        actorId?: string;
+    };
+    url: '/api/audit/export';
+};
+
+export type ExportAuditEventsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ExportAuditEventsError = ExportAuditEventsErrors[keyof ExportAuditEventsErrors];
+
+export type ExportAuditEventsResponses = {
+    /**
+     * CSV
+     */
+    200: Blob | File;
+};
+
+export type ExportAuditEventsResponse = ExportAuditEventsResponses[keyof ExportAuditEventsResponses];
+
+export type ListAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        eventClass?: 'AUTHENTICATION' | 'ACCOUNT_CHANGE' | 'USER_ACCESS_MANAGEMENT' | 'GROUP_MANAGEMENT' | 'API_ACTIVITY';
+        action?: string;
+        outcome?: 'SUCCESS' | 'FAILURE' | 'DENIED';
+        actorId?: string;
+        resourceType?: string;
+        resourceId?: string;
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/audit/events';
+};
+
+export type ListAuditEventsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAuditEventsError = ListAuditEventsErrors[keyof ListAuditEventsErrors];
+
+export type ListAuditEventsResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditEventPage;
+};
+
+export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
+
+export type GetAuditEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/audit/events/{eventId}';
+};
+
+export type GetAuditEventErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * No event with this id in the Tenant
+     */
+    404: ApiProblem;
+};
+
+export type GetAuditEventError = GetAuditEventErrors[keyof GetAuditEventErrors];
+
+export type GetAuditEventResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditEvent;
+};
+
+export type GetAuditEventResponse = GetAuditEventResponses[keyof GetAuditEventResponses];
+
+export type GetAuditCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/audit/catalog';
+};
+
+export type GetAuditCatalogErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Audit reading or Tenant membership requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetAuditCatalogError = GetAuditCatalogErrors[keyof GetAuditCatalogErrors];
+
+export type GetAuditCatalogResponses = {
+    /**
+     * Successful result
+     */
+    200: AuditCatalog;
+};
+
+export type GetAuditCatalogResponse = GetAuditCatalogResponses[keyof GetAuditCatalogResponses];
 
 export type GetAiCostSummaryData = {
     body?: never;

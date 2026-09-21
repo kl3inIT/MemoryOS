@@ -16,6 +16,11 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
       description:
         "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.",
     },
+    AUDIT_READ: {
+      label: "View audit log",
+      description:
+        "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.",
+    },
     MCP_MANAGE: {
       label: "Manage MCP servers",
       description:

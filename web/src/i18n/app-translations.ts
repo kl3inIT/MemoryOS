@@ -2992,6 +2992,9 @@ Object.assign(englishUi, {
   "Manage agents": "Quản lý trợ lý",
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
+  "View audit log": "Xem nhật ký audit",
+  "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.":
+    "Xem và xuất nhật ký ai đã thay đổi đăng nhập, người dùng, Nhóm, mô hình, kết nối và nguồn dữ liệu trong tổ chức.",
   "Manage MCP servers": "Quản lý máy chủ MCP",
   "Register remote MCP servers, their authentication and OAuth clients, enable their tools and control Group access within the Tenant.":
     "Đăng ký máy chủ MCP từ xa, cách xác thực và OAuth client của chúng, bật công cụ và kiểm soát quyền truy cập của Nhóm trong tổ chức.",

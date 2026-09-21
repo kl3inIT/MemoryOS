@@ -1,17 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { capabilityCopy } from "./group-capability-copy";
-import {
-  Bot,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Cpu,
-  FileSearch,
-  FolderCog,
-  Plug,
-  ShieldCheck,
-  UserCog,
-  Users,
-} from "lucide-react";
+import { Bot, ChevronsDownUp, ChevronsUpDown, Cpu, FileSearch, FolderCog, Plug, ScrollText, ShieldCheck, UserCog, Users } from "lucide-react";
 import { Collapsible, Switch } from "radix-ui";
 import type { ComponentProps, ComponentType } from "react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +19,7 @@ const ICONS: Partial<Record<CapabilityId, ComponentType<ComponentProps<"svg">>>>
   MCP_MANAGE: Plug,
   AGENTS_CREATE: Bot,
   AGENTS_MANAGE: Bot,
+  AUDIT_READ: ScrollText,
 };
 
 function permissionSection(id: CapabilityId) {

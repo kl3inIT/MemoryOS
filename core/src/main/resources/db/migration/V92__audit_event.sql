@@ -50,3 +50,10 @@ $$;
 CREATE TRIGGER audit_event_append_only
     BEFORE UPDATE OR DELETE ON audit_event
     FOR EACH ROW EXECUTE FUNCTION audit_event_append_only();
+
+-- Reading the stream is a capability of its own, granted through a Group (ADR 0013).
+ALTER TABLE iam_group_capability_grants DROP CONSTRAINT ck_iam_group_capability_grants_capability;
+ALTER TABLE iam_group_capability_grants ADD CONSTRAINT ck_iam_group_capability_grants_capability CHECK (
+    capability IN ('SYSTEM_ADMIN', 'SYSTEM_BASIC', 'USERS_MANAGE', 'GROUPS_MANAGE',
+                   'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE', 'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ')
+);

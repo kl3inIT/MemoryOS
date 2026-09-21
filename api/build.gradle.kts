@@ -14,6 +14,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.commons.csv)
     implementation(project(":connector"))
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
