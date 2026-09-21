@@ -1,7 +1,7 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
-import { Paperclip, X } from "lucide-react";
+import { ChevronDown, Paperclip, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -142,14 +142,13 @@ export function GoogleDriveOAuthClientInput({
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
       <legend className="sr-only">{ui("Your Google OAuth app")}</legend>
       <p className="font-main-ui-action text-content-primary">{ui("OAuth app")}</p>
-      <p className="font-secondary-body text-content-muted">
-        {ui(
-          "Upload OAuth app JSON from Google Cloud Console, then authenticate with the Google account whose Drive you want to index.",
-        )}
-      </p>
-      <Collapsible className="font-secondary-body text-content-muted">
-        <CollapsibleTrigger className="w-fit cursor-pointer underline underline-offset-4">
+      <Collapsible className="group font-secondary-body text-content-muted">
+        <CollapsibleTrigger className="flex w-fit cursor-pointer items-center gap-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
           {ui("Setup instructions")}
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
+          />
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mt-3 flex flex-col gap-3">
@@ -174,11 +173,6 @@ export function GoogleDriveOAuthClientInput({
               value={callback}
               className="font-mono text-xs"
             />
-            <p>
-              {ui(
-                "Register this URI once in Google Cloud, then download the client JSON. Sources that reuse an existing credential do not need this setup or another Google authorization.",
-              )}
-            </p>
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -214,7 +208,7 @@ export function GoogleDriveOAuthClientInput({
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            aria-describedby={`${id}-privacy${error ? ` ${id}-error` : ""}`}
+            aria-describedby={error ? `${id}-error` : undefined}
             aria-invalid={Boolean(error)}
             className="h-6 rounded-none border-0 bg-transparent p-0.5 focus-visible:shadow-none"
             onChange={(event) => {
@@ -258,11 +252,6 @@ export function GoogleDriveOAuthClientInput({
           ) : null}
         </div>
       </div>
-      <p id={`${id}-privacy`} className="font-secondary-body text-content-muted">
-        {ui(
-          "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.",
-        )}
-      </p>
       {reading ? (
         <p role="status" className="text-sm text-content-secondary">
           {ui("Reading client JSON…")}

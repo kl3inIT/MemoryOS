@@ -95,7 +95,8 @@ class SourceSyncAccessTest {
                 false, Set.of("google_domain:example.test")));
         cases.put("link-only domain", new Case(document("link", List.of(domain("example.test", false))), Set.of(), false, Set.of()));
         cases.put("anyone", new Case(document("anyone", List.of(anyone(false))), Set.copyOf(readers), true, Set.of()));
-        cases.put("group", new Case(document("group", List.of(group("team@example.test"))), Set.of(), false, Set.of()));
+        cases.put("group", new Case(document("group", List.of(group("Team@example.test"))), Set.of(), false,
+                Set.of("google_group:team@example.test")));
         cases.put("deleted", new Case(document("deleted", List.of(user("owner@example.test", true, null))), Set.of(), false, Set.of()));
         cases.put("expired", new Case(document("expired", List.of(user("owner@example.test", null,
                 Instant.now().minus(Duration.ofDays(1))))), Set.of(), false, Set.of()));
@@ -175,6 +176,73 @@ class SourceSyncAccessTest {
                 .param("file", file).update();
         assertEquals(Set.of(), readersOf(id), "A deselected file loses its retained grants");
         assertEquals(new DocumentAccess(false, Set.of()), repository.documentAccess(tenant, document));
+    }
+
+    @Test
+    void googleGroupGrantsAdmitMembersOfTheActiveGenerationOfAnActiveServiceAccount() {
+        var team = new io.memoryos.document.DocumentId(document("team", List.of(group("team@example.test"))));
+        var everyone = new io.memoryos.document.DocumentId(document("all", List.of(group("all@example.test"))));
+        assertEquals(Set.of(), readersOf(team), "No membership has been read yet");
+
+        UUID credential = serviceAccount("admin@example.test");
+        generation(credential, 1, "COMPLETED", Map.of("team@example.test", List.of("owner@example.test")), Set.of("all@example.test"));
+        assertEquals(Set.of(), readersOf(team), "A completed run grants nothing until it is the active generation");
+        activate(credential, 1);
+        assertEquals(Set.of(owner), readersOf(team));
+        assertEquals(Set.of(owner, mate), readersOf(everyone), "A whole-customer member admits the admin's domain only");
+        assertTrue(repository.actorAccessTokens(tenant, owner).containsAll(
+                Set.of("google_group:team@example.test", "google_group:all@example.test")));
+
+        generation(credential, 2, "RUNNING", Map.of("team@example.test", List.of("mate@example.test")), Set.of());
+        assertEquals(Set.of(owner), readersOf(team), "A run in progress never replaces the active generation");
+
+        jdbc.sql("UPDATE google_drive_credentials SET connection_status='NEEDS_REAUTHORIZATION' WHERE credential_id=:id")
+                .param("id", credential).update();
+        assertEquals(Set.of(), readersOf(team), "A credential that lost its authority stops granting membership");
+    }
+
+    private UUID serviceAccount(String adminEmail) {
+        UUID id = UUID.randomUUID();
+        jdbc.sql("INSERT INTO credentials(id,tenant_id,name,credential_kind,status) VALUES(:id,:tenant,'Workspace','GOOGLE_SERVICE_ACCOUNT','ACTIVE')")
+                .param("id", id).param("tenant", tenant.value()).update();
+        jdbc.sql("""
+                INSERT INTO google_drive_credentials(tenant_id,credential_id,account_subject,account_email,granted_scopes,
+                    connection_status,auth_method,service_account_email,service_account_key_ciphertext,
+                    service_account_key_nonce,service_account_key_version)
+                VALUES(:tenant,:id,'1045',:admin,'drive','ACTIVE','SERVICE_ACCOUNT','indexer@test.iam.gserviceaccount.com',
+                    DECODE(REPEAT('ab',32),'hex'),DECODE(REPEAT('cd',12),'hex'),'v1')
+                """).param("tenant", tenant.value()).param("id", id).param("admin", adminEmail).update();
+        return id;
+    }
+
+    private void generation(UUID credential, long generation, String status, Map<String, List<String>> members,
+            Set<String> wholeDomain) {
+        jdbc.sql("""
+                INSERT INTO google_group_sync_runs(tenant_id,credential_id,generation,status,groups_listed,finished_at)
+                VALUES(:tenant,:credential,:generation,:status,TRUE,CASE WHEN :status='RUNNING' THEN NULL ELSE CURRENT_TIMESTAMP END)
+                """).param("tenant", tenant.value()).param("credential", credential).param("generation", generation)
+                .param("status", status).update();
+        var groups = new java.util.TreeSet<>(members.keySet());
+        groups.addAll(wholeDomain);
+        for (String group : groups) {
+            jdbc.sql("""
+                    INSERT INTO google_group_sync_groups(tenant_id,credential_id,generation,group_email,whole_domain,members_listed)
+                    VALUES(:tenant,:credential,:generation,:group,:whole,TRUE)
+                    """).param("tenant", tenant.value()).param("credential", credential).param("generation", generation)
+                    .param("group", group).param("whole", wholeDomain.contains(group)).update();
+            for (String member : members.getOrDefault(group, List.of())) {
+                jdbc.sql("""
+                        INSERT INTO google_group_members(tenant_id,credential_id,generation,group_email,member_email)
+                        VALUES(:tenant,:credential,:generation,:group,:member)
+                        """).param("tenant", tenant.value()).param("credential", credential).param("generation", generation)
+                        .param("group", group).param("member", member).update();
+            }
+        }
+    }
+
+    private void activate(UUID credential, long generation) {
+        jdbc.sql("UPDATE google_drive_credentials SET active_group_generation=:generation WHERE credential_id=:id")
+                .param("generation", generation).param("id", credential).update();
     }
 
     private Set<ActorId> readersOf(io.memoryos.document.DocumentId document) {

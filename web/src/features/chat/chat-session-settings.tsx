@@ -11,6 +11,7 @@ import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatDialog } from "./chat-dialog";
 import { loadPersonas, loadProjects } from "./chat-workspace-api";
+import { ChatBranchOrigin } from "./chat-branch-action";
 import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { SharingDialog } from "./chat-sharing-dialog";
@@ -51,6 +52,7 @@ export function ChatSessionSettings({
   if (!session) return null;
   return (
     <div className="flex shrink-0 items-center gap-1">
+      <ChatBranchOrigin session={session} />
       <ChatSessionFiles sessionId={session.id} onShowMessage={onShowMessage} />
       <SharingDialog sessionId={session.id} />
       <ChatSessionMenu

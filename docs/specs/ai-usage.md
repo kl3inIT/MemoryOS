@@ -48,7 +48,7 @@ Every endpoint except `/mine` requires `MODELS_MANAGE` (implied by `SYSTEM_ADMIN
 
 ## Spending limits
 
-`ai_usage_limit` (V96) caps what may be spent, as Onyx's `token_rate_limit` does. One row per Tenant and scope:
+`ai_usage_limit` (V103) caps what may be spent, as Onyx's `token_rate_limit` does. One row per Tenant and scope:
 `TENANT`, `GROUP` (one row per Group) or `PERSON`, where `PERSON` is one budget applied to each person separately,
 not a budget for one named person. A row sets a token budget, an estimated cost budget, or both, over a trailing
 window of `period_days` whole UTC days, and can be kept but switched off.

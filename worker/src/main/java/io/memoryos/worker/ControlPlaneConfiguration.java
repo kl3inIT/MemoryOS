@@ -131,6 +131,36 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> sessions.purge());
     }
 
+    /**
+     * Temporary conversations delete themselves a while after their last message (MEM-153); the purge task
+     * above then removes their rows and hands their uploads to the file work.
+     */
+    @Bean
+    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-temporary-session-v1", FixedDelay.of(Duration.ofMinutes(5)))
+                .execute((_, _) -> sessions.expireTemporary());
+    }
+
+    /**
+     * One export per tick, plus the sweep that releases an expired one, exactly as the library archive task
+     * works; an export reads a whole account, so one at a time is deliberate.
+     */
+    @Bean
+    RecurringTask<Void> chatExportTask(io.memoryos.chat.application.ChatExportService exports) {
+        return Tasks.recurring("memoryos-chat-export-v1", FixedDelay.of(Duration.ofSeconds(10)))
+                .execute((_, _) -> {
+                    exports.buildNext();
+                    exports.sweepExpired();
+                });
+    }
+
+    /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
+    @Bean
+    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+        return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> sessions.applyRetentionPolicies());
+    }
+
     @Bean
     RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
         return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
@@ -175,6 +205,16 @@ class ControlPlaneConfiguration {
                         // Each call builds and stores one report.
                     }
                 });
+    }
+
+    /**
+     * Queues the byte release of uploads whose trash window has passed (MEM-152 phase 4); the existing file
+     * DELETE work then owns the release itself.
+     */
+    @Bean
+    RecurringTask<Void> chatLibraryTrashTask(io.memoryos.chat.persistence.JdbcUserFileRepository files) {
+        return Tasks.recurring("memoryos-chat-library-trash-v1", FixedDelay.of(Duration.ofMinutes(5)))
+                .execute((_, _) -> files.enqueueDuePurges(100));
     }
 
     /** Packs requested library archives and releases the ones that expired (MEM-152). */

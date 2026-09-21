@@ -8,7 +8,20 @@ import org.jspecify.annotations.Nullable;
 /** Authenticated session operations; message execution is owned by the Chat capability. */
 public interface ChatSessionService {
     ChatSession create(ActorId actor, String title);
-    List<ChatSession> list(ActorId actor, int offset, int limit);
+
+    /**
+     * A temporary conversation (MEM-153) is listed nowhere, cannot be shared or put in a Project, and deletes
+     * itself with its uploads a while after its last message.
+     */
+    ChatSession create(ActorId actor, String title, boolean temporary);
+    /** {@code archived} lists the conversations the owner archived instead of the ones on the sidebar. */
+    List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit);
+
+    /** Archives or unarchives one conversation the caller owns; idempotent. */
+    ChatSession archive(ActorId actor, UUID sessionId, boolean archived);
+
+    /** Archives the caller's conversations in one bounded command; answers how many were archived. */
+    int archiveAll(ActorId actor);
     /** Fetch one extra result for hasMore without a separate unbounded count query. */
     List<ChatSessionMatch> search(ActorId actor, String query, int offset, int limit);
     ChatSession get(ActorId actor, UUID sessionId);

@@ -39,20 +39,41 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession create(ActorId actor, String title) {
+        return create(actor, title, false);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession create(ActorId actor, String title, boolean temporary) {
         if (title == null || title.isBlank() || title.length() > 200) {
             throw ChatException.invalid("Title must contain 1 to 200 characters.");
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         var personaId = chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
-        return chats.create(tenant, actor, personaId, title.strip());
+        return chats.create(tenant, actor, personaId, title.strip(), temporary);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ChatSession> list(ActorId actor, int offset, int limit) {
+    public List<ChatSession> list(ActorId actor, boolean archived, int offset, int limit) {
         page(offset, limit);
-        return chats.list(tenant(actor), actor, offset, limit);
+        return chats.list(tenant(actor), actor, archived, offset, limit);
+    }
+
+    @Override
+    @Transactional
+    public ChatSession archive(ActorId actor, UUID sessionId, boolean archived) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        if (!chats.archive(tenant, actor, sessionId, archived)) throw ChatException.unavailable();
+        return chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
+    }
+
+    @Override
+    @Transactional
+    public int archiveAll(ActorId actor) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        return chats.archiveAll(tenant, actor, ARCHIVE_ALL_LIMIT);
     }
 
     @Override
@@ -63,7 +84,7 @@ public class DefaultChatSessionService implements ChatSessionService {
             throw ChatException.invalid("Search query must be at most 200 characters and limit at most 50.");
         var tenant = tenant(actor);
         return query.isBlank()
-                ? chats.list(tenant, actor, offset, limit + 1).stream().map(session -> new ChatSessionMatch(session, null)).toList()
+                ? chats.list(tenant, actor, false, offset, limit + 1).stream().map(session -> new ChatSessionMatch(session, null)).toList()
                 : search.search(tenant, actor, query.strip(), offset, limit + 1);
     }
 
@@ -131,6 +152,9 @@ public class DefaultChatSessionService implements ChatSessionService {
             throw ChatException.conflict();
         chats.selectChild(sessionId, parent.id(), target.id());
     }
+
+    /** As many as Delete all chats takes in one batch: a command answers, it does not run unbounded. */
+    static final int ARCHIVE_ALL_LIMIT = 1000;
 
     private static void page(int offset, int limit) {
         if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) {

@@ -2,7 +2,7 @@
 
 One pull request for enforcement and its screens. Threshold warnings are a second increment.
 
-- [x] 1. `V96__ai_usage_limit.sql`: the table, its checks (at least one budget, `group_id` only for `GROUP`,
+- [x] 1. `V103__ai_usage_limit.sql`: the table, its checks (at least one budget, `group_id` only for `GROUP`,
       cascade with the Group), a unique rule so one Tenant keeps one limit per scope and Group, and the
       `(tenant_id, actor_id, day)` index on `ai_usage`.
 - [x] 2. `io.memoryos.usage`: `AiUsageLimit`, `AiUsageLimitScope`, `AiUsageLimitRepository` (CRUD, and the SUMs the

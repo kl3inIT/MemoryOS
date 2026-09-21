@@ -85,6 +85,14 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.webSearch = mode;
     writeWebPreference(this.preferenceOwner, this.session?.id, mode);
   }
+  /**
+   * The next conversation this transport creates leaves no history (MEM-153). It is decided before the first
+   * question, because a conversation cannot become temporary once it has been written down.
+   */
+  temporary = false;
+  selectTemporary(temporary: boolean) {
+    this.temporary = temporary;
+  }
   /** MCP servers chosen for the next turn; per-turn, like Web and image, and never persisted. */
   mcpServerIds: string[] = [];
   selectMcpServers(ids: string[]) {
@@ -241,7 +249,13 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     this.callbacks.state("sending");
     try {
       if (!this.session) {
-        this.session = await newChatSession(text, signal, undefined, this.projectId);
+        this.session = await newChatSession(
+          text,
+          signal,
+          undefined,
+          this.projectId,
+          this.temporary,
+        );
         this.onSessionCreated?.(this.session);
       }
       writeWebPreference(this.preferenceOwner, this.session.id, this.webSearch);

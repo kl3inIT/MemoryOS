@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   FolderInput,
   FolderOutput,
   MoreHorizontal,
@@ -17,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { deleteChatSession } from "@/lib/hey-api/sdk.gen";
+import { archiveChatSession, deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { chatSessionsKey } from "./chat-api";
@@ -32,16 +34,21 @@ export function ChatSessionMenu({
   onConfigure,
   onChange,
   deleteSession,
+  archiveSession,
   onDelete,
+  onArchive,
   busy = false,
 }: {
-  session: Pick<ChatSession, "id" | "title" | "projectId">;
+  session: Pick<ChatSession, "id" | "title" | "projectId" | "archivedAt">;
   onRename?: () => void;
   onConfigure?: () => void;
   onChange?: () => Promise<void>;
   /** Thread-list deletion; defaults to the direct API call for lists outside the thread list. */
   deleteSession?: () => Promise<void>;
+  /** Thread-list archiving, so the sidebar drops the row at once; otherwise the API is called directly. */
+  archiveSession?: (archived: boolean) => Promise<void>;
   onDelete?: () => void;
+  onArchive?: (archived: boolean) => void;
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
@@ -65,6 +72,25 @@ export function ChatSessionMenu({
       cache.invalidateQueries({ queryKey: ["chat-session", session.id] }),
     ]);
     if (notify) await onChange?.();
+  }
+  const archived = session.archivedAt != null;
+  /**
+   * Archiving keeps the conversation and only takes it off the sidebar, so it asks for no confirmation; the
+   * thread list is told first when it owns the row, because it has to stop listing it.
+   */
+  async function setArchived(next: boolean) {
+    if (archiveSession) await archiveSession(next);
+    else {
+      const call = next ? archiveChatSession : unarchiveChatSession;
+      await call({
+        path: { sessionId: session.id },
+        headers: sameOriginMutationHeaders,
+        signal: AbortSignal.timeout(30000),
+        throwOnError: true,
+      });
+    }
+    onArchive?.(next);
+    await refresh();
   }
   const itemClass =
     "flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken data-[disabled]:opacity-40";
@@ -116,6 +142,14 @@ export function ChatSessionMenu({
               {ui("Cấu hình hội thoại")}
             </More.Item>
           )}
+          <More.Item
+            className={itemClass}
+            disabled={busy}
+            onSelect={() => void setArchived(!archived)}
+          >
+            {archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}
+            {archived ? ui("Bỏ lưu trữ") : ui("Lưu trữ")}
+          </More.Item>
           <More.Separator className="my-1 border-t border-border-subtle" />
           <More.Item
             className={`${itemClass} text-status-danger-content`}

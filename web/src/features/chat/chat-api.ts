@@ -76,9 +76,11 @@ export async function newChatSession(
   signal: AbortSignal,
   personaId?: string,
   projectId?: string,
+  /** A temporary conversation (MEM-153): listed nowhere, deleted with its uploads after its window. */
+  temporary?: boolean,
 ) {
   const { data } = await createChatSession({
-    body: { title: initialChatTitle(text), personaId, projectId },
+    body: { title: initialChatTitle(text), personaId, projectId, temporary },
     headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     throwOnError: true,

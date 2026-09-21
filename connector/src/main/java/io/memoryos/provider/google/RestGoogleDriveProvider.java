@@ -39,6 +39,12 @@ import tools.jackson.databind.node.ObjectNode;
 public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoCloseable {
     private static final String FILE_FIELDS = "id,name,mimeType,version,md5Checksum,modifiedTime,trashed,parents,driveId,shortcutDetails(targetId)";
     private static final String PERMISSION_FIELDS = "id,type,role,emailAddress,domain,expirationTime,allowFileDiscovery,deleted,pendingOwner,permissionDetails(permissionType,role,inheritedFrom,inherited),view,inheritedPermissionsDisabled";
+    private static final String JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+    /** Google accepts assertions valid for at most one hour. */
+    private static final long ASSERTION_LIFETIME_SECONDS = 3600;
+    private static final int DIRECTORY_PAGE_SIZE = 200;
+    private static final java.util.regex.Pattern DOMAIN = java.util.regex.Pattern.compile("[A-Za-z0-9.-]{1,253}");
+    private static final java.util.regex.Pattern DIRECTORY_EMAIL = java.util.regex.Pattern.compile("[^@\\s/]+@[A-Za-z0-9.-]+");
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     private final GoogleDriveProviderProperties properties;
     private final ObjectMapper mapper;
@@ -58,24 +64,62 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
 
     @Override public Session open(Credential credential) {
         properties.validate();
+        return switch (credential) {
+            case OAuthCredential oauth -> refresh(oauth);
+            case ServiceAccountCredential serviceAccount -> impersonate(serviceAccount);
+        };
+    }
+
+    private Session refresh(OAuthCredential credential) {
         byte[] refresh = credential.refreshToken();
         byte[] secret = credential.clientSecret();
         try {
             String form = "grant_type=refresh_token&client_id=" + encode(credential.clientId())
                     + "&client_secret=" + encode(new String(secret, StandardCharsets.UTF_8))
                     + "&refresh_token=" + encode(new String(refresh, StandardCharsets.UTF_8));
-            HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .POST(HttpRequest.BodyPublishers.ofString(form)).build();
-            JsonNode response = json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
-            String bearer = required(response, "access_token");
-            if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
+            JsonNode response = exchangeToken(form);
             String rotated = optional(response, "refresh_token");
-            return new DriveSession(bearer, rotated == null ? null : rotated.getBytes(StandardCharsets.UTF_8));
+            return new DriveSession(bearer(response), rotated == null ? null : rotated.getBytes(StandardCharsets.UTF_8));
         } finally {
             Arrays.fill(refresh, (byte) 0);
             Arrays.fill(secret, (byte) 0);
         }
+    }
+
+    /** RFC 7523 JWT bearer grant: the service account signs an assertion naming the user it acts as. */
+    private Session impersonate(ServiceAccountCredential credential) {
+        var key = credential.key();
+        long issuedAt = Instant.now().getEpochSecond();
+        ObjectNode header = mapper.createObjectNode().put("alg", "RS256").put("typ", "JWT").put("kid", key.privateKeyId());
+        ObjectNode claims = mapper.createObjectNode().put("iss", key.clientEmail()).put("sub", credential.subject())
+                .put("scope", String.join(" ", SERVICE_ACCOUNT_SCOPES)).put("aud", properties.tokenUri().toString())
+                .put("iat", issuedAt).put("exp", issuedAt + ASSERTION_LIFETIME_SECONDS);
+        var encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        String signingInput = encoder.encodeToString(mapper.writeValueAsBytes(header)) + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims));
+        String assertion;
+        try {
+            var signature = java.security.Signature.getInstance("SHA256withRSA");
+            signature.initSign(key.privateKey());
+            signature.update(signingInput.getBytes(StandardCharsets.US_ASCII));
+            assertion = signingInput + "." + encoder.encodeToString(signature.sign());
+        } catch (java.security.GeneralSecurityException exception) {
+            throw failure(AUTHENTICATION);
+        }
+        return new DriveSession(bearer(exchangeToken("grant_type=" + encode(JWT_BEARER_GRANT) + "&assertion=" + encode(assertion))), null);
+    }
+
+    private JsonNode exchangeToken(String form) {
+        HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(form)).build();
+        return json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
+    }
+
+    private static String bearer(JsonNode response) {
+        String bearer = required(response, "access_token");
+        if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
+        return bearer;
     }
 
     @Override public void close() { client.close(); }
@@ -138,6 +182,43 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             } while (next != null);
             budget.check();
             return List.copyOf(permissions);
+        }
+
+        @Override public DirectoryUser directoryUser(String email) {
+            JsonNode user = get(properties.adminApiBaseUrl(), "/users/" + encode(directoryEmail(email))
+                    + "?fields=" + encode("primaryEmail,isAdmin,suspended"), new Budget(), ACCESS_DENIED);
+            return new DirectoryUser(directoryEmail(required(user, "primaryEmail")),
+                    user.path("isAdmin").asBoolean(false), user.path("suspended").asBoolean(false));
+        }
+
+        @Override public DirectoryPage groups(String domain, @Nullable String pageToken) {
+            if (domain == null || !DOMAIN.matcher(domain).matches()) throw failure(MALFORMED);
+            JsonNode response = get(properties.adminApiBaseUrl(), "/groups?domain=" + encode(domain)
+                    + "&maxResults=" + DIRECTORY_PAGE_SIZE + "&fields=" + encode("nextPageToken,groups(email)")
+                    + (pageToken == null ? "" : "&pageToken=" + encode(token(pageToken))), new Budget(), ACCESS_DENIED);
+            List<String> emails = new ArrayList<>();
+            for (JsonNode group : directoryEntries(response, "groups")) emails.add(directoryEmail(required(group, "email")));
+            return new DirectoryPage(emails, nextDirectoryPage(response, pageToken));
+        }
+
+        @Override public MemberPage groupMembers(String groupEmail, @Nullable String pageToken) {
+            JsonNode response = get(properties.adminApiBaseUrl(), "/groups/" + encode(directoryEmail(groupEmail))
+                    + "/members?includeDerivedMembership=true&maxResults=" + DIRECTORY_PAGE_SIZE
+                    + "&fields=" + encode("nextPageToken,members(email,type,status)")
+                    + (pageToken == null ? "" : "&pageToken=" + encode(token(pageToken))), new Budget(), ACCESS_DENIED);
+            List<String> emails = new ArrayList<>();
+            boolean wholeDomain = false;
+            for (JsonNode member : directoryEntries(response, "members")) {
+                switch (member.path("type").asString("")) {
+                    // Nested groups are already expanded into their users by includeDerivedMembership.
+                    case "USER" -> {
+                        if ("ACTIVE".equals(member.path("status").asString("ACTIVE"))) emails.add(directoryEmail(required(member, "email")));
+                    }
+                    case "CUSTOMER" -> wholeDomain = true;
+                    default -> { }
+                }
+            }
+            return new MemberPage(emails, wholeDomain, nextDirectoryPage(response, pageToken));
         }
 
         @Override public AcquiredContent acquire(FileMetadata file) {
@@ -439,6 +520,25 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     private static String token(String value) {
         if (value == null || value.isBlank() || value.length() > 16_384) throw failure(MALFORMED);
         return value;
+    }
+
+    private static JsonNode directoryEntries(JsonNode response, String field) {
+        JsonNode entries = response.path(field);
+        if (entries.isMissingNode()) return entries;
+        if (!entries.isArray()) throw failure(MALFORMED);
+        if (entries.size() > DIRECTORY_PAGE_SIZE) throw failure(LIMIT_EXCEEDED);
+        return entries;
+    }
+
+    private static @Nullable String nextDirectoryPage(JsonNode response, @Nullable String current) {
+        String next = optional(response, "nextPageToken");
+        if (next != null && next.equals(current)) throw failure(INCONSISTENT);
+        return next;
+    }
+
+    private static String directoryEmail(String value) {
+        if (value == null || value.length() > 320 || !DIRECTORY_EMAIL.matcher(value).matches()) throw failure(MALFORMED);
+        return value.toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }

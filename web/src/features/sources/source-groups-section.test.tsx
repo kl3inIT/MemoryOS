@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GroupSourcesSection } from "@/features/groups/group-sources-section";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/features/identity/application-session-context";
 import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary, SourceGroup, SourceSummary } from "@/lib/hey-api/types.gen";
+import type { GroupDraftSectionHandle } from "@/features/groups/group-draft-section";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import { SourceGroupsSection } from "./source-groups-section";
 
@@ -135,6 +136,27 @@ function setup(
   };
 }
 
+function DeferredGroupSources({ targetGroup = group }: { targetGroup?: GroupSummary }) {
+  const ref = useRef<GroupDraftSectionHandle>(null);
+  const [dirty, setDirty] = useState(false);
+
+  return (
+    <>
+      <GroupSourcesSection
+        ref={ref}
+        group={targetGroup}
+        onDraftChange={(nextDirty) => setDirty(nextDirty)}
+      />
+      <button type="button" disabled={!dirty} onClick={() => void ref.current?.save()}>
+        Save Changes
+      </button>
+      <button type="button" onClick={() => ref.current?.reset()}>
+        Cancel
+      </button>
+    </>
+  );
+}
+
 function PickerSelection() {
   const [selected, setSelected] = useState(() => new Set(["admin", "basic", "unloaded"]));
   return (
@@ -173,7 +195,6 @@ describe("ordinary Source associations", () => {
       <SourceGroupsSection
         sourceId="source"
         editable={false}
-        restricted
         onAuthorityChanged={async () => {}}
       />,
     );
@@ -185,12 +206,7 @@ describe("ordinary Source associations", () => {
   it("lets a global manager clear the final ordinary association without submitting system IDs", async () => {
     const user = userEvent.setup();
     const { saved } = setup(
-      <SourceGroupsSection
-        sourceId="source"
-        editable
-        restricted
-        onAuthorityChanged={async () => {}}
-      />,
+      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
     await waitFor(() => expect(choice).toBeChecked());
@@ -202,12 +218,7 @@ describe("ordinary Source associations", () => {
   it("lets the responsible manager clear the last association and warns that nobody can read it", async () => {
     const user = userEvent.setup();
     const { saved } = setup(
-      <SourceGroupsSection
-        sourceId="source"
-        editable
-        restricted
-        onAuthorityChanged={async () => {}}
-      />,
+      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
       scopedSession,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
@@ -223,7 +234,6 @@ describe("ordinary Source associations", () => {
       <SourceGroupsSection
         sourceId="source"
         editable={false}
-        restricted
         onAuthorityChanged={async () => {}}
       />,
       globalSession,
@@ -238,45 +248,46 @@ describe("ordinary Source associations", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides source associations outside a scoped manager's target group", async () => {
+    const targetGroup = {
+      ...group,
+      permissions: { ...group.permissions, manageSources: false },
+    };
+    setup(<DeferredGroupSources targetGroup={targetGroup} />, scopedSession);
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Sources" })).not.toBeInTheDocument(),
+    );
+  });
+
   it("allows a global manager to remove the last association from Group detail", async () => {
     const user = userEvent.setup();
-    const { saved, removed } = setup(
-      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
-    );
+    const { saved, removed } = setup(<DeferredGroupSources />);
     const remove = await screen.findByRole("button", { name: /Remove Team knowledge/ });
     await user.click(remove);
-    await user.click(screen.getByRole("button", { name: "Save associations" }));
+    expect(removed).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await waitFor(() => expect(removed).toEqual(["source"]));
     expect(saved).toEqual([]);
   });
 
   it("lets the responsible manager remove their Source shared with another group from Group detail", async () => {
     const user = userEvent.setup();
-    const { saved, removed } = setup(
-      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
-      scopedSession,
-    );
+    const { saved, removed } = setup(<DeferredGroupSources />, scopedSession);
     await user.click(await screen.findByRole("button", { name: /Remove Team knowledge/ }));
-    await user.click(screen.getByRole("button", { name: "Save associations" }));
+    expect(removed).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await waitFor(() => expect(removed).toEqual(["source"]));
     expect(saved).toEqual([]);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("locks another manager's Source on Group detail and names who can remove it", async () => {
-    setup(
-      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
-      scopedSession,
-      false,
-      [],
-      [...systemGroups, ordinary],
-      {
-        ...source,
-        managerActorId: "responsible",
-        managerName: "Lan Nguyen",
-        permissions: { ...source.permissions, edit: false },
-      },
-    );
+    setup(<DeferredGroupSources />, scopedSession, false, [], [...systemGroups, ordinary], {
+      ...source,
+      managerActorId: "responsible",
+      managerName: "Lan Nguyen",
+      permissions: { ...source.permissions, edit: false },
+    });
     expect(
       await screen.findByText(
         "Sources with a lock can't be removed from this group: they are being deleted, or only their responsible manager can remove them.",
@@ -286,20 +297,16 @@ describe("ordinary Source associations", () => {
       screen.getByText("Only Lan Nguyen, the responsible manager, can remove this Source."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove Team knowledge/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save associations" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
   });
 
   it("locks a Source being deleted from Group detail", async () => {
-    setup(
-      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
-      scopedSession,
-      false,
-      [],
-      [...systemGroups, ordinary],
-      { ...source, status: "DELETING" },
-    );
+    setup(<DeferredGroupSources />, scopedSession, false, [], [...systemGroups, ordinary], {
+      ...source,
+      status: "DELETING",
+    });
     expect(await screen.findByText("This Source is being deleted.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove Team knowledge/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save associations" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
   });
 });

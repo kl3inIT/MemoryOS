@@ -9,6 +9,7 @@ const credential: GoogleDriveCredentialResponse = {
   accountEmail: "drive-ops@example.com",
   status: "ACTIVE",
   credentialRevision: 3,
+  authMethod: "OAUTH",
   oauthClientConfigured: true,
   createdAt: "2026-09-01T08:00:00Z",
   updatedAt: "2026-09-10T08:00:00Z",
