@@ -165,6 +165,8 @@ public class ChatTurnPersistence {
             return new Reservation(user.userMessageId(), user.assistantMessageId(), false, user.selectedModelId(), user.fallbackReason());
         }
         if (chats.hasActiveReply(sessionId)) throw ChatException.conflict();
+        // A conversation someone is writing in is not archived (MEM-153), so this turn takes it back out.
+        if (session.archived()) chats.unarchiveOnActivity(sessionId);
         var target = chats.message(sessionId, command.targetMessageId()).orElseThrow(ChatException::unavailable);
         if (!chats.onSelectedBranch(session, target.id())) throw ChatException.conflict();
         UUID parentId;

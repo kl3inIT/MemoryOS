@@ -73,6 +73,73 @@ public class JdbcChatRepository {
         return session;
     }
 
+    /**
+     * A conversation branched from another (MEM-153): it keeps the origin's agent, Project and pinned reasoning
+     * effort, and records where it came from so its header can link back. Its root message is its own, because a
+     * message belongs to one conversation.
+     */
+    public ChatSession createBranch(TenantId tenant, ActorId actor, ChatSession origin, UUID branchedFromMessageId,
+                                    String title) {
+        UUID id = UUID.randomUUID();
+        UUID root = UUID.randomUUID();
+        var session = jdbc.sql("""
+                        INSERT INTO chat_session(id, tenant_id, owner_actor_id, persona_id, root_message_id, title,
+                                                 project_id, reasoning_effort, branched_from_session_id,
+                                                 branched_from_message_id)
+                        VALUES (:id, :tenant, :actor, :persona, :root, :title, :project, :effort, :origin, :message)
+                        RETURNING *
+                        """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("persona", origin.personaId()).param("root", root).param("title", title)
+                .param("project", origin.projectId())
+                .param("effort", origin.reasoningEffort() == null ? null : origin.reasoningEffort().name())
+                .param("origin", origin.id()).param("message", branchedFromMessageId)
+                .query(JdbcChatRepository::session).single();
+        jdbc.sql("""
+                INSERT INTO chat_message(id, session_id, role, status, finished_at)
+                VALUES (:root, :session, 'ROOT', 'COMPLETED', CURRENT_TIMESTAMP)
+                """).param("root", root).param("session", id).update();
+        return session;
+    }
+
+    /**
+     * One message to copy into a branch. The caller chose every id up front, because a question's row has to name
+     * the answer that follows it and a parent has to name its child; the deferred constraints let a row point at a
+     * copy this same transaction inserts later.
+     *
+     * @param requestId a fresh client request id for a question, which is unique per conversation
+     * @param replyId   the copy of the answer to that question, which its row must name
+     */
+    public record MessageCopy(UUID originalId, UUID copyId, UUID parentId, @Nullable UUID childId,
+                              @Nullable UUID requestId, @Nullable UUID replyId) {}
+
+    /**
+     * Copies the given messages of {@code origin} into {@code branch}, in order, keeping what each message said
+     * and everything recorded about how it was produced. A copy is never running: an answer still being written
+     * is refused before this, and a copied answer is the text the origin already has.
+     */
+    public void copyMessages(UUID origin, UUID branch, List<MessageCopy> copies) {
+        for (var copy : copies) {
+            int inserted = jdbc.sql("""
+                    INSERT INTO chat_message(id, session_id, parent_message_id, latest_child_message_id, role, content,
+                                             status, client_request_id, original_assistant_message_id, created_at,
+                                             finished_at, deadline_at, sources, files, artifacts, activity, model_name,
+                                             input_tokens, output_tokens, requested_model_configuration_id,
+                                             selected_model_configuration_id, model_selection_fallback,
+                                             is_clarification, research_plan, research_agents, failure_code)
+                    SELECT :copy, :branch, :parent, :child, m.role, m.content, m.status, :request, :reply,
+                           m.created_at, m.finished_at, m.deadline_at, m.sources, m.files, m.artifacts, m.activity,
+                           m.model_name,
+                           m.input_tokens, m.output_tokens, m.requested_model_configuration_id,
+                           m.selected_model_configuration_id, m.model_selection_fallback, m.is_clarification,
+                           m.research_plan, m.research_agents, m.failure_code
+                    FROM chat_message m WHERE m.session_id = :origin AND m.id = :original AND m.status <> 'RUNNING'
+                    """).param("copy", copy.copyId()).param("branch", branch).param("parent", copy.parentId())
+                    .param("child", copy.childId()).param("request", copy.requestId()).param("reply", copy.replyId())
+                    .param("origin", origin).param("original", copy.originalId()).update();
+            if (inserted != 1) throw ChatException.unavailable();
+        }
+    }
+
     public Optional<ChatSession> findOwned(TenantId tenant, ActorId actor, UUID id, boolean lock) {
         return jdbc.sql("""
                         SELECT * FROM chat_session
@@ -88,12 +155,44 @@ public class JdbcChatRepository {
                 .param("tenant", tenant.value()).param("actor", actor.value()).query(UUID.class).list();
     }
 
-    public List<ChatSession> list(TenantId tenant, ActorId actor, int offset, int limit) {
+    /** The sidebar's conversations, or the archive; an archived conversation is read by when it was archived. */
+    public List<ChatSession> list(TenantId tenant, ActorId actor, boolean archived, int offset, int limit) {
         return jdbc.sql("""
-                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL
-                        ORDER BY updated_at DESC, id LIMIT :limit OFFSET :offset
-                        """).param("tenant", tenant.value()).param("actor", actor.value())
+                        SELECT * FROM chat_session WHERE tenant_id = :tenant AND owner_actor_id = :actor
+                            AND deleted_at IS NULL AND (CASE WHEN :archived THEN archived_at IS NOT NULL ELSE archived_at IS NULL END)
+                        ORDER BY (CASE WHEN :archived THEN archived_at ELSE updated_at END) DESC, id
+                        LIMIT :limit OFFSET :offset
+                        """).param("tenant", tenant.value()).param("actor", actor.value()).param("archived", archived)
                 .param("limit", limit).param("offset", offset).query(JdbcChatRepository::session).list();
+    }
+
+    /**
+     * Archives or unarchives one conversation the actor owns; idempotent, because a repeated click asks for the
+     * state it is already in. False when there is no such conversation.
+     */
+    public boolean archive(TenantId tenant, ActorId actor, UUID id, boolean archived) {
+        return jdbc.sql("""
+                UPDATE chat_session SET archived_at = CASE WHEN :archived THEN COALESCE(archived_at, CURRENT_TIMESTAMP) END
+                WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id = :id AND deleted_at IS NULL
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .param("archived", archived).update() == 1;
+    }
+
+    /** Archives the owner's conversations, at most {@code limit} of them; answers how many were archived. */
+    public int archiveAll(TenantId tenant, ActorId actor, int limit) {
+        return jdbc.sql("""
+                UPDATE chat_session SET archived_at = CURRENT_TIMESTAMP
+                WHERE (tenant_id, id) IN (
+                    SELECT tenant_id, id FROM chat_session
+                    WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL AND archived_at IS NULL
+                    ORDER BY updated_at DESC LIMIT :limit)
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
+    }
+
+    /** A conversation someone writes in is not archived, so the turn that reserves a reply takes it back out. */
+    public void unarchiveOnActivity(UUID session) {
+        jdbc.sql("UPDATE chat_session SET archived_at = NULL WHERE id = :session AND archived_at IS NOT NULL")
+                .param("session", session).update();
     }
 
     public Optional<ChatMessage> message(UUID session, UUID id) {
@@ -507,11 +606,14 @@ public class JdbcChatRepository {
 
     static ChatSession session(ResultSet row, int ignored) throws SQLException {
         String effort = row.getString("reasoning_effort");
+        var archived = row.getTimestamp("archived_at");
         return new ChatSession(row.getObject("id", UUID.class), row.getObject("persona_id", UUID.class),
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
                 row.getObject("project_id", UUID.class),
-                effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort));
+                effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort),
+                archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
+                row.getObject("branched_from_message_id", UUID.class));
     }
 
     private static ChatMessage message(ResultSet row, int ignored) throws SQLException {

@@ -579,7 +579,7 @@ class ChatPersistenceIntegrationTest {
         turns.delete(owner, session.id());
         assertFalse(turns.finish(session.id(), regeneration.assistantMessageId(), ChatMessage.Status.COMPLETED, "Late answer"));
         assertThrows(ChatException.class, () -> sessions.get(owner, session.id()));
-        assertTrue(sessions.list(owner, 0, 100).isEmpty());
+        assertTrue(sessions.list(owner, false, 0, 100).isEmpty());
     }
 
     @Test
@@ -770,8 +770,8 @@ class ChatPersistenceIntegrationTest {
         assertEquals(first.personaId(), second.personaId());
         assertEquals(first, sessions.get(owner, first.id()));
         assertTrue(sessions.history(owner, first.id(), null, 20).isEmpty());
-        assertEquals(2, sessions.list(owner, 0, 30).size());
-        assertTrue(sessions.list(other, 0, 30).isEmpty());
+        assertEquals(2, sessions.list(owner, false, 0, 30).size());
+        assertTrue(sessions.list(other, false, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
         assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.tenant.TenantId(UUID.randomUUID()),
