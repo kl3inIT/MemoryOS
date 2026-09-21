@@ -360,6 +360,16 @@ function ChatConversation({
       headerActions={
         <div className="flex items-center gap-1">
           <ChatTemporaryBadge temporary={headerSession?.temporary ?? temporary} />
+          {!session && !project && (
+            <ChatTemporaryToggle
+              value={temporary}
+              disabled={busy}
+              onChange={(next) => {
+                transport.selectTemporary(next);
+                setTemporary(next);
+              }}
+            />
+          )}
           <ChatConversationSearch key={headerSession?.id ?? "new"} />
           <ChatSessionSettings
             session={headerSession}
@@ -474,23 +484,7 @@ function ChatConversation({
                   <ProjectConversationList projectId={project.id} />
                 ) : undefined
               }
-              starters={
-                <>
-                  {!session && !project && (
-                    <div className="flex justify-center">
-                      <ChatTemporaryToggle
-                        value={temporary}
-                        disabled={busy}
-                        onChange={(next) => {
-                          transport.selectTemporary(next);
-                          setTemporary(next);
-                        }}
-                      />
-                    </div>
-                  )}
-                  <ChatStarterPrompts personaId={session?.personaId} disabled={busy} />
-                </>
-              }
+              starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
               composerMenu={
                 <ChatComposerMenu
                   disabled={busy}
