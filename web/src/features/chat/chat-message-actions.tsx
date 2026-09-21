@@ -17,6 +17,7 @@ import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
 import { fileIdFromReference } from "./chat-files";
 import { ChatFilePicker } from "./chat-file-picker";
+import { ChatBranchAction } from "./chat-branch-action";
 import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 
 export function ChatUserMessageContent({
@@ -223,6 +224,11 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
           }}
         />
       )}
+      <ChatBranchAction
+        sessionId={sessionId}
+        messageId={message.id}
+        disabled={editing.busy || removing}
+      />
       {error && (
         <p role="alert" className="text-xs">
           {ui(error)}

@@ -36,6 +36,7 @@ import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authe
 import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
+import { Route as AuthenticatedSettingsArchivedChatsRouteImport } from './routes/_authenticated.settings.archived-chats'
 import { Route as AuthenticatedSettingsChatRouteImport } from './routes/_authenticated.settings.chat'
 import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated.settings.connections'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
@@ -201,6 +202,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsArchivedChatsRoute =
+  AuthenticatedSettingsArchivedChatsRouteImport.update({
+    id: '/archived-chats',
+    path: '/archived-chats',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsChatRoute =
   AuthenticatedSettingsChatRouteImport.update({
     id: '/chat',
@@ -345,6 +352,7 @@ export interface FileRoutesByFullPath {
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -389,6 +397,7 @@ export interface FileRoutesByTo {
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
+  '/_authenticated/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
+    | '/settings/archived-chats'
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
@@ -531,6 +542,7 @@ export interface FileRouteTypes {
     | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
+    | '/settings/archived-chats'
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
@@ -578,6 +590,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
     | '/_authenticated/agents_/create'
+    | '/_authenticated/settings/archived-chats'
     | '/_authenticated/settings/chat'
     | '/_authenticated/settings/connections'
     | '/_authenticated/settings/general'
@@ -800,6 +813,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/archived-chats': {
+      id: '/_authenticated/settings/archived-chats'
+      path: '/archived-chats'
+      fullPath: '/settings/archived-chats'
+      preLoaderRoute: typeof AuthenticatedSettingsArchivedChatsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/chat': {
@@ -1055,6 +1075,7 @@ const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsArchivedChatsRoute: typeof AuthenticatedSettingsArchivedChatsRoute
   AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute
   AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
@@ -1063,6 +1084,8 @@ interface AuthenticatedSettingsRouteChildren {
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsArchivedChatsRoute:
+    AuthenticatedSettingsArchivedChatsRoute,
   AuthenticatedSettingsChatRoute: AuthenticatedSettingsChatRoute,
   AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,

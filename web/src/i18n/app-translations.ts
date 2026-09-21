@@ -1,5 +1,37 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-153 chat lifecycle: archiving a conversation and branching one into a new chat
+  "Lưu trữ": "Archive",
+  "Bỏ lưu trữ": "Unarchive",
+  "Đã lưu trữ": "Archived",
+  "Lưu trữ hội thoại": "Archiving conversations",
+  "Hội thoại đã lưu trữ": "Archived conversations",
+  "Hội thoại đã lưu trữ không còn trên thanh bên, nhưng vẫn mở được và vẫn tìm được.":
+    "An archived conversation leaves the sidebar, but still opens and is still found by search.",
+  "Xem, bỏ lưu trữ hoặc xoá những hội thoại bạn đã cất đi.":
+    "See, unarchive or delete what you put away.",
+  Mở: "Open",
+  "Lưu trữ tất cả hội thoại": "Archive every conversation",
+  "Lưu trữ tất cả hội thoại?": "Archive every conversation?",
+  "Dọn thanh bên mà vẫn giữ lại mọi hội thoại.": "Clear the sidebar and keep every conversation.",
+  "Thanh bên sẽ trống, nhưng mọi hội thoại vẫn còn trong trang Hội thoại đã lưu trữ.":
+    "The sidebar empties, and every conversation stays on the archived conversations page.",
+  "Lưu trữ tất cả": "Archive all",
+  "Đang lưu trữ…": "Archiving…",
+  "Đã lưu trữ {{count}} hội thoại.": "{{count}} conversations were archived.",
+  "Tìm trong hội thoại đã lưu trữ": "Search the archived conversations",
+  "Không tải được hội thoại đã lưu trữ.": "The archived conversations could not be loaded.",
+  "Không có hội thoại nào khớp": "No conversation matches",
+  "Chưa lưu trữ hội thoại nào": "Nothing is archived yet",
+  "Hãy thử từ khoá khác.": "Try another word.",
+  "Lưu trữ một hội thoại để dọn thanh bên mà vẫn giữ lại nó.":
+    "Archive a conversation to clear the sidebar and still keep it.",
+  "Đã lưu trữ {{date}}": "Archived {{date}}",
+  "Xoá hội thoại {{name}}": "Delete {{name}}",
+  "Gửi tin nhắn mới vào một hội thoại đã lưu trữ sẽ tự bỏ lưu trữ nó.":
+    "Asking an archived conversation something takes it back out of the archive.",
+  "Tách sang hội thoại mới": "Branch into a new chat",
+  "Tách từ hội thoại gốc": "Branched from",
   // MEM-152 file library v2, phase 3: ZIP download and richer previews
   "Tải về ZIP": "Download as ZIP",
   "Đang đóng gói {{count}} tệp thành ZIP…": "Packing {{count}} files into a ZIP…",

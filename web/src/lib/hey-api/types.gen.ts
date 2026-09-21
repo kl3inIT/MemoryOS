@@ -461,6 +461,18 @@ export type ChatSession = {
      * Pinned reasoning level: OFF, LOW, MEDIUM or HIGH
      */
     reasoningEffort: string | null;
+    /**
+     * When the owner archived it; null while it is on the sidebar
+     */
+    archivedAt: string | null;
+    /**
+     * The conversation this one was branched from
+     */
+    branchedFromSessionId: string | null;
+    /**
+     * The message this one was branched from
+     */
+    branchedFromMessageId: string | null;
 };
 
 export type Sharing = {
@@ -1389,6 +1401,10 @@ export type Edit = {
 export type Cancellation = {
     assistantMessageId: string;
     status: 'RUNNING' | 'COMPLETED' | 'CANCELED' | 'FAILED';
+};
+
+export type ChatSessionsArchived = {
+    archived: number;
 };
 
 export type ProviderTestInput = {
@@ -8333,6 +8349,10 @@ export type ListChatSessionsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * List the conversations the caller archived instead of the sidebar's
+         */
+        archived?: boolean;
         offset?: number;
         limit?: number;
     };
@@ -8411,6 +8431,51 @@ export type CreateChatSessionResponses = {
 };
 
 export type CreateChatSessionResponse = CreateChatSessionResponses[keyof CreateChatSessionResponses];
+
+export type UnarchiveChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/unarchive';
+};
+
+export type UnarchiveChatSessionErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type UnarchiveChatSessionError = UnarchiveChatSessionErrors[keyof UnarchiveChatSessionErrors];
+
+export type UnarchiveChatSessionResponses = {
+    /**
+     * The conversation as it is now listed
+     */
+    200: ChatSession;
+};
+
+export type UnarchiveChatSessionResponse = UnarchiveChatSessionResponses[keyof UnarchiveChatSessionResponses];
 
 export type GetChatHistoryData = {
     body?: never;
@@ -8615,6 +8680,52 @@ export type EditChatMessageResponses = {
 
 export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMessageResponses];
 
+export type BranchChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+        messageId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/messages/{messageId}/branch';
+};
+
+export type BranchChatSessionErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type BranchChatSessionError = BranchChatSessionErrors[keyof BranchChatSessionErrors];
+
+export type BranchChatSessionResponses = {
+    /**
+     * The new conversation
+     */
+    201: ChatSession;
+};
+
+export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchChatSessionResponses];
+
 export type CancelChatMessageData = {
     body?: never;
     headers: {
@@ -8668,6 +8779,94 @@ export type CancelChatMessageResponses = {
 };
 
 export type CancelChatMessageResponse = CancelChatMessageResponses[keyof CancelChatMessageResponses];
+
+export type ArchiveChatSessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/sessions/{sessionId}/archive';
+};
+
+export type ArchiveChatSessionErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type ArchiveChatSessionError = ArchiveChatSessionErrors[keyof ArchiveChatSessionErrors];
+
+export type ArchiveChatSessionResponses = {
+    /**
+     * The conversation as it is now archived
+     */
+    200: ChatSession;
+};
+
+export type ArchiveChatSessionResponse = ArchiveChatSessionResponses[keyof ArchiveChatSessionResponses];
+
+export type ArchiveAllChatSessionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/sessions/archive-all';
+};
+
+export type ArchiveAllChatSessionsErrors = {
+    /**
+     * Invalid request or cursor
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Conversation or message not accessible
+     */
+    404: ApiProblem;
+};
+
+export type ArchiveAllChatSessionsError = ArchiveAllChatSessionsErrors[keyof ArchiveAllChatSessionsErrors];
+
+export type ArchiveAllChatSessionsResponses = {
+    /**
+     * How many conversations were archived
+     */
+    200: ChatSessionsArchived;
+};
+
+export type ArchiveAllChatSessionsResponse = ArchiveAllChatSessionsResponses[keyof ArchiveAllChatSessionsResponses];
 
 export type ListChatProvidersData = {
     body?: never;

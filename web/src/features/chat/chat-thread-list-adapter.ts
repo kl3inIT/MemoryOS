@@ -3,11 +3,13 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createAssistantStream } from "assistant-stream";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  archiveChatSession,
   deleteChatSession,
   generateChatTitle,
   getChatSession,
   listChatSessions,
   renameChatSession,
+  unarchiveChatSession,
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import type { ChatThreadController, ChatThreadRegistry } from "./chat-thread-controller";
@@ -18,7 +20,15 @@ type RemoteThreadMetadata = Awaited<ReturnType<RemoteThreadListAdapter["fetch"]>
 
 export type ChatThreadCustom = Pick<
   ChatSession,
-  "personaId" | "rootMessageId" | "createdAt" | "updatedAt" | "projectId" | "reasoningEffort"
+  | "personaId"
+  | "rootMessageId"
+  | "createdAt"
+  | "updatedAt"
+  | "projectId"
+  | "reasoningEffort"
+  | "archivedAt"
+  | "branchedFromSessionId"
+  | "branchedFromMessageId"
 >;
 
 export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
@@ -29,9 +39,13 @@ export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
     updatedAt: session.updatedAt,
     projectId: session.projectId ?? null,
     reasoningEffort: session.reasoningEffort ?? null,
+    archivedAt: session.archivedAt ?? null,
+    branchedFromSessionId: session.branchedFromSessionId ?? null,
+    branchedFromMessageId: session.branchedFromMessageId ?? null,
   };
   return {
-    status: "regular",
+    // An archived conversation is kept, so the thread list holds it as archived rather than dropping it.
+    status: session.archivedAt ? "archived" : "regular",
     remoteId: session.id,
     title: session.title,
     lastMessageAt: new Date(session.updatedAt),
@@ -68,7 +82,7 @@ export function createChatThreadListAdapter(
     async list(params) {
       const offset = params?.after ? Number(params.after) : 0;
       const { data } = await listChatSessions({
-        query: { offset, limit: PAGE },
+        query: { offset, limit: PAGE, archived: false },
         signal: AbortSignal.timeout(30_000),
         throwOnError: true,
       });
@@ -102,12 +116,23 @@ export function createChatThreadListAdapter(
       registry.byRemoteId(remoteId)?.updateSession(data);
       await refreshLists(remoteId);
     },
-    // Conversations have no archived state; the UI never offers archive actions.
-    async archive() {
-      throw new Error("Archiving conversations is not supported");
+    async archive(remoteId) {
+      const { data } = await archiveChatSession({
+        ...request,
+        path: { sessionId: remoteId },
+        signal: AbortSignal.timeout(30_000),
+      });
+      registry.byRemoteId(remoteId)?.updateSession(data);
+      await refreshLists(remoteId);
     },
-    async unarchive() {
-      throw new Error("Archiving conversations is not supported");
+    async unarchive(remoteId) {
+      const { data } = await unarchiveChatSession({
+        ...request,
+        path: { sessionId: remoteId },
+        signal: AbortSignal.timeout(30_000),
+      });
+      registry.byRemoteId(remoteId)?.updateSession(data);
+      await refreshLists(remoteId);
     },
     async delete(remoteId) {
       await deleteChatSession({

@@ -16,6 +16,9 @@ const session: ChatSession = {
   createdAt: "2026-09-09T00:00:00Z",
   updatedAt: "2026-09-09T00:00:00Z",
   reasoningEffort: null,
+  archivedAt: null,
+  branchedFromSessionId: null,
+  branchedFromMessageId: null,
 };
 const runId = "7c6f01e4-a456-4157-bb67-3b9e3ae8e3a4";
 it("uses a short, whitespace-normalized and Unicode-safe fallback title", () => {
