@@ -6053,6 +6053,120 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/recording:
+    post:
+      tags:
+      - Meetings
+      summary: Reserve storage for a recording of this meeting
+      operationId: reserveMeetingRecording
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingRecordingRequest"
+        required: true
+      responses:
+        "200":
+          description: Where to send the recording
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingRecordingReservation"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The meeting is no longer recording
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/recording/finalize:
+    post:
+      tags:
+      - Meetings
+      summary: Accept the uploaded recording and queue its transcript
+      operationId: finalizeMeetingRecording
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: "The meeting, with its recording queued"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/minutes:
     post:
       tags:
@@ -12101,6 +12215,39 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/transcribers:
+    get:
+      tags:
+      - Meetings
+      summary: "The speech connections a recording may be transcribed with, the Tenant's\
+        \ own first"
+      operationId: listMeetingTranscribers
+      responses:
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Transcribers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingTranscriber"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}/tools:
     get:
       tags:
@@ -16689,6 +16836,40 @@ components:
           - string
           - "null"
           maxLength: 200
+    MeetingAudio:
+      type: object
+      description: An uploaded recording being turned into a transcript
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - WAITING
+          - PENDING
+          - RUNNING
+          - DONE
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        filename:
+          type:
+          - string
+          - "null"
+        sizeBytes:
+          type: integer
+          format: int64
+        provider:
+          type:
+          - string
+          - "null"
+      required:
+      - failure
+      - filename
+      - provider
+      - sizeBytes
+      - status
     MeetingDetail:
       type: object
       properties:
@@ -16720,6 +16901,7 @@ components:
           type: string
           enum:
           - RECORDING
+          - TRANSCRIBING
           - ENDED
         provider:
           type:
@@ -16749,7 +16931,10 @@ components:
             $ref: "#/components/schemas/MeetingUtterance"
         minutes:
           $ref: "#/components/schemas/MeetingMinutes"
+        audio:
+          $ref: "#/components/schemas/MeetingAudio"
       required:
+      - audio
       - createdAt
       - diarized
       - endedAt
@@ -19751,6 +19936,61 @@ components:
       required:
       - expiresAt
       - ticket
+    MeetingRecordingRequest:
+      type: object
+      description: Declared before the bytes are uploaded and checked against them
+        afterwards
+      properties:
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          description: Hex SHA-256 of the file
+        provider:
+          type:
+          - string
+          - "null"
+          description: The speech provider to transcribe with; the Tenant's own is
+            used when absent
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+          - SONIOX
+      required:
+      - filename
+      - mediaType
+      - sha256
+      - sizeBytes
+    MeetingRecordingReservation:
+      type: object
+      description: "Where to send the recording, and the meeting as it now reads"
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingDetail"
+        method:
+          type: string
+        uploadUrl:
+          type: string
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - meeting
+      - method
+      - requiredHeaders
+      - uploadUrl
     MeetingHeadingRequest:
       type: object
       description: The parts of a biên bản the transcript cannot supply; a blank field
@@ -21980,6 +22220,7 @@ components:
           type: string
           enum:
           - RECORDING
+          - TRANSCRIBING
           - ENDED
         participants:
           type: integer
@@ -22005,6 +22246,36 @@ components:
       - participants
       - status
       - title
+    MeetingTranscriber:
+      type: object
+      description: A speech connection a recording may be transcribed with
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+          - SONIOX
+        model:
+          type: string
+        diarizes:
+          type: boolean
+          description: Whether it separates the speakers of a recording
+        maxBytes:
+          type: integer
+          format: int64
+          description: The largest recording this provider accepts
+        selected:
+          type: boolean
+          description: Whether it is the Tenant's own choice
+      required:
+      - diarizes
+      - maxBytes
+      - model
+      - provider
+      - selected
     ChatGroupOption:
       type: object
       additionalProperties: false

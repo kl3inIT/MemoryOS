@@ -52,6 +52,7 @@ async function mockMeetings(page: Page) {
   let meeting: MeetingDetail | undefined;
   const audio = { bytes: 0, ended: false, offset: "" };
   const exported: { heading?: Record<string, unknown> } = {};
+  const uploaded: { request?: Record<string, unknown>; bytes?: number } = {};
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: member }));
   await page.route("**/api/chat/sessions?*", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/projects?*", (route) => route.fulfill({ json: [] }));
@@ -88,6 +89,7 @@ async function mockMeetings(page: Page) {
           decisions: [],
           actions: [],
         },
+        audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
       };
       await route.fulfill({ status: 201, json: meeting });
       return;
@@ -173,6 +175,61 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting });
   });
+  await page.route("**/api/meetings/transcribers", (route) =>
+    route.fulfill({
+      json: [
+        {
+          provider: "SONIOX",
+          model: "stt-rt-v5",
+          diarizes: true,
+          maxBytes: 524_288_000,
+          selected: true,
+        },
+        {
+          provider: "OPENAI",
+          model: "whisper-1",
+          diarizes: false,
+          maxBytes: 26_214_400,
+          selected: false,
+        },
+      ],
+    }),
+  );
+  await page.route(`**/api/meetings/${MEETING_ID}/recording`, async (route) => {
+    uploaded.request = route.request().postDataJSON() as Record<string, unknown>;
+    meeting = {
+      ...meeting!,
+      status: "TRANSCRIBING",
+      audio: { ...meeting!.audio, status: "WAITING" },
+    };
+    await route.fulfill({
+      json: {
+        meeting,
+        method: "PUT",
+        uploadUrl: "https://storage.invalid/recording",
+        requiredHeaders: { "Content-Type": "audio/mpeg" },
+        expiresAt: new Date(Date.now() + 300_000).toISOString(),
+      },
+    });
+  });
+  await page.route("https://storage.invalid/recording", async (route) => {
+    uploaded.bytes = (route.request().postDataBuffer()?.length ?? 0) || 1;
+    await route.fulfill({ status: 200, body: "" });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/recording/finalize`, async (route) => {
+    meeting = {
+      ...meeting!,
+      status: "TRANSCRIBING",
+      audio: {
+        ...meeting!.audio,
+        status: "PENDING",
+        filename: "giao-ban.mp3",
+        sizeBytes: 12,
+        provider: "SONIOX",
+      },
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/minutes/export`, async (route) => {
     exported.heading = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
@@ -240,8 +297,52 @@ async function mockMeetings(page: Page) {
       }
     });
   });
-  return { audio, exported };
+  return { audio, exported, uploaded };
 }
+
+test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const { uploaded } = await mockMeetings(page);
+
+  await page.goto("/meetings");
+  await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("button", { name: "Tải file ghi âm" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tải file ghi âm" });
+  await dialog.getByLabel("File ghi âm").setInputFiles({
+    name: "giao-ban.mp3",
+    mimeType: "audio/mpeg",
+    buffer: Buffer.from("fake-mp3-bytes"),
+  });
+  await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
+  await dialog.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan");
+  // The provider's limits are stated before the file is sent, not after it fails.
+  await expect(dialog.getByText("Tách được người nói")).toBeVisible();
+  await expect(dialog.getByText("Tối đa 500 MB")).toBeVisible();
+  await page.screenshot({ path: "../output/playwright/meetings-upload-1440.png" });
+
+  await dialog.getByRole("button", { name: "Tải lên và nhận dạng" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Giao ban tuần · Khối Tài chính", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText("Đang nhận dạng bản ghi giao-ban.mp3…")).toBeVisible();
+  await page.screenshot({
+    path: "../output/playwright/meetings-transcribing-1440.png",
+    fullPage: true,
+  });
+
+  expect(uploaded.request).toMatchObject({
+    filename: "giao-ban.mp3",
+    mediaType: "audio/mpeg",
+    sizeBytes: 14,
+    provider: "SONIOX",
+  });
+  expect(String(uploaded.request?.sha256)).toMatch(/^[0-9a-f]{64}$/);
+  expect(uploaded.bytes).toBeGreaterThan(0);
+  // A recording is not recording: the meeting offers no stop control while the provider reads it.
+  await expect(page.getByRole("button", { name: "Dừng", exact: true })).toHaveCount(0);
+});
 
 for (const width of [1440, 390]) {
   test(`a member records an in-person meeting, names a speaker and ends it at ${width}px`, async ({

@@ -117,16 +117,30 @@ class ChatRuntimeConfiguration {
     }
 
     /**
-     * Its own scheduler: one model call runs for minutes, and the chat maintenance ticks are due every second and
-     * every 25 ms. They must not wait behind a meeting.
+     * The meetings' own scheduler: writing minutes and transcribing a recording are both long provider calls, while
+     * the chat maintenance ticks are due every second and every 25 ms. Neither may wait behind the other, so the two
+     * meeting jobs have a thread each and the chat ticks keep theirs.
      */
     @Bean(defaultCandidate = false)
     ThreadPoolTaskScheduler meetingMinutesScheduler() {
         var scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
+        scheduler.setPoolSize(2);
         scheduler.setVirtualThreads(true);
-        scheduler.setThreadNamePrefix("meeting-minutes-");
+        scheduler.setThreadNamePrefix("meeting-jobs-");
         return scheduler;
+    }
+
+    @Bean
+    MeetingRecordings meetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+        return new MeetingRecordings(recordings);
+    }
+
+    /** Uploaded recordings, on the meetings' scheduler beside the minutes. */
+    record MeetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+        @Scheduled(fixedDelayString = "${memoryos.meeting.recording-interval:5s}", scheduler = "meetingMinutesScheduler")
+        public void transcribe() {
+            for (int done = 0; done < 2 && recordings.transcribeNext(); done++) { /* drain */ }
+        }
     }
 
     record MeetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {

@@ -107,7 +107,7 @@ class MeetingMinutesDocumentTest {
         return new Meeting.Detail(UUID.randomUUID(), "Giao ban tuần", Meeting.Kind.IN_PERSON, "vi",
                 List.of("Anh Thanh", "Chị Lan"), List.of(), "", Meeting.Status.ENDED, "SONIOX", true,
                 Instant.parse("2026-09-21T02:00:00Z"), Instant.parse("2026-09-21T03:15:00Z"), 3, List.of(), List.of(),
-                minutes);
+                minutes, new Meeting.Audio(Meeting.AudioStatus.NONE, null, null, 0, null));
     }
 
     /** Every paragraph of the document, including the ones inside the letterhead and signature tables. */

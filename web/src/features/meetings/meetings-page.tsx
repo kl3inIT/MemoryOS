@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Clock, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
+import { Clock, FileAudio, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/brand-loader";
@@ -24,6 +24,7 @@ import {
 } from "./meetings-api";
 import { useActiveMeeting } from "./meeting-session";
 import { NewMeetingDialog } from "./new-meeting-dialog";
+import { UploadRecordingDialog } from "./upload-recording-dialog";
 
 type Group = { label: "today" | "week" | "earlier"; items: MeetingSummary[] };
 
@@ -64,6 +65,7 @@ export function MeetingsPage() {
   const problemMessage = useProblemMessage();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "RECORDING" | "ENDED">("all");
   const [period, setPeriod] = useState<"30" | "90" | "all">("30");
@@ -89,10 +91,16 @@ export function MeetingsPage() {
           title={ui("Cuộc họp")}
           icon={<Mic />}
           actions={
-            <Button onClick={() => setCreating(true)} disabled={!!live}>
-              <Mic aria-hidden="true" />
-              {ui("Ghi cuộc họp mới")}
-            </Button>
+            <>
+              <Button prominence="secondary" onClick={() => setUploading(true)}>
+                <FileAudio aria-hidden="true" />
+                {ui("Tải file ghi âm")}
+              </Button>
+              <Button onClick={() => setCreating(true)} disabled={!!live}>
+                <Mic aria-hidden="true" />
+                {ui("Ghi cuộc họp mới")}
+              </Button>
+            </>
           }
         />
         {meetings.isPending ? (
@@ -244,6 +252,7 @@ export function MeetingsPage() {
         )}
       </SettingsLayout>
       <NewMeetingDialog open={creating} onOpenChange={setCreating} />
+      <UploadRecordingDialog open={uploading} onOpenChange={setUploading} />
     </AppShell>
   );
 }

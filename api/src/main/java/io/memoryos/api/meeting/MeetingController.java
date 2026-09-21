@@ -4,7 +4,10 @@ import io.memoryos.api.chat.VoiceTicketStore;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingException;
+import io.memoryos.chat.voice.BatchTranscriptionService;
+import io.memoryos.chat.voice.VoiceProvider;
 import io.memoryos.meeting.MeetingMinutesDocument;
+import io.memoryos.meeting.MeetingRecordingService;
 import io.memoryos.meeting.MeetingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ContentDisposition;
@@ -46,10 +50,12 @@ class MeetingController {
     static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     private final MeetingService meetings;
+    private final MeetingRecordingService recordings;
     private final VoiceTicketStore tickets;
 
-    MeetingController(MeetingService meetings, VoiceTicketStore tickets) {
+    MeetingController(MeetingService meetings, MeetingRecordingService recordings, VoiceTicketStore tickets) {
         this.meetings = meetings;
+        this.recordings = recordings;
         this.tickets = tickets;
     }
 
@@ -67,6 +73,57 @@ class MeetingController {
     @Schema(name = "MeetingNotesRequest")
     record NotesRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 50000) String notes,
                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision) {}
+
+    @Schema(name = "MeetingRecordingRequest", description = "Declared before the bytes are uploaded and checked against them afterwards")
+    record RecordingRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Hex SHA-256 of the file")
+                            String sha256,
+                            @Schema(nullable = true, description = "The speech provider to transcribe with; the Tenant's own is used when absent")
+                            @Nullable VoiceProvider provider) {}
+
+    @Schema(name = "MeetingTranscriber", description = "A speech connection a recording may be transcribed with")
+    record TranscriberResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) VoiceProvider provider,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String model,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                       description = "Whether it separates the speakers of a recording") boolean diarizes,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                       description = "The largest recording this provider accepts") long maxBytes,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                       description = "Whether it is the Tenant's own choice") boolean selected) {
+        static TranscriberResponse from(BatchTranscriptionService.Transcriber transcriber) {
+            return new TranscriberResponse(transcriber.provider(), transcriber.model(), transcriber.diarizes(),
+                    transcriber.maxBytes(), transcriber.selected());
+        }
+    }
+
+    @Schema(name = "MeetingRecordingReservation", description = "Where to send the recording, and the meeting as it now reads")
+    record ReservationResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) DetailResponse meeting,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String method,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String uploadUrl,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Map<String, String> requiredHeaders,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant expiresAt) {
+        static ReservationResponse from(MeetingRecordingService.Reservation reservation) {
+            var upload = reservation.upload();
+            // Object storage always authorizes a fresh reservation; without one there is nowhere to send the bytes.
+            if (upload == null) throw MeetingException.invalid("Storage is not available for a recording.");
+            return new ReservationResponse(DetailResponse.from(reservation.meeting()), upload.method(),
+                    upload.uri().toString(), upload.requiredHeaders(), upload.expiresAt());
+        }
+    }
+
+    @Schema(name = "MeetingAudio", description = "An uploaded recording being turned into a transcript")
+    record AudioResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Meeting.AudioStatus status,
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String failure,
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String filename,
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long sizeBytes,
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String provider) {
+        static AudioResponse from(Meeting.Audio audio) {
+            return new AudioResponse(audio.status(), audio.failure(), audio.filename(), audio.sizeBytes(),
+                    audio.provider());
+        }
+    }
 
     @Schema(name = "MeetingHeadingRequest",
             description = "The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis")
@@ -183,14 +240,15 @@ class MeetingController {
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SpeakerResponse> speakers,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UtteranceResponse> utterances,
-                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) MinutesResponse minutes) {
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) MinutesResponse minutes,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AudioResponse audio) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
                     detail.endedAt(), detail.revision(),
                     detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
-                    MinutesResponse.from(detail.minutes()));
+                    MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()));
         }
     }
 
@@ -267,6 +325,35 @@ class MeetingController {
         return DetailResponse.from(meetings.markItem(identity.actorId(), meetingId, itemId, body.done()));
     }
 
+    @GetMapping("/transcribers")
+    @Operation(operationId = "listMeetingTranscribers",
+            summary = "The speech connections a recording may be transcribed with, the Tenant's own first")
+    @ApiResponse(responseCode = "200", description = "Transcribers", useReturnTypeSchema = true)
+    List<TranscriberResponse> transcribers(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return recordings.transcribers(identity.actorId()).stream().map(TranscriberResponse::from).toList();
+    }
+
+    @PostMapping(value = "/{meetingId}/recording", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "reserveMeetingRecording", summary = "Reserve storage for a recording of this meeting")
+    @ApiResponse(responseCode = "200", description = "Where to send the recording", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "The meeting is no longer recording", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    ReservationResponse reserve(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                @PathVariable UUID meetingId, @RequestBody RecordingRequest body) {
+        return ReservationResponse.from(recordings.reserve(identity.actorId(), meetingId,
+                new MeetingRecordingService.Upload(body.filename(), body.mediaType(), body.sizeBytes(), body.sha256(),
+                        body.provider())));
+    }
+
+    @PostMapping("/{meetingId}/recording/finalize")
+    @Operation(operationId = "finalizeMeetingRecording", summary = "Accept the uploaded recording and queue its transcript")
+    @ApiResponse(responseCode = "200", description = "The meeting, with its recording queued", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse finalizeRecording(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                     @PathVariable UUID meetingId) {
+        return DetailResponse.from(recordings.finalizeUpload(identity.actorId(), meetingId));
+    }
+
     @PostMapping(value = "/{meetingId}/minutes/export", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = DOCX)
     @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản in Word format")
@@ -288,7 +375,7 @@ class MeetingController {
     @ApiResponse(responseCode = "204", description = "Deleted")
     @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     void delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID meetingId) {
-        meetings.delete(identity.actorId(), meetingId);
+        recordings.delete(identity.actorId(), meetingId);
     }
 
     @PostMapping(value = "/{meetingId}/tickets", consumes = MediaType.APPLICATION_JSON_VALUE)

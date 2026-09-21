@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CheckSquare,
   Clock,
+  FileAudio,
   FileDown,
   Lock,
   MessageSquareText,
@@ -133,6 +134,16 @@ export function MeetingPage({
   const meeting = useQuery({
     queryKey: meetingKey(meetingId),
     queryFn: ({ signal }) => loadMeeting(meetingId, signal),
+    // A recording being transcribed and minutes being written have no socket; the page asks again until they land.
+    refetchInterval: (query) => {
+      const current = query.state.data;
+      if (!current) return false;
+      const waiting =
+        current.status === "TRANSCRIBING" ||
+        current.minutes.status === "PENDING" ||
+        current.minutes.status === "RUNNING";
+      return waiting ? 3000 : false;
+    },
   });
   const live = useActiveMeeting();
   const recorder = live?.meetingId === meetingId ? live.recorder : undefined;
@@ -181,6 +192,7 @@ export function MeetingPage({
     (snapshot.phase === "recording" ||
       snapshot.phase === "paused" ||
       snapshot.phase === "stopping");
+  const transcribing = data.status === "TRANSCRIBING";
 
   async function resume() {
     setPending(true);
@@ -263,12 +275,18 @@ export function MeetingPage({
             <span className="flex flex-wrap gap-x-4 gap-y-1">
               <span>{formatWhen(data.createdAt, i18n.language)}</span>
               <span className="inline-flex items-center gap-1">
-                {data.kind === "ONLINE" ? (
+                {data.audio.status !== "NONE" ? (
+                  <FileAudio className="size-3.5" aria-hidden="true" />
+                ) : data.kind === "ONLINE" ? (
                   <MonitorSpeaker className="size-3.5" aria-hidden="true" />
                 ) : (
                   <Mic className="size-3.5" aria-hidden="true" />
                 )}
-                {data.kind === "ONLINE" ? ui("Họp online") : ui("Họp trực tiếp")}
+                {data.audio.status !== "NONE"
+                  ? ui("Bản ghi tải lên")
+                  : data.kind === "ONLINE"
+                    ? ui("Họp online")
+                    : ui("Họp trực tiếp")}
               </span>
               {data.participants.length > 0 && (
                 <span className="inline-flex items-center gap-1">
@@ -347,6 +365,22 @@ export function MeetingPage({
           />
         </StatStrip>
 
+        {transcribing && (
+          <p
+            role="status"
+            className="rounded-xl bg-status-info-surface px-4 py-3 text-sm text-status-info-content"
+          >
+            {ui("Đang nhận dạng bản ghi {{filename}}…", { filename: data.audio.filename ?? "" })}
+          </p>
+        )}
+        {data.audio.status === "FAILED" && (
+          <p
+            role="alert"
+            className="rounded-xl bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
+          >
+            {ui("Không nhận dạng được bản ghi. File đã được xoá.")}
+          </p>
+        )}
         {data.status === "RECORDING" && !recording && !pending && (
           <p
             role="status"
@@ -805,7 +839,11 @@ function Transcript({
   if (meeting.utterances.length === 0 && previews.length === 0)
     return (
       <p className="rounded-xl border border-dashed border-border-default px-4 py-8 text-center text-sm text-content-muted">
-        {snapshot.phase === "recording" ? ui("Đang nghe…") : ui("Cuộc họp này chưa có transcript.")}
+        {snapshot.phase === "recording"
+          ? ui("Đang nghe…")
+          : meeting.status === "TRANSCRIBING"
+            ? ui("Transcript sẽ hiện khi nhận dạng xong.")
+            : ui("Cuộc họp này chưa có transcript.")}
       </p>
     );
   return (

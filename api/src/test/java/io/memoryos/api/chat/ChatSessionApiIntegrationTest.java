@@ -3143,6 +3143,80 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    @Test
+    void uploadingARecordingReservesStorageAndHoldsTheMeetingUntilItIsTranscribed() throws Exception {
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT", URI.create("https://storage.invalid/recording"), Map.of("Content-Type", "audio/mpeg"),
+                Instant.now().plusSeconds(300)));
+        UUID meeting = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status)
+                    VALUES (:tenant, :id, :owner, 'Bản ghi điện thoại', 'IN_PERSON', 'vi', '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+
+            mockMvc.perform(get("/api/meetings/transcribers").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$").isArray());
+
+            String body = """
+                    {"filename":"giao-ban.mp3","mediaType":"audio/mpeg","sizeBytes":4194304,
+                     "sha256":"%s"}
+                    """.formatted("a".repeat(64));
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.method").value("PUT"))
+                    .andExpect(jsonPath("$.uploadUrl").isNotEmpty())
+                    .andExpect(jsonPath("$.meeting.status").value("TRANSCRIBING"))
+                    .andExpect(jsonPath("$.meeting.audio.status").value("WAITING"))
+                    .andExpect(jsonPath("$.meeting.audio.filename").value("giao-ban.mp3"))
+                    .andExpect(jsonPath("$.meeting.audio.sizeBytes").value(4194304));
+
+            // A meeting whose recording is still being transcribed must not be ended out from under the job.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/end").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+            // Nor may a second recording replace the one already reserved.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isNotFound());
+
+            UUID other = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status)
+                    VALUES (:tenant, :id, :owner, 'Bản ghi khác', 'IN_PERSON', 'vi', '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", other)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            String refused = """
+                    {"filename":"ke-hoach.pdf","mediaType":"application/pdf","sizeBytes":1024,"sha256":"%s"}
+                    """.formatted("b".repeat(64));
+            mockMvc.perform(post("/api/meetings/" + other + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(refused))
+                    .andExpect(status().isBadRequest());
+            String tooBig = """
+                    {"filename":"dai.wav","mediaType":"audio/wav","sizeBytes":1073741824,"sha256":"%s"}
+                    """.formatted("c".repeat(64));
+            mockMvc.perform(post("/api/meetings/" + other + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(tooBig))
+                    .andExpect(status().isBadRequest());
+            assertEquals("RECORDING",
+                    jdbc.sql("SELECT status FROM meeting WHERE tenant_id=:tenant AND id=:id").param("tenant", TENANT)
+                            .param("id", other).query(String.class).single(),
+                    "a refused recording leaves the meeting as it was");
+
+            // Deleting the meeting takes its reserved recording with it.
+            mockMvc.perform(delete("/api/meetings/" + meeting).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM meeting WHERE tenant_id=:tenant AND id=:id")
+                    .param("tenant", TENANT).param("id", meeting).query(Integer.class).single());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
     private String voiceTicket(ActorAuthenticationToken authentication) throws Exception {
         var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
                 .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

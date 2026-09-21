@@ -1,6 +1,6 @@
-/** Owner-private meetings: live capture, transcript utterances, speaker names and notes. */
+/** Owner-private meetings: live capture or an uploaded recording, transcript utterances, speaker names and notes. */
 @ApplicationModule(displayName = "Meetings", type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"iam :: *", "chat :: voice", "chat :: summary", "usage"})
+        allowedDependencies = {"iam :: *", "chat :: voice", "chat :: summary", "objectstorage", "usage"})
 package io.memoryos.meeting;
 
 import org.springframework.modulith.ApplicationModule;

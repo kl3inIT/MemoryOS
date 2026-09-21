@@ -114,6 +114,9 @@ public class MeetingService {
     public Meeting.Detail end(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        // A recording being transcribed ends itself when the job finishes; ending it here would lose it.
+        if (meeting.status() == Meeting.Status.TRANSCRIBING)
+            throw MeetingException.invalid("The recording is still being transcribed.");
         meetings.end(tenant, id);
         // A meeting nobody spoke in has nothing to summarize.
         if (meeting.status() == Meeting.Status.RECORDING && !meetings.utterances(tenant, id).isEmpty())
@@ -266,7 +269,9 @@ public class MeetingService {
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.notes(), row.status(), row.provider(), row.diarized(), row.createdAt(), row.endedAt(), row.revision(),
-                meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes);
+                meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
+                new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
+                        row.audioProvider()));
     }
 
     private UUID tenant(ActorId actor) {

@@ -12,7 +12,15 @@ public final class Meeting {
     /** Online: the owner's microphone and the shared meeting tab. In person: one microphone hears the room. */
     public enum Kind { ONLINE, IN_PERSON }
 
-    public enum Status { RECORDING, ENDED }
+    /** A meeting records live, transcribes an uploaded recording, or is finished. */
+    public enum Status { RECORDING, TRANSCRIBING, ENDED }
+
+    /** Where an uploaded recording is: never uploaded, reserved, queued, running, transcribed or given up on. */
+    public enum AudioStatus { NONE, WAITING, PENDING, RUNNING, DONE, FAILED }
+
+    /** An uploaded recording, as the owner watches it being transcribed. Audio is deleted once it is done. */
+    public record Audio(AudioStatus status, @Nullable String failure, @Nullable String filename,
+                        long sizeBytes, @Nullable String provider) {}
 
     /** The audio source of an utterance. */
     public enum Track { MIC, TAB }
@@ -36,7 +44,7 @@ public final class Meeting {
     public record Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
-                         List<Utterance> utterances, Minutes minutes) {}
+                         List<Utterance> utterances, Minutes minutes, Audio audio) {}
 
     public record Speaker(Track track, String label, @Nullable String name) {}
 

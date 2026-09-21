@@ -147,6 +147,17 @@ export type MeetingSpeakerRequest = {
     name?: string | null;
 };
 
+/**
+ * An uploaded recording being turned into a transcript
+ */
+export type MeetingAudio = {
+    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    failure: string | null;
+    filename: string | null;
+    sizeBytes: number;
+    provider: string | null;
+};
+
 export type MeetingDetail = {
     id: string;
     title: string;
@@ -155,7 +166,7 @@ export type MeetingDetail = {
     participants: Array<string>;
     terms: Array<string>;
     notes: string;
-    status: 'RECORDING' | 'ENDED';
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
     provider: string | null;
     /**
      * Whether speaker labels distinguish people
@@ -167,6 +178,7 @@ export type MeetingDetail = {
     speakers: Array<MeetingSpeaker>;
     utterances: Array<MeetingUtterance>;
     minutes: MeetingMinutes;
+    audio: MeetingAudio;
 };
 
 /**
@@ -1337,6 +1349,36 @@ export type MeetingTicket = {
 };
 
 /**
+ * Declared before the bytes are uploaded and checked against them afterwards
+ */
+export type MeetingRecordingRequest = {
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    /**
+     * Hex SHA-256 of the file
+     */
+    sha256: string;
+    /**
+     * The speech provider to transcribe with; the Tenant's own is used when absent
+     */
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
+};
+
+/**
+ * Where to send the recording, and the meeting as it now reads
+ */
+export type MeetingRecordingReservation = {
+    meeting: MeetingDetail;
+    method: string;
+    uploadUrl: string;
+    requiredHeaders: {
+        [key: string]: string;
+    };
+    expiresAt: string;
+};
+
+/**
  * The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis
  */
 export type MeetingHeadingRequest = {
@@ -2116,7 +2158,7 @@ export type MeetingSummary = {
     id: string;
     title: string;
     kind: 'ONLINE' | 'IN_PERSON';
-    status: 'RECORDING' | 'ENDED';
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
     participants: number;
     /**
      * End of the last utterance
@@ -2124,6 +2166,26 @@ export type MeetingSummary = {
     durationMs: number;
     createdAt: string;
     endedAt: string | null;
+};
+
+/**
+ * A speech connection a recording may be transcribed with
+ */
+export type MeetingTranscriber = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
+    model: string;
+    /**
+     * Whether it separates the speakers of a recording
+     */
+    diarizes: boolean;
+    /**
+     * The largest recording this provider accepts
+     */
+    maxBytes: number;
+    /**
+     * Whether it is the Tenant's own choice
+     */
+    selected: boolean;
 };
 
 export type ChatGroupOption = {
@@ -7630,6 +7692,100 @@ export type CreateMeetingTicketResponses = {
 
 export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof CreateMeetingTicketResponses];
 
+export type ReserveMeetingRecordingData = {
+    body: MeetingRecordingRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/recording';
+};
+
+export type ReserveMeetingRecordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting is no longer recording
+     */
+    409: ApiProblem;
+};
+
+export type ReserveMeetingRecordingError = ReserveMeetingRecordingErrors[keyof ReserveMeetingRecordingErrors];
+
+export type ReserveMeetingRecordingResponses = {
+    /**
+     * Where to send the recording
+     */
+    200: MeetingRecordingReservation;
+};
+
+export type ReserveMeetingRecordingResponse = ReserveMeetingRecordingResponses[keyof ReserveMeetingRecordingResponses];
+
+export type FinalizeMeetingRecordingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/recording/finalize';
+};
+
+export type FinalizeMeetingRecordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type FinalizeMeetingRecordingError = FinalizeMeetingRecordingErrors[keyof FinalizeMeetingRecordingErrors];
+
+export type FinalizeMeetingRecordingResponses = {
+    /**
+     * The meeting, with its recording queued
+     */
+    200: MeetingDetail;
+};
+
+export type FinalizeMeetingRecordingResponse = FinalizeMeetingRecordingResponses[keyof FinalizeMeetingRecordingResponses];
+
 export type RerunMeetingMinutesData = {
     body?: never;
     headers: {
@@ -12329,6 +12485,39 @@ export type GetMeetingResponses = {
 };
 
 export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
+
+export type ListMeetingTranscribersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meetings/transcribers';
+};
+
+export type ListMeetingTranscribersErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListMeetingTranscribersError = ListMeetingTranscribersErrors[keyof ListMeetingTranscribersErrors];
+
+export type ListMeetingTranscribersResponses = {
+    /**
+     * Transcribers
+     */
+    200: Array<MeetingTranscriber>;
+};
+
+export type ListMeetingTranscribersResponse = ListMeetingTranscribersResponses[keyof ListMeetingTranscribersResponses];
 
 export type ListMcpServerToolsData = {
     body?: never;

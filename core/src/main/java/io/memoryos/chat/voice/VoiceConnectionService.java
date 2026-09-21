@@ -145,6 +145,33 @@ public class VoiceConnectionService {
         return new Access(active(all, VoiceFunction.STT), active(all, VoiceFunction.TTS));
     }
 
+    /**
+     * Every connection that can transcribe, with the Tenant's selected one first. Membership is enough to read it: a
+     * member choosing which provider transcribes their own recording must see what the Tenant configured, and the
+     * listing carries no endpoint or credential.
+     */
+    @Transactional(readOnly = true)
+    public List<Connection> transcribers(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
+        var all = connections.findByTenantIdOrderByProvider(tenant);
+        var selected = active(all, VoiceFunction.STT);
+        return all.stream().filter(c -> serves(c, VoiceFunction.STT)).map(this::snapshot)
+                .sorted(java.util.Comparator.comparing(c -> selected != null && c.id().equals(selected.id()) ? 0 : 1))
+                .toList();
+    }
+
+    /** The connection a member asked to transcribe with, or the Tenant's selected one when they named none. */
+    @Transactional(readOnly = true)
+    public Connection transcriber(ActorId actor, @Nullable VoiceProvider provider) {
+        if (provider == null) {
+            var stt = resolve(actor).stt();
+            if (stt == null) throw ChatException.providerUnavailable();
+            return stt;
+        }
+        return transcribers(actor).stream().filter(c -> c.provider() == provider).findFirst()
+                .orElseThrow(ChatException::providerUnavailable);
+    }
+
     public String key(Connection connection) {
         return credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }

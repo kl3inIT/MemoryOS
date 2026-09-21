@@ -11,9 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -21,10 +23,18 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Soniox async transcription of one recording: upload the file, create a transcription, poll until it completes, read
  * the transcript, and always delete both the transcription and the file (Anarlog {@code soniox/batch.rs}).
+ *
+ * <p>Dictation reads the transcript's text. A meeting recording reads its tokens instead, so the speakers Soniox
+ * separated and the time each sentence was said survive into the transcript the owner reads.
  */
 final class SonioxAsync {
     static final String DEFAULT_MODEL = "stt-async-v5";
+    /** Soniox transcribes at most five hours in one request. */
+    static final Duration MAX_DURATION = Duration.ofMinutes(300);
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(1);
+    /** A sentence ends at a speaker change or a pause; without one it would run for the whole recording. */
+    private static final long SEGMENT_GAP_MS = 800;
+    private static final int MAX_SEGMENT_CHARS = 400;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private SonioxAsync() {}
@@ -32,19 +42,36 @@ final class SonioxAsync {
     /** Transcribes a WAV recording and returns its text; the language is an ISO-639-1 hint such as {@code vi}. */
     static String transcribe(HttpClient client, String baseUrl, String key, String model, @Nullable String language,
             byte[] wav, Duration timeout) throws IOException, InterruptedException {
+        return run(client, baseUrl, key, model, language, List.of(), false, wav, "audio.wav", "audio/wav", timeout,
+                transcript -> transcript.path("text").asString("").strip());
+    }
+
+    /** Transcribes one uploaded recording into the segments a meeting stores, separating speakers when asked. */
+    static List<LiveTranscription.Segment> segments(HttpClient client, String baseUrl, String key, String model,
+            @Nullable String language, List<String> terms, boolean diarize, byte[] audio, String filename,
+            String mediaType, Duration timeout) throws IOException, InterruptedException {
+        return run(client, baseUrl, key, model, language, terms, diarize, audio, filename, mediaType, timeout,
+                SonioxAsync::group);
+    }
+
+    private static <T> T run(HttpClient client, String baseUrl, String key, String model, @Nullable String language,
+            List<String> terms, boolean diarize, byte[] audio, String filename, String mediaType, Duration timeout,
+            Function<JsonNode, T> read) throws IOException, InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         String file = null;
         String transcription = null;
         try {
-            file = upload(client, baseUrl, key, wav, timeout).path("id").asString("");
+            file = upload(client, baseUrl, key, audio, filename, mediaType, timeout).path("id").asString("");
             if (file.isEmpty()) throw ChatException.providerUnavailable();
             var body = new LinkedHashMap<String, Object>();
             body.put("model", asyncModel(model));
             body.put("file_id", file);
+            if (diarize) body.put("enable_speaker_diarization", true);
             if (language != null) {
                 body.put("language_hints", List.of(language));
                 body.put("language_hints_strict", true);
             }
+            if (!terms.isEmpty()) body.put("context", java.util.Map.of("terms", terms));
             transcription = send(client, post(baseUrl + "/transcriptions", key, JSON.writeValueAsString(body), timeout))
                     .path("id").asString("");
             if (transcription.isEmpty()) throw ChatException.providerUnavailable();
@@ -56,13 +83,62 @@ final class SonioxAsync {
                     throw ChatException.providerUnavailable();
                 Thread.sleep(POLL_INTERVAL);
             }
-            return send(client, get(baseUrl + "/transcriptions/" + encode(transcription) + "/transcript", key, timeout))
-                    .path("text").asString("").strip();
+            return read.apply(send(client,
+                    get(baseUrl + "/transcriptions/" + encode(transcription) + "/transcript", key, timeout)));
         } finally {
             if (transcription != null && !transcription.isEmpty())
                 delete(client, baseUrl + "/transcriptions/" + encode(transcription), key, timeout);
             if (file != null && !file.isEmpty()) delete(client, baseUrl + "/files/" + encode(file), key, timeout);
         }
+    }
+
+    /**
+     * Groups the transcript's tokens the way the live adapter groups them: one segment per speaker, broken where the
+     * speaker changes, where the recording pauses, or where a sentence has run long enough to read on its own.
+     */
+    static List<LiveTranscription.Segment> group(JsonNode transcript) {
+        var segments = new ArrayList<LiveTranscription.Segment>();
+        String speaker = null;
+        var text = new StringBuilder();
+        long startMs = 0;
+        long endMs = 0;
+        double confidence = 0;
+        int tokens = 0;
+        for (JsonNode token : transcript.path("tokens")) {
+            String word = token.path("text").asString("");
+            if (word.isEmpty() || "<fin>".equals(word) || "<end>".equals(word)) continue;
+            String at = token.path("speaker").asString("1");
+            if (at.isEmpty()) at = "1";
+            long start = token.path("start_ms").asLong(0);
+            long end = token.path("end_ms").asLong(start + token.path("duration_ms").asLong(0));
+            boolean broken = speaker != null
+                    && (!speaker.equals(at) || start - endMs > SEGMENT_GAP_MS || text.length() > MAX_SEGMENT_CHARS);
+            if (broken) {
+                add(segments, speaker, startMs, endMs, text, confidence, tokens);
+                text.setLength(0);
+                confidence = 0;
+                tokens = 0;
+                speaker = null;
+            }
+            if (speaker == null) {
+                speaker = at;
+                startMs = start;
+            }
+            text.append(word);
+            endMs = Math.max(endMs, end);
+            confidence += token.path("confidence").asDouble(1.0);
+            tokens++;
+        }
+        if (speaker != null) add(segments, speaker, startMs, endMs, text, confidence, tokens);
+        return List.copyOf(segments);
+    }
+
+    private static void add(List<LiveTranscription.Segment> segments, String speaker, long startMs, long endMs,
+            StringBuilder text, double confidence, int tokens) {
+        String said = text.toString().strip();
+        if (said.isEmpty()) return;
+        segments.add(new LiveTranscription.Segment(speaker, startMs, Math.max(endMs, startMs), said,
+                tokens == 0 ? 0 : confidence / tokens));
     }
 
     /** The connection holds the realtime model; its async sibling has the same version ({@code stt-rt-v5} → {@code stt-async-v5}). */
@@ -72,18 +148,24 @@ final class SonioxAsync {
         return DEFAULT_MODEL;
     }
 
-    private static JsonNode upload(HttpClient client, String baseUrl, String key, byte[] wav, Duration timeout)
-            throws IOException, InterruptedException {
+    private static JsonNode upload(HttpClient client, String baseUrl, String key, byte[] audio, String filename,
+            String mediaType, Duration timeout) throws IOException, InterruptedException {
         String boundary = "memoryos-" + UUID.randomUUID();
-        var body = new ByteArrayOutputStream(wav.length + 256);
-        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n"
-                + "Content-Type: audio/wav\r\n\r\n").getBytes(UTF_8));
-        body.writeBytes(wav);
+        var body = new ByteArrayOutputStream(audio.length + 256);
+        body.writeBytes(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\""
+                + safe(filename) + "\"\r\nContent-Type: " + mediaType + "\r\n\r\n").getBytes(UTF_8));
+        body.writeBytes(audio);
         body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(UTF_8));
         return send(client, HttpRequest.newBuilder(URI.create(baseUrl + "/files")).timeout(timeout)
                 .header("Authorization", "Bearer " + key).header("Accept", "application/json")
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build());
+    }
+
+    /** Soniox detects the container itself, but the name must not break the multipart header. */
+    private static String safe(String filename) {
+        String name = filename.replaceAll("[\"\\r\\n\\\\]", "").strip();
+        return name.isEmpty() ? "audio" : name;
     }
 
     private static HttpRequest post(String url, String key, String json, Duration timeout) {
