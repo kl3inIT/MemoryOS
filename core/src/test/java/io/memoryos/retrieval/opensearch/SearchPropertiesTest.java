@@ -33,13 +33,32 @@ class SearchPropertiesTest {
         assertDoesNotThrow(() -> properties("https://api.openai.com/v1", "test-only-credential", 1));
     }
 
+    @Test
+    void anEmbeddingAttemptFitsInsideTheSearchDeadlineWithABoundedRetryCount() {
+        assertDoesNotThrow(() -> properties(Duration.ofSeconds(3), 0));
+        assertDoesNotThrow(() -> properties(Duration.ofSeconds(1), 3));
+        assertThrows(IllegalArgumentException.class, () -> properties(Duration.ofSeconds(4), 2));
+        assertThrows(IllegalArgumentException.class, () -> properties(Duration.ZERO, 2));
+        assertThrows(IllegalArgumentException.class, () -> properties(Duration.ofSeconds(1), -1));
+        assertThrows(IllegalArgumentException.class, () -> properties(Duration.ofSeconds(1), 4));
+    }
+
     private static SearchProperties properties(String embeddingEndpoint, String apiKey) {
         return properties(embeddingEndpoint, apiKey, .70);
     }
 
     private static SearchProperties properties(String embeddingEndpoint, String apiKey, double minimumSemanticScore) {
+        return properties(embeddingEndpoint, apiKey, minimumSemanticScore, Duration.ofSeconds(1), 2);
+    }
+
+    private static SearchProperties properties(Duration embeddingTimeout, int embeddingRetries) {
+        return properties("https://api.openai.com/v1", "test-only-credential", .70, embeddingTimeout, embeddingRetries);
+    }
+
+    private static SearchProperties properties(String embeddingEndpoint, String apiKey, double minimumSemanticScore,
+                                               Duration embeddingTimeout, int embeddingRetries) {
         return new SearchProperties(URI.create("http://127.0.0.1:9200"), "", "", "", embeddingEndpoint, apiKey,
-                "text-embedding-3-large", 3072, 32, 2, 500, .5, minimumSemanticScore,
+                "text-embedding-3-large", 3072, 32, 2, embeddingTimeout, embeddingRetries, 500, .5, minimumSemanticScore,
                 Duration.ofSeconds(3), "memoryos-test", 0);
     }
 }
