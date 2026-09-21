@@ -87,7 +87,7 @@ class RestGoogleDriveProviderTest {
                          {"permissionType":"file","role":"commenter","inherited":false}]}]}
                     """);
         }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             var permissions = session.permissions("shared-file");
             assertEquals(List.of(
@@ -240,7 +240,7 @@ class RestGoogleDriveProviderTest {
         String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
         try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -264,7 +264,7 @@ class RestGoogleDriveProviderTest {
         }
         try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -518,6 +518,42 @@ class RestGoogleDriveProviderTest {
     }
 
     @Test
+    void directoryReadsUsersGroupsAndDerivedMembersPageByPage() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String query = decodedQuery(exchange);
+            if (path.equals("/users/admin@example.com")) return ok("{\"primaryEmail\":\"Admin@Example.com\",\"isAdmin\":true,\"suspended\":false}");
+            if (path.equals("/users/member@example.com")) return new Response(403, new byte[0]);
+            if (path.equals("/groups") && query.contains("domain=example.com") && !query.contains("pageToken"))
+                return ok("{\"nextPageToken\":\"groups-next\",\"groups\":[{\"email\":\"Sales@example.com\"}]}");
+            if (path.equals("/groups") && query.contains("pageToken=groups-next")) return ok("{\"groups\":[{\"email\":\"all@example.com\"}]}");
+            if (path.equals("/groups/sales@example.com/members") && query.contains("includeDerivedMembership=true"))
+                return ok("{\"members\":[{\"email\":\"Ann@example.com\",\"type\":\"USER\",\"status\":\"ACTIVE\"},"
+                        + "{\"email\":\"nested@example.com\",\"type\":\"GROUP\"},"
+                        + "{\"email\":\"gone@example.com\",\"type\":\"USER\",\"status\":\"SUSPENDED\"},"
+                        + "{\"id\":\"C01\",\"type\":\"CUSTOMER\"}]}");
+            return new Response(404, new byte[0]);
+        }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            var admin = session.directoryUser("admin@example.com");
+            assertEquals("admin@example.com", admin.primaryEmail());
+            assertTrue(admin.admin());
+            assertFalse(admin.suspended());
+            assertEquals(Failure.ACCESS_DENIED, assertThrows(GoogleDriveProviderException.class,
+                    () -> session.directoryUser("member@example.com")).failure());
+            var first = session.groups("example.com", null);
+            assertEquals(List.of("sales@example.com"), first.emails());
+            assertEquals("groups-next", first.nextPageToken());
+            var last = session.groups("example.com", first.nextPageToken());
+            assertEquals(List.of("all@example.com"), last.emails());
+            assertNull(last.nextPageToken());
+            var members = session.groupMembers("sales@example.com", null);
+            assertEquals(List.of("ann@example.com"), members.emails());
+            assertTrue(members.wholeDomain());
+            assertNull(members.nextPageToken());
+        }
+    }
+
+    @Test
     void providerRedirectCannotForwardAuthorizationToAnotherHost() throws Exception {
         AtomicInteger contacted = new AtomicInteger();
         try (var destination = new Fixture(exchange -> { contacted.incrementAndGet(); return ok("{}"); });
@@ -547,7 +583,7 @@ class RestGoogleDriveProviderTest {
 
     private RestGoogleDriveProvider provider(Fixture fixture, int binaryLimit, int requests) {
         return new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
     }
 
     private static GoogleDriveProvider.Credential credential() {

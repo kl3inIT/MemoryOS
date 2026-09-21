@@ -313,6 +313,9 @@ public class GoogleDriveSelectionOperationTest {
                 }
                 @Override public GoogleDriveProvider.AcquiredContent acquire(GoogleDriveProvider.FileMetadata file) { throw new AssertionError("Selection cannot acquire content"); }
                 @Override public List<GoogleDriveProvider.Permission> permissions(String id) { throw new AssertionError("Selection cannot collect permissions"); }
+                @Override public GoogleDriveProvider.DirectoryUser directoryUser(String email) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveProvider.DirectoryPage groups(String domain,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
+                @Override public GoogleDriveProvider.MemberPage groupMembers(String group,String cursor) { throw new AssertionError("Selection cannot read the Directory"); }
                 @Override public byte[] rotatedRefreshToken() { return null; }
                 @Override public void close() {}
             };

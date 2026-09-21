@@ -14,6 +14,12 @@ public interface GoogleDriveProvider {
         FileMetadata metadata(String fileId);
         List<Permission> permissions(String fileId);
         AcquiredContent acquire(FileMetadata file);
+        /** Admin SDK {@code users.get}; a caller without Directory privileges gets ACCESS_DENIED. */
+        DirectoryUser directoryUser(String email);
+        /** One page of {@code groups.list} over a Workspace domain. */
+        DirectoryPage groups(String domain, @Nullable String pageToken);
+        /** One page of a group's active users, nested groups expanded ({@code includeDerivedMembership}). */
+        MemberPage groupMembers(String groupEmail, @Nullable String pageToken);
         @Nullable byte[] rotatedRefreshToken();
         @Override void close();
     }
@@ -50,6 +56,18 @@ public interface GoogleDriveProvider {
         }
         @Override public void close() { key.close(); }
         @Override public String toString() { return "ServiceAccountCredential[redacted]"; }
+    }
+
+    record DirectoryUser(String primaryEmail, boolean admin, boolean suspended) {}
+
+    /** Lower-case email addresses of one Directory page. */
+    record DirectoryPage(List<String> emails, @Nullable String nextPageToken) {
+        public DirectoryPage { emails = List.copyOf(emails); }
+    }
+
+    /** {@code wholeDomain} marks a page naming the whole organization (a CUSTOMER member) as a member. */
+    record MemberPage(List<String> emails, boolean wholeDomain, @Nullable String nextPageToken) {
+        public MemberPage { emails = List.copyOf(emails); }
     }
 
     record FilePage(List<FileMetadata> files, @Nullable String nextPageToken) {

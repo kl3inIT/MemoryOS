@@ -42,6 +42,9 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     private static final String JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
     /** Google accepts assertions valid for at most one hour. */
     private static final long ASSERTION_LIFETIME_SECONDS = 3600;
+    private static final int DIRECTORY_PAGE_SIZE = 200;
+    private static final java.util.regex.Pattern DOMAIN = java.util.regex.Pattern.compile("[A-Za-z0-9.-]{1,253}");
+    private static final java.util.regex.Pattern DIRECTORY_EMAIL = java.util.regex.Pattern.compile("[^@\\s/]+@[A-Za-z0-9.-]+");
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     private final GoogleDriveProviderProperties properties;
     private final ObjectMapper mapper;
@@ -179,6 +182,43 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             } while (next != null);
             budget.check();
             return List.copyOf(permissions);
+        }
+
+        @Override public DirectoryUser directoryUser(String email) {
+            JsonNode user = get(properties.adminApiBaseUrl(), "/users/" + encode(directoryEmail(email))
+                    + "?fields=" + encode("primaryEmail,isAdmin,suspended"), new Budget(), ACCESS_DENIED);
+            return new DirectoryUser(directoryEmail(required(user, "primaryEmail")),
+                    user.path("isAdmin").asBoolean(false), user.path("suspended").asBoolean(false));
+        }
+
+        @Override public DirectoryPage groups(String domain, @Nullable String pageToken) {
+            if (domain == null || !DOMAIN.matcher(domain).matches()) throw failure(MALFORMED);
+            JsonNode response = get(properties.adminApiBaseUrl(), "/groups?domain=" + encode(domain)
+                    + "&maxResults=" + DIRECTORY_PAGE_SIZE + "&fields=" + encode("nextPageToken,groups(email)")
+                    + (pageToken == null ? "" : "&pageToken=" + encode(token(pageToken))), new Budget(), ACCESS_DENIED);
+            List<String> emails = new ArrayList<>();
+            for (JsonNode group : directoryEntries(response, "groups")) emails.add(directoryEmail(required(group, "email")));
+            return new DirectoryPage(emails, nextDirectoryPage(response, pageToken));
+        }
+
+        @Override public MemberPage groupMembers(String groupEmail, @Nullable String pageToken) {
+            JsonNode response = get(properties.adminApiBaseUrl(), "/groups/" + encode(directoryEmail(groupEmail))
+                    + "/members?includeDerivedMembership=true&maxResults=" + DIRECTORY_PAGE_SIZE
+                    + "&fields=" + encode("nextPageToken,members(email,type,status)")
+                    + (pageToken == null ? "" : "&pageToken=" + encode(token(pageToken))), new Budget(), ACCESS_DENIED);
+            List<String> emails = new ArrayList<>();
+            boolean wholeDomain = false;
+            for (JsonNode member : directoryEntries(response, "members")) {
+                switch (member.path("type").asString("")) {
+                    // Nested groups are already expanded into their users by includeDerivedMembership.
+                    case "USER" -> {
+                        if ("ACTIVE".equals(member.path("status").asString("ACTIVE"))) emails.add(directoryEmail(required(member, "email")));
+                    }
+                    case "CUSTOMER" -> wholeDomain = true;
+                    default -> { }
+                }
+            }
+            return new MemberPage(emails, wholeDomain, nextDirectoryPage(response, pageToken));
         }
 
         @Override public AcquiredContent acquire(FileMetadata file) {
@@ -480,6 +520,25 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     private static String token(String value) {
         if (value == null || value.isBlank() || value.length() > 16_384) throw failure(MALFORMED);
         return value;
+    }
+
+    private static JsonNode directoryEntries(JsonNode response, String field) {
+        JsonNode entries = response.path(field);
+        if (entries.isMissingNode()) return entries;
+        if (!entries.isArray()) throw failure(MALFORMED);
+        if (entries.size() > DIRECTORY_PAGE_SIZE) throw failure(LIMIT_EXCEEDED);
+        return entries;
+    }
+
+    private static @Nullable String nextDirectoryPage(JsonNode response, @Nullable String current) {
+        String next = optional(response, "nextPageToken");
+        if (next != null && next.equals(current)) throw failure(INCONSISTENT);
+        return next;
+    }
+
+    private static String directoryEmail(String value) {
+        if (value == null || value.length() > 320 || !DIRECTORY_EMAIL.matcher(value).matches()) throw failure(MALFORMED);
+        return value.toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
