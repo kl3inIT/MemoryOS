@@ -50,8 +50,9 @@ public class AuditTrail {
     }
 
     /**
-     * Records an event that must survive the caller's rollback: a refused attempt, whose own transaction ends in the
-     * exception that refuses it, or a failed sign-in, which has no transaction of its own.
+     * Records an event outside the caller's transaction: a refused attempt, whose own transaction ends in the exception
+     * that refuses it; a failed sign-in, which has no transaction of its own; or a change settled in Keycloak, which
+     * no database transaction covers.
      */
     public void recordSeparately(AuditRecord event) {
         // A refusal is usually raised while its transaction holds the Tenant lock, which the event's own insert

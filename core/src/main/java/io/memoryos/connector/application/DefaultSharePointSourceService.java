@@ -59,6 +59,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
     private final JdbcSourceDocumentRepository documents;
     private final SharePointSelectionPolicy policy;
     private final TransactionTemplate transactions;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public DefaultSharePointSourceService(SourceAccessPolicy sourceAccess, IamAuthorization authorization,
             SharePointConnectionService connections,
@@ -67,7 +68,8 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             JdbcSourceRepository sources, JdbcSourceSyncRepository sync, JdbcSharePointSyncRepository runs,
             JdbcIndexAttemptRepository indexing,
             JdbcSourceDocumentRepository documents, SharePointSelectionPolicy policy,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.sourceAccess = sourceAccess;
         this.authorization = authorization;
         this.connections = connections;
@@ -104,8 +106,13 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     groups.stream().map(group -> group.value().toString()).toList());
             var existing = selections.receipt(tenant, actor, requestId, hash);
             if (existing.isPresent()) return existing.get();
-            return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
+            var source = new SourceId(UUID.randomUUID());
+            var submitted = selections.submit(tenant, actor, requestId, hash, source, credentialId,
                     credential.revision(), 0, scope, sourceName, access, groups, policy.value());
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_CREATE, source, sourceName, event -> event
+                    .detail("provider", SourceType.SHAREPOINT.name()).detail("access", access.name())
+                    .detail("groups", groups.size()));
+            return submitted;
         }));
     }
 
@@ -131,8 +138,10 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     List.of(String.valueOf(expectedScopeRevision)));
             var existing = selections.receipt(tenant, actor, requestId, hash);
             if (existing.isPresent()) return existing.get();
-            return selections.submit(tenant, actor, requestId, hash, source, credentialId, credential.revision(),
+            var submitted = selections.submit(tenant, actor, requestId, hash, source, credentialId, credential.revision(),
                     expectedScopeRevision, scope, null, null, List.of(), policy.value());
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCOPE"));
+            return submitted;
         }));
     }
 
@@ -191,7 +200,11 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         return Objects.requireNonNull(transactions.execute(_ -> {
             sourceAccess.lockManage(actor, source);
             sharePoint.lock(tenant, source);
+            var before = sharePoint.configuration(tenant, source);
             sharePoint.updateSchedule(tenant, source, expectedScheduleRevision, syncIntervalMinutes, pruneIntervalHours);
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCHEDULE")
+                    .detail("before", java.util.Map.of("syncMinutes", before.syncIntervalMinutes(), "pruneHours", before.pruneIntervalHours()))
+                    .detail("after", java.util.Map.of("syncMinutes", syncIntervalMinutes, "pruneHours", pruneIntervalHours)));
             return configuration(tenant, source);
         }));
     }
@@ -204,6 +217,8 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             sharePoint.setPaused(tenant, source, expectedScheduleRevision, paused);
             if (paused) sync.cancel(tenant, source);
+            record(tenant, actor, paused ? io.memoryos.iam.audit.AuditAction.SOURCE_PAUSE : io.memoryos.iam.audit.AuditAction.SOURCE_RESUME,
+                    source, null, event -> event);
             return configuration(tenant, source);
         }));
     }
@@ -302,5 +317,13 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
 
     SourceOperationView operation(TenantId tenant, SourceOperationId operation) {
         return selections.find(tenant, operation).orElseThrow(SourceException::notFound);
+    }
+
+    /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */
+    private void record(TenantId tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, SourceId source, @Nullable String name,
+                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
+        String label = name != null ? name : sources.auditView(tenant, source).map(JdbcSourceRepository.AuditView::name).orElse(null);
+        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, tenant).actor(actor)
+                .resource("SOURCE", source.value(), label)).build());
     }
 }

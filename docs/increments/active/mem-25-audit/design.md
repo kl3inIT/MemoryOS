@@ -71,6 +71,19 @@ Consequences worth stating here:
 - **A failed provider exchange is not recorded.** `OAuth2LoginFailureHandler` sees no identity, only a provider or
   network failure (an API restart mid-login, for example); it is an operational error, not evidence about a person.
 
+## Coverage
+
+Every administrative configuration change is recorded, as Keycloak's admin events and GitLab's audit events do, not
+only the dozen Onyx records: administrative changes are rare, so the stream stays readable, and a change Onyx leaves
+out can still decide where data goes (the Chat default model moving to an External provider, for example). Two kinds
+of change are left out: a member's own actions (their MCP connection, their Chat preferences) and work that runs
+often or by itself (a Source sync, an MCP tool refresh).
+
+Drive and SharePoint Sources are created and re-scoped by a request the Worker validates; the event records the
+administrator's request, and its resource is the Source id that request creates.
+
+Agents and document sets are shared by their owner, like a shared document, and are not recorded in this increment.
+
 ## Catalog (v1)
 
 | Class | Actions |

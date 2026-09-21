@@ -33,14 +33,17 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
     private final OidcDiscoveryClient discovery;
     private final JitAllowlistRepository allowlist;
     private final TransactionTemplate transactions;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public DefaultIdentityProviderAdministration(
             IamAuthorization authorization,
             IdentityProviderGateway gateway,
             OidcDiscoveryClient discovery,
             JitAllowlistRepository allowlist,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            io.memoryos.iam.audit.AuditTrail audit
     ) {
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.gateway = Objects.requireNonNull(gateway, "gateway must not be null");
         this.discovery = Objects.requireNonNull(discovery, "discovery must not be null");
@@ -69,7 +72,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
 
     @Override
     public IdentityProviderView create(ActorId actorId, IdentityProviderCommand command) {
-        requireAdmin(actorId);
+        var tenant = requireAdmin(actorId);
         Objects.requireNonNull(command, "command must not be null");
         DiscoveredOidcProvider discovered = discovery.discover(command.issuer());
         gateway.create(toRepresentation(command, discovered));
@@ -79,16 +82,22 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
                 allowlist.allow(command.alias(), actorId);
             });
         }
-        return toView(gateway.find(command.alias()).orElseThrow(
+        var created = toView(gateway.find(command.alias()).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), command.jitAllowed());
+        // Settled in Keycloak: no database transaction covers it, so the event is written on its own.
+        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_CREATE, tenant).actor(actorId)
+                .resource("IDENTITY_PROVIDER", command.alias(), command.displayName())
+                .detail("after", facts(command.alias(), command.issuer(), command.jitAllowed())).build());
+        return created;
     }
 
     @Override
     public IdentityProviderView update(ActorId actorId, String alias, IdentityProviderUpdate update) {
-        requireAdmin(actorId);
+        var tenant = requireAdmin(actorId);
         Objects.requireNonNull(update, "update must not be null");
         IdentityProviderRepresentation existing = gateway.find(alias)
                 .orElseThrow(() -> notFound(alias));
+        var before = facts(alias, issuerOf(existing), allowlist.allowedAliases().contains(alias));
         String targetAlias = update.alias() == null ? alias : update.alias();
         if (!targetAlias.equals(alias) && gateway.find(targetAlias).isPresent()) {
             throw new IdentityProviderException(
@@ -120,26 +129,41 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
                 allowlist.disallow(effectiveAlias);
             }
         });
-        return toView(gateway.find(effectiveAlias).orElseThrow(
+        var updated = toView(gateway.find(effectiveAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
+        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
+                .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
+                .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
+        return updated;
     }
 
     @Override
     public void delete(ActorId actorId, String alias) {
-        requireAdmin(actorId);
+        var tenant = requireAdmin(actorId);
         transactions.executeWithoutResult(_ -> {
             authorization.lockAndRequireAdministration(actorId);
             allowlist.disallow(alias);
         });
         gateway.delete(alias);
+        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_DELETE, tenant).actor(actorId)
+                .resource("IDENTITY_PROVIDER", alias, alias).detail("alias", alias).build());
     }
 
-    private void requireAdmin(ActorId actorId) {
-        authorization.require(
+    /** What decides who can sign in through a provider; its client secret is never recorded. */
+    private static Map<String, Object> facts(String alias, String issuer, boolean jitAllowed) {
+        var facts = new java.util.LinkedHashMap<String, Object>();
+        facts.put("alias", alias);
+        facts.put("issuer", issuer);
+        facts.put("jitAllowed", jitAllowed);
+        return facts;
+    }
+
+    private io.memoryos.iam.tenant.TenantId requireAdmin(ActorId actorId) {
+        return authorization.require(
                 Objects.requireNonNull(actorId, "actorId must not be null"),
                 IamCapability.SYSTEM_ADMIN,
                 false
-        );
+        ).tenantId();
     }
 
     private static IdentityProviderRepresentation toRepresentation(

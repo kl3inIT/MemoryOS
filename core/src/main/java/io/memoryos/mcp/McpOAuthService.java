@@ -52,12 +52,14 @@ public class McpOAuthService {
     private final McpOAuthProtocol protocol;
     private final McpOAuthProperties properties;
     private final TransactionTemplate transactions;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public McpOAuthService(JpaMcpServerRepository servers, JpaMcpOAuthClientRepository clients,
                            JpaMcpCredentialRepository credentials, McpAccessRepository access,
                            IamAuthorization authorization, McpSecrets secrets,
                            McpOAuthProtocol protocol, McpOAuthProperties properties,
-                           PlatformTransactionManager transactionManager) {
+                           PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.servers = servers; this.clients = clients; this.credentials = credentials; this.access = access;
         this.authorization = authorization;
         this.secrets = secrets; this.protocol = protocol; this.properties = properties;
@@ -144,7 +146,9 @@ public class McpOAuthService {
         Instant now = Instant.now();
         var client = new McpOAuthClientEntity(UUID.randomUUID(), tenant, serverId, McpOAuthClientSource.ADMIN, now);
         applyAdminInput(tenant, client, input, null, now);
-        return view(clients.saveAndFlush(client));
+        var saved = view(clients.saveAndFlush(client));
+        clientChange(tenant, actor, serverId, "CREATE", saved);
+        return saved;
     }
 
     @Transactional
@@ -156,7 +160,9 @@ public class McpOAuthService {
         if (client.source() != McpOAuthClientSource.ADMIN)
             throw McpException.invalid("Registered clients cannot be edited; delete and register again.");
         applyAdminInput(tenant, client, input, client.clientSecret(), Instant.now());
-        return view(clients.saveAndFlush(client));
+        var saved = view(clients.saveAndFlush(client));
+        clientChange(tenant, actor, serverId, "UPDATE", saved);
+        return saved;
     }
 
     /** Registers MemoryOS with a discovered authorization server by DCR, or uses its Client ID Metadata Document. */
@@ -205,7 +211,9 @@ public class McpOAuthService {
                     registration.registrationAccessToken() == null ? null
                             : secrets.seal(tenant, id, McpSecrets.Purpose.REGISTRATION_ACCESS_TOKEN, registration.registrationAccessToken()),
                     authorizationServer.issParameterSupported(), now);
-            return view(clients.saveAndFlush(client));
+            var saved = view(clients.saveAndFlush(client));
+            clientChange(tenant, actor, serverId, "REGISTER_" + source.name(), saved);
+            return saved;
         });
     }
 
@@ -217,7 +225,9 @@ public class McpOAuthService {
         if (client.revision() != revision) throw McpException.conflict();
         boolean sharedConnection = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, serverId)
                 .filter(credential -> clientId.equals(credential.oauthClientId())).isPresent();
+        var deleted = view(client);
         clients.delete(client);
+        clientChange(tenant, actor, serverId, "DELETE", deleted);
         if (sharedConnection) {
             server.status(McpServerStatus.AWAITING_AUTH, null, Instant.now());
             servers.saveAndFlush(server);
@@ -292,6 +302,8 @@ public class McpOAuthService {
             if (owner == null) {
                 loaded.server().status(McpServerStatus.CREATED, null, now);
                 servers.saveAndFlush(loaded.server());
+                // A User's own connection is not administration; only the shared one is recorded.
+                connectionChange(tenant, actor, loaded.server(), "CONNECT");
             }
         });
     }
@@ -326,6 +338,7 @@ public class McpOAuthService {
             credentials.delete(credential);
             server.status(McpServerStatus.AWAITING_AUTH, null, Instant.now());
             servers.saveAndFlush(server);
+            connectionChange(tenant, actor, server, "DISCONNECT");
             return pending;
         });
         if (revocation != null) protocol.revoke(revocation.endpoint(), revocation.client(), revocation.token());
@@ -571,5 +584,17 @@ public class McpOAuthService {
 
     private UUID write(ActorId actor) {
         return authorization.lockAndRequireExclusive(actor, IamCapability.MCP_MANAGE).tenantId().value();
+    }
+
+    private void clientChange(UUID tenant, ActorId actor, UUID serverId, String change, ClientView client) {
+        String server = servers.findByTenantIdAndId(tenant, serverId).map(McpServerEntity::name).orElse(null);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.MCP_OAUTH_CLIENT_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant))
+                .actor(actor).resource("MCP_SERVER", serverId, server)
+                .detail("change", change).detail("client", client.label()).detail("issuer", client.issuer()).build());
+    }
+
+    private void connectionChange(UUID tenant, ActorId actor, McpServerEntity server, String change) {
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.MCP_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant))
+                .actor(actor).resource("MCP_SERVER", server.getId(), server.name()).detail("change", change).build());
     }
 }

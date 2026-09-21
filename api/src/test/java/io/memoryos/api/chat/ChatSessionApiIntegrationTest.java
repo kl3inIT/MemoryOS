@@ -1814,6 +1814,15 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", set.path("revision").asText())
                         .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+        // Configuration is on the audit stream: where data goes before and after, and never the provider's key.
+        String providerId = provider.path("id").asText();
+        assertEquals("{\"adapter\": \"openai\", \"dataBoundary\": \"INTERNAL\"}", jdbc.sql("""
+                        SELECT details::text FROM audit_event WHERE action = 'llm_provider.create' AND resource_id = :id
+                        """).param("id", providerId).query(String.class).single());
+        assertEquals(2L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'model_flow.change' AND resource_id = 'CHAT_NAMING'"
+                + " AND actor_id = :actor").param("actor", actor.getPrincipal().actorId().value()).query(Long.class).single());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM audit_event WHERE details::text LIKE '%fixture-byok%'")
+                .query(Long.class).single(), "a provider key is never recorded");
     }
 
     @Test

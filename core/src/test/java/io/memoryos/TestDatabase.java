@@ -217,4 +217,13 @@ public final class TestDatabase {
         return new io.memoryos.iam.audit.AuditTrail(jdbc, io.memoryos.iam.audit.AuditRequestContext.TRACE_ONLY,
                 new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
     }
+
+    /** An audit writer that records nothing, for tests of behaviour other than the audit stream itself. */
+    public static io.memoryos.iam.audit.AuditTrail noAudit() {
+        var audit = org.mockito.Mockito.mock(io.memoryos.iam.audit.AuditTrail.class);
+        org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
+                new io.memoryos.iam.audit.AuditTrail.Person(
+                        call.<io.memoryos.iam.identity.ActorId>getArgument(0).value().toString(), null));
+        return audit;
+    }
 }

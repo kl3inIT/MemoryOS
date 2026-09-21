@@ -12,7 +12,7 @@ One pull request on `kl3inIT/mem-25-audit`, one commit per step.
 - [x] 4. IAM call sites: sign-in success and failure, logout, JIT admission, invitation issue, rotate, revoke and
       accept, member deactivate and reactivate, a person's Groups replaced, Group create, rename, delete, members,
       managers and capabilities. Denial events at the Group scope check for a manager outside their scope.
-- [ ] 5. Configuration and Source call sites: providers (data boundary before and after, key changed as a fact),
+- [x] 5. Configuration and Source call sites: providers (data boundary before and after, key changed as a fact),
       models, defaults and flows, Web, voice and image connections, interpreter, MCP servers and OAuth clients,
       identity providers; Source create, delete, access, manager, Groups, pause and resume; Google Drive and
       SharePoint credentials.
