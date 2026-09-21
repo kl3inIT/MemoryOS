@@ -1456,6 +1456,32 @@ export type ChatFileResponse = {
     searchReady?: boolean;
 };
 
+export type ChatLibraryArchiveFile = {
+    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+    id: string;
+};
+
+export type ChatLibraryArchiveRequest = {
+    /**
+     * The files to pack, at most 100 and at most 30 MiB together
+     */
+    files: Array<ChatLibraryArchiveFile>;
+};
+
+export type ChatLibraryArchive = {
+    id: string;
+    status: 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    fileCount: number;
+    sizeBytes: number | null;
+    /**
+     * Files that were no longer available when packing
+     */
+    skipped: Array<string>;
+    failure: string | null;
+    createdAt: string;
+    expiresAt: string | null;
+};
+
 export type ImageConnectionTestRequest = {
     endpoint: string;
     model: string;
@@ -9736,6 +9762,94 @@ export type CopyChatLibraryFileResponses = {
 
 export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof CopyChatLibraryFileResponses];
 
+export type ListChatLibraryArchivesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/archives';
+};
+
+export type ListChatLibraryArchivesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryArchivesError = ListChatLibraryArchivesErrors[keyof ListChatLibraryArchivesErrors];
+
+export type ListChatLibraryArchivesResponses = {
+    /**
+     * Archives, newest first
+     */
+    200: Array<ChatLibraryArchive>;
+};
+
+export type ListChatLibraryArchivesResponse = ListChatLibraryArchivesResponses[keyof ListChatLibraryArchivesResponses];
+
+export type RequestChatLibraryArchiveData = {
+    body: ChatLibraryArchiveRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/archives';
+};
+
+export type RequestChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RequestChatLibraryArchiveError = RequestChatLibraryArchiveErrors[keyof RequestChatLibraryArchiveErrors];
+
+export type RequestChatLibraryArchiveResponses = {
+    /**
+     * The archive request as recorded
+     */
+    202: ChatLibraryArchive;
+};
+
+export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveResponses[keyof RequestChatLibraryArchiveResponses];
+
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     headers: {
@@ -12174,6 +12288,92 @@ export type SearchChatLibraryContentResponses = {
 };
 
 export type SearchChatLibraryContentResponse = SearchChatLibraryContentResponses[keyof SearchChatLibraryContentResponses];
+
+export type GetChatLibraryArchiveData = {
+    body?: never;
+    path: {
+        archiveId: string;
+    };
+    query?: never;
+    url: '/api/chat/library/archives/{archiveId}';
+};
+
+export type GetChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatLibraryArchiveError = GetChatLibraryArchiveErrors[keyof GetChatLibraryArchiveErrors];
+
+export type GetChatLibraryArchiveResponses = {
+    /**
+     * The archive
+     */
+    200: ChatLibraryArchive;
+};
+
+export type GetChatLibraryArchiveResponse = GetChatLibraryArchiveResponses[keyof GetChatLibraryArchiveResponses];
+
+export type DownloadChatLibraryArchiveData = {
+    body?: never;
+    path: {
+        archiveId: string;
+    };
+    query?: never;
+    url: '/api/chat/library/archives/{archiveId}/content';
+};
+
+export type DownloadChatLibraryArchiveErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DownloadChatLibraryArchiveError = DownloadChatLibraryArchiveErrors[keyof DownloadChatLibraryArchiveErrors];
+
+export type DownloadChatLibraryArchiveResponses = {
+    /**
+     * The ZIP bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadChatLibraryArchiveResponse = DownloadChatLibraryArchiveResponses[keyof DownloadChatLibraryArchiveResponses];
 
 export type GetChatInterpreterHealthData = {
     body?: never;

@@ -177,6 +177,18 @@ class ControlPlaneConfiguration {
                 });
     }
 
+    /** Packs requested library archives and releases the ones that expired (MEM-152). */
+    @Bean
+    RecurringTask<Void> chatLibraryArchiveTask(io.memoryos.chat.application.ChatLibraryArchiveService archives) {
+        return Tasks.recurring("memoryos-chat-library-archive-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    for (int packed = 0; packed < 4 && archives.buildNext(); packed++) {
+                        // Each call packs and stores one archive.
+                    }
+                    archives.sweepExpired();
+                });
+    }
+
     @Bean
     RecurringTask<Void> searchProjectionTask(SearchProjectionMaintenance maintenance) {
         return Tasks.recurring("memoryos-search-projection-reconcile-v1", FixedDelay.of(Duration.ofMinutes(1)))

@@ -1,5 +1,18 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2, phase 3: ZIP download and richer previews
+  "Tải về ZIP": "Download as ZIP",
+  "Đang đóng gói {{count}} tệp thành ZIP…": "Packing {{count}} files into a ZIP…",
+  "ZIP đã sẵn sàng và đang được tải về.": "The ZIP is ready and downloading.",
+  "Bỏ qua {{count}} tệp không còn khả dụng: {{names}}":
+    "{{count}} files were no longer available and were skipped: {{names}}",
+  "Tải lại ZIP": "Download the ZIP again",
+  "Không đóng gói được ZIP. Hãy chọn ít tệp hơn rồi thử lại.":
+    "The ZIP could not be packed. Select fewer files and try again.",
+  "Tệp trước": "Previous file",
+  "Tệp sau": "Next file",
+  "{{position}}/{{total}}": "{{position}}/{{total}}",
+  "Xoay ảnh": "Rotate the image",
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
