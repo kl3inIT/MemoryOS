@@ -197,6 +197,7 @@ class ChatSessionApiIntegrationTest {
     @MockitoSpyBean
     private OpenAiChatProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
+    @Autowired private io.memoryos.chat.application.ChatLibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
@@ -634,6 +635,98 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/library/search").with(authentication(actor)).param("query","điều khoản"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
         mockMvc.perform(get("/api/chat/library/search").param("query","điều khoản")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void aSelectionIsPackedIntoOneOwnerPrivateZipAndRefusesWhatItCannotPack() throws Exception {
+        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
+        var types = new java.util.concurrent.ConcurrentHashMap<String, String>();
+        doAnswer(call -> {
+            String key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value();
+            stored.put(key, call.getArgument(1));
+            types.put(key, call.getArgument(2));
+            return null;
+        }).when(fileStorage).write(any(), any(), any());
+        when(fileStorage.inspect(any())).thenAnswer(call -> {
+            String key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value();
+            byte[] bytes = stored.get(key);
+            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, types.getOrDefault(key, "text/csv"),
+                    new io.memoryos.objectstorage.ContentSha256(java.util.HexFormat.of()
+                            .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+        });
+        when(fileStorage.open(any())).thenAnswer(call -> {
+            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
+            var described = fileStorage.inspect(call.getArgument(0));
+            return new io.memoryos.objectstorage.ObjectContent() {
+                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
+                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return described; }
+                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public void close() {}
+            };
+        });
+        var session = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Tệp\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        var artifact = UUID.randomUUID();
+        String key = "tenants/" + TENANT + "/bao-cao.csv";
+        stored.put(key, "a,b\n1,2\n".getBytes(UTF_8));
+        types.put(key, "text/csv");
+        jdbc.sql("""
+                INSERT INTO chat_file_artifact(id,tenant_id,message_id,stored_object_id,object_key,filename,media_type,
+                                               size_bytes,owner_actor_id,session_id)
+                VALUES(:id,:tenant,:message,:object,:key,'bao-cao.csv','text/csv',:size,:actor,:session)
+                """).param("id", artifact).param("tenant", TENANT)
+                .param("message", UUID.fromString(session.path("rootMessageId").asText())).param("object", UUID.randomUUID())
+                .param("key", key).param("size", stored.get(key).length).param("actor", actor.getPrincipal().actorId().value())
+                .param("session", UUID.fromString(session.path("id").asText())).update();
+        String selection = "{\"files\":[{\"source\":\"GENERATED\",\"id\":\"" + artifact + "\"}]}";
+
+        mockMvc.perform(post("/api/chat/library/archives").with(authentication(actor))
+                        .contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isForbidden());
+        for (var invalid : List.of("{\"files\":[]}", "{}")) {
+            mockMvc.perform(post("/api/chat/library/archives").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content(invalid))
+                    .andExpect(status().isBadRequest());
+        }
+        // Another member's file is not in the caller's library, so there is nothing to pack.
+        mockMvc.perform(post("/api/chat/library/archives").with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isNotFound());
+
+        String id = Json.mapper().readTree(mockMvc.perform(post("/api/chat/library/archives").with(authentication(actor))
+                        .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.fileCount").value(1))
+                .andReturn().getResponse().getContentAsString()).path("id").asText();
+        // Not packed yet: there is nothing to download.
+        mockMvc.perform(get("/api/chat/library/archives/" + id + "/content").with(authentication(actor)))
+                .andExpect(status().isNotFound());
+
+        assertTrue(libraryArchives.buildNext());
+        mockMvc.perform(get("/api/chat/library/archives/" + id).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY"))
+                .andExpect(jsonPath("$.skipped.length()").value(0));
+        mockMvc.perform(get("/api/chat/library/archives").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id));
+        byte[] zip = mockMvc.perform(get("/api/chat/library/archives/" + id + "/content").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/zip"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("memoryos-files-")))
+                .andReturn().getResponse().getContentAsByteArray();
+        var entries = new java.util.LinkedHashMap<String, byte[]>();
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) entries.put(entry.getName(), in.readAllBytes());
+        }
+        assertEquals(List.of("bao-cao.csv"), List.copyOf(entries.keySet()));
+        assertEquals("a,b\n1,2\n", new String(entries.get("bao-cao.csv"), UTF_8));
+
+        // Only its owner may read it, by any route.
+        mockMvc.perform(get("/api/chat/library/archives/" + id).with(authentication(other))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/library/archives/" + id + "/content").with(authentication(other)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/library/archives").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/chat/library/archives/" + id + "/content")).andExpect(status().isUnauthorized());
     }
 
     @Test
