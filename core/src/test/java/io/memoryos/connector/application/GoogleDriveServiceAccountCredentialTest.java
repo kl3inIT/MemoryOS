@@ -17,6 +17,7 @@ import io.memoryos.connector.GoogleDriveServiceAccountService;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.persistence.GoogleDriveCredentialConfiguration;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
+import io.memoryos.connector.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
@@ -51,13 +52,15 @@ class GoogleDriveServiceAccountCredentialTest {
     private GoogleDriveServiceAccountService serviceAccounts;
     private GoogleDriveAuthorizationService authorizations;
     private GoogleDriveConnectionService connections;
+    private JdbcGoogleGroupRepository groups;
+    private DataSourceTransactionManager transactions;
     private final List<GoogleDriveProvider.ServiceAccountCredential> opened = new ArrayList<>();
 
     @BeforeEach
     void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
-        var transactions = new DataSourceTransactionManager(dataSource);
+        transactions = new DataSourceTransactionManager(dataSource);
         tenant = new TenantId(UUID.randomUUID());
         manager = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO tenants (id, slug, display_name, status, bootstrap_reference) VALUES (:id, 'drive-sa', 'Drive', 'ACTIVE', 'TEST')")
@@ -71,6 +74,7 @@ class GoogleDriveServiceAccountCredentialTest {
                 .param("tenant", tenant.value()).param("actor", manager.value()).update();
         var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         var sources = new JdbcSourceRepository(jdbc, event -> { });
+        groups = new JdbcGoogleGroupRepository(jdbc);
         var credentials = new JdbcGoogleDriveCredentialRepository(jdbc, sources,
                 new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test-v1"),
                 new JdbcSourceDocumentRepository(jdbc), new JdbcSourceSyncRepository(jdbc));
@@ -84,13 +88,13 @@ class GoogleDriveServiceAccountCredentialTest {
             opened.add(credential);
             return session;
         });
-        serviceAccounts = new DefaultGoogleDriveServiceAccountService(credentials, provider, authorization, transactions);
+        serviceAccounts = new DefaultGoogleDriveServiceAccountService(credentials, provider, authorization, groups, transactions);
         connections = TestDatabase.transactionalProxy(new DefaultGoogleDriveConnectionService(credentials, provider, transactions),
                 GoogleDriveConnectionService.class, transactions);
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials, authorization,
                 new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(
                         new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc),
-                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)))),
+                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), groups),
                 GoogleDriveAuthorizationService.class, transactions);
     }
 
@@ -174,6 +178,67 @@ class GoogleDriveServiceAccountCredentialTest {
                 """).param("id", credential.value()).query(Long.class).single());
         assertEquals("GOOGLE_DRIVE_NEEDS_REAUTHORIZATION", assertThrows(GoogleDriveException.class,
                 () -> connections.openCredential(tenant, credential)).code());
+    }
+
+    @Test
+    void groupSyncReadsOnePagePerStepAndPromotesOnlyACompletedGeneration() throws Exception {
+        var credential = serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN);
+        when(session.groups("example.com", null)).thenReturn(new GoogleDriveProvider.DirectoryPage(
+                List.of("eng@example.com", "all@example.com"), "groups-2"));
+        when(session.groups("example.com", "groups-2")).thenReturn(new GoogleDriveProvider.DirectoryPage(
+                List.of("gone@example.com"), null));
+        when(session.groupMembers("all@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(List.of(), true, null));
+        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(
+                List.of("a@example.com"), false, "members-2"));
+        when(session.groupMembers("eng@example.com", "members-2")).thenReturn(new GoogleDriveProvider.MemberPage(
+                List.of("b@example.com"), false, null));
+        when(session.groupMembers("gone@example.com", null))
+                .thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.NOT_FOUND));
+        var synchronizer = new GoogleGroupSynchronizer(groups, connections, transactions, java.time.Duration.ofHours(1));
+
+        for (int page = 0; page < 6; page++) {
+            assertTrue(synchronizer.advance(tenant, credential, 1, ADMIN, session));
+            assertNull(activeGeneration(credential), "Membership stays inactive until the run completes");
+        }
+        assertTrue(synchronizer.advance(tenant, credential, 1, ADMIN, session));
+        assertEquals(1L, activeGeneration(credential));
+        assertEquals(List.of("eng@example.com:a@example.com", "eng@example.com:b@example.com"), jdbc.sql("""
+                SELECT group_email || ':' || member_email FROM google_group_members ORDER BY 1
+                """).query(String.class).list());
+        assertEquals(List.of("all@example.com"), jdbc.sql(
+                "SELECT group_email FROM google_group_sync_groups WHERE whole_domain").query(String.class).list());
+        assertFalse(synchronizer.advance(tenant, credential, 1, ADMIN, session), "Nothing is due within the interval");
+        assertFalse(synchronizer.advance(tenant, credential, 2, ADMIN, session), "A stale credential revision reads nothing");
+    }
+
+    @Test
+    void failedGroupSyncKeepsTheActiveGenerationAndRevocationForgetsIt() throws Exception {
+        var credential = serviceAccounts.create(manager, "Workspace", keyJson("1045"), ADMIN);
+        when(session.groups("example.com", null)).thenReturn(new GoogleDriveProvider.DirectoryPage(List.of("eng@example.com"), null));
+        when(session.groupMembers("eng@example.com", null)).thenReturn(new GoogleDriveProvider.MemberPage(
+                List.of("a@example.com"), false, null));
+        var synchronizer = new GoogleGroupSynchronizer(groups, connections, transactions, java.time.Duration.ofHours(1));
+        while (synchronizer.advance(tenant, credential, 1, ADMIN, session)) { }
+        assertEquals(1L, activeGeneration(credential));
+
+        jdbc.sql("UPDATE google_group_sync_runs SET started_at = started_at - INTERVAL '2 hours'").update();
+        when(session.groups("example.com", null))
+                .thenThrow(new GoogleDriveProviderException(GoogleDriveProviderException.Failure.ACCESS_DENIED));
+        assertFalse(synchronizer.advance(tenant, credential, 1, ADMIN, session));
+        assertEquals(1L, activeGeneration(credential), "A failed run keeps the last successful membership");
+        assertEquals(List.of("COMPLETED:", "FAILED:SOURCE_GOOGLE_ACCESS_DENIED"), jdbc.sql("""
+                SELECT status || ':' || COALESCE(error_code, '') FROM google_group_sync_runs ORDER BY generation
+                """).query(String.class).list());
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM google_group_members").query(Long.class).single());
+
+        authorizations.disconnect(manager, credential, 1);
+        assertNull(activeGeneration(credential));
+        assertEquals(0L, jdbc.sql("SELECT COUNT(*) FROM google_group_sync_runs").query(Long.class).single());
+    }
+
+    private @org.jspecify.annotations.Nullable Long activeGeneration(CredentialId credential) {
+        return jdbc.sql("SELECT active_group_generation FROM google_drive_credentials WHERE credential_id=:id")
+                .param("id", credential.value()).query((rs, _) -> rs.getObject(1, Long.class)).list().getFirst();
     }
 
     private void member(ActorId actor) {

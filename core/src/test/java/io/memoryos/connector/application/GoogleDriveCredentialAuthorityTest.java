@@ -130,7 +130,8 @@ class GoogleDriveCredentialAuthorityTest {
                 new DefaultProviderAuthorityService(connections, mock(SharePointConnectionService.class)));
         authorizations = TestDatabase.transactionalProxy(new DefaultGoogleDriveAuthorizationService(credentials,
                 authorization, new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc),
-                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)))), GoogleDriveAuthorizationService.class, manager);
+                        new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))),
+                new io.memoryos.connector.persistence.JdbcGoogleGroupRepository(jdbc)), GoogleDriveAuthorizationService.class, manager);
         selections = new JdbcGoogleDriveSelectionRepository(jdbc);
         var service = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, sync, attempts, documents, linkReader, manager, selections, credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new io.memoryos.connector.persistence.JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc))), new GoogleDriveMetadataCache());
         drive = service;

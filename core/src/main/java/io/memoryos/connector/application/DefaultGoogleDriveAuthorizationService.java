@@ -6,6 +6,7 @@ import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
+import io.memoryos.connector.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
@@ -27,12 +28,14 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     private final JdbcGoogleDriveCredentialRepository credentials;
     private final IamAuthorization authorization;
     private final SourceAccessPolicy sourceAccess;
+    private final JdbcGoogleGroupRepository groups;
 
     public DefaultGoogleDriveAuthorizationService(JdbcGoogleDriveCredentialRepository credentials,
-            IamAuthorization authorization, SourceAccessPolicy sourceAccess) {
+            IamAuthorization authorization, SourceAccessPolicy sourceAccess, JdbcGoogleGroupRepository groups) {
         this.credentials = credentials;
         this.authorization = authorization;
         this.sourceAccess = sourceAccess;
+        this.groups = groups;
     }
 
     @Override
@@ -102,7 +105,10 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     public byte[] disconnect(ActorId actorId, CredentialId credentialId, long expectedRevision) {
         var tenant = requireManagement(actorId);
         requireCredentialMutation(actorId, tenant, credentialId);
-        return credentials.disconnect(tenant, credentialId, expectedRevision);
+        byte[] token = credentials.disconnect(tenant, credentialId, expectedRevision);
+        // A revoked service account's Google Group memberships stop granting access at once.
+        groups.removeAll(tenant, credentialId);
+        return token;
     }
 
     @Override

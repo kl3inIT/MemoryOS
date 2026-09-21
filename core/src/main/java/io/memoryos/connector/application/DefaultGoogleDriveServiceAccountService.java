@@ -8,6 +8,7 @@ import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.GoogleDriveServiceAccountService;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.persistence.JdbcGoogleDriveCredentialRepository;
+import io.memoryos.connector.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -26,11 +27,13 @@ public class DefaultGoogleDriveServiceAccountService implements GoogleDriveServi
     private final JdbcGoogleDriveCredentialRepository credentials;
     private final GoogleDriveProvider provider;
     private final IamAuthorization authorization;
+    private final JdbcGoogleGroupRepository groups;
     private final TransactionTemplate transactions;
 
     public DefaultGoogleDriveServiceAccountService(JdbcGoogleDriveCredentialRepository credentials, GoogleDriveProvider provider,
-            IamAuthorization authorization, PlatformTransactionManager transactionManager) {
+            IamAuthorization authorization, JdbcGoogleGroupRepository groups, PlatformTransactionManager transactionManager) {
         this.credentials = credentials;
+        this.groups = groups;
         this.provider = provider;
         this.authorization = authorization;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -58,7 +61,10 @@ public class DefaultGoogleDriveServiceAccountService implements GoogleDriveServi
         return inTransaction(() -> {
             TenantId tenant = requireReplaceable(actorId, credentialId, expectedRevision, keyJson);
             try (var key = GoogleDriveServiceAccountKey.parse(keyJson)) {
-                return credentials.replaceServiceAccount(tenant, credentialId, normalizedName, expectedRevision, key, admin);
+                long revision = credentials.replaceServiceAccount(tenant, credentialId, normalizedName, expectedRevision, key, admin);
+                // The acting admin may have changed, so membership is read again under the new key.
+                groups.removeAll(tenant, credentialId);
+                return revision;
             }
         });
     }

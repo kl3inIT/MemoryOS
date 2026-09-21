@@ -130,6 +130,8 @@ class PostgresSourceRunHistoryTest {
         var connections = mock(GoogleDriveConnectionService.class);
         when(connections.current(any(), any(), anyLong())).thenReturn(true);
         when(connections.open(any(), any())).thenReturn(new GoogleDriveConnectionService.Connection(session, 1));
+        when(connections.state(any(), any())).thenReturn(new GoogleDriveConnectionService.State(
+                new io.memoryos.connector.CredentialId(UUID.randomUUID()), "owner@example.test", "ACTIVE", 1, true, "OAUTH"));
         items = new JdbcSourceItemRepository(jdbc);
         mappings = new JdbcSourceDocumentRepository(jdbc);
         sync = new JdbcSourceSyncRepository(jdbc);
@@ -157,7 +159,7 @@ class PostgresSourceRunHistoryTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
         service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc),
                 new JdbcGoogleDriveAclRepository(jdbc, event -> {}), items, attempts,
-                mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
+                mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), org.mockito.Mockito.mock(GoogleGroupSynchronizer.class), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
         history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));

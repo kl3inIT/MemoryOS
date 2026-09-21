@@ -78,6 +78,7 @@ class PostgresGoogleDriveSyncTest {
     private JdbcGoogleDriveCredentialRepository credentials;
     private JdbcIndexAttemptRepository attempts;
     private GoogleDriveConnectionService connections;
+    private final GoogleGroupSynchronizer groupSynchronizer = mock(GoogleGroupSynchronizer.class);
     private GoogleDriveProvider.Session session;
     private ObjectWriteService writes;
     private OperationDispatchPort dispatch;
@@ -237,6 +238,21 @@ class PostgresGoogleDriveSyncTest {
         assertThat(jdbc.sql("""
                 SELECT COUNT(*) FROM google_drive_frontier WHERE attempt_id = :id
                 """).param("id", resumed.id().value()).query(Integer.class).single()).isEqualTo(1);
+    }
+
+    @Test
+    void serviceAccountSourcesAdvanceGroupMembershipAlongsideTheirSyncSteps() {
+        listing(file("one", false, "1"));
+        finish(enqueue());
+        verify(groupSynchronizer, never()).advance(any(), any(), anyLong(), any(), any());
+
+        when(connections.state(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.State(credentialId,
+                "admin@example.test", "ACTIVE", revision.get(), false, "SERVICE_ACCOUNT"));
+        when(groupSynchronizer.advance(any(), any(), anyLong(), any(), any())).thenReturn(true, true, false);
+        finish(enqueue());
+
+        verify(groupSynchronizer, org.mockito.Mockito.atLeast(3)).advance(tenant, credentialId, revision.get(),
+                "admin@example.test", session);
     }
 
     @Test
@@ -1235,7 +1251,7 @@ class PostgresGoogleDriveSyncTest {
     private DefaultConnectorSyncService service() {
         return new DefaultConnectorSyncService(syncRows, sources, roots,
                 new JdbcGoogleDriveAclRepository(jdbc, published::add), items, attempts, mappings, connections, writes,
-                org.mockito.Mockito.mock(DefaultSharePointSyncService.class), manager);
+                org.mockito.Mockito.mock(DefaultSharePointSyncService.class), groupSynchronizer, manager);
     }
 
     private SourceOperationId enqueue() {
