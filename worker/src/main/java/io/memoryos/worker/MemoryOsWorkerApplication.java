@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
         "io.memoryos.usage",
+        "io.memoryos.iam.audit",
         "io.memoryos.iam.group.persistence",
         "io.memoryos.iam.identity.persistence",
         "io.memoryos.iam.invitation.persistence",

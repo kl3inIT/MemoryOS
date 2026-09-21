@@ -1317,8 +1317,8 @@ class PostgresSourceLifecycleTest {
                 new io.memoryos.connector.persistence.JdbcSourceSyncRepository(jdbcClient),
                 new io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient),
                 org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveConnectionService.class),
-                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)))
-        );
+                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), io.memoryos.TestDatabase.noAudit())
+        , io.memoryos.TestDatabase.noAudit());
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }
 

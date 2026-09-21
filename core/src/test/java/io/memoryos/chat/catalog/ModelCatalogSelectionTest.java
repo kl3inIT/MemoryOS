@@ -144,7 +144,8 @@ class ModelCatalogSelectionTest {
                     io.memoryos.chat.ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
             when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
-                    mock(ProviderCredentials.class), mock(GroupScopeService.class), new PersonaProperties(), null);
+                    mock(ProviderCredentials.class), mock(GroupScopeService.class), new PersonaProperties(), null,
+                    mock(io.memoryos.iam.audit.AuditTrail.class));
         }
         ModelCatalogRepository.Provider provider() {
             return new ModelCatalogRepository.Provider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",

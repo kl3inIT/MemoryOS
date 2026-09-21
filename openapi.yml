@@ -13732,6 +13732,265 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/audit/export:
+    get:
+      tags:
+      - Audit
+      summary: "The events the filters select as CSV, at most 50,000 rows; the export\
+        \ is itself recorded; requires AUDIT_READ"
+      operationId: exportAuditEvents
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: eventClass
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/events:
+    get:
+      tags:
+      - Audit
+      summary: "The Tenant's audit events, newest first, one page at a time; requires\
+        \ AUDIT_READ"
+      operationId: listAuditEvents
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: eventClass
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: resourceType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: resourceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/events/{eventId}:
+    get:
+      tags:
+      - Audit
+      summary: One audit event; requires AUDIT_READ
+      operationId: getAuditEvent
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEvent"
+        "404":
+          description: No event with this id in the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/audit/catalog:
+    get:
+      tags:
+      - Audit
+      summary: "Every action the audit stream can hold, for the viewer's action filter;\
+        \ requires AUDIT_READ"
+      operationId: getAuditCatalog
+      responses:
+        "400":
+          description: Invalid filter or cursor
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Audit reading or Tenant membership requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditCatalog"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/summary:
     get:
       tags:
@@ -17766,6 +18025,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -17832,6 +18092,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -19654,6 +19915,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -19678,6 +19940,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
         authorizationVersion:
           type: integer
           format: int64
@@ -19862,6 +20125,7 @@ components:
           - MCP_MANAGE
           - AGENTS_CREATE
           - AGENTS_MANAGE
+          - AUDIT_READ
         label:
           type: string
         description:
@@ -19890,6 +20154,7 @@ components:
             - MCP_MANAGE
             - AGENTS_CREATE
             - AGENTS_MANAGE
+            - AUDIT_READ
       required:
       - description
       - editable
@@ -21182,6 +21447,132 @@ components:
         deploymentCeilingBytes:
           type: integer
           format: int64
+    AuditEvent:
+      type: object
+      description: "One recorded change: who, what and to which resource, with the\
+        \ declared details of its action"
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+          description: An append-only action value such as user.deactivate
+        eventClass:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+        outcome:
+          type: string
+          enum:
+          - SUCCESS
+          - FAILURE
+          - DENIED
+        actorId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        actorLabel:
+          type:
+          - string
+          - "null"
+        actorEmail:
+          type:
+          - string
+          - "null"
+        resourceType:
+          type:
+          - string
+          - "null"
+        resourceId:
+          type:
+          - string
+          - "null"
+        resourceLabel:
+          type:
+          - string
+          - "null"
+        details:
+          type: object
+          additionalProperties: {}
+        traceId:
+          type:
+          - string
+          - "null"
+        endpoint:
+          type:
+          - string
+          - "null"
+        sourceIp:
+          type:
+          - string
+          - "null"
+      required:
+      - action
+      - actorEmail
+      - actorId
+      - actorLabel
+      - details
+      - endpoint
+      - eventClass
+      - id
+      - occurredAt
+      - outcome
+      - resourceId
+      - resourceLabel
+      - resourceType
+      - sourceIp
+      - traceId
+    AuditEventPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: "Pass back to read the next, older page; null on the last page"
+      required:
+      - items
+      - nextCursor
+    AuditCatalog:
+      type: object
+      description: "Every action the stream can hold, newest catalog first; values\
+        \ never change meaning"
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditCatalogAction"
+      required:
+      - actions
+    AuditCatalogAction:
+      type: object
+      properties:
+        action:
+          type: string
+        eventClass:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - ACCOUNT_CHANGE
+          - USER_ACCESS_MANAGEMENT
+          - GROUP_MANAGEMENT
+          - API_ACTIVITY
+      required:
+      - action
+      - eventClass
     AiCostSummary:
       type: object
       description: "Known costs in USD; calls without a price or reported usage are\

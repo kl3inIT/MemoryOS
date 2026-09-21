@@ -37,10 +37,13 @@ public class ModelCatalogService {
     private final GroupScopeService groups;
     private final PersonaProperties persona;
     private final Deployment deployment;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, PersonaProperties persona, Deployment deployment) {
+            GroupScopeService groups, PersonaProperties persona, Deployment deployment,
+            io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.catalog = catalog;
         this.chats = chats;
         this.tenants = tenants;
@@ -98,6 +101,8 @@ public class ModelCatalogService {
         UUID id = UUID.randomUUID();
         var provider = validated(tenant, id, input, null, 1);
         catalog.insertProvider(provider, null);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_CREATE, "LLM_PROVIDER", id, provider.name(), event -> event
+                .detail("adapter", provider.adapterType()).detail("dataBoundary", provider.dataBoundary().name()));
         return view(provider);
     }
 
@@ -115,6 +120,9 @@ public class ModelCatalogService {
         if (models.stream().anyMatch(m -> m.id().equals(defaultId)) && !usableDefaultProvider(provider))
             throw ChatException.invalid("Choose another available public Chat default before restricting this provider.");
         catalog.updateProvider(provider);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_UPDATE, "LLM_PROVIDER", id, provider.name(), event -> event
+                .detail("before", providerFacts(old)).detail("after", providerFacts(provider))
+                .detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()));
         return view(catalog.provider(tenant, id).orElseThrow());
     }
 
@@ -154,6 +162,8 @@ public class ModelCatalogService {
         if (catalog.models(tenant).stream().anyMatch(m -> m.providerId().equals(id) && m.id().equals(defaultId)))
             throw ChatException.invalid("Choose another Chat default before deleting this provider.");
         catalog.deleteProvider(tenant, id, revision);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_DELETE, "LLM_PROVIDER", id, provider.name(),
+                event -> event.detail("adapter", provider.adapterType()));
     }
 
     @Transactional
@@ -174,6 +184,8 @@ public class ModelCatalogService {
         requireUnique(all, providerId, null, input.modelName());
         var model = validated(tenant, UUID.randomUUID(), provider, input, 1);
         catalog.insertModel(model);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_CREATE, "MODEL", model.id(), model.displayName(),
+                event -> event.detail("provider", provider.name()));
         return model;
     }
 
@@ -189,6 +201,8 @@ public class ModelCatalogService {
         if (!model.visible() && id.equals(catalog.defaultModel(tenant).modelConfigurationId()))
             throw ChatException.invalid("Choose another Chat default before hiding this model.");
         catalog.updateModel(model);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_UPDATE, "MODEL", id, model.displayName(),
+                event -> event.detail("provider", provider.name()));
         return catalog.model(tenant, id).orElseThrow();
     }
 
@@ -201,6 +215,9 @@ public class ModelCatalogService {
         if (id.equals(catalog.defaultModel(tenant).modelConfigurationId()))
             throw ChatException.invalid("Choose another Chat default before deleting this model.");
         catalog.deleteModel(tenant, id, revision);
+        String providerName = catalog.provider(tenant, model.providerId()).map(ModelCatalogRepository.Provider::name).orElse(null);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_DELETE, "MODEL", id, model.displayName(),
+                event -> event.detail("provider", providerName));
     }
 
     @Transactional
@@ -218,7 +235,13 @@ public class ModelCatalogService {
         var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
         if (!model.visible() || !usableDefaultProvider(provider))
             throw ChatException.invalid("Chat default must be visible and available to the Tenant without Group or Persona restrictions.");
+        UUID before = catalog.defaultModel(tenant).modelConfigurationId();
         catalog.setDefault(tenant, id, revision);
+        if (!id.equals(before)) {
+            // The Chat default decides where every conversation goes, Internal or External.
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_DEFAULT_CHANGE, "MODEL", id, model.displayName(),
+                    event -> event.detail("before", modelFacts(tenant, before)).detail("after", modelFacts(tenant, id)));
+        }
         return catalog.defaultModel(tenant);
     }
 
@@ -236,7 +259,13 @@ public class ModelCatalogService {
         initialize(tenant);
         if (id != null && flowSelection(tenant, id) == null)
             throw ChatException.invalid("A task model must be visible and available to the Tenant without Group or Persona restrictions.");
+        UUID before = catalog.flowDefault(tenant, flow).modelConfigurationId();
         catalog.setFlowDefault(tenant, flow, id, revision);
+        if (!java.util.Objects.equals(before, id)) {
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_FLOW_CHANGE, "MODEL_FLOW", flow.name(), null,
+                    event -> event.detail("flow", flow.name()).detail("before", modelFacts(tenant, before))
+                            .detail("after", modelFacts(tenant, id)));
+        }
         return flowView(tenant, catalog.flowDefault(tenant, flow));
     }
 
@@ -512,5 +541,38 @@ public class ModelCatalogService {
     private static void requireUnique(List<Model> models, UUID provider, @Nullable UUID id, String name) {
         if (models.stream().anyMatch(m -> m.providerId().equals(provider) && !Objects.equals(id, m.id()) && m.modelName().equals(name)))
             throw ChatException.conflict();
+    }
+
+    private void record(UUID tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, String type, Object id,
+                        @Nullable String label,
+                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
+        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, new TenantId(tenant)).actor(actor)
+                .resource(type, id, label)).build());
+    }
+
+    /** What a provider change is judged by: where data goes and who may reach it. The key itself is never recorded. */
+    private static java.util.Map<String, Object> providerFacts(ModelCatalogRepository.Provider provider) {
+        var facts = new java.util.LinkedHashMap<String, Object>();
+        facts.put("name", provider.name());
+        facts.put("baseUrl", provider.baseUrl());
+        facts.put("dataBoundary", provider.dataBoundary().name());
+        facts.put("enabled", provider.enabled());
+        facts.put("public", provider.isPublic());
+        facts.put("groups", provider.groupIds().size());
+        return facts;
+    }
+
+    private java.util.@Nullable Map<String, Object> modelFacts(UUID tenant, @Nullable UUID modelId) {
+        if (modelId == null) return null;
+        var model = catalog.model(tenant, modelId).orElse(null);
+        if (model == null) return java.util.Map.of("id", modelId.toString());
+        var provider = catalog.provider(tenant, model.providerId()).orElse(null);
+        var facts = new java.util.LinkedHashMap<String, Object>();
+        facts.put("model", model.displayName());
+        if (provider != null) {
+            facts.put("provider", provider.name());
+            facts.put("dataBoundary", provider.dataBoundary().name());
+        }
+        return facts;
     }
 }

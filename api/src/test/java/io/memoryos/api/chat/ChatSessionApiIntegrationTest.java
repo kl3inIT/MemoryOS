@@ -2045,6 +2045,15 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/model-flows/CHAT_NAMING").param("revision", set.path("revision").asText())
                         .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.modelConfigurationId").isEmpty());
+        // Configuration is on the audit stream: where data goes before and after, and never the provider's key.
+        String providerId = provider.path("id").asText();
+        assertEquals("{\"adapter\": \"openai\", \"dataBoundary\": \"INTERNAL\"}", jdbc.sql("""
+                        SELECT details::text FROM audit_event WHERE action = 'llm_provider.create' AND resource_id = :id
+                        """).param("id", providerId).query(String.class).single());
+        assertEquals(2L, jdbc.sql("SELECT count(*) FROM audit_event WHERE action = 'model_flow.change' AND resource_id = 'CHAT_NAMING'"
+                + " AND actor_id = :actor").param("actor", actor.getPrincipal().actorId().value()).query(Long.class).single());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM audit_event WHERE details::text LIKE '%fixture-byok%'")
+                .query(Long.class).single(), "a provider key is never recorded");
     }
 
     @Test
@@ -2824,6 +2833,34 @@ class ChatSessionApiIntegrationTest {
         jdbc.sql("INSERT INTO iam_group_capability_grants(tenant_id,group_id,capability) VALUES (:tenant,:group,:capability)")
                 .param("tenant", TENANT).param("group", group).param("capability", capability).update();
         return group;
+    }
+
+    @Test
+    void theAuditLogIsReadAndExportedOnlyWithAuditRead() throws Exception {
+        var since = java.time.Instant.now().minusSeconds(1).toString();
+        // A recorded change to read back: a Group created by this member once they may manage Groups.
+        grantCapability("GROUPS_MANAGE");
+        mockMvc.perform(post("/api/groups").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"=Kế toán\"}")).andExpect(status().isCreated());
+        mockMvc.perform(get("/api/audit/events").param("from", since).with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/audit/export").with(authentication(actor))).andExpect(status().isForbidden());
+        grantCapability("AUDIT_READ");
+        mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "user_group.create").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].resourceLabel").value("=Kế toán"))
+                .andExpect(jsonPath("$.items[0].endpoint").value("POST /api/groups"));
+        mockMvc.perform(get("/api/audit/catalog").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.actions[0].action").value("auth.login"));
+        String csv = mockMvc.perform(get("/api/audit/export").param("from", since).param("action", "user_group.create")
+                        .with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(header().string("Content-Type", "text/csv; charset=UTF-8"))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(csv.startsWith("﻿occurred_at,action"), csv);
+        assertTrue(csv.contains("'=Kế toán"), "a formula in data is neutralized");
+        // The export is itself on the stream.
+        mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "audit.export").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].details.rows").value(1));
+        mockMvc.perform(get("/api/audit/events").param("cursor", "garbage").with(authentication(actor))).andExpect(status().isBadRequest());
     }
 
     @Test

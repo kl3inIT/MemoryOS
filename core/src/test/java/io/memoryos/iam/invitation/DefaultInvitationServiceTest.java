@@ -192,6 +192,14 @@ class DefaultInvitationServiceTest {
         var replacement = invitations.issue(ownerActorId, "expired@example.com");
         assertNotEquals(expiring.invitation().id(), replacement.invitation().id());
         assertEquals("EXPIRED", invitationStatus(expiring.invitation().id()));
+        assertEquals(java.util.List.of("user.invite", "user.invite", "user.invite_rotate", "user.invite_revoke",
+                "user.invite", "user.invite"), auditActions());
+        org.junit.jupiter.api.Assertions.assertFalse(jdbcClient.sql("SELECT string_agg(details::text, ' ') FROM audit_event").query(String.class).single()
+                .contains(rotated.plaintextSecret()), "an invitation secret is never recorded");
+    }
+
+    private java.util.List<String> auditActions() {
+        return jdbcClient.sql("SELECT action FROM audit_event ORDER BY occurred_at, id").query(String.class).list();
     }
 
     @Test
@@ -341,6 +349,7 @@ class DefaultInvitationServiceTest {
         assertEquals(1L, count("tenant_memberships"));
         assertEquals(2L, count("iam_group_memberships"));
         assertEquals("PENDING", invitationStatus(issued.invitation().id()));
+        assertEquals(java.util.List.of("user.invite"), auditActions(), "a join that rolled back left no event");
     }
 
     @Test
@@ -394,6 +403,7 @@ class DefaultInvitationServiceTest {
                 },
                 authorization,
                 locks,
+                TestDatabase.audit(jdbcClient, jpa.transactionManager()),
                 new TransactionTemplate(jpa.transactionManager()),
                 clock,
                 Duration.ofHours(72)

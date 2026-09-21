@@ -27,14 +27,17 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
     private final ExternalIdentityRegistrar identities;
     private final TenantMembershipProvisioner memberships;
     private final GroupProvisioner groups;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public DefaultTrustedIdentityAdmission(
             JpaTenantRepository tenants,
             IamLockRepository locks,
             ExternalIdentityRegistrar identities,
             TenantMembershipProvisioner memberships,
-            GroupProvisioner groups
+            GroupProvisioner groups,
+            io.memoryos.iam.audit.AuditTrail audit
     ) {
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.locks = Objects.requireNonNull(locks, "locks must not be null");
         this.identities = Objects.requireNonNull(identities, "identities must not be null");
@@ -64,6 +67,10 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
         }
         memberships.grantMember(tenantId, actorId);
         groups.addToBasicGroup(tenantId, actorId);
+        // Admitted by a trusted identity provider rather than an invitation (MEM-59): the first sign-in is the join.
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.JIT_ADMIT, tenantId)
+                .actor(actorId, identity.subject()).resource("USER", actorId.value(), null)
+                .detail("issuer", identity.issuer()).build());
         return actorId;
     }
 

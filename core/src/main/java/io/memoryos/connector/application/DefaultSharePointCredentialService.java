@@ -39,16 +39,20 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
     private final IamAuthorization authorization;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final io.memoryos.iam.audit.AuditTrail audit;
     private final Semaphore verifications = new Semaphore(CONCURRENT_VERIFICATIONS);
 
     @Autowired
     public DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointProvider provider,
-            IamAuthorization authorization, PlatformTransactionManager transactionManager) {
-        this(credentials, provider, authorization, transactionManager, Clock.systemUTC());
+            IamAuthorization authorization, PlatformTransactionManager transactionManager,
+            io.memoryos.iam.audit.AuditTrail audit) {
+        this(credentials, provider, authorization, transactionManager, Clock.systemUTC(), audit);
     }
 
     DefaultSharePointCredentialService(JdbcSharePointCredentialRepository credentials, SharePointProvider provider,
-            IamAuthorization authorization, PlatformTransactionManager transactionManager, Clock clock) {
+            IamAuthorization authorization, PlatformTransactionManager transactionManager, Clock clock,
+            io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.credentials = credentials;
         this.provider = provider;
         this.authorization = authorization;
@@ -69,8 +73,10 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
             var verification = verify(draft.cloud(), directoryId, clientId, authentication);
             return Objects.requireNonNull(transactions.execute(_ -> {
                 TenantId tenantId = requireManagement(actorId);
-                return credentials.create(tenantId, actorId, name, directoryId, clientId, draft.cloud(),
+                var created = credentials.create(tenantId, actorId, name, directoryId, clientId, draft.cloud(),
                         authentication, verification.tenantHost());
+                audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_CREATE, tenantId).actor(actorId).resource("CREDENTIAL", created.value(), name).detail("provider", "SHAREPOINT").detail("authentication", draft.authMethod().name()).build());
+                return created;
             }));
         }
     }
@@ -92,8 +98,10 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
             return Objects.requireNonNull(transactions.execute(_ -> {
                 TenantId tenantId = requireManagement(actorId);
                 requireCredentialMutation(actorId, credentialId);
-                return credentials.replaceAuthentication(tenantId, credentialId, expectedRevision, name,
+                long revision = credentials.replaceAuthentication(tenantId, credentialId, expectedRevision, name,
                         authentication, verification.tenantHost());
+                audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "SHAREPOINT").detail("change", "REPLACE_AUTHENTICATION").build());
+                return revision;
             }));
         }
     }
@@ -104,6 +112,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         TenantId tenantId = requireManagement(actorId);
         requireCredentialMutation(actorId, credentialId);
         credentials.rename(tenantId, credentialId, expectedRevision, requireName(name));
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), requireName(name)).detail("provider", "SHAREPOINT").detail("change", "RENAME").build());
     }
 
     @Override
@@ -112,6 +121,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         TenantId tenantId = requireManagement(actorId);
         requireCredentialMutation(actorId, credentialId);
         credentials.delete(tenantId, credentialId, expectedRevision);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_DELETE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "SHAREPOINT").build());
     }
 
     @Override
