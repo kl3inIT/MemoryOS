@@ -4798,6 +4798,98 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/limits/{limitId}:
+    put:
+      tags:
+      - AI costs
+      summary: "Changes a limit's budgets, period or switch; who it applies to is\
+        \ fixed. Requires model management"
+      operationId: updateAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: limitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiUsageLimitRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - AI costs
+      summary: Removes a limit; requires model management
+      operationId: deleteAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: limitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Removed
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/users/{actorId}/groups:
     post:
       tags:
@@ -10462,6 +10554,83 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/limits:
+    get:
+      tags:
+      - AI costs
+      summary: The Tenant's AI spending limits; requires model management
+      operationId: listAiUsageLimits
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - AI costs
+      summary: "Sets a spending limit for the Tenant, a Group or each person; requires\
+        \ model management"
+      operationId: createAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiUsageLimitRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/settings:
     get:
       tags:
@@ -15142,6 +15311,37 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/limits/mine:
+    get:
+      tags:
+      - AI costs
+      summary: The budget that binds the caller and what they have spent against it;
+        any member
+      operationId: getMyAiUsageStanding
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "The binding budget, or nothing when the Tenant sets no limit"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageStanding"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/ai-costs/detail:
     get:
       tags:
@@ -18237,6 +18437,75 @@ components:
           items:
             type: string
             format: uuid
+    AiUsageLimitRequest:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupId:
+          type: string
+          format: uuid
+        tokenBudget:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - periodDays
+      - scope
+    AiUsageLimit:
+      type: object
+      description: "A cap on AI spending. A model without a price adds tokens but\
+        \ no cost, so only a token budget binds it"
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        tokenBudget:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        enabled:
+          type: boolean
+        tokensUsed:
+          type: integer
+          format: int64
+          description: "Spent against this limit in its own window; for a per-person\
+            \ limit, the busiest person's spend"
+        costUsed:
+          type: number
+      required:
+      - costUsed
+      - enabled
+      - id
+      - periodDays
+      - scope
+      - tokensUsed
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -22999,6 +23268,41 @@ components:
       - label
       - outputTokens
       - unknownCostCalls
+    AiUsageStanding:
+      type: object
+      description: "The budget that binds the caller, and what they have spent against\
+        \ it"
+      properties:
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupName:
+          type: string
+        tokenBudget:
+          type: integer
+          format: int64
+        tokensUsed:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        costUsed:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        resetsAt:
+          type: string
+          format: date-time
+      required:
+      - costUsed
+      - periodDays
+      - resetsAt
+      - scope
+      - tokensUsed
     ApiProblem:
       type: object
       additionalProperties: false

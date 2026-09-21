@@ -78,6 +78,11 @@ public enum AuditAction {
     CREDENTIAL_UPDATE("credential.update", AuditEventClass.API_ACTIVITY, "provider", "change"),
     CREDENTIAL_DELETE("credential.delete", AuditEventClass.API_ACTIVITY, "provider"),
 
+    // What a Tenant may spend on AI (MEM-123).
+    AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),
+    AI_LIMIT_UPDATE("ai_limit.update", AuditEventClass.API_ACTIVITY, "scope", "group", "before", "after"),
+    AI_LIMIT_DELETE("ai_limit.delete", AuditEventClass.API_ACTIVITY, "scope", "group", "before"),
+
     // The audit stream's own reads that leave the system, and refused authority.
     AUDIT_EXPORT("audit.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),
     PERMISSION_DENIED("permission.denied", AuditEventClass.API_ACTIVITY, "capability", "scope");

@@ -13,6 +13,11 @@ public final class AiCostException extends BusinessException {
         return new AiCostException("AI_COST_INVALID", FailureCategory.VALIDATION, message);
     }
 
+    /** A limit that does not exist or belongs to another Tenant. */
+    public static AiCostException limitNotFound() {
+        return new AiCostException("AI_USAGE_LIMIT_NOT_FOUND", FailureCategory.NOT_FOUND, "The limit no longer exists.");
+    }
+
     /** A report that does not exist, belongs to another Tenant or is not ready to download. */
     public static AiCostException reportNotFound() {
         return new AiCostException("AI_USAGE_REPORT_NOT_FOUND", FailureCategory.NOT_FOUND, "The usage report is not available.");

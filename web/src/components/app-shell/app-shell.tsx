@@ -345,32 +345,6 @@ function SidebarContents({
                 </SidebarTab>
               </SidebarSection>
             ) : null}
-            {canManageModels || canReadAudit ? (
-              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
-                {canManageModels ? (
-                  <SidebarTab
-                    to="/admin/ai-costs"
-                    icon={<ReceiptText className="size-4" />}
-                    selected={adminPage === "costs"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("AI costs")}
-                  </SidebarTab>
-                ) : null}
-                {canReadAudit ? (
-                  <SidebarTab
-                    to="/admin/audit"
-                    icon={<ScrollText className="size-4" />}
-                    selected={adminPage === "audit"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Audit log")}
-                  </SidebarTab>
-                ) : null}
-              </SidebarSection>
-            ) : null}
             {canManageAgents ? (
               <SidebarSection title={ui("Trợ lý")} collapsed={collapsed}>
                 <SidebarTab
@@ -463,6 +437,32 @@ function SidebarContents({
                     onClick={onNavigate}
                   >
                     {ui("Sign-in providers")}
+                  </SidebarTab>
+                ) : null}
+              </SidebarSection>
+            ) : null}
+            {canManageModels || canReadAudit ? (
+              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
+                {canManageModels ? (
+                  <SidebarTab
+                    to="/admin/ai-costs"
+                    icon={<ReceiptText className="size-4" />}
+                    selected={adminPage === "costs"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("AI costs")}
+                  </SidebarTab>
+                ) : null}
+                {canReadAudit ? (
+                  <SidebarTab
+                    to="/admin/audit"
+                    icon={<ScrollText className="size-4" />}
+                    selected={adminPage === "audit"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Audit log")}
                   </SidebarTab>
                 ) : null}
               </SidebarSection>
