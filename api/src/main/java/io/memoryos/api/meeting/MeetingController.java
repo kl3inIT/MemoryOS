@@ -4,6 +4,7 @@ import io.memoryos.api.chat.VoiceTicketStore;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingException;
+import io.memoryos.meeting.MeetingMinutesDocument;
 import io.memoryos.meeting.MeetingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,12 +13,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +43,8 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class MeetingController {
+    static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
     private final MeetingService meetings;
     private final VoiceTicketStore tickets;
 
@@ -60,6 +67,22 @@ class MeetingController {
     @Schema(name = "MeetingNotesRequest")
     record NotesRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 50000) String notes,
                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision) {}
+
+    @Schema(name = "MeetingHeadingRequest",
+            description = "The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis")
+    record HeadingRequest(String organization, String parentOrganization, String number, String about, String place,
+                          String opened, String closed, String chair, String chairRole, String secretary,
+                          String secretaryRole, List<String> attendees) {
+        MeetingMinutesDocument.Heading toHeading() {
+            return new MeetingMinutesDocument.Heading(text(organization), text(parentOrganization), text(number),
+                    text(about), text(place), text(opened), text(closed), text(chair), text(chairRole), text(secretary),
+                    text(secretaryRole), attendees == null ? List.of() : attendees);
+        }
+
+        private static String text(@Nullable String value) {
+            return value == null ? "" : value;
+        }
+    }
 
     @Schema(name = "MeetingItemRequest")
     record ItemRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean done) {}
@@ -240,6 +263,21 @@ class MeetingController {
     DetailResponse item(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                         @PathVariable UUID meetingId, @PathVariable UUID itemId, @RequestBody ItemRequest body) {
         return DetailResponse.from(meetings.markItem(identity.actorId(), meetingId, itemId, body.done()));
+    }
+
+    @PostMapping(value = "/{meetingId}/minutes/export", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = DOCX)
+    @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản in Word format")
+    @ApiResponse(responseCode = "200", description = "The biên bản",
+            content = @Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    ResponseEntity<byte[]> export(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                  @PathVariable UUID meetingId, @RequestBody HeadingRequest body) {
+        byte[] document = meetings.exportMinutes(identity.actorId(), meetingId, body.toHeading());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
+                .contentType(MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @DeleteMapping("/{meetingId}")

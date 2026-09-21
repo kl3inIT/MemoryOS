@@ -4,6 +4,7 @@ import {
   createMeetingTicket,
   deleteMeeting,
   endMeeting,
+  exportMeetingMinutes,
   getMeeting,
   listMeetings,
   markMeetingMinutesItem,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import type {
   MeetingCreateRequest,
+  MeetingHeadingRequest,
   MeetingDetail,
   MeetingMinutes,
   MeetingMinutesItem,
@@ -21,7 +23,14 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import type { MeetingTrack } from "./meeting-socket";
 
-export type { MeetingDetail, MeetingMinutes, MeetingMinutesItem, MeetingSummary, MeetingUtterance };
+export type {
+  MeetingDetail,
+  MeetingHeadingRequest,
+  MeetingMinutes,
+  MeetingMinutesItem,
+  MeetingSummary,
+  MeetingUtterance,
+};
 export type MeetingKind = MeetingDetail["kind"];
 
 export const meetingsKey = ["meetings"] as const;
@@ -109,6 +118,20 @@ export async function markMinutesItem(meetingId: string, itemId: string, done: b
   return data;
 }
 
+/** Downloads the minutes as a biên bản; the heading is printed, not stored, so it travels with the call. */
+export async function exportMinutes(
+  meetingId: string,
+  heading: MeetingHeadingRequest,
+): Promise<Blob> {
+  const { data } = await exportMeetingMinutes({
+    path: { meetingId },
+    body: heading,
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data as Blob;
+}
+
 export async function removeMeeting(meetingId: string) {
   await deleteMeeting({
     path: { meetingId },
@@ -130,6 +153,19 @@ export function formatWhen(iso: string, language: string) {
   return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(iso),
   );
+}
+
+/** "ngày 21 tháng 9 năm 2026", the form a biên bản is written in. */
+export function vietnameseDate(iso: string) {
+  const at = new Date(iso);
+  return `ngày ${at.getDate()} tháng ${at.getMonth() + 1} năm ${at.getFullYear()}`;
+}
+
+/** "09 giờ 00 ngày 21 tháng 9 năm 2026". */
+export function vietnameseMoment(iso: string) {
+  const at = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(at.getHours())} giờ ${pad(at.getMinutes())} ${vietnameseDate(iso)}`;
 }
 
 export function formatClock(ms: number) {

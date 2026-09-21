@@ -51,6 +51,7 @@ const MEETING_ID = "0f6b3c1e-9a7d-4d5e-8c2b-6e1f4a9b3d77";
 async function mockMeetings(page: Page) {
   let meeting: MeetingDetail | undefined;
   const audio = { bytes: 0, ended: false, offset: "" };
+  const exported: { heading?: Record<string, unknown> } = {};
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: member }));
   await page.route("**/api/chat/sessions?*", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/projects?*", (route) => route.fulfill({ json: [] }));
@@ -172,6 +173,15 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting });
   });
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/export`, async (route) => {
+    exported.heading = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      // The real endpoint answers with a Word document; the browser only has to save it.
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      headers: { "content-disposition": 'attachment; filename="bien-ban.docx"' },
+      body: Buffer.from("PK"),
+    });
+  });
   await page.routeWebSocket(/\/api\/meeting-stream/, (socket) => {
     audio.offset = new URL(socket.url()).searchParams.get("offset") ?? "";
     socket.send(JSON.stringify({ type: "ready" }));
@@ -230,7 +240,7 @@ async function mockMeetings(page: Page) {
       }
     });
   });
-  return audio;
+  return { audio, exported };
 }
 
 for (const width of [1440, 390]) {
@@ -238,7 +248,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const audio = await mockMeetings(page);
+    const { audio, exported } = await mockMeetings(page);
 
     await page.goto("/meetings");
     await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
@@ -320,6 +330,29 @@ for (const width of [1440, 390]) {
       path: `../output/playwright/meetings-actions-${width}.png`,
       fullPage: true,
     });
+    await page.getByRole("tab", { name: "Tóm tắt" }).click();
+    await page.getByRole("button", { name: "Xuất biên bản" }).click();
+    const bienBan = page.getByRole("dialog", { name: "Xuất biên bản" });
+    // The heading the transcript cannot know is the owner's; the meeting fills the rest.
+    await expect(bienBan.getByLabel("Về việc")).toHaveValue("Giao ban tuần · Khối Tài chính");
+    await expect(bienBan.getByLabel("Bắt đầu")).toHaveValue(
+      /^\d{2} giờ \d{2} ngày \d+ tháng \d+ năm \d{4}$/,
+    );
+    await bienBan.getByLabel("Cơ quan, tổ chức").fill("CÔNG TY CỔ PHẦN TASCO");
+    await bienBan.getByLabel("Địa điểm").fill("Phòng họp A, Hà Nội");
+    await bienBan.getByLabel("Chủ trì", { exact: true }).fill("Nguyễn Văn An");
+    await page.screenshot({ path: `../output/playwright/meetings-export-${width}.png` });
+    const download = page.waitForEvent("download");
+    await bienBan.getByRole("button", { name: "Tải về" }).click();
+    expect((await download).suggestedFilename()).toBe("bien-ban-giao-ban-tuan-khoi-tai-chinh.docx");
+    expect(exported.heading).toMatchObject({
+      organization: "CÔNG TY CỔ PHẦN TASCO",
+      place: "Phòng họp A, Hà Nội",
+      chair: "Nguyễn Văn An",
+      attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
+    });
+    await expect(bienBan).toHaveCount(0);
+
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);
     expect(

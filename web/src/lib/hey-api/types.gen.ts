@@ -1253,6 +1253,24 @@ export type MeetingTicket = {
     expiresAt: string;
 };
 
+/**
+ * The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis
+ */
+export type MeetingHeadingRequest = {
+    organization?: string;
+    parentOrganization?: string;
+    number?: string;
+    about?: string;
+    place?: string;
+    opened?: string;
+    closed?: string;
+    chair?: string;
+    chairRole?: string;
+    secretary?: string;
+    secretaryRole?: string;
+    attendees?: Array<string>;
+};
+
 export type McpToolRefresh = {
     server: McpServerView;
     tools: Array<McpToolView>;
@@ -7239,6 +7257,51 @@ export type RerunMeetingMinutesResponses = {
 };
 
 export type RerunMeetingMinutesResponse = RerunMeetingMinutesResponses[keyof RerunMeetingMinutesResponses];
+
+export type ExportMeetingMinutesData = {
+    body: MeetingHeadingRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/export';
+};
+
+export type ExportMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ExportMeetingMinutesError = ExportMeetingMinutesErrors[keyof ExportMeetingMinutesErrors];
+
+export type ExportMeetingMinutesResponses = {
+    /**
+     * The biên bản
+     */
+    200: Blob | File;
+};
+
+export type ExportMeetingMinutesResponse = ExportMeetingMinutesResponses[keyof ExportMeetingMinutesResponses];
 
 export type EndMeetingData = {
     body?: never;

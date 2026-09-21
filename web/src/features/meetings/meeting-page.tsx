@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CheckSquare,
   Clock,
+  FileDown,
   Lock,
   MessageSquareText,
   Mic,
@@ -45,6 +46,7 @@ import {
   ShareCancelledError,
 } from "./meeting-capture";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
+import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import {
@@ -487,6 +489,7 @@ export function MeetingPage({
 function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   const cache = useQueryClient();
   const [pending, setPending] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { status, summary, generatedAt } = meeting.minutes;
 
   async function rerun() {
@@ -532,8 +535,15 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
           <RefreshCw aria-hidden="true" />
           {ui("Viết lại")}
         </Button>
+        <Button size="sm" prominence="tertiary" onClick={() => setExporting(true)}>
+          <FileDown aria-hidden="true" />
+          {ui("Xuất biên bản")}
+        </Button>
       </div>
       <p className="whitespace-pre-wrap text-content-secondary">{summary}</p>
+      {exporting && (
+        <ExportMinutesDialog meeting={meeting} open onOpenChange={(next) => setExporting(next)} />
+      )}
     </div>
   );
 }

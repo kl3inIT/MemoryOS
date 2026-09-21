@@ -48,3 +48,11 @@ One call to the Tenant's model for `MEETING_MINUTES`, no tools and no conversati
 Each item cites the line it rests on; that line number becomes the utterance id, so the owner can jump from an item to what was said. An item without text is dropped, an owner or due date is at most 100 characters and text or a quote at most 2,000. The call's tokens are recorded as `MEETING_MINUTES` usage against the owner's Tenant.
 
 `PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's answers `MEETING_NOT_FOUND`.
+
+## Biên bản
+
+`POST /api/meetings/{id}/minutes/export` returns the minutes as a Vietnamese *biên bản* in Word format, built with Apache POI. It is deterministic: the same meeting and the same heading always produce the same document, and no model runs.
+
+The layout follows Nghị định 30/2020/NĐ-CP mẫu 1.9 — the two-column letterhead (cơ quan and số on the left, quốc hiệu and tiêu ngữ on the right), *BIÊN BẢN*, *Về việc*, the opening time and place, *I. Thành phần tham dự*, *II. Nội dung cuộc họp* (the summary), *III. Kết luận cuộc họp* (the decisions), *IV. Nhiệm vụ được giao* (the actions, each read back as “<task> do <owner> thực hiện, thời hạn <due>.”) and the thư ký and chủ tọa signature block — in Times New Roman at 13 points, 14 for the title.
+
+The decree binds state bodies; a company follows it by convention. So the heading the transcript cannot know — cơ quan, số, về việc, địa điểm, the opening and closing times, chủ trì, thư ký and their roles — travels with the request and is never stored. The browser pre-fills what the meeting already knows, and a field left empty prints as an ellipsis to write on. The minutes must be `READY`.

@@ -32,6 +32,8 @@ public class MeetingService {
     static final int MAX_NAME = 200;
     static final int MAX_TERM = 100;
     static final int MAX_NOTES = 50_000;
+    /** The subject line of a biên bản; long enough for a sentence, short enough to print. */
+    static final int MAX_NOTES_LINE = 500;
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
     private static final long BYTES_PER_SECOND = 48_000;
     private final IamAuthorization authorization;
@@ -128,6 +130,42 @@ public class MeetingService {
         if (meetings.utterances(tenant, id).isEmpty()) throw MeetingException.invalid("This meeting has no transcript.");
         meetings.queueMinutes(tenant, id);
         return detail(tenant, actor, id);
+    }
+
+    /** Renders the minutes as a Vietnamese biên bản in Word format. Nothing is stored; the heading comes with the call. */
+    @Transactional(readOnly = true)
+    public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
+        UUID tenant = tenant(actor);
+        var meeting = detail(tenant, actor, id);
+        if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
+            throw MeetingException.invalid("The minutes are not written yet.");
+        return MeetingMinutesDocument.render(meeting, validate(heading));
+    }
+
+    /** The heading is printed, not stored, so it only has to fit on the page. */
+    static MeetingMinutesDocument.Heading validate(MeetingMinutesDocument.@Nullable Heading heading) {
+        if (heading == null) throw MeetingException.invalid("The minutes need a heading.");
+        var attendees = new LinkedHashSet<String>();
+        for (var attendee : heading.attendees()) {
+            String name = attendee == null ? "" : attendee.strip();
+            if (!name.isEmpty()) attendees.add(field(name, MAX_NAME, "An attendee"));
+            if (attendees.size() > MAX_PARTICIPANTS)
+                throw MeetingException.invalid("A meeting has at most 50 attendees.");
+        }
+        return new MeetingMinutesDocument.Heading(field(heading.organization(), MAX_NAME, "The organization"),
+                field(heading.parentOrganization(), MAX_NAME, "The parent organization"),
+                field(heading.number(), MAX_TERM, "The number"), field(heading.about(), MAX_NOTES_LINE, "The subject"),
+                field(heading.place(), MAX_NAME, "The place"), field(heading.opened(), MAX_NAME, "The opening time"),
+                field(heading.closed(), MAX_NAME, "The closing time"), field(heading.chair(), MAX_NAME, "The chair"),
+                field(heading.chairRole(), MAX_NAME, "The chair's role"),
+                field(heading.secretary(), MAX_NAME, "The secretary"),
+                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees));
+    }
+
+    private static String field(@Nullable String value, int limit, String what) {
+        String text = value == null ? "" : value.strip();
+        if (text.length() > limit) throw MeetingException.invalid(what + " is too long.");
+        return text;
     }
 
     /** Ticks off a task the minutes found. */

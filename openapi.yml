@@ -5860,6 +5860,64 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/minutes/export:
+    post:
+      tags:
+      - Meetings
+      summary: Download the minutes as a Vietnamese biên bản in Word format
+      operationId: exportMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingHeadingRequest"
+        required: true
+      responses:
+        "200":
+          description: The biên bản
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/end:
     post:
       tags:
@@ -18066,6 +18124,37 @@ components:
       required:
       - expiresAt
       - ticket
+    MeetingHeadingRequest:
+      type: object
+      description: The parts of a biên bản the transcript cannot supply; a blank field
+        prints as an ellipsis
+      properties:
+        organization:
+          type: string
+        parentOrganization:
+          type: string
+        number:
+          type: string
+        about:
+          type: string
+        place:
+          type: string
+        opened:
+          type: string
+        closed:
+          type: string
+        chair:
+          type: string
+        chairRole:
+          type: string
+        secretary:
+          type: string
+        secretaryRole:
+          type: string
+        attendees:
+          type: array
+          items:
+            type: string
     McpToolRefresh:
       type: object
       properties:
