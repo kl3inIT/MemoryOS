@@ -140,6 +140,11 @@ jobs:
             -f infrastructure/deployment/compose.base.yaml \
             -f infrastructure/deployment/compose.staging.yaml \
             -f infrastructure/deployment/compose.search.staging.yaml config --quiet
+          # The production overlay has no example file of its own yet; the staging values interpolate it
+          # until MEM-171 adds production.env.example. This validates the overlay, not those values.
+          docker compose --env-file infrastructure/deployment/staging.env.example \
+            -f infrastructure/deployment/compose.base.yaml \
+            -f infrastructure/deployment/compose.production.yaml config --quiet
           docker compose --env-file infrastructure/observability/observability.env.example \
             -f infrastructure/observability/compose.observability.yaml config --quiet
           docker run --rm --network none --entrypoint promtool \
