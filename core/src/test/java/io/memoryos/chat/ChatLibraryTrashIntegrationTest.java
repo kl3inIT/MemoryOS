@@ -107,8 +107,8 @@ class ChatLibraryTrashIntegrationTest {
         files = new JdbcUserFileRepository(jdbc);
         library = new JdbcChatLibraryRepository(jdbc);
         artifacts = new JdbcInterpreterRepository(jdbc);
-        var quotas = new ChatStorageQuotaService(tenants, mock(IamAuthorization.class),
-                new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc), library);
+        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), library);
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 new ChatRetentionProperties(false, WINDOW, java.time.Duration.ZERO,
@@ -195,8 +195,13 @@ class ChatLibraryTrashIntegrationTest {
         interpreter.delete(owner, file);
         assertEquals(1, trash.empty(owner));
         assertEquals(1, cleanup.cleanup());
-        assertEquals(0, count("chat_file_artifact"));
         assertEquals(0, count("stored_objects"));
+        // The row survives as a tombstone so the answer keeps explaining itself, and the trash drops it:
+        // there is nothing left to restore.
+        assertEquals(1, count("chat_file_artifact WHERE purged_at IS NOT NULL"));
+        assertEquals(List.of(), ids(page(true)));
+        assertThrows(ChatException.class,
+                () -> trash.restore(owner, ChatLibraryFile.Source.GENERATED, file));
     }
 
     private JdbcChatLibraryRepository.Page page(boolean trashed) {

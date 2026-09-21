@@ -98,9 +98,8 @@ class ChatPersistenceIntegrationTest {
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class),
                 new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
-                new ChatStorageQuotaService(tenants, authorization,
-                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
-                        new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
                         java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());

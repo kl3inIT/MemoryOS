@@ -9,14 +9,17 @@ export const Route = createFileRoute("/_authenticated/settings")({
     const matchRoute = useMatchRoute();
     const page = matchRoute({ to: "/settings/chat" })
       ? "chat"
-      : matchRoute({ to: "/settings/usage" })
-        ? "usage"
-        : matchRoute({ to: "/settings/connections" })
-          ? "connections"
-          : "general";
+      : matchRoute({ to: "/settings/storage" })
+        ? "storage"
+        : matchRoute({ to: "/settings/usage" })
+          ? "usage"
+          : matchRoute({ to: "/settings/connections" })
+            ? "connections"
+            : "general";
     const titles = {
       general: "General",
       chat: "Chat",
+      storage: "Bộ nhớ lưu trữ",
       connections: "Connections",
       usage: "Usage",
     } as const;

@@ -110,9 +110,8 @@ class ChatLibraryArchiveIntegrationTest {
         repository = new JdbcChatLibraryArchiveRepository(jdbc);
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage,
-                new io.memoryos.chat.ChatStorageQuotaService(tenants, mock(IamAuthorization.class),
-                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
-                        new JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc)),
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
                         java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());

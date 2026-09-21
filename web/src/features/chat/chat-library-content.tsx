@@ -24,7 +24,7 @@ export function LibraryContentMatches({
   return (
     <ul className="flex flex-col gap-2">
       {matches.map((match) => (
-        <li key={match.file.id} className="rounded-lg border border-border-default px-3 py-2.5">
+        <li key={match.file.id} className="rounded-lg border border-border-subtle px-3 py-2.5">
           <div className="flex items-start gap-2">
             <button
               type="button"

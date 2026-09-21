@@ -1,6 +1,6 @@
-import { FileSpreadsheet, FileText, Image as ImageIcon, Presentation } from "lucide-react";
 import type { useAppTranslation } from "@/i18n/use-app-translation";
 import type { LibraryCategory, LibraryFile, LibrarySource } from "./chat-library";
+import { CATEGORY_ICONS } from "./chat-library-icons";
 
 /** How a file is named on screen: where it came from, what kind it is, and how far along it is. */
 export function sourceLabels(ui: ReturnType<typeof useAppTranslation>) {
@@ -37,14 +37,6 @@ export function statusLabel(file: LibraryFile, ui: ReturnType<typeof useAppTrans
 }
 
 export function categoryIcon(file: LibraryFile, className = "size-4 text-content-muted") {
-  switch (file.category) {
-    case "SPREADSHEET":
-      return <FileSpreadsheet className={className} aria-hidden="true" />;
-    case "IMAGE":
-      return <ImageIcon className={className} aria-hidden="true" />;
-    case "PRESENTATION":
-      return <Presentation className={className} aria-hidden="true" />;
-    default:
-      return <FileText className={className} aria-hidden="true" />;
-  }
+  const Icon = CATEGORY_ICONS[file.category];
+  return <Icon className={className} aria-hidden="true" />;
 }
