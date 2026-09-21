@@ -3,7 +3,6 @@ import { Clock, EyeOff, FolderX, MessageSquareOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatDialog } from "./chat-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
@@ -26,23 +25,18 @@ export function ChatTemporaryToggle({
   const [explaining, setExplaining] = useState(false);
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <IconButton
-            size="sm"
-            prominence={value ? "secondary" : "internal"}
-            aria-pressed={value}
-            aria-label={value ? ui("Tắt chat tạm thời") : ui("Bật chat tạm thời")}
-            disabled={disabled}
-            onClick={() => (value ? onChange(false) : setExplaining(true))}
-          >
-            <EyeOff />
-          </IconButton>
-        </TooltipTrigger>
-        <TooltipContent>
-          {value ? ui("Chat tạm thời đang bật") : ui("Chat tạm thời")}
-        </TooltipContent>
-      </Tooltip>
+      {/* A native title, not a Radix tooltip: this sits outside any TooltipProvider. */}
+      <IconButton
+        size="sm"
+        prominence={value ? "secondary" : "internal"}
+        aria-pressed={value}
+        aria-label={value ? ui("Tắt chat tạm thời") : ui("Bật chat tạm thời")}
+        title={value ? ui("Chat tạm thời đang bật") : ui("Chat tạm thời")}
+        disabled={disabled}
+        onClick={() => (value ? onChange(false) : setExplaining(true))}
+      >
+        <EyeOff />
+      </IconButton>
       {explaining && (
         <ChatDialog
           open
