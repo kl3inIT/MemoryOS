@@ -33,6 +33,14 @@ export type LibraryStatus = "READY" | "PENDING" | "TRASH";
 export type ContentMatch = ChatLibraryContentMatch;
 
 export const chatLibraryKey = ["chat-library"] as const;
+/** Every category a file can fall into, in the order the filters and the storage page show them. */
+export const LIBRARY_CATEGORIES = [
+  "DOCUMENT",
+  "SPREADSHEET",
+  "IMAGE",
+  "PRESENTATION",
+  "OTHER",
+] as const satisfies readonly LibraryCategory[];
 export const LIBRARY_PAGE_SIZE = 50;
 
 export type LibraryFilter = {

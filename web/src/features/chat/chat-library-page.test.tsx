@@ -34,6 +34,8 @@ const getChatLibraryTrashWindow = vi.hoisted(() => vi.fn());
 const restoreChatLibraryFile = vi.hoisted(() => vi.fn());
 const purgeChatLibraryFile = vi.hoisted(() => vi.fn());
 const emptyChatLibraryTrash = vi.hoisted(() => vi.fn());
+const getChatRetention = vi.hoisted(() => vi.fn());
+const previewChatRetention = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
@@ -55,6 +57,8 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   restoreChatLibraryFile: (...args: unknown[]) => restoreChatLibraryFile(...args),
   purgeChatLibraryFile: (...args: unknown[]) => purgeChatLibraryFile(...args),
   emptyChatLibraryTrash: (...args: unknown[]) => emptyChatLibraryTrash(...args),
+  getChatRetention: (...args: unknown[]) => getChatRetention(...args),
+  previewChatRetention: (...args: unknown[]) => previewChatRetention(...args),
 }));
 
 vi.mock("./chat-files", async (importOriginal) => ({
@@ -142,6 +146,8 @@ beforeEach(async () => {
     data: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
   });
   getChatLibraryTrashWindow.mockResolvedValue({ data: { days: 30 } });
+  getChatRetention.mockResolvedValue({ data: { days: null } });
+  previewChatRetention.mockResolvedValue({ data: { days: null, affected: 0 } });
 });
 afterEach(cleanup);
 
@@ -151,7 +157,7 @@ const row = (name: string) => screen.getByText(name).closest("li") as HTMLElemen
 it("lists every source with its size, total and originating conversation", async () => {
   await show();
 
-  expect(screen.getByText("2 tệp · 3 KB")).toBeInTheDocument();
+  expect(screen.queryByText("2 tệp · 3 KB")).not.toBeInTheDocument();
   const user = userEvent.setup();
   const generated = row("doanh-thu.xlsx");
   expect(within(generated).getByText("Do mã tạo")).toBeInTheDocument();
@@ -185,7 +191,8 @@ it("sends the filters, the search and the sort to the server", async () => {
   await user.click(await screen.findByRole("button", { name: "Ảnh AI" }));
   await user.keyboard("{Escape}");
   await user.type(screen.getByRole("textbox", { name: "Tìm theo tên tệp" }), "doanh");
-  await user.selectOptions(screen.getByRole("combobox", { name: "Sắp xếp" }), "LARGEST");
+  await user.click(screen.getByRole("combobox", { name: "Sắp xếp" }));
+  await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
@@ -623,4 +630,43 @@ it("says what an empty view means and offers the way out of a filter", async () 
 
   await user.click(screen.getByRole("button", { name: "Thùng rác" }));
   expect(await screen.findByText("Thùng rác trống")).toBeInTheDocument();
+});
+
+it("keeps the library's own settings on the library: what is stored and how long conversations last", async () => {
+  getChatLibraryUsage.mockResolvedValue({
+    data: {
+      usedBytes: 3072,
+      fileCount: 2,
+      limitBytes: 10240,
+      byCategory: [
+        { category: "IMAGE", usedBytes: 2048 },
+        { category: "DOCUMENT", usedBytes: 1024 },
+      ],
+    },
+  });
+  await show();
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("button", { name: "Cài đặt thư viện" }));
+  const panel = await screen.findByRole("dialog", { name: "Cài đặt thư viện" });
+  // The meter, what the deployment allows, and the trash window are read here rather than in an admin page.
+  expect(within(panel).getByText(/3 KB \/ 10 KB/)).toBeInTheDocument();
+  expect(
+    within(panel).getByText("Tệp đã xoá được giữ 30 ngày rồi xoá vĩnh viễn."),
+  ).toBeInTheDocument();
+  // The one setting the panel offers belongs to the person, not to an administrator.
+  expect(
+    await within(panel).findByRole("combobox", { name: "Xoá hội thoại sau" }),
+  ).toBeInTheDocument();
+
+  // A kind of file narrows the list already behind the panel instead of navigating anywhere.
+  await user.click(within(panel).getByRole("button", { name: /Ảnh/ }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ categories: ["IMAGE"], offset: 0 }),
+      }),
+    ),
+  );
 });

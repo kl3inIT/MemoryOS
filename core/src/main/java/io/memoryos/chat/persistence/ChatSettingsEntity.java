@@ -10,8 +10,6 @@ import org.jspecify.annotations.Nullable;
 public class ChatSettingsEntity {
     @Id @Column(name = "tenant_id", nullable = false, updatable = false) private UUID tenantId;
     @Column(name = "deep_research_enabled", nullable = false) private boolean deepResearchEnabled = true;
-    /** Days of inactivity after which a conversation is deleted; null is no policy, which is the default. */
-    @Column(name = "chat_retention_days") private @Nullable Integer chatRetentionDays;
     @Version private @Nullable Long revision;
 
     protected ChatSettingsEntity() {}
@@ -20,6 +18,4 @@ public class ChatSettingsEntity {
     public boolean deepResearchEnabled() { return deepResearchEnabled; }
     public long revision() { return revision == null ? 0 : revision; }
     public void deepResearchEnabled(boolean enabled) { deepResearchEnabled = enabled; }
-    public @Nullable Integer chatRetentionDays() { return chatRetentionDays; }
-    public void chatRetentionDays(@Nullable Integer days) { chatRetentionDays = days; }
 }

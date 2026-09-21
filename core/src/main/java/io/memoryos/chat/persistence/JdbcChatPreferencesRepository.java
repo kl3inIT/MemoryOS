@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -45,6 +46,26 @@ public class JdbcChatPreferencesRepository {
                 .param("reasoning", value.reasoningEffortDefault() == null ? null : value.reasoningEffortDefault().name())
                 .param("autoScroll", value.autoScroll())
                 .query((row, index) -> map(row)).single();
+    }
+
+    /**
+     * How long this person keeps their own conversations, in days; empty is no policy, which is the default.
+     * It sits beside the other Chat preferences because it is one of them: a choice about one's own history.
+     */
+    public Optional<Integer> retentionDays(UUID tenant, UUID actor) {
+        return jdbc.sql("SELECT retention_days FROM chat_preferences WHERE tenant_id = :tenant AND actor_id = :actor")
+                .param("tenant", tenant).param("actor", actor)
+                .query((row, index) -> row.getObject(1, Integer.class)).optional()
+                .flatMap(Optional::ofNullable);
+    }
+
+    /** Records the number of days, or clears the policy with null; the row is created when it is missing. */
+    public void retentionDays(UUID tenant, UUID actor, @Nullable Integer days) {
+        jdbc.sql("""
+                INSERT INTO chat_preferences (tenant_id, actor_id, retention_days)
+                VALUES (:tenant, :actor, :days)
+                ON CONFLICT (tenant_id, actor_id) DO UPDATE SET retention_days = EXCLUDED.retention_days
+                """).param("tenant", tenant).param("actor", actor).param("days", days).update();
     }
 
     private static ChatPreferences map(ResultSet row) throws SQLException {

@@ -10,6 +10,8 @@ function Progress({
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
+      // The value reaches the primitive too, or the bar is announced as indeterminate however full it is.
+      value={value}
       className={cn(
         "relative flex h-1 w-full items-center overflow-x-hidden rounded-full bg-muted",
         className,

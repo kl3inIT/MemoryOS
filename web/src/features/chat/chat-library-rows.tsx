@@ -118,7 +118,7 @@ export function LibraryList({
               ))}
             </ul>
           ) : (
-            <ul role="list" className="flex flex-col">
+            <ul role="list" className="flex flex-col gap-2">
               {group.items.map((file) => (
                 <li key={file.id}>
                   <LibraryRow
@@ -154,10 +154,10 @@ function LibraryRow({
   const ui = useAppTranslation();
   return (
     <Item
-      variant="default"
+      variant="outline"
       className={cn(
-        "border-b border-border-subtle last:border-b-0 hover:bg-surface-subtle",
-        selected && "bg-surface-subtle",
+        "transition-colors hover:border-border-default hover:bg-surface-subtle",
+        selected && "border-border-default bg-surface-subtle",
       )}
     >
       <Checkbox
