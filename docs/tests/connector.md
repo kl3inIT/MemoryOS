@@ -29,6 +29,7 @@ Main V1–V20 remains byte-identical; the twelve Drive migrations moved from V18
 | `PostgresGoogleDriveSyncTest.serviceAccountSourcesAdvanceGroupMembershipAlongsideTheirSyncSteps` | 1 | Drive sync steps advance group membership for a service-account Source until nothing is due, and never for an OAuth Source |
 | `SourceApiIntegrationTest.serviceAccountsAreVerifiedAsTheirAdminAndNeverEchoTheKey` | 1 | Create and replace require CSRF and global authority, return `authMethod` and the service-account email without key material, honour `If-Match`, and surface the admin and key failures as typed problems |
 | `google-drive-service-account-form.test.tsx` | 3 | The form refuses a non-service-account file without echoing it, sends the key once and never renders it, and replaces a key with the revision precondition |
+| `google-drive-credential-actions.test.tsx` | 4 | One row menu names the attached Sources and holds the guarded actions; reconnecting a shared credential and revoking confirm first, and deleting stays disabled while Sources are attached |
 
 The Orca browser verified the Service account tab against the real API and Google: a syntactic key for an unknown service account was refused by Google, the form showed the delegation message in Vietnamese, cleared the key, and nothing was stored. Live Workspace acceptance with a delegated service account is still open.
 
@@ -326,7 +327,7 @@ The [combined MEM-55/MEM-36 verification record](../increments/completed/mem-55-
 | Closing the run or attempt detail Sheet returns focus to the View details control that opened it | `source-history-presentation.test.tsx`, `source-item-history.test.tsx` |
 | Visibility is a dropdown: FILE offers Workspace members and Private, Google Drive adds Auto Sync, and each option carries its description | `source-metadata-dialog.test.tsx`; `file-source-setup.spec.ts` — global setup scenario |
 | Access groups appear only for Private, and always for scoped managers; switching back to Workspace members hides them | `file-source-setup.spec.ts` — global setup and scoped File creation scenarios; `google-drive-source-setup.spec.ts` — scoped setup scenario |
-| The group field adds chosen Groups as removable chips, searches on the server, hides system Groups and says when nothing matches | `source-group-picker.test.tsx` |
+| The group field lists only the Groups not chosen yet, adds a chosen Group as a removable chip, searches on the server, hides system Groups and says when nothing matches | `source-group-picker.test.tsx` |
 
 Raw reservation/adoption/cleanup evidence is in [object storage](object-storage.md). Execution and extraction evidence is in [ingestion](ingestion.md); current Document/artifact evidence is in [document](document.md).
 
