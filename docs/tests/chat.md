@@ -405,3 +405,10 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | With the switch on, a purge removes the deleted conversation's command, feedback, sharing, message and session rows, marks its generated file and image for the artifact sweep, and leaves a live conversation and the owner's upload untouched | `ChatSessionPurgeIntegrationTest.purgesOnlyDeletedConversationsAndLeavesTheOwnersUploadAlone` |
 | With the switch off nothing is purged and no artifact is marked | `ChatSessionPurgeIntegrationTest.keepsEveryDeletedConversationWhileTheSwitchIsOff` |
 | A deleted conversation whose reply is still RUNNING is left for a later run, then purged once the reply ends | `ChatSessionPurgeIntegrationTest.leavesADeletedConversationWhoseReplyIsStillRunning` |
+
+## Files in this conversation (MEM-144)
+
+| Contract | Test and boundary |
+| --- | --- |
+| The filter returns the conversation's artifacts and the uploads attached in it, excludes another conversation's files and an upload never attached there, and matches nothing for a conversation the caller does not own or one that does not exist | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt`, `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
+| The panel asks for the conversation's files only once opened, lists them with size, total and download, says so when there are none, and deletes after the confirmation | `web/src/features/chat/chat-session-files.test.tsx` |

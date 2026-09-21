@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,14 +29,16 @@ public class ChatLibraryService {
 
     public record Page(List<ChatLibraryFile> items, long totalCount, long totalBytes, boolean hasMore) {}
 
+    /** {@code session} narrows the list to one conversation's own files (MEM-144); null lists everything. */
     @Transactional(readOnly = true)
     public Page list(ActorId actor, String query, Set<ChatLibraryFile.Source> sources,
-                     Set<ChatLibraryFile.Category> categories, ChatLibraryFile.Sort sort, int offset, int limit) {
+                     Set<ChatLibraryFile.Category> categories, @Nullable UUID session,
+                     ChatLibraryFile.Sort sort, int offset, int limit) {
         if (query.length() > 200 || query.indexOf('\0') >= 0) throw ChatException.invalid("Invalid search text.");
         ChatPersonaService.page(offset, limit);
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         // One extra row answers hasMore without counting twice; the window total already covers the filter.
-        var page = library.page(tenant, actor, query.trim(), names(sources), names(categories), sort, offset, limit + 1);
+        var page = library.page(tenant, actor, query.trim(), names(sources), names(categories), session, sort, offset, limit + 1);
         boolean hasMore = page.items().size() > limit;
         var items = hasMore ? page.items().subList(0, limit) : page.items();
         return new Page(withUsage(tenant, items), page.totalCount(), page.totalBytes(), hasMore);

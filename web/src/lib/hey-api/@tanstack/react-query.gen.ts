@@ -4755,7 +4755,7 @@ export const listChatModelFlowsOptions = (options?: Options<ListChatModelFlowsDa
 export const listChatLibraryQueryKey = (options?: Options<ListChatLibraryData>) => createQueryKey('listChatLibrary', options);
 
 /**
- * List the caller's own uploads, generated files and generated images as one paginated library
+ * List the caller's own uploads, generated files and generated images as one paginated library, optionally narrowed to one conversation
  */
 export const listChatLibraryOptions = (options?: Options<ListChatLibraryData>) => queryOptions<ListChatLibraryResponse, ListChatLibraryError, ListChatLibraryResponse, ReturnType<typeof listChatLibraryQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -4773,7 +4773,7 @@ export const listChatLibraryOptions = (options?: Options<ListChatLibraryData>) =
 export const listChatLibraryInfiniteQueryKey = (options?: Options<ListChatLibraryData>): QueryKey<Options<ListChatLibraryData>> => createQueryKey('listChatLibrary', options, true);
 
 /**
- * List the caller's own uploads, generated files and generated images as one paginated library
+ * List the caller's own uploads, generated files and generated images as one paginated library, optionally narrowed to one conversation
  */
 export const listChatLibraryInfiniteOptions = (options?: Options<ListChatLibraryData>) => {
     const opts = infiniteQueryOptions<ListChatLibraryResponse, ListChatLibraryError, InfiniteData<ListChatLibraryResponse>, QueryKey<Options<ListChatLibraryData>>, number | Pick<QueryKey<Options<ListChatLibraryData>>[0], 'body' | 'headers' | 'path' | 'query'>>(

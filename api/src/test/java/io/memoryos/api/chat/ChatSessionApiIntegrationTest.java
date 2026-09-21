@@ -482,6 +482,12 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(jsonPath("$.code").value("CHAT_FILE_IN_USE"))
                 .andExpect(jsonPath("$.usedBy[0].name").value("Kế hoạch"));
 
+        // A conversation the caller does not own, and one that does not exist, match nothing (MEM-144).
+        mockMvc.perform(get("/api/chat/library").with(authentication(other)).param("sessionId", UUID.randomUUID().toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(0));
+        mockMvc.perform(get("/api/chat/library").with(authentication(actor)).param("sessionId", "not-a-uuid"))
+                .andExpect(status().isBadRequest());
+
         // The artifact routes stay CSRF-guarded, and deleting what is already absent is the asked-for outcome.
         var unknown = UUID.randomUUID();
         mockMvc.perform(delete("/api/chat/file-artifacts/"+unknown).with(authentication(actor)))

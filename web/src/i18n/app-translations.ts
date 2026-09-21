@@ -1,6 +1,8 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
   // MEM-142 file library
+  "Tệp trong hội thoại": "Files in this conversation",
+  "Hội thoại này chưa có tệp nào.": "This conversation has no files yet.",
   "Thư viện": "Library",
   "Đã tải lên": "Uploaded",
   "Do mã tạo": "Created by code",
