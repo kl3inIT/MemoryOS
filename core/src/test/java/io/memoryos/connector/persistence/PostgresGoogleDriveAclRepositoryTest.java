@@ -206,6 +206,23 @@ class PostgresGoogleDriveAclRepositoryTest {
     }
 
     @Test
+    void serviceAccountCredentialKeepsEvidenceCurrentWithoutAnOAuthApp() {
+        jdbc.sql("UPDATE credentials SET credential_kind = 'GOOGLE_SERVICE_ACCOUNT', owner_actor_id = NULL WHERE tenant_id = :tenant AND id = :credential")
+                .param("tenant", fixture.tenant().value()).param("credential", fixture.credential().value()).update();
+        jdbc.sql("""
+                UPDATE google_drive_credentials SET auth_method = 'SERVICE_ACCOUNT',
+                    service_account_email = 'indexer@fixture.iam.gserviceaccount.com',
+                    service_account_key_ciphertext = refresh_token_ciphertext, service_account_key_nonce = refresh_token_nonce,
+                    service_account_key_version = key_version, refresh_token_ciphertext = NULL, refresh_token_nonce = NULL,
+                    key_version = NULL, oauth_client_ciphertext = NULL, oauth_client_nonce = NULL, oauth_client_key_version = NULL
+                WHERE tenant_id = :tenant AND credential_id = :credential
+                """).param("tenant", fixture.tenant().value()).param("credential", fixture.credential().value()).update();
+        success(fixture, List.of(permission("permission-user", "user", "reader")));
+
+        assertThat(read(fixture).currentContext().credentialActive()).isTrue();
+    }
+
+    @Test
     void renewedCredentialRevisionDoesNotMakeOldPermissionEvidenceCurrent() {
         success(fixture, List.of());
         jdbc.sql("""
