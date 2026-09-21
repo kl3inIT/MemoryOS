@@ -1202,11 +1202,6 @@ function GoogleDriveSourceSetup() {
                     {ui("Reconnect reuses the OAuth app saved with this credential.")}
                   </p>
                 )}
-                <p className="text-sm text-content-secondary">
-                  {ui(
-                    "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.",
-                  )}
-                </p>
                 {error ? (
                   <Alert variant="destructive">
                     <TriangleAlert aria-hidden="true" />

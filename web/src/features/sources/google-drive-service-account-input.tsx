@@ -1,7 +1,7 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
-import { Paperclip, X } from "lucide-react";
+import { ChevronDown, Paperclip, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -120,9 +120,13 @@ export function GoogleDriveServiceAccountInput({
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
       <legend className="sr-only">{ui("Service account key")}</legend>
       <p className="font-main-ui-action text-content-primary">{ui("Service account key")}</p>
-      <Collapsible className="font-secondary-body text-content-muted">
-        <CollapsibleTrigger className="w-fit cursor-pointer underline underline-offset-4">
+      <Collapsible className="group font-secondary-body text-content-muted">
+        <CollapsibleTrigger className="flex w-fit cursor-pointer items-center gap-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
           {ui("Setup instructions")}
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
+          />
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mt-3 flex flex-col gap-3">

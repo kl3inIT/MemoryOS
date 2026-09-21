@@ -1662,8 +1662,6 @@ Object.assign(englishUi, {
   "Replace OAuth app on reconnect": "Thay ứng dụng OAuth khi kết nối lại",
   "Reconnect reuses the OAuth app saved with this credential.":
     "Kết nối lại sử dụng ứng dụng OAuth đã lưu trong thông tin kết nối này.",
-  "Authorization saves a reusable credential, not a Source. Continue afterward to name a Source and select its file and folder links.":
-    "Cấp quyền lưu thông tin kết nối có thể dùng lại, chưa tạo nguồn. Sau đó tiếp tục đặt tên nguồn và chọn liên kết tệp, thư mục.",
   "Continuing to Google…": "Đang chuyển đến Google…",
   Authenticate: "Xác thực",
   "Selected content": "Nội dung đã chọn",
@@ -1686,22 +1684,16 @@ Object.assign(englishUi, {
   "{{v1}} explicit roots": "{{v1}} mục gốc được chọn",
   "Your Google OAuth app": "Ứng dụng Google OAuth của bạn",
   "OAuth app": "Ứng dụng OAuth",
-  "Upload OAuth app JSON from Google Cloud Console, then authenticate with the Google account whose Drive you want to index.":
-    "Tải lên JSON ứng dụng OAuth từ Google Cloud Console, rồi xác thực bằng tài khoản Google có Drive cần lập chỉ mục.",
   "Setup instructions": "Hướng dẫn thiết lập",
   "Enable the Drive, Sheets and Docs APIs, configure the consent screen, and create a Web application OAuth client in your Google Cloud project.":
     "Bật API Drive, Sheets và Docs, cấu hình màn hình cấp quyền và tạo ứng dụng OAuth loại Web trong dự án Google Cloud.",
   "Google OAuth setup guide": "Hướng dẫn thiết lập Google OAuth",
   "Authorized redirect URI for this MemoryOS instance:":
     "URI chuyển hướng được cấp phép cho hệ thống MemoryOS này:",
-  "Register this URI once in Google Cloud, then download the client JSON. Sources that reuse an existing credential do not need this setup or another Google authorization.":
-    "Đăng ký URI này một lần trong Google Cloud rồi tải JSON ứng dụng. Nguồn dùng lại thông tin kết nối hiện có không cần thiết lập hoặc cấp quyền Google lần nữa.",
   "Upload or paste OAuth app JSON": "Tải lên hoặc dán JSON ứng dụng OAuth",
   "Upload OAuth client JSON": "Tải lên JSON ứng dụng OAuth",
   "Clear client JSON": "Xóa JSON ứng dụng",
   "Attach file": "Đính kèm tệp",
-  "Maximum 16 KiB. Contains a client secret; sent only to MemoryOS for this connection, never saved in browser storage, and cleared when you continue or leave setup.":
-    "Tối đa 16 KiB. Chứa khóa bí mật ứng dụng; chỉ gửi tới MemoryOS cho kết nối này, không lưu trong bộ nhớ trình duyệt và được xóa khi tiếp tục hoặc rời thiết lập.",
   "Reading client JSON…": "Đang đọc JSON ứng dụng…",
   "Every {{v1}}": "Mỗi {{v1}}",
   "People with access in Google Drive": "Người có quyền trên Google Drive",
