@@ -18,6 +18,8 @@ Every initiated browser upload creates one `STAGED` `StoredObject` and one gener
 
 Upload states are `PENDING`, `VERIFYING`, `VERIFIED`, `ADOPTED`, `DISCARDED`, `CLEANING`, and `EXPIRED`. Verification uses a token and lease, performs provider inspection outside a database transaction, and compares the actual key-bound size, media type, and SHA-256 with durable declared metadata. Adoption or discard requires the current verification token and an unexpired adoption deadline. A completed adoption is capability-owned and never selected by generic abandoned-upload cleanup.
 
+`ObjectUploadService.write` gives the same lifecycle to bytes the server already holds, for a capability that must hand them to a consumer of uploads (Chat copies a generated file into an upload, MEM-152). It reserves the `STAGED` object and `PENDING` upload in one transaction, writes the bytes outside any transaction, and verifies them exactly as a browser finalization would, returning a `VERIFIED` upload for the caller to adopt in its own transaction. Nothing new cleans it up: an upload never adopted, or one whose bytes failed verification, expires and is reclaimed by the abandoned-upload cleanup like an abandoned browser upload. The storage adapter bounds such a write at 32 MiB.
+
 Expected missing or mismatched uploaded content returns `OBJECT_UPLOAD_INTEGRITY_MISMATCH`. Provider availability or authorization failures return `OBJECT_UPLOAD_STORAGE_UNAVAILABLE` at the upload application boundary. Wrong-tenant identifiers are indistinguishable from absent uploads. A finalized owning-capability endpoint persists its capability receipt, so replay after a lost response returns the same result without adopting twice.
 
 ## Tracked server-write lifecycle

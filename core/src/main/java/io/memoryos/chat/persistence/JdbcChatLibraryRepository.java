@@ -3,7 +3,9 @@ package io.memoryos.chat.persistence;
 import io.memoryos.chat.ChatLibraryFile;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.objectstorage.ObjectKey;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -55,7 +57,11 @@ public class JdbcChatLibraryRepository {
     private static final String SOURCES = """
             SELECT 'UPLOAD' AS source, u.id, u.filename,
                    COALESCE(u.detected_media_type, u.media_type) AS media_type, u.size_bytes, u.created_at,
-                   NULL::uuid AS session_id, NULL::varchar AS session_title, NULL::text AS search_extra
+                   NULL::uuid AS session_id, NULL::varchar AS session_title, NULL::text AS search_extra,
+                   CASE WHEN :allSessions THEN NULL ELSE (
+                        SELECT m.id FROM chat_message m CROSS JOIN LATERAL jsonb_array_elements(m.files) descriptor
+                        WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id
+                        ORDER BY m.created_at, m.id LIMIT 1) END AS message_id
             FROM chat_user_file u
             WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor AND u.status = 'READY'
               AND (:allSessions OR EXISTS (
@@ -65,12 +71,13 @@ public class JdbcChatLibraryRepository {
                     CROSS JOIN LATERAL jsonb_array_elements(m.files) descriptor
                     WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id))
             UNION ALL
-            SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL
+            SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL, a.message_id
             FROM chat_file_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
               AND (:allSessions OR a.session_id = :session)
             UNION ALL
-            SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt
+            SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt,
+                   a.message_id
             FROM chat_image_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
               AND (:allSessions OR a.session_id = :session)
@@ -93,7 +100,7 @@ public class JdbcChatLibraryRepository {
         };
         var rows = bind(jdbc.sql("""
                 SELECT source, id, filename, media_type, size_bytes, created_at, session_id, session_title, category,
-                       COUNT(*) OVER () AS total_count, COALESCE(SUM(size_bytes) OVER (), 0) AS total_bytes
+                       message_id, COUNT(*) OVER () AS total_count, COALESCE(SUM(size_bytes) OVER (), 0) AS total_bytes
                 FROM (%s) categorized
                 WHERE :allCategories OR category IN (:categories)
                 ORDER BY %s OFFSET :offset LIMIT :limit
@@ -103,7 +110,8 @@ public class JdbcChatLibraryRepository {
                         ChatLibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         row.getTimestamp("created_at").toInstant(), ChatLibraryFile.Category.valueOf(row.getString("category")),
-                        row.getObject("session_id", UUID.class), row.getString("session_title"), List.of()),
+                        row.getObject("session_id", UUID.class), row.getString("session_title"),
+                        row.getObject("message_id", UUID.class), List.of()),
                         row.getLong("total_count"), row.getLong("total_bytes")))
                 .list();
         // A page past the end carries no window row, and the filter's totals must not collapse with it.
@@ -136,6 +144,30 @@ public class JdbcChatLibraryRepository {
     }
 
     private record Row(ChatLibraryFile file, long totalCount, long totalBytes) {}
+
+    /** The stored bytes of an artifact the caller may copy into an upload. */
+    public record Artifact(ObjectKey key, String filename, String mediaType, long sizeBytes) {}
+
+    /**
+     * An artifact the actor owns, in a conversation that is not deleted, and not deleted itself: exactly what the
+     * library lists, so a file can be copied only while the library shows it.
+     */
+    public Optional<Artifact> artifact(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id) {
+        String table = switch (source) {
+            case GENERATED -> "chat_file_artifact";
+            case IMAGE -> "chat_image_artifact";
+            case UPLOAD -> throw new IllegalArgumentException("an upload is not an artifact");
+        };
+        return jdbc.sql("""
+                SELECT a.object_key, a.filename, a.media_type, a.size_bytes FROM %s a
+                JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
+                WHERE a.tenant_id = :tenant AND a.id = :id AND a.owner_actor_id = :actor
+                  AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+                """.formatted(table)).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .query((row, ignored) -> new Artifact(new ObjectKey(row.getString("object_key")), row.getString("filename"),
+                        row.getString("media_type"), row.getLong("size_bytes")))
+                .optional();
+    }
 
     /** ILIKE treats these as wildcards; a name search must match them literally. */
     private static String escape(String query) {

@@ -420,6 +420,10 @@ class ChatPersistenceIntegrationTest {
         var inSession = library.page(scope, owner, "", Set.of(), Set.of(), session.id(), ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(image, attached), ids(inSession));
         assertEquals(64 + 4, inSession.totalBytes());
+        // Each row names the message to scroll to: the answer that made the image, the question that attached the file.
+        assertEquals(reply.assistantMessageId(), inSession.items().get(0).messageId());
+        assertNotNull(inSession.items().get(1).messageId());
+        assertNotEquals(reply.assistantMessageId(), inSession.items().get(1).messageId());
         // The other conversation's image and an upload never attached here stay out.
         assertFalse(ids(inSession).contains(otherImage));
         assertFalse(ids(inSession).contains(unattached));

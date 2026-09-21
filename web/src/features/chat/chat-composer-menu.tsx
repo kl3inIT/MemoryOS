@@ -15,7 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatFilePickerContent, ChatRecentFilesDialog } from "./chat-file-picker";
+import { ChatFilePickerContent } from "./chat-file-picker";
+import { ChatLibraryPicker } from "./chat-library-picker";
 import { composerMenuRow } from "./chat-composer-menu-row";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import type { WebSearchMode } from "./chat-web-preference";
@@ -155,6 +156,7 @@ export function ChatComposerMenu({
                 selected={files.selected}
                 disabled={disabled}
                 uploadAction={null}
+                moreLabel={ui("Mở thư viện")}
                 onMore={() => {
                   close();
                   setAllFiles(true);
@@ -223,13 +225,13 @@ export function ChatComposerMenu({
           {ui("Tạo ảnh")}
         </button>
       )}
-      <ChatRecentFilesDialog
+      <ChatLibraryPicker
         open={allFiles}
         onOpenChange={setAllFiles}
         selected={files.selected}
-        onSelect={files.select}
-        disabled={disabled}
-        uploadAction={null}
+        onAttach={(picked) =>
+          files.select([...files.selected, ...picked.map((file) => file.id)], picked)
+        }
       />
     </div>
   );

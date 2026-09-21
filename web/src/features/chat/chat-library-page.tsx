@@ -5,6 +5,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  FolderPlus,
   Image as ImageIcon,
   LayoutGrid,
   List,
@@ -35,6 +36,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { chatActionError } from "./chat-action-utils";
+import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { fileSize } from "./chat-code";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
 import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
@@ -46,6 +48,7 @@ import {
   libraryPreviewTarget,
   loadLibrary,
   refusedBy,
+  removeFromProject,
   usageLabel,
   LIBRARY_PAGE_SIZE,
   type LibraryCategory,
@@ -86,6 +89,8 @@ export function ChatLibraryPage() {
   const [preview, setPreview] = useState<PreviewTarget>();
   const [confirming, setConfirming] = useState<LibraryFile[]>();
   const [refusals, setRefusals] = useState<string[]>([]);
+  const [projectFiles, setProjectFiles] = useState<LibraryFile[]>();
+  const [notice, setNotice] = useState<string>();
 
   /** A selection belongs to the page it was made on, so leaving that page drops it. */
   const showPage = (next: number) => {
@@ -104,7 +109,8 @@ export function ChatLibraryPage() {
   });
   const files = page.data?.items ?? [];
   const groups = groupByDay(files);
-  const selectable = files.filter((file) => file.deletable);
+  // Every file can be selected: adding to a Project applies to all of them, and a delete names each refusal.
+  const selectable = files;
   const chosen = files.filter((file) => selected.includes(file.id));
 
   /**
@@ -241,6 +247,10 @@ export function ChatLibraryPage() {
             <span className="text-sm">
               {ui("Đã chọn {{count}} tệp", { count: selected.length })}
             </span>
+            <Button size="sm" prominence="secondary" onClick={() => setProjectFiles(chosen)}>
+              <FolderPlus className="size-4" />
+              {ui("Thêm vào dự án")}
+            </Button>
             <Button size="sm" tone="danger" onClick={() => setConfirming(chosen)}>
               <Trash2 className="size-4" />
               {ui("Xoá")}
@@ -249,6 +259,11 @@ export function ChatLibraryPage() {
               {ui("Bỏ chọn")}
             </Button>
           </div>
+        )}
+        {notice && (
+          <p role="status" className="text-sm text-content-secondary">
+            {notice}
+          </p>
         )}
         {refusals.length > 0 && (
           <ul role="alert" className="flex flex-col gap-1 text-sm text-content-danger">
@@ -302,7 +317,6 @@ export function ChatLibraryPage() {
                     <TableCell>
                       <Checkbox
                         aria-label={ui("Chọn {{name}}", { name: file.filename })}
-                        disabled={!file.deletable}
                         checked={selected.includes(file.id)}
                         onCheckedChange={() =>
                           setSelected(
@@ -322,11 +336,13 @@ export function ChatLibraryPage() {
                         {categoryIcon(file.category)}
                         <span className="truncate">{file.filename}</span>
                       </button>
-                      {usageLabel(file) && (
-                        <span className="mt-0.5 block text-xs text-content-muted">
-                          {ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}
-                        </span>
-                      )}
+                      <FileUsage
+                        file={file}
+                        onRemoved={async (name) => {
+                          setNotice(ui("Đã gỡ khỏi dự án {{name}}.", { name }));
+                          await cache.invalidateQueries({ queryKey: chatLibraryKey });
+                        }}
+                      />
                     </TableCell>
                     <TableCell className="text-content-secondary">
                       {sourceLabels[file.source]}
@@ -338,7 +354,11 @@ export function ChatLibraryPage() {
                       {new Date(file.createdAt).toLocaleDateString(i18n.language)}
                     </TableCell>
                     <TableCell>
-                      <FileActions file={file} onDelete={() => setConfirming([file])} />
+                      <FileActions
+                        file={file}
+                        onDelete={() => setConfirming([file])}
+                        onAddToProject={() => setProjectFiles([file])}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -381,7 +401,11 @@ export function ChatLibraryPage() {
                           <span className="text-xs text-content-muted">
                             {fileSize(file.sizeBytes, i18n.language)}
                           </span>
-                          <FileActions file={file} onDelete={() => setConfirming([file])} />
+                          <FileActions
+                            file={file}
+                            onDelete={() => setConfirming([file])}
+                            onAddToProject={() => setProjectFiles([file])}
+                          />
                         </div>
                       </li>
                     ))}
@@ -412,6 +436,14 @@ export function ChatLibraryPage() {
       </SettingsLayout>
 
       {preview && <ChatFilePreviewModal target={preview} onClose={() => setPreview(undefined)} />}
+      <ChatAddToProjectDialog
+        files={projectFiles}
+        onOpenChange={(open) => !open && setProjectFiles(undefined)}
+        onAdded={(name) => {
+          setSelected([]);
+          setNotice(ui("Đã thêm vào dự án {{name}}.", { name }));
+        }}
+      />
       <ConfirmDialog
         open={confirming !== undefined}
         onOpenChange={(open) => !open && setConfirming(undefined)}
@@ -455,10 +487,71 @@ function FilterToggle({
   );
 }
 
-function FileActions({ file, onDelete }: { file: LibraryFile; onDelete: () => void }) {
+/** What holds an upload, with a way to take it out of a Project; an assistant's files are edited on the assistant. */
+function FileUsage({
+  file,
+  onRemoved,
+}: {
+  file: LibraryFile;
+  onRemoved: (name: string) => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  const [pending, setPending] = useState<string>();
+  const [failed, setFailed] = useState(false);
+  if (file.usedBy.length === 0) return null;
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-content-muted">
+      <span>{ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}</span>
+      {file.usedBy
+        .filter((usage) => usage.kind === "PROJECT")
+        .map((usage) => (
+          <button
+            key={usage.id}
+            type="button"
+            disabled={pending !== undefined}
+            className="underline hover:text-content-primary disabled:opacity-50"
+            onClick={async () => {
+              setPending(usage.id);
+              setFailed(false);
+              try {
+                await removeFromProject(usage.id, file.id, AbortSignal.timeout(30000));
+                await onRemoved(usage.name);
+              } catch {
+                setFailed(true);
+              } finally {
+                setPending(undefined);
+              }
+            }}
+          >
+            {ui("Gỡ khỏi {{name}}", { name: usage.name })}
+          </button>
+        ))}
+      {failed && <span role="alert">{ui("Không gỡ được. Hãy thử lại.")}</span>}
+    </span>
+  );
+}
+
+function FileActions({
+  file,
+  onDelete,
+  onAddToProject,
+}: {
+  file: LibraryFile;
+  onDelete: () => void;
+  onAddToProject: () => void;
+}) {
   const ui = useAppTranslation();
   return (
     <div className="flex items-center justify-end gap-1">
+      <IconButton
+        size="sm"
+        prominence="internal"
+        aria-label={ui("Thêm {{name}} vào dự án", { name: file.filename })}
+        title={ui("Thêm vào dự án")}
+        onClick={onAddToProject}
+      >
+        <FolderPlus />
+      </IconButton>
       {file.sessionId && (
         <IconButton
           size="sm"

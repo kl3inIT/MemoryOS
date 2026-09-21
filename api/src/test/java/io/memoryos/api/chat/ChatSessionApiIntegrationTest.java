@@ -499,6 +499,82 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt() throws Exception {
+        // Object storage is a mock in this suite: keep what is written, and serve it back.
+        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
+        byte[] png = "not really a png".getBytes(UTF_8);
+        String sourceKey = "tenants/" + TENANT + "/generated.png";
+        stored.put(sourceKey, png);
+        doAnswer(call -> {
+            stored.put(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value(), call.getArgument(1));
+            return null;
+        }).when(fileStorage).write(any(), any(), any());
+        when(fileStorage.inspect(any())).thenAnswer(call -> {
+            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
+            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png", new io.memoryos.objectstorage.ContentSha256(
+                    java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+        });
+        when(fileStorage.open(any())).thenAnswer(call -> {
+            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
+            return new io.memoryos.objectstorage.ObjectContent() {
+                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
+                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return null; }
+                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public void close() {}
+            };
+        });
+        var session = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Ảnh\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        var image = UUID.randomUUID();
+        var gone = UUID.randomUUID();
+        for (var artifact : List.of(image, gone)) {
+            jdbc.sql("""
+                    INSERT INTO chat_image_artifact(id,tenant_id,message_id,stored_object_id,object_key,media_type,
+                                                    owner_actor_id,session_id,filename,size_bytes,deleted_at)
+                    VALUES(:id,:tenant,:message,:object,:key,'image/png',:actor,:session,'image-copy.png',:size,:deleted)
+                    """).param("id", artifact).param("tenant", TENANT)
+                    .param("message", UUID.fromString(session.path("rootMessageId").asText())).param("object", UUID.randomUUID())
+                    .param("key", sourceKey).param("actor", actor.getPrincipal().actorId().value())
+                    .param("session", UUID.fromString(session.path("id").asText())).param("size", png.length)
+                    .param("deleted", artifact.equals(gone) ? java.sql.Timestamp.from(Instant.now()) : null).update();
+        }
+        String copyUrl = "/api/chat/library/IMAGE/" + image + "/copy";
+
+        mockMvc.perform(post(copyUrl).with(authentication(actor))).andExpect(status().isForbidden());
+        var first = Json.mapper().readTree(mockMvc.perform(post(copyUrl).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PROCESSING"))
+                .andExpect(jsonPath("$.filename").value("image-copy.png")).andExpect(jsonPath("$.mediaType").value("image/png"))
+                .andExpect(jsonPath("$.sizeBytes").value(png.length))
+                .andReturn().getResponse().getContentAsString()).path("id").asText();
+        // The copy is extracted by the file worker like any upload, and asking again returns it rather than a second one.
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
+                .param("id", UUID.fromString(first)).query(Long.class).single());
+        mockMvc.perform(post("/api/chat/library/image/" + image + "/copy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(first));
+        // Another member cannot copy it, a deleted artifact cannot be copied, and an upload needs no copy.
+        mockMvc.perform(post(copyUrl).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/chat/library/IMAGE/" + gone + "/copy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/chat/library/UPLOAD/" + image + "/copy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/chat/library/FOLDER/" + image + "/copy").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isBadRequest());
+
+        // Deleting the copy frees the artifact to be copied again; deleting the artifact leaves that copy intact.
+        mockMvc.perform(delete("/api/chat/files/" + first).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted());
+        var second = Json.mapper().readTree(mockMvc.perform(post(copyUrl).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("id").asText();
+        assertNotEquals(first, second);
+        mockMvc.perform(delete("/api/chat/image-artifacts/" + image).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/chat/files/" + second).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PROCESSING"));
+    }
+
+    @Test
     void filePolicyAndAdmissionRejectOverLimitAndMalformedChecksum() throws Exception {
         mockMvc.perform(get("/api/chat/files/policy").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.maxSizeBytes").value(104857600));
