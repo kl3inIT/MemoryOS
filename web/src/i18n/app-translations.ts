@@ -1,5 +1,54 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2, phase 4: storage limits and the trash
+  "Thùng rác": "Trash",
+  "Thùng rác đang trống.": "The trash is empty.",
+  "Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.":
+    "A deleted file is kept for {{days}} days, then deleted for good.",
+  "Máy chủ này xoá tệp ngay, không giữ trong thùng rác.":
+    "This deployment deletes files at once and keeps no trash.",
+  "Dọn sạch thùng rác": "Empty the trash",
+  "Dọn sạch thùng rác?": "Empty the trash?",
+  "Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.":
+    "Every file in the trash is deleted for good and cannot be restored.",
+  "Dọn sạch": "Empty it",
+  "Đang dọn…": "Emptying…",
+  "Đã dọn sạch thùng rác.": "The trash is empty.",
+  "Đã xoá vĩnh viễn {{count}} tệp.": "{{count}} files were deleted for good.",
+  "Đã xoá": "Deleted",
+  "Đã khôi phục {{name}}.": "{{name}} was restored.",
+  "Đã xoá vĩnh viễn {{name}}.": "{{name}} was deleted for good.",
+  "Xoá vĩnh viễn {{name}}": "Delete {{name}} for good",
+  "Xoá vĩnh viễn?": "Delete for good?",
+  "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.":
+    "The file and its contents leave storage and cannot be restored.",
+  "Xoá vĩnh viễn": "Delete for good",
+  "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.":
+    "The files leave every conversation and stay in the trash for {{days}} days, restorable until then. {{count}} files selected.",
+  "Dung lượng đã dùng": "Storage used",
+  "Đã dùng {{used}} / {{limit}}": "{{used}} of {{limit}} used",
+  "Đã dùng {{used}} · không giới hạn": "{{used}} used · no limit",
+  "Tệp lớn nhất": "Largest files",
+  "Dung lượng tệp": "File storage",
+  "Dung lượng thư viện tệp": "File library storage",
+  "Giới hạn dung lượng thư viện tệp của mỗi người. Để trống là không giới hạn, như trước đây.":
+    "Bound how much each person's file library holds. Empty means no limit, as before.",
+  "Không tải được hạn mức dung lượng.": "The storage limits could not be loaded.",
+  "Hạn mức của tổ chức": "The organization's limit",
+  "Hạn mức mỗi người (MiB)": "Limit per person (MiB)",
+  "Lưu hạn mức": "Save the limit",
+  "Đang áp dụng {{size}} mỗi người": "{{size}} per person is in force",
+  "Hiện không giới hạn": "No limit is in force",
+  "Hạn mức riêng": "Individual limits",
+  "Hạn mức riêng theo người": "Individual limits per person",
+  "Actor ID": "Actor ID",
+  "Hạn mức (MiB)": "Limit (MiB)",
+  "Đặt hạn mức riêng": "Set an individual limit",
+  "Chưa có ai được đặt hạn mức riêng.": "Nobody has an individual limit yet.",
+  "Người dùng": "Person",
+  "Hạn mức": "Limit",
+  "Bỏ hạn mức riêng của {{name}}": "Remove the individual limit of {{name}}",
+  "Không giới hạn": "No limit",
   // MEM-152 file library v2, phase 3: ZIP download and richer previews
   "Tải về ZIP": "Download as ZIP",
   "Đang đóng gói {{count}} tệp thành ZIP…": "Packing {{count}} files into a ZIP…",

@@ -29,6 +29,11 @@ const retryChatFile = vi.hoisted(() => vi.fn());
 const uploadChatFile = vi.hoisted(() => vi.fn());
 const requestChatLibraryArchive = vi.hoisted(() => vi.fn());
 const getChatLibraryArchive = vi.hoisted(() => vi.fn());
+const getChatLibraryUsage = vi.hoisted(() => vi.fn());
+const getChatLibraryTrashWindow = vi.hoisted(() => vi.fn());
+const restoreChatLibraryFile = vi.hoisted(() => vi.fn());
+const purgeChatLibraryFile = vi.hoisted(() => vi.fn());
+const emptyChatLibraryTrash = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
@@ -45,6 +50,11 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   retryChatFile: (...args: unknown[]) => retryChatFile(...args),
   requestChatLibraryArchive: (...args: unknown[]) => requestChatLibraryArchive(...args),
   getChatLibraryArchive: (...args: unknown[]) => getChatLibraryArchive(...args),
+  getChatLibraryUsage: (...args: unknown[]) => getChatLibraryUsage(...args),
+  getChatLibraryTrashWindow: (...args: unknown[]) => getChatLibraryTrashWindow(...args),
+  restoreChatLibraryFile: (...args: unknown[]) => restoreChatLibraryFile(...args),
+  purgeChatLibraryFile: (...args: unknown[]) => purgeChatLibraryFile(...args),
+  emptyChatLibraryTrash: (...args: unknown[]) => emptyChatLibraryTrash(...args),
 }));
 
 vi.mock("./chat-files", async (importOriginal) => ({
@@ -74,6 +84,8 @@ const file = (overrides: Partial<ChatLibraryFile> = {}): ChatLibraryFile => ({
   favorite: false,
   status: "READY",
   errorCode: null,
+  deletedAt: null,
+  purgeAfter: null,
   usedBy: [],
   deletable: true,
   ...overrides,
@@ -126,6 +138,10 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
+  getChatLibraryUsage.mockResolvedValue({
+    data: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
+  });
+  getChatLibraryTrashWindow.mockResolvedValue({ data: { days: 30 } });
 });
 afterEach(cleanup);
 
@@ -491,4 +507,78 @@ it("packs a selection into a ZIP, then downloads it and names what was skipped",
   );
   expect(click).toHaveBeenCalled();
   click.mockRestore();
+});
+
+it("shows what the library holds against its limit and links to the largest files", async () => {
+  await show();
+  const user = userEvent.setup();
+
+  const bar = await screen.findByRole("region", { name: "Dung lượng đã dùng" });
+  expect(within(bar).getByText("Đã dùng 3 KB / 10 KB")).toBeInTheDocument();
+
+  await user.click(within(bar).getByRole("button", { name: "Tệp lớn nhất" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ sort: "LARGEST" }) }),
+    ),
+  );
+});
+
+it("says a deleted file goes to the trash, and restores or ends it from there", async () => {
+  await show();
+  const user = userEvent.setup();
+  const trashed = file({
+    filename: "da-xoa.xlsx",
+    deletedAt: new Date().toISOString(),
+    purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
+  });
+  restoreChatLibraryFile.mockResolvedValue({ data: undefined });
+  purgeChatLibraryFile.mockResolvedValue({ data: undefined });
+  emptyChatLibraryTrash.mockResolvedValue({ data: { purged: 3 } });
+
+  // The confirmation says where the file goes, not that it is gone.
+  await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
+  expect(await screen.findByText(/nằm trong thùng rác 30 ngày/)).toBeInTheDocument();
+  await user.keyboard("{Escape}");
+
+  listChatLibrary.mockResolvedValue({
+    data: { items: [trashed], totalCount: 1, totalBytes: trashed.sizeBytes, hasMore: false },
+  });
+  await user.click(screen.getByRole("tab", { name: "Thùng rác" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ status: "TRASH", sort: "DELETED" }),
+      }),
+    ),
+  );
+  expect(await screen.findByText(/Tệp đã xoá được giữ 30 ngày/)).toBeInTheDocument();
+
+  await user.click(await screen.findByRole("button", { name: "Khôi phục" }));
+  await waitFor(() =>
+    expect(restoreChatLibraryFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { source: "GENERATED", id: trashed.id } }),
+    ),
+  );
+  expect(await screen.findByText("Đã khôi phục da-xoa.xlsx.")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Xoá vĩnh viễn da-xoa.xlsx" }));
+  await user.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá vĩnh viễn" }),
+  );
+  await waitFor(() =>
+    expect(purgeChatLibraryFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { source: "GENERATED", id: trashed.id } }),
+    ),
+  );
+
+  await user.click(screen.getByRole("button", { name: "Dọn sạch thùng rác" }));
+  await user.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Dọn sạch" }),
+  );
+  await waitFor(() => expect(emptyChatLibraryTrash).toHaveBeenCalled());
+  expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
 });

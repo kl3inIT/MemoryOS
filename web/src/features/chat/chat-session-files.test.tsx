@@ -53,6 +53,8 @@ const generated: ChatLibraryFile = {
   favorite: false,
   status: "READY",
   errorCode: null,
+  deletedAt: null,
+  purgeAfter: null,
   usedBy: [],
   deletable: true,
 };

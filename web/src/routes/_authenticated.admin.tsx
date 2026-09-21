@@ -55,6 +55,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
+    const fileStorageSelected = Boolean(matchRoute({ to: "/admin/file-storage" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
@@ -74,19 +75,21 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 ? "voice"
                 : imageGenerationSelected
                   ? "images"
-                  : interpreterSelected
-                    ? "interpreter"
-                    : mcpSelected
-                      ? "mcp"
-                      : agentsSelected
-                        ? "agents"
-                        : costsSelected
-                          ? "costs"
-                          : documentSetsSelected
-                            ? "documentSets"
-                            : addSourceSelected
-                              ? "addSource"
-                              : "sources";
+                  : fileStorageSelected
+                    ? "file-storage"
+                    : interpreterSelected
+                      ? "interpreter"
+                      : mcpSelected
+                        ? "mcp"
+                        : agentsSelected
+                          ? "agents"
+                          : costsSelected
+                            ? "costs"
+                            : documentSetsSelected
+                              ? "documentSets"
+                              : addSourceSelected
+                                ? "addSource"
+                                : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -99,6 +102,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 page === "voice" ||
                 page === "images" ||
                 page === "interpreter" ||
+                page === "file-storage" ||
                 page === "costs"
               ? canManageModels
               : page === "mcp"
@@ -130,19 +134,21 @@ export const Route = createFileRoute("/_authenticated/admin")({
                       ? "Giọng nói"
                       : page === "images"
                         ? "Tạo ảnh"
-                        : page === "interpreter"
-                          ? "Code Interpreter"
-                          : page === "mcp"
-                            ? "Máy chủ MCP"
-                            : page === "agents"
-                              ? "Quản lý trợ lý"
-                              : page === "costs"
-                                ? "AI costs"
-                                : page === "documentSets"
-                                  ? "Bộ tài liệu"
-                                  : page === "addSource"
-                                    ? "Add a source"
-                                    : "Sources",
+                        : page === "file-storage"
+                          ? "Dung lượng tệp"
+                          : page === "interpreter"
+                            ? "Code Interpreter"
+                            : page === "mcp"
+                              ? "Máy chủ MCP"
+                              : page === "agents"
+                                ? "Quản lý trợ lý"
+                                : page === "costs"
+                                  ? "AI costs"
+                                  : page === "documentSets"
+                                    ? "Bộ tài liệu"
+                                    : page === "addSource"
+                                      ? "Add a source"
+                                      : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

@@ -15,6 +15,7 @@ import {
   Presentation,
   RotateCcw,
   Search,
+  Undo2,
   Star,
   Trash2,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,11 @@ import {
   changeLibraryFile,
   chatLibraryKey,
   deleteLibraryFile,
+  emptyLibraryTrash,
+  loadLibraryUsage,
+  loadTrashWindow,
+  purgeLibraryFile,
+  restoreLibraryFile,
   groupByDay,
   libraryPreviewTarget,
   loadLibrary,
@@ -105,8 +112,8 @@ export function ChatLibraryPage() {
   const [sort, setSort] = useState<LibrarySort>("NEWEST");
   /** Name search reads the listing; content search asks the file search what a file contains. */
   const [mode, setMode] = useState<"name" | "content">("name");
-  /** The usable files, or the uploads still being processed and the ones that failed. */
-  const [view, setView] = useState<"ready" | "pending">("ready");
+  /** The usable files, the uploads still being processed, or what the owner deleted. */
+  const [view, setView] = useState<"ready" | "pending" | "trash">("ready");
   const [favorite, setFavorite] = useState(false);
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [layout, setLayout] = useState<"table" | "grid">("table");
@@ -134,7 +141,14 @@ export function ChatLibraryPage() {
       categories,
       sort,
       favorite: favorite || undefined,
-      status: view === "pending" ? ("PENDING" as const) : undefined,
+      status:
+        view === "ready"
+          ? undefined
+          : view === "pending"
+            ? ("PENDING" as const)
+            : ("TRASH" as const),
+      // The trash reads by when a file was deleted, not by when it was made.
+      ...(view === "trash" ? { sort: "DELETED" as const } : {}),
     }),
     [mode, query, sources, categories, sort, favorite, view],
   );
@@ -144,6 +158,15 @@ export function ChatLibraryPage() {
     // An upload being processed becomes usable on its own; the view follows without a manual refresh.
     refetchInterval: (current) =>
       current.state.data?.items.some((file) => file.status === "PROCESSING") ? 3000 : false,
+  });
+  const usage = useQuery({
+    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "usage"],
+    queryFn: ({ signal }) => loadLibraryUsage(signal),
+  });
+  const trashWindow = useQuery({
+    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "trash-window"],
+    queryFn: ({ signal }) => loadTrashWindow(signal),
+    staleTime: 5 * 60_000,
   });
   const matches = useQuery({
     queryKey: [...chatLibraryKey, actorId, authorizationVersion, "content", query],
@@ -178,6 +201,19 @@ export function ChatLibraryPage() {
       setRefusals(next);
       // Deleting can empty the current page, so the list restarts where the remaining files are.
       showFirstPage();
+      await cache.invalidateQueries({ queryKey: chatLibraryKey });
+    }
+  };
+
+  /** One trash command: what it says when it worked, or the failure it names. */
+  const act = async (run: () => Promise<string | void>, done: string) => {
+    setRefusals([]);
+    try {
+      const said = await run();
+      setNotice(typeof said === "string" ? said : done);
+    } catch (failure) {
+      setRefusals([chatActionError(failure)]);
+    } finally {
       await cache.invalidateQueries({ queryKey: chatLibraryKey });
     }
   };
@@ -317,14 +353,26 @@ export function ChatLibraryPage() {
                 onToggle={() => fromTheFirstPage(setFavorite)(!favorite)}
               />
             </div>
+            {mode === "name" && usage.data && (
+              <StorageBar
+                usage={usage.data}
+                onShowLargest={() => {
+                  fromTheFirstPage(setView)("ready");
+                  fromTheFirstPage(setSort)("LARGEST");
+                }}
+              />
+            )}
             {mode === "name" && (
               <Tabs
                 value={view}
-                onValueChange={(value) => fromTheFirstPage(setView)(value as "ready" | "pending")}
+                onValueChange={(value) =>
+                  fromTheFirstPage(setView)(value as "ready" | "pending" | "trash")
+                }
               >
                 <TabsList aria-label={ui("Trạng thái tệp")}>
                   <TabsTrigger value="ready">{ui("Tệp")}</TabsTrigger>
                   <TabsTrigger value="pending">{ui("Đang xử lý / Lỗi")}</TabsTrigger>
+                  <TabsTrigger value="trash">{ui("Thùng rác")}</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
@@ -448,6 +496,39 @@ export function ChatLibraryPage() {
             </>
           )}
 
+          {mode === "name" && view === "trash" && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-content-muted">
+                {trashWindow.data === 0
+                  ? ui("Máy chủ này xoá tệp ngay, không giữ trong thùng rác.")
+                  : ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", {
+                      days: trashWindow.data ?? 30,
+                    })}
+              </p>
+              <ConfirmDialog
+                trigger={
+                  <Button size="sm" tone="danger" prominence="secondary">
+                    <Trash2 className="size-4" />
+                    {ui("Dọn sạch thùng rác")}
+                  </Button>
+                }
+                title={ui("Dọn sạch thùng rác?")}
+                description={ui(
+                  "Mọi tệp trong thùng rác sẽ bị xoá vĩnh viễn và không thể khôi phục.",
+                )}
+                confirmLabel={ui("Dọn sạch")}
+                pendingLabel={ui("Đang dọn…")}
+                confirmTone="danger"
+                onConfirm={() =>
+                  act(async () => {
+                    const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
+                    return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
+                  }, ui("Đã dọn sạch thùng rác."))
+                }
+              />
+            </div>
+          )}
+
           {mode === "name" && page.isPending && <p role="status">{ui("Đang tải thư viện…")}</p>}
           {mode === "name" && page.isError && (
             <p role="alert">
@@ -483,7 +564,13 @@ export function ChatLibraryPage() {
                       />
                     </TableHead>
                     <TableHead>{ui("Tên tệp")}</TableHead>
-                    <TableHead>{view === "pending" ? ui("Trạng thái") : ui("Nguồn tệp")}</TableHead>
+                    <TableHead>
+                      {view === "pending"
+                        ? ui("Trạng thái")
+                        : view === "trash"
+                          ? ui("Đã xoá")
+                          : ui("Nguồn tệp")}
+                    </TableHead>
                     <TableHead>{ui("Dung lượng")}</TableHead>
                     <TableHead>{ui("Ngày tạo")}</TableHead>
                     <TableHead className="text-right">{ui("Thao tác")}</TableHead>
@@ -523,7 +610,13 @@ export function ChatLibraryPage() {
                         />
                       </TableCell>
                       <TableCell className="text-content-secondary">
-                        {view === "pending" ? statusLabel(file, ui) : sourceLabels[file.source]}
+                        {view === "pending"
+                          ? statusLabel(file, ui)
+                          : view === "trash"
+                            ? file.deletedAt
+                              ? new Date(file.deletedAt).toLocaleDateString(i18n.language)
+                              : ""
+                            : sourceLabels[file.source]}
                       </TableCell>
                       <TableCell className="text-content-secondary">
                         {fileSize(file.sizeBytes, i18n.language)}
@@ -532,7 +625,23 @@ export function ChatLibraryPage() {
                         {new Date(file.createdAt).toLocaleDateString(i18n.language)}
                       </TableCell>
                       <TableCell>
-                        {view === "pending" ? (
+                        {view === "trash" ? (
+                          <TrashActions
+                            file={file}
+                            onRestore={() =>
+                              act(
+                                () => restoreLibraryFile(file, AbortSignal.timeout(30000)),
+                                ui("Đã khôi phục {{name}}.", { name: file.filename }),
+                              )
+                            }
+                            onPurge={() =>
+                              act(
+                                () => purgeLibraryFile(file, AbortSignal.timeout(30000)),
+                                ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
+                              )
+                            }
+                          />
+                        ) : view === "pending" ? (
                           <PendingActions
                             file={file}
                             onRetried={() => cache.invalidateQueries({ queryKey: chatLibraryKey })}
@@ -660,10 +769,19 @@ export function ChatLibraryPage() {
         open={confirming !== undefined}
         onOpenChange={(open) => !open && setConfirming(undefined)}
         title={ui("Xoá tệp?")}
-        description={ui(
-          "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
-          { count: confirming?.length ?? 0 },
-        )}
+        description={
+          trashWindow.data === 0
+            ? ui(
+                "Tệp sẽ bị xoá khỏi mọi cuộc hội thoại và không thể khôi phục. Đã chọn {{count}} tệp.",
+                {
+                  count: confirming?.length ?? 0,
+                },
+              )
+            : ui(
+                "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.",
+                { days: trashWindow.data ?? 30, count: confirming?.length ?? 0 },
+              )
+        }
         confirmLabel={ui("Xoá")}
         pendingLabel={ui("Đang xoá…")}
         confirmTone="danger"
@@ -740,6 +858,84 @@ function FileUsage({
         ))}
       {failed && <span role="alert">{ui("Không gỡ được. Hãy thử lại.")}</span>}
     </span>
+  );
+}
+
+/** Used against the limit, with the breakdown the owner can act on. */
+function StorageBar({
+  usage,
+  onShowLargest,
+}: {
+  usage: { usedBytes: number; fileCount: number; limitBytes?: number | null };
+  onShowLargest: () => void;
+}) {
+  const ui = useAppTranslation();
+  const limit = usage.limitBytes ?? null;
+  const percent = limit ? Math.min(100, Math.round((usage.usedBytes / limit) * 100)) : 0;
+  return (
+    <section
+      aria-label={ui("Dung lượng đã dùng")}
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default px-4 py-2"
+    >
+      <span className="text-sm">
+        {limit
+          ? ui("Đã dùng {{used}} / {{limit}}", {
+              used: fileSize(usage.usedBytes, i18n.language),
+              limit: fileSize(limit, i18n.language),
+            })
+          : ui("Đã dùng {{used}} · không giới hạn", {
+              used: fileSize(usage.usedBytes, i18n.language),
+            })}
+      </span>
+      {limit !== null && (
+        <span className="min-w-40 flex-1">
+          <Progress value={percent} aria-label={ui("Dung lượng đã dùng")} />
+        </span>
+      )}
+      <Button size="sm" prominence="internal" onClick={onShowLargest}>
+        {ui("Tệp lớn nhất")}
+      </Button>
+    </section>
+  );
+}
+
+/** A trashed file can only come back or go for good. */
+function TrashActions({
+  file,
+  onRestore,
+  onPurge,
+}: {
+  file: LibraryFile;
+  onRestore: () => Promise<void>;
+  onPurge: () => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <Button size="sm" prominence="internal" onClick={() => void onRestore()}>
+        <Undo2 className="size-4" aria-hidden="true" />
+        {ui("Khôi phục")}
+      </Button>
+      <ConfirmDialog
+        trigger={
+          <IconButton
+            size="sm"
+            prominence="internal"
+            aria-label={ui("Xoá vĩnh viễn {{name}}", { name: file.filename })}
+          >
+            <Trash2 />
+          </IconButton>
+        }
+        title={ui("Xoá vĩnh viễn?")}
+        description={ui(
+          "Tệp và nội dung của nó sẽ bị xoá khỏi kho lưu trữ và không thể khôi phục.",
+        )}
+        confirmLabel={ui("Xoá vĩnh viễn")}
+        pendingLabel={ui("Đang xoá…")}
+        confirmTone="danger"
+        onConfirm={onPurge}
+      />
+    </div>
   );
 }
 
