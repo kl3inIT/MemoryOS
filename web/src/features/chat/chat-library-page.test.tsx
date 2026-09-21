@@ -18,12 +18,22 @@ const listChatLibrary = vi.hoisted(() => vi.fn());
 const deleteChatFile = vi.hoisted(() => vi.fn());
 const deleteChatFileArtifact = vi.hoisted(() => vi.fn());
 const deleteChatImageArtifact = vi.hoisted(() => vi.fn());
+const listChatProjects = vi.hoisted(() => vi.fn());
+const getChatProject = vi.hoisted(() => vi.fn());
+const updateChatProject = vi.hoisted(() => vi.fn());
+const copyChatLibraryFile = vi.hoisted(() => vi.fn());
+const getChatFile = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
   deleteChatFile: (...args: unknown[]) => deleteChatFile(...args),
   deleteChatFileArtifact: (...args: unknown[]) => deleteChatFileArtifact(...args),
   deleteChatImageArtifact: (...args: unknown[]) => deleteChatImageArtifact(...args),
+  listChatProjects: (...args: unknown[]) => listChatProjects(...args),
+  getChatProject: (...args: unknown[]) => getChatProject(...args),
+  updateChatProject: (...args: unknown[]) => updateChatProject(...args),
+  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
+  getChatFile: (...args: unknown[]) => getChatFile(...args),
 }));
 
 vi.mock("@/features/identity/application-session-context", () => ({
@@ -44,6 +54,7 @@ const file = (overrides: Partial<ChatLibraryFile> = {}): ChatLibraryFile => ({
   category: "SPREADSHEET",
   sessionId: "22222222-2222-4222-8222-222222222222",
   sessionTitle: "Báo cáo",
+  messageId: "55555555-5555-4555-8555-555555555555",
   usedBy: [],
   deletable: true,
   ...overrides,
@@ -201,4 +212,70 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
       expect.objectContaining({ query: expect.objectContaining({ offset: 50 }) }),
     ),
   );
+});
+
+const PROJECT = {
+  id: "44444444-4444-4444-8444-444444444444",
+  name: "Kế hoạch",
+  description: "",
+  instructions: "",
+  revision: 3,
+  updatedAt: new Date().toISOString(),
+  fileIds: ["66666666-6666-4666-8666-666666666666"],
+};
+
+it("adds a generated file to a project by copying it into an upload first", async () => {
+  await show();
+  const user = userEvent.setup();
+  const copy = "77777777-7777-4777-8777-777777777777";
+  listChatProjects.mockResolvedValue({ data: [PROJECT] });
+  getChatProject.mockResolvedValue({ data: PROJECT });
+  updateChatProject.mockResolvedValue({ data: PROJECT });
+  copyChatLibraryFile.mockResolvedValue({
+    data: {
+      id: copy,
+      filename: "doanh-thu.xlsx",
+      mediaType: "text/csv",
+      sizeBytes: 2048,
+      status: "READY",
+    },
+  });
+
+  await user.click(screen.getByRole("button", { name: "Thêm doanh-thu.xlsx vào dự án" }));
+  const dialog = await screen.findByRole("dialog");
+  await within(dialog).findByRole("option", { name: "Kế hoạch (1/20)" });
+  await user.click(within(dialog).getByRole("button", { name: "Thêm vào dự án" }));
+
+  await waitFor(() =>
+    expect(updateChatProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { projectId: PROJECT.id },
+        query: { revision: 3 },
+        body: expect.objectContaining({ fileIds: [...PROJECT.fileIds, copy] }),
+      }),
+    ),
+  );
+  expect(copyChatLibraryFile).toHaveBeenCalledWith(
+    expect.objectContaining({ path: { source: "GENERATED", id: file().id } }),
+  );
+  expect(await screen.findByText("Đã thêm vào dự án Kế hoạch.")).toBeInTheDocument();
+});
+
+it("takes an upload out of a project from its usage label without deleting it", async () => {
+  await show();
+  const user = userEvent.setup();
+  getChatProject.mockResolvedValue({
+    data: { ...PROJECT, fileIds: [upload.id, ...PROJECT.fileIds] },
+  });
+  updateChatProject.mockResolvedValue({ data: PROJECT });
+
+  await user.click(screen.getByRole("button", { name: "Gỡ khỏi Kế hoạch" }));
+
+  await waitFor(() =>
+    expect(updateChatProject).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ fileIds: PROJECT.fileIds }) }),
+    ),
+  );
+  expect(deleteChatFile).not.toHaveBeenCalled();
+  expect(await screen.findByText("Đã gỡ khỏi dự án Kế hoạch.")).toBeInTheDocument();
 });
