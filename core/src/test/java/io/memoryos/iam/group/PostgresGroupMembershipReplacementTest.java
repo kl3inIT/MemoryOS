@@ -80,7 +80,8 @@ class PostgresGroupMembershipReplacementTest {
                 new GroupCapabilityGrantRepository(entityManager),
                 new GroupProjectionRepository(jdbc),
                 new GroupInvariantRepository(jdbc),
-                administrationGuard
+                administrationGuard,
+                TestDatabase.audit(jdbc, transactionManager)
         );
         groups = TestDatabase.transactionalProxy(target, GroupService.class, transactionManager);
         seed();
@@ -108,6 +109,7 @@ class PostgresGroupMembershipReplacementTest {
         assertEquals(0L, membershipCount(REMOVED, MEMBER));
         assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), MEMBER));
         assertEquals(1L, authorizationVersion());
+        assertEquals(java.util.List.of("user.group_change"), actions());
     }
 
     @Test
@@ -128,6 +130,8 @@ class PostgresGroupMembershipReplacementTest {
         groups.removeMember(MEMBER, RETAINED, peer);
         assertEquals(0L, membershipCount(RETAINED, peer));
         assertEquals(1L, membershipCount(new GroupId(GroupEntity.BASIC_ID), peer));
+        assertEquals(java.util.List.of("user_group.member_change", "user_group.manager_change", "user_group.manager_change",
+                "user_group.manager_change", "user_group.member_change"), actions());
     }
 
     @Test
@@ -156,6 +160,16 @@ class PostgresGroupMembershipReplacementTest {
         assertEquals("IAM_ACCESS_DENIED",
                 assertThrows(IamException.class, () -> groups.replaceCapabilities(MEMBER, RETAINED, Set.of())).code());
         assertTrue(managerFlag(RETAINED));
+        // The rename is recorded; each reach past the managed Group is a denial that survives its rollback;
+        // refusals of a capability the manager never held are not recorded (ADR 0013).
+        assertEquals(java.util.List.of("user_group.rename", "permission.denied", "permission.denied",
+                "permission.denied", "permission.denied"), actions());
+        assertEquals(4L, jdbc.sql("SELECT count(*) FROM audit_event WHERE outcome = 'DENIED' AND resource_id = :id")
+                .param("id", REMOVED.value().toString()).query(Long.class).single());
+    }
+
+    private java.util.List<String> actions() {
+        return jdbc.sql("SELECT action FROM audit_event ORDER BY occurred_at, id").query(String.class).list();
     }
 
     @Test

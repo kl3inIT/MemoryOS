@@ -14,6 +14,7 @@ CREATE TABLE audit_event (
     actor_id UUID REFERENCES actors(id),
     -- Who the actor was when this happened: a later rename or deletion must not rewrite the record.
     actor_label VARCHAR(320),
+    actor_email VARCHAR(320),
     resource_type VARCHAR(32),
     resource_id VARCHAR(200),
     resource_label VARCHAR(320),

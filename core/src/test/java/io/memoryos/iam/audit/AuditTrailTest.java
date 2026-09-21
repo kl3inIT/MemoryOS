@@ -29,9 +29,10 @@ class AuditTrailTest {
     @BeforeEach void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
-        tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        var transactions = new DataSourceTransactionManager(dataSource);
+        tx = new TransactionTemplate(transactions);
         meters = new SimpleMeterRegistry();
-        trail = new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY, meters);
+        trail = new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY, meters, transactions);
         tenant = new TenantId(tenant());
         manager = new ActorId(actor("Trần Thu Hà"));
     }
@@ -102,6 +103,16 @@ class AuditTrailTest {
             jdbc.sql("DELETE FROM audit_event").update();
         });
         assertEquals(0, events());
+    }
+
+    @Test void aRefusalSurvivesTheRollbackThatRefusesIt() {
+        assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(ignored -> {
+            trail.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, tenant).outcome(AuditOutcome.DENIED)
+                    .actor(manager).detail("capability", "GROUPS_MANAGE").detail("scope", "GROUP").build());
+            throw new IllegalStateException("denied");
+        }));
+        assertEquals(1, events());
+        assertEquals("ha@tasco.vn", jdbc.sql("SELECT actor_email FROM audit_event").query(String.class).single());
     }
 
     @Test void everyActionIsReadableBackAndUniquelyNamed() {

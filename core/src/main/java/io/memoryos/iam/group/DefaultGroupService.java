@@ -1,5 +1,9 @@
 package io.memoryos.iam.group;
 
+import io.memoryos.iam.audit.AuditAction;
+import io.memoryos.iam.audit.AuditOutcome;
+import io.memoryos.iam.audit.AuditRecord;
+import io.memoryos.iam.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.GroupAdministrationGuard;
@@ -157,6 +161,7 @@ public class DefaultGroupService implements GroupService {
     private final GroupProjectionRepository projections;
     private final GroupInvariantRepository invariants;
     private final GroupAdministrationGuard administrationGuard;
+    private final AuditTrail audit;
 
     public DefaultGroupService(
             IamAuthorization authorization,
@@ -165,8 +170,10 @@ public class DefaultGroupService implements GroupService {
             GroupCapabilityGrantRepository grants,
             GroupProjectionRepository projections,
             GroupInvariantRepository invariants,
-            GroupAdministrationGuard administrationGuard
+            GroupAdministrationGuard administrationGuard,
+            AuditTrail audit
     ) {
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.groups = Objects.requireNonNull(groups, "groups must not be null");
         this.memberships = Objects.requireNonNull(memberships, "memberships must not be null");
@@ -233,6 +240,8 @@ public class DefaultGroupService implements GroupService {
         } catch (DataIntegrityViolationException conflict) {
             throw groupConflict(requiredName, conflict);
         }
+        audit.record(AuditRecord.of(AuditAction.GROUP_CREATE, access.tenantId()).actor(requiredActorId)
+                .resource("GROUP", group.getId(), requiredName).build());
         return summaryAfterMutation(access.tenantId(), requiredActorId, new GroupId(group.getId()));
     }
 
@@ -264,11 +273,17 @@ public class DefaultGroupService implements GroupService {
         GroupEntity group = ordinaryGroup(access.tenantId(), requiredGroupId);
         requireManagedScope(requiredActorId, access, requiredGroupId);
         requireUniqueName(access.tenantId(), requiredName, requiredGroupId);
+        String before = group.getName();
         group.rename(requiredName);
         try {
             groups.flush();
         } catch (DataIntegrityViolationException conflict) {
             throw groupConflict(requiredName, conflict);
+        }
+        if (!before.equals(requiredName)) {
+            audit.record(AuditRecord.of(AuditAction.GROUP_RENAME, access.tenantId()).actor(requiredActorId)
+                    .resource("GROUP", requiredGroupId.value(), requiredName)
+                    .detail("before", before).detail("after", requiredName).build());
         }
         return summaryAfterMutation(access.tenantId(), requiredActorId, requiredGroupId);
     }
@@ -286,8 +301,13 @@ public class DefaultGroupService implements GroupService {
         requireRetainedGroup(!invariants.deletionLeavesStandardMembersGroupless(
                 access.tenantId(), requiredGroupId
         ));
+        long members = projections.detail(access.tenantId(), requiredActorId, requiredGroupId, true)
+                .map(GroupRecord::memberCount).orElse(0L);
+        String name = group.getName();
         groups.remove(group);
         groups.flush();
+        audit.record(AuditRecord.of(AuditAction.GROUP_DELETE, access.tenantId()).actor(requiredActorId)
+                .resource("GROUP", requiredGroupId.value(), name).detail("memberCount", members).build());
     }
 
     @Override
@@ -344,6 +364,7 @@ public class DefaultGroupService implements GroupService {
                 requiredGroupId,
                 requiredMembers
         );
+        var added = new java.util.ArrayList<String>();
         for (ActorId memberActorId : requiredMembers) {
             if (!existingMembers.contains(memberActorId)) {
                 memberships.add(
@@ -351,9 +372,15 @@ public class DefaultGroupService implements GroupService {
                         memberships.tenantMembershipReference(access.tenantId(), memberActorId),
                         false
                 );
+                added.add(audit.person(memberActorId).label());
             }
         }
         memberships.flush();
+        if (!added.isEmpty()) {
+            added.sort(String.CASE_INSENSITIVE_ORDER);
+            audit.record(AuditRecord.of(AuditAction.GROUP_MEMBER_CHANGE, access.tenantId()).actor(requiredActorId)
+                    .resource("GROUP", requiredGroupId.value(), group.getName()).detail("added", added).build());
+        }
     }
 
     @Override
@@ -383,6 +410,9 @@ public class DefaultGroupService implements GroupService {
         ));
         memberships.remove(membership);
         memberships.flush();
+        audit.record(AuditRecord.of(AuditAction.GROUP_MEMBER_CHANGE, access.tenantId()).actor(requiredActorId)
+                .resource("GROUP", requiredGroupId.value(), group.getName())
+                .detail("removed", List.of(audit.person(requiredMemberActorId).label())).build());
     }
 
     @Override
@@ -415,8 +445,14 @@ public class DefaultGroupService implements GroupService {
         }
         IamAccess access = authorization.lockAndRequireAdministration(requiredActorId);
         GroupEntity group = ordinaryGroup(access.tenantId(), requiredGroupId);
+        Set<IamCapability> before = Set.copyOf(grants.findCapabilities(group));
         grants.replace(group, requiredCapabilities);
         groups.flush();
+        if (!before.equals(requiredCapabilities)) {
+            audit.record(AuditRecord.of(AuditAction.GROUP_PERMISSION_CHANGE, access.tenantId()).actor(requiredActorId)
+                    .resource("GROUP", requiredGroupId.value(), group.getName())
+                    .detail("before", names(before)).detail("after", names(requiredCapabilities)).build());
+        }
     }
 
     @Override
@@ -450,6 +486,7 @@ public class DefaultGroupService implements GroupService {
                     access.tenantId(), requiredMemberActorId
             ));
         }
+        List<String> groupsBefore = invariants.ordinaryGroupNames(access.tenantId(), requiredMemberActorId);
 
         memberships.removeOrdinaryMembershipsExcept(
                 access.tenantId(),
@@ -475,6 +512,15 @@ public class DefaultGroupService implements GroupService {
             }
         }
         memberships.flush();
+        List<String> groupsAfter = invariants.ordinaryGroupNames(access.tenantId(), requiredMemberActorId);
+        if (!groupsBefore.equals(groupsAfter)) {
+            var person = audit.person(requiredMemberActorId);
+            audit.record(AuditRecord.of(AuditAction.USER_GROUP_CHANGE, access.tenantId()).actor(requiredActorId)
+                    .resource("USER", requiredMemberActorId.value(), person.label()).detail("email", person.email())
+                    .detail("added", groupsAfter.stream().filter(name -> !groupsBefore.contains(name)).toList())
+                    .detail("removed", groupsBefore.stream().filter(name -> !groupsAfter.contains(name)).toList())
+                    .build());
+        }
     }
 
     private void setManager(
@@ -503,8 +549,17 @@ public class DefaultGroupService implements GroupService {
                 requiredGroupId,
                 requiredMemberActorId
         ).orElseThrow(() -> memberNotFound(requiredGroupId, requiredMemberActorId));
+        boolean changed = membership.isManager() != manager;
         membership.setManager(manager);
         memberships.flush();
+        if (changed) {
+            var person = audit.person(requiredMemberActorId);
+            audit.record(AuditRecord.of(AuditAction.GROUP_MANAGER_CHANGE, access.tenantId()).actor(requiredActorId)
+                    .resource("GROUP", requiredGroupId.value(), groups.find(access.tenantId(), requiredGroupId)
+                            .map(GroupEntity::getName).orElse(null))
+                    .detail("email", person.email() != null ? person.email() : person.label())
+                    .detail("manager", manager).build());
+        }
     }
 
     private AccessToGroup visibleGroup(
@@ -548,8 +603,16 @@ public class DefaultGroupService implements GroupService {
     private void requireManagedScope(ActorId actorId, IamAccess access, GroupId groupId) {
         if (access.authority() == Authority.SCOPED
                 && !invariants.isManagedBy(access.tenantId(), actorId, groupId)) {
+            // A Group manager reaching past the Groups they manage, the refusal Onyx records as permission.denied.
+            audit.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId())
+                    .outcome(AuditOutcome.DENIED).actor(actorId).resource("GROUP", groupId.value(), null)
+                    .detail("capability", IamCapability.GROUPS_MANAGE.name()).detail("scope", "GROUP").build());
             throw groupNotFound(groupId);
         }
+    }
+
+    private static List<String> names(Set<IamCapability> capabilities) {
+        return capabilities.stream().map(Enum::name).sorted().toList();
     }
 
     private void requireDelegable(ActorId actorId, GroupEntity group) {

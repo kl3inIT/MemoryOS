@@ -210,4 +210,11 @@ public final class TestDatabase {
         }
         return postgres;
     }
+
+    /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
+    public static io.memoryos.iam.audit.AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
+                                                         PlatformTransactionManager transactions) {
+        return new io.memoryos.iam.audit.AuditTrail(jdbc, io.memoryos.iam.audit.AuditRequestContext.TRACE_ONLY,
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
+    }
 }

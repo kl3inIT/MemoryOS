@@ -30,7 +30,8 @@ public record AuditRecord(
         Objects.requireNonNull(action, "action must not be null");
         Objects.requireNonNull(outcome, "outcome must not be null");
         Objects.requireNonNull(tenant, "tenant must not be null");
-        details = Map.copyOf(details);
+        // A declared field may be absent for this event (a member with no e-mail); nulls are dropped when stored.
+        details = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(details));
     }
 
     public static Builder of(AuditAction action, TenantId tenant) {
@@ -53,7 +54,12 @@ public record AuditRecord(
             this.tenant = Objects.requireNonNull(tenant, "tenant must not be null");
         }
 
-        /** Who did it, and what they were called at the time; a later rename must not rewrite the record. */
+        /** Who did it; their name and e-mail at this moment are looked up and kept with the record. */
+        public Builder actor(@Nullable ActorId actor) {
+            return actor(actor, null);
+        }
+
+        /** Who did it, named by the caller: for someone not yet in the profile table, such as a refused sign-in. */
         public Builder actor(@Nullable ActorId actor, @Nullable String label) {
             this.actor = actor;
             this.actorLabel = cut(label, LABEL_MAX);

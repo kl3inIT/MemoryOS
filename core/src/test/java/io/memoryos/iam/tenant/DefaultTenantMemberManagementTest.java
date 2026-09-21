@@ -103,6 +103,7 @@ class DefaultTenantMemberManagementTest {
                         authorization,
                         tenants,
                         guard,
+                        TestDatabase.audit(jdbcClient, jpa.transactionManager()),
                         Clock.fixed(Instant.parse("2026-09-06T12:00:00Z"), ZoneOffset.UTC)
                 ),
                 TenantMemberManagement.class,
@@ -147,6 +148,11 @@ class DefaultTenantMemberManagementTest {
         assertEquals(1L, membershipCount());
         assertEquals(1L, groupMembershipCount());
         assertEquals(createdAt, membershipCreatedAt());
+        // A transition that changed nothing is not evidence of anything: one event each way.
+        assertEquals(java.util.List.of("user.deactivate", "user.reactivate"), jdbcClient.sql("""
+                        SELECT action FROM audit_event WHERE tenant_id = :tenantId AND resource_id = :actorId ORDER BY occurred_at
+                        """).param("tenantId", TENANT_ID.value()).param("actorId", MEMBER.value().toString())
+                .query(String.class).list());
     }
 
     @Test
@@ -176,6 +182,7 @@ class DefaultTenantMemberManagementTest {
     void requiresCurrentUsersManageCapability() {
         assertThrows(IamException.class, () -> memberManagement.deactivate(MEMBER, MEMBER));
         assertEquals("ACTIVE", membershipStatus());
+        assertEquals(0L, jdbcClient.sql("SELECT count(*) FROM audit_event").query(Long.class).single());
     }
 
     private void persistMember() {
