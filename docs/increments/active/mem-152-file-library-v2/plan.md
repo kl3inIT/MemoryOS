@@ -3,12 +3,12 @@
 ## Phase 1 — reuse
 
 - [x] **Server-side copy.** `ObjectUploadService.write` (verified server write on the browser lifecycle); V92 `copied_from_source`/`copied_from_id` with the live-copy unique index; `ChatLibraryService.copy`; `POST /api/chat/library/{source}/{id}/copy`; `messageId` on library rows; `openapi.yml` and the generated client.
-- [ ] **Composer picker.** "Choose an existing file" opens the library dialog (search, source and category filters, multi-select, *Attach*); artifacts go through the copy route.
-- [ ] **Conversation panel actions.** Attach to next message, show in conversation, filter and search within the panel, count refreshed after a turn.
-- [ ] **Add to Project.** Row and selection action on `/library` and in the panel; remove from Project on the usage label.
-- [ ] **Tests.** `ObjectUploadLifecycleIntegrationTest.aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne`, `ChatSessionApiIntegrationTest.aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt`, the `messageId` assertions in `ChatPersistenceIntegrationTest`, and web tests for the picker, panel actions and Project action.
-- [ ] **Docs.** Chat spec file-library section, object-storage spec, verification matrix rows, `AGENTS.md` active increment entry.
-- [ ] **Evidence.** `./gradlew clean check`, `pnpm check`, CI green on the pull request.
+- [x] **Composer picker.** "Choose an existing file" opens the library dialog (search, source and category filters, multi-select, *Attach*); artifacts go through the copy route.
+- [x] **Conversation panel actions.** Attach to next message, show in conversation, filter and search within the panel, count refreshed after a turn.
+- [x] **Add to Project.** Row and selection action on `/library` and in the panel; remove from Project on the usage label.
+- [x] **Tests.** `ObjectUploadLifecycleIntegrationTest.aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne`, `ChatSessionApiIntegrationTest.aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt`, the `messageId` assertions in `ChatPersistenceIntegrationTest`, and web tests for the picker, panel actions and Project action.
+- [x] **Docs.** Chat spec file-library section, object-storage spec, verification matrix rows, `AGENTS.md` active increment entry.
+- [ ] **Evidence.** Local 2026-09-21: the listed Java tests and `OpenApiContractTest` pass; the web suite passes (500 tests; `chat-code.test.tsx` timed out once under load and passes alone), with typecheck, oxlint, oxfmt and the i18n audit clean. CI on the pull request runs `clean check`.
 
 ## Phase 2 — bring in and find
 
